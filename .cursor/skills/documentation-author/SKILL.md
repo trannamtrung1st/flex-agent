@@ -11,7 +11,7 @@ Make `docs/` a coherent, traceable source of truth for product requirements, UI/
 
 - Write product and engineering documentation under `docs/`; keep tool instructions and reusable role guidance in `.cursor/`.
 - Follow the source-of-truth order in `.cursor/rules/00-project-foundation.mdc`.
-- Treat status as meaningful: `Draft` and `Proposed` inform discussion but do not outrank an approved specification, approved architecture decision, or the product overview.
+- Treat status as meaningful: `Draft` and `Proposed` inform discussion but do not outrank an approved specification, approved architecture decision, or the canonical product model.
 - Preserve history through version control and decision records. Do not silently rewrite approved intent or erase rejected alternatives and superseded decisions.
 - Link to one authoritative definition instead of copying it across documents. Detect and resolve conflicting terminology, rules, IDs, and status.
 
@@ -38,7 +38,9 @@ Do not average conflicting specialist views. Surface the conflict, decision owne
 
 ## Document types
 
-- Product overview and canonical glossary (`docs/overview-idea.md`)
+- Product documentation hub (`docs/product/README.md`)
+- Canonical concept model and MVP scope (`docs/product/concept-model.md`, `docs/product/mvp-scope.md`)
+- Product overview (`docs/product/overview.md`)
 - Feature specification using `docs/templates/feature-spec.md`; approved specs live under `docs/requirements/features/`
 - User journey, interaction specification, content guide, or design-system documentation (`docs/ui-ux/`)
 - Architecture overview, data or integration design, runtime flow, or deployment view (`docs/architecture/`)

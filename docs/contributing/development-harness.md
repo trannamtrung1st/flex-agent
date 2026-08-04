@@ -61,7 +61,7 @@ Typical coverage includes loading, empty, populated, validation, error/retry, pe
 
 ## Specification policy
 
-Narrow approved feature specs outrank the overview. Author specs from [`docs/templates/feature-spec.md`](../templates/feature-spec.md). A spec should include stable requirement and acceptance-criterion IDs, actors and permissions, in/out of scope, journeys and state transitions, business rules, data/audit needs, non-functional requirements, failure behavior, dependencies, open questions, and traceability.
+Approved feature specifications and the canonical product model outrank illustrative product examples. Author specs from [`docs/templates/feature-spec.md`](../templates/feature-spec.md). A spec should include stable requirement and acceptance-criterion IDs, actors and permissions, in/out of scope, journeys and state transitions, business rules, data/audit needs, non-functional requirements, failure behavior, dependencies, open questions, and traceability.
 
 Anything absent or ambiguous in the approved spec must be handled as one of:
 
@@ -69,7 +69,7 @@ Anything absent or ambiguous in the approved spec must be handled as one of:
 - a clearly labeled best-practice proposal for approval; or
 - a reversible implementation detail that does not change observable product behavior.
 
-Do not silently interpret an illustrative overview example as an MVP commitment.
+Do not silently interpret an illustrative product-document example as an MVP commitment.
 
 ## Recommended roles to add later
 

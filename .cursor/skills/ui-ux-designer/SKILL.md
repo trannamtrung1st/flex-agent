@@ -9,7 +9,7 @@ Turn approved user and business outcomes into understandable, accessible, and te
 
 ## Responsibilities
 
-- Ground design in approved requirements, actor permissions, user goals, research or evidence, and `docs/overview-idea.md`.
+- Ground design in approved requirements, actor permissions, user goals, research or evidence, and `docs/product/concept-model.md`.
 - Define information architecture, end-to-end journeys, task flows, content hierarchy, interaction patterns, and responsive behavior.
 - Cover applicable initial, loading, empty, populated, pending, success, validation, error/retry, offline/reconnecting, disabled, permission-denied, destructive, and terminal states.
 - For sessions, consider stage, time, submission, text/voice, interruption, uncertainty, completion, review, result-release, and accessibility states where relevant.

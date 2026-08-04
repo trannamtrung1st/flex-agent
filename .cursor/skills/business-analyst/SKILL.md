@@ -9,7 +9,7 @@ Turn product intent into an implementable agreement without inventing behavior.
 
 ## Responsibilities
 
-- Ground analysis in `docs/overview-idea.md` and any narrower approved specifications.
+- Ground analysis in `docs/product/concept-model.md`, `docs/product/mvp-scope.md`, `docs/product/overview.md`, and any narrower approved specifications.
 - Clarify the problem, desired outcome, actors, goals, scope, constraints, assumptions, and dependencies.
 - Model triggers, preconditions, states, rules, permissions, data, outcomes, alternatives, and failure paths.
 - Separate `MVP`, `Later`, `Out of scope`, `Open question`, and `Proposed`.
@@ -46,7 +46,7 @@ Turn product intent into an implementable agreement without inventing behavior.
 - Use measurable limits instead of words such as fast, intuitive, secure, or scalable.
 - Distinguish normative `must` from optional `may` and recommendation `should`.
 - Preserve the product’s isolation, reproducibility, memory-governance, evidence, and human-review rules.
-- Do not promote examples in the overview into requirements without evidence.
+- Do not promote examples in product documents into requirements without evidence.
 
 ## Output expectations
 

@@ -6,7 +6,9 @@ Authoritative product and engineering documentation for the Flex Agent platform.
 
 | If you need to… | Start here |
 | --- | --- |
-| Understand product vision, vocabulary, and MVP direction | [Product overview](overview-idea.md) |
+| Understand product vision and positioning | [Product overview](product/overview.md) |
+| Define or review domain concepts, relationships, and invariants | [Concept model](product/concept-model.md) |
+| Understand MVP boundaries and non-goals | [MVP scope](product/mvp-scope.md) |
 | Find or author approved requirements and acceptance criteria | [Requirements](requirements/README.md) |
 | Design journeys, interaction states, or design-system guidance | [UI/UX](ui-ux/README.md) |
 | Review system boundaries, data flows, or technical decisions | [Architecture](architecture/README.md) |
@@ -19,11 +21,12 @@ When documents conflict, resolve in this order:
 
 1. **Approved feature specification** with stable requirement and acceptance-criterion IDs
 2. **Approved architecture decision** (ADR)
-3. **[Product overview](overview-idea.md)** — foundational intent and vocabulary
-4. **Existing implementation and tests**
-5. **Clearly labeled proposal** (`Proposed`, `Draft`, open question)
+3. **Canonical product model** — [Concept model](product/concept-model.md) for domain meaning; [MVP scope](product/mvp-scope.md) for scope boundaries
+4. **[Product overview](product/overview.md)** — vision and positioning
+5. **Existing implementation and tests**
+6. **Clearly labeled proposal** (`Proposed`, `Draft`, open question)
 
-The overview informs direction but does not replace approved acceptance criteria. Illustrative examples in the overview are not MVP commitments unless captured in an approved spec.
+Product documents inform direction but do not replace approved acceptance criteria. Illustrative examples are not MVP commitments unless captured in an approved spec.
 
 ## Document status
 
@@ -40,7 +43,7 @@ The overview informs direction but does not replace approved acceptance criteria
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Product overview | Draft | Foundational vocabulary and MVP direction |
+| Product | Draft | [Product hub](product/README.md): overview, [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md) |
 | Requirements | Scaffold | Catalog and conventions only; no approved feature specs yet |
 | UI/UX | Scaffold | Placeholder; journeys, interaction specs, and design system deferred |
 | Architecture | Scaffold | Placeholder; technical design and ADRs deferred |
@@ -51,7 +54,10 @@ The overview informs direction but does not replace approved acceptance criteria
 
 ### Product
 
-- [Product overview](overview-idea.md) — vision, core concepts (Agent, Harness, Campaign, Session), MVP use case, and principles
+- [Product documentation hub](product/README.md) — boundaries between product meaning, requirements, UI/UX, and architecture
+- [Product overview](product/overview.md) — vision, positioning, and principles
+- [Concept model](product/concept-model.md) — canonical definitions, relationships, lifecycles, and invariants
+- [MVP scope](product/mvp-scope.md) — first product experience, non-goals, and deferred capabilities
 
 ### Requirements
 
@@ -77,19 +83,16 @@ The overview informs direction but does not replace approved acceptance criteria
 
 ## Canonical vocabulary
 
-Use these terms consistently across all documents:
+Use terms consistently across all documents. Authoritative definitions: [Concept model](product/concept-model.md).
 
-| Term | Definition |
+## Documentation boundary test
+
+| Question | Document in… |
 | --- | --- |
-| **Agent** | Reusable AI identity: knowledge, capabilities, behavior, and evaluation approach |
-| **Harness** | Governed operating instructions: workflow, tools, policies, memory controls, and evaluation procedures |
-| **Campaign** | Structured activity configuration: participants, limits, rules, and selected agent/harness |
-| **Session** | One isolated execution between a configured agent and a participant or authorized role |
-| **Participant** | Person taking part in a session |
-| **Reviewer** | Authorized human who inspects evidence, evaluations, and outcomes |
-| **Memory** | Administratively controlled agent learning and retention |
-| **Evidence** | Material linked to evaluation and audit (submissions, transcripts, tool results) |
-| **Evaluation** | Structured, evidence-backed assessment of session outcomes |
+| Would this remain true if the UI and technology were replaced? | `docs/product/` |
+| Does it state observable behavior the system must provide? | `docs/requirements/` |
+| Does it define user-facing interaction, content, or visual design? | `docs/ui-ux/` |
+| Does it explain technical realization, data ownership, or deployment? | `docs/architecture/` |
 
 ## Authoring guidelines
 
@@ -99,4 +102,4 @@ Use these terms consistently across all documents:
 4. Link to one authoritative definition instead of copying content across documents.
 5. Use `must` for approved requirements, `should` for recommendations, and `may` for permitted options.
 6. Preserve history; do not silently rewrite approved intent.
-7. Use `docs/templates/` for reusable authoring templates; keep authoritative content in the area folders (`requirements/`, `ui-ux/`, `architecture/`).
+7. Use `docs/templates/` for reusable authoring templates; keep authoritative content in area folders (`product/`, `requirements/`, `ui-ux/`, `architecture/`).

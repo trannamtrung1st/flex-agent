@@ -5,15 +5,16 @@ alwaysApply: true
 
 # Product Foundation
 
-Read `docs/overview-idea.md` before making product or architecture decisions.
+Read `docs/product/concept-model.md`, `docs/product/mvp-scope.md`, and `docs/product/overview.md` before making product or architecture decisions.
 
 ## Source-of-truth order
 
 1. Approved feature spec and acceptance criteria
 2. Approved architecture decision
-3. `docs/overview-idea.md`
-4. Existing implementation and tests
-5. A clearly labeled proposal
+3. `docs/product/concept-model.md` and `docs/product/mvp-scope.md` for domain meaning and scope boundaries
+4. `docs/product/overview.md` for vision and positioning
+5. Existing implementation and tests
+6. A clearly labeled proposal
 
 Do not silently turn an idea, example, or future capability into an MVP requirement. Ask when a material ambiguity remains. Label reasonable defaults outside the spec as `Proposed`.
 

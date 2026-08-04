@@ -2,6 +2,8 @@
 
 Technical architecture, system boundaries, and integration design for Flex Agent.
 
+Product concepts and invariants live under [product documentation](../product/README.md). Architecture explains how approved requirements are realized technically; canonical concept definitions remain in the [concept model](../product/concept-model.md).
+
 ## Status
 
 **No approved documents yet.** Architecture work is deferred until foundational requirements specs establish bounded behavior and quality attributes.
@@ -16,6 +18,7 @@ Begin architecture documentation when:
 
 - At least one P0 feature specification is in `Draft` or `Approved` status
 - Cross-cutting quality attributes (isolation, audit, reproducibility, security) are stated in requirements
+- [Concept model — Product invariants](../product/concept-model.md#product-invariants) are understood
 - Material technical options require an explicit decision record
 
 ## Expected document types
@@ -33,21 +36,14 @@ Begin architecture documentation when:
 
 Architecture documents explain how approved requirements are realized. Irreversible or cross-cutting choices are recorded as [architecture decisions](decisions/README.md) (ADRs).
 
-## Core invariants (from product foundation)
+## Core invariants
 
-Architecture must preserve:
-
-- Organization, campaign, participant, and session isolation
-- Exact configuration snapshots per session (agent, harness, campaign, memory, tools, policies)
-- Append-only events and immutable snapshots for audit-relevant history
-- Distinction between generated, sent, played, interrupted, cancelled, and heard-likely voice content
-- Evaluations and human revisions linked to stable evidence; original outputs preserved
-- No uncontrolled memory learning, harness self-modification, or result release
-- UTC for internal timestamps; explicit authorization at every sensitive boundary
+Architecture must preserve [Concept model — Product invariants](../product/concept-model.md#product-invariants).
 
 ## Related documents
 
 - [Documentation home](../README.md)
+- [Product documentation](../product/README.md)
+- [Concept model](../product/concept-model.md)
 - [Requirements](../requirements/README.md)
 - [Architecture decisions](decisions/README.md)
-- [Product overview](../overview-idea.md)

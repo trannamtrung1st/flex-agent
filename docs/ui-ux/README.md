@@ -2,6 +2,8 @@
 
 User interface, user experience, interaction design, and design-system documentation for Flex Agent.
 
+Product meaning and scope boundaries live under [product documentation](../product/README.md). UI/UX documents implement and extend approved requirements; they do not override acceptance criteria or redefine canonical concepts.
+
 ## Status
 
 **No approved documents yet.** UI/UX work is deferred until foundational requirements specs are drafted and reviewed.
@@ -16,6 +18,7 @@ Begin UI/UX documentation when:
 
 - At least one P0 feature specification is in `Draft` or `Approved` status
 - Actors, permissions, and primary journeys are defined in requirements
+- [Concept model](../product/concept-model.md) actors and session concepts are understood
 - Open questions that materially affect UI/UX are resolved or explicitly labeled `Proposed`
 
 ## Expected document types
@@ -35,5 +38,6 @@ UI/UX documents implement and extend approved requirements; they do not override
 ## Related documents
 
 - [Documentation home](../README.md)
+- [Product documentation](../product/README.md)
+- [Concept model](../product/concept-model.md)
 - [Requirements](../requirements/README.md)
-- [Product overview](../overview-idea.md)

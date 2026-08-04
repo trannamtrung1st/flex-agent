@@ -34,7 +34,7 @@ Before opening a draft spec:
 1. Confirm the behavior is not already covered by an approved spec.
 2. Identify the catalog entry in the [requirements hub](../README.md#mvp-feature-spec-catalog).
 3. Copy [feature spec template](../../templates/feature-spec.md) into a new file.
-4. Link back to relevant [overview](../../overview-idea.md) sections as source material only.
+4. Link back to relevant [concept model](../../product/concept-model.md) and [MVP scope](../../product/mvp-scope.md) sections as source material; use [product overview](../../product/overview.md) for vision context only.
 5. Distinguish `MVP`, `Later`, `Out of scope`, `Open question`, and `Proposed`.
 
 ## Catalog
