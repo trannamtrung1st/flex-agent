@@ -2,6 +2,8 @@
 
 This repository uses project-scoped Cursor rules and reusable role skills to support specification analysis, red-green-refactor TDD, independent review, and browser-backed QA.
 
+For product and engineering documentation structure, start at [`docs/README.md`](README.md).
+
 ## What is installed
 
 Persistent rules under `.cursor/rules/` enforce:
