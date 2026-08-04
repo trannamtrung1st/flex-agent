@@ -1,0 +1,35 @@
+---
+description: Flex Agent product vocabulary, source-of-truth order, and architectural invariants
+alwaysApply: true
+---
+
+# Product Foundation
+
+Read `docs/overview-idea.md` before making product or architecture decisions.
+
+## Source-of-truth order
+
+1. Approved feature spec and acceptance criteria
+2. Approved architecture decision
+3. `docs/overview-idea.md`
+4. Existing implementation and tests
+5. A clearly labeled proposal
+
+Do not silently turn an idea, example, or future capability into an MVP requirement. Ask when a material ambiguity remains. Label reasonable defaults outside the spec as `Proposed`.
+
+## Keep these concepts separate
+
+- **Agent**: reusable identity, knowledge, capabilities, and behavior
+- **Harness**: governed operating instructions, workflow, tools, policies, memory, and evaluation
+- **Campaign**: activity configuration, participants, limits, and selected agent/harness
+- **Session**: isolated execution with its exact configuration, events, evidence, and outcome
+
+## Non-negotiable invariants
+
+- Enforce organization, campaign, participant, and session isolation.
+- Record the exact agent, harness, campaign, memory, tool, workflow, and policy state used by each session.
+- Prefer append-only events and immutable snapshots for audit-relevant history.
+- Distinguish generated, sent, played, interrupted, cancelled, and heard-likely voice content.
+- Link evaluations and human revisions to stable evidence; preserve original outputs.
+- Never allow uncontrolled memory learning, harness self-modification, or result release.
+- Use UTC internally and explicit authorization at every sensitive boundary.

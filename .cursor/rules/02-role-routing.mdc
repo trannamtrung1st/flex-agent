@@ -1,0 +1,20 @@
+---
+description: Select the project role skill that matches the current engineering task
+alwaysApply: true
+---
+
+# Role Routing
+
+Load the matching project skill before substantive work:
+
+- Requirements, scope, acceptance criteria, or spec decomposition: `business-analyst`
+- APIs, domain logic, persistence, auth, jobs, or integrations: `backend-developer`
+- Web UI, client state, accessibility, or interaction design: `frontend-developer`
+- Backend review: `backend-reviewer`
+- Frontend review or UI polish review: `frontend-reviewer`
+- QA, acceptance, regression, functional, accessibility, or UX testing: `tester`
+- Threat modeling, privacy, isolation, memory, uploads, tools, or audit review: `security-privacy-reviewer`
+
+Load multiple skills when the task crosses roles. Keep implementation and review perspectives distinct: a reviewer reports findings and evidence, and does not edit unless the user also requests fixes.
+
+Role skills define reusable responsibilities, standards, and output quality. They must not impose a project-specific delivery sequence or handoff process. Put any future end-to-end process in a separate workflow skill.

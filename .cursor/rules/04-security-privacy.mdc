@@ -1,0 +1,21 @@
+---
+description: Security, privacy, isolation, and audit defaults for all product work
+alwaysApply: true
+---
+
+# Security and Privacy Defaults
+
+Treat participant submissions, transcripts, voice, evaluations, memory, and audit records as sensitive.
+
+- Deny by default; authenticate, then authorize the actor and resource scope server-side.
+- Never trust client-supplied organization, campaign, participant, session, role, or ownership identifiers.
+- Prevent cross-tenant, cross-campaign, and cross-session access in queries, caches, events, tools, logs, and memory retrieval.
+- Minimize collection, retention, export, and model/tool disclosure; require explicit policy for learning reuse.
+- Keep secrets and raw sensitive content out of source, browser artifacts, logs, metrics, and error responses.
+- Validate uploads by type, size, content, ownership, and malware policy; store immutable versions used for evaluation.
+- Apply least privilege, allowlists, timeouts, and auditable approval to tools and external integrations.
+- Make sensitive mutations idempotent where retries are possible and preserve actor, reason, prior state, and timestamp.
+- Use encryption in transit and at rest through platform-managed facilities.
+- Threat-model new trust boundaries and add negative authorization/isolation tests.
+
+Do not design cryptography, authentication, authorization, retention, consent, or compliance behavior from unstated assumptions. Raise a decision or proposal for approval.

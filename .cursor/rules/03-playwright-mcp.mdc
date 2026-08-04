@@ -1,0 +1,28 @@
+---
+description: Mandatory live-browser and screenshot verification for UI development and testing
+alwaysApply: true
+---
+
+# Playwright MCP Verification
+
+Use the project `playwright` MCP server for browser verification. It is configured in `.cursor/mcp.json`; artifacts must stay under the gitignored `.playwright-mcp/` directory.
+
+For every UI-affecting change when the app can run:
+
+1. Navigate and interact with the live UI to reach the state under test.
+2. Use accessibility snapshots to identify controls and verify semantic structure.
+3. Take screenshots before judging visual quality.
+4. Evaluate screenshots against the spec and established UX practice: hierarchy, copy, spacing, alignment, overflow, feedback, focus, contrast clues, and polish.
+5. Fix defects and repeat the browser check.
+
+Cover applicable states, not only the happy path:
+
+- Loading, empty, populated, success, validation, error, retry, pending, and disabled
+- Dialog open/closed, destructive confirmation, keyboard focus, and permission denied
+- Session not-started, active, paused, warning, expired, completed, and released
+- Voice listening, processing, speaking, interrupted, unavailable, and permission denied
+- Desktop and narrow/mobile viewports for responsive surfaces
+
+Screenshots are required evidence for UI/UX claims; snapshots alone are insufficient. Report artifact paths and a short visual evaluation. With the pinned MCP version, omit the optional screenshot `filename` so auto-generated files honor `--output-dir`; a custom name may bypass it. Never place real credentials, secrets, or participant data in artifacts.
+
+If the MCP server or runnable app is unavailable, report the exact blocker and required manual checks. Do not claim the UI is polished or verified from source code alone.

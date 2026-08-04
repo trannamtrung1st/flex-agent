@@ -421,6 +421,9 @@ FodyWeavers.xsd
 # Built Visual Studio Code Extensions
 *.vsix
 
+# Local Playwright MCP screenshots, traces, logs, and browser state
+.playwright-mcp/
+
 # Windows Installer files from build outputs
 *.cab
 *.msi

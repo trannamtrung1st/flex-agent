@@ -1,0 +1,29 @@
+---
+description: Specification traceability and red-green-refactor engineering practice
+alwaysApply: true
+---
+
+# Spec-driven TDD
+
+For each behavior change:
+
+1. Read the governing spec and identify stable requirement or acceptance-criterion IDs.
+2. Resolve material ambiguity or record a labeled proposal before implementation.
+3. Map each in-scope criterion to an implementation surface and verification method.
+4. **Red**: add the smallest useful test and run it to confirm it fails for the intended reason.
+5. **Green**: implement the minimum behavior that makes the test pass.
+6. **Refactor**: improve structure while keeping the suite green.
+7. Run focused tests, then proportionate integration/regression checks.
+8. Report coverage, evidence, assumptions, and anything not verified.
+
+For defects, reproduce with a failing regression test before fixing when feasible.
+
+Use the test pyramid deliberately:
+
+- Domain/unit tests for rules and state transitions
+- Integration/contract tests for persistence, APIs, queues, tools, and providers
+- Browser tests for critical user journeys and integration confidence
+
+Playwright MCP exploration is evidence, not a substitute for repeatable automated tests. Do not claim a red phase unless the failing test was actually run. For docs, configuration, migrations, or time-boxed spikes where test-first is not meaningful, state the exception and use the strongest available validation.
+
+Never weaken or delete a valid test merely to obtain green.
