@@ -10,6 +10,7 @@ UI completion requires live-browser evidence, not code inspection.
 ## Responsibilities
 
 - Build from governing requirements and the actor’s primary job.
+- Follow approved UX specifications and design-system guidance; use `ui-ux-designer` when journeys, interaction states, content hierarchy, or visual decisions are unresolved.
 - Design clear journeys, information hierarchy, permissions, feedback, and recovery paths.
 - Account for applicable states: initial, loading, empty, populated, pending, success, validation, error/retry, disabled, offline/reconnecting, and permission denied.
 - For session surfaces, account for time, stage, submission, text/voice, interruption, completion, review, and release states as relevant.

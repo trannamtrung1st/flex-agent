@@ -8,8 +8,11 @@ alwaysApply: true
 Load the matching project skill before substantive work:
 
 - Requirements, scope, acceptance criteria, or spec decomposition: `business-analyst`
+- Cross-cutting technical design, system boundaries, quality attributes, technology decisions, or ADRs: `architect`
+- User journeys, information architecture, interaction states, accessibility, visual design, or design systems: `ui-ux-designer`
+- Authoritative product, UI/UX, architecture, or technical documentation under `docs/`: `documentation-author`
 - APIs, domain logic, persistence, auth, jobs, or integrations: `backend-developer`
-- Web UI, client state, accessibility, or interaction design: `frontend-developer`
+- Web UI implementation, client state, components, styling, accessibility implementation, or frontend defects: `frontend-developer`
 - Backend review: `backend-reviewer`
 - Frontend review or UI polish review: `frontend-reviewer`
 - QA, acceptance, regression, functional, accessibility, or UX testing: `tester`

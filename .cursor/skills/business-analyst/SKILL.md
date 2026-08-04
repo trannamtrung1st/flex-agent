@@ -17,6 +17,7 @@ Turn product intent into an implementable agreement without inventing behavior.
 - Give requirements and acceptance criteria stable IDs when formalizing a specification.
 - Surface conflicts, missing states, unstated decisions, and requirements that are not measurable or testable.
 - Seek explicit decisions for ambiguities that materially affect data, security, UX, cost, or architecture.
+- Use `ui-ux-designer` for interaction and design-system decisions, `architect` for cross-cutting technical decisions, and `documentation-author` when publishing authoritative specifications under `docs/`.
 
 ## Common deliverables
 

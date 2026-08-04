@@ -15,6 +15,9 @@ Persistent rules under `.cursor/rules/` enforce:
 Project skills under `.cursor/skills/` provide these roles:
 
 - `business-analyst` — turns product intent into bounded, testable specs
+- `architect` — governs system boundaries, quality attributes, technical decisions, and ADRs
+- `ui-ux-designer` — designs accessible journeys, interaction states, responsive behavior, and design-system guidance
+- `documentation-author` — composes product, architecture, and UI/UX perspectives into authoritative documents under `docs/`
 - `backend-developer` — implements server behavior through TDD
 - `frontend-developer` — implements accessible, resilient UI and verifies it in the live browser
 - `backend-reviewer` — reviews correctness, contracts, data, concurrency, security, and tests
@@ -26,7 +29,7 @@ The security/privacy role is intentionally included beyond the requested minimum
 
 ## Role and workflow separation
 
-Role skills define capabilities, responsibilities, quality standards, and expected outputs. They are applicable independently and do not prescribe a project-specific sequence, handoff, approval path, or release process.
+Role skills define capabilities, responsibilities, quality standards, and expected outputs. They are applicable independently and may compose one another when work crosses roles. `documentation-author` explicitly composes `business-analyst`, `architect`, and `ui-ux-designer` perspectives for source-of-truth documents, adding security/privacy review when relevant. Roles do not prescribe a project-specific sequence, handoff, approval path, or release process.
 
 When the project adopts a concrete process—such as feature discovery, implementation, pull-request review, release readiness, or incident response—define that process as a separate workflow skill that invokes the relevant roles. No end-to-end workflow skill is installed yet.
 
@@ -44,7 +47,7 @@ After cloning, open the repository in Cursor and enable the project MCP server w
 
 ## UI evidence standard
 
-Frontend developers, frontend reviewers, and testers must use the live app when it is runnable. For every changed journey they should:
+UI/UX designers, frontend developers, frontend reviewers, and testers must use the live app when it is runnable. For every changed journey they should:
 
 1. Reach each applicable state through real interactions.
 2. Use accessibility snapshots to inspect names, roles, focus order, and structure.
@@ -68,7 +71,6 @@ Do not silently interpret an illustrative overview example as an MVP commitment.
 
 ## Recommended roles to add later
 
-- **Architecture steward** when stack and deployment topology are selected, to maintain ADRs and cross-service boundaries.
 - **Platform/SRE reviewer** before production, to cover SLOs, capacity, disaster recovery, deployment safety, and incident readiness.
 - **AI evaluation specialist** when model/harness evaluation datasets and quality gates are defined.
 - **Voice/device QA specialist** before voice release, because microphones, speakers, network jitter, echo cancellation, and real interruption timing require device-level testing beyond browser mocks.

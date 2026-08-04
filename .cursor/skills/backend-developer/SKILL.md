@@ -10,6 +10,7 @@ Follow approved specs, existing architecture, and `.cursor/rules/00-project-foun
 ## Responsibilities
 
 - Implement observable contracts from approved requirements and acceptance criteria.
+- Follow accepted architecture decisions; use `architect` when a change introduces or revises cross-cutting boundaries, quality attributes, technology choices, or deployment topology.
 - Model domain invariants, state transitions, actors, authorization, side effects, and failure modes.
 - Define consistency and concurrency boundaries: transaction, optimistic version, idempotency, ordering, retry, and compensation.
 - Keep APIs explicit about request, response, errors, authorization, side effects, and compatibility.
