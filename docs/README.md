@@ -8,10 +8,10 @@ Authoritative product and engineering documentation for the Flex Agent platform.
 | --- | --- |
 | Understand product vision, vocabulary, and MVP direction | [Product overview](overview-idea.md) |
 | Find or author approved requirements and acceptance criteria | [Requirements](requirements/README.md) |
-| Design journeys, interaction states, or design-system guidance | [UX](ux/README.md) |
+| Design journeys, interaction states, or design-system guidance | [UI/UX](ui-ux/README.md) |
 | Review system boundaries, data flows, or technical decisions | [Architecture](architecture/README.md) |
-| Write a new feature specification | [Spec template](spec-template.md) and [Feature specs](requirements/features/README.md) |
-| Understand Cursor rules, roles, and QA expectations | [Development harness](development-harness.md) |
+| Write a new feature specification | [Feature spec template](templates/feature-spec.md) and [Feature specs](requirements/features/README.md) |
+| Understand Cursor rules, roles, and QA expectations | [Development harness](contributing/development-harness.md) |
 
 ## Source-of-truth order
 
@@ -42,25 +42,25 @@ The overview informs direction but does not replace approved acceptance criteria
 | --- | --- | --- |
 | Product overview | Draft | Foundational vocabulary and MVP direction |
 | Requirements | Scaffold | Catalog and conventions only; no approved feature specs yet |
-| UX | Scaffold | Placeholder; journeys and interaction specs deferred |
+| UI/UX | Scaffold | Placeholder; journeys, interaction specs, and design system deferred |
 | Architecture | Scaffold | Placeholder; technical design and ADRs deferred |
-| Development harness | Active | Contributor tooling and process guidance |
+| Contributing | Active | Cursor rules, role skills, TDD policy, and Playwright MCP guidance |
+| Templates | Active | Reusable authoring templates (not authoritative content) |
 
 ## Documentation areas
 
 ### Product
 
 - [Product overview](overview-idea.md) — vision, core concepts (Agent, Harness, Campaign, Session), MVP use case, and principles
-- [Spec template](spec-template.md) — standard structure for feature specifications
 
 ### Requirements
 
 - [Requirements hub](requirements/README.md) — lifecycle, ID conventions, and MVP feature-spec catalog
 - [Feature specifications](requirements/features/README.md) — future home for approved feature specs
 
-### UX
+### UI/UX
 
-- [UX documentation](ux/README.md) — journeys, interaction specifications, accessibility, content, and design system (deferred)
+- [UI/UX documentation](ui-ux/README.md) — journeys, interaction specifications, accessibility, content, and design system (deferred)
 
 ### Architecture
 
@@ -69,7 +69,11 @@ The overview informs direction but does not replace approved acceptance criteria
 
 ### Contributor guidance
 
-- [Development harness](development-harness.md) — Cursor rules, role skills, TDD policy, and Playwright MCP expectations
+- [Development harness](contributing/development-harness.md) — Cursor rules, role skills, TDD policy, and Playwright MCP expectations
+
+### Templates
+
+- [Feature spec template](templates/feature-spec.md) — standard structure for feature specifications
 
 ## Canonical vocabulary
 
@@ -87,7 +91,7 @@ Use these terms consistently across all documents:
 | **Evidence** | Material linked to evaluation and audit (submissions, transcripts, tool results) |
 | **Evaluation** | Structured, evidence-backed assessment of session outcomes |
 
-## Contributing to documentation
+## Authoring guidelines
 
 1. Read related documents before writing; reuse canonical vocabulary and stable IDs.
 2. Choose the smallest appropriate document type and location.
@@ -95,3 +99,4 @@ Use these terms consistently across all documents:
 4. Link to one authoritative definition instead of copying content across documents.
 5. Use `must` for approved requirements, `should` for recommendations, and `may` for permitted options.
 6. Preserve history; do not silently rewrite approved intent.
+7. Use `docs/templates/` for reusable authoring templates; keep authoritative content in the area folders (`requirements/`, `ui-ux/`, `architecture/`).

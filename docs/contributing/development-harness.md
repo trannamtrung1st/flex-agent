@@ -2,7 +2,7 @@
 
 This repository uses project-scoped Cursor rules and reusable role skills to support specification analysis, red-green-refactor TDD, independent review, and browser-backed QA.
 
-For product and engineering documentation structure, start at [`docs/README.md`](README.md).
+For product and engineering documentation structure, start at [`docs/README.md`](../README.md).
 
 ## What is installed
 
@@ -61,7 +61,7 @@ Typical coverage includes loading, empty, populated, validation, error/retry, pe
 
 ## Specification policy
 
-Narrow approved feature specs outrank the overview. A spec should include stable requirement and acceptance-criterion IDs, actors and permissions, in/out of scope, journeys and state transitions, business rules, data/audit needs, non-functional requirements, failure behavior, dependencies, open questions, and traceability.
+Narrow approved feature specs outrank the overview. Author specs from [`docs/templates/feature-spec.md`](../templates/feature-spec.md). A spec should include stable requirement and acceptance-criterion IDs, actors and permissions, in/out of scope, journeys and state transitions, business rules, data/audit needs, non-functional requirements, failure behavior, dependencies, open questions, and traceability.
 
 Anything absent or ambiguous in the approved spec must be handled as one of:
 

@@ -8,7 +8,7 @@ Future home for approved Flex Agent feature specifications.
 
 ## Purpose
 
-Each feature spec governs one bounded, observable product outcome. Specs use the [spec template](../../spec-template.md) and receive stable `REQ-*` and `AC-*` IDs for traceability.
+Each feature spec governs one bounded, observable product outcome. Specs use the [feature spec template](../../templates/feature-spec.md) and receive stable `REQ-*` and `AC-*` IDs for traceability.
 
 ## Naming convention
 
@@ -33,7 +33,7 @@ Before opening a draft spec:
 
 1. Confirm the behavior is not already covered by an approved spec.
 2. Identify the catalog entry in the [requirements hub](../README.md#mvp-feature-spec-catalog).
-3. Copy [spec template](../../spec-template.md) into a new file.
+3. Copy [feature spec template](../../templates/feature-spec.md) into a new file.
 4. Link back to relevant [overview](../../overview-idea.md) sections as source material only.
 5. Distinguish `MVP`, `Later`, `Out of scope`, `Open question`, and `Proposed`.
 

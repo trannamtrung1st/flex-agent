@@ -19,7 +19,7 @@ flowchart LR
 ```
 
 1. **Discover** — Identify behavior from product overview, stakeholder input, or gaps in existing specs.
-2. **Draft** — Author a feature spec using the [spec template](../spec-template.md) with stable IDs.
+2. **Draft** — Author a feature spec using the [feature spec template](../templates/feature-spec.md) with stable IDs.
 3. **Review** — Validate scope, actors, journeys, failure states, security/privacy, and testability.
 4. **Approve** — Mark the spec `Approved`; it becomes authoritative for implementation.
 5. **Implement and verify** — Map requirements to implementation and automated/manual verification.
@@ -104,4 +104,4 @@ Approved and draft feature specs live under [features/](features/README.md).
 
 - [Documentation home](../README.md)
 - [Product overview](../overview-idea.md)
-- [Spec template](../spec-template.md)
+- [Feature spec template](../templates/feature-spec.md)

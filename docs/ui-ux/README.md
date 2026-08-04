@@ -1,10 +1,10 @@
-# UX documentation
+# UI/UX documentation
 
-User experience, interaction design, and design-system documentation for Flex Agent.
+User interface, user experience, interaction design, and design-system documentation for Flex Agent.
 
 ## Status
 
-**No approved documents yet.** UX work is deferred until foundational requirements specs are drafted and reviewed.
+**No approved documents yet.** UI/UX work is deferred until foundational requirements specs are drafted and reviewed.
 
 ## Purpose
 
@@ -12,11 +12,11 @@ This area will govern how users experience the product: journeys, information ar
 
 ## Entry criteria
 
-Begin UX documentation when:
+Begin UI/UX documentation when:
 
 - At least one P0 feature specification is in `Draft` or `Approved` status
 - Actors, permissions, and primary journeys are defined in requirements
-- Open questions that materially affect UX are resolved or explicitly labeled `Proposed`
+- Open questions that materially affect UI/UX are resolved or explicitly labeled `Proposed`
 
 ## Expected document types
 
@@ -30,7 +30,7 @@ Begin UX documentation when:
 
 ## Relationship to requirements
 
-UX documents implement and extend approved requirements; they do not override acceptance criteria. Link interaction specs to `AC-*` IDs from feature specifications.
+UI/UX documents implement and extend approved requirements; they do not override acceptance criteria. Link interaction specs to `AC-*` IDs from feature specifications.
 
 ## Related documents
 

@@ -11,7 +11,7 @@ Make `docs/` a coherent, traceable source of truth for product requirements, UI/
 
 - Write product and engineering documentation under `docs/`; keep tool instructions and reusable role guidance in `.cursor/`.
 - Follow the source-of-truth order in `.cursor/rules/00-project-foundation.mdc`.
-- Treat status as meaningful: `Draft` and `Proposed` inform discussion but do not outrank an approved specification, accepted decision, or the product overview.
+- Treat status as meaningful: `Draft` and `Proposed` inform discussion but do not outrank an approved specification, approved architecture decision, or the product overview.
 - Preserve history through version control and decision records. Do not silently rewrite approved intent or erase rejected alternatives and superseded decisions.
 - Link to one authoritative definition instead of copying it across documents. Detect and resolve conflicting terminology, rules, IDs, and status.
 
@@ -32,17 +32,18 @@ Do not average conflicting specialist views. Surface the conflict, decision owne
 2. Read related documents before writing; reuse canonical vocabulary and stable IDs.
 3. Choose the smallest appropriate document type and location. Adapt the existing structure rather than creating duplicate hierarchies.
 4. Separate confirmed facts, normative requirements, decisions, proposals, assumptions, examples, open questions, and deferred scope.
-5. Link requirements to UX and architecture decisions, implementation surfaces, and verification evidence where applicable.
+5. Link requirements to UI/UX and architecture decisions, implementation surfaces, and verification evidence where applicable.
 6. Check the document for contradictions, broken or ambiguous references, stale status, missing failure states, and untestable language.
 7. Summarize changed decisions and downstream documents or implementation that may need review.
 
 ## Document types
 
-- Product overview and canonical glossary
-- Feature specification using `docs/spec-template.md`
-- User journey, interaction specification, content guide, or design-system documentation
-- Architecture overview, data or integration design, runtime flow, or deployment view
-- Architecture decision record with context, drivers, options, decision, consequences, status, and supersession
+- Product overview and canonical glossary (`docs/overview-idea.md`)
+- Feature specification using `docs/templates/feature-spec.md`; approved specs live under `docs/requirements/features/`
+- User journey, interaction specification, content guide, or design-system documentation (`docs/ui-ux/`)
+- Architecture overview, data or integration design, runtime flow, or deployment view (`docs/architecture/`)
+- Architecture decision record with context, drivers, options, decision, consequences, status, and supersession (`docs/architecture/decisions/`)
+- Contributor process guidance (`docs/contributing/`)
 - API/event contract, operational runbook, test strategy, or traceability report
 
 Create a new document only when it has a distinct owner, lifecycle, audience, or decision boundary. Otherwise update the existing source.
