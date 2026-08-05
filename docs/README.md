@@ -9,7 +9,7 @@ Authoritative product and engineering documentation for the Flex Agent platform.
 | Understand product vision and positioning | [Product overview](product/overview.md) |
 | Define or review domain concepts, relationships, and invariants | [Concept model](product/concept-model.md) |
 | Understand MVP boundaries and non-goals | [MVP scope](product/mvp-scope.md) |
-| Find or author P0 feature specifications | [P0 authoring order](requirements/README.md#p0-authoring-order) |
+| Find or author feature specifications | [Feature catalog](requirements/README.md#feature-catalog-overview) and [P0 authoring order](requirements/README.md#p0-authoring-order) |
 | Design journeys, interaction states, or design-system guidance | [UI/UX](ui-ux/README.md) |
 | Review system boundaries, data flows, or technical decisions | [Architecture](architecture/README.md) |
 | Write a new feature specification | [Feature spec template](templates/feature-spec.md) and [Feature specs](requirements/features/README.md) |
@@ -52,10 +52,10 @@ Illustrative examples in product documents are not MVP commitments unless captur
 | Area | Status | Notes |
 | --- | --- | --- |
 | Product | Approved v0.1 | [Product hub](product/README.md): overview, [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md) |
-| Requirements | Ready for P0 authoring | [P0 authoring order](requirements/README.md#p0-authoring-order); no approved feature specs yet |
+| Requirements | P0 authoring in progress | [Feature catalog](requirements/README.md#feature-catalog-overview); 19 placeholders, no approved specs yet |
 | UI/UX | Scaffold | Placeholder; journeys, interaction specs, and design system deferred |
 | Architecture | Scaffold | Placeholder; technical design and ADRs deferred |
-| Feature specifications | P0 specs not started | Seven P0 files defined; none created yet — see [features/](requirements/features/README.md) |
+| Feature specifications | Placeholder catalog complete | 19 spec scaffolds (7 P0, 2 P1, 5 P2, 5 P3) — see [features/](requirements/features/README.md) |
 | Contributing | Active | Cursor rules, role skills, TDD policy, and Playwright MCP guidance |
 | Templates | Active | Reusable authoring templates (not authoritative content) |
 
@@ -70,8 +70,8 @@ Illustrative examples in product documents are not MVP commitments unless captur
 
 ### Requirements
 
-- [Requirements hub](requirements/README.md) — lifecycle, ID conventions, and [P0 authoring order](requirements/README.md#p0-authoring-order)
-- [Feature specifications](requirements/features/README.md) — P0 spec files (not started)
+- [Requirements hub](requirements/README.md) — lifecycle, ID conventions, and [feature catalog](requirements/README.md#feature-catalog-overview)
+- [Feature specifications](requirements/features/README.md) — 19 placeholder specs; author P0 first
 
 ### UI/UX
 

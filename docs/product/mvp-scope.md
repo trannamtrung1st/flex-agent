@@ -70,20 +70,20 @@ The slice above decomposes into seven bounded outcomes. Each becomes a P0 featur
 
 | Step | Outcome | P0 spec |
 | --- | --- | --- |
-| 1 | Configure assessment activity with frozen cohort configuration | [Assessment setup](../requirements/README.md#p0-authoring-order) |
-| 2 | Assign participant and permit controlled attempts | [Submission and attempts](../requirements/README.md#p0-authoring-order) |
-| 3 | Upload and preserve submission material | [Submission and attempts](../requirements/README.md#p0-authoring-order) |
-| 4 | Conduct text examination in an isolated session | [Text session lifecycle](../requirements/README.md#p0-authoring-order) |
-| 5 | Produce evidence-backed structured evaluation | [Evidence and evaluation](../requirements/README.md#p0-authoring-order) |
-| 6 | Review, adjust, and approve outcomes | [Human review and result release](../requirements/README.md#p0-authoring-order) |
-| 7 | Release result to participant with audit record | [Human review and result release](../requirements/README.md#p0-authoring-order) |
+| 1 | Configure assessment activity with frozen cohort configuration | [`assessment-setup.md`](../requirements/features/assessment-setup.md) |
+| 2 | Assign participant and permit controlled attempts | [`submission-attempts.md`](../requirements/features/submission-attempts.md) |
+| 3 | Upload and preserve submission material | [`submission-attempts.md`](../requirements/features/submission-attempts.md) |
+| 4 | Conduct text examination in an isolated session | [`session-text-lifecycle.md`](../requirements/features/session-text-lifecycle.md) |
+| 5 | Produce evidence-backed structured evaluation | [`evidence-evaluation.md`](../requirements/features/evidence-evaluation.md) |
+| 6 | Review, adjust, and approve outcomes | [`review-result-release.md`](../requirements/features/review-result-release.md) |
+| 7 | Release result to participant with audit record | [`review-result-release.md`](../requirements/features/review-result-release.md) |
 
 Cross-cutting specs required before or alongside the workflow:
 
-- [Authorization and isolation](../requirements/README.md#p0-authoring-order)
-- [Resolved session configuration](../requirements/README.md#p0-authoring-order)
+- [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md)
+- [`resolved-session-configuration.md`](../requirements/features/resolved-session-configuration.md)
 
-Deferred from this slice until it works end to end: dynamic memory, harness self-improvement, shared group sessions, voice, tools, and advanced harness editing.
+Deferred until the MVP slice works end to end — see [Requirements feature catalog](../requirements/README.md#feature-catalog-overview) (P1–P3).
 
 ## Platform capabilities by release tier
 
@@ -112,12 +112,13 @@ These are **product-level capability themes**, not approved requirements until c
 | Tools | Permitted tool execution with audit records |
 | Richer harness configuration | Snapshots, comparison, and restoration |
 | Workflow depth | More configurable stages and transitions |
+| Dynamic memory mode | Administrative enablement with policy controls |
 
 ### Later release
 
 | Theme | Product meaning |
 | --- | --- |
-| Dynamic memory | Controlled learning with administrative approval |
+| Memory candidates | Propose, review, and approve reusable learned artifacts |
 | Harness improvement | Proposals, review, and controlled rollout |
 | Shared sessions | Multi-participant real-time interaction |
 | Platform breadth | Direct, embedded, and API activities; advanced analytics |
@@ -130,9 +131,8 @@ High-level capability themes inform future specs but are **not** approved requir
 
 Administrators can:
 
-- Create and manage agents with minimal identity, knowledge, and evaluation defaults
-- Configure harnesses with workflow, rubric, policies, and stable memory controls
-- Create assessment activities (campaigns); select agent and harness; activate cohorts with frozen configuration
+- Select agents and harnesses (or pre-provisioned assessment defaults) for assessment activities
+- Create assessment activities (campaigns); activate cohorts with frozen configuration
 - Define tasks, submission requirements, time limits, deadlines, and attempt rules
 - Enroll participants and assign cohorts
 - Monitor active sessions; pause or terminate sessions when authorized
@@ -166,11 +166,11 @@ Reviewers can:
 - Approve or reject results; release results when authorized
 - Review resolved execution manifest and audit history
 
-Deferred participant and reviewer capabilities (voice, tools, harness comparison, memory proposals) belong to later release tiers.
+Deferred participant and reviewer capabilities: voice and tools align with [Next release](#next-release-explicitly-deferred-from-mvp); memory candidate proposals align with [Later release](#later-release). Reusable agent and harness library authoring is P1 in the [Requirements feature catalog](../requirements/README.md#p1--foundation-expansion).
 
 ## Next step: P0 specifications
 
-Author the [P0 feature specifications](../requirements/README.md#p0-authoring-order) in order. Do not expand product documentation further until those specs exist.
+Author P0 placeholders into approved specifications — see [P0 authoring order](../requirements/README.md#p0-authoring-order). Do not expand product documentation further until P0 specs are approved.
 
 ## Platform differentiation (product level)
 

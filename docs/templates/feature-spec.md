@@ -5,7 +5,7 @@
 - Status: Draft | In review | Approved | Implemented
 - Owner:
 - Source: `docs/product/concept-model.md`, `docs/product/mvp-scope.md`, and/or `docs/product/overview.md` section(s)
-- Catalog entry: link to [P0 authoring order](../requirements/README.md#p0-authoring-order) when applicable
+- Catalog entry: link to the matching row in [Feature catalog overview](../requirements/README.md#feature-catalog-overview)
 - Related decisions:
 
 ## Problem and measurable outcome

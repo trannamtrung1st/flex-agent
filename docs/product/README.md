@@ -53,11 +53,11 @@ Illustrative examples in product documents are **not** MVP commitments until cap
 
 ## Next actions
 
-Product documentation for v0.1 is complete. **Do not expand product docs further** until P0 feature specifications are drafted.
+Product documentation for v0.1 is complete. **Do not expand product docs further** until P0 feature specifications are approved.
 
-1. Author P0 specs in order — see [P0 authoring order](../requirements/README.md#p0-authoring-order)
-2. Use the [feature spec template](../templates/feature-spec.md); one file per catalog entry under `docs/requirements/features/`
-3. Keep agent and harness **selection and assessment-required parameters** inside assessment setup — not general agent or harness management
+1. Author P0 specs in order — see [P0 authoring order](../requirements/README.md#p0-authoring-order); placeholders exist under [`requirements/features/`](../requirements/features/README.md)
+2. Replace placeholder content using the [feature spec template](../templates/feature-spec.md)
+3. Keep agent and harness **selection and assessment-required parameters** inside assessment setup — not general agent or harness management (P1)
 4. Record technical choices as ADRs when specs surface implementation decisions
 
 ## Related documents
