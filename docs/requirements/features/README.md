@@ -4,7 +4,7 @@ Home for Flex Agent feature specifications.
 
 ## Status
 
-**Placeholder catalog complete.** Nineteen spec files exist as scaffolds. Review and author P0 specs in the order defined in [P0 authoring order](../README.md#p0-authoring-order). Placeholders are not approved requirements.
+**P0 #1 drafted; remaining catalog still placeholders.** Nineteen spec files exist. [`auth-resource-isolation.md`](auth-resource-isolation.md) is `Draft`. Review and author remaining P0 specs in the order defined in [P0 authoring order](../README.md#p0-authoring-order). Placeholders and drafts are not approved requirements.
 
 ## Purpose
 
@@ -101,4 +101,4 @@ Before opening each draft spec:
 2. Take the next item from the [feature catalog](../README.md#feature-catalog-overview).
 3. Replace placeholder content using the [feature spec template](../../templates/feature-spec.md).
 4. Link governing [concept model](../../product/concept-model.md) and [MVP scope](../../product/mvp-scope.md) sections; use [product overview](../../product/overview.md) for vision context only.
-5. Distinguish `MVP`, `Later`, `Out of scope`, `Open question`, and `Proposed`.
+5. Distinguish `MVP`, `Later`, `Out of scope`, `Open question`, and `Proposed`. Every open question must include an **interim default** with brief rationale (working guidance only until decided).

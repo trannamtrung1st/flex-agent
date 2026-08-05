@@ -63,6 +63,8 @@ Typical coverage includes loading, empty, populated, validation, error/retry, pe
 
 Approved product documents and approved feature specifications outrank illustrative product examples. Author specs from [`docs/templates/feature-spec.md`](../templates/feature-spec.md). A spec should include stable requirement and acceptance-criterion IDs, actors and permissions, in/out of scope, journeys and state transitions, business rules, data/audit needs, non-functional requirements, failure behavior, dependencies, open questions, and traceability.
 
+Every open question (`Q-*`) must include an **interim default** plus brief rationale. That interim default is working guidance so work can continue without inventing silent requirements; it is not approved behavior until decided. Record consequential interim defaults as `PROP-*` when they need formal approval (a `PROP-*` may promote or refine a `Q-*` interim default).
+
 Run documentation validation before pushing doc changes:
 
 ```bash
@@ -75,8 +77,8 @@ GitHub Actions runs the same checks on pull requests and pushes to `main` via [`
 
 Anything absent or ambiguous in the approved spec must be handled as one of:
 
-- a question that blocks a material decision;
-- a clearly labeled best-practice proposal for approval; or
+- an open question that blocks or informs a material decision, always with an **interim default** and brief rationale;
+- a clearly labeled best-practice proposal (`PROP-*` / `Proposed`) for approval; or
 - a reversible implementation detail that does not change observable product behavior.
 
 Do not silently interpret an illustrative product-document example as an MVP commitment.

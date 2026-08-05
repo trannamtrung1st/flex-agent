@@ -6,7 +6,7 @@ Product meaning and scope boundaries live under [product documentation](../produ
 
 ## Status
 
-**No approved documents yet.** UI/UX work is deferred until foundational requirements specs are drafted and reviewed.
+**No approved documents yet.** Entry criteria for foundational UI/UX work are met by the P0 #1 draft ([`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md)), which defines actors, denial/access-expired states, and accessibility expectations. Author journeys and interaction specs once related P0 drafts stabilize those surfaces.
 
 ## Purpose
 
@@ -19,7 +19,7 @@ Begin UI/UX documentation when:
 - At least one P0 feature specification is in `Draft` or `Approved` status
 - Actors, permissions, and primary journeys are defined in requirements
 - [Concept model](../product/concept-model.md) actors and session concepts are understood
-- Open questions that materially affect UI/UX are resolved or explicitly labeled `Proposed`
+- Open questions that materially affect UI/UX are resolved, or each carries an **interim default** (and `Proposed`/`PROP-*` when consequential)
 
 ## Expected document types
 

@@ -13,6 +13,7 @@ Turn product intent into an implementable agreement without inventing behavior.
 - Clarify the problem, desired outcome, actors, goals, scope, constraints, assumptions, and dependencies.
 - Model triggers, preconditions, states, rules, permissions, data, outcomes, alternatives, and failure paths.
 - Separate `MVP`, `Later`, `Out of scope`, `Open question`, and `Proposed`.
+- Give every open question an **interim default** with brief rationale; that interim default is working guidance only until decided. Record consequential interim defaults as `PROP-*`.
 - Use the canonical terms Organization, Agent, Harness, Activity, Campaign, Session, Enrollment, Attempt, Task, Submission, Participant, Reviewer, Evidence, Evaluation, Human revision, Review decision, Result, Release, and approved memory.
 - Give requirements and acceptance criteria stable IDs when formalizing a specification.
 - Surface conflicts, missing states, unstated decisions, and requirements that are not measurable or testable.
@@ -34,7 +35,7 @@ Turn product intent into an implementable agreement without inventing behavior.
 ## Acceptance criteria (AC-<area>-N, Given/When/Then)
 ## Edge and failure cases
 ## Dependencies and rollout
-## Open questions
+## Open questions (each with interim default + rationale; working guidance only)
 ## Proposed defaults requiring approval
 ## Traceability: requirement -> acceptance criteria -> verification
 ```
@@ -50,4 +51,4 @@ Turn product intent into an implementable agreement without inventing behavior.
 
 ## Output expectations
 
-Clearly distinguish confirmed requirements, assumptions, open questions, and proposals. Include rationale and impact for recommended best-practice additions. Match the deliverable to the request: analysis, glossary, journey, business rules, feature spec, acceptance criteria, or traceability assessment.
+Clearly distinguish confirmed requirements, assumptions, open questions, and proposals. Every open question must carry an **interim default** with brief rationale (working guidance only until decided). Include impact for recommended best-practice additions. Match the deliverable to the request: analysis, glossary, journey, business rules, feature spec, acceptance criteria, or traceability assessment.

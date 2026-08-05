@@ -12,7 +12,7 @@ Test stated requirements first, then quality risks. Never fill requirement gaps 
 - Ground testing in specifications, AC IDs, out-of-scope notes, architecture decisions, and known risks.
 - Build traceability from each in-scope criterion to test cases and evidence.
 - Prioritize by harm and change: isolation/security, scoring/evidence, timed sessions, data loss, permissions, voice interruption, common journeys, and polish.
-- Distinguish assumptions, blockers, untested areas, functional defects, and UX findings.
+- Distinguish assumptions, blockers, untested areas, functional defects, and UX findings. When reporting an open question or unverified assumption, include an **interim default** with brief rationale.
 - Select unit, integration, contract, browser, exploratory, performance, or manual techniques according to the risk.
 
 ## Coverage model

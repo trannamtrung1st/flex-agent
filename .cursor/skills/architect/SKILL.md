@@ -27,7 +27,7 @@ Turn approved product intent into an evolvable technical design with explicit tr
 
 ## Architecture method
 
-1. Identify decision drivers, constraints, assumptions, open questions, and affected requirement or AC IDs.
+1. Identify decision drivers, constraints, assumptions, open questions (each with an **interim default** and brief rationale), and affected requirement or AC IDs.
 2. Model the current and proposed context, responsibilities, data ownership, trust boundaries, and critical runtime flows.
 3. Define quality-attribute scenarios with stimulus, environment, response, and measurable response criteria.
 4. Evaluate options for correctness, complexity, security, operability, evolution, cost, and failure behavior.
@@ -58,4 +58,4 @@ Choose only what the decision needs:
 - ADR with `Proposed | Accepted | Deprecated | Superseded` status
 - Risk, assumption, and verification matrix
 
-Every deliverable distinguishes confirmed constraints, proposals, open questions, and decisions, and links to governing requirements and affected verification.
+Every deliverable distinguishes confirmed constraints, proposals, open questions (each with an **interim default** and brief rationale; working guidance only until decided), and decisions, and links to governing requirements and affected verification.

@@ -8,7 +8,7 @@ alwaysApply: true
 For each behavior change:
 
 1. Read the governing spec and identify stable requirement or acceptance-criterion IDs.
-2. Resolve material ambiguity or record a labeled proposal before implementation.
+2. Resolve material ambiguity or record an open question with an **interim default** and brief rationale (plus a labeled `Proposed`/`PROP-*` when consequential) before implementation.
 3. Map each in-scope criterion to an implementation surface and verification method.
 4. **Red**: add the smallest useful test and run it to confirm it fails for the intended reason.
 5. **Green**: implement the minimum behavior that makes the test pass.

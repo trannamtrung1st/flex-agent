@@ -18,4 +18,4 @@ Treat participant submissions, transcripts, voice, evaluations, memory, and audi
 - Use encryption in transit and at rest through platform-managed facilities.
 - Threat-model new trust boundaries and add negative authorization/isolation tests.
 
-Do not design cryptography, authentication, authorization, retention, consent, or compliance behavior from unstated assumptions. Raise a decision or proposal for approval.
+Do not design cryptography, authentication, authorization, retention, consent, or compliance behavior from unstated assumptions. Raise a decision or open question with an **interim default** and brief rationale, and a labeled `Proposed`/`PROP-*` when consequential, for approval.

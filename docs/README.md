@@ -34,7 +34,7 @@ Documents govern different concerns. A document overrides another **only within 
 - A conflicting ADR triggers product or requirements review; it does not override product semantics.
 - A feature spec that changes domain meaning requires an updated or superseding product document.
 - Implementation that diverges from approved specs is a defect unless explicitly superseded.
-- Clearly labeled proposals (`Proposed`, open questions) inform discussion but do not govern behavior.
+- Clearly labeled proposals (`Proposed`, open questions with interim defaults) inform discussion but do not govern behavior. A `Q-*` interim default is working guidance only until decided or promoted to an approved requirement/`PROP-*`.
 
 Illustrative examples in product documents are not MVP commitments unless captured in an approved spec.
 
@@ -54,10 +54,10 @@ Illustrative examples in product documents are not MVP commitments unless captur
 | Area | Status | Notes |
 | --- | --- | --- |
 | Product | Approved v0.1 | [Product hub](product/README.md): overview, [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md) |
-| Requirements | P0 specification review in progress | [Feature catalog](requirements/README.md#feature-catalog-overview); 19 placeholders, no approved specs yet |
-| UI/UX | Scaffold | Placeholder; journeys, interaction specs, and design system deferred |
-| Architecture | Scaffold | Placeholder; technical design and ADRs deferred |
-| Feature specifications | Placeholder catalog complete | 19 spec scaffolds (7 P0, 2 P1, 5 P2, 5 P3) — see [features/](requirements/features/README.md) |
+| Requirements | P0 specification review in progress | [Feature catalog](requirements/README.md#feature-catalog-overview); P0 #1 `Draft`, 18 placeholders remain; no approved specs yet |
+| UI/UX | Scaffold | Entry criteria met by P0 #1 draft; journeys and design system not yet authored |
+| Architecture | Scaffold | Entry criteria met by P0 #1 draft; ADRs for auth enforcement not yet authored |
+| Feature specifications | Catalog complete; first draft in progress | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); [`auth-resource-isolation.md`](requirements/features/auth-resource-isolation.md) is `Draft` — see [features/](requirements/features/README.md) |
 | Contributing | Active | Cursor rules, role skills, TDD policy, and Playwright MCP guidance |
 | Templates | Active | Reusable authoring templates (not authoritative content) |
 
@@ -73,7 +73,7 @@ Illustrative examples in product documents are not MVP commitments unless captur
 ### Requirements
 
 - [Requirements hub](requirements/README.md) — lifecycle, ID conventions, and [feature catalog](requirements/README.md#feature-catalog-overview)
-- [Feature specifications](requirements/features/README.md) — 19 placeholder specs; author P0 first
+- [Feature specifications](requirements/features/README.md) — 19 specs; P0 #1 drafted, author remaining P0 first
 
 ### UI/UX
 
@@ -109,7 +109,7 @@ Use terms consistently across all documents. Authoritative definitions: [Concept
 
 1. Read related documents before writing; reuse canonical vocabulary and stable IDs.
 2. Choose the smallest appropriate document type and location.
-3. Separate confirmed facts, normative requirements, decisions, proposals, assumptions, and deferred scope.
+3. Separate confirmed facts, normative requirements, decisions, proposals, assumptions, and deferred scope. Every open question must include an **interim default** with brief rationale; that interim default does not govern behavior until decided.
 4. Link to one authoritative definition instead of copying content across documents.
 5. Use `must` for approved requirements, `should` for recommendations, and `may` for permitted options.
 6. Preserve history; do not silently rewrite approved intent.

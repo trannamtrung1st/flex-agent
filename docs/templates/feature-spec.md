@@ -70,7 +70,11 @@ Include applicable happy, loading/empty, validation, authorization, error/retry,
 
 ## Open questions
 
-- `Q-1` — ...
+Every open question must include an **interim default** and brief rationale. Interim defaults are working guidance only—not approved until decided. Record consequential interim defaults as `PROP-*` (a proposal may promote or refine a question's interim default).
+
+- `Q-1` — <question>
+  - **Interim default:** <suggested answer until decided>
+  - **Rationale:** <why this interim default is reasonable>
 
 ## Proposed defaults requiring approval
 

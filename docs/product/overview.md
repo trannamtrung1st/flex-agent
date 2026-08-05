@@ -16,7 +16,7 @@ Vision, positioning, and principles. Canonical concepts, scope boundaries, and r
 
 ## What to do next
 
-Product baseline v0.1 is approved. Nineteen feature-spec placeholders exist for the [feature catalog](../requirements/README.md#feature-catalog-overview). The next step is authoring P0 specifications for the [MVP executable workflow](mvp-scope.md#mvp-executable-workflow). Start at [P0 authoring order](../requirements/README.md#p0-authoring-order).
+Product baseline v0.1 is approved. The [feature catalog](../requirements/README.md#feature-catalog-overview) has 19 specs. [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md) is in `Draft`; remaining P0 specs are still placeholders. Continue at [P0 authoring order](../requirements/README.md#p0-authoring-order) for the [MVP executable workflow](mvp-scope.md#mvp-executable-workflow).
 
 ## Product vision
 

@@ -54,7 +54,10 @@ DEPRECATED_TERMS = [
 ]
 
 LINK_PATTERN = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
-ID_PATTERN = re.compile(r"\b(?:REQ|AC)-[A-Z]+-\d+\b")
+# Definitions appear as `REQ-…` / `AC-…` bullets or AC headings, not later references.
+ID_DEFINITION_PATTERN = re.compile(
+    r"(?:^|\n)(?:#{1,6}\s+|[-*]\s+)?`((?:REQ|AC)-[A-Z]+-\d+)`\s*(?:—|-)"
+)
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+)$")
 
 
@@ -152,8 +155,9 @@ def check_duplicate_ids() -> list[str]:
     for path in sorted(FEATURES.glob("*.md")):
         if path.name == "README.md":
             continue
-        for match in ID_PATTERN.finditer(path.read_text(encoding="utf-8")):
-            ident = match.group(0)
+        text = path.read_text(encoding="utf-8")
+        for match in ID_DEFINITION_PATTERN.finditer(text):
+            ident = match.group(1)
             prior = seen.get(ident)
             if prior:
                 errors.append(f"duplicate ID {ident} in {path.name} and {prior}")

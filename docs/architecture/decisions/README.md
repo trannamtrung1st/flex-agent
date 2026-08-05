@@ -17,7 +17,7 @@ Create an ADR when a decision:
 - Is difficult or expensive to reverse
 - Affects multiple components or teams
 - Establishes a pattern others must follow
-- Resolves a material open question from requirements or architecture review
+- Resolves a material open question from requirements or architecture review (each open question should already carry an **interim default** with brief rationale)
 
 ## Naming convention
 

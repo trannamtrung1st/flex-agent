@@ -15,6 +15,7 @@ Follow approved specs, existing architecture, and `.cursor/rules/00-project-foun
 - Define consistency and concurrency boundaries: transaction, optimistic version, idempotency, ordering, retry, and compensation.
 - Keep APIs explicit about request, response, errors, authorization, side effects, and compatibility.
 - Protect sensitive trust boundaries and make security-relevant behavior verifiable.
+- Do not invent observable behavior for material gaps; record an open question with an **interim default** and brief rationale (and `Proposed`/`PROP-*` when consequential), or escalate to `business-analyst` / `architect`.
 
 ## Red-green-refactor
 

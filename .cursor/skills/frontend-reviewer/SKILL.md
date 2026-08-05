@@ -40,4 +40,4 @@ Review code and the rendered product. Do not edit unless fixes are requested.
 - Recommendation: <specific direction>
 ```
 
-Lead with findings by severity. Separate functional defects from polish. If live verification is blocked, state the blocker and do not approve visual quality.
+Lead with findings by severity. Separate functional defects from polish. List open questions with an **interim default** and brief rationale. If live verification is blocked, state the blocker and do not approve visual quality.

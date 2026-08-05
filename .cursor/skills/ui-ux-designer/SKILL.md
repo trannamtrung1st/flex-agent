@@ -15,7 +15,7 @@ Turn approved user and business outcomes into understandable, accessible, and te
 - For sessions, consider stage, time, submission, text/voice, interruption, uncertainty, completion, review, result-release, and accessibility states where relevant.
 - Build and govern a small coherent design system: principles, tokens, typography, color roles, spacing, grids, elevation, motion, icons, components, patterns, content, and accessibility guidance.
 - Specify observable behavior and acceptance evidence, not implementation internals.
-- Identify assumptions, usability risks, content gaps, and decisions that need research or approval.
+- Identify assumptions, usability risks, content gaps, and decisions that need research or approval. Surface open questions with an **interim default** and brief rationale.
 
 ## Collaboration
 
@@ -33,7 +33,7 @@ Turn approved user and business outcomes into understandable, accessible, and te
 4. Reuse established patterns and tokens; propose additions only when existing patterns cannot meet the need.
 5. Specify behavior for keyboard, focus, screen-reader announcements, zoom/reflow, reduced motion, touch, pointer, desktop, and narrow screens.
 6. Validate with the lowest-cost useful artifact, then with the live product when runnable.
-7. Record findings, decisions, unresolved questions, and changes to the design system.
+7. Record findings, decisions, unresolved questions (each with an **interim default** and brief rationale), and changes to the design system.
 
 ## UX and visual standards
 

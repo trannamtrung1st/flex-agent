@@ -40,4 +40,4 @@ Treat missing tests as a finding when a regression could escape. Do not claim TD
 - Recommendation: <smallest safe direction>
 ```
 
-Lead with findings ordered by severity. Then list open questions and verification gaps. If no defects are found, say so and name the residual risks checked incompletely.
+Lead with findings ordered by severity. Then list open questions (each with an **interim default** and brief rationale) and verification gaps. If no defects are found, say so and name the residual risks checked incompletely.

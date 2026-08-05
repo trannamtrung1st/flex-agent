@@ -170,7 +170,7 @@ Deferred participant and reviewer capabilities: voice and tools align with [Next
 
 ## Next step: P0 specifications
 
-Author P0 placeholders into approved specifications — see [P0 authoring order](../requirements/README.md#p0-authoring-order). Do not expand product documentation further until P0 specs are approved.
+Continue P0 authoring in catalog order — see [P0 authoring order](../requirements/README.md#p0-authoring-order). [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md) is `Draft`; remaining P0 files are still placeholders. Do not expand product documentation further until P0 specs are approved.
 
 ## Platform differentiation (product level)
 

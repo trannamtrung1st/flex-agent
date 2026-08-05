@@ -6,7 +6,7 @@ Product concepts and invariants live under [product documentation](../product/RE
 
 ## Status
 
-**No approved documents yet.** Architecture work is deferred until foundational requirements specs establish bounded behavior and quality attributes.
+**No approved documents yet.** Entry criteria for foundational architecture work are met by the P0 #1 draft ([`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md)). Author ADRs when implementation design begins for enforcement boundaries, policy representation, cache invalidation, service delegation, and audit storage.
 
 ## Purpose
 

@@ -13,7 +13,7 @@ Authoritative product and engineering documentation lives in [`docs/`](docs/READ
 | UI/UX | Scaffold — [ui-ux/](docs/ui-ux/README.md) |
 | Architecture | Scaffold — [architecture/](docs/architecture/README.md) |
 
-**Current phase:** Document-by-document review of P0 feature specifications. The placeholder catalog is complete (19 specs: 7 P0, 2 P1, 5 P2, 5 P3). Review and author P0 specs in [catalog order](docs/requirements/README.md#p0-authoring-order), starting with [`auth-resource-isolation.md`](docs/requirements/features/auth-resource-isolation.md).
+**Current phase:** Document-by-document review of P0 feature specifications. [`auth-resource-isolation.md`](docs/requirements/features/auth-resource-isolation.md) is `Draft`; 18 catalog files remain placeholders. Continue in [catalog order](docs/requirements/README.md#p0-authoring-order).
 
 ## Validate documentation
 

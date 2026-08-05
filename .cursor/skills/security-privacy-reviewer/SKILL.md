@@ -35,4 +35,4 @@ Prefer executable negative tests: wrong tenant, wrong role, guessed ID, stale pe
 
 For each finding provide severity, affected asset/actor, attack or privacy scenario, evidence, impact, likelihood, recommended control, and verification test. Separate confirmed findings from design questions and defense-in-depth suggestions.
 
-Escalate unresolved high-risk assumptions; do not invent compliance, consent, retention, or cryptographic requirements.
+Escalate unresolved high-risk assumptions; do not invent compliance, consent, retention, or cryptographic requirements. When raising an open question, include an **interim default** with brief rationale, and record consequential interim defaults as a labeled `Proposed`/`PROP-*`.
