@@ -69,7 +69,9 @@ Run documentation validation before pushing doc changes:
 python scripts/check_docs.py
 ```
 
-GitHub Actions runs the same checks on pull requests and pushes to `main` via [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml).
+The script validates internal links and heading fragments (including the repository root `README.md`), deprecated terms, duplicate requirement IDs, Mermaid fence balance, all 19 feature-spec file presence, catalog membership and tier order in both requirements hubs, and tier counts.
+
+GitHub Actions runs the same checks on pull requests and pushes to `main` via [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml). Markdown lint covers `docs/`, `.cursor/rules/`, and `.cursor/skills/`.
 
 Anything absent or ambiguous in the approved spec must be handled as one of:
 

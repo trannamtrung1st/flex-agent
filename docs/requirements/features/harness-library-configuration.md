@@ -5,7 +5,7 @@
 - Status: Draft — placeholder only
 - Owner: TBD
 - Source: [Harness](../../product/concept-model.md#harness), [Workflow model](../../product/concept-model.md#workflow-model), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice)
-- Catalog entry: P1 #9 — [P1 — Foundation expansion](../README.md#p1--foundation-expansion)
+- Catalog entry: P1 #9 — [P1 — Foundation expansion](../README.md#p1-foundation-expansion)
 - Related decisions:
 
 ## Problem and measurable outcome

@@ -4,7 +4,7 @@
 
 - Status: Draft — placeholder only
 - Owner: TBD
-- Source: [Enrollment / participation](../../product/concept-model.md#enrollment--participation), [Submission](../../product/concept-model.md#submission), [Attempt](../../product/concept-model.md#attempt), [MVP executable workflow](../../product/mvp-scope.md#mvp-executable-workflow)
+- Source: [Enrollment / participation](../../product/concept-model.md#enrollment-participation), [Submission](../../product/concept-model.md#submission), [Attempt](../../product/concept-model.md#attempt), [MVP executable workflow](../../product/mvp-scope.md#mvp-executable-workflow)
 - Catalog entry: P0 #4 — [P0 authoring order](../README.md#p0-authoring-order)
 - Related decisions:
 

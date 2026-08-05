@@ -166,7 +166,7 @@ Reviewers can:
 - Approve or reject results; release results when authorized
 - Review resolved execution manifest and audit history
 
-Deferred participant and reviewer capabilities: voice and tools align with [Next release](#next-release-explicitly-deferred-from-mvp); memory candidate proposals align with [Later release](#later-release). Reusable agent and harness library authoring is P1 in the [Requirements feature catalog](../requirements/README.md#p1--foundation-expansion).
+Deferred participant and reviewer capabilities: voice and tools align with [Next release](#next-release-explicitly-deferred-from-mvp); memory candidate proposals align with [Later release](#later-release). Reusable agent and harness library authoring is P1 in the [Requirements feature catalog](../requirements/README.md#p1-foundation-expansion).
 
 ## Next step: P0 specifications
 

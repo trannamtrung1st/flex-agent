@@ -6,7 +6,7 @@ Product meaning — concepts, relationships, and scope boundaries — lives unde
 
 ## Status
 
-**Placeholder catalog complete; P0 authoring in progress.** Product baseline v0.1 is approved. Nineteen feature-spec placeholders exist under [`features/`](features/README.md). None are approved requirements yet. Author P0 specs in order before implementation.
+**Placeholder catalog complete; P0 specification review in progress.** Product baseline v0.1 is approved. Nineteen feature-spec placeholders exist under [`features/`](features/README.md). None are approved requirements yet. Review and author P0 specs in order before implementation.
 
 Placeholder files are scaffolds only. They do not govern behavior until reviewed, populated with stable `REQ-*` and `AC-*` IDs, and marked `Approved`.
 
@@ -80,7 +80,7 @@ Author these seven specifications **in this order**. Each spec file lives under 
 | 1 | Authorization and isolation | [`auth-resource-isolation.md`](features/auth-resource-isolation.md) | Who may access what at org, activity, cohort, and session scope | [Organization](../product/concept-model.md#organization), [Product invariants](../product/concept-model.md#product-invariants) | Placeholder |
 | 2 | Resolved session configuration | [`resolved-session-configuration.md`](features/resolved-session-configuration.md) | Frozen effective config and execution manifest at session start | [Configuration precedence](../product/concept-model.md#configuration-precedence-stack), [Resolved execution manifest](../product/concept-model.md#resolved-execution-manifest) | Placeholder |
 | 3 | Assessment setup | [`assessment-setup.md`](features/assessment-setup.md) | Campaign activity creation and cohort activation with frozen configuration | [Activity](../product/concept-model.md#activity), [Assessment fairness](../product/concept-model.md#assessment-fairness-constraints), [MVP slice](../product/mvp-scope.md#mvp-validation-slice) | Placeholder |
-| 4 | Submission and attempts | [`submission-attempts.md`](features/submission-attempts.md) | Enrollment, attempt authorization, and versioned submission preservation | [Enrollment](../product/concept-model.md#enrollment--participation), [Submission](../product/concept-model.md#submission), [Attempt](../product/concept-model.md#attempt) | Placeholder |
+| 4 | Submission and attempts | [`submission-attempts.md`](features/submission-attempts.md) | Enrollment, attempt authorization, and versioned submission preservation | [Enrollment](../product/concept-model.md#enrollment-participation), [Submission](../product/concept-model.md#submission), [Attempt](../product/concept-model.md#attempt) | Placeholder |
 | 5 | Text session lifecycle | [`session-text-lifecycle.md`](features/session-text-lifecycle.md) | Isolated text examination from authorized start through completion | [Session](../product/concept-model.md#session), [Workflow model](../product/concept-model.md#workflow-model) | Placeholder |
 | 6 | Evidence and evaluation | [`evidence-evaluation.md`](features/evidence-evaluation.md) | Evidence collection and internal structured evaluation | [Evidence](../product/concept-model.md#evidence), [Evaluation chain](../product/concept-model.md#evaluation-review-decision-result-and-release) | Placeholder |
 | 7 | Human review and result release | [`review-result-release.md`](features/review-result-release.md) | Human review gate, optional revision, and audited result release | [Review decision and release](../product/concept-model.md#evaluation-review-decision-result-and-release) | Placeholder |

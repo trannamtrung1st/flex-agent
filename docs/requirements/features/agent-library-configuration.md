@@ -5,7 +5,7 @@
 - Status: Draft — placeholder only
 - Owner: TBD
 - Source: [Agent](../../product/concept-model.md#agent), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice)
-- Catalog entry: P1 #8 — [P1 — Foundation expansion](../README.md#p1--foundation-expansion)
+- Catalog entry: P1 #8 — [P1 — Foundation expansion](../README.md#p1-foundation-expansion)
 - Related decisions:
 
 ## Problem and measurable outcome

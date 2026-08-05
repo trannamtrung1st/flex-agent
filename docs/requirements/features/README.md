@@ -4,7 +4,7 @@ Home for Flex Agent feature specifications.
 
 ## Status
 
-**Placeholder catalog complete.** Nineteen spec files exist as scaffolds. Author P0 specs in the order defined in [P0 authoring order](../README.md#p0-authoring-order). Placeholders are not approved requirements.
+**Placeholder catalog complete.** Nineteen spec files exist as scaffolds. Review and author P0 specs in the order defined in [P0 authoring order](../README.md#p0-authoring-order). Placeholders are not approved requirements.
 
 ## Purpose
 

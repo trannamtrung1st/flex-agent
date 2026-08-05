@@ -26,3 +26,4 @@ jobs:
           globs: |
             docs/**/*.md
             .cursor/rules/**/*.mdc
+            .cursor/skills/**/SKILL.md

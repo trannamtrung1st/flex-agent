@@ -5,7 +5,7 @@
 - Status: Draft — placeholder only
 - Owner: TBD
 - Source: [Activity](../../product/concept-model.md#activity), [Later release](../../product/mvp-scope.md#later-release)
-- Catalog entry: P3 #19 — [P3 — Later release](../README.md#p3--later-release)
+- Catalog entry: P3 #19 — [P3 — Later release](../README.md#p3-later-release)
 - Related decisions:
 
 ## Problem and measurable outcome

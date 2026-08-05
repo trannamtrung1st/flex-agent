@@ -2,6 +2,8 @@
 
 Authoritative product and engineering documentation for the Flex Agent platform.
 
+The repository root [`README.md`](../README.md) is the GitHub landing page: current documentation phase, entry links, and the validation command.
+
 ## Audience routes
 
 | If you need to… | Start here |
@@ -52,7 +54,7 @@ Illustrative examples in product documents are not MVP commitments unless captur
 | Area | Status | Notes |
 | --- | --- | --- |
 | Product | Approved v0.1 | [Product hub](product/README.md): overview, [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md) |
-| Requirements | P0 authoring in progress | [Feature catalog](requirements/README.md#feature-catalog-overview); 19 placeholders, no approved specs yet |
+| Requirements | P0 specification review in progress | [Feature catalog](requirements/README.md#feature-catalog-overview); 19 placeholders, no approved specs yet |
 | UI/UX | Scaffold | Placeholder; journeys, interaction specs, and design system deferred |
 | Architecture | Scaffold | Placeholder; technical design and ADRs deferred |
 | Feature specifications | Placeholder catalog complete | 19 spec scaffolds (7 P0, 2 P1, 5 P2, 5 P3) — see [features/](requirements/features/README.md) |

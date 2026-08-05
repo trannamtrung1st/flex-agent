@@ -5,7 +5,7 @@
 - Status: Draft — placeholder only
 - Owner: TBD
 - Source: [Group and cohort semantics](../../product/concept-model.md#group-and-cohort-semantics), [Session](../../product/concept-model.md#session), [Later release](../../product/mvp-scope.md#later-release)
-- Catalog entry: P3 #17 — [P3 — Later release](../README.md#p3--later-release)
+- Catalog entry: P3 #17 — [P3 — Later release](../README.md#p3-later-release)
 - Related decisions:
 
 ## Problem and measurable outcome

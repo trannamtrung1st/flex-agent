@@ -5,7 +5,7 @@
 - Status: Draft — placeholder only
 - Owner: TBD
 - Source: [Knowledge, memory, and learning artifacts](../../product/concept-model.md#knowledge-memory-and-learning-artifacts), [Later release](../../product/mvp-scope.md#later-release)
-- Catalog entry: P3 #15 — [P3 — Later release](../README.md#p3--later-release)
+- Catalog entry: P3 #15 — [P3 — Later release](../README.md#p3-later-release)
 - Related decisions:
 
 ## Problem and measurable outcome
