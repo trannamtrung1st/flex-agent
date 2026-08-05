@@ -17,7 +17,7 @@ This area will govern how the system is structured: boundaries, data ownership, 
 Begin architecture documentation when:
 
 - At least one P0 feature specification is in `Draft` or `Approved` status
-- Cross-cutting quality attributes (isolation, audit, reproducibility, security) are stated in requirements
+- Cross-cutting quality attributes (isolation, audit reconstructability, explainability, security) are stated in requirements
 - [Concept model — Product invariants](../product/concept-model.md#product-invariants) are understood
 - Material technical options require an explicit decision record
 

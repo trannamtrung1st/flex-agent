@@ -22,7 +22,7 @@ Review independently against the spec and system invariants. Do not edit unless 
 - **Data integrity**: constraints, transactions, concurrency control, migration/rollback safety, immutable history
 - **Contracts**: validation, status/error schemas, pagination, idempotency, compatibility, versioning
 - **Async/realtime**: delivery semantics, outbox/inbox, ordering assumptions, cancellation, reconnect, stale events
-- **Product invariants**: exact configuration, snapshots, memory policy, evidence links, human revisions, voice playback truth
+- **Product invariants**: resolved execution manifest, harness revision/snapshot references, memory policy, evidence links, evaluation/result separation, human revisions, playback-confirmed voice content
 - **Security/privacy**: injection, SSRF, unsafe files/tools, secrets, sensitive logs, retention and export
 - **Operations**: bounded resource use, timeouts, observability, actionable failures, graceful degradation
 - **Tests**: AC mapping, meaningful failure before fix where evidenced, negative auth, integration boundaries, non-flaky assertions

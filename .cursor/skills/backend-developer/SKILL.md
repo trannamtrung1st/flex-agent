@@ -39,7 +39,7 @@ Follow approved specs, existing architecture, and `.cursor/rules/00-project-foun
 
 ## Flex Agent checks
 
-Test session isolation, exact configuration capture, memory-policy enforcement, workflow transition legality, evidence linkage, tool authorization, and generated/sent/played voice distinctions whenever touched.
+Test session isolation, resolved execution manifest capture, memory-policy enforcement, workflow transition legality, evidence linkage, tool authorization, and generated/sent/played/playback-confirmed voice distinctions whenever touched.
 
 ## Output expectations
 

@@ -18,14 +18,16 @@ When specs are authored, use:
 docs/requirements/features/<area>-<short-name>.md
 ```
 
-Examples:
+Examples aligned with the [MVP feature-spec catalog](../README.md#mvp-feature-spec-catalog):
 
-- `agent-configuration.md`
-- `harness-snapshots.md`
-- `campaign-participants.md`
-- `session-workflow.md`
-- `voice-interruption.md`
-- `evaluation-rubric.md`
+- `auth-resource-isolation.md`
+- `resolved-execution-configuration.md`
+- `activity-assessment-setup.md`
+- `enrollment-submission.md`
+- `session-text-examination.md`
+- `evidence-evaluation.md`
+- `review-result-release.md`
+- `assessment-fairness.md`
 
 ## Authoring checklist
 

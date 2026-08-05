@@ -17,7 +17,7 @@ Apply risk-based review; this is engineering guidance, not a compliance certific
 ## Required review areas
 
 - Authentication lifecycle, session fixation, token scope, revocation, and service identity
-- Object- and function-level authorization by organization, campaign, role, participant, session, and workflow state
+- Object- and function-level authorization by organization, activity, role, participant, session, and workflow state
 - Query, cache, event, vector/memory, object-storage, analytics, and log isolation
 - Prompt injection and confused-deputy risks across submissions, retrieval, agents, tools, and reviewers
 - Tool allowlists, least privilege, egress controls, validation, timeouts, approval, and audit

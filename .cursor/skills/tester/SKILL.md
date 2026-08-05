@@ -19,7 +19,7 @@ Test stated requirements first, then quality risks. Never fill requirement gaps 
 
 - Functional happy paths and role-specific end-to-end journeys
 - Validation, boundaries, empty/loading/error/retry, offline/reconnect, cancellation, and persistence
-- Authorization and organization/campaign/participant/session isolation
+- Authorization and organization/activity/participant/session isolation
 - Concurrency, duplicate actions, idempotent retries, timing, deadline, and stale-state behavior
 - Exact configuration, event, evidence, evaluation, revision, and audit history
 - Memory disabled/enabled/approval/retention boundaries

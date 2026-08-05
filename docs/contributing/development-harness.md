@@ -31,7 +31,7 @@ The security/privacy role is intentionally included beyond the requested minimum
 
 ## Role and workflow separation
 
-Role skills define capabilities, responsibilities, quality standards, and expected outputs. They are applicable independently and may compose one another when work crosses roles. `documentation-author` explicitly composes `business-analyst`, `architect`, and `ui-ux-designer` perspectives for source-of-truth documents, adding security/privacy review when relevant. Roles do not prescribe a project-specific sequence, handoff, approval path, or release process.
+Role skills define capabilities, responsibilities, quality standards, and expected outputs. They are applicable independently and may compose one another when work crosses roles. `documentation-author` explicitly composes `business-analyst`, `architect`, and `ui-ux-designer` perspectives for authoritative documents under `docs/`, adding security/privacy review when relevant. Roles do not prescribe a project-specific sequence, handoff, approval path, or release process.
 
 When the project adopts a concrete process—such as feature discovery, implementation, pull-request review, release readiness, or incident response—define that process as a separate workflow skill that invokes the relevant roles. No end-to-end workflow skill is installed yet.
 
@@ -61,7 +61,7 @@ Typical coverage includes loading, empty, populated, validation, error/retry, pe
 
 ## Specification policy
 
-Approved feature specifications and the canonical product model outrank illustrative product examples. Author specs from [`docs/templates/feature-spec.md`](../templates/feature-spec.md). A spec should include stable requirement and acceptance-criterion IDs, actors and permissions, in/out of scope, journeys and state transitions, business rules, data/audit needs, non-functional requirements, failure behavior, dependencies, open questions, and traceability.
+Accepted baseline product documents and approved feature specifications outrank illustrative product examples. Author specs from [`docs/templates/feature-spec.md`](../templates/feature-spec.md). A spec should include stable requirement and acceptance-criterion IDs, actors and permissions, in/out of scope, journeys and state transitions, business rules, data/audit needs, non-functional requirements, failure behavior, dependencies, open questions, and traceability.
 
 Anything absent or ambiguous in the approved spec must be handled as one of:
 

@@ -65,7 +65,6 @@ Include applicable happy, loading/empty, validation, authorization, error/retry,
 ## Dependencies and rollout
 
 - Dependencies:
-- Compatibility/migration:
 - Feature flag/rollout:
 - Observability:
 

@@ -8,8 +8,8 @@ alwaysApply: true
 Treat participant submissions, transcripts, voice, evaluations, memory, and audit records as sensitive.
 
 - Deny by default; authenticate, then authorize the actor and resource scope server-side.
-- Never trust client-supplied organization, campaign, participant, session, role, or ownership identifiers.
-- Prevent cross-tenant, cross-campaign, and cross-session access in queries, caches, events, tools, logs, and memory retrieval.
+- Never trust client-supplied organization, activity, participant, session, role, or ownership identifiers.
+- Prevent cross-tenant, cross-activity, and cross-session access in queries, caches, events, tools, logs, and memory retrieval.
 - Minimize collection, retention, export, and model/tool disclosure; require explicit policy for learning reuse.
 - Keep secrets and raw sensitive content out of source, browser artifacts, logs, metrics, and error responses.
 - Validate uploads by type, size, content, ownership, and malware policy; store immutable versions used for evaluation.

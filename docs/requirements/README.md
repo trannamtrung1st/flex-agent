@@ -36,7 +36,7 @@ flowchart LR
 | `Q-<n>` | Open question blocking or informing a decision |
 | `PROP-<n>` | Proposed default requiring explicit approval |
 
-**Area codes** (examples): `AGENT`, `HARNESS`, `CAMP`, `SESS`, `SUBM`, `CONV`, `VOICE`, `TOOL`, `EVAL`, `REV`, `MEM`, `AUDIT`.
+**Area codes** (examples): `AUTH`, `ORG`, `ACT`, `ENRL`, `SESS`, `SUBM`, `CONV`, `EVAL`, `REV`, `REL`, `FAIR`, `AGENT`, `HARNESS`, `VOICE`, `TOOL`, `MEM`, `AUDIT`.
 
 ## Approval expectations
 
@@ -60,23 +60,26 @@ Specs without testable acceptance criteria are not ready for approval.
 
 ## MVP feature-spec catalog
 
-Candidate specifications for the first MVP (AI-assisted assessment and examination). Priority reflects suggested authoring order, not implementation sequence.
+Candidate specifications for the first MVP validation slice (AI-assisted assessment and examination). Priority reflects suggested **authoring order** for an end-to-end participant-to-result experience, not implementation sequence.
+
+Agent and harness configuration appear only at the minimum level required to support the slice. Advanced editors, reusable libraries, comparison, and restoration are deferred.
 
 | Priority | Candidate spec | Source | Owner | Spec status |
 | --- | --- | --- | --- | --- |
-| P0 | Agent configuration and identity | [Concept model — Agent](../product/concept-model.md#agent), [Memory](../product/concept-model.md#memory) | TBD | Not started |
-| P0 | Harness configuration and snapshots | [Concept model — Harness](../product/concept-model.md#harness) | TBD | Not started |
-| P0 | Campaign setup and participant management | [Concept model — Campaign](../product/concept-model.md#campaign) | TBD | Not started |
-| P0 | Session lifecycle and workflow | [Concept model — Session](../product/concept-model.md#session), [Workflow](../product/concept-model.md#workflow-model) | TBD | Not started |
-| P0 | Participant submissions and attachments | [MVP scope](../product/mvp-scope.md) | TBD | Not started |
-| P1 | Text conversation | [MVP scope — Platform capabilities](../product/mvp-scope.md#platform-capabilities-the-mvp-should-demonstrate) | TBD | Not started |
-| P1 | Voice interaction and interruption | [Concept model — Voice](../product/concept-model.md#voice-interaction-model-product-level) | TBD | Not started |
-| P1 | Tool execution and permissions | [MVP scope](../product/mvp-scope.md) | TBD | Not started |
-| P1 | Evidence collection | [Concept model — Evidence](../product/concept-model.md#evidence) | TBD | Not started |
-| P1 | Structured evaluation | [Concept model — Evaluation](../product/concept-model.md#evaluation) | TBD | Not started |
-| P2 | Human review and result release | [MVP scope](../product/mvp-scope.md) | TBD | Not started |
-| P2 | Memory governance | [Concept model — Memory](../product/concept-model.md#memory) | TBD | Not started |
-| P2 | Audit and reproducibility | [Concept model — Product invariants](../product/concept-model.md#product-invariants) | TBD | Not started |
+| P0 | Authorization and resource isolation | [Concept model — Organization](../product/concept-model.md#organization), [Product invariants](../product/concept-model.md#product-invariants) | TBD | Not started |
+| P0 | Resolved execution configuration and audit baseline | [Resolved execution manifest](../product/concept-model.md#resolved-execution-manifest), [Effective configuration resolution](../product/concept-model.md#effective-configuration-resolution) | TBD | Not started |
+| P0 | Minimal assessment activity setup | [Concept model — Activity](../product/concept-model.md#activity), [MVP validation slice](../product/mvp-scope.md#mvp-validation-slice) | TBD | Not started |
+| P0 | Participant enrollment, assignment, and submission | [Enrollment](../product/concept-model.md#enrollment--participation), [Submission](../product/concept-model.md#submission) | TBD | Not started |
+| P0 | Session lifecycle and text examination | [Session](../product/concept-model.md#session), [Workflow model](../product/concept-model.md#workflow-model) | TBD | Not started |
+| P0 | Evidence and structured evaluation | [Evidence](../product/concept-model.md#evidence), [Evaluation](../product/concept-model.md#evaluation-human-revision-result-and-release) | TBD | Not started |
+| P0 | Human review and result release | [Result and release](../product/concept-model.md#evaluation-human-revision-result-and-release) | TBD | Not started |
+| P0 | Assessment fairness and configuration freezing | [Assessment fairness](../product/concept-model.md#assessment-fairness-constraints) | TBD | Not started |
+| P1 | Minimal agent configuration | [Agent](../product/concept-model.md#agent) | TBD | Not started |
+| P1 | Minimal harness configuration | [Harness](../product/concept-model.md#harness) | TBD | Not started |
+| P2 | Voice interaction and interruption | [Voice interaction model](../product/concept-model.md#voice-interaction-model-product-level) | TBD | Not started |
+| P2 | Tool execution and permissions | [MVP scope — Next release](../product/mvp-scope.md#next-release-explicitly-deferred-from-mvp) | TBD | Not started |
+| P2 | Harness snapshots, comparison, and restoration | [Harness mutability](../product/concept-model.md#harness-mutability-and-snapshots) | TBD | Not started |
+| P2 | Memory governance (dynamic mode) | [Knowledge, memory, and learning artifacts](../product/concept-model.md#knowledge-memory-and-learning-artifacts) | TBD | Not started |
 
 ### Explicitly out of catalog scope (deferred)
 
@@ -94,7 +97,7 @@ See [MVP scope — Explicit non-goals](../product/mvp-scope.md#explicit-non-goal
 
 High-level capability lists inform future specs but are not approved requirements:
 
-- [MVP scope — Actor capability themes](../product/mvp-scope.md#actor-capability-themes-reference)
+- [MVP scope — Actor capability themes](../product/mvp-scope.md#actor-capability-themes)
 
 ## Feature specifications
 

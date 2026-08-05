@@ -2,9 +2,19 @@
 
 First product experience, platform direction, explicit non-goals, and deferred capabilities for Flex Agent.
 
-## Status
+## Document metadata
 
-**Draft.** Scope boundaries inform feature specification authoring; approved requirements live in feature specifications under [`requirements/features/`](../requirements/features/README.md).
+| Field | Value |
+| --- | --- |
+| **Status** | Accepted baseline v0.1 |
+| **Owner** | Product |
+| **Approvers** | TBD — formal sign-off pending |
+| **Version** | 0.1 |
+| **Effective date** | 2026-08-05 |
+| **Last reviewed** | 2026-08-05 |
+| **Related decisions** | [Concept model v0.1](concept-model.md) |
+
+**Accepted baseline** means requirements authors may depend on this scope for feature specification. Approved feature specifications govern observable behavior.
 
 ## First product experience
 
@@ -14,76 +24,122 @@ The first MVP focuses on **AI-assisted assessment and examination** built on a r
 
 > An AI assessment and examination platform built on a reusable, memory-controlled conversational-agent foundation.
 
-The assessment use case is the initial product experience, not a limitation of the platform model. The same agent, harness, session, workflow, memory, and evaluation concepts can support interviews, coaching, reviews, requirements discovery, onboarding, customer support, and other structured conversational activities.
+The assessment use case is the initial product experience, not a limitation of the platform model. The same agent, harness, activity, session, workflow, memory, and evaluation concepts can support interviews, coaching, reviews, requirements discovery, onboarding, customer support, and other structured conversational activities.
+
+## MVP validation slice
+
+The MVP is a **vertical product slice** that delivers a complete participant-to-result assessment experience. It is narrower than the full platform vision.
+
+### In scope for MVP
+
+| Capability | MVP scope |
+| --- | --- |
+| Participants | One participant per session; cohorts for administration with individual isolated sessions |
+| Memory | Stable memory only during active assessment |
+| Agent and harness | Minimal configuration sufficient to run an assessment; no advanced editors or libraries |
+| Activity setup | Assessment creation, task definition, and participant assignment |
+| Submissions | Upload and versioned preservation of participant work |
+| Examination | Text conversation |
+| Evaluation | Evidence-backed structured evaluation with criterion-level rationale and evidence references |
+| Human review | Inspection, adjustment, and audited result release |
+| Audit | Resolved execution manifest, configuration baseline, and event history |
+| Fairness | Configuration frozen at cohort activation; see [Assessment fairness](concept-model.md#assessment-fairness-constraints) |
+
+### Next release (explicitly deferred from MVP)
+
+- Interruptible voice interaction
+- Tool execution
+- Richer workflow and harness configuration
+- Harness snapshot comparison and restoration
+- Dynamic memory mode
+
+### Later release
+
+- Agent learning and memory candidates
+- Harness improvement proposals
+- Shared multi-participant real-time sessions
+- Advanced calibration and analytics
+- Direct, embedded, and API-triggered activities beyond minimal assessment campaigns
+
+**Trade-off note:** If interruptible voice is essential to product validation, retain voice in the MVP validation slice and defer dynamic memory and harness learning instead.
 
 ## MVP demonstration workflow (candidate)
 
-The following end-to-end flow illustrates how core concepts work together in the assessment MVP. It is a **candidate workflow**, not an approved requirement list.
+The following end-to-end flow illustrates the **MVP validation slice**. It is a **candidate workflow**, not an approved requirement list.
 
-1. Create an examiner agent with identity, knowledge, skills, tools, communication style, and evaluation behavior
-2. Select stable or dynamic agent memory mode
-3. Configure the harness: workflows, policies, rubrics, tools, validation rules, memory controls, and output requirements
-4. Save an initial harness snapshot
-5. Create an assessment campaign; select agent and harness; pin snapshot or use current approved harness
-6. Define tasks, instructions, submission requirements, rubrics, deadlines, time limits, attempts, and interaction rules
-7. Add or import participants
-8. Allow participants to submit work; validate and preserve submitted material
-9. Create an isolated session per participant
-10. Let the agent inspect permitted submission material
-11. Conduct structured text or interruptible voice examination with adaptive follow-up when permitted
-12. Use approved tools where necessary
-13. Collect evidence from submission, conversation, and tool results
-14. Produce structured evaluation; flag uncertainty and human-review cases
-15. Allow reviewers to inspect evidence, transcript, evaluation, and session configuration
-16. Approve and release results
-17. Use approved feedback to propose memory or harness improvements when permitted
-18. Save, compare, or restore harness snapshots as the system evolves
+1. Create a minimal examiner agent with identity, knowledge, and evaluation behavior defaults
+2. Configure a minimal harness: workflow, rubric, policies, and stable memory controls
+3. Create an assessment activity (campaign); select agent and harness; freeze configuration at cohort activation
+4. Define task, instructions, submission requirements, deadlines, time limits, and attempt rules
+5. Enroll participants in a cohort
+6. Allow participants to submit work; validate and preserve submitted material
+7. Create one isolated session per participant (one attempt per session in MVP)
+8. Let the agent inspect permitted submission material
+9. Conduct structured text examination with fairness-constrained adaptive follow-up when permitted
+10. Collect evidence from submission and conversation
+11. Produce structured evaluation; flag uncertainty and human-review cases
+12. Allow reviewers to inspect evidence, transcript, evaluation, and resolved session configuration
+13. Apply human revision when needed; approve and release results
+14. Inspect audit history and resolved execution manifest for completed sessions
 
 Each step must be decomposed into approved feature specifications with testable acceptance criteria before implementation commitments.
 
-## Platform capabilities the MVP should demonstrate
+## Platform capabilities by release tier
 
-These are **product-level capability themes** for the first release. They are not approved requirements until captured in specs.
+These are **product-level capability themes**, not approved requirements until captured in specs.
+
+### MVP validation slice
 
 | Theme | Product meaning |
 | --- | --- |
-| Reusable agents | Stable identity across activities without recreating agents per use case |
-| Governed harnesses | Controlled operating instructions with snapshots and restoration |
-| Structured campaigns | Multi-participant activities with shared rules and comparable outcomes |
-| Isolated sessions | Concurrent participants with strict data and experience isolation |
-| Text and voice | Chat-like and natural interruptible streaming conversation |
-| Submissions | Participant work and attachments preserved for evaluation |
-| Adaptive follow-up | Questions within configured fairness and rubric boundaries |
-| Tools | Permitted tool execution with audit records |
+| Minimal agents and harnesses | Sufficient configuration to run one assessment pattern |
+| Structured activities | Campaign-based assessment with cohort administration |
+| Isolated sessions | One participant per session with strict data isolation |
+| Text examination | Chat-like structured conversation |
+| Submissions | Participant work preserved for evaluation |
 | Evidence-backed evaluation | Structured outcomes linked to rubric, submission, and transcript |
-| Human review | Authorized inspection, adjustment, and release workflows |
-| Memory governance | Dynamic and stable modes with administrative control |
-| Audit and reproducibility | Explainable outcomes with configuration and event history |
+| Human review and release | Authorized inspection, adjustment, and audited result visibility |
+| Stable memory | No new long-term learning during active assessment |
+| Audit and explainability | Resolved execution manifest, configuration baseline, and inspectable history |
+| Assessment fairness | Frozen configuration at cohort activation |
 
-## Actor capability themes (reference)
+### Next release
+
+| Theme | Product meaning |
+| --- | --- |
+| Interruptible voice | Natural streaming conversation with playback-confirmed continuity |
+| Tools | Permitted tool execution with audit records |
+| Richer harness configuration | Snapshots, comparison, and restoration |
+| Workflow depth | More configurable stages and transitions |
+
+### Later release
+
+| Theme | Product meaning |
+| --- | --- |
+| Dynamic memory | Controlled learning with administrative approval |
+| Harness improvement | Proposals, review, and controlled rollout |
+| Shared sessions | Multi-participant real-time interaction |
+| Platform breadth | Direct, embedded, and API activities; advanced analytics |
+
+## Actor capability themes
 
 High-level capability themes inform future specs but are **not** approved requirements until captured with `REQ-*` and `AC-*` IDs.
 
-### Administrative capabilities
+### Administrative capabilities (MVP)
 
 Administrators can:
 
-- Create and manage agents; configure identity, behavior, roles, knowledge, skills, and tools
-- Configure safety, operational boundaries, and evaluation behavior
-- Select default memory modes; enable or disable memory; inspect and manage stored memories
-- Configure harnesses: workflows, procedures, policies, validation rules, rubrics, and output schemas
-- Configure voice interaction, interruption behavior, and interaction-controller policies
-- Save, compare, and restore harness snapshots; review harness change history
-- Approve or reject harness improvement proposals
-- Create campaigns; select current or pinned harness configurations
-- Define tasks, submission requirements, time limits, deadlines, attempts, and participant instructions
-- Add or import participants; configure participant groups
+- Create and manage agents with minimal identity, knowledge, and evaluation defaults
+- Configure harnesses with workflow, rubric, policies, and stable memory controls
+- Create assessment activities (campaigns); select agent and harness; activate cohorts with frozen configuration
+- Define tasks, submission requirements, time limits, deadlines, and attempt rules
+- Enroll participants and assign cohorts
 - Monitor active sessions; pause or terminate sessions when authorized
-- Inspect submissions, transcripts, interaction events, tool executions, evidence, and evaluations
+- Inspect submissions, transcripts, evidence, evaluations, and resolved session configuration
 - Manage human-review workflows; approve and release results
-- Review memory and harness proposals; inspect audit history; export permitted records
+- Inspect audit history; export permitted records
 
-### Participant capabilities
+### Participant capabilities (MVP)
 
 Participants can:
 
@@ -91,50 +147,52 @@ Participants can:
 - Review activity instructions; acknowledge rules and consent requirements
 - Submit required work; upload permitted attachments
 - Start a timed session; communicate through text
-- Participate in streaming voice conversation; hear streaming agent speech
-- Interrupt the agent naturally; receive clarification
-- Be redirected or interrupted according to configured policy
-- Respond to adaptive follow-up questions
+- Respond to fairness-constrained adaptive follow-up questions
 - View session status and remaining time; receive time warnings
-- Pause when permitted; complete or submit the session
+- Complete or submit the session
 - View completion confirmation; view results after release
-- View feedback when permitted; request review or appeal when supported
+- Request review or appeal when supported
 
-### Reviewer capabilities
+### Reviewer capabilities (MVP)
 
 Reviewers can:
 
 - Access assigned sessions
-- Inspect submissions, text and voice transcripts, interruption and playback events
-- Review collected evidence, criterion-level evaluations, confidence, and uncertainty
+- Inspect submissions, text transcripts, and collected evidence
+- Review criterion-level evaluations with rationale and evidence references, confidence, and uncertainty
 - Compare agent conclusions with evidence
 - Adjust or comment on evaluations when authorized
-- Approve or reject results; request additional review
-- Release results when authorized
-- Propose memory updates and harness improvements
-- Compare relevant harness states; review audit history
+- Approve or reject results; release results when authorized
+- Review resolved execution manifest and audit history
+
+Deferred participant and reviewer capabilities (voice, tools, harness comparison, memory proposals) belong to later release tiers.
 
 ## Candidate feature-spec catalog
 
-See the [MVP feature-spec catalog](../requirements/README.md#mvp-feature-spec-catalog) in the requirements hub for prioritized candidate areas and authoring order.
+See the [MVP feature-spec catalog](../requirements/README.md#mvp-feature-spec-catalog) in the requirements hub for prioritized candidate areas and authoring order. The catalog is reprioritized around the end-to-end assessment validation slice.
 
 ## Platform differentiation (product level)
 
 The platform differentiates through:
 
-- Reusable agent identities with stable and dynamic memory modes
-- Administratively controlled memory
-- Mutable but governed harnesses with snapshots and restoration
+- Reusable agent identities with governed memory modes
+- Administratively controlled memory and learning artifacts
+- Mutable but governed harnesses with versioned snapshots
 - Structured workflows beyond generic chat
-- Natural interruptible voice with authoritative session state
-- Participant isolation
-- Evidence-backed evaluations and human-review support
-- Reproducible outcomes and detailed audit history
+- Activity-scope isolation with cohort fairness controls
+- Evidence-backed evaluations with inspectable rationale
+- Human review with audited result release
+- Configuration reconstructability and detailed audit history
 
 ## Explicit non-goals (deferred)
 
-The MVP does **not** initially require:
+The MVP validation slice does **not** initially require:
 
+- Interruptible voice (unless promoted via trade-off decision above)
+- Tool execution
+- Dynamic memory or cross-participant learning
+- Harness snapshot comparison, restoration, or improvement proposals
+- Shared multi-participant real-time sessions
 - Unrestricted simultaneous full-duplex voice conversation
 - Video conversation
 - Automated human proctoring
@@ -144,7 +202,7 @@ The MVP does **not** initially require:
 - Public agent or tool marketplaces
 - Advanced cheating detection
 - Biometric identity verification
-- Unrestricted cross-campaign or cross-organization participant memory
+- Unrestricted cross-activity or cross-organization participant memory
 - Fully autonomous agent self-modification
 - Uncontrolled harness modification
 - Automatic application of high-risk learning proposals
@@ -153,6 +211,7 @@ The MVP does **not** initially require:
 - Large-scale workforce scheduling
 - Fully autonomous result release
 - General-purpose collaborative workspaces
+- Direct, embedded, and API-triggered activities (beyond campaign-based assessment)
 
 These capabilities may be introduced later without changing the core separation between agents, harnesses, activities, sessions, memory controls, authoritative state, evidence, and audit history.
 

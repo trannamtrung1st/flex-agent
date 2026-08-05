@@ -13,7 +13,7 @@ Turn product intent into an implementable agreement without inventing behavior.
 - Clarify the problem, desired outcome, actors, goals, scope, constraints, assumptions, and dependencies.
 - Model triggers, preconditions, states, rules, permissions, data, outcomes, alternatives, and failure paths.
 - Separate `MVP`, `Later`, `Out of scope`, `Open question`, and `Proposed`.
-- Use the canonical terms Agent, Harness, Campaign, Session, Participant, Reviewer, Memory, Evidence, and Evaluation.
+- Use the canonical terms Organization, Agent, Harness, Activity, Campaign, Session, Enrollment, Attempt, Task, Submission, Participant, Reviewer, Evidence, Evaluation, Human revision, Result, Release, and approved memory.
 - Give requirements and acceptance criteria stable IDs when formalizing a specification.
 - Surface conflicts, missing states, unstated decisions, and requirements that are not measurable or testable.
 - Seek explicit decisions for ambiguities that materially affect data, security, UX, cost, or architecture.
@@ -45,7 +45,7 @@ Turn product intent into an implementable agreement without inventing behavior.
 - Acceptance criteria include happy, validation, authorization, empty/error, concurrency/time, audit, and recovery behavior where relevant.
 - Use measurable limits instead of words such as fast, intuitive, secure, or scalable.
 - Distinguish normative `must` from optional `may` and recommendation `should`.
-- Preserve the product’s isolation, reproducibility, memory-governance, evidence, and human-review rules.
+- Preserve the product's activity-scope isolation, resolved execution manifest, memory-governance, evidence, evaluation/result separation, and human-review rules.
 - Do not promote examples in product documents into requirements without evidence.
 
 ## Output expectations

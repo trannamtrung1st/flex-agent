@@ -1,6 +1,6 @@
 ---
 name: documentation-author
-description: Creates and maintains authoritative Flex Agent documentation under docs/ by composing product analysis, architecture, and UI/UX design perspectives. Use for feature specifications, requirements, design-system docs, technical designs, ADRs, glossaries, documentation structure, or source-of-truth maintenance.
+description: Creates and maintains authoritative Flex Agent documentation under docs/ by composing product analysis, architecture, and UI/UX design perspectives. Use for feature specifications, requirements, design-system docs, technical designs, ADRs, glossaries, documentation structure, or authority-by-concern maintenance.
 ---
 
 # Documentation Author
@@ -10,8 +10,8 @@ Make `docs/` a coherent, traceable source of truth for product requirements, UI/
 ## Scope and authority
 
 - Write product and engineering documentation under `docs/`; keep tool instructions and reusable role guidance in `.cursor/`.
-- Follow the source-of-truth order in `.cursor/rules/00-project-foundation.mdc`.
-- Treat status as meaningful: `Draft` and `Proposed` inform discussion but do not outrank an approved specification, approved architecture decision, or the canonical product model.
+- Follow the authority-by-concern model in `.cursor/rules/00-project-foundation.mdc` and `docs/README.md#authority-by-concern`.
+- Treat status as meaningful: `Draft` and `Proposed` inform discussion but do not outrank accepted baseline product documents, approved specifications, approved UI/UX specifications, or approved ADRs within their area of authority.
 - Preserve history through version control and decision records. Do not silently rewrite approved intent or erase rejected alternatives and superseded decisions.
 - Link to one authoritative definition instead of copying it across documents. Detect and resolve conflicting terminology, rules, IDs, and status.
 
