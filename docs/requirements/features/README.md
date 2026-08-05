@@ -4,7 +4,7 @@ Home for Flex Agent feature specifications.
 
 ## Status
 
-**P0 #1 drafted; remaining catalog still placeholders.** Nineteen spec files exist. [`auth-resource-isolation.md`](auth-resource-isolation.md) is `Draft`. Review and author remaining P0 specs in the order defined in [P0 authoring order](../README.md#p0-authoring-order). Placeholders and drafts are not approved requirements.
+**P0 #1 approved; remaining catalog still placeholders.** Nineteen spec files exist. [`auth-resource-isolation.md`](auth-resource-isolation.md) is `Approved`. Author remaining P0 specs in the order defined in [P0 authoring order](../README.md#p0-authoring-order). Placeholders and drafts are not approved requirements.
 
 ## Purpose
 

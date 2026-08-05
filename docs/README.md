@@ -54,10 +54,10 @@ Illustrative examples in product documents are not MVP commitments unless captur
 | Area | Status | Notes |
 | --- | --- | --- |
 | Product | Approved v0.1 | [Product hub](product/README.md): overview, [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md) |
-| Requirements | P0 specification review in progress | [Feature catalog](requirements/README.md#feature-catalog-overview); P0 #1 `Draft`, 18 placeholders remain; no approved specs yet |
-| UI/UX | Scaffold | Entry criteria met by P0 #1 draft; journeys and design system not yet authored |
-| Architecture | Scaffold | Entry criteria met by P0 #1 draft; ADRs for auth enforcement not yet authored |
-| Feature specifications | Catalog complete; first draft in progress | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); [`auth-resource-isolation.md`](requirements/features/auth-resource-isolation.md) is `Draft` — see [features/](requirements/features/README.md) |
+| Requirements | P0 specification review in progress | [Feature catalog](requirements/README.md#feature-catalog-overview); P0 #1 `Approved`; 6 P0 placeholders remain |
+| UI/UX | Scaffold | Entry criteria met by approved P0 #1; journeys and design system not yet authored |
+| Architecture | Scaffold | Entry criteria met by approved P0 #1; ADRs for auth enforcement not yet authored |
+| Feature specifications | Catalog complete; P0 #1 approved | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); [`auth-resource-isolation.md`](requirements/features/auth-resource-isolation.md) is `Approved` — see [features/](requirements/features/README.md) |
 | Contributing | Active | Cursor rules, role skills, TDD policy, and Playwright MCP guidance |
 | Templates | Active | Reusable authoring templates (not authoritative content) |
 

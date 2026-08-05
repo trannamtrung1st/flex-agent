@@ -6,7 +6,7 @@ Product meaning and scope boundaries live under [product documentation](../produ
 
 ## Status
 
-**No approved documents yet.** Entry criteria for foundational UI/UX work are met by the P0 #1 draft ([`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md)), which defines actors, denial/access-expired states, and accessibility expectations. Author journeys and interaction specs once related P0 drafts stabilize those surfaces.
+**No approved documents yet.** Entry criteria for foundational UI/UX work are met by approved P0 #1 ([`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md)), which defines actors, denial/access-expired states, and accessibility expectations. Author journeys and interaction specs once related P0 specs stabilize those surfaces.
 
 ## Purpose
 

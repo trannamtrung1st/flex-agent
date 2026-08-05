@@ -2,12 +2,13 @@
 
 ## Status and source
 
-- Status: Draft — content complete for review; proposed defaults require approval
+- Status: Approved
 - Owner: Product Lead
-- Required review: Product Lead, Architecture Lead, Security/Privacy reviewer
+- Approvers: Product Lead, Architecture Lead, Security/Privacy reviewer
+- Approved date: 2026-08-05
 - Source: [Organization](../../product/concept-model.md#organization), [Session](../../product/concept-model.md#session), [Effective configuration resolution](../../product/concept-model.md#effective-configuration-resolution), [Product invariants](../../product/concept-model.md#product-invariants), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice)
 - Catalog entry: P0 #1 — [P0 authoring order](../README.md#p0-authoring-order)
-- Related decisions: None recorded. Authentication mechanism, policy-enforcement architecture, service delegation, authorization caching, and audit storage require architecture decisions during implementation design.
+- Related decisions: Approved defaults `PROP-1`–`PROP-9` in this specification. Authentication mechanism, policy-enforcement architecture, service delegation, authorization caching, and audit storage require architecture decisions during implementation design.
 
 ## Problem and measurable outcome
 
@@ -104,7 +105,7 @@ A cohort is an administrative grouping. Cohort membership does not permit partic
 - Tool-specific permissions, which are defined by [`tool-execution-permissions.md`](tool-execution-permissions.md) in P2.
 - Business rules for a particular review decision or result release, which are defined by [`review-result-release.md`](review-result-release.md) for the assessment MVP.
 - Data-retention periods, consent wording, legal holds, and deletion policy, except that authorization must enforce whichever approved policies apply.
-- Emergency access, support impersonation, or break-glass operation unless explicitly approved after this draft.
+- Emergency access, support impersonation, or break-glass operation (excluded from MVP per approved default `PROP-6`; add only through a later approved requirement and ADR).
 - A specific authorization library, role model, policy language, database row-security mechanism, cache design, or network topology.
 
 ## User journeys and state transitions
@@ -339,6 +340,7 @@ Audit records reference protected content rather than copying messages, attachme
 ### Performance and reliability
 
 - Authorization must be evaluated within the end-to-end response and interaction budgets of the owning feature.
+- Authorization processing inside the service boundary should meet the approved objective of no more than 50 ms at the 95th percentile (`PROP-8`), excluding authentication-provider redirects and end-user network latency.
 - Authorization queries and filters must be bounded and must not scan unrelated organizations or unbounded participant populations.
 - Batch operations must authorize the complete selected resource set before mutation; a partial authorization failure must not silently process unauthorized items.
 - Pagination, totals, and aggregate results must be calculated from the authorized resource set.
@@ -422,8 +424,9 @@ Audit records reference protected content rather than copying messages, attachme
 
 - **Given** an actor has an active membership, grant, assignment, or enrollment
 - **When** an authorized administrator revokes or expires it
-- **Then** new protected operations stop authorizing the revoked scope within the approved propagation target
-- **And** stale caches, real-time connections, retries, and delayed jobs do not continue access beyond that target
+- **Then** new HTTP protected operations stop authorizing the revoked scope immediately after the authoritative change
+- **And** stale caches, real-time connections, retries, and delayed jobs do not continue access beyond the approved propagation target of 60 seconds (`PROP-4`)
+- **And** delayed jobs and service operations validate current scope before protected work begins
 - **And** the revocation is audited.
 
 ### `AC-AUTH-12` — Authorization dependencies fail closed
@@ -554,7 +557,7 @@ Audit records reference protected content rather than copying messages, attachme
 - A pre-release shadow or diagnostic mode may compare intended and actual policy decisions, but it must not permit an operation that the enforcing decision denies.
 - Rollout proceeds resource family by resource family only when its positive and negative authorization matrix is automated and passing.
 - Assessment-specific resources are added to the platform matrix rather than receiving a separate weaker authorization path.
-- No bypass, support-impersonation, or emergency-access path is enabled in the MVP unless explicitly approved and audited.
+- No bypass, support-impersonation, or emergency-access path is enabled in the MVP (`PROP-6`).
 
 ### Observability
 
@@ -584,9 +587,9 @@ The following questions remain open because they depend on privacy, retention, r
 
 These questions must be resolved before production retention and deletion behavior is approved. Until then, treat the interim defaults above as working guidance only—not approved requirements—and enforce any active approved policy rather than hard-coding a retention duration in authorization logic.
 
-## Proposed defaults requiring approval
+## Approved defaults
 
-Approving these defaults resolves the earlier role, administrative-access, reviewer-scope, revocation, audit-volume, invitation-entry, emergency-access, non-disclosure, and initial performance questions.
+These defaults are approved with this specification and govern MVP authorization behavior. Stable `PROP-*` IDs are retained for traceability.
 
 - `PROP-1` — Keep the platform authorization model based on explicit capabilities, actions, relationships, and resource scope. For the assessment MVP UI, use four human role labels: `Organization administrator`, `Activity administrator`, `Reviewer`, and `Participant`. Role labels are permission bundles and must never be the sole authorization input.
 - `PROP-2` — Give organization administrators authority to manage organization activities and assignments, but require an explicit activity-scoped sensitive-content capability to inspect raw subject/session content. For the assessment MVP, this includes submissions, transcripts, evidence, evaluations, and reviewer notes.
