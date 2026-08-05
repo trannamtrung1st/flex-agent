@@ -167,7 +167,7 @@ Reviewers can:
 
 Deferred participant and reviewer capabilities (voice, tools, harness comparison, memory proposals) belong to later release tiers.
 
-## Candidate feature-spec catalog
+## Next step: P0 specifications
 
 Author the [P0 feature specifications](../requirements/README.md#p0-authoring-order) in order. Do not expand product documentation further until those specs exist.
 
@@ -213,7 +213,7 @@ The MVP validation slice does **not** initially require:
 - General-purpose collaborative workspaces
 - Direct, embedded, and API-triggered activities (beyond campaign-based assessment)
 
-These capabilities may be introduced later without changing the core separation between agents, harnesses, activities, sessions, memory controls, authoritative state, evidence, and audit history.
+These capabilities may be introduced later without changing the core separation between agents, harnesses, activities, sessions, memory controls, resolved session state, evidence, and audit history.
 
 ## Future platform direction (not MVP commitment)
 

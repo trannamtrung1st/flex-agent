@@ -9,7 +9,7 @@ Authoritative product and engineering documentation for the Flex Agent platform.
 | Understand product vision and positioning | [Product overview](product/overview.md) |
 | Define or review domain concepts, relationships, and invariants | [Concept model](product/concept-model.md) |
 | Understand MVP boundaries and non-goals | [MVP scope](product/mvp-scope.md) |
-| Find or author approved requirements and acceptance criteria | [Requirements](requirements/README.md) |
+| Find or author P0 feature specifications | [P0 authoring order](requirements/README.md#p0-authoring-order) |
 | Design journeys, interaction states, or design-system guidance | [UI/UX](ui-ux/README.md) |
 | Review system boundaries, data flows, or technical decisions | [Architecture](architecture/README.md) |
 | Write a new feature specification | [Feature spec template](templates/feature-spec.md) and [Feature specs](requirements/features/README.md) |
