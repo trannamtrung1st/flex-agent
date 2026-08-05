@@ -2,17 +2,17 @@
 
 Requirements hub for Flex Agent. This area governs what the product must do, who may do it, and how success is verified.
 
-Product meaning — concepts, relationships, and scope boundaries — lives under [product documentation](../product/README.md). Requirements implement observable behavior derived from that model; they do not redefine canonical concepts.
+Product meaning — concepts, relationships, and scope boundaries — lives under [approved product documentation](../product/README.md). Requirements implement observable behavior derived from that model; they do not redefine canonical concepts.
 
 ## Status
 
-**Scaffold only.** No feature specifications are approved yet. The catalog below identifies candidate areas derived from [MVP scope](../product/mvp-scope.md) and the [concept model](../product/concept-model.md); catalog entries are not requirements until captured in an approved spec.
+**Ready for P0 authoring.** Product baseline v0.1 is approved. No feature specifications are approved yet. Author the P0 specs below before implementation.
 
 ## Requirements lifecycle
 
 ```mermaid
 flowchart LR
-  productModel[Product model] --> catalog[Feature catalog]
+  productModel[Approved product model] --> catalog[P0 catalog]
   catalog --> draft[Draft spec]
   draft --> review[In review]
   review --> approved[Approved spec]
@@ -58,40 +58,38 @@ An approved feature specification must include:
 
 Specs without testable acceptance criteria are not ready for approval.
 
-## MVP feature-spec catalog
+## P0 authoring order
 
-Candidate specifications for the first MVP validation slice (AI-assisted assessment and examination). Priority reflects suggested **authoring order** for an end-to-end participant-to-result experience, not implementation sequence.
+Author these seven specifications **in this order**. Each spec file should be created under [`features/`](features/README.md) using the [feature spec template](../templates/feature-spec.md).
 
-Agent and harness configuration appear only at the minimum level required to support the slice. Advanced editors, reusable libraries, comparison, and restoration are deferred.
-
-| Priority | Candidate spec | Source | Owner | Spec status |
+| Order | P0 specification | Spec file | Product source | Status |
 | --- | --- | --- | --- | --- |
-| P0 | Authorization and resource isolation | [Concept model — Organization](../product/concept-model.md#organization), [Product invariants](../product/concept-model.md#product-invariants) | TBD | Not started |
-| P0 | Resolved execution configuration and audit baseline | [Resolved execution manifest](../product/concept-model.md#resolved-execution-manifest), [Effective configuration resolution](../product/concept-model.md#effective-configuration-resolution) | TBD | Not started |
-| P0 | Minimal assessment activity setup | [Concept model — Activity](../product/concept-model.md#activity), [MVP validation slice](../product/mvp-scope.md#mvp-validation-slice) | TBD | Not started |
-| P0 | Participant enrollment, assignment, and submission | [Enrollment](../product/concept-model.md#enrollment--participation), [Submission](../product/concept-model.md#submission) | TBD | Not started |
-| P0 | Session lifecycle and text examination | [Session](../product/concept-model.md#session), [Workflow model](../product/concept-model.md#workflow-model) | TBD | Not started |
-| P0 | Evidence and structured evaluation | [Evidence](../product/concept-model.md#evidence), [Evaluation](../product/concept-model.md#evaluation-human-revision-result-and-release) | TBD | Not started |
-| P0 | Human review and result release | [Result and release](../product/concept-model.md#evaluation-human-revision-result-and-release) | TBD | Not started |
-| P0 | Assessment fairness and configuration freezing | [Assessment fairness](../product/concept-model.md#assessment-fairness-constraints) | TBD | Not started |
-| P1 | Minimal agent configuration | [Agent](../product/concept-model.md#agent) | TBD | Not started |
-| P1 | Minimal harness configuration | [Harness](../product/concept-model.md#harness) | TBD | Not started |
-| P2 | Voice interaction and interruption | [Voice interaction model](../product/concept-model.md#voice-interaction-model-product-level) | TBD | Not started |
-| P2 | Tool execution and permissions | [MVP scope — Next release](../product/mvp-scope.md#next-release-explicitly-deferred-from-mvp) | TBD | Not started |
-| P2 | Harness snapshots, comparison, and restoration | [Harness mutability](../product/concept-model.md#harness-mutability-and-snapshots) | TBD | Not started |
-| P2 | Memory governance (dynamic mode) | [Knowledge, memory, and learning artifacts](../product/concept-model.md#knowledge-memory-and-learning-artifacts) | TBD | Not started |
+| 1 | Authorization and isolation | [`auth-resource-isolation.md`](features/auth-resource-isolation.md) | [Organization](../product/concept-model.md#organization), [Product invariants](../product/concept-model.md#product-invariants) | Not started |
+| 2 | Resolved session configuration | [`resolved-session-configuration.md`](features/resolved-session-configuration.md) | [Configuration precedence](../product/concept-model.md#configuration-precedence-stack), [Resolved execution manifest](../product/concept-model.md#resolved-execution-manifest) | Not started |
+| 3 | Assessment setup | [`assessment-setup.md`](features/assessment-setup.md) | [Activity](../product/concept-model.md#activity), [Assessment fairness](../product/concept-model.md#assessment-fairness-constraints), [MVP slice](../product/mvp-scope.md#mvp-validation-slice) | Not started |
+| 4 | Submission and attempts | [`submission-attempts.md`](features/submission-attempts.md) | [Enrollment](../product/concept-model.md#enrollment--participation), [Submission](../product/concept-model.md#submission), [Attempt](../product/concept-model.md#attempt) | Not started |
+| 5 | Text session lifecycle | [`session-text-lifecycle.md`](features/session-text-lifecycle.md) | [Session](../product/concept-model.md#session), [Workflow model](../product/concept-model.md#workflow-model) | Not started |
+| 6 | Evidence and evaluation | [`evidence-evaluation.md`](features/evidence-evaluation.md) | [Evidence](../product/concept-model.md#evidence), [Evaluation chain](../product/concept-model.md#evaluation-human-revision-result-and-release) | Not started |
+| 7 | Human review and result release | [`review-result-release.md`](features/review-result-release.md) | [Result and release](../product/concept-model.md#evaluation-human-revision-result-and-release) | Not started |
 
-### Explicitly out of catalog scope (deferred)
+### Authoring instructions
 
-The following capabilities are **not** cataloged as MVP specs unless explicitly promoted:
+1. Copy the [feature spec template](../templates/feature-spec.md) into the spec file path for the current order item.
+2. Link the catalog entry and governing product sections in **Status and source**.
+3. Map behavior to the [MVP executable workflow](../product/mvp-scope.md#mvp-executable-workflow).
+4. Mark status `Draft` until review completes; `Approved` only with testable `AC-*` IDs.
+5. Do not start P2 capabilities (voice, tools, dynamic memory, harness self-improvement) until all P0 specs are approved.
 
-- Unrestricted full-duplex voice, video, multi-agent collaboration
-- Public agent/tool marketplaces, visual workflow builders
-- Automated proctoring, biometric verification, advanced cheating detection
-- Complex billing, large-scale workforce scheduling
-- Fully autonomous result release or harness self-modification
+### Deferred from P0 (P1/P2)
 
-See [MVP scope — Explicit non-goals](../product/mvp-scope.md#explicit-non-goals-deferred).
+| Priority | Candidate spec | When |
+| --- | --- | --- |
+| P1 | Minimal agent configuration | After P0 slice is specified |
+| P1 | Minimal harness configuration | After P0 slice is specified |
+| P2 | Voice interaction and interruption | After MVP slice works |
+| P2 | Tool execution and permissions | After MVP slice works |
+| P2 | Harness snapshots, comparison, and restoration | After MVP slice works |
+| P2 | Memory governance (dynamic mode) | After MVP slice works |
 
 ## Actor capabilities (reference)
 

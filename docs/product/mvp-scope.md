@@ -6,15 +6,15 @@ First product experience, platform direction, explicit non-goals, and deferred c
 
 | Field | Value |
 | --- | --- |
-| **Status** | Accepted baseline v0.1 |
+| **Status** | Approved v0.1 |
 | **Owner** | Product |
-| **Approvers** | TBD — formal sign-off pending |
+| **Approvers** | Product |
 | **Version** | 0.1 |
 | **Effective date** | 2026-08-05 |
 | **Last reviewed** | 2026-08-05 |
 | **Related decisions** | [Concept model v0.1](concept-model.md) |
 
-**Accepted baseline** means requirements authors may depend on this scope for feature specification. Approved feature specifications govern observable behavior.
+**Approved v0.1** is the authoritative scope boundary for the first product release. Approved feature specifications govern observable behavior.
 
 ## First product experience
 
@@ -28,7 +28,9 @@ The assessment use case is the initial product experience, not a limitation of t
 
 ## MVP validation slice
 
-The MVP is a **vertical product slice** that delivers a complete participant-to-result assessment experience. It is narrower than the full platform vision.
+The MVP is one **executable vertical slice** — a complete participant-to-result assessment flow. It is narrower than the full platform vision.
+
+> **Configure assessment → assign participant → upload submission → text examination → evidence-backed evaluation → human review → release result**
 
 ### In scope for MVP
 
@@ -59,30 +61,28 @@ The MVP is a **vertical product slice** that delivers a complete participant-to-
 - Harness improvement proposals
 - Shared multi-participant real-time sessions
 - Advanced calibration and analytics
-- Direct, embedded, and API-triggered activities beyond minimal assessment campaigns
+- Direct, embedded, and API-triggered activities (campaign remains the MVP activity form)
 
-**Trade-off note:** If interruptible voice is essential to product validation, retain voice in the MVP validation slice and defer dynamic memory and harness learning instead.
+## MVP executable workflow
 
-## MVP demonstration workflow (candidate)
+The slice above decomposes into seven bounded outcomes. Each becomes a P0 feature specification before implementation.
 
-The following end-to-end flow illustrates the **MVP validation slice**. It is a **candidate workflow**, not an approved requirement list.
+| Step | Outcome | P0 spec |
+| --- | --- | --- |
+| 1 | Configure assessment activity with frozen cohort configuration | [Assessment setup](../requirements/README.md#p0-authoring-order) |
+| 2 | Assign participant and permit controlled attempts | [Submission and attempts](../requirements/README.md#p0-authoring-order) |
+| 3 | Upload and preserve submission material | [Submission and attempts](../requirements/README.md#p0-authoring-order) |
+| 4 | Conduct text examination in an isolated session | [Text session lifecycle](../requirements/README.md#p0-authoring-order) |
+| 5 | Produce evidence-backed structured evaluation | [Evidence and evaluation](../requirements/README.md#p0-authoring-order) |
+| 6 | Review, adjust, and approve outcomes | [Human review and result release](../requirements/README.md#p0-authoring-order) |
+| 7 | Release result to participant with audit record | [Human review and result release](../requirements/README.md#p0-authoring-order) |
 
-1. Create a minimal examiner agent with identity, knowledge, and evaluation behavior defaults
-2. Configure a minimal harness: workflow, rubric, policies, and stable memory controls
-3. Create an assessment activity (campaign); select agent and harness; freeze configuration at cohort activation
-4. Define task, instructions, submission requirements, deadlines, time limits, and attempt rules
-5. Enroll participants in a cohort
-6. Allow participants to submit work; validate and preserve submitted material
-7. Create one isolated session per participant (one attempt per session in MVP)
-8. Let the agent inspect permitted submission material
-9. Conduct structured text examination with fairness-constrained adaptive follow-up when permitted
-10. Collect evidence from submission and conversation
-11. Produce structured evaluation; flag uncertainty and human-review cases
-12. Allow reviewers to inspect evidence, transcript, evaluation, and resolved session configuration
-13. Apply human revision when needed; approve and release results
-14. Inspect audit history and resolved execution manifest for completed sessions
+Cross-cutting specs required before or alongside the workflow:
 
-Each step must be decomposed into approved feature specifications with testable acceptance criteria before implementation commitments.
+- [Authorization and isolation](../requirements/README.md#p0-authoring-order)
+- [Resolved session configuration](../requirements/README.md#p0-authoring-order)
+
+Deferred from this slice until it works end to end: dynamic memory, harness self-improvement, shared group sessions, voice, tools, and advanced harness editing.
 
 ## Platform capabilities by release tier
 
@@ -169,7 +169,7 @@ Deferred participant and reviewer capabilities (voice, tools, harness comparison
 
 ## Candidate feature-spec catalog
 
-See the [MVP feature-spec catalog](../requirements/README.md#mvp-feature-spec-catalog) in the requirements hub for prioritized candidate areas and authoring order. The catalog is reprioritized around the end-to-end assessment validation slice.
+Author the [P0 feature specifications](../requirements/README.md#p0-authoring-order) in order. Do not expand product documentation further until those specs exist.
 
 ## Platform differentiation (product level)
 
@@ -188,7 +188,7 @@ The platform differentiates through:
 
 The MVP validation slice does **not** initially require:
 
-- Interruptible voice (unless promoted via trade-off decision above)
+- Interruptible voice
 - Tool execution
 - Dynamic memory or cross-participant learning
 - Harness snapshot comparison, restoration, or improvement proposals

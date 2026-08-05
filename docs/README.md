@@ -21,7 +21,7 @@ Documents govern different concerns. A document overrides another **only within 
 
 | Concern | Authoritative source | Governs |
 | --- | --- | --- |
-| Product meaning and scope | Accepted baseline or approved [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md), or product decision record | Domain vocabulary, relationships, scope boundaries, product invariants |
+| Product meaning and scope | Approved [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md), or product decision record | Domain vocabulary, relationships, scope boundaries, product invariants |
 | Observable system behavior | Approved feature specification with stable `REQ-*` and `AC-*` IDs | What the system must do, who may do it, and how success is verified |
 | User interaction | Approved UI/UX specification | Journeys, interaction states, content, accessibility, and visual design |
 | Technical realization | Approved architecture decision (ADR) | Implementation approach, data ownership, deployment, and technical trade-offs |
@@ -42,7 +42,6 @@ Illustrative examples in product documents are not MVP commitments unless captur
 | --- | --- |
 | `Draft` | Work in progress; not authoritative for implementation or downstream authoring |
 | `In review` | Under review; not yet approved |
-| `Accepted baseline` | Reviewed product baseline safe for requirements authoring; may be superseded by a later version |
 | `Approved` | Authoritative for the governed concern |
 | `Implemented` | Approved and reflected in the product |
 | `Proposed` | Suggested default or option requiring explicit approval |
@@ -52,7 +51,7 @@ Illustrative examples in product documents are not MVP commitments unless captur
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Product | Accepted baseline v0.1 | [Product hub](product/README.md): overview, [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md) |
+| Product | Approved v0.1 | [Product hub](product/README.md): overview, [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md) |
 | Requirements | Scaffold | Catalog and conventions only; no approved feature specs yet |
 | UI/UX | Scaffold | Placeholder; journeys, interaction specs, and design system deferred |
 | Architecture | Scaffold | Placeholder; technical design and ADRs deferred |

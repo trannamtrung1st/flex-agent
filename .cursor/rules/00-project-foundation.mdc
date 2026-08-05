@@ -11,7 +11,7 @@ Read `docs/product/concept-model.md`, `docs/product/mvp-scope.md`, and `docs/pro
 
 Documents govern by concern. A document overrides another only within its area of authority. See `docs/README.md#authority-by-concern`.
 
-- **Product meaning and scope:** accepted baseline product documents (`docs/product/concept-model.md`, `docs/product/mvp-scope.md`) or approved product decision
+- **Product meaning and scope:** approved product documents (`docs/product/concept-model.md`, `docs/product/mvp-scope.md`) or approved product decision
 - **Observable system behavior:** approved feature specification
 - **User interaction:** approved UI/UX specification
 - **Technical realization:** approved ADR

@@ -11,7 +11,7 @@ Make `docs/` a coherent, traceable source of truth for product requirements, UI/
 
 - Write product and engineering documentation under `docs/`; keep tool instructions and reusable role guidance in `.cursor/`.
 - Follow the authority-by-concern model in `.cursor/rules/00-project-foundation.mdc` and `docs/README.md#authority-by-concern`.
-- Treat status as meaningful: `Draft` and `Proposed` inform discussion but do not outrank accepted baseline product documents, approved specifications, approved UI/UX specifications, or approved ADRs within their area of authority.
+- Treat status as meaningful: `Draft` and `Proposed` inform discussion but do not outrank approved product documents, approved specifications, approved UI/UX specifications, or approved ADRs within their area of authority.
 - Preserve history through version control and decision records. Do not silently rewrite approved intent or erase rejected alternatives and superseded decisions.
 - Link to one authoritative definition instead of copying it across documents. Detect and resolve conflicting terminology, rules, IDs, and status.
 

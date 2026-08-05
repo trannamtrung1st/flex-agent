@@ -61,7 +61,7 @@ Typical coverage includes loading, empty, populated, validation, error/retry, pe
 
 ## Specification policy
 
-Accepted baseline product documents and approved feature specifications outrank illustrative product examples. Author specs from [`docs/templates/feature-spec.md`](../templates/feature-spec.md). A spec should include stable requirement and acceptance-criterion IDs, actors and permissions, in/out of scope, journeys and state transitions, business rules, data/audit needs, non-functional requirements, failure behavior, dependencies, open questions, and traceability.
+Approved product documents and approved feature specifications outrank illustrative product examples. Author specs from [`docs/templates/feature-spec.md`](../templates/feature-spec.md). A spec should include stable requirement and acceptance-criterion IDs, actors and permissions, in/out of scope, journeys and state transitions, business rules, data/audit needs, non-functional requirements, failure behavior, dependencies, open questions, and traceability.
 
 Anything absent or ambiguous in the approved spec must be handled as one of:
 

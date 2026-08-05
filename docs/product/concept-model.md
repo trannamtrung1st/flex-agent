@@ -6,15 +6,15 @@ Canonical product concepts, relationships, lifecycles, and invariants for Flex A
 
 | Field | Value |
 | --- | --- |
-| **Status** | Accepted baseline v0.1 |
+| **Status** | Approved v0.1 |
 | **Owner** | Product |
-| **Approvers** | TBD — formal sign-off pending |
+| **Approvers** | Product |
 | **Version** | 0.1 |
 | **Effective date** | 2026-08-05 |
 | **Last reviewed** | 2026-08-05 |
 | **Related decisions** | None recorded yet |
 
-**Accepted baseline** means requirements authors may depend on this model for feature specification. Normative system behavior is still governed by approved feature specifications. Changes that alter domain meaning require a new version or superseding product decision.
+**Approved v0.1** is the authoritative product model for domain meaning and scope. Normative system behavior is governed by approved feature specifications. Changes that alter domain meaning require a new version or superseding product decision.
 
 ## Purpose
 
@@ -239,6 +239,32 @@ The product requires **inspectable justification**, not storage or exposure of h
 ## Effective configuration resolution
 
 Agent, harness, activity, and session layers overlap in several areas (tools, knowledge, evaluation behavior, evidence requirements, output formats, human-review rules, memory behavior). Without explicit resolution rules, different authors will assign the same responsibility to different concepts.
+
+### Configuration precedence stack
+
+Settings combine in this order. Upper layers set boundaries; lower layers may narrow or supply permitted parameters within those boundaries. **Session** records the frozen result; it does not define new policy.
+
+```text
+Organization policy
+       ↓ constrains
+     Agent
+       ↓ constrains
+    Harness
+       ↓ constrains
+    Activity  (campaign is one managed multi-participant form)
+       ↓ resolves and freezes at session start
+    Session
+```
+
+| Step | Layer | Role in resolution |
+| --- | --- | --- |
+| 1 | **Organization** | Non-bypassable tenant limits on isolation, memory, tools, retention, and authorization |
+| 2 | **Agent** | Reusable identity, capability declarations, knowledge defaults, communication behavior, evaluation defaults |
+| 3 | **Harness** | Workflow and policy constraints, allowed capability subset, evaluation procedure, harness revision or snapshot reference |
+| 4 | **Activity** | Activity-specific parameters within the harness permitted schema: tasks, enrollments, cohorts, deadlines, attempt limits, fairness freezing at activation |
+| 5 | **Session** | Resolved session configuration and resolved execution manifest frozen at session start |
+
+Direct, embedded, and API activities use the same precedence stack. Campaign is optional as a deployment form; when used, it is an **activity** configured for managed multi-participant administration.
 
 ### Responsibility by layer
 

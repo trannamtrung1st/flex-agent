@@ -1,44 +1,35 @@
 # Feature specifications
 
-Future home for approved Flex Agent feature specifications.
+Home for Flex Agent feature specifications.
 
 ## Status
 
-**No feature specifications yet.** Draft and approved specs will live in this folder.
+**P0 authoring in progress.** Create specs in the order defined in [P0 authoring order](../README.md#p0-authoring-order).
 
 ## Purpose
 
 Each feature spec governs one bounded, observable product outcome. Specs use the [feature spec template](../../templates/feature-spec.md) and receive stable `REQ-*` and `AC-*` IDs for traceability.
 
-## Naming convention
+## P0 spec files
 
-When specs are authored, use:
+Create these files in authoring order:
 
-```
-docs/requirements/features/<area>-<short-name>.md
-```
-
-Examples aligned with the [MVP feature-spec catalog](../README.md#mvp-feature-spec-catalog):
-
-- `auth-resource-isolation.md`
-- `resolved-execution-configuration.md`
-- `activity-assessment-setup.md`
-- `enrollment-submission.md`
-- `session-text-examination.md`
-- `evidence-evaluation.md`
-- `review-result-release.md`
-- `assessment-fairness.md`
+| Order | File | Governs |
+| --- | --- | --- |
+| 1 | `auth-resource-isolation.md` | Authorization and activity-scope isolation |
+| 2 | `resolved-session-configuration.md` | Resolved session configuration and execution manifest |
+| 3 | `assessment-setup.md` | Assessment activity setup, cohort activation, configuration freezing |
+| 4 | `submission-attempts.md` | Enrollment, submission upload, and attempt limits |
+| 5 | `session-text-lifecycle.md` | Text session lifecycle and examination |
+| 6 | `evidence-evaluation.md` | Evidence collection and structured evaluation |
+| 7 | `review-result-release.md` | Human review, revision, and result release |
 
 ## Authoring checklist
 
-Before opening a draft spec:
+Before opening each draft spec:
 
 1. Confirm the behavior is not already covered by an approved spec.
-2. Identify the catalog entry in the [requirements hub](../README.md#mvp-feature-spec-catalog).
-3. Copy [feature spec template](../../templates/feature-spec.md) into a new file.
-4. Link back to relevant [concept model](../../product/concept-model.md) and [MVP scope](../../product/mvp-scope.md) sections as source material; use [product overview](../../product/overview.md) for vision context only.
+2. Take the next item from [P0 authoring order](../README.md#p0-authoring-order).
+3. Copy [feature spec template](../../templates/feature-spec.md) into the target file path above.
+4. Link governing [concept model](../../product/concept-model.md) and [MVP scope](../../product/mvp-scope.md) sections; use [product overview](../../product/overview.md) for vision context only.
 5. Distinguish `MVP`, `Later`, `Out of scope`, `Open question`, and `Proposed`.
-
-## Catalog
-
-See the [MVP feature-spec catalog](../README.md#mvp-feature-spec-catalog) for prioritized candidate areas.

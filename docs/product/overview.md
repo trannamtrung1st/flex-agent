@@ -4,14 +4,18 @@
 
 | Field | Value |
 | --- | --- |
-| **Status** | Accepted baseline v0.1 |
+| **Status** | Approved v0.1 |
 | **Owner** | Product |
-| **Approvers** | TBD — formal sign-off pending |
+| **Approvers** | Product |
 | **Version** | 0.1 |
 | **Effective date** | 2026-08-05 |
 | **Last reviewed** | 2026-08-05 |
 
 Vision, positioning, and principles. Canonical concepts, scope boundaries, and requirements live in linked product and requirements documents.
+
+## What to do next
+
+Product baseline v0.1 is approved. The next step is authoring P0 feature specifications for the [MVP executable workflow](mvp-scope.md#mvp-executable-workflow). Start at [P0 authoring order](../requirements/README.md#p0-authoring-order).
 
 ## Product vision
 
