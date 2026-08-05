@@ -7,11 +7,12 @@ Canonical product concepts, relationships, lifecycles, and invariants for Flex A
 | Field | Value |
 | --- | --- |
 | **Status** | Approved v0.1 |
-| **Owner** | Product |
-| **Approvers** | Product |
+| **Owner** | Product Lead |
+| **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.1 |
 | **Effective date** | 2026-08-05 |
 | **Last reviewed** | 2026-08-05 |
+| **Approval reference** | Baseline v0.1 approved on `main` (commits `fff26df`, `d8291ef`, 2026-08-05) |
 | **Related decisions** | None recorded yet |
 
 **Approved v0.1** is the authoritative product model for domain meaning and scope. Normative system behavior is governed by approved feature specifications. Changes that alter domain meaning require a new version or superseding product decision.
@@ -42,12 +43,14 @@ Flex Agent separates **who the AI is**, **how it operates**, **what activity is 
 | **Knowledge source** | Curated reference content used by an agent or harness |
 | **Memory candidate** | Proposed reusable learned information awaiting approval |
 | **Approved memory** | Retained information available under a defined scope and policy |
+| **Memory snapshot** | Immutable approved-memory state frozen at activity or cohort activation for fair assessment |
 | **Harness change proposal** | Suggested controlled-process change to a harness |
 | **Calibration example / dataset** | Reviewed evaluation reference material |
 | **Session working context** | Temporary, nonpersistent context for the current interaction |
 | **Evidence** | Material linked to evaluation and audit (submissions, transcripts, tool results, playback records) |
 | **Evaluation** | Internal structured, evidence-backed judgment of session outcomes |
 | **Human revision** | Authorized human adjustment to an evaluation, preserving the original output |
+| **Review decision** | Authorized reviewer approval, rejection, or escalation of an evaluation, with or without human revision |
 | **Result** | Participant-facing outcome released after review |
 | **Release** | Audited transition from internal evaluation to visible result |
 | **Resolved session configuration** | Frozen effective configuration used by a session |
@@ -217,20 +220,25 @@ Material linked to evaluation and audit: submissions, conversation references, t
 
 Evidence references should point to stable locations within submitted or recorded material whenever possible.
 
-### Evaluation, human revision, result, and release
+### Evaluation, review decision, result, and release
 
 These form a distinct chain; they must not be treated as the same object.
 
 ```text
-Evidence → Evaluation → Human revision → Released result
+Evidence → Evaluation → Review decision → Release → Result
+              ↑
+       Human revision (optional)
 ```
 
 | Concept | Meaning |
 | --- | --- |
 | **Evaluation** | Internal structured, evidence-backed judgment organized by rubric criterion or another configured decision framework |
-| **Human revision** | Authorized human adjustment that preserves the original agent-generated evaluation |
+| **Human revision** | Optional authorized human adjustment that preserves the original agent-generated evaluation |
+| **Review decision** | Authorized reviewer outcome that approves, rejects, or escalates an evaluation for release, whether or not a human revision occurred |
 | **Result** | Participant-facing outcome approved for visibility |
 | **Release** | Audited transition that makes a result visible to the permitted audience |
+
+A reviewer must be able to **approve and release an evaluation unchanged**. Human revision is optional, not required before release.
 
 Evaluations maintain an auditable connection between the configured rubric, participant submission, conversation transcript, tool results, collected evidence, criterion-level rationale and evidence references, scores or decisions, and provisional feedback. The system should support uncertainty rather than forcing false precision.
 
@@ -305,14 +313,17 @@ Assessment is the first product experience. Flexible platform behaviors can unde
 
 For assessment activities, the default policy is:
 
-- **Stable memory** during the active assessment period
+- **Stable memory** during the active assessment period — no new persistent learning from assessment interactions
 - **No cross-participant learning** from assessment interactions
 - **Frozen configuration** at activity or cohort activation: resolved agent revision, harness revision or snapshot, model, knowledge sources, tools, workflow, and evaluation configuration
+- **Frozen approved-memory reads** for cohort fairness. Stable mode alone is not sufficient when approved memory could change between participants. For cohort assessment, the activity must either:
+  - **Disable approved-memory reads**, or
+  - **Pin an immutable memory snapshot** frozen at cohort activation
 - **Material changes create a new activity version or cohort** rather than silently affecting in-flight participants
 - **Adaptive follow-up** constrained by a versioned fairness policy
 - **Exceptions** explicitly authorized and audited
 
-Harness snapshots must pin immutable content or immutable references with content hashes. A snapshot that references a mutable knowledge base or tool configuration without a hash is not sufficient for historical reconstruction.
+Harness snapshots must pin immutable content or immutable references with content hashes. A snapshot that references a mutable knowledge base or tool configuration without a hash is not sufficient for historical reconstruction. Memory snapshots must pin the exact approved-memory revision or content hashes used for retrieval.
 
 ## Concept relationships
 
@@ -339,9 +350,11 @@ flowchart TB
   Evidence[Evidence]
   Evaluation[Evaluation]
   HumanRevision[Human revision]
+  ReviewDecision[Review decision]
   Result[Result]
   Release[Release]
   ApprovedMemory[Approved memory]
+  MemorySnapshot[Memory snapshot]
 
   OrgPolicy -->|"constrains"| Agent
   OrgPolicy -->|"constrains"| Harness
@@ -352,6 +365,7 @@ flowchart TB
   Agent -->|"selected by"| Activity
   Harness -->|"selected by"| Activity
   HarnessSnapshot -->|"may pin"| Activity
+  MemorySnapshot -->|"may pin"| Activity
   Activity -->|"may deploy as"| Campaign
   Activity -->|"defines"| Task
   Activity -->|"enrolls"| Enrollment
@@ -362,6 +376,7 @@ flowchart TB
   AgentRevision -->|"executes in"| Session
   HarnessRevision -->|"governs"| Session
   HarnessSnapshot -->|"may pin"| Session
+  MemorySnapshot -->|"may pin"| Session
   Participant -->|"participates in"| Session
   Participant -->|"submits"| Submission
   Submission -->|"linked to"| Session
@@ -369,8 +384,11 @@ flowchart TB
   Session -->|"produces"| Evidence
   Session -->|"produces"| Evaluation
   Evaluation -->|"may receive"| HumanRevision
-  HumanRevision -->|"may lead to"| Release
+  HumanRevision -->|"feeds"| ReviewDecision
+  Evaluation -->|"may proceed to"| ReviewDecision
+  ReviewDecision -->|"authorizes"| Release
   Release -->|"publishes"| Result
+  ApprovedMemory -->|"captured in"| MemorySnapshot
   Agent -->|"may retain"| ApprovedMemory
   Harness -->|"controls"| ApprovedMemory
   Activity -->|"may constrain"| ApprovedMemory
@@ -409,6 +427,8 @@ Every session must record a **resolved execution manifest** containing at minimu
 - Policies and workflow version
 - Evaluation rubric version
 - Memory read/write policy
+- Memory snapshot identifier when approved-memory reads are enabled
+- Retrieved approved-memory references or content hashes used during the session
 - Relevant generation parameters
 - Tool inputs and recorded results
 
@@ -466,7 +486,7 @@ These invariants apply across concepts and must be preserved in requirements, UI
 - Audit-relevant history cannot be silently overwritten; previous versions remain inspectable
 - Distinguish generated, sent, played, interrupted, cancelled, and playback-confirmed voice content
 - Link evaluations and human revisions to stable evidence; preserve original outputs
-- Distinguish evaluation, human revision, result, and release
+- Distinguish evaluation, human revision, review decision, result, and release
 - Never allow uncontrolled memory learning, harness self-modification, or result release
 - Recorded times have unambiguous ordering and timezone interpretation
 - Explicit authorization at every sensitive boundary

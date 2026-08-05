@@ -5,11 +5,12 @@
 | Field | Value |
 | --- | --- |
 | **Status** | Approved v0.1 |
-| **Owner** | Product |
-| **Approvers** | Product |
+| **Owner** | Product Lead |
+| **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.1 |
 | **Effective date** | 2026-08-05 |
 | **Last reviewed** | 2026-08-05 |
+| **Approval reference** | Baseline v0.1 approved on `main` (commits `fff26df`, `d8291ef`, 2026-08-05) |
 
 Vision, positioning, and principles. Canonical concepts, scope boundaries, and requirements live in linked product and requirements documents.
 

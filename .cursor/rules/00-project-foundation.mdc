@@ -26,7 +26,7 @@ A conflicting ADR triggers product or requirements review; it does not override 
 - **Harness**: workflow and policy constraints; allowed capability subset; evaluation procedure
 - **Activity**: execution context (campaign is one managed multi-participant form)
 - **Session**: isolated execution with frozen resolved configuration, events, evidence, and outcome
-- **Evaluation / human revision / result / release**: distinct objects in the outcome chain
+- **Evaluation / human revision / review decision / result / release**: distinct objects in the outcome chain
 
 ## Non-negotiable invariants
 

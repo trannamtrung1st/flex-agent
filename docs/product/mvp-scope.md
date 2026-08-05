@@ -7,11 +7,12 @@ First product experience, platform direction, explicit non-goals, and deferred c
 | Field | Value |
 | --- | --- |
 | **Status** | Approved v0.1 |
-| **Owner** | Product |
-| **Approvers** | Product |
+| **Owner** | Product Lead |
+| **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.1 |
 | **Effective date** | 2026-08-05 |
 | **Last reviewed** | 2026-08-05 |
+| **Approval reference** | Baseline v0.1 approved on `main` (commits `fff26df`, `d8291ef`, 2026-08-05) |
 | **Related decisions** | [Concept model v0.1](concept-model.md) |
 
 **Approved v0.1** is the authoritative scope boundary for the first product release. Approved feature specifications govern observable behavior.
@@ -37,8 +38,8 @@ The MVP is one **executable vertical slice** — a complete participant-to-resul
 | Capability | MVP scope |
 | --- | --- |
 | Participants | One participant per session; cohorts for administration with individual isolated sessions |
-| Memory | Stable memory only during active assessment |
-| Agent and harness | Minimal configuration sufficient to run an assessment; no advanced editors or libraries |
+| Memory | Stable memory only; cohort assessment disables approved-memory reads or pins a memory snapshot at activation |
+| Agent and harness | Select existing agent and harness; supply assessment-required parameters only — no general management UI |
 | Activity setup | Assessment creation, task definition, and participant assignment |
 | Submissions | Upload and versioned preservation of participant work |
 | Examination | Text conversation |

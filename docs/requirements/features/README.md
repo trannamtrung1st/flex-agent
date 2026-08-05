@@ -4,7 +4,7 @@ Home for Flex Agent feature specifications.
 
 ## Status
 
-**P0 authoring in progress.** Create specs in the order defined in [P0 authoring order](../README.md#p0-authoring-order).
+**P0 specs not started.** Create specs in the order defined in [P0 authoring order](../README.md#p0-authoring-order).
 
 ## Purpose
 
@@ -18,7 +18,7 @@ Create these files in authoring order:
 | --- | --- | --- |
 | 1 | `auth-resource-isolation.md` | Authorization and activity-scope isolation |
 | 2 | `resolved-session-configuration.md` | Resolved session configuration and execution manifest |
-| 3 | `assessment-setup.md` | Assessment activity setup, cohort activation, configuration freezing |
+| 3 | `assessment-setup.md` | Assessment activity setup, agent/harness selection, cohort activation, configuration and memory freezing |
 | 4 | `submission-attempts.md` | Enrollment, submission upload, and attempt limits |
 | 5 | `session-text-lifecycle.md` | Text session lifecycle and examination |
 | 6 | `evidence-evaluation.md` | Evidence collection and structured evaluation |

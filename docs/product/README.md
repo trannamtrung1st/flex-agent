@@ -8,11 +8,11 @@ Stable product strategy, domain concepts, and MVP boundaries for Flex Agent.
 
 ## Document metadata
 
-| Document | Status | Version | Owner | Last reviewed |
-| --- | --- | --- | --- | --- |
-| [Concept model](concept-model.md) | Approved | 0.1 | Product | 2026-08-05 |
-| [MVP scope](mvp-scope.md) | Approved | 0.1 | Product | 2026-08-05 |
-| [Product overview](overview.md) | Approved | 0.1 | Product | 2026-08-05 |
+| Document | Status | Version | Owner | Approvers | Last reviewed | Approval reference |
+| --- | --- | --- | --- | --- | --- | --- |
+| [Concept model](concept-model.md) | Approved | 0.1 | Product Lead | Product Lead, Architecture Lead | 2026-08-05 | Baseline v0.1 on `main` (2026-08-05) |
+| [MVP scope](mvp-scope.md) | Approved | 0.1 | Product Lead | Product Lead, Architecture Lead | 2026-08-05 | Baseline v0.1 on `main` (2026-08-05) |
+| [Product overview](overview.md) | Approved | 0.1 | Product Lead | Product Lead, Architecture Lead | 2026-08-05 | Baseline v0.1 on `main` (2026-08-05) |
 
 ## Purpose
 
@@ -57,7 +57,7 @@ Product documentation for v0.1 is complete. **Do not expand product docs further
 
 1. Author P0 specs in order — see [P0 authoring order](../requirements/README.md#p0-authoring-order)
 2. Use the [feature spec template](../templates/feature-spec.md); one file per catalog entry under `docs/requirements/features/`
-3. Keep agent and harness configuration inside assessment setup at the minimum level required by the slice
+3. Keep agent and harness **selection and assessment-required parameters** inside assessment setup — not general agent or harness management
 4. Record technical choices as ADRs when specs surface implementation decisions
 
 ## Related documents

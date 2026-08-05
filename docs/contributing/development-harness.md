@@ -63,6 +63,14 @@ Typical coverage includes loading, empty, populated, validation, error/retry, pe
 
 Approved product documents and approved feature specifications outrank illustrative product examples. Author specs from [`docs/templates/feature-spec.md`](../templates/feature-spec.md). A spec should include stable requirement and acceptance-criterion IDs, actors and permissions, in/out of scope, journeys and state transitions, business rules, data/audit needs, non-functional requirements, failure behavior, dependencies, open questions, and traceability.
 
+Run documentation validation before pushing doc changes:
+
+```bash
+python scripts/check_docs.py
+```
+
+GitHub Actions runs the same checks on pull requests and pushes to `main` via [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml).
+
 Anything absent or ambiguous in the approved spec must be handled as one of:
 
 - a question that blocks a material decision;

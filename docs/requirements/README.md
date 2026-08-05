@@ -69,8 +69,24 @@ Author these seven specifications **in this order**. Each spec file should be cr
 | 3 | Assessment setup | [`assessment-setup.md`](features/assessment-setup.md) | [Activity](../product/concept-model.md#activity), [Assessment fairness](../product/concept-model.md#assessment-fairness-constraints), [MVP slice](../product/mvp-scope.md#mvp-validation-slice) | Not started |
 | 4 | Submission and attempts | [`submission-attempts.md`](features/submission-attempts.md) | [Enrollment](../product/concept-model.md#enrollment--participation), [Submission](../product/concept-model.md#submission), [Attempt](../product/concept-model.md#attempt) | Not started |
 | 5 | Text session lifecycle | [`session-text-lifecycle.md`](features/session-text-lifecycle.md) | [Session](../product/concept-model.md#session), [Workflow model](../product/concept-model.md#workflow-model) | Not started |
-| 6 | Evidence and evaluation | [`evidence-evaluation.md`](features/evidence-evaluation.md) | [Evidence](../product/concept-model.md#evidence), [Evaluation chain](../product/concept-model.md#evaluation-human-revision-result-and-release) | Not started |
-| 7 | Human review and result release | [`review-result-release.md`](features/review-result-release.md) | [Result and release](../product/concept-model.md#evaluation-human-revision-result-and-release) | Not started |
+| 6 | Evidence and evaluation | [`evidence-evaluation.md`](features/evidence-evaluation.md) | [Evidence](../product/concept-model.md#evidence), [Evaluation chain](../product/concept-model.md#evaluation-review-decision-result-and-release) | Not started |
+| 7 | Human review and result release | [`review-result-release.md`](features/review-result-release.md) | [Review decision and release](../product/concept-model.md#evaluation-review-decision-result-and-release) | Not started |
+
+### P0 assessment setup scope
+
+`assessment-setup.md` covers assessment activity creation and cohort activation only. It must **not** become a general agent or harness management specification.
+
+**In scope for P0 assessment setup:**
+
+- Select an existing agent and harness (or pre-provisioned assessment defaults)
+- Supply assessment-required parameters: task, rubric binding, deadlines, attempt limits, cohort rules, fairness freezing, and memory-snapshot or no-read policy
+- Activate a cohort with frozen configuration
+
+**Out of scope for P0 assessment setup** (deferred to P1):
+
+- Creating or editing reusable agent libraries
+- Creating or editing reusable harness libraries, comparison, or restoration workflows
+- General-purpose agent or harness administration UI
 
 ### Authoring instructions
 
@@ -84,8 +100,8 @@ Author these seven specifications **in this order**. Each spec file should be cr
 
 | Priority | Candidate spec | When |
 | --- | --- | --- |
-| P1 | Minimal agent configuration | After P0 slice is specified |
-| P1 | Minimal harness configuration | After P0 slice is specified |
+| P1 | Agent library and general configuration | Reusable agent authoring beyond assessment-required selection |
+| P1 | Harness library and general configuration | Reusable harness authoring beyond assessment-required selection |
 | P2 | Voice interaction and interruption | After MVP slice works |
 | P2 | Tool execution and permissions | After MVP slice works |
 | P2 | Harness snapshots, comparison, and restoration | After MVP slice works |
