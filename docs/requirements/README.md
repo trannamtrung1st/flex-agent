@@ -6,7 +6,7 @@ Product meaning — concepts, relationships, and scope boundaries — lives unde
 
 ## Status
 
-**P0 specification review in progress.** Product baseline v0.1 is approved. Nineteen feature-spec files exist under [`features/`](features/README.md). P0 #1 [`auth-resource-isolation.md`](features/auth-resource-isolation.md) through P0 #5 [`session-text-lifecycle.md`](features/session-text-lifecycle.md) are `Approved`; P0 #6–#7 and all twelve P1–P3 files remain placeholders. Author P0 #6 before implementation.
+**P0 specification review in progress.** Product baseline v0.1 is approved. Nineteen feature-spec files exist under [`features/`](features/README.md). P0 #1 [`auth-resource-isolation.md`](features/auth-resource-isolation.md) through P0 #6 [`evidence-evaluation.md`](features/evidence-evaluation.md) are `Approved`; P0 #7 and all twelve P1–P3 files remain placeholders. Author P0 #7 before implementation.
 
 Placeholder files are scaffolds only. They do not govern behavior until reviewed, populated with stable `REQ-*` and `AC-*` IDs, and marked `Approved`. A `Draft` spec informs review but is not authoritative for implementation.
 
@@ -82,7 +82,7 @@ Author these seven specifications **in this order**. Each spec file lives under 
 | 3 | Assessment setup | [`assessment-setup.md`](features/assessment-setup.md) | Campaign activity creation and cohort activation with frozen configuration | [Activity](../product/concept-model.md#activity), [Assessment fairness](../product/concept-model.md#assessment-fairness-constraints), [MVP slice](../product/mvp-scope.md#mvp-validation-slice) | Approved |
 | 4 | Submission and attempts | [`submission-attempts.md`](features/submission-attempts.md) | Enrollment, attempt authorization, and versioned submission preservation | [Enrollment](../product/concept-model.md#enrollment-participation), [Submission](../product/concept-model.md#submission), [Attempt](../product/concept-model.md#attempt) | Approved |
 | 5 | Text session lifecycle | [`session-text-lifecycle.md`](features/session-text-lifecycle.md) | Isolated text examination from authorized start through completion | [Session](../product/concept-model.md#session), [Workflow model](../product/concept-model.md#workflow-model) | Approved |
-| 6 | Evidence and evaluation | [`evidence-evaluation.md`](features/evidence-evaluation.md) | Evidence collection and internal structured evaluation | [Evidence](../product/concept-model.md#evidence), [Evaluation chain](../product/concept-model.md#evaluation-review-decision-result-and-release) | Placeholder |
+| 6 | Evidence and evaluation | [`evidence-evaluation.md`](features/evidence-evaluation.md) | Evidence collection and internal structured evaluation | [Evidence](../product/concept-model.md#evidence), [Evaluation chain](../product/concept-model.md#evaluation-review-decision-result-and-release) | Approved |
 | 7 | Human review and result release | [`review-result-release.md`](features/review-result-release.md) | Human review gate, optional revision, and audited result release | [Review decision and release](../product/concept-model.md#evaluation-review-decision-result-and-release) | Placeholder |
 
 ### P0 assessment setup scope

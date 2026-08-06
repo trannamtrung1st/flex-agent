@@ -13,7 +13,7 @@ Authoritative product and engineering documentation lives in [`docs/`](docs/READ
 | UI/UX | Scaffold — [ui-ux/](docs/ui-ux/README.md) |
 | Architecture | Active — [architecture/](docs/architecture/README.md) |
 
-**Current phase:** Document-by-document review of P0 feature specifications. P0 #1 [`auth-resource-isolation.md`](docs/requirements/features/auth-resource-isolation.md) through P0 #5 [`session-text-lifecycle.md`](docs/requirements/features/session-text-lifecycle.md) are `Approved`; P0 #6–#7 remain placeholders. Author P0 #6 [`evidence-evaluation.md`](docs/requirements/features/evidence-evaluation.md) next in [catalog order](docs/requirements/README.md#p0-authoring-order).
+**Current phase:** Document-by-document review of P0 feature specifications. P0 #1 [`auth-resource-isolation.md`](docs/requirements/features/auth-resource-isolation.md) through P0 #6 [`evidence-evaluation.md`](docs/requirements/features/evidence-evaluation.md) are `Approved`; P0 #7 remains a placeholder. Author P0 #7 [`review-result-release.md`](docs/requirements/features/review-result-release.md) next in [catalog order](docs/requirements/README.md#p0-authoring-order).
 
 ## Validate documentation
 

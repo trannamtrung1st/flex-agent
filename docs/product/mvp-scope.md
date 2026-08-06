@@ -170,7 +170,7 @@ Deferred participant and reviewer capabilities: voice and tools align with [Next
 
 ## Next step: P0 specifications
 
-Continue P0 authoring and review in catalog order — see [P0 authoring order](../requirements/README.md#p0-authoring-order). P0 #1 [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md) through P0 #5 [`session-text-lifecycle.md`](../requirements/features/session-text-lifecycle.md) are `Approved`; P0 #6–#7 remain placeholders. Author P0 #6 [`evidence-evaluation.md`](../requirements/features/evidence-evaluation.md) next. Do not expand product documentation further until all P0 specs are approved.
+Continue P0 authoring and review in catalog order — see [P0 authoring order](../requirements/README.md#p0-authoring-order). P0 #1 [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md) through P0 #6 [`evidence-evaluation.md`](../requirements/features/evidence-evaluation.md) are `Approved`; P0 #7 remains a placeholder. Author P0 #7 [`review-result-release.md`](../requirements/features/review-result-release.md) next. Do not expand product documentation further until all P0 specs are approved.
 
 ## Platform differentiation (product level)
 

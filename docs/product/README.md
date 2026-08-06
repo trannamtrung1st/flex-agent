@@ -55,8 +55,8 @@ Illustrative examples in product documents are **not** MVP commitments until cap
 
 Product documentation for v0.1 is complete. **Do not expand product docs further** until P0 feature specifications are approved.
 
-1. Author and review P0 specs in order — see [P0 authoring order](../requirements/README.md#p0-authoring-order); P0 #1 [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md) through P0 #5 [`session-text-lifecycle.md`](../requirements/features/session-text-lifecycle.md) are `Approved`; P0 #6–#7 remain placeholders under [`requirements/features/`](../requirements/features/README.md)
-2. Author and review P0 #6 [`evidence-evaluation.md`](../requirements/features/evidence-evaluation.md) using the approved exact Submission-binding, terminal transcript, visible work-trace, and resolved-configuration boundaries
+1. Author and review P0 specs in order — see [P0 authoring order](../requirements/README.md#p0-authoring-order); P0 #1 [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md) through P0 #6 [`evidence-evaluation.md`](../requirements/features/evidence-evaluation.md) are `Approved`; P0 #7 remains a placeholder under [`requirements/features/`](../requirements/features/README.md)
+2. Author and review P0 #7 [`review-result-release.md`](../requirements/features/review-result-release.md) using the approved immutable Evaluation, replacement-lineage, human-review, and release boundaries
 3. Keep agent and harness **selection and assessment-required parameters** inside assessment setup — not general agent or harness management (P1)
 4. Record technical choices as ADRs when specs surface implementation decisions
 
