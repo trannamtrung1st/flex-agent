@@ -9,14 +9,14 @@
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.1 |
 | **Effective date** | 2026-08-05 |
-| **Last reviewed** | 2026-08-05 |
+| **Last reviewed** | 2026-08-06 |
 | **Approval reference** | Baseline v0.1 approved on `main` (commits `fff26df`, `d8291ef`, 2026-08-05) |
 
 Vision, positioning, and principles. Canonical concepts, scope boundaries, and requirements live in linked product and requirements documents.
 
 ## What to do next
 
-Product baseline v0.1 is approved. The [feature catalog](../requirements/README.md#feature-catalog-overview) has 19 specs. [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md) is `Approved`; remaining P0 specs are still placeholders. Continue at [P0 authoring order](../requirements/README.md#p0-authoring-order) for the [MVP executable workflow](mvp-scope.md#mvp-executable-workflow).
+Product baseline v0.1 is approved. The [feature catalog](../requirements/README.md#feature-catalog-overview) has 19 specs. P0 #1 [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md) and P0 #2 [`resolved-session-configuration.md`](../requirements/features/resolved-session-configuration.md) are `Approved`; the remaining five P0 specs are placeholders. Continue at [P0 authoring order](../requirements/README.md#p0-authoring-order) for the [MVP executable workflow](mvp-scope.md#mvp-executable-workflow).
 
 ## Product vision
 
@@ -38,13 +38,10 @@ The broader platform allows organizations to create agents that operate consiste
 
 The product separates identity, operating environment, activity configuration, and individual interaction. See [Concept model](concept-model.md) for canonical definitions and relationships.
 
-> **Agent** — who the AI is, what it knows, what it can do, how it behaves, and how it reasons about outcomes.
-
-> **Harness** — how the agent operates within a controlled process: workflows, policies, allowed tools, rubrics, validation rules, memory controls, and execution procedures.
-
-> **Activity** — a structured execution context: tasks, participants, limits, rules, and selected agent and harness configuration. A campaign is one managed multi-participant form.
-
-> **Session** — one isolated interaction between a resolved configuration and a participant or authorized role.
+- **Agent** — who the AI is, what it knows, what it can do, how it behaves, and how it reasons about outcomes.
+- **Harness** — how the agent operates within a controlled process: workflows, policies, allowed tools, rubrics, validation rules, memory controls, and execution procedures.
+- **Activity** — a structured execution context: tasks, participants, limits, rules, and selected agent and harness configuration. A campaign is one managed multi-participant form.
+- **Session** — one isolated interaction between a resolved configuration and a participant or authorized role.
 
 An agent should not need to be recreated for every assessment, interview, or support process. A campaign is one activity deployment mechanism within the platform, not the limit of the underlying agent model.
 

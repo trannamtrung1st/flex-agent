@@ -24,6 +24,8 @@ jobs:
         uses: DavidAnson/markdownlint-cli2-action@v18
         with:
           globs: |
+            AGENTS.md
             docs/**/*.md
             .cursor/rules/**/*.mdc
             .cursor/skills/**/SKILL.md
+            .agents/skills/**/SKILL.md

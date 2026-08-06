@@ -11,7 +11,7 @@ First product experience, platform direction, explicit non-goals, and deferred c
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.1 |
 | **Effective date** | 2026-08-05 |
-| **Last reviewed** | 2026-08-05 |
+| **Last reviewed** | 2026-08-06 |
 | **Approval reference** | Baseline v0.1 approved on `main` (commits `fff26df`, `d8291ef`, 2026-08-05) |
 | **Related decisions** | [Concept model v0.1](concept-model.md) |
 
@@ -89,7 +89,7 @@ Deferred until the MVP slice works end to end — see [Requirements feature cata
 
 These are **product-level capability themes**, not approved requirements until captured in specs.
 
-### MVP validation slice
+### MVP capability themes
 
 | Theme | Product meaning |
 | --- | --- |
@@ -114,7 +114,7 @@ These are **product-level capability themes**, not approved requirements until c
 | Workflow depth | More configurable stages and transitions |
 | Dynamic memory mode | Administrative enablement with policy controls |
 
-### Later release
+### Later-release capability themes
 
 | Theme | Product meaning |
 | --- | --- |
@@ -170,7 +170,7 @@ Deferred participant and reviewer capabilities: voice and tools align with [Next
 
 ## Next step: P0 specifications
 
-Continue P0 authoring in catalog order — see [P0 authoring order](../requirements/README.md#p0-authoring-order). [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md) is `Approved`; remaining P0 files are still placeholders. Do not expand product documentation further until P0 specs are approved.
+Continue P0 authoring in catalog order — see [P0 authoring order](../requirements/README.md#p0-authoring-order). P0 #1 [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md) and P0 #2 [`resolved-session-configuration.md`](../requirements/features/resolved-session-configuration.md) are `Approved`; the remaining five P0 files are still placeholders. Do not expand product documentation further until P0 specs are approved.
 
 ## Platform differentiation (product level)
 

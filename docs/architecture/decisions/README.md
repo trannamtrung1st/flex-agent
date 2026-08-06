@@ -4,7 +4,11 @@ Architecture Decision Records (ADRs) for Flex Agent.
 
 ## Status
 
-**No approved documents yet.**
+**One approved decision.**
+
+| ADR | Status | Decision |
+| --- | --- | --- |
+| [ADR-001](ADR-001-resolved-configuration-representation-and-integrity.md) | Approved | Versioned canonical representation, digest and terminal-seal procedure, logical artifact split, and source-materialization boundary |
 
 ## Purpose
 
@@ -21,7 +25,7 @@ Create an ADR when a decision:
 
 ## Naming convention
 
-```
+```text
 docs/architecture/decisions/ADR-<nnn>-<short-title>.md
 ```
 

@@ -1,12 +1,12 @@
-# Cursor Development Harness
+# Cursor and Codex Development Harness
 
-This repository uses project-scoped Cursor rules and reusable role skills to support specification analysis, red-green-refactor TDD, independent review, and browser-backed QA.
+This repository provides equivalent project-scoped harnesses for Cursor and Codex. Both support specification analysis, red-green-refactor TDD, independent review, and browser-backed QA.
 
 For product and engineering documentation structure, start at [`docs/README.md`](../README.md).
 
 ## What is installed
 
-Persistent rules under `.cursor/rules/` enforce:
+Persistent Cursor rules under `.cursor/rules/` and Codex guidance in `AGENTS.md` enforce:
 
 - Flex Agent vocabulary and architectural invariants
 - Specification-first red-green-refactor development
@@ -14,7 +14,7 @@ Persistent rules under `.cursor/rules/` enforce:
 - Mandatory Playwright MCP screenshot evaluation for UI work
 - Security, privacy, participant isolation, and audit defaults
 
-Project skills under `.cursor/skills/` provide these roles:
+Equivalent project skills under `.cursor/skills/` (Cursor) and `.agents/skills/` (Codex) provide these roles:
 
 - `business-analyst` — turns product intent into bounded, testable specs
 - `architect` — governs system boundaries, quality attributes, technical decisions, and ADRs
@@ -37,7 +37,7 @@ When the project adopts a concrete process—such as feature discovery, implemen
 
 ## Playwright MCP
 
-`.cursor/mcp.json` starts the official `@playwright/mcp` server named `playwright`.
+`.cursor/mcp.json` and `.codex/config.toml` start the same pinned official `@playwright/mcp` server named `playwright`.
 
 - Isolated browser contexts prevent state leaking between QA sessions.
 - Screenshots, logs, and other artifacts are written to `.playwright-mcp/`.
@@ -45,7 +45,7 @@ When the project adopts a concrete process—such as feature discovery, implemen
 - `.playwright-mcp/` is gitignored and must never be committed.
 - Use synthetic accounts and data; browser artifacts must not contain real participant data or secrets.
 
-After cloning, open the repository in Cursor and enable the project MCP server when prompted. `npx` downloads the pinned Playwright MCP package on first use. Upgrade the pin deliberately after a browser smoke test. If a browser binary is missing, follow the MCP server’s install prompt before testing.
+After cloning, open the repository in Cursor or trust it in Codex, then enable the project MCP server if prompted. Codex only loads project `.codex/config.toml` settings for trusted repositories. `npx` downloads the pinned Playwright MCP package on first use. Upgrade both MCP pins together and run a browser smoke test. If a browser binary is missing, follow the MCP server’s install prompt before testing.
 
 ## UI evidence standard
 
@@ -73,7 +73,7 @@ python scripts/check_docs.py
 
 The script validates internal links and heading fragments (including the repository root `README.md`), deprecated terms, duplicate requirement IDs, Mermaid fence balance, all 19 feature-spec file presence, catalog membership and tier order in both requirements hubs, and tier counts.
 
-GitHub Actions runs the same checks on pull requests and pushes to `main` via [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml). Markdown lint covers `docs/`, `.cursor/rules/`, and `.cursor/skills/`.
+GitHub Actions runs the same checks on pull requests and pushes to `main` via [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml). Markdown lint covers `docs/`, `AGENTS.md`, `.cursor/rules/`, `.cursor/skills/`, and `.agents/skills/`.
 
 Anything absent or ambiguous in the approved spec must be handled as one of:
 

@@ -6,7 +6,7 @@ Product concepts and invariants live under [product documentation](../product/RE
 
 ## Status
 
-**No approved documents yet.** Entry criteria for foundational architecture work are met by approved P0 #1 ([`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md)). Author ADRs when implementation design begins for enforcement boundaries, policy representation, cache invalidation, service delegation, and audit storage.
+**Active.** [ADR-001](decisions/ADR-001-resolved-configuration-representation-and-integrity.md) is approved and governs resolved-configuration representation and integrity. Author additional ADRs as implementation design resolves enforcement boundaries, policy representation, cache invalidation, service delegation, storage topology, transaction boundaries, and audit storage.
 
 ## Purpose
 

@@ -6,7 +6,7 @@ Product meaning — concepts, relationships, and scope boundaries — lives unde
 
 ## Status
 
-**P0 specification review in progress.** Product baseline v0.1 is approved. Nineteen feature-spec files exist under [`features/`](features/README.md). [`auth-resource-isolation.md`](features/auth-resource-isolation.md) is `Approved`; the remaining six P0 files and twelve P1–P3 files are still placeholders. Continue authoring P0 specs in order before implementation.
+**P0 specification review in progress.** Product baseline v0.1 is approved. Nineteen feature-spec files exist under [`features/`](features/README.md). P0 #1 [`auth-resource-isolation.md`](features/auth-resource-isolation.md) and P0 #2 [`resolved-session-configuration.md`](features/resolved-session-configuration.md) are `Approved`; the remaining five P0 files and twelve P1–P3 files are still placeholders. Continue authoring P0 specs in order before implementation.
 
 Placeholder files are scaffolds only. They do not govern behavior until reviewed, populated with stable `REQ-*` and `AC-*` IDs, and marked `Approved`. A `Draft` spec informs review but is not authoritative for implementation.
 
@@ -78,7 +78,7 @@ Author these seven specifications **in this order**. Each spec file lives under 
 | Order | P0 specification | Spec file | Boundary | Product source | Status |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Authorization and isolation | [`auth-resource-isolation.md`](features/auth-resource-isolation.md) | Who may access what at org, activity, cohort, and session scope | [Organization](../product/concept-model.md#organization), [Product invariants](../product/concept-model.md#product-invariants) | Approved |
-| 2 | Resolved session configuration | [`resolved-session-configuration.md`](features/resolved-session-configuration.md) | Frozen effective config and execution manifest at session start | [Configuration precedence](../product/concept-model.md#configuration-precedence-stack), [Resolved execution manifest](../product/concept-model.md#resolved-execution-manifest) | Placeholder |
+| 2 | Resolved session configuration | [`resolved-session-configuration.md`](features/resolved-session-configuration.md) | Frozen effective config and execution manifest at session start | [Configuration precedence](../product/concept-model.md#configuration-precedence-stack), [Resolved execution manifest](../product/concept-model.md#resolved-execution-manifest) | Approved |
 | 3 | Assessment setup | [`assessment-setup.md`](features/assessment-setup.md) | Campaign activity creation and cohort activation with frozen configuration | [Activity](../product/concept-model.md#activity), [Assessment fairness](../product/concept-model.md#assessment-fairness-constraints), [MVP slice](../product/mvp-scope.md#mvp-validation-slice) | Placeholder |
 | 4 | Submission and attempts | [`submission-attempts.md`](features/submission-attempts.md) | Enrollment, attempt authorization, and versioned submission preservation | [Enrollment](../product/concept-model.md#enrollment-participation), [Submission](../product/concept-model.md#submission), [Attempt](../product/concept-model.md#attempt) | Placeholder |
 | 5 | Text session lifecycle | [`session-text-lifecycle.md`](features/session-text-lifecycle.md) | Isolated text examination from authorized start through completion | [Session](../product/concept-model.md#session), [Workflow model](../product/concept-model.md#workflow-model) | Placeholder |

@@ -54,10 +54,10 @@ Illustrative examples in product documents are not MVP commitments unless captur
 | Area | Status | Notes |
 | --- | --- | --- |
 | Product | Approved v0.1 | [Product hub](product/README.md): overview, [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md) |
-| Requirements | P0 specification review in progress | [Feature catalog](requirements/README.md#feature-catalog-overview); P0 #1 `Approved`; 6 P0 placeholders remain |
-| UI/UX | Scaffold | Entry criteria met by approved P0 #1; journeys and design system not yet authored |
-| Architecture | Scaffold | Entry criteria met by approved P0 #1; ADRs for auth enforcement not yet authored |
-| Feature specifications | Catalog complete; P0 #1 approved | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); [`auth-resource-isolation.md`](requirements/features/auth-resource-isolation.md) is `Approved` — see [features/](requirements/features/README.md) |
+| Requirements | P0 specification review in progress | [Feature catalog](requirements/README.md#feature-catalog-overview); P0 #1 and #2 `Approved`; 5 P0 placeholders remain |
+| UI/UX | Scaffold | Entry criteria met by approved P0 #1 and #2; journeys and design system not yet authored |
+| Architecture | Active | [ADR-001](architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) approved; authorization-enforcement ADRs remain to be authored |
+| Feature specifications | Catalog complete; P0 #1 and #2 approved | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); see [features/](requirements/features/README.md) |
 | Contributing | Active | Cursor rules, role skills, TDD policy, and Playwright MCP guidance |
 | Templates | Active | Reusable authoring templates (not authoritative content) |
 
@@ -73,7 +73,7 @@ Illustrative examples in product documents are not MVP commitments unless captur
 ### Requirements
 
 - [Requirements hub](requirements/README.md) — lifecycle, ID conventions, and [feature catalog](requirements/README.md#feature-catalog-overview)
-- [Feature specifications](requirements/features/README.md) — 19 specs; P0 #1 drafted, author remaining P0 first
+- [Feature specifications](requirements/features/README.md) — 19 specs; P0 #1 and #2 approved, author remaining P0 first
 
 ### UI/UX
 
@@ -81,8 +81,8 @@ Illustrative examples in product documents are not MVP commitments unless captur
 
 ### Architecture
 
-- [Architecture documentation](architecture/README.md) — system boundaries, data, integration, runtime, and deployment (deferred)
-- [Architecture decisions](architecture/decisions/README.md) — ADRs (deferred)
+- [Architecture documentation](architecture/README.md) — system boundaries, data, integration, runtime, and deployment
+- [Architecture decisions](architecture/decisions/README.md) — approved and proposed ADRs
 
 ### Contributor guidance
 

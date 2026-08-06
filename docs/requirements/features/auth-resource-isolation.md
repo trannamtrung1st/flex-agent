@@ -68,7 +68,7 @@ A cohort is an administrative grouping. Cohort membership does not permit partic
 
 ### Platform-wide scope
 
-#### In scope
+#### Platform-wide behavior in scope
 
 - Authorization for protected create, read, list, search, count, aggregate, update, delete, transition, export, download, and administrative operations.
 - Organization-level tenant isolation for all protected resources.
@@ -85,7 +85,7 @@ A cohort is an administrative grouping. Cohort membership does not permit partic
 
 ### Assessment MVP profile
 
-#### In scope
+#### Assessment behavior in scope
 
 - Participant enrollment, attempt, submission, and session ownership.
 - Cross-participant and cross-session isolation, including within one cohort.
@@ -245,7 +245,7 @@ For the assessment MVP, assigned records may include submissions, transcripts, e
 - `REQ-AUTH-29` — Audit and operational records must not contain credentials, authentication secrets, raw tokens, or unnecessary protected content.
 - `REQ-AUTH-30` — Every protected resource type and operation must have automated positive and negative authorization coverage, including cross-organization, cross-subject, cross-session, and wrong-assignment cases where applicable.
 
-### Assessment MVP profile
+### Assessment MVP business rules
 
 - `REQ-AUTH-7` — A participant may access only the participant's own active enrollments, attempts, submissions, sessions, participant-visible resources, and released results.
 - `REQ-AUTH-8` — Cohort membership must not grant a participant access to another cohort member's identity, enrollment, attempt, submission, session, transcript, evidence, evaluation, review, or result.
@@ -498,7 +498,7 @@ Audit records reference protected content rather than copying messages, attachme
 - **Then** tests cover authorized access, unauthenticated denial, wrong-organization denial, wrong-participant or wrong-assignment denial where applicable, forged identifiers, list/count leakage, and side-effect-free failure
 - **And** the feature is not considered release-ready while an applicable negative case is missing or failing.
 
-### Assessment MVP profile
+### Assessment MVP acceptance criteria
 
 ### `AC-AUTH-2` — Participant accesses an owned authorized resource
 
