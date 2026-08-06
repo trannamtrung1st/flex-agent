@@ -170,7 +170,7 @@ Deferred participant and reviewer capabilities: voice and tools align with [Next
 
 ## Next step: P0 specifications
 
-Continue P0 authoring and review in catalog order — see [P0 authoring order](../requirements/README.md#p0-authoring-order). P0 #1 [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md), P0 #2 [`resolved-session-configuration.md`](../requirements/features/resolved-session-configuration.md), and P0 #3 [`assessment-setup.md`](../requirements/features/assessment-setup.md) are `Approved`; P0 #4–#7 remain placeholders. Author P0 #4 next. Do not expand product documentation further until P0 specs are approved.
+Continue P0 authoring and review in catalog order — see [P0 authoring order](../requirements/README.md#p0-authoring-order). P0 #1 [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md), P0 #2 [`resolved-session-configuration.md`](../requirements/features/resolved-session-configuration.md), P0 #3 [`assessment-setup.md`](../requirements/features/assessment-setup.md), and P0 #4 [`submission-attempts.md`](../requirements/features/submission-attempts.md) are `Approved`; P0 #5–#7 remain placeholders. Author P0 #5 [`session-text-lifecycle.md`](../requirements/features/session-text-lifecycle.md) next. Do not expand product documentation further until all P0 specs are approved.
 
 ## Platform differentiation (product level)
 

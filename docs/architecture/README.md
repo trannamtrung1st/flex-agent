@@ -6,7 +6,7 @@ Product concepts and invariants live under [product documentation](../product/RE
 
 ## Status
 
-**Active.** [ADR-001](decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs resolved-configuration representation and integrity. [ADR-002](decisions/ADR-002-authorization-enforcement-and-delegation.md) governs authorization enforcement and delegated execution. [ADR-003](decisions/ADR-003-authorization-audit-persistence.md) governs authorization audit ownership and MVP persistence. [ADR-004](decisions/ADR-004-assessment-activation-baseline-and-atomicity.md) governs assessment activation-baseline representation, content digests, idempotency, and atomic activation. Authentication, product-specific storage, and remaining topology choices stay deferred.
+**Active.** [ADR-001](decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs resolved-configuration representation and integrity. [ADR-002](decisions/ADR-002-authorization-enforcement-and-delegation.md) governs authorization enforcement and delegated execution. [ADR-003](decisions/ADR-003-authorization-audit-persistence.md) governs authorization audit ownership and MVP persistence. [ADR-004](decisions/ADR-004-assessment-activation-baseline-and-atomicity.md) governs assessment activation-baseline representation and atomic activation. [ADR-005](decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) governs atomic Attempt activation, exact Submission binding, Session readiness, and entitlement consumption. Authentication, product-specific storage beyond the approved MVP consistency boundaries, and remaining topology choices stay deferred.
 
 ## Purpose
 
