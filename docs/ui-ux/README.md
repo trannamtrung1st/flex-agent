@@ -6,7 +6,14 @@ Product meaning and scope boundaries live under [product documentation](../produ
 
 ## Status
 
-**No approved documents yet.** Entry criteria for foundational UI/UX work are met by approved P0 #1 ([`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md)), P0 #2 ([`resolved-session-configuration.md`](../requirements/features/resolved-session-configuration.md)), and P0 #3 ([`assessment-setup.md`](../requirements/features/assessment-setup.md)). P0 #3 defines setup, readiness, activation, failure, concurrency, confirmation, exception, and responsive-accessibility states. Author authoritative assessment-setup journeys and interaction specifications against its `AC-ACT-*` criteria.
+**No approved UI/UX documents yet.** All seven P0 feature specifications, the
+[MVP operational defaults](../requirements/mvp-operational-defaults.md), and the
+[MVP architecture](../architecture/mvp-architecture.md) are approved, so entry
+criteria are met for the complete MVP workflow. Author authoritative journeys
+and interaction specifications for assessment setup, Submission intake, text
+Session execution, Evaluation and human review, and Result Release. Trace every
+state and interaction to the owning `AC-*` criteria and preserve the SPA/server
+authority boundary defined by `AR-DEC-12`.
 
 ## Purpose
 

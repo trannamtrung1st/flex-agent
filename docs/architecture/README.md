@@ -6,11 +6,34 @@ Product concepts and invariants live under [product documentation](../product/RE
 
 ## Status
 
-**Active.** [ADR-001](decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs resolved-configuration representation and integrity. [ADR-002](decisions/ADR-002-authorization-enforcement-and-delegation.md) governs authorization enforcement and delegated execution. [ADR-003](decisions/ADR-003-authorization-audit-persistence.md) governs authorization audit ownership and MVP persistence. [ADR-004](decisions/ADR-004-assessment-activation-baseline-and-atomicity.md) governs assessment activation-baseline representation and atomic activation. [ADR-005](decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) governs atomic Attempt activation, exact Submission binding, Session readiness, and entitlement consumption. Authentication, product-specific storage beyond the approved MVP consistency boundaries, and remaining topology choices stay deferred.
+**Approved MVP baseline.** The [MVP architecture](mvp-architecture.md) governs P0
+boundaries, logical ownership, runtime flows, trust boundaries, SPA/API/gateway
+topology, OIDC direction, resilience, quality attributes, OSS-first
+self-hostability, and evolution seams.
+
+[ADR-001](decisions/ADR-001-resolved-configuration-representation-and-integrity.md)
+through [ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md) are
+approved. The cross-cutting
+[MVP operational defaults](../requirements/mvp-operational-defaults.md) resolve
+upload, application-session, lifecycle, and recovery-placement policy. Detailed
+Session ordering/terminal realization, Evaluation completion, Review/Result
+schemas, UI/UX contracts, concrete component selection, and production evidence
+remain staged work as mapped in the approved overview.
 
 ## Purpose
 
 This area will govern how the system is structured: boundaries, data ownership, runtime flows, deployment topology, quality attributes, and integration contracts.
+
+## MVP architecture route
+
+| Need | Start here |
+| --- | --- |
+| Review the approved end-to-end P0 technical shape | [MVP architecture](mvp-architecture.md) |
+| Review approved cross-cutting decisions | [Architecture decisions](decisions/README.md) |
+| Review approved intake, session, lifecycle, and recovery defaults | [MVP operational defaults](../requirements/mvp-operational-defaults.md) |
+| Find remaining architecture and delivery work | [MVP architecture remaining work](mvp-architecture.md#remaining-architecture-and-delivery-work) |
+| Find unresolved questions and interim defaults | [MVP architecture open questions](mvp-architecture.md#open-architecture-questions) |
+| Map P0 specifications to architecture surfaces | [P0 traceability map](mvp-architecture.md#p0-traceability-map) |
 
 ## Entry criteria
 
@@ -46,4 +69,5 @@ Architecture must preserve [Concept model — Product invariants](../product/con
 - [Product documentation](../product/README.md)
 - [Concept model](../product/concept-model.md)
 - [Requirements](../requirements/README.md)
+- [Approved MVP architecture](mvp-architecture.md)
 - [Architecture decisions](decisions/README.md)

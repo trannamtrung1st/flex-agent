@@ -4,7 +4,7 @@ Architecture Decision Records (ADRs) for Flex Agent.
 
 ## Status
 
-**Five approved decisions.**
+**Seven approved decisions.**
 
 | ADR | Status | Decision |
 | --- | --- | --- |
@@ -13,6 +13,8 @@ Architecture Decision Records (ADRs) for Flex Agent.
 | [ADR-003](ADR-003-authorization-audit-persistence.md) | Approved | Authorization audit ownership, mutation coupling, durability classes, append-only history, and MVP persistence boundaries |
 | [ADR-004](ADR-004-assessment-activation-baseline-and-atomicity.md) | Approved | Assessment activation-baseline representation, content digest, trusted binding, idempotency, and atomic audited activation |
 | [ADR-005](ADR-005-atomic-attempt-start-and-submission-binding.md) | Approved | Atomic Attempt activation, exact Submission-version binding, Session readiness, entitlement consumption, and required audit acceptance |
+| [ADR-006](ADR-006-mvp-architecture-baseline-and-evolution.md) | Approved | MVP application/deployment baseline, SPA/API/gateway, OIDC, persistence/work, recovery, optional caching, and deferred Kubernetes evolution boundaries |
+| [ADR-007](ADR-007-oss-first-self-hostable-deployment.md) | Approved | OSS-first self-hostable reference deployment, open integration contracts, OCI packaging, agent-friendly automation, and optional cloud adapters |
 
 ## Purpose
 

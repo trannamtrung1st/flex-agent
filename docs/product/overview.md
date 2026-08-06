@@ -16,7 +16,14 @@ Vision, positioning, and principles. Canonical concepts, scope boundaries, and r
 
 ## What to do next
 
-Product baseline v0.1 and all seven P0 feature specifications are approved. The [feature catalog](../requirements/README.md#feature-catalog-overview) has 19 specs. Proceed with architecture, UI/UX, specification-driven implementation, and end-to-end verification for the [MVP executable workflow](mvp-scope.md#mvp-executable-workflow).
+Product baseline v0.1, all seven P0 feature specifications, the
+[MVP operational defaults](../requirements/mvp-operational-defaults.md), and the
+OSS-first self-hostable
+[MVP architecture](../architecture/mvp-architecture.md) are approved. Complete
+the staged detailed Session, Evaluation, Review/Release, OSS component-selection,
+deployment-profile, and UI/UX contracts, then implement and verify the
+[MVP executable workflow](mvp-scope.md#mvp-executable-workflow) with
+specification-driven TDD.
 
 ## Product vision
 

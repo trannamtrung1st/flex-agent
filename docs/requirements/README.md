@@ -6,7 +6,13 @@ Product meaning — concepts, relationships, and scope boundaries — lives unde
 
 ## Status
 
-**P0 specifications approved.** Product baseline v0.1 and all seven P0 feature specifications are approved. Nineteen feature-spec files exist under [`features/`](features/README.md); all twelve P1–P3 files remain placeholders. P0 architecture, UI/UX, implementation, and verification must trace to the approved specifications.
+**P0 specifications and operational defaults approved.** Product baseline v0.1
+and all seven P0 feature specifications are approved. The approved
+[MVP operational defaults](mvp-operational-defaults.md) govern cross-cutting
+intake, application-session, lifecycle, and recovery-placement behavior.
+Nineteen feature-spec files exist under [`features/`](features/README.md); all
+twelve P1–P3 files remain placeholders. P0 architecture, UI/UX, implementation,
+and verification must trace to the approved sources.
 
 Placeholder files are scaffolds only. They do not govern behavior until reviewed, populated with stable `REQ-*` and `AC-*` IDs, and marked `Approved`. A `Draft` spec informs review but is not authoritative for implementation.
 
@@ -59,6 +65,12 @@ An approved feature specification must include:
 - Traceability matrix
 
 Specs without testable acceptance criteria are not ready for approval.
+
+## Cross-cutting MVP policy
+
+| Policy | Scope | Status |
+| --- | --- | --- |
+| [MVP operational defaults](mvp-operational-defaults.md) | Submission intake limits and cleanup, OIDC application sessions and MFA, protected-record lifecycle, and recovery placement | Approved |
 
 ## Feature catalog overview
 
