@@ -55,8 +55,8 @@ Illustrative examples in product documents are **not** MVP commitments until cap
 
 Product documentation for v0.1 is complete. **Do not expand product docs further** until P0 feature specifications are approved.
 
-1. Author P0 specs in order — see [P0 authoring order](../requirements/README.md#p0-authoring-order); P0 #1 [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md) and P0 #2 [`resolved-session-configuration.md`](../requirements/features/resolved-session-configuration.md) are `Approved`, and the remaining five P0 files are placeholders under [`requirements/features/`](../requirements/features/README.md)
-2. Replace placeholder content using the [feature spec template](../templates/feature-spec.md)
+1. Author and review P0 specs in order — see [P0 authoring order](../requirements/README.md#p0-authoring-order); P0 #1 [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md), P0 #2 [`resolved-session-configuration.md`](../requirements/features/resolved-session-configuration.md), and P0 #3 [`assessment-setup.md`](../requirements/features/assessment-setup.md) are `Approved`, and P0 #4–#7 remain placeholders under [`requirements/features/`](../requirements/features/README.md)
+2. Replace P0 #4 [`submission-attempts.md`](../requirements/features/submission-attempts.md) using the [feature spec template](../templates/feature-spec.md)
 3. Keep agent and harness **selection and assessment-required parameters** inside assessment setup — not general agent or harness management (P1)
 4. Record technical choices as ADRs when specs surface implementation decisions
 

@@ -6,7 +6,7 @@ Product meaning and scope boundaries live under [product documentation](../produ
 
 ## Status
 
-**No approved documents yet.** Entry criteria for foundational UI/UX work are met by approved P0 #1 ([`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md)) and P0 #2 ([`resolved-session-configuration.md`](../requirements/features/resolved-session-configuration.md)), which define actors, denial/access-expired and resolution states, protected configuration visibility, and accessibility expectations. Author journeys and interaction specs once related P0 specs stabilize those surfaces.
+**No approved documents yet.** Entry criteria for foundational UI/UX work are met by approved P0 #1 ([`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md)), P0 #2 ([`resolved-session-configuration.md`](../requirements/features/resolved-session-configuration.md)), and P0 #3 ([`assessment-setup.md`](../requirements/features/assessment-setup.md)). P0 #3 defines setup, readiness, activation, failure, concurrency, confirmation, exception, and responsive-accessibility states. Author authoritative assessment-setup journeys and interaction specifications against its `AC-ACT-*` criteria.
 
 ## Purpose
 

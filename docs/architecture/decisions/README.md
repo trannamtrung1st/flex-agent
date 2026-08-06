@@ -4,13 +4,14 @@ Architecture Decision Records (ADRs) for Flex Agent.
 
 ## Status
 
-**Three approved decisions.**
+**Four approved decisions.**
 
 | ADR | Status | Decision |
 | --- | --- | --- |
 | [ADR-001](ADR-001-resolved-configuration-representation-and-integrity.md) | Approved | Versioned canonical representation, digest and terminal-seal procedure, logical artifact split, and source-materialization boundary |
 | [ADR-002](ADR-002-authorization-enforcement-and-delegation.md) | Approved | Shared authorization decision contract, enforcement adapters, service delegation, and freshness boundaries |
 | [ADR-003](ADR-003-authorization-audit-persistence.md) | Approved | Authorization audit ownership, mutation coupling, durability classes, append-only history, and MVP persistence boundaries |
+| [ADR-004](ADR-004-assessment-activation-baseline-and-atomicity.md) | Approved | Assessment activation-baseline representation, content digest, trusted binding, idempotency, and atomic audited activation |
 
 ## Purpose
 

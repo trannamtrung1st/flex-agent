@@ -54,10 +54,10 @@ Illustrative examples in product documents are not MVP commitments unless captur
 | Area | Status | Notes |
 | --- | --- | --- |
 | Product | Approved v0.1 | [Product hub](product/README.md): overview, [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md) |
-| Requirements | P0 specification review in progress | [Feature catalog](requirements/README.md#feature-catalog-overview); P0 #1 and #2 `Approved`; 5 P0 placeholders remain |
-| UI/UX | Scaffold | Entry criteria met by approved P0 #1 and #2; journeys and design system not yet authored |
-| Architecture | Active | [ADR-001](architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md), [ADR-002](architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), and [ADR-003](architecture/decisions/ADR-003-authorization-audit-persistence.md) approved |
-| Feature specifications | Catalog complete; P0 #1 and #2 approved | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); see [features/](requirements/features/README.md) |
+| Requirements | P0 specification review in progress | [Feature catalog](requirements/README.md#feature-catalog-overview); P0 #1–#3 `Approved` and 4 P0 placeholders remain |
+| UI/UX | Scaffold | Entry criteria met; approved P0 #3 defines assessment-setup states, while authoritative journeys and design-system guidance remain to be authored |
+| Architecture | Active | [ADR-001](architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md), [ADR-002](architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), [ADR-003](architecture/decisions/ADR-003-authorization-audit-persistence.md), and [ADR-004](architecture/decisions/ADR-004-assessment-activation-baseline-and-atomicity.md) approved |
+| Feature specifications | Catalog complete; P0 #1–#3 approved | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); see [features/](requirements/features/README.md) |
 | Contributing | Active | Cursor rules, role skills, TDD policy, and Playwright MCP guidance |
 | Templates | Active | Reusable authoring templates (not authoritative content) |
 
@@ -73,7 +73,7 @@ Illustrative examples in product documents are not MVP commitments unless captur
 ### Requirements
 
 - [Requirements hub](requirements/README.md) — lifecycle, ID conventions, and [feature catalog](requirements/README.md#feature-catalog-overview)
-- [Feature specifications](requirements/features/README.md) — 19 specs; P0 #1 and #2 approved, author remaining P0 first
+- [Feature specifications](requirements/features/README.md) — 19 specs; P0 #1–#3 approved, author P0 #4 next
 
 ### UI/UX
 
