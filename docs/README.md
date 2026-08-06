@@ -54,10 +54,10 @@ Illustrative examples in product documents are not MVP commitments unless captur
 | Area | Status | Notes |
 | --- | --- | --- |
 | Product | Approved v0.1 | [Product hub](product/README.md): overview, [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md) |
-| Requirements | P0 specification review in progress | [Feature catalog](requirements/README.md#feature-catalog-overview); P0 #1–#6 `Approved` and P0 #7 a placeholder |
+| Requirements | P0 specifications approved | [Feature catalog](requirements/README.md#feature-catalog-overview); all seven P0 specifications are `Approved` |
 | UI/UX | Scaffold | Approved P0 #3 and P0 #5 define assessment-setup and text-Session states, while authoritative journeys and design-system guidance remain to be authored |
 | Architecture | Active | [ADR-001](architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) through [ADR-005](architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) approved |
-| Feature specifications | Catalog complete; P0 #1–#6 approved | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); see [features/](requirements/features/README.md) |
+| Feature specifications | Catalog complete; all seven P0 specs approved | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); see [features/](requirements/features/README.md) |
 | Contributing | Active | Cursor rules, role skills, TDD policy, and Playwright MCP guidance |
 | Templates | Active | Reusable authoring templates (not authoritative content) |
 
@@ -73,7 +73,7 @@ Illustrative examples in product documents are not MVP commitments unless captur
 ### Requirements
 
 - [Requirements hub](requirements/README.md) — lifecycle, ID conventions, and [feature catalog](requirements/README.md#feature-catalog-overview)
-- [Feature specifications](requirements/features/README.md) — 19 specs; P0 #1–#6 approved, author placeholder P0 #7 next
+- [Feature specifications](requirements/features/README.md) — 19 specs; all seven P0 specifications approved
 
 ### UI/UX
 

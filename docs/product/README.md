@@ -53,10 +53,10 @@ Illustrative examples in product documents are **not** MVP commitments until cap
 
 ## Next actions
 
-Product documentation for v0.1 is complete. **Do not expand product docs further** until P0 feature specifications are approved.
+Product documentation for v0.1 and all seven P0 feature specifications are approved. Keep product semantics stable while architecture, UI/UX, implementation, and verification proceed.
 
-1. Author and review P0 specs in order — see [P0 authoring order](../requirements/README.md#p0-authoring-order); P0 #1 [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md) through P0 #6 [`evidence-evaluation.md`](../requirements/features/evidence-evaluation.md) are `Approved`; P0 #7 remains a placeholder under [`requirements/features/`](../requirements/features/README.md)
-2. Author and review P0 #7 [`review-result-release.md`](../requirements/features/review-result-release.md) using the approved immutable Evaluation, replacement-lineage, human-review, and release boundaries
+1. Preserve all seven approved P0 contracts — see [P0 authoring order](../requirements/README.md#p0-authoring-order) and [`requirements/features/`](../requirements/features/README.md)
+2. Author the required P0 architecture and UI/UX contracts, including review-candidate/Result representation, configurable lifecycle-policy enforcement, atomic Release visibility, and the reviewer/participant interaction specification
 3. Keep agent and harness **selection and assessment-required parameters** inside assessment setup — not general agent or harness management (P1)
 4. Record technical choices as ADRs when specs surface implementation decisions
 

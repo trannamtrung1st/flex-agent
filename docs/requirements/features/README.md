@@ -4,7 +4,7 @@ Home for Flex Agent feature specifications.
 
 ## Status
 
-**P0 #1–#6 approved.** Nineteen spec files exist. [`auth-resource-isolation.md`](auth-resource-isolation.md), [`resolved-session-configuration.md`](resolved-session-configuration.md), [`assessment-setup.md`](assessment-setup.md), [`submission-attempts.md`](submission-attempts.md), [`session-text-lifecycle.md`](session-text-lifecycle.md), and [`evidence-evaluation.md`](evidence-evaluation.md) are `Approved`; P0 #7 and all P1–P3 files remain placeholders. Author P0 #7 next in the order defined in [P0 authoring order](../README.md#p0-authoring-order). Placeholders and drafts are not approved requirements.
+**All seven P0 specifications are approved.** Nineteen spec files exist. [`auth-resource-isolation.md`](auth-resource-isolation.md) through [`review-result-release.md`](review-result-release.md) are `Approved`; all P1–P3 files remain placeholders. P0 implementation, architecture, UI/UX, and verification must preserve these approved contracts. Placeholders and drafts are not approved requirements.
 
 ## Purpose
 

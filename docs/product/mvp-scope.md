@@ -168,9 +168,9 @@ Reviewers can:
 
 Deferred participant and reviewer capabilities: voice and tools align with [Next release](#next-release-explicitly-deferred-from-mvp); memory candidate proposals align with [Later release](#later-release). Reusable agent and harness library authoring is P1 in the [Requirements feature catalog](../requirements/README.md#p1-foundation-expansion).
 
-## Next step: P0 specifications
+## Next step: P0 realization
 
-Continue P0 authoring and review in catalog order — see [P0 authoring order](../requirements/README.md#p0-authoring-order). P0 #1 [`auth-resource-isolation.md`](../requirements/features/auth-resource-isolation.md) through P0 #6 [`evidence-evaluation.md`](../requirements/features/evidence-evaluation.md) are `Approved`; P0 #7 remains a placeholder. Author P0 #7 [`review-result-release.md`](../requirements/features/review-result-release.md) next. Do not expand product documentation further until all P0 specs are approved.
+All seven P0 feature specifications are approved — see [P0 authoring order](../requirements/README.md#p0-authoring-order). Proceed with the required architecture and UI/UX contracts, specification-driven implementation, and end-to-end verification while preserving the approved product scope and feature boundaries.
 
 ## Platform differentiation (product level)
 
