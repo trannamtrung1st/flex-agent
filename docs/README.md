@@ -56,7 +56,7 @@ Illustrative examples in product documents are not MVP commitments unless captur
 | Product | Approved v0.1 | [Product hub](product/README.md): overview, [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md) |
 | Requirements | P0 specification review in progress | [Feature catalog](requirements/README.md#feature-catalog-overview); P0 #1 and #2 `Approved`; 5 P0 placeholders remain |
 | UI/UX | Scaffold | Entry criteria met by approved P0 #1 and #2; journeys and design system not yet authored |
-| Architecture | Active | [ADR-001](architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) approved; [ADR-002](architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) and [ADR-003](architecture/decisions/ADR-003-authorization-audit-persistence.md) proposed |
+| Architecture | Active | [ADR-001](architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md), [ADR-002](architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), and [ADR-003](architecture/decisions/ADR-003-authorization-audit-persistence.md) approved |
 | Feature specifications | Catalog complete; P0 #1 and #2 approved | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); see [features/](requirements/features/README.md) |
 | Contributing | Active | Cursor rules, role skills, TDD policy, and Playwright MCP guidance |
 | Templates | Active | Reusable authoring templates (not authoritative content) |

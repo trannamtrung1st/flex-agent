@@ -5,10 +5,10 @@
 - Status: Approved
 - Owner: Product Lead
 - Approvers: Product Lead, Architecture Lead, Security/Privacy reviewer
-- Approved date: 2026-08-05
+- Approved date: 2026-08-06 (authorization/audit decision update; original feature approval 2026-08-05)
 - Source: [Organization](../../product/concept-model.md#organization), [Session](../../product/concept-model.md#session), [Effective configuration resolution](../../product/concept-model.md#effective-configuration-resolution), [Product invariants](../../product/concept-model.md#product-invariants), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice)
 - Catalog entry: P0 #1 — [P0 authoring order](../README.md#p0-authoring-order)
-- Related decisions: Approved defaults `PROP-1`–`PROP-9` in this specification. [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) proposes the policy-decision, enforcement, delegation, and freshness boundaries. [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) proposes audit-event ownership and persistence. Both remain non-authoritative until approved. Authentication mechanism, vendor policy engine, invitation credential format, physical storage, and retention policy remain deferred decisions.
+- Related decisions: Approved defaults `PROP-1`–`PROP-10` in this specification. [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) governs the policy-decision, enforcement, delegation, and freshness boundaries. [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) governs authorization audit-event ownership and MVP persistence. Authentication mechanism, vendor policy engine, invitation credential format, and product-wide lifecycle policy remain deferred decisions.
 
 ## Problem and measurable outcome
 
@@ -244,6 +244,9 @@ For the assessment MVP, assigned records may include submissions, transcripts, e
 - `REQ-AUTH-28` — Authorization audit history must be append-only or equivalently tamper-evident; corrections must preserve the original event.
 - `REQ-AUTH-29` — Audit and operational records must not contain credentials, authentication secrets, raw tokens, or unnecessary protected content.
 - `REQ-AUTH-30` — Every protected resource type and operation must have automated positive and negative authorization coverage, including cross-organization, cross-subject, cross-session, and wrong-assignment cases where applicable.
+- `REQ-AUTH-31` — An operation that policy classifies as requiring durable audit must not complete unless its audit event is durably accepted. This class must include access-control mutations, service delegations, protected-content exports and downloads, access to unreleased outcomes, outcome releases, and any other operation explicitly designated by approved policy. Routine authorized reads and security-relevant denials may complete through bounded durable buffering only when policy classifies them as bufferable; buffer exhaustion or inability to accept the event must fail the operation without silent loss.
+- `REQ-AUTH-32` — Completing a session or activity must not by itself grant or remove access. A resource subject, reviewer, decision-maker, operator, or administrator may continue to access an available completed-session resource only while an active authorized relationship, delegated capability, applicable workflow state, and visibility policy permit that access. Organization membership or an administrative role alone must not grant continued access to sensitive session content, and participant outcome access must remain gated by release rules.
+- `REQ-AUTH-33` — Authorization audit records must follow the applicable approved retention, deletion, legal-hold, and export policy. Until a more specific approved lifecycle policy applies, the system must preserve the minimum restricted audit metadata needed for investigation and reconstructability, must not duplicate raw protected content, and must not hard-code a product-wide retention duration.
 
 ### Assessment MVP business rules
 
@@ -498,6 +501,30 @@ Audit records reference protected content rather than copying messages, attachme
 - **Then** tests cover authorized access, unauthenticated denial, wrong-organization denial, wrong-participant or wrong-assignment denial where applicable, forged identifiers, list/count leakage, and side-effect-free failure
 - **And** the feature is not considered release-ready while an applicable negative case is missing or failing.
 
+### `AC-AUTH-22` — Required audit acceptance gates sensitive operations
+
+- **Given** an operation is classified by approved policy as requiring durable audit
+- **When** its audit event cannot be durably accepted in the owning transaction or approved durable ingestion boundary
+- **Then** the operation fails without committing the access-control change, delegation, mutation, disclosure, download, export, unreleased-outcome access, or release
+- **And** a routine read or security-relevant denial completes asynchronously only when policy classifies the event as bufferable and a bounded durable buffer accepts it
+- **And** buffer exhaustion, backpressure failure, or inability to accept the event fails the operation and produces an operational alert without silently losing or downgrading the event.
+
+### `AC-AUTH-23` — Completed-resource access remains relationship- and state-scoped
+
+- **Given** an activity or session is complete and its protected records remain available
+- **When** a resource subject, reviewer, decision-maker, operator, or administrator requests one of those records
+- **Then** access succeeds only while the actor retains an active authorized relationship and delegated capability and the resource's workflow and visibility state permit access
+- **And** completion, organization membership, or an administrative role label alone does not authorize access
+- **And** participant outcome access remains denied until the owning release workflow permits it.
+
+### `AC-AUTH-24` — Audit lifecycle follows approved policy without content duplication
+
+- **Given** authorization audit records contain the restricted metadata required for investigation and reconstructability
+- **When** retention, deletion, legal hold, or export is evaluated
+- **Then** the currently applicable approved lifecycle policy is enforced
+- **And** when no more specific approved duration applies, the minimum required metadata remains restricted and available without a hard-coded product-wide duration
+- **And** raw protected content is not duplicated into the audit records.
+
 ### Assessment MVP acceptance criteria
 
 ### `AC-AUTH-2` — Participant accesses an owned authorized resource
@@ -540,7 +567,7 @@ Audit records reference protected content rather than copying messages, attachme
 - Resource models with unambiguous organization and parent ownership.
 - Explicit activity, subject, assignment, group, session, and workflow-state relationships as required by each owning feature.
 - An append-only or equivalently tamper-evident audit facility with UTC timestamps and correlation references.
-- Proposed [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) for enforcement boundaries, policy representation, service delegation, freshness, file delivery, and event scope; proposed [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) for audit-event ownership and persistence. Neither proposal governs implementation until approved.
+- Approved [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) for enforcement boundaries, policy representation, service delegation, freshness, file delivery, and event scope; approved [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) for audit-event ownership and MVP persistence.
 
 ### Assessment MVP dependencies
 
@@ -574,24 +601,17 @@ Track at minimum:
 
 Metrics and traces must use bounded labels and must not include raw protected content, credentials, tokens, or unrestricted resource identifiers.
 
-## Open questions
+## Approved decision disposition
 
-The following questions remain open because they depend on privacy, retention, result-lifecycle, and organization-policy decisions that are not owned by this authorization feature. Each includes an **interim default** and rationale so work can continue without silently inventing approved policy. Interim defaults are not approved requirements.
+The following decisions were approved on 2026-08-06. The cited requirements and acceptance criteria govern behavior; the original question and proposal IDs are retained for traceability.
 
-- `Q-1` — How long may a resource subject, reviewer, decision-maker, operator, or administrator access completed-session resources, released outcomes, and unreleased internal records? For the assessment MVP, this includes participant access to released results and reviewer or administrator access to completed assessment records.
-  - **Decision owner:** Product Lead with Security/Privacy and the owners of retention and result-lifecycle policy.
-  - **Interim default:** Completion does not automatically remove access. Access continues only while the actor retains an active, explicitly authorized relationship and the resource remains available under the applicable visibility, retention, and workflow policies. Organization membership or an administrative role alone does not grant continued access to sensitive session content. Participant access to outcomes remains gated by release rules.
-  - **Rationale:** Authorization should enforce current relationships, delegated capabilities, and release gates. Access windows, archival rules, and post-completion expiry belong to an approved retention and lifecycle policy rather than being hard-coded into authorization logic.
-- `Q-2` — Which authorization and access-audit records are subject to retention, deletion, legal hold, organization export, or regulatory preservation requirements?
-  - **Decision owner:** Product Lead with Security/Privacy and the owner of organization data-lifecycle policy.
-  - **Interim default:** Preserve access-control changes and security-relevant access-audit records in restricted, tamper-evident storage until an approved retention policy applies. Do not copy unnecessary protected content into audit payloads. Apply any binding legal, contractual, privacy, deletion, or legal-hold obligation even before the final product-wide retention policy is approved.
-  - **Rationale:** Audit reconstructability is a product invariant, but it must be balanced with data minimization and applicable deletion obligations. Audit records should retain the metadata needed for investigation, accountability, and fairness review without becoming a duplicate store of protected session content.
-- `Q-3` — What must happen when an operation requires an authorization audit event but the audit record cannot be durably accepted?
-  - **Decision owner:** Product Lead and Architecture Lead with Security/Privacy review.
-  - **Interim default:** Fail closed before committing an access-control mutation, service delegation, protected-content export or download, access to an unreleased outcome, outcome release, or other operation that approved policy classifies as requiring durable audit. A routine authorized read or security-relevant denial may complete only when approved policy permits bounded durable buffering with backpressure, alerting, retry, and no silent loss.
-  - **Rationale:** Allowing sensitive state changes or disclosures without their required audit record breaks accountability and reconstructability. Treating every routine read or denial as synchronously audit-blocking could create an avoidable availability and denial-of-service risk, so policy must distinguish mandatory synchronous audit from bufferable access telemetry.
+| Question/proposal | Approved disposition | Authoritative location |
+| --- | --- | --- |
+| `Q-1` | Completion does not automatically grant or remove access. Continued access requires a current authorized relationship, delegated capability, applicable workflow state, visibility, and resource availability; participant outcomes remain release-gated. | `REQ-AUTH-32`, `AC-AUTH-23` |
+| `Q-2` | Apply the approved lifecycle policy. Until a more specific policy applies, preserve only the minimum restricted audit metadata needed for investigation and reconstructability, do not duplicate raw protected content, and do not hard-code a product-wide duration. | `REQ-AUTH-33`, `AC-AUTH-24`, [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) |
+| `Q-3`, `PROP-10` | Fail closed when an operation requiring durable audit cannot have its event accepted; allow bounded durable buffering only for policy-classified routine reads or denials, with backpressure, alerting, retry, and no silent loss. | `REQ-AUTH-31`, `AC-AUTH-22`, [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) |
 
-Questions `Q-1` and `Q-2` must be resolved before production retention and deletion behavior is approved. `Q-3` must be resolved before audit failure behavior is approved for production. Until then, treat the interim defaults above as working guidance only—not approved requirements—and enforce any active approved policy rather than hard-coding a retention duration or unapproved audit-failure mode.
+The authorization-local questions are closed. A product-wide lifecycle policy must still define any specific retention periods, deletion schedules, legal-hold behavior, and organization export rules before those behaviors are implemented; this specification intentionally does not invent them.
 
 ## Approved defaults
 
@@ -606,10 +626,7 @@ These defaults are approved with this specification and govern MVP authorization
 - `PROP-7` — Return the same non-disclosing external response for an inaccessible protected identifier and a nonexistent identifier, while retaining distinct internal reason codes for operations and security investigation.
 - `PROP-8` — Set an initial authorization-processing objective of no more than 50 ms at the 95th percentile inside the service boundary, excluding authentication-provider redirects and end-user network latency. Confirm or revise this target after representative load testing.
 - `PROP-9` — Permit invitation or entry links only as expiring, revocable, single-purpose references that reveal no protected resource details before authentication. Possession of the link does not itself authorize protected access; the authenticated actor and intended relationship must still be verified.
-
-## Proposed default requiring approval
-
-- `PROP-10` — Apply the `Q-3` interim default: fail closed when a policy-required audit record for a sensitive mutation or disclosure cannot be durably accepted; permit bounded durable buffering only for routine reads or denials that approved audit policy classifies as bufferable. Approval would require `REQ-*` and `AC-*` updates before this behavior becomes authoritative.
+- `PROP-10` — Fail closed when a policy-required audit record for a sensitive mutation or disclosure cannot be durably accepted; permit bounded durable buffering only for routine reads or denials that approved audit policy classifies as bufferable. Normative behavior is defined by `REQ-AUTH-31` and `AC-AUTH-22`.
 
 ## Traceability
 
@@ -617,17 +634,18 @@ The traceability matrix covers the generic platform contract. Rows that referenc
 
 | Requirement/AC | Implementation | Automated verification | Playwright/manual evidence | Status |
 | --- | --- | --- | --- | --- |
-| `REQ-AUTH-1`, `REQ-AUTH-2`, `AC-AUTH-1`, `AC-AUTH-13` | Trusted identity and authorization boundary — proposed [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), approval pending | Protected-route contract tests; side-effect assertions | Unauthenticated and denied UI states | Gap |
+| `REQ-AUTH-1`, `REQ-AUTH-2`, `AC-AUTH-1`, `AC-AUTH-13` | Trusted identity and authorization boundary — approved [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) | Protected-route contract tests; side-effect assertions | Unauthenticated and denied UI states | Gap |
 | `REQ-AUTH-3`–`REQ-AUTH-6`, `AC-AUTH-4`, `AC-AUTH-5`, `AC-AUTH-10` | Organization ownership and delegated-scope enforcement — architecture TBD | Cross-organization matrix; upper/lower-scope conflict tests | Administrator scope and denial flows | Gap |
 | `REQ-AUTH-7`, `REQ-AUTH-8`, `REQ-AUTH-24`, `AC-AUTH-2`, `AC-AUTH-3`, `AC-AUTH-19` | Enrollment, participant ownership, and session isolation — architecture TBD | Cross-participant and concurrent-session integration tests | Participant own-session and denied-resource journeys | Gap |
 | `REQ-AUTH-9`, `REQ-AUTH-10`, `AC-AUTH-5`, `AC-AUTH-6` | Reviewer and administrator assignments — architecture TBD | Active, expired, revoked, and unrelated assignment tests | Reviewer assigned/unassigned states | Gap |
-| `REQ-AUTH-11`, `REQ-AUTH-15`, `AC-AUTH-16` | Service identity and delegated background execution — proposed [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), approval pending | Job/event scope tampering and stale-delegation tests | Operational evidence only | Gap |
+| `REQ-AUTH-11`, `REQ-AUTH-15`, `AC-AUTH-16` | Service identity and delegated background execution — approved [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) | Job/event scope tampering and stale-delegation tests | Operational evidence only | Gap |
 | `REQ-AUTH-12`–`REQ-AUTH-14`, `AC-AUTH-7`, `AC-AUTH-8` | Scoped queries, linked-resource validation, and artifact delivery — architecture TBD | List/count leakage; parent mismatch; download/export tests | Scoped tables, search, empty states, and denied downloads | Gap |
 | `REQ-AUTH-16`, `REQ-AUTH-17`, `AC-AUTH-9` | Trusted parent-derived ownership — architecture TBD | Forged organization/owner field contract tests | Validation and denial messages | Gap |
-| `REQ-AUTH-18`–`REQ-AUTH-20`, `AC-AUTH-11`, `AC-AUTH-12`, `AC-AUTH-17` | Commit-time reauthorization, revocation, and fail-closed behavior — proposed [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), approval pending | Concurrency, cache invalidation, timeout, retry, and batch tests | Permission-changed and access-expired states | Gap |
+| `REQ-AUTH-18`–`REQ-AUTH-20`, `AC-AUTH-11`, `AC-AUTH-12`, `AC-AUTH-17` | Commit-time reauthorization, revocation, and fail-closed behavior — approved [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) | Concurrency, cache invalidation, timeout, retry, and batch tests | Permission-changed and access-expired states | Gap |
 | `REQ-AUTH-21`, `REQ-AUTH-22`, `AC-AUTH-3`, `AC-AUTH-13` | Non-disclosing denial contract — architecture TBD | Existence-oracle and no-side-effect tests | Generic unavailable states | Gap |
 | `REQ-AUTH-23`, `AC-AUTH-18` | Result visibility enforcement supplied by release workflow — architecture TBD | Released/unreleased participant-access tests | Participant result visibility states | Gap |
-| `REQ-AUTH-25`, `AC-AUTH-4`, `AC-AUTH-7`, `AC-AUTH-8`, `AC-AUTH-16`, `AC-AUTH-19` | Scope-safe caches, search, queues, events, and projections — proposed [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), approval pending | Cache-key, index, event, job, and concurrent-session isolation tests | Operational evidence; no direct UI requirement | Gap |
-| `REQ-AUTH-26`–`REQ-AUTH-29`, `AC-AUTH-14`, `AC-AUTH-15` | Audit event ownership and append-only persistence — proposed [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md), approval and `Q-3` decision pending | Audit schema, append-only history, redaction, and failure tests | Audit-history and export evidence | Gap |
+| `REQ-AUTH-25`, `AC-AUTH-4`, `AC-AUTH-7`, `AC-AUTH-8`, `AC-AUTH-16`, `AC-AUTH-19` | Scope-safe caches, search, queues, events, and projections — approved [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) | Cache-key, index, event, job, and concurrent-session isolation tests | Operational evidence; no direct UI requirement | Gap |
+| `REQ-AUTH-26`–`REQ-AUTH-29`, `REQ-AUTH-31`, `REQ-AUTH-33`, `AC-AUTH-14`, `AC-AUTH-15`, `AC-AUTH-22`, `AC-AUTH-24` | Audit event ownership, append-only persistence, durability gating, and lifecycle boundary — approved [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) | Audit schema, append-only history, redaction, durability-class, buffer-failure, and lifecycle-policy tests | Audit-history and export evidence | Gap |
+| `REQ-AUTH-32`, `AC-AUTH-23` | Completed-resource relationship, workflow, visibility, and release enforcement — owning resource and release architectures TBD | Completed-resource active/revoked relationship and released/unreleased visibility tests | Completed-session participant and reviewer access states | Gap |
 | `REQ-AUTH-30`, `AC-AUTH-21` | Authorization verification matrix in CI — test design TBD | Resource/action positive and negative suite | Review checklist and test report | Gap |
 | UX and accessibility requirements, `AC-AUTH-20` | UI access-state patterns — UI/UX spec TBD | Component accessibility tests where applicable | Keyboard, focus, narrow viewport, loading, and denial screenshots | Gap |

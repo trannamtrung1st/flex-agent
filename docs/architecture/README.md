@@ -6,7 +6,7 @@ Product concepts and invariants live under [product documentation](../product/RE
 
 ## Status
 
-**Active.** [ADR-001](decisions/ADR-001-resolved-configuration-representation-and-integrity.md) is approved and governs resolved-configuration representation and integrity. [ADR-002](decisions/ADR-002-authorization-enforcement-and-delegation.md) and [ADR-003](decisions/ADR-003-authorization-audit-persistence.md) propose authorization enforcement/delegation and audit-persistence boundaries; neither governs implementation until approved. Authentication, physical storage, and remaining topology choices stay deferred.
+**Active.** [ADR-001](decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs resolved-configuration representation and integrity. [ADR-002](decisions/ADR-002-authorization-enforcement-and-delegation.md) governs authorization enforcement and delegated execution. [ADR-003](decisions/ADR-003-authorization-audit-persistence.md) governs authorization audit ownership and MVP persistence. Authentication, product-specific storage, and remaining topology choices stay deferred.
 
 ## Purpose
 

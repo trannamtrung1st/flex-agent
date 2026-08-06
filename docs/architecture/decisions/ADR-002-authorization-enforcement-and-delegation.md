@@ -2,12 +2,13 @@
 
 ## Status
 
-Proposed
+Approved
 
 ## Owners and approvers
 
 - Owner: Architecture Lead
-- Required approvers: Product Lead, Architecture Lead, Security/Privacy reviewer
+- Approvers: Product Lead, Architecture Lead, Security/Privacy reviewer
+- Approved date: 2026-08-06
 
 ## Context
 
@@ -33,7 +34,7 @@ The requirements intentionally do not select a policy engine, authorization libr
 | One application-owned policy contract with distributed enforcement adapters | Consistent decisions, in-process MVP simplicity, reusable test fixtures, and a later extraction path | Requires disciplined boundary coverage and explicit versioned inputs |
 | Database row security as the complete solution | Strong defense at one persistence boundary | Does not cover files, caches, search, real-time, queues, external calls, function authorization, or workflow state by itself |
 
-## Proposed decision
+## Decision
 
 ### Logical authorization kernel
 
@@ -54,7 +55,7 @@ Role labels expand to capabilities and scoped relationships before evaluation. A
 
 ### Enforcement boundaries
 
-| Boundary | Proposed enforcement |
+| Boundary | Enforcement |
 | --- | --- |
 | HTTP/API or server-rendered request | Authenticate, derive trusted organization context, and authorize the action/resource before returning protected data or beginning a side effect. |
 | List, search, count, and aggregate | Apply organization and permitted-resource constraints in the query or index request before materialization, pagination, or totals; do not post-filter an unscoped result. |
@@ -82,14 +83,12 @@ The decision contract returns a permit/deny result, a stable internal reason cod
 
 An unavailable or inconsistent required authorization dependency returns deny. The authorization kernel does not select authentication-provider UX, generate invitation credentials, or define business workflow state.
 
-## Open questions
+## Approved decision disposition
 
-- `Q-ADR2-1` — When should the in-process authorization kernel become a separately deployed service?
-  - **Interim default:** Keep it in-process for the MVP. Reconsider only when multiple independently deployed trusted systems need the same decision boundary and measured duplication, release coupling, or scale outweighs the added network failure mode.
-  - **Rationale:** The approved requirements need consistent policy, not a microservice. An in-process boundary is simpler and keeps authorization inside the owning transaction while preserving a future extraction contract.
-- `Q-ADR2-2` — Which invalidation transport should notify real-time nodes and distributed caches of revocation?
-  - **Interim default:** Use targeted version/invalidation messages when the deployment topology introduces multiple nodes, with periodic authoritative revalidation as a fallback bounded by the 60-second requirement. Do not select a broker until the deployment architecture demonstrates the need.
-  - **Rationale:** The behavior target is approved, but a broker or invalidation product would be premature without a deployment topology.
+| Question | Approved disposition |
+| --- | --- |
+| `Q-ADR2-1` | Keep the authorization kernel in-process for the MVP. Reconsider extraction only when multiple independently deployed trusted systems require the same boundary and measured duplication, release coupling, or scale outweighs the added network failure mode. |
+| `Q-ADR2-2` | When deployment introduces multiple nodes, distribute targeted policy-version or invalidation messages and retain periodic authoritative revalidation as a fallback bounded by 60 seconds. Broker selection remains deferred until deployment topology demonstrates a need. |
 
 ## Consequences
 
