@@ -11,8 +11,8 @@ Stable product strategy, domain concepts, and MVP boundaries for Flex Agent.
 | Document | Status | Version | Owner | Approvers | Last reviewed | Approval reference |
 | --- | --- | --- | --- | --- | --- | --- |
 | [Concept model](concept-model.md) | Approved | 0.1 | Product Lead | Product Lead, Architecture Lead | 2026-08-05 | Baseline v0.1 on `main` (2026-08-05) |
-| [MVP scope](mvp-scope.md) | Approved | 0.1 | Product Lead | Product Lead, Architecture Lead | 2026-08-05 | Baseline v0.1 on `main` (2026-08-05) |
-| [Product overview](overview.md) | Approved | 0.1 | Product Lead | Product Lead, Architecture Lead | 2026-08-05 | Baseline v0.1 on `main` (2026-08-05) |
+| [MVP scope](mvp-scope.md) | Approved | 0.1 | Product Lead | Product Lead, Architecture Lead | 2026-08-06 | Baseline v0.1 on `main` (2026-08-05) |
+| [Product overview](overview.md) | Approved | 0.1 | Product Lead | Product Lead, Architecture Lead | 2026-08-06 | Baseline v0.1 on `main` (2026-08-05) |
 
 ## Purpose
 
@@ -56,9 +56,10 @@ Illustrative examples in product documents are **not** MVP commitments until cap
 Product documentation for v0.1 and all seven P0 feature specifications are approved. Keep product semantics stable while architecture, UI/UX, implementation, and verification proceed.
 
 1. Preserve all seven approved P0 contracts — see [P0 authoring order](../requirements/README.md#p0-authoring-order) and [`requirements/features/`](../requirements/features/README.md)
-2. Author the required P0 architecture and UI/UX contracts, including review-candidate/Result representation, configurable lifecycle-policy enforcement, atomic Release visibility, and the reviewer/participant interaction specification
-3. Keep agent and harness **selection and assessment-required parameters** inside assessment setup — not general agent or harness management (P1)
-4. Record technical choices as ADRs when specs surface implementation decisions
+2. Implement against the approved [MVP architecture](../architecture/mvp-architecture.md), [ADR-008 component/provider defaults](../architecture/decisions/ADR-008-bounded-oss-component-set.md), and [ADR-009 detailed contracts](../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md); complete the required compatibility evidence, scoped provider-credential tests, Mistral Small 3.1 benchmark and self-hosted model certification, and machine-readable schemas/fixtures
+3. Author the remaining P0 UI/UX journeys and interaction specifications before frontend implementation is considered complete
+4. Keep agent and harness **selection and assessment-required parameters** inside assessment setup — not general agent or harness management (P1)
+5. Record new or changed technical choices as ADRs when implementation evidence surfaces a consequential decision
 
 ## Related documents
 

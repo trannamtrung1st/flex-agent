@@ -131,7 +131,8 @@ Use the [approved resilience and recovery baseline](../mvp-architecture.md#resil
 - regional-disaster RPO no more than five minutes and RTO no more than four hours,
   contingent on policy-permitted recovery copies;
 - protected artifact version/integrity recovery, point-in-time database recovery,
-  immutable backups, restoration drills, and measured evidence before pilot.
+  immutable backups, restoration drills, and measured evidence before a
+  production pilot.
 
 If residency or lifecycle policy prohibits the recovery mechanism, approve and
 publish the weaker achievable regional target rather than claiming the baseline.
@@ -153,13 +154,16 @@ becomes product authorization or durable workflow authority by itself.
 
 ### Explicitly not selected
 
-This ADR does not select a programming language, web framework, cloud vendor,
-OIDC product, database product, object-storage product, model provider, scanner,
-parser, Redis, broker, Kubernetes distribution, or sandbox product. Selection
+This ADR itself does not select a programming language, web framework, cloud
+vendor, OIDC product, database product, object-storage product, model provider,
+scanner, parser, Redis, broker, Kubernetes distribution, or sandbox product.
+Selection
 must conform to this baseline and complete the open deployment/security
 questions in the MVP architecture. [ADR-007](ADR-007-oss-first-self-hostable-deployment.md)
 adds the approved constraint that the reference deployment is OSS-first and
-self-hostable without mandatory cloud services.
+self-hostable without mandatory cloud services; follow-on
+[ADR-008](ADR-008-bounded-oss-component-set.md) selects the bounded reference
+components and distinguishes synthetic evaluation from production-pilot gates.
 
 ## Consequences
 
@@ -182,6 +186,7 @@ self-hostable without mandatory cloud services.
 
 - Approved baseline: [MVP architecture](../mvp-architecture.md)
 - Deployment portability: [ADR-007](ADR-007-oss-first-self-hostable-deployment.md)
+- Bounded component and provider profiles: [ADR-008](ADR-008-bounded-oss-component-set.md)
 - Operational defaults: [MVP operational defaults](../../requirements/mvp-operational-defaults.md)
 - Product scope: [MVP scope](../../product/mvp-scope.md)
 - Requirements: [P0 authoring order](../../requirements/README.md#p0-authoring-order)

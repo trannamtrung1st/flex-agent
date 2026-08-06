@@ -19,9 +19,16 @@ Vision, positioning, and principles. Canonical concepts, scope boundaries, and r
 Product baseline v0.1, all seven P0 feature specifications, the
 [MVP operational defaults](../requirements/mvp-operational-defaults.md), and the
 OSS-first self-hostable
-[MVP architecture](../architecture/mvp-architecture.md) are approved. Complete
-the staged detailed Session, Evaluation, Review/Release, OSS component-selection,
-deployment-profile, and UI/UX contracts, then implement and verify the
+[MVP architecture](../architecture/mvp-architecture.md) and the detailed
+[Session](../architecture/session-runtime-contract.md),
+[Evaluation](../architecture/evaluation-execution-contract.md), and
+[Review/Release](../architecture/review-result-release-contract.md) contracts are
+approved. Complete the compatibility evidence required by approved
+[ADR-008](../architecture/decisions/ADR-008-bounded-oss-component-set.md),
+including provider-credential isolation and the still-open self-hosted model
+certification for the approved Mistral Small 3.1 benchmark candidate, plus
+machine-readable contract schemas/fixtures and the UI/UX
+contracts; then implement and verify the
 [MVP executable workflow](mvp-scope.md#mvp-executable-workflow) with
 specification-driven TDD.
 

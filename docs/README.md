@@ -56,7 +56,7 @@ Illustrative examples in product documents are not MVP commitments unless captur
 | Product | Approved v0.1 | [Product hub](product/README.md): overview, [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md) |
 | Requirements | P0 specifications and operational defaults approved | [Feature catalog](requirements/README.md#feature-catalog-overview); all seven P0 specifications and the [MVP operational defaults](requirements/mvp-operational-defaults.md) are `Approved` |
 | UI/UX | Scaffold | Approved P0 #3 and P0 #5 define assessment-setup and text-Session states, while authoritative journeys and design-system guidance remain to be authored |
-| Architecture | Approved OSS-first, self-hostable MVP baseline; seven approved ADRs | [MVP architecture](architecture/mvp-architecture.md) governs the P0 technical baseline; [ADR-001](architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) through [ADR-007](architecture/decisions/ADR-007-oss-first-self-hostable-deployment.md) are approved |
+| Architecture | Approved OSS-first, self-hostable architecture and component baseline; nine approved ADRs; three approved detailed contracts; Mistral Small 3.1 benchmark selected, self-hosted production profile uncertified | [MVP architecture](architecture/mvp-architecture.md) governs the P0 baseline; [ADR-008](architecture/decisions/ADR-008-bounded-oss-component-set.md) selects components, scoped BYOK, development-only operator-pulled LGTM, and provider/deployment defaults while leaving exact self-hosted artifact, quantization, and hardware certification under `Q-OSS-1`; [ADR-009](architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md) approves the Session, Evaluation, and Review/Release contracts |
 | Feature specifications | Catalog complete; all seven P0 specs approved | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); see [features/](requirements/features/README.md) |
 | Contributing | Active | Cursor rules, role skills, TDD policy, and Playwright MCP guidance |
 | Templates | Active | Reusable authoring templates (not authoritative content) |
@@ -84,8 +84,13 @@ Illustrative examples in product documents are not MVP commitments unless captur
 
 - [Architecture documentation](architecture/README.md) — system boundaries, data, integration, runtime, and deployment
 - [Approved MVP architecture](architecture/mvp-architecture.md) — end-to-end P0 boundaries, ownership, runtime flows, trust model, quality attributes, traceability, resilience, and evolution boundaries
+- [Approved text Session runtime contract](architecture/session-runtime-contract.md) — ordering, timing, complete-message publication, provider streaming, SSE/reconnect, optional-broker boundary, terminalization, and recovery
+- [Approved Evidence and Evaluation execution contract](architecture/evaluation-execution-contract.md) — Evidence locators/sealing, evaluator composition, completion, lineage, and reconstruction
+- [Approved Human review, Result, and Release contract](architecture/review-result-release-contract.md) — exact candidate selection, revision, decision, Result construction, visibility, Release, notifications, and correction
 - [ADR-007: OSS-first self-hostable deployment](architecture/decisions/ADR-007-oss-first-self-hostable-deployment.md) — portable on-premises reference deployment and optional cloud adapters
-- [Architecture decisions](architecture/decisions/README.md) — approved and proposed ADRs
+- [ADR-008: bounded OSS component set and provider/deployment defaults](architecture/decisions/ADR-008-bounded-oss-component-set.md) — approved reference products, optional adapters, model-provider profiles, external recovery responsibility, version policy, and evidence gates
+- [ADR-009: MVP detailed contracts](architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md) — approved Session, Evaluation, Review/Release, provider-streaming, broker, and notification boundaries
+- [Architecture decisions](architecture/decisions/README.md) — approved ADR catalog, status, and proposal template
 
 ### Contributor guidance
 

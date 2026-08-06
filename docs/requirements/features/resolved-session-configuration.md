@@ -8,7 +8,7 @@
 - Approved date: 2026-08-06
 - Source: [Effective configuration resolution](../../product/concept-model.md#effective-configuration-resolution), [Configuration precedence stack](../../product/concept-model.md#configuration-precedence-stack), [Assessment fairness constraints](../../product/concept-model.md#assessment-fairness-constraints), [Resolved execution manifest](../../product/concept-model.md#resolved-execution-manifest), [Session state and events](../../product/concept-model.md#session-state-and-events), [Product invariants](../../product/concept-model.md#product-invariants), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice)
 - Catalog entry: P0 #2 — [P0 authoring order](../README.md#p0-authoring-order)
-- Related decisions: Consumes the approved authorization and isolation contract in [`auth-resource-isolation.md`](auth-resource-isolation.md). Open questions `Q-1`–`Q-7` and proposals `PROP-1`–`PROP-10` were approved on 2026-08-06 and incorporated into the normative sections identified in [Approved decision disposition](#approved-decision-disposition). Technical representation and integrity choices are governed by [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md); [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs the relational primary and modular runtime topology. Detailed schema, append, reconstruction, and transaction implementation remain architecture and implementation work.
+- Related decisions: Consumes the approved authorization and isolation contract in [`auth-resource-isolation.md`](auth-resource-isolation.md). Open questions `Q-1`–`Q-7` and proposals `PROP-1`–`PROP-10` were approved on 2026-08-06 and incorporated into the normative sections identified in [Approved decision disposition](#approved-decision-disposition). Technical representation and integrity choices are governed by [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md); [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs the relational primary and modular runtime topology; and [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md) governs selected infrastructure, provider defaults, and scoped credential/BYOK bindings without weakening frozen provider/model/version provenance. Detailed schema, append, reconstruction, and transaction implementation remain architecture and implementation work.
 
 ## Problem and measurable outcome
 
@@ -268,7 +268,7 @@ Resolving
 ### Resolved execution manifest
 
 - `REQ-RSC-29` — Every execution manifest must reference the resolved configuration identifier and digest and must identify the organization, activity, cohort when applicable, enrollment/attempt, participant/resource subject, and session.
-- `REQ-RSC-30` — The initial manifest must record at minimum the agent revision, harness revision or snapshot, activity revision, activation baseline, model provider, model identifier, deployment version, knowledge-source versions or hashes, tool-definition set and versions, policy/workflow version, rubric version, memory read/write policy, memory snapshot when enabled, relevant generation parameters, and approved override references.
+- `REQ-RSC-30` — The initial manifest must record at minimum the agent revision, harness revision or snapshot, activity revision, activation baseline, model provider, model identifier, deployment version, credential mode and stable non-secret credential-binding reference/version, knowledge-source versions or hashes, tool-definition set and versions, policy/workflow version, rubric version, memory read/write policy, memory snapshot when enabled, relevant generation parameters, and approved override references.
 - `REQ-RSC-31` — In the assessment MVP, the manifest must explicitly record text interaction as enabled, voice as disabled, tool execution as disabled with an empty permitted tool set, Dynamic memory writes as disabled, and approved-memory reads as disabled or pinned to the recorded memory snapshot.
 - `REQ-RSC-32` — If a configured model provider cannot supply the immutable deployment/version identity required by the approved product model or an architecture-approved equivalent fingerprint, the assessment session must not start.
 - `REQ-RSC-33` — Runtime model calls and future permitted tool operations must append sequenced manifest records containing the configuration reference, operation type, provider or tool identity/version, timing, status, correlation references, and stable input/output or evidence references required for audit and reconstruction.
@@ -288,6 +288,10 @@ Resolving
 - `REQ-RSC-44` — The system must support automated reconstruction verification that reloads the recorded immutable inputs, re-applies the recorded resolver/canonicalization version where supported, and confirms the stored effective digest without mutating the historical record.
 - `REQ-RSC-45` — A reconstruction check that cannot load or verify a required source must report the manifest as unverifiable or degraded with a stable reason; it must not silently substitute a newer source.
 
+### Provider credential resolution
+
+- `REQ-RSC-46` — Provider credential selection must derive from trusted deployment and Organization policy plus an authorized Organization-scoped or deployment-default `SecretSource` binding. Participant, Activity, request, and Session input must not select or widen credential ownership. A missing, revoked, wrong-Organization, or provider-mismatched binding must fail closed before model work and must not silently fall back to another credential, payer, or provider.
+
 ## Data, evidence, and audit
 
 ### Logical records
@@ -297,8 +301,8 @@ The following are logical product records. Architecture may store them as separa
 | Record | Purpose | Minimum content |
 | --- | --- | --- |
 | Resolution attempt | Preserve each start-boundary resolution outcome | Attempt ID/idempotency key, trusted session/attempt scope, resolver version, started/finished timestamps, outcome, stable error categories, correlation ID |
-| Resolved session configuration | Frozen effective values used by the session | Configuration ID, ownership chain, source references, baseline reference, effective values, decisions, override references, schema/resolver/canonicalization versions, freeze time, digest |
-| Resolved execution manifest | Connect frozen configuration to runtime provenance | Manifest ID, configuration ID/digest, required model/knowledge/tool/policy/workflow/rubric/memory/generation fields, runtime sequence, terminal state, seal/verification fields |
+| Resolved session configuration | Frozen effective values used by the session | Configuration ID, ownership chain, source references, baseline reference, effective values including provider credential mode and opaque binding reference/version, decisions, override references, schema/resolver/canonicalization versions, freeze time, digest |
+| Resolved execution manifest | Connect frozen configuration to runtime provenance | Manifest ID, configuration ID/digest, required model and non-secret credential-binding provenance plus knowledge/tool/policy/workflow/rubric/memory/generation fields, runtime sequence, terminal state, seal/verification fields |
 | Manifest runtime record | Append-only operation provenance | Sequence, type, service actor, configuration reference, provider/tool identity and version, timestamps, status, request/correlation references, protected payload/evidence references |
 | Configuration annotation | Preserve later explanation without rewriting history | Author, scope, timestamp, reason, linked configuration/manifest, annotation type, optional verification finding |
 | Audit event | Security and governance history | Actor/service, organization, action, resource, decision/result, reason code, timestamp, correlation, relevant assignment/delegation/override reference |
@@ -436,6 +440,9 @@ A reconstruction operation should be able to answer:
 - The resolver must validate complete parent ownership and must not combine sources from different organizations, activities, cohorts, participants, attempts, or sessions.
 - Secrets, credentials, API keys, access tokens, private endpoints, and provider authentication material must not be copied into the configuration, manifest, audit events, logs, metrics, traces, or UI.
 - Secret usage is represented by an authorized secret binding/reference whose value is resolved only by the permitted runtime boundary.
+- Organization BYOK is operator-provisioned through that secret boundary. The
+  product stores only an opaque binding reference and bounded non-secret status;
+  it does not accept or retain a raw provider key through product UI or API.
 - Cryptographic digests and seals must use an approved versioned procedure; weak or deprecated procedures must not be introduced silently.
 - A matching digest does not bypass authorization, retention, deletion, or privacy controls.
 - Manifest and audit logs must minimize duplicated participant content and use stable protected references where possible.
@@ -642,6 +649,22 @@ A reconstruction operation should be able to answer:
 - **And** voice interaction, tool execution, Dynamic memory writes, and shared-session behavior are explicitly disabled
 - **And** an empty tool set cannot be interpreted as permission to use undeclared tools.
 
+### `AC-RSC-25` — Provider credentials remain scoped and fail closed
+
+- **Given** an Organization policy selects an approved external model provider
+  and either an Organization BYOK or deployment-default credential binding
+- **When** a Session configuration resolves or the runtime prepares a model call
+- **Then** the runtime validates the binding's Organization/deployment scope,
+  provider match, version, and active status through the trusted secret boundary
+- **And** the frozen configuration and manifest contain only the non-secret
+  credential mode and opaque binding reference/version
+- **And** Participant, Activity, request, and Session input cannot substitute a
+  different credential owner
+- **And** a missing, revoked, wrong-scope, or mismatched binding blocks model work
+  without falling back to another credential, payer, or provider
+- **And** raw credential material is absent from product storage, UI, API
+  payloads, audit, logs, telemetry, and exports.
+
 ## Dependencies and rollout
 
 ### Dependencies
@@ -719,6 +742,6 @@ The following table preserves the proposal and question history while linking ea
 | `REQ-RSC-9`–`REQ-RSC-14`, `AC-RSC-6`, `AC-RSC-8`, `AC-RSC-24` | Cohort-baseline validator and assessment fairness profile — architecture TBD | Baseline drift, cross-cohort substitution, memory snapshot/no-read, deferred-capability tests | Cohort readiness and start-blocked flows | Gap |
 | `REQ-RSC-15`–`REQ-RSC-22`, `AC-RSC-3`, `AC-RSC-7`, `AC-RSC-11`, `AC-RSC-12` | Versioned source registry, [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) canonicalization/digest contract, immutable storage, idempotency — remaining architecture TBD | Determinism/property tests; mutable-alias rejection; source-change and concurrency tests | Technical provenance and immutable-history inspection | Gap |
 | `REQ-RSC-23`–`REQ-RSC-28`, `AC-RSC-10`, `AC-RSC-11`, `AC-RSC-13`, `AC-RSC-16` | Atomic start transaction/workflow and failure recovery — architecture TBD | Fault injection across persistence/audit; duplicate start; stale authorization; aborted-after-freeze tests | Participant unavailable/retry states; admin diagnostics | Gap |
-| `REQ-RSC-29`–`REQ-RSC-37`, `AC-RSC-9`, `AC-RSC-14`, `AC-RSC-15`, `AC-RSC-17`, `AC-RSC-23`, `AC-RSC-24` | Manifest schema, runtime append protocol, and [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) terminal-seal contract — remaining append architecture TBD | Required-field contracts; provider-version tests; append concurrency/retry; tamper/seal tests | Reviewer manifest and terminal-verification views | Gap |
+| `REQ-RSC-29`–`REQ-RSC-37`, `REQ-RSC-46`, `AC-RSC-9`, `AC-RSC-14`, `AC-RSC-15`, `AC-RSC-17`, `AC-RSC-23`, `AC-RSC-25` | Manifest schema, runtime append protocol, provider credential resolver and [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) terminal-seal contract — remaining append architecture TBD | Required-field contracts; provider-version and credential-scope tests; revoked/wrong-scope/no-fallback tests; append concurrency/retry; tamper/seal tests | Reviewer manifest, credential-binding status, and terminal-verification views | Gap |
 | `REQ-RSC-38`–`REQ-RSC-45`, `AC-RSC-18`–`AC-RSC-22` | Authorized inspection/export, reconstruction verifier, redaction and audit — architecture TBD | Cross-scope access matrix; redaction tests; reconstruction/degraded-source tests; audit assertions | Participant/admin/reviewer access states; keyboard, focus, responsive evidence | Gap |
 | Quality and observability requirements, `AC-RSC-22` | UI status patterns, telemetry, SLO dashboards — UI/UX and architecture TBD | Accessibility component tests; latency/load tests; bounded-label checks | Narrow viewport, keyboard, screen-reader status, failure screenshots | Gap |

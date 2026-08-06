@@ -48,6 +48,13 @@ self-hosted path.
 Flex Agent adopts an **OSS-first, self-hostable, open-standard deployment
 baseline**.
 
+[ADR-008](ADR-008-bounded-oss-component-set.md) approves the current component
+families and provider boundaries. That selection establishes an implementable
+self-hosted architecture, but it does not certify an end-to-end self-hosted
+model profile: Mistral Small 3.1 24B Instruct is the approved first benchmark
+candidate, while its exact revision, quantization, hardware, quality, and
+immutable derived-artifact identity remain open under ADR-008's `Q-OSS-1`.
+
 1. The complete MVP workflow must be deployable without a mandatory public
    cloud account or proprietary managed service.
 2. Core application runtimes are distributed as portable OCI container images.
@@ -93,19 +100,20 @@ baseline**.
 
 ## Initial deployment profiles
 
-The exact component products remain a versioned implementation selection, but
-the supported shape is fixed:
+[ADR-008](ADR-008-bounded-oss-component-set.md) selects the current bounded
+component families, provider/credential boundaries, and version policy. The
+supported portable shape remains fixed here:
 
 | Profile | Required property |
 | --- | --- |
 | Local development and automated test | One documented, non-interactive command starts the application and self-hosted dependencies from pinned artifacts; deterministic health checks and synthetic data verify readiness |
-| On-premises pilot/production | Uses the same application images and contracts with Organization-operated identity, relational storage, object storage, telemetry, secrets, TLS, and backup facilities; Kubernetes is not required |
+| On-premises evaluation pilot | Uses the same contracts in a synthetic-data-only, explicitly non-production single-host profile; Kubernetes and HA are not required |
+| Production-pilot candidate | Uses the same application images and contracts with Organization-operated identity, relational storage, object storage, telemetry, secrets, TLS, and backup facilities; Kubernetes is not required, but ADR-006 resilience and recovery gates still apply |
 | Optional cloud deployment | May replace infrastructure adapters with managed equivalents without changing domain behavior, protected data meaning, or public application contracts |
 
-The local orchestration format and exact OSS component set require compatibility
-spikes before selection. A Compose-compatible profile is the interim default
-because it is widely automatable and does not make Kubernetes an MVP
-prerequisite.
+ADR-008 selects Docker Compose for local/CI and the evaluation pilot. Exact
+artifacts remain subject to its compatibility, security, recovery, license, and
+supply-chain evidence gates; no selection makes Kubernetes an MVP prerequisite.
 
 ## Consequences
 
@@ -149,6 +157,7 @@ prerequisite.
 
 - [MVP architecture](../mvp-architecture.md)
 - [ADR-006: MVP architecture baseline and evolution](ADR-006-mvp-architecture-baseline-and-evolution.md)
+- [ADR-008: Bounded OSS component set and provider/deployment defaults](ADR-008-bounded-oss-component-set.md)
 - [Authorization and resource isolation](../../requirements/features/auth-resource-isolation.md)
 - [Approved MVP operational defaults](../../requirements/mvp-operational-defaults.md)
 - [MVP scope](../../product/mvp-scope.md)

@@ -13,11 +13,24 @@ self-hostability, and evolution seams.
 
 [ADR-001](decisions/ADR-001-resolved-configuration-representation-and-integrity.md)
 through [ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md) are
-approved. The cross-cutting
+approved. [ADR-008](decisions/ADR-008-bounded-oss-component-set.md) approves the
+bounded component set and version policy; its compatibility, security,
+recovery, license, and supply-chain evidence gates remain required before an
+affected profile is certified. The self-hostable architecture is approved, but
+Mistral Small 3.1 24B Instruct is the approved first vLLM benchmark candidate,
+while its exact artifact, quantization, and hardware profile remain uncertified
+under `Q-OSS-1`. Optional LGTM is operator-pulled local/CI infrastructure and
+does not block MVP or production architecture. Approved detailed contracts cover
+[text Session runtime](session-runtime-contract.md),
+[Evidence and Evaluation execution](evaluation-execution-contract.md), and
+[Human review, Result, and Release](review-result-release-contract.md). The three
+contracts and their provider-streaming, optional-broker, and notification
+boundaries are approved through
+[ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md). The cross-cutting
 [MVP operational defaults](../requirements/mvp-operational-defaults.md) resolve
 upload, application-session, lifecycle, and recovery-placement policy. Detailed
-Session ordering/terminal realization, Evaluation completion, Review/Result
-schemas, UI/UX contracts, concrete component selection, and production evidence
+UI/UX contracts, ADR-008 component compatibility evidence, machine-readable
+contract schemas/fixtures, and production evidence
 remain staged work as mapped in the approved overview.
 
 ## Purpose
@@ -30,6 +43,10 @@ This area will govern how the system is structured: boundaries, data ownership, 
 | --- | --- |
 | Review the approved end-to-end P0 technical shape | [MVP architecture](mvp-architecture.md) |
 | Review approved cross-cutting decisions | [Architecture decisions](decisions/README.md) |
+| Review approved OSS component defaults and pending evidence gates | [ADR-008: bounded OSS component set](decisions/ADR-008-bounded-oss-component-set.md) |
+| Implement the approved text Session realization | [Text Session runtime contract](session-runtime-contract.md) |
+| Implement the approved Evidence/Evaluation realization | [Evidence and Evaluation execution contract](evaluation-execution-contract.md) |
+| Implement the approved review-to-Release realization | [Human review, Result, and Release contract](review-result-release-contract.md) |
 | Review approved intake, session, lifecycle, and recovery defaults | [MVP operational defaults](../requirements/mvp-operational-defaults.md) |
 | Find remaining architecture and delivery work | [MVP architecture remaining work](mvp-architecture.md#remaining-architecture-and-delivery-work) |
 | Find unresolved questions and interim defaults | [MVP architecture open questions](mvp-architecture.md#open-architecture-questions) |

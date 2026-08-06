@@ -170,7 +170,19 @@ Deferred participant and reviewer capabilities: voice and tools align with [Next
 
 ## Next step: P0 realization
 
-All seven P0 feature specifications are approved — see [P0 authoring order](../requirements/README.md#p0-authoring-order). Proceed with the required architecture and UI/UX contracts, specification-driven implementation, and end-to-end verification while preserving the approved product scope and feature boundaries.
+All seven P0 feature specifications, the detailed Session, Evaluation, and
+Review/Release architecture contracts, and the bounded component/provider
+defaults are approved — see
+[P0 authoring order](../requirements/README.md#p0-authoring-order),
+[ADR-008](../architecture/decisions/ADR-008-bounded-oss-component-set.md), and
+[ADR-009](../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md).
+Complete ADR-008's applicable compatibility and provider-credential evidence,
+benchmark its approved Mistral Small 3.1 candidate and resolve exact self-hosted
+artifact, quantization, and hardware certification before claiming an executable
+no-public-cloud profile, and complete the remaining machine-readable
+schemas/fixtures and UI/UX contracts; then proceed with
+specification-driven implementation and end-to-end verification while
+preserving the approved product scope and feature boundaries.
 
 ## Platform differentiation (product level)
 

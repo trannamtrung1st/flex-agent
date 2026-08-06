@@ -10,15 +10,17 @@ sessions, protected-data lifecycle, and recovery placement.
 | **Status** | Approved |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
-| **Version** | 0.1 |
+| **Version** | 0.2 |
 | **Approved date** | 2026-08-06 |
 | **Applies to** | MVP reference deployment and any deployment that does not supply a stricter approved Organization policy |
 | **Governs** | Observable operational limits and lifecycle defaults; it does not select infrastructure products or make a compliance claim |
 
 These values resolve `Q-ARCH-10` through `Q-ARCH-13` from the initial MVP
-architecture review. Organization policy may impose stricter limits or shorter
-retention where dependencies permit, but lower scopes may not widen approved
-Organization bounds. A deployment-specific override must be explicit,
+architecture review. Version 0.2 clarifies that external malware scanning is a
+policy-controlled validation step and is not mandatory for the initial
+text/Markdown-only categories. Organization policy may impose stricter limits
+or shorter retention where dependencies permit, but lower scopes may not widen
+approved Organization bounds. A deployment-specific override must be explicit,
 versioned, authorized, auditable, and tested before protected data is accepted.
 
 ## Submission intake defaults
@@ -34,9 +36,13 @@ versioned, authorized, auditable, and tested before protected data is accepted.
 - `REQ-OPS-4`: Archives, executable content, repository URLs, and links that
   would require fetching external content must remain disabled. Submitted links
   are inert text and must never trigger an automatic fetch.
-- `REQ-OPS-5`: Attachment validation must finish within two minutes or leave the
-  version non-accepted with an explicit retry or failure state. Scanner or
-  validator unavailability must never cause acceptance.
+- `REQ-OPS-5`: Every validation step required by the frozen material-category
+  policy must finish within two minutes or leave the version non-accepted with
+  an explicit retry or failure state. External malware scanning may be
+  `disabled_by_approved_policy` for the initial strictly validated UTF-8 `.txt`
+  and `.md` categories. When scanning is `required`, unavailable, stale,
+  timed-out, or inconclusive scanning must never cause acceptance. A disabled
+  scanner must not be recorded or presented as having returned a clean result.
 - `REQ-OPS-6`: Incomplete upload payloads must be disposed of within 24 hours of
   the last upload activity. Rejected or quarantined payload bytes must be
   disposed of within seven days unless an authorized security investigation or
@@ -138,9 +144,12 @@ versioned, authorized, auditable, and tested before protected data is accepted.
 - `AC-OPS-1`: Given an attachment outside an approved type, count, per-file, or
   aggregate limit, when intake validates it, then the version remains
   non-accepted and no Session may bind it.
-- `AC-OPS-2`: Given scanner unavailability or a validation timeout, when intake
-  runs, then it never marks the payload accepted and exposes a bounded safe
-  recovery state.
+- `AC-OPS-2`: Given a policy that requires external scanning, when the scanner
+  is unavailable, stale, timed out, or inconclusive, then intake never marks the
+  payload accepted and exposes a bounded safe recovery state. Given an approved
+  policy that disables external scanning for the initial text/Markdown
+  categories, intake may accept only after every remaining required validation
+  succeeds and must record the policy mode without claiming a clean scan.
 - `AC-OPS-3`: Given a repository URL, archive, invalid UTF-8 file, or misleading
   filename, when intake processes it, then no external fetch, archive expansion,
   execution, or acceptance occurs.
@@ -163,6 +172,7 @@ versioned, authorized, auditable, and tested before protected data is accepted.
 - [ADR-002: Authorization enforcement and delegation](../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md)
 - [ADR-006: MVP architecture baseline and evolution](../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md)
 - [ADR-007: OSS-first self-hostable deployment](../architecture/decisions/ADR-007-oss-first-self-hostable-deployment.md)
+- [ADR-008: Bounded OSS component set and provider/deployment defaults](../architecture/decisions/ADR-008-bounded-oss-component-set.md)
 - [Authorization and resource isolation](features/auth-resource-isolation.md)
 - [Submission and Attempts](features/submission-attempts.md)
 - [Text Session lifecycle](features/session-text-lifecycle.md)

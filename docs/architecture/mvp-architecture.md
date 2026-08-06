@@ -10,18 +10,23 @@ Approved technical realization baseline for the P0 assessment vertical slice.
 | **Owner** | Architecture Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, UI/UX, documentation |
-| **Version** | 0.2 |
+| **Version** | 0.4 |
 | **Approved date** | 2026-08-06 |
-| **Approval reference** | MVP architecture review approved on 2026-08-06; formalized by [ADR-006](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) and extended by [ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md) |
+| **Approval reference** | MVP architecture review approved on 2026-08-06; formalized by [ADR-006](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md), extended by [ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md), assigned component/provider defaults by [ADR-008](decisions/ADR-008-bounded-oss-component-set.md), and detailed for Session/Evaluation/Review through [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md) |
 | **Governs** | MVP system boundaries, logical ownership, runtime flows, consistency boundaries, trust boundaries, deployment shape, recovery baseline, and architecture verification |
 
 This approved architecture does not override approved product documents or
 feature specifications. Approved requirements govern observable behavior;
 approved ADRs govern technical realization. The approved
 [MVP operational defaults](../requirements/mvp-operational-defaults.md) govern
-the intake, authentication-session, lifecycle, and recovery defaults. Concrete
-component selections and the remaining detailed contracts identified below
-retain their stated status and owners.
+the intake, authentication-session, lifecycle, and recovery defaults. The
+detailed Session, Evaluation, and Review/Release contracts are approved through
+ADR-009. Component and provider/deployment defaults are approved through
+ADR-008; compatibility evidence and remaining delivery artifacts retain their
+stated status and owners. Mistral Small 3.1 24B Instruct is the approved first
+vLLM benchmark candidate, but its exact artifact, quantization, and hardware
+profile remain uncertified under `Q-OSS-1`. Optional LGTM is development-only,
+operator-pulled, and does not block MVP or production architecture.
 
 ## Purpose and audience
 
@@ -33,9 +38,11 @@ contributors one coherent technical frame for the MVP workflow:
 > release Result.
 
 It defines the minimum useful architecture before implementation. It requires
-an OSS-first self-hostable reference deployment but does not yet select a
-programming language, web framework, identity product, model provider, database
-product, or object-storage product.
+the OSS-first self-hostable reference architecture and selected infrastructure
+families in ADR-008, but it does not select a programming language or web
+framework. Component-family approval does not certify a production deployment,
+a self-hosted model artifact, or remove the evidence gates in this document and
+ADR-008.
 
 ## Governing sources
 
@@ -66,6 +73,8 @@ product, or object-storage product.
 | [ADR-005](decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) | Atomically consume Attempt entitlement, bind exact Submission versions, freeze configuration, create the manifest and Session, and accept required audit |
 | [ADR-006](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) | Approve this MVP architecture baseline, SPA/API/gateway topology, OIDC direction, recovery targets, optional caching boundary, and deferred Kubernetes evolution seam |
 | [ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md) | Require an OSS-first, self-hostable, open-standard reference deployment with portable OCI runtimes and no mandatory cloud service |
+| [ADR-008](decisions/ADR-008-bounded-oss-component-set.md) | Select bounded infrastructure and model-provider defaults, scoped credential/BYOK boundaries, Docker Compose reference profiles, operator-owned recovery execution, and evidence gates |
+| [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md) | Approve the detailed Session, Evaluation, and Review/Release realization contracts and their provider-streaming, optional-broker, and notification boundaries |
 
 ## Scope
 
@@ -745,8 +754,8 @@ requirement implemented.
 | `Q-ARCH-1` | Use the modular monolith and shared relational primary defined by `AR-DEC-1` and `AR-DEC-2`. |
 | `Q-ARCH-2` | Use the database-backed work table and transactional outbox in `AR-DEC-3`; add a broker only after measured evidence and an architecture update. |
 | `Q-ARCH-3` | Use request/response commands plus SSE, with bounded polling fallback, as defined by `AR-DEC-4`. |
-| `Q-ARCH-4` | Use the private quarantine/validation/immutable artifact pattern in `AR-DEC-5` and the approved intake defaults in `AR-DEC-19`; scanner/parser product selection remains implementation work. |
-| `Q-ARCH-5` | Use the extensible provider-neutral OIDC and API-server application-session boundary in `AR-DEC-6` and the approved session defaults in `AR-DEC-20`; provider selection remains implementation work. |
+| `Q-ARCH-4` | Use the private validation/quarantine/immutable artifact pattern in `AR-DEC-5`, the policy-controlled scanner adapter in [ADR-008](decisions/ADR-008-bounded-oss-component-set.md), and the approved intake defaults in `AR-DEC-19`. |
+| `Q-ARCH-5` | Use the extensible provider-neutral OIDC and API-server application-session boundary in `AR-DEC-6`, Keycloak as selected by ADR-008, and the approved session defaults in `AR-DEC-20`. |
 | `Q-ARCH-6` | Use the restricted deterministic-evaluator worker boundary in `AR-DEC-8`; stronger future code/Agent isolation is deferred under `AR-DEC-16`. |
 | `Q-ARCH-7` | Use the versioned fail-closed lifecycle resolver in `AR-DEC-10` and the approved default policy matrix in `AR-DEC-21`. |
 | `Q-ARCH-8` | Use the measurable resilience and recovery targets in `AR-DEC-15` and [Resilience and recovery baseline](#resilience-and-recovery-baseline). |
@@ -755,32 +764,32 @@ requirement implemented.
 | `Q-ARCH-11` | Use the approved OIDC flow, application-session, MFA, and revocation behavior in `AR-DEC-20`. |
 | `Q-ARCH-12` | Use the approved protected-record lifecycle matrix in `AR-DEC-21`. |
 | `Q-ARCH-13` | Use encrypted secondary recovery copies in a separate failure domain or region within the same approved jurisdiction, as defined by `AR-DEC-21`. |
+| `Q-ARCH-14` | Use the bounded component families, adapter boundaries, external operator responsibilities, and evidence gates approved in [ADR-008](decisions/ADR-008-bounded-oss-component-set.md). |
+| `Q-ARCH-15` | Use Docker Engine and Docker Compose for local/CI and the synthetic-data-only single-host evaluation pilot; keep the production-pilot candidate orchestrator-neutral and defer Kubernetes/`kind` as defined by ADR-008. |
 
 ## Remaining architecture and delivery work
 
 | Timing | Work still required | Status and interim direction |
 | --- | --- | --- |
-| Before text Session implementation | Publish the authoritative Session/message/turn ordering, timer/pause accounting, generation publication, terminal/seal, reconnect, and recovery contract. | Blocking detailed architecture; preserve `AR-DEC-4`, ADR-001, ADR-002, ADR-003, and ADR-005. |
-| Before Evaluation implementation | Publish Evidence locator/set-seal, evaluator provenance, deterministic isolation, invocation retry/completion, model trust, and replacement-lineage contracts. | Blocking detailed architecture; preserve `AR-DEC-7` and `AR-DEC-8`. |
-| Before Review/Release implementation | Publish Review-case/candidate, Human revision, Review decision, Result/current-visible lineage, correction, and atomic Release schemas. | Blocking detailed architecture; preserve `AR-DEC-10` and `AR-DEC-11`. |
-| Before Submission intake implementation | Select and contract-test the scanner/parser adapters; encode the approved limits, timeouts, cleanup, and failure behavior. | Product selection remains; policy is approved in `AR-DEC-19` and `REQ-OPS-1` through `REQ-OPS-8`. |
-| Before authentication implementation | Select and contract-test the self-hostable OIDC provider; encode the approved application-session and MFA settings. | Product selection remains; behavior is approved in `AR-DEC-20` and `REQ-OPS-9` through `REQ-OPS-17`. |
+| Text Session implementation | Implement against the approved [text Session runtime contract](session-runtime-contract.md), including complete-message publication, provider-to-worker candidate streaming, primary-store replay, SSE, and deferred non-authoritative broker use. | Detailed architecture complete through [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md); implementation and verification remain. Preserve `AR-DEC-3`, `AR-DEC-4`, `AR-DEC-14`, ADR-001, ADR-002, ADR-003, and ADR-005. |
+| Evaluation implementation | Implement against the approved [Evidence and Evaluation execution contract](evaluation-execution-contract.md), covering Evidence locator/set-seal, evaluator provenance, deterministic isolation, invocation retry/completion, model trust, and replacement lineage. | Detailed architecture complete through ADR-009; implementation and verification remain. Preserve `AR-DEC-7` and `AR-DEC-8`. |
+| Review/Release implementation | Implement against the approved [Human review, Result, and Release contract](review-result-release-contract.md), covering Review case/candidate, Human revision, Review decision, Result/current-visible lineage, correction, atomic Release, and availability-only MVP notifications. | Detailed architecture complete through ADR-009; implementation and verification remain. Preserve `AR-DEC-10` and `AR-DEC-11`. |
+| Before Submission intake implementation | Pass ADR-008's SeaweedFS and artifact-safety adapter gates; encode the approved limits, policy-controlled scanner mode, timeouts, cleanup, and failure behavior. | Component and adapter direction is approved; compatibility evidence remains blocking for the affected implementation. Policy is governed by `AR-DEC-19`, `REQ-OPS-1` through `REQ-OPS-8`, and the Submission specification. |
+| Before authentication implementation | Pass ADR-008's Keycloak contract gate and encode the approved application-session and MFA settings. | Component direction and observable behavior are approved; compatibility evidence remains blocking for acceptance. |
+| Before model-provider implementation | Implement the provider-neutral adapter and `SecretSource` credential resolver; test deployment-default and Organization-BYOK scope, rotation/revocation, wrong-scope substitution, quota attribution, and fail-closed no-fallback behavior. Benchmark the exact pinned Mistral Small 3.1 24B Instruct revision, derived quantized artifact, and starting single-24-GB-NVIDIA-GPU profile. | Direct OpenAI is the first enabled external adapter. OpenRouter remains synthetic-development-only; Anthropic is adapter-ready but deferred. The self-hosted benchmark target is approved, while production certification remains open under `Q-OSS-1`. |
 | Before frontend implementation | Author approved SPA journeys and interaction specifications for setup, Submission, Session, Evaluation/review, and Result/Release states. | UI/UX remains a documentation gap; `AR-DEC-12` defines authority, not visual interaction. |
 | Before implementation acceptance | Publish ADR-001/ADR-004 conformance fixtures and versioned schemas for commands, events, canonical documents, work, Evidence locators, audit, and artifacts. | Required verification evidence. |
-| Before production pilot | Implement and verify lifecycle enforcement, privileged access/secrets/encryption configuration, same-jurisdiction secondary recovery, restore/failure-injection/load evidence, operational runbooks, upgrade/recovery procedures, and the component/SBOM inventory. | Approved policy exists; implementation and operational evidence remain pilot blockers. |
+| Before production pilot | Implement and verify lifecycle enforcement, privileged access/secrets/encryption configuration, model-provider privacy and credential-isolation controls, same-jurisdiction secondary recovery, restore/failure-injection/load evidence, operational runbooks, upgrade/recovery procedures, and the component/SBOM inventory. | Approved policy exists; implementation and operational evidence remain production-pilot blockers. The single-host evaluation pilot is synthetic-data-only and cannot waive these gates. |
 | After measured need | Select Redis/cache uses or an external broker. | Deferred; no MVP blocker and no authoritative behavior may depend on them. |
 | Future approved feature | Add Kubernetes/sandbox scheduling for repository/code execution, long delegated work, specialized resources, or stronger Agent isolation. | Deferred by `AR-DEC-16`; return through a feature specification, threat model, and ADR. |
 
 ## Open architecture questions
 
 No product or policy confirmation currently blocks detailed MVP architecture.
-The following technical selections still require evidence and Architecture Lead
-approval. Their interim defaults are working guidance only.
-
-| ID | Question and decision owner | Interim default | Rationale and impact |
-| --- | --- | --- | --- |
-| `Q-ARCH-14` | Architecture and Operations owners: Which bounded OSS component set and supported versions implement OIDC, relational storage, object storage, scanning, telemetry, secrets, and gateway functions? | Select maintained, license-compatible self-hosted components through small contract and recovery spikes; certify one pinned reference set before supporting alternatives. | Product names change faster than domain contracts. Evidence must cover security response, upgrades, backup/restore, data portability, and operator burden. |
-| `Q-ARCH-15` | Architecture and Operations owners: Which local/pilot orchestration package implements the reference profile? | Use pinned OCI images and a Compose-compatible, non-interactive local/pilot profile; keep production contracts orchestrator-neutral and Kubernetes optional. | This maximizes reproducibility and coding-Agent usability without making a cluster an MVP prerequisite. |
+`Q-ARCH-14`, `Q-ARCH-15`, and `Q-OSS-2` are resolved by ADR-008. The remaining
+`Q-OSS-1` question concerns exact self-hosted model artifact, quantization, and
+hardware certification; its approved benchmark candidate, interim profile, and
+rollout limit are recorded in that ADR.
 
 ## Risks and verification gates
 
@@ -794,25 +803,28 @@ approval. Their interim defaults are working guidance only.
 | Lifecycle policy is implemented incorrectly | Excessive retention, premature deletion, or broken lineage | Approved record-class policy matrix, hold/dependency checks, and lifecycle integration tests before pilot data |
 | Projection or event lag is mistaken for authority | Contradictory Session or Release state | Reconciliation endpoints, authoritative command/read paths, lag metrics, and degraded UI states |
 | Sensitive content leaks into operations | Secondary disclosure through logs, traces, artifacts, or support | Telemetry schemas, automated redaction/leakage tests, restricted diagnostic access, artifact review |
+| Provider credential scope or fallback is wrong | Cross-Organization billing, quota, privacy, or data disclosure | Trusted secret binding, frozen non-secret reference, wrong-scope/rotation tests, and fail-closed denial without fallback |
 
 ## Implementation readiness
 
 The MVP architecture baseline is approved. Implementation readiness is staged,
 not all-or-nothing:
 
-1. Foundation work may begin against ADR-001 through ADR-007 and `AR-DEC-1`
+1. Foundation work may begin against ADR-001 through ADR-009 and `AR-DEC-1`
    through `AR-DEC-21`.
-2. Each feature implementation must first complete the blocking detailed
-   contract listed in [Remaining architecture and delivery work](#remaining-architecture-and-delivery-work).
+2. Text Session, Evaluation, and Review/Release implementations must conform to
+   the approved detailed contracts adopted by ADR-009. Their former detailed
+   architecture blockers are resolved.
 3. Backend, frontend, security, and test plans must map each P0 requirement/AC
    group to implementation surfaces and repeatable verification using
    specification-driven TDD.
 4. Frontend implementation must not outrun the missing approved UI/UX journeys
    and interaction specifications.
-5. Production pilot remains blocked on lifecycle, identity, upload, recovery,
-   security-operations, load, failure, restore, upgrade, SBOM, and runbook
-   implementation evidence identified above; the governing defaults themselves
-   are approved.
+5. Production pilot remains blocked on lifecycle, identity, upload, provider
+   privacy/credential isolation, recovery, security-operations, load, failure,
+   restore, upgrade, SBOM, and runbook implementation evidence identified
+   above. The synthetic single-host evaluation pilot is not a production
+   substitute; the governing defaults themselves are approved.
 
 Architecture approval authorizes detailed design and implementation planning; it
 does not mark any P0 requirement implemented or production-ready.
