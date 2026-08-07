@@ -78,7 +78,7 @@ Illustrative examples in product documents are not MVP commitments unless captur
 
 ### UI/UX
 
-- [UI/UX documentation](ui-ux/README.md) — journeys, interaction specifications, accessibility, content, and design system (deferred)
+- [UI/UX documentation](ui-ux/README.md) — scaffold for journeys, interaction specifications, accessibility, content, and design-system guidance; no documents are approved yet
 
 ### Architecture
 

@@ -17,7 +17,7 @@ authority boundary defined by `AR-DEC-12`.
 
 ## Purpose
 
-This area will govern how users experience the product: journeys, information architecture, interaction states, accessibility, responsive behavior, content, and visual design.
+This area governs how users experience the product: journeys, information architecture, interaction states, accessibility, responsive behavior, content, and visual design.
 
 ## Entry criteria
 

@@ -46,7 +46,7 @@ implementation evidence.
 
 ## Purpose
 
-This area will govern how the system is structured: boundaries, data ownership, runtime flows, deployment topology, quality attributes, and integration contracts.
+This area governs how the system is structured: boundaries, data ownership, runtime flows, deployment topology, quality attributes, and integration contracts.
 
 ## MVP architecture route
 

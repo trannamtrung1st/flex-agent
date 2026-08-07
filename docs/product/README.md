@@ -11,8 +11,8 @@ Stable product strategy, domain concepts, and MVP boundaries for Flex Agent.
 | Document | Status | Version | Owner | Approvers | Last reviewed | Approval reference |
 | --- | --- | --- | --- | --- | --- | --- |
 | [Concept model](concept-model.md) | Approved | 0.1 | Product Lead | Product Lead, Architecture Lead | 2026-08-05 | Baseline v0.1 on `main` (2026-08-05) |
-| [MVP scope](mvp-scope.md) | Approved | 0.1 | Product Lead | Product Lead, Architecture Lead | 2026-08-06 | Baseline v0.1 on `main` (2026-08-05) |
-| [Product overview](overview.md) | Approved | 0.1 | Product Lead | Product Lead, Architecture Lead | 2026-08-06 | Baseline v0.1 on `main` (2026-08-05) |
+| [MVP scope](mvp-scope.md) | Approved | 0.1 | Product Lead | Product Lead, Architecture Lead | 2026-08-08 | Baseline v0.1 on `main` (2026-08-05) |
+| [Product overview](overview.md) | Approved | 0.1 | Product Lead | Product Lead, Architecture Lead | 2026-08-08 | Baseline v0.1 on `main` (2026-08-05) |
 
 ## Purpose
 
