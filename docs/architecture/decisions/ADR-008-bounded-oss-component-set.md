@@ -381,7 +381,7 @@ exception records exposure, controls, owner, and remediation date.
 | Secrets | Mandatory OpenBao | Deferred. Mounted-file `SecretSource` avoids secret-service coupling and unseal/recovery ceremony in the MVP. |
 | Gateway | Kong | Defer until centralized API-consumer, plugin, quota, analytics, or multi-service policy needs justify its operational surface. |
 | Gateway | Caddy | Viable, but NGINX was selected as the simpler familiar reference requested by the decision owner. |
-| Gateway | Ocelot or YARP | Reject for now because the application language is not selected and either choice would couple the gateway to .NET. |
+| Gateway | Ocelot or YARP | At ADR-008 approval the application language was not selected. ADR-010 later selected .NET, but these remain rejected because the gateway must stay a simple replaceable ingress rather than couple transport policy to application code. |
 | Recovery | Bundled pgBackRest or restic | Defer. Use component-native facilities through operator configuration management; revisit only when recovery evidence demonstrates a gap. |
 | PostgreSQL HA | Bundled Patroni and distributed configuration store | Defer until a multi-host failover/fencing spike and an actual packaged-HA requirement exist. |
 | Model testing | Cursor SDK adapter | Reject for the MVP because its agent/tool/filesystem harness is broader than the required bounded text-provider contract. |

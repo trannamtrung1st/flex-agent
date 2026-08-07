@@ -10,9 +10,9 @@ Approved technical realization baseline for the P0 assessment vertical slice.
 | **Owner** | Architecture Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, UI/UX, documentation |
-| **Version** | 0.4 |
-| **Approved date** | 2026-08-06 |
-| **Approval reference** | MVP architecture review approved on 2026-08-06; formalized by [ADR-006](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md), extended by [ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md), assigned component/provider defaults by [ADR-008](decisions/ADR-008-bounded-oss-component-set.md), and detailed for Session/Evaluation/Review through [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md) |
+| **Version** | 0.5 |
+| **Approved date** | 2026-08-07 |
+| **Approval reference** | MVP architecture review approved on 2026-08-06; formalized by [ADR-006](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md), extended by [ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md), assigned component/provider defaults by [ADR-008](decisions/ADR-008-bounded-oss-component-set.md), detailed for Session/Evaluation/Review through [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md), and assigned the implementation stack by [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) on 2026-08-07 |
 | **Governs** | MVP system boundaries, logical ownership, runtime flows, consistency boundaries, trust boundaries, deployment shape, recovery baseline, and architecture verification |
 
 This approved architecture does not override approved product documents or
@@ -26,7 +26,10 @@ ADR-008; compatibility evidence and remaining delivery artifacts retain their
 stated status and owners. Mistral Small 3.1 24B Instruct is the approved first
 vLLM benchmark candidate, but its exact artifact, quantization, and hardware
 profile remain uncertified under `Q-OSS-1`. Optional LGTM is development-only,
-operator-pulled, and does not block MVP or production architecture.
+operator-pulled, and does not block MVP or production architecture. The .NET
+10/ASP.NET Core backend, React/Vite SPA, Npgsql/Dapper persistence, and Grate
+migration direction are approved through ADR-010; its schema, RFC 8785, and
+implementation compatibility gates remain required evidence.
 
 ## Purpose and audience
 
@@ -39,10 +42,11 @@ contributors one coherent technical frame for the MVP workflow:
 
 It defines the minimum useful architecture before implementation. It requires
 the OSS-first self-hostable reference architecture and selected infrastructure
-families in ADR-008, but it does not select a programming language or web
-framework. Component-family approval does not certify a production deployment,
-a self-hosted model artifact, or remove the evidence gates in this document and
-ADR-008.
+families in ADR-008. This document does not itself select a programming language
+or web framework; ADR-010 supplies the approved .NET/React implementation
+decision. Component-family or stack approval does not certify a production
+deployment, a self-hosted model artifact, or remove the evidence gates in this
+document, ADR-008, and ADR-010.
 
 ## Governing sources
 
@@ -75,6 +79,7 @@ ADR-008.
 | [ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md) | Require an OSS-first, self-hostable, open-standard reference deployment with portable OCI runtimes and no mandatory cloud service |
 | [ADR-008](decisions/ADR-008-bounded-oss-component-set.md) | Select bounded infrastructure and model-provider defaults, scoped credential/BYOK boundaries, Docker Compose reference profiles, operator-owned recovery execution, and evidence gates |
 | [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md) | Approve the detailed Session, Evaluation, and Review/Release realization contracts and their provider-streaming, optional-broker, and notification boundaries |
+| [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) | Select the .NET/React application stack, canonical schema and RFC 8785 boundaries, Npgsql/Dapper persistence, Grate migrations, workspace rules, and stack verification gates |
 
 ## Scope
 
@@ -778,6 +783,7 @@ requirement implemented.
 | Before authentication implementation | Pass ADR-008's Keycloak contract gate and encode the approved application-session and MFA settings. | Component direction and observable behavior are approved; compatibility evidence remains blocking for acceptance. |
 | Before model-provider implementation | Implement the provider-neutral adapter and `SecretSource` credential resolver; test deployment-default and Organization-BYOK scope, rotation/revocation, wrong-scope substitution, quota attribution, and fail-closed no-fallback behavior. Benchmark the exact pinned Mistral Small 3.1 24B Instruct revision, derived quantized artifact, and starting single-24-GB-NVIDIA-GPU profile. | Direct OpenAI is the first enabled external adapter. OpenRouter remains synthetic-development-only; Anthropic is adapter-ready but deferred. The self-hosted benchmark target is approved, while production certification remains open under `Q-OSS-1`. |
 | Before frontend implementation | Author approved SPA journeys and interaction specifications for setup, Submission, Session, Evaluation/review, and Result/Release states. | UI/UX remains a documentation gap; `AR-DEC-12` defines authority, not visual interaction. |
+| Before scaffold acceptance | Pass ADR-010's runtime, schema, RFC 8785, HTTP, PostgreSQL/Grate, module-boundary, supply-chain, and operability gates. | The stack and tooling direction are approved, including `JsonSchema.Net` and the separate vendored canonicalization project; exact version/source pins and executable compatibility evidence remain blocking for scaffold acceptance. |
 | Before implementation acceptance | Publish ADR-001/ADR-004 conformance fixtures and versioned schemas for commands, events, canonical documents, work, Evidence locators, audit, and artifacts. | Required verification evidence. |
 | Before production pilot | Implement and verify lifecycle enforcement, privileged access/secrets/encryption configuration, model-provider privacy and credential-isolation controls, same-jurisdiction secondary recovery, restore/failure-injection/load evidence, operational runbooks, upgrade/recovery procedures, and the component/SBOM inventory. | Approved policy exists; implementation and operational evidence remain production-pilot blockers. The single-host evaluation pilot is synthetic-data-only and cannot waive these gates. |
 | After measured need | Select Redis/cache uses or an external broker. | Deferred; no MVP blocker and no authoritative behavior may depend on them. |
@@ -789,7 +795,10 @@ No product or policy confirmation currently blocks detailed MVP architecture.
 `Q-ARCH-14`, `Q-ARCH-15`, and `Q-OSS-2` are resolved by ADR-008. The remaining
 `Q-OSS-1` question concerns exact self-hosted model artifact, quantization, and
 hardware certification; its approved benchmark candidate, interim profile, and
-rollout limit are recorded in that ADR.
+rollout limit are recorded in that ADR. ADR-010 resolves the former
+`Q-STACK-1` and `Q-STACK-2` selections with `JsonSchema.Net` and a separate
+project containing a pinned source snapshot of the RFC-listed C# canonicalizer.
+Their schema and canonicalization evidence gates remain mandatory.
 
 ## Risks and verification gates
 
@@ -810,7 +819,7 @@ rollout limit are recorded in that ADR.
 The MVP architecture baseline is approved. Implementation readiness is staged,
 not all-or-nothing:
 
-1. Foundation work may begin against ADR-001 through ADR-009 and `AR-DEC-1`
+1. Foundation work may begin against ADR-001 through ADR-010 and `AR-DEC-1`
    through `AR-DEC-21`.
 2. Text Session, Evaluation, and Review/Release implementations must conform to
    the approved detailed contracts adopted by ADR-009. Their former detailed
@@ -820,7 +829,9 @@ not all-or-nothing:
    specification-driven TDD.
 4. Frontend implementation must not outrun the missing approved UI/UX journeys
    and interaction specifications.
-5. Production pilot remains blocked on lifecycle, identity, upload, provider
+5. Scaffold acceptance must pass ADR-010's runtime, schema, JCS, HTTP,
+   PostgreSQL/Grate, module-boundary, supply-chain, and operability gates.
+6. Production pilot remains blocked on lifecycle, identity, upload, provider
    privacy/credential isolation, recovery, security-operations, load, failure,
    restore, upgrade, SBOM, and runbook implementation evidence identified
    above. The synthetic single-host evaluation pilot is not a production

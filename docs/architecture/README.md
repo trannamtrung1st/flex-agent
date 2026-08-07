@@ -33,6 +33,15 @@ UI/UX contracts, ADR-008 component compatibility evidence, machine-readable
 contract schemas/fixtures, and production evidence
 remain staged work as mapped in the approved overview.
 
+[ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md)
+approves the .NET 10/ASP.NET Core API and worker, React/Vite SPA,
+JSON Schema-first contracts validated with `JsonSchema.Net`, a separate
+project containing pinned RFC-reference canonicalization source,
+Npgsql/Dapper PostgreSQL access, Grate plain-SQL migrations, test stack,
+workspace boundaries, and application dependency policy. Its schema, RFC 8785,
+database, provider, artifact, session, and operability gates remain required
+implementation evidence.
+
 ## Purpose
 
 This area will govern how the system is structured: boundaries, data ownership, runtime flows, deployment topology, quality attributes, and integration contracts.
@@ -43,6 +52,7 @@ This area will govern how the system is structured: boundaries, data ownership, 
 | --- | --- |
 | Review the approved end-to-end P0 technical shape | [MVP architecture](mvp-architecture.md) |
 | Review approved cross-cutting decisions | [Architecture decisions](decisions/README.md) |
+| Review the approved implementation stack and workspace | [ADR-010: .NET implementation stack](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) |
 | Review approved OSS component defaults and pending evidence gates | [ADR-008: bounded OSS component set](decisions/ADR-008-bounded-oss-component-set.md) |
 | Implement the approved text Session realization | [Text Session runtime contract](session-runtime-contract.md) |
 | Implement the approved Evidence/Evaluation realization | [Evidence and Evaluation execution contract](evaluation-execution-contract.md) |

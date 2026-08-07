@@ -26,6 +26,13 @@ the UI/UX contracts, and machine-readable architecture schemas/fixtures, then im
 [MVP executable workflow](docs/product/mvp-scope.md#mvp-executable-workflow)
 with specification-driven TDD.
 
+The approved application stack is .NET 10/ASP.NET Core for the API and worker,
+React/Vite for the SPA, Npgsql/Dapper for explicit PostgreSQL access, and Grate
+for plain-SQL migrations. See
+[ADR-010](docs/architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md)
+for workspace boundaries, integration choices, and the compatibility gates that
+must pass before the scaffold is accepted.
+
 ## Validate documentation
 
 ```bash
