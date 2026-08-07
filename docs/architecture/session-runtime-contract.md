@@ -437,10 +437,9 @@ and is not satisfied by this architecture document.
 None. The approved feature specification resolves the relevant product and
 policy questions. Framework and library choices remain implementation details;
 component/provider profiles and their evidence gates are governed by ADR-008.
-ADR-008 approves Mistral Small 3.1 24B Instruct as the first self-hosted
-benchmark candidate. Its `Q-OSS-1` remains open only for exact artifact,
-quantization, and hardware certification and does not change this contract's
-semantics.
+ADR-008 intentionally selects no normative model. Every enabled deployment or
+Organization provider profile must satisfy its gates and does not change this
+contract's semantics.
 
 ## Approval and downstream impact
 

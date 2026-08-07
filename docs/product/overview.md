@@ -9,7 +9,7 @@
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.1 |
 | **Effective date** | 2026-08-05 |
-| **Last reviewed** | 2026-08-06 |
+| **Last reviewed** | 2026-08-08 |
 | **Approval reference** | Baseline v0.1 approved on `main` (commits `fff26df`, `d8291ef`, 2026-08-05) |
 
 Vision, positioning, and principles. Canonical concepts, scope boundaries, and requirements live in linked product and requirements documents.
@@ -25,9 +25,9 @@ OSS-first self-hostable
 [Review/Release](../architecture/review-result-release-contract.md) contracts are
 approved. Complete the compatibility evidence required by approved
 [ADR-008](../architecture/decisions/ADR-008-bounded-oss-component-set.md),
-including provider-credential isolation and the still-open self-hosted model
-certification for the approved Mistral Small 3.1 benchmark candidate, plus
-machine-readable contract schemas/fixtures and the UI/UX
+including qualification of each enabled provider deployment profile and
+provider-credential/Organization-endpoint isolation, plus machine-readable
+contract schemas/fixtures and the UI/UX
 contracts; then implement and verify the
 [MVP executable workflow](mvp-scope.md#mvp-executable-workflow) with
 specification-driven TDD.
@@ -58,6 +58,15 @@ The product separates identity, operating environment, activity configuration, a
 - **Session** — one isolated interaction between a resolved configuration and a participant or authorized role.
 
 An agent should not need to be recreated for every assessment, interview, or support process. A campaign is one activity deployment mechanism within the platform, not the limit of the underlying agent model.
+
+Model providers and individual models are replaceable execution dependencies,
+not Flex Agent's core product value. The durable value is the application and
+its governed Agent, Harness, Activity, Session, Evidence, Evaluation, review,
+and Release behavior. The architecture preserves a path for an Organization to
+use an allowed provider/model profile without redefining those concepts;
+qualification, credential isolation, endpoint approval, and frozen execution
+provenance remain mandatory, and self-service model-plugin installation is not
+an MVP requirement.
 
 ## Product validation
 

@@ -11,7 +11,7 @@ First product experience, platform direction, explicit non-goals, and deferred c
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.1 |
 | **Effective date** | 2026-08-05 |
-| **Last reviewed** | 2026-08-06 |
+| **Last reviewed** | 2026-08-08 |
 | **Approval reference** | Baseline v0.1 approved on `main` (commits `fff26df`, `d8291ef`, 2026-08-05) |
 | **Related decisions** | [Concept model v0.1](concept-model.md) |
 
@@ -177,9 +177,9 @@ defaults are approved — see
 [ADR-008](../architecture/decisions/ADR-008-bounded-oss-component-set.md), and
 [ADR-009](../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md).
 Complete ADR-008's applicable compatibility and provider-credential evidence,
-benchmark its approved Mistral Small 3.1 candidate and resolve exact self-hosted
-artifact, quantization, and hardware certification before claiming an executable
-no-public-cloud profile, and complete the remaining machine-readable
+qualify at least one concrete provider deployment profile for each claimed
+execution profile without making its model a product dependency, and complete
+the remaining machine-readable
 schemas/fixtures and UI/UX contracts; then proceed with
 specification-driven implementation and end-to-end verification while
 preserving the approved product scope and feature boundaries.

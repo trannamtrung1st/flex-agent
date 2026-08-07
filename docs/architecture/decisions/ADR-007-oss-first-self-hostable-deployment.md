@@ -49,11 +49,11 @@ Flex Agent adopts an **OSS-first, self-hostable, open-standard deployment
 baseline**.
 
 [ADR-008](ADR-008-bounded-oss-component-set.md) approves the current component
-families and provider boundaries. That selection establishes an implementable
-self-hosted architecture, but it does not certify an end-to-end self-hosted
-model profile: Mistral Small 3.1 24B Instruct is the approved first benchmark
-candidate, while its exact revision, quantization, hardware, quality, and
-immutable derived-artifact identity remain open under ADR-008's `Q-OSS-1`.
+families and model-neutral provider boundaries. That selection establishes an
+implementable self-hosted architecture without making a model part of the
+product identity. Each claimed provider deployment profile—external,
+Organization-provided, or self-hosted—requires its own immutable identity,
+quality, privacy, security, capacity, license, and operational evidence.
 
 1. The complete MVP workflow must be deployable without a mandatory public
    cloud account or proprietary managed service.

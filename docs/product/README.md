@@ -56,7 +56,7 @@ Illustrative examples in product documents are **not** MVP commitments until cap
 Product documentation for v0.1 and all seven P0 feature specifications are approved. Keep product semantics stable while architecture, UI/UX, implementation, and verification proceed.
 
 1. Preserve all seven approved P0 contracts — see [P0 authoring order](../requirements/README.md#p0-authoring-order) and [`requirements/features/`](../requirements/features/README.md)
-2. Implement against the approved [MVP architecture](../architecture/mvp-architecture.md), [ADR-008 component/provider defaults](../architecture/decisions/ADR-008-bounded-oss-component-set.md), and [ADR-009 detailed contracts](../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md); complete the required compatibility evidence, scoped provider-credential tests, Mistral Small 3.1 benchmark and self-hosted model certification, and machine-readable schemas/fixtures
+2. Implement against the approved [MVP architecture](../architecture/mvp-architecture.md), [ADR-008 component/provider defaults](../architecture/decisions/ADR-008-bounded-oss-component-set.md), and [ADR-009 detailed contracts](../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md); complete the required compatibility evidence, provider-profile and scoped credential/endpoint tests, and machine-readable schemas/fixtures
 3. Author the remaining P0 UI/UX journeys and interaction specifications before frontend implementation is considered complete
 4. Keep agent and harness **selection and assessment-required parameters** inside assessment setup — not general agent or harness management (P1)
 5. Record new or changed technical choices as ADRs when implementation evidence surfaces a consequential decision

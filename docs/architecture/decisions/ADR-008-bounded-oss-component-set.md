@@ -2,13 +2,13 @@
 
 ## Status
 
-Approved — 2026-08-06
+Approved — 2026-08-06; amended 2026-08-08
 
 Component-family and provider-boundary selection is approved. A profile is not
 production-certified until the applicable compatibility, security, recovery,
-license, and supply-chain gates in this ADR pass with recorded evidence. The
-self-hosted model profile remains uncertified until `Q-OSS-1` approves the exact
-Mistral Small 3.1 artifact, quantization, and measured hardware envelope.
+license, and supply-chain gates in this ADR pass with recorded evidence. Model
+qualification applies to a concrete provider deployment profile and never makes
+one model, provider, or runtime part of Flex Agent's product identity.
 
 ## Decision metadata
 
@@ -18,7 +18,9 @@ Mistral Small 3.1 artifact, quantization, and measured hardware envelope.
 | **Decision owners** | Architecture Lead, Operations owner |
 | **Approvers** | Product Lead, Architecture Lead, Operations owner, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, documentation |
-| **Resolves** | `Q-ARCH-14` and `Q-ARCH-15` in the [MVP architecture](../mvp-architecture.md#approved-decision-disposition) |
+| **Last amended** | 2026-08-08 |
+| **Amendment reference** | Explicit owner approval to resolve `Q-OSS-1` with a model-neutral provider-profile architecture |
+| **Resolves** | `Q-ARCH-14` and `Q-ARCH-15` in the [MVP architecture](../mvp-architecture.md#approved-decision-disposition); `Q-OSS-1` and `Q-OSS-2` in this ADR |
 | **Governs** | Reference infrastructure products, provider/deployment defaults, supported version lines, profile placement, compatibility evidence, and replacement policy |
 
 This ADR does not change product meaning. Approved feature specifications and
@@ -82,6 +84,8 @@ separate machine-readable lock manifest.
   authorization.
 - Provider and operator choice without leaking vendor semantics into domain
   contracts or durable exports.
+- Make the application, Agent, and Harness—not a bundled model—the durable
+  product value, while allowing model/provider changes without domain changes.
 
 ## Approved decisions
 
@@ -98,10 +102,10 @@ separate machine-readable lock manifest.
 | `OSS-DEC-9` | Use Docker Engine and the Compose Specification through Docker Compose `5.x` for local development, CI, and a single-host evaluation pilot. | The evaluation pilot is non-production and synthetic-data-only. Kubernetes is deferred; a later `kind` profile may test adapters but is not a production topology. |
 | `OSS-DEC-10` | Make backup execution an operator/configuration-management responsibility using component-native facilities. | Flex Agent does not ship a backup manager, scheduler, UI, pgBackRest, or restic as an MVP baseline. |
 | `OSS-DEC-11` | Do not package PostgreSQL HA for the MVP. | A synthetic evaluation pilot may be explicitly non-HA. A production pilot must satisfy ADR-006's resilience/recovery baseline or record an explicitly approved weaker target and risk acceptance. Patroni remains a later evidence-driven option. |
-| `OSS-DEC-12` | Use a provider-neutral model contract with a fake provider, an OpenAI-compatible chat adapter, direct OpenAI as the first enabled external provider, OpenRouter for synthetic local exploration, and vLLM as the approved self-hosted runtime family. | Dynamic/free routing is never used for a frozen real assessment. Anthropic remains a later native adapter; Cursor SDK is not selected. |
+| `OSS-DEC-12` | Use a provider-neutral `ModelProvider` contract with a deterministic fake, approved native provider adapters, and an OpenAI-compatible adapter for approved external or self-hosted endpoints. Direct OpenAI is the first implementation adapter; vLLM is an optional reference self-hosted runtime, not an exclusive runtime or model selection. | Provider and model changes remain outside domain policy. Dynamic/free routing is never used for a frozen real assessment. Additional native or protocol-compatible adapters may be added after contract, security, privacy, and supply-chain review. |
 | `OSS-DEC-13` | Require pinned artifacts, immutable digests, SBOMs, vulnerability scanning, provenance where available, and controlled updates. | A product family/version in this ADR is not permission to use a floating image tag. |
-| `OSS-DEC-14` | Support an operator-provisioned deployment credential and optional Organization-scoped BYOK through opaque `SecretSource` bindings for an approved provider adapter. | Raw keys are never stored in product records or entered by Participants. Credential selection is frozen and audited by reference; missing/revoked BYOK fails closed without silent fallback. |
-| `OSS-DEC-15` | Use `mistralai/Mistral-Small-3.1-24B-Instruct-2503` as the first self-hosted benchmark candidate behind vLLM. | This approves a benchmark target, not production model weights or a certified self-hosted profile. Each benchmark pins the upstream revision and derived artifact digest and measures the selected quantization and hardware. |
+| `OSS-DEC-14` | Support operator-provisioned deployment profiles and Organization-scoped BYOK profiles for installed adapters in the MVP. Preserve the same profile boundary for a later optional Organization-owned model endpoint, enabled only after its additional gates pass. | Raw keys are never stored in product records or entered by Participants. Adapter, model, and credential selection—and endpoint selection when enabled—are frozen and audited by reference; missing, revoked, mismatched, or cross-Organization bindings fail closed without silent fallback. |
+| `OSS-DEC-15` | Do not select a normative model family, model artifact, quantization, or hardware envelope. Qualify concrete provider deployment profiles independently against the model-provider gate, and permit multiple qualified profiles to coexist. | Certification belongs to the exact adapter/provider/endpoint/model/version-or-fingerprint/capability/credential-policy combination. Replacing a model or adding an Organization model does not change domain contracts, but the new profile must pass its applicable gates before real use. |
 | `OSS-DEC-16` | Keep `grafana/otel-lgtm` operator-pulled and optional for local development and CI; do not bundle or redistribute it in the MVP distribution. | LGTM is development infrastructure, not product runtime or the production monitoring stack. This resolves `Q-OSS-2` for the MVP without making a legal conclusion about future redistribution. |
 
 ## Selected OSS components
@@ -115,8 +119,7 @@ separate machine-readable lock manifest.
 | Local/CI telemetry backend | `grafana/otel-lgtm` `0.29.x` (initially `0.29.2`) | AGPL-3.0 and Apache-2.0 components | Operator-pulled optional development convenience only; not bundled, redistributed, a production topology, or a mandatory product dependency. |
 | Public gateway and TLS | NGINX stable `1.30.x` (initially `1.30.4`) | BSD-2-Clause | Public SPA, API, OIDC callback, and SSE routes only; infrastructure administration paths remain private. |
 | Local orchestration | Compose Specification with Docker Compose `5.x` | Apache-2.0 | One non-interactive project command wraps validation, start, readiness, seed, stop, and reset. Docker Desktop is not required. |
-| Self-hosted model runtime | vLLM `0.23.x` candidate line | Apache-2.0 | Optional GPU-backed provider behind the OpenAI-compatible contract. Runtime selection alone approves no model artifact; `OSS-DEC-15` separately selects a benchmark candidate without production certification. |
-| Self-hosted model benchmark | `mistralai/Mistral-Small-3.1-24B-Instruct-2503` | Apache-2.0 | First text-only benchmark candidate. Start with an exact pinned revision and a quantized single-24-GB-NVIDIA-GPU profile; no production or quality certification is implied. |
+| Reference self-hosted model runtime | vLLM `0.23.x` candidate line | Apache-2.0 | Optional GPU-backed endpoint behind the OpenAI-compatible adapter. It is neither exclusive nor a model default; exact runtime and model artifacts belong to independently qualified deployment profiles. |
 
 ## Artifact-safety policy and adapter
 
@@ -214,9 +217,9 @@ Approved profiles are:
 | --- | --- | --- |
 | Automated tests | Deterministic fake/in-memory provider | Required for repeatable tests; no remote free model is a deterministic test oracle. |
 | Local exploratory development | OpenAI-compatible adapter pointed to OpenRouter; `openrouter/free` or a specific `:free` model may be used | Synthetic data only. Dynamic/free routing cannot create a frozen real assessment manifest. |
-| Provider-backed evaluation and production-pilot candidate | Direct OpenAI through an approved deployment or Organization BYOK binding; `gpt-5.6-terra` is the initial balanced candidate | Evaluation uses synthetic data. A production pilot additionally requires assessment-quality, structured-output, latency, privacy, immutable-version/fingerprint, and production-profile gates. |
-| Future second external provider | Native Anthropic adapter | Deferred until the MVP vertical slice works; used to prove portability rather than block it. |
-| Self-hosted | OpenAI-compatible adapter pointed to vLLM with Mistral Small 3.1 24B Instruct as the first benchmark candidate | Requires an exact pinned revision, approved quantization and derived artifact digest, measured hardware envelope, license verification, and passing quality results before production certification. |
+| Deployment-managed external provider | An installed native or protocol-compatible adapter with an operator-managed endpoint/deployment and credential binding | No model is the product default. The exact profile must pass quality, structured-output, latency, privacy, identity, and capacity gates before real use. |
+| Optional Organization-owned model extension | An installed approved adapter with an Organization-scoped endpoint/deployment, model reference, capability profile, and BYOK binding | Not an MVP acceptance dependency. Before enablement, the endpoint is operator-approved and server-resolved; Organization configuration cannot introduce arbitrary runtime code, unvalidated URLs, cross-Organization credentials, or silent fallback. |
+| Self-hosted | An installed protocol-compatible or native adapter pointed to an operator-approved runtime such as vLLM | Each concrete runtime/model artifact profile pins source, revision, digest, quantization where applicable, hardware envelope, and license evidence before real use. No particular model family is required. |
 
 OpenRouter's stable MVP integration surface is the OpenAI-compatible Chat
 Completions contract. Its Responses API is beta and is not the portability
@@ -226,22 +229,26 @@ real data, the configuration must pin the model and allowed provider endpoint,
 disable fallbacks, require supported parameters and approved data policy, and
 record returned routing metadata.
 
-Direct OpenAI remains a separate external trust boundary. Real participant data
-requires an approved provider data/retention policy, data minimization, an
-approved `SecretSource` binding, and no unnecessary provider-side state. A
-mutable model alias alone does not satisfy `REQ-RSC-32`; the response must
-supply an immutable version or an architecture-approved equivalent fingerprint.
+Every external or Organization-provided endpoint is a separate trust boundary.
+Real participant data requires an approved provider data/retention policy, data
+minimization, an approved `SecretSource` binding, and no unnecessary
+provider-side state. A mutable model alias alone does not satisfy `REQ-RSC-32`;
+the response must supply an immutable version or an architecture-approved
+equivalent fingerprint.
 
 ### Credential modes and BYOK
 
-The MVP supports two credential modes for an approved external provider:
+The MVP supports two credential modes for an approved provider profile:
 
 - `deployment_default`: an operator provisions one deployment-scoped secret;
   an Organization may use it only when its approved provider policy explicitly
   selects that binding.
 - `organization_byok`: an operator provisions a separate Organization-scoped
-  secret and binds it to that Organization and provider adapter. Product records
-  store only an opaque secret-binding identifier and permitted provider metadata.
+  secret and binds it to that Organization and provider adapter. The same
+  profile shape may later identify an approved Organization-owned
+  endpoint/deployment and model when that extension is enabled.
+  Product records store only opaque binding identifiers and permitted provider,
+  endpoint, model, and capability metadata.
 
 Both modes use the mounted-file `SecretSource` boundary. Raw API keys are never
 accepted through browser/API payloads, stored in the database, configuration
@@ -250,19 +257,31 @@ artifacts. Administrator-visible state may show provider, credential mode,
 binding status, owner scope, and rotation/revocation status, but never secret
 material.
 
-Provider and credential selection is resolved from trusted Organization policy,
-frozen into the Session by non-secret reference, and revalidated before model
-work. Activity and Session scopes may narrow an allowed model but cannot select
-another credential owner. A missing, revoked, cross-Organization, or mismatched
-binding fails closed before Session start or provider invocation. The runtime
-must not silently fall back between Organization BYOK, the deployment default,
-OpenRouter, or another provider because that would change payer, privacy,
-residency, quota, and reconstruction semantics.
+Adapter, endpoint/deployment, model, capability, and credential selection are
+resolved from trusted Organization policy, frozen into the Session by
+non-secret reference, and revalidated before model work. Activity and Session
+scopes may narrow an allowed model or capability but cannot select another
+endpoint or credential owner. A missing, revoked, cross-Organization,
+unapproved-endpoint, or mismatched binding fails closed before Session start or
+provider invocation. The runtime must not silently fall back between
+Organization BYOK, the deployment default, OpenRouter, or another provider
+because that would change payer, privacy, residency, quota, capabilities, and
+reconstruction semantics.
 
-Direct OpenAI is the first enabled real-data external adapter. The same BYOK
-contract may support Anthropic after its native adapter is approved; this does
-not make Anthropic an MVP delivery dependency. OpenRouter credentials and
-OpenRouter BYOK pass-through remain synthetic-development-only in the MVP.
+Provider extensibility is configuration plus reviewed adapter code, not an
+untrusted in-process plugin mechanism. The architecture preserves a later path
+for an Organization to select its own model through an adapter installed and
+allowlisted by the operator; that path is not an MVP acceptance dependency.
+Arbitrary endpoint URLs from request/session input and Organization-uploaded
+executable adapter code are prohibited. A self-service plugin installation
+surface requires a separate threat model, signing/provenance policy, isolation
+boundary, feature specification, and ADR.
+
+Direct OpenAI is the first implemented external adapter, not the preferred or
+core model. The same BYOK contract may support additional native or compatible
+adapters after approval; none becomes an MVP domain dependency. OpenRouter
+credentials and OpenRouter BYOK pass-through remain
+synthetic-development-only in the MVP.
 
 Cursor SDK is not selected. Its agent harness, filesystem/tool permissions,
 public-beta stability, and usage model add complexity not required for bounded
@@ -332,10 +351,13 @@ classification determines which profile and evidence gates apply.
 
 ### Model-provider gate
 
-- Benchmark the exact pinned Mistral Small 3.1 24B Instruct revision first,
-  starting with a quantized single-24-GB-NVIDIA-GPU profile. Record the source
-  revision, derived artifact digest, quantization tool/version/settings, GPU,
-  driver/runtime versions, memory use, throughput, latency, and failure results.
+- Qualify each proposed provider deployment profile independently. Record its
+  adapter and contract versions, provider and endpoint/deployment references,
+  exact model identity and immutable version/fingerprint, capability profile,
+  credential mode, applicable source/artifact/license identity, and measured
+  latency, throughput, capacity, cost, and failure results. For self-hosted
+  profiles, also record artifact digest, quantization tool/version/settings when
+  applicable, hardware, driver/runtime versions, and memory use.
 - Verify streaming assembly, cancellation, timeout, bounded retry, structured
   output, usage capture, error normalization, and provider outage behavior.
 - Record provider, requested and resolved model identifiers, immutable
@@ -348,7 +370,8 @@ classification determines which profile and evidence gates apply.
   reject dynamic/free routing for frozen assessment Sessions.
 - Test deployment-default and Organization-BYOK selection, wrong-Organization
   substitution, missing/revoked/rotated bindings, concurrent rotation, provider
-  mismatch, quota/rate-limit attribution, and denial of every silent fallback.
+  or endpoint mismatch, unapproved/loopback/link-local/metadata endpoint denial,
+  quota/rate-limit attribution, and denial of every silent fallback.
 - Verify that raw credentials never enter product persistence, manifests, audit,
   logs, telemetry, exports, browser state, errors, or test artifacts.
 
@@ -388,16 +411,16 @@ exception records exposure, controls, owner, and remediation date.
 | Model aggregation | OpenRouter as the real-pilot default | Reject. Retain it for synthetic local exploration; dynamic routing and the additional data boundary complicate frozen-session reconstruction. |
 | Orchestration | Kubernetes baseline | Reject for MVP. Preserve the worker/scheduler seam and use `kind` later for adapter conformance only. |
 
-## Remaining open question and interim default
+## Remaining open questions
 
-| ID | Question and owner | Interim default | Rationale and approval impact |
-| --- | --- | --- | --- |
-| `Q-OSS-1` | Architecture, AI Operations, Product, and license owners: Which exact Mistral Small 3.1 revision, quantization, derived artifact, and hardware envelope certify the vLLM self-hosted path? | Benchmark `mistralai/Mistral-Small-3.1-24B-Instruct-2503` first using an immutable upstream revision and derived artifact digest, starting with a quantized single-24-GB-NVIDIA-GPU profile. Continue using direct OpenAI for provider-backed evaluation or a production-pilot candidate until license, assessment quality, structured output, privacy, latency, capacity, and artifact-identity gates pass. | Candidate approval narrows the spike but does not approve production weights, quantization, hardware capacity, or quality. No self-hosted production-model claim may be made until this question is resolved. |
+None. Concrete provider deployment profiles remain subject to evidence gates,
+but profile qualification is delivery work rather than an architecture question.
 
 ## Approved question disposition
 
 | Prior ID | Approved disposition | Consequence |
 | --- | --- | --- |
+| `Q-OSS-1` | Do not designate one self-hosted or external model as the Flex Agent default. Certify concrete provider deployment profiles independently; support deployment-managed and Organization-BYOK profiles in the MVP and preserve a separately gated Organization-model extension seam. | The application and Harness remain the core value. Model changes do not require a product or domain redesign, while every real-data profile still requires immutable identity, capability, quality, privacy, security, license, capacity, and operational evidence. |
 | `Q-OSS-2` | Keep LGTM as an optional operator-pulled local/CI image and do not bundle or redistribute it in the MVP distribution. | The licensing question does not block MVP implementation or production architecture. Production remains backend-neutral through OTLP. Any future redistribution requires a fresh license review and architecture/distribution decision. |
 
 ## Consequences
@@ -415,8 +438,10 @@ exception records exposure, controls, owner, and remediation date.
 
 ### Costs and risks
 
-- The first production-pilot candidate depends on an external model provider until a model
-  artifact and hardware envelope pass the vLLM gate.
+- Every deployment or Organization model profile requires its own qualification
+  evidence; passing one profile does not certify another.
+- Organization-provided endpoints increase endpoint-validation, credential
+  isolation, data-policy, quota, and operability responsibilities.
 - OpenRouter free models and aliases are useful but non-deterministic and are
   restricted to synthetic exploratory use.
 - Deferring a malware engine is acceptable only while enabled categories remain
@@ -440,7 +465,6 @@ exception records exposure, controls, owner, and remediation date.
 - [Kubernetes Secret good practices](https://kubernetes.io/docs/concepts/security/secrets-good-practices/)
 - [vLLM documentation](https://docs.vllm.ai/en/latest/)
 - [vLLM supported models](https://docs.vllm.ai/en/latest/models/supported_models/)
-- [Mistral Small 3.1 24B Instruct model card](https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Instruct-2503)
 - [OpenRouter API and free-model limits](https://openrouter.ai/docs/faq)
 - [OpenRouter Responses API beta](https://openrouter.ai/docs/api/reference/responses/overview)
 - [OpenAI model guidance](https://developers.openai.com/api/docs/guides/latest-model)

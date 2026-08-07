@@ -16,10 +16,12 @@ through [ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md) are
 approved. [ADR-008](decisions/ADR-008-bounded-oss-component-set.md) approves the
 bounded component set and version policy; its compatibility, security,
 recovery, license, and supply-chain evidence gates remain required before an
-affected profile is certified. The self-hostable architecture is approved, but
-Mistral Small 3.1 24B Instruct is the approved first vLLM benchmark candidate,
-while its exact artifact, quantization, and hardware profile remain uncertified
-under `Q-OSS-1`. Optional LGTM is operator-pulled local/CI infrastructure and
+affected profile is certified. The self-hostable architecture is approved and
+model-neutral: certification applies to a concrete provider deployment profile,
+not a preferred model. Deployment-managed profiles and Organization BYOK are
+the MVP credential modes; the same boundary preserves a separately gated path
+to Organization model endpoints without making that an MVP requirement.
+Optional LGTM is operator-pulled local/CI infrastructure and
 does not block MVP or production architecture. Approved detailed contracts cover
 [text Session runtime](session-runtime-contract.md),
 [Evidence and Evaluation execution](evaluation-execution-contract.md), and

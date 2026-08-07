@@ -404,10 +404,9 @@ candidate selection. UI screenshots and interaction approval remain separate.
 None. The approved feature specification resolves product and policy questions.
 Framework, evaluator-library, and parser details remain implementation choices;
 applicable storage and model-provider profiles and evidence gates are governed
-by ADR-008. ADR-008 approves Mistral Small 3.1 24B Instruct as the first
-self-hosted benchmark candidate; `Q-OSS-1` remains open only for exact artifact,
-quantization, and hardware certification. Every selection must pass this
-contract rather than change it.
+by ADR-008. ADR-008 intentionally selects no normative model. Every deployment,
+Organization-provided, or self-hosted provider profile must pass this contract
+and its applicable evidence gates rather than change Evaluation semantics.
 
 ## Approval and downstream impact
 
