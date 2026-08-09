@@ -108,8 +108,8 @@ public sealed class CanonicalJsonProcessorTests
     [Fact]
     public void Failure_messages_do_not_echo_sensitive_marker()
     {
-        const string secretMarker = "SYNTHETIC_SECRET_MARKER_7f3c";
-        var input = Encoding.UTF8.GetBytes($$"""{"{{secretMarker}}":"value","{{secretMarker}}":2}""");
+        var secretMarker = $"echo-guard-{Guid.NewGuid():N}";
+        var input = Encoding.UTF8.GetBytes($"{{\"{secretMarker}\":\"value\",\"{secretMarker}\":2}}");
         var ex = Assert.Throws<CanonicalJsonException>(() => CanonicalJsonProcessor.CanonicalizeUtf8(input, TestLimits));
         Assert.DoesNotContain(secretMarker, ex.Message, StringComparison.Ordinal);
     }

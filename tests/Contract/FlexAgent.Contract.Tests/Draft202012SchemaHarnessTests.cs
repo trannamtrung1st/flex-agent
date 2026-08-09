@@ -47,7 +47,7 @@ public sealed class Draft202012SchemaHarnessTests
     [Fact]
     public void Schema_compatibility_errors_do_not_echo_sensitive_marker()
     {
-        const string secretMarker = "SYNTHETIC_SECRET_MARKER_91ad";
+        var secretMarker = $"echo-guard-{Guid.NewGuid():N}";
         var schemaBytes = Encoding.UTF8.GetBytes(
             $$"""
             {

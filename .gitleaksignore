@@ -1,0 +1,8 @@
+# Gitleaks fingerprint allowlist for documented false positives.
+# Format: commit:file:rule-id:start-line
+
+# 790cfb8 — safe-error regression tests used static fixture property names that
+# tripped generic-api-key. Markers are now runtime-generated; entries pin the
+# historical commit only.
+790cfb8da06f3cefc32f8bf686349e877b5bb890:tests/Contract/FlexAgent.Contract.Tests/Draft202012SchemaHarnessTests.cs:generic-api-key:50
+790cfb8da06f3cefc32f8bf686349e877b5bb890:tests/CanonicalJson/FlexAgent.CanonicalJson.Tests/CanonicalJsonProcessorTests.cs:generic-api-key:111
