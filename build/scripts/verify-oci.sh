@@ -9,7 +9,7 @@ WORKER_PORT="$((API_PORT + 1))"
 SPA_PORT="$((API_PORT + 2))"
 
 cleanup() {
-  docker rm flex-agent-oci-api flex-agent-oci-worker flex-agent-oci-spa >/dev/null 2>&1 || true
+  docker rm -f flex-agent-oci-api flex-agent-oci-worker flex-agent-oci-spa >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 

@@ -1,6 +1,6 @@
 ---
 id: dotnet-react-workspace-scaffold
-status: completed
+status: in-progress
 created: 2026-08-09
 updated: 2026-08-09
 ---
@@ -107,12 +107,11 @@ for the applicable runtime, supply-chain, and operability gates.
   screenshots of the runnable SPA smoke surface, without claiming the later
   authenticated browser gate.
 - [x] **Remediation pass (fourth review):** close supply-chain, reproducibility,
-  shutdown-evidence, license-inventory, and CI-path gaps.
-- [x] Reconcile delivered evidence against `GATE-STACK-RUNTIME`,
+  shutdown-evidence, license-inventory, and CI-path gaps (code on `1d16fb1`).
+- [ ] Reconcile delivered evidence against `GATE-STACK-RUNTIME`,
   `GATE-STACK-MODULES`, `GATE-STACK-SUPPLY`, and
-  `GATE-STACK-OPERABILITY`; update contributor and maturity documentation;
-  rerun Implementation CI on the remediation commit; then mark this task
-  completed and retain it as implementation history.
+  `GATE-STACK-OPERABILITY`; confirm Implementation CI green on remediation
+  commit; then mark this task completed and retain it as implementation history.
 
 # Remediation pass (ordered)
 
@@ -128,18 +127,21 @@ for the applicable runtime, supply-chain, and operability gates.
 4. **[P2] Graceful shutdown evidence** — API host disposal test; OCI
    `docker stop` (SIGTERM) checks; no `docker rm -f` as shutdown proof.
 5. **[P2] NuGet license inventory** — `packages.lock.json` + restored `.nuspec`
-   license expressions/references via `generate-nuget-licenses.sh`.
+   `<license>`/`<licenseUrl>`/license-file metadata via `generate-nuget-licenses.sh`;
+   project/repository URLs recorded as provenance only.
 6. **[P2] CI path filtering** — `changes` detection job gates expensive
    Implementation jobs; duplicate `docs` job removed from Implementation.
 
 # Current state
 
-Scaffold foundation, hardening, and fourth-review remediation are implemented
-locally. Implementation workflow **#6** was green on `e2e25a8` before remediation;
-**#7** pending on the remediation commit push.
+Remediation implementation is on `main` at `1d16fb1` (R4-1–R4-6 substantively
+addressed). Fifth-review cleanup tightens NuGet license validation and OCI
+failure cleanup; task remains **`in-progress`** until Implementation workflow
+**#7** is green on the remediation commit.
 
 Local verification (2026-08-09): `verify-dotnet.sh` (9/9), `verify-web.sh`,
-`verify-supply-chain.sh`, `verify-oci.sh`, and `check_docs.py` all pass.
+`verify-supply-chain.sh`, `verify-oci.sh`, and `check_docs.py` pass before this
+cleanup commit.
 
 # Decisions
 
@@ -201,8 +203,16 @@ Local verification (2026-08-09): `verify-dotnet.sh` (9/9), `verify-web.sh`,
 | R4-2 | `docs.yml` actions SHA-pinned; `permissions: contents: read` on both workflows |
 | R4-3 | `rollForward: disable`; `LangVersion` `14.0` |
 | R4-4 | API `Api_host_stops_cleanly_on_disposal`; OCI `docker stop` SIGTERM checks |
-| R4-5 | `generate-nuget-licenses.sh` from lock files + nuspec metadata |
+| R4-5 | `generate-nuget-licenses.sh` from lock files + nuspec license metadata (provenance separate) |
 | R4-6 | `detect-implementation-changes.sh` + conditional jobs; docs job removed from Implementation |
+
+## Fifth review (closure gate)
+
+| ID | Sev | Topic | Status |
+| --- | --- | --- | --- |
+| R5-1 | P1 | Task closure | **Open** — remain `in-progress` until Implementation #7 green on remediation commit; then state-only completion commit |
+| R5-2 | P2 | NuGet license validator | **Resolved** — require `<license>`/`<licenseUrl>`/license file; provenance URLs separate; reviewed override for `NetArchTest.Rules@1.3.2` |
+| R5-3 | P2 | OCI failure cleanup | **Resolved** — `EXIT` trap uses `docker rm -f` only for failure cleanup |
 
 ## Standing product boundary
 
@@ -224,18 +234,18 @@ Local verification (2026-08-09): `verify-dotnet.sh` (9/9), `verify-web.sh`,
 | OCI runtime-content inspection | partial | Local `verify-oci.sh` on tested host architecture only |
 | Publish + SPA dependency SBOM and vulnerability scan | pass | `verify-supply-chain.sh`; Grype clean on publish + SPA runtime graph (`--fail-on high`) |
 | Final OCI image SBOM and vulnerability scan | pass | `scan-oci-image-sboms.sh`; Grype critical gate with highs recorded in `*.grype.txt` |
-| NuGet + npm license inventory | pass | `generate-nuget-licenses.sh` (48 packages) + `pnpm licenses` |
+| NuGet + npm license inventory | pass | `generate-nuget-licenses.sh` (48 packages; license vs provenance fields) + `pnpm licenses` |
 | Reproducibility / immutable CI inputs | pass | Both workflows SHA-pinned; SDK `rollForward: disable`; `LangVersion` `14.0` |
 | Secret scan | pass | Gitleaks in `verify-supply-chain.sh` and CI |
 | Playwright desktop/narrow smoke | pass | `.playwright-mcp/page-2026-08-09T14-11-15-518Z.png`, `...14-11-27-779Z.png` |
 | `python3 scripts/check_docs.py` | pass | Documentation workflow |
-| GitHub Actions Implementation workflow | pending | Rerun required on remediation commit (prior green: #6 on `e2e25a8`) |
+| GitHub Actions Implementation workflow | pending | Awaiting run #7 on remediation commit `1d16fb1` (prior green: #6 on `e2e25a8`) |
 | Governing-source and gate reconciliation | pass | Applicable `GATE-STACK-*` evidence reconciled for this artifact |
 
 # Blockers
 
-None for local completion. GitHub Actions confirmation pending push of remediation
-commit.
+**R5-1:** GitHub Actions Implementation workflow #7 must pass on `1d16fb1` (or
+later remediation commit including R5-2/R5-3) before marking this task completed.
 
 # Completion
 
@@ -243,6 +253,6 @@ commit.
 - [x] Applicable focused tests pass
 - [x] Applicable integration/regression checks pass
 - [x] Governing specifications rechecked
-- [x] Remediation pass R4-1–R4-6 complete with updated evidence
-- [ ] GitHub Actions evidence confirmed on remediation commit (pending push)
-- [x] Task marked completed and retained for implementation history
+- [x] Remediation pass R4-1–R4-6 implemented (`1d16fb1`)
+- [ ] GitHub Actions evidence confirmed on remediation commit (Implementation #7)
+- [ ] Task marked completed and retained for implementation history

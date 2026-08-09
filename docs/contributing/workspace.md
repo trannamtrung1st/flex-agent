@@ -85,6 +85,10 @@ with the pinned `@cyclonedx/cyclonedx-npm` workspace devDependency via
 and must include `react` and `react-dom` at the pinned versions. NuGet license metadata is generated from committed `packages.lock.json` files and
 restored package `.nuspec` license expressions via
 [`build/scripts/generate-nuget-licenses.sh`](../../build/scripts/generate-nuget-licenses.sh).
+License evidence requires `<license>`, `<licenseUrl>`, or a license file;
+project and repository URLs are recorded separately as provenance. Packages
+without nuspec license metadata may use reviewed entries in
+`build/toolchain.json` (`nugetLicenseReview`).
 Final OCI image SBOMs are generated and scanned with
 [`build/scripts/scan-oci-image-sboms.sh`](../../build/scripts/scan-oci-image-sboms.sh)
 after [`build/scripts/build-oci-images.sh`](../../build/scripts/build-oci-images.sh).
