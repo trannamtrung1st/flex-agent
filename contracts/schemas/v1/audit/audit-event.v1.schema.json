@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/audit/audit-event.v1.schema.json",
+  "title": "Audit event v1",
+  "description": "Representative bounded audit event without protected payload content.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_schema",
+    "event_id",
+    "actor",
+    "organization_id",
+    "action",
+    "resource_ref",
+    "outcome",
+    "occurred_at",
+    "correlation_id"
+  ],
+  "properties": {
+    "event_schema": {
+      "type": "string",
+      "const": "audit-event.v1"
+    },
+    "event_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor_type", "actor_id"],
+      "properties": {
+        "actor_type": {
+          "type": "string",
+          "enum": ["human", "service", "system"]
+        },
+        "actor_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "organization_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "resource_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource_type", "resource_id"],
+      "properties": {
+        "resource_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "resource_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        }
+      }
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["succeeded", "denied", "failed"]
+    },
+    "reason_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "occurred_at": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+    },
+    "correlation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/correlation_id"
+    },
+    "durability_class": {
+      "type": "string",
+      "enum": ["required_durable", "bufferable"]
+    }
+  }
+}

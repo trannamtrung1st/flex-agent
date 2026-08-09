@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\..\src\Hosts\FlexAgent.Api\FlexAgent.Api.csproj" />
     <ProjectReference Include="..\..\..\src\Hosts\FlexAgent.Worker\FlexAgent.Worker.csproj" />
     <ProjectReference Include="..\..\..\src\BuildingBlocks\FlexAgent.CanonicalJson\FlexAgent.CanonicalJson.csproj" />
+    <ProjectReference Include="..\..\..\src\BuildingBlocks\FlexAgent.Contracts\FlexAgent.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

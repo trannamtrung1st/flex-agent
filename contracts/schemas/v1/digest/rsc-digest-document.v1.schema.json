@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/digest/rsc-digest-document.v1.schema.json",
+  "title": "Resolved session configuration digest document v1",
+  "description": "Normalization target for rsc-jcs-sha256-v1 per ADR-001.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "procedure_id",
+    "schema_version",
+    "canonicalization_version",
+    "effective_configuration",
+    "source_references",
+    "resolution_decisions"
+  ],
+  "properties": {
+    "procedure_id": {
+      "type": "string",
+      "const": "rsc-jcs-sha256-v1"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "v1"
+    },
+    "canonicalization_version": {
+      "type": "string",
+      "const": "rfc8785"
+    },
+    "effective_configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domains"],
+      "properties": {
+        "domains": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/configuration_domain" }
+        }
+      }
+    },
+    "source_references": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/sorted_source_reference" }
+    },
+    "resolution_decisions": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/resolution_decision" }
+    }
+  },
+  "$defs": {
+    "configuration_domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domain_key", "effective_value"],
+      "properties": {
+        "domain_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "effective_value": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "provenance_classification": {
+          "type": "string",
+          "enum": [
+            "inherited",
+            "activity_supplied",
+            "cohort_supplied",
+            "derived",
+            "most_restrictive",
+            "approved_exception"
+          ]
+        }
+      }
+    },
+    "sorted_source_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_key", "source_id", "source_version", "content_digest"],
+      "properties": {
+        "source_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "source_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "source_version": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "content_digest": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+        }
+      }
+    },
+    "resolution_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision_key", "outcome"],
+      "properties": {
+        "decision_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "outcome": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "approved_exception_ref": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        }
+      }
+    }
+  }
+}

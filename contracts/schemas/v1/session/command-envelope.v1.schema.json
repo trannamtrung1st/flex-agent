@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/session/command-envelope.v1.schema.json",
+  "title": "Session command envelope v1",
+  "description": "Representative transport-independent session command envelope per session-runtime-contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "command_type",
+    "command_id",
+    "idempotency_key",
+    "session_locator",
+    "expected_session_version",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "command_type": {
+      "type": "string",
+      "enum": [
+        "session.message.send.v1",
+        "session.pause.v1",
+        "session.resume.v1",
+        "session.complete.v1",
+        "session.terminate.v1",
+        "session.reconcile.v1"
+      ]
+    },
+    "command_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/correlation_id"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "session_locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_id"],
+      "properties": {
+        "session_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        }
+      }
+    },
+    "expected_session_version": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "client_last_seen_sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "payload": {
+      "$ref": "#/$defs/message_send_payload"
+    }
+  },
+  "$defs": {
+    "message_send_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message_text"],
+      "properties": {
+        "message_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
+        }
+      }
+    }
+  }
+}

@@ -135,6 +135,9 @@
       "flexagent.canonicaljson": {
         "type": "Project"
       },
+      "flexagent.contracts": {
+        "type": "Project"
+      },
       "flexagent.worker": {
         "type": "Project"
       }

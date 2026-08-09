@@ -1,0 +1,13 @@
+{
+  "schema_version": "v1",
+  "event_type": "session.agent.fragment.v1",
+  "session_id": "sess.synthetic.0001",
+  "session_sequence": 14,
+  "occurred_at": "2026-08-10T00:00:02Z",
+  "payload": {
+    "summary": "Agent response fragment published.",
+    "fragment_sequence": 1,
+    "agent_message_id": "amsg.synthetic.0001",
+    "text_delta": "Hello"
+  }
+}

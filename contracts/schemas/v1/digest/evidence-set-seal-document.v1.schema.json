@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/digest/evidence-set-seal-document.v1.schema.json",
+  "title": "Evidence set seal document v1",
+  "description": "Normalization target for evidence-set-jcs-sha256-v1 per evaluation-execution-contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "procedure_id",
+    "schema_version",
+    "canonicalization_version",
+    "evidence_set_id",
+    "evaluation_invocation_id",
+    "ownership",
+    "handoff_digest",
+    "frozen_input_digest",
+    "evidence_items"
+  ],
+  "properties": {
+    "procedure_id": {
+      "type": "string",
+      "const": "evidence-set-jcs-sha256-v1"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "v1"
+    },
+    "canonicalization_version": {
+      "type": "string",
+      "const": "rfc8785"
+    },
+    "evidence_set_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "evaluation_invocation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "ownership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "organization_id",
+        "activity_id",
+        "participant_id",
+        "attempt_id",
+        "session_id"
+      ],
+      "properties": {
+        "organization_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "activity_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "participant_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "attempt_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "session_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        }
+      }
+    },
+    "handoff_digest": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+    },
+    "frozen_input_digest": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+    },
+    "evidence_items": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/sealed_evidence_item" }
+    }
+  },
+  "$defs": {
+    "sealed_evidence_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "source_type",
+        "source_ref_digest",
+        "location_digest",
+        "verification_state"
+      ],
+      "properties": {
+        "evidence_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "source_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "source_ref_digest": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+        },
+        "location_digest": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+        },
+        "verification_state": {
+          "type": "string",
+          "enum": ["verified", "degraded", "failed"]
+        }
+      }
+    }
+  }
+}

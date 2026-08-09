@@ -1,0 +1,160 @@
+openapi: 3.1.0
+info:
+  title: Flex Agent representative transport projection
+  version: 0.1.0
+  description: >
+    Deterministic OpenAPI projection of representative command, event, manifest,
+    evidence locator, audit, safe error, and SSE shapes. This projection is not
+    authorization evidence and excludes internal-only fields by design.
+paths:
+  /session/commands:
+    post:
+      operationId: submitSessionCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionCommandEnvelopeV1'
+      responses:
+        '200':
+          description: Command accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionStateEventEnvelopeV1'
+        '409':
+          description: Safe conflict response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeErrorResponseV1'
+  /session/events:
+    get:
+      operationId: streamSessionEvents
+      responses:
+        '200':
+          description: SSE committed session events
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/SseSessionEventV1'
+components:
+  schemas:
+    SessionCommandEnvelopeV1:
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - command_type
+        - command_id
+        - idempotency_key
+        - session_locator
+        - expected_session_version
+        - payload
+      properties:
+        schema_version:
+          type: string
+          const: v1
+        command_type:
+          type: string
+        command_id:
+          type: string
+        idempotency_key:
+          type: string
+        session_locator:
+          type: object
+          additionalProperties: false
+          required: [session_id]
+          properties:
+            session_id:
+              type: string
+        expected_session_version:
+          type: integer
+        client_last_seen_sequence:
+          type: integer
+        payload:
+          type: object
+    SessionStateEventEnvelopeV1:
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - event_type
+        - session_id
+        - session_sequence
+        - session_version
+        - occurred_at
+        - payload
+      properties:
+        schema_version:
+          type: string
+        event_type:
+          type: string
+        session_id:
+          type: string
+        session_sequence:
+          type: integer
+        session_version:
+          type: integer
+        occurred_at:
+          type: string
+          format: date-time
+        correlation_id:
+          type: string
+        payload:
+          type: object
+    ResolvedExecutionManifestV1:
+      type: object
+      additionalProperties: false
+    EvidenceLocatorV1:
+      type: object
+      additionalProperties: false
+    AuditEventV1:
+      type: object
+      additionalProperties: false
+    SafeErrorResponseV1:
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - outcome
+        - correlation_id
+        - permitted_recovery_action
+      properties:
+        schema_version:
+          type: string
+        outcome:
+          type: string
+        correlation_id:
+          type: string
+        permitted_recovery_action:
+          type: string
+        session_version:
+          type: integer
+        session_sequence:
+          type: integer
+    SseSessionEventV1:
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - event_type
+        - session_id
+        - session_sequence
+        - occurred_at
+        - payload
+      properties:
+        schema_version:
+          type: string
+        event_type:
+          type: string
+        session_id:
+          type: string
+        session_sequence:
+          type: integer
+        occurred_at:
+          type: string
+          format: date-time
+        payload:
+          type: object

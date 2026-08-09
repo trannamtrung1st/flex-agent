@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/transport/safe-error-response.v1.schema.json",
+  "title": "Safe error response v1",
+  "description": "Deny-by-default participant-safe error projection without internal fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "outcome",
+    "correlation_id",
+    "permitted_recovery_action"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "validation_failed",
+        "conflict",
+        "unauthorized",
+        "forbidden",
+        "not_found",
+        "rate_limited",
+        "unavailable",
+        "internal_error"
+      ]
+    },
+    "correlation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/correlation_id"
+    },
+    "permitted_recovery_action": {
+      "type": "string",
+      "enum": [
+        "retry",
+        "reconcile",
+        "contact_administrator",
+        "none"
+      ]
+    },
+    "session_version": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "session_sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    }
+  }
+}

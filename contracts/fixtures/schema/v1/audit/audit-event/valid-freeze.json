@@ -1,0 +1,19 @@
+{
+  "event_schema": "audit-event.v1",
+  "event_id": "audit.synthetic.0001",
+  "actor": {
+    "actor_type": "service",
+    "actor_id": "session-resolver"
+  },
+  "organization_id": "org.synthetic.0001",
+  "action": "session.configuration.frozen",
+  "resource_ref": {
+    "resource_type": "resolved_session_configuration",
+    "resource_id": "rsc.synthetic.0001"
+  },
+  "outcome": "succeeded",
+  "reason_code": "freeze_complete",
+  "occurred_at": "2026-08-10T00:00:00Z",
+  "correlation_id": "corr.synthetic.0002",
+  "durability_class": "required_durable"
+}

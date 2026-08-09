@@ -10,13 +10,19 @@ internal sealed class Draft202012SchemaHarness
     private static readonly Dialect StrictDraft202012 = Dialect.Draft202012.With([], allowUnknownKeywords: false);
 
     private readonly IReadOnlySet<string> _allowedKeywords;
+    private readonly SchemaRegistry _schemaRegistry;
 
-    public Draft202012SchemaHarness(IReadOnlySet<string> allowedKeywords)
+    public Draft202012SchemaHarness(IReadOnlySet<string> allowedKeywords, string? contractsRoot = null, string? idNamespace = null)
     {
         _allowedKeywords = allowedKeywords;
+        _schemaRegistry = new SchemaRegistry();
+        if (contractsRoot is not null && idNamespace is not null)
+        {
+            _schemaRegistry.Fetch = (uri, registry) => FetchLocalSchema(contractsRoot, idNamespace, uri, registry, _allowedKeywords);
+        }
     }
 
-    public JsonSchema BuildSchema(ReadOnlySpan<byte> schemaUtf8)
+    public JsonSchema BuildSchema(ReadOnlySpan<byte> schemaUtf8, Uri? baseUri = null)
     {
         JsonDocument document;
         try
@@ -34,8 +40,12 @@ internal sealed class Draft202012SchemaHarness
         try
         {
             return JsonSchema.Build(
-                document.RootElement,
-                new BuildOptions { Dialect = StrictDraft202012 });
+                document.RootElement.Clone(),
+                new BuildOptions
+                {
+                    Dialect = StrictDraft202012,
+                    SchemaRegistry = _schemaRegistry,
+                });
         }
         catch (Exception)
         {
@@ -73,5 +83,26 @@ internal sealed class Draft202012SchemaHarness
         {
             throw new SchemaCompatibilityException(SchemaCompatibilityFailure.UnexpectedDialect);
         }
+    }
+
+    private static IBaseDocument? FetchLocalSchema(
+        string contractsRoot,
+        string idNamespace,
+        Uri uri,
+        SchemaRegistry registry,
+        IReadOnlySet<string> allowedKeywords)
+    {
+        var schemaId = uri.GetLeftPart(UriPartial.Path);
+        var path = ContractSchemaRegistry.ResolveSchemaPath(contractsRoot, schemaId, idNamespace);
+        using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+        AssertDialect(document.RootElement);
+        SchemaKeywordProfile.AssertOnlyAllowedKeywords(document.RootElement, allowedKeywords);
+        return JsonSchema.Build(
+            document.RootElement.Clone(),
+            new BuildOptions
+            {
+                Dialect = StrictDraft202012,
+                SchemaRegistry = registry,
+            });
     }
 }

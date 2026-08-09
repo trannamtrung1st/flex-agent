@@ -137,8 +137,8 @@ deploy them.
 | `GATE-STACK-MODULES` | Partial — composition-root, browser/backend, and `FlexAgent.CanonicalJson` dependency-boundary checks |
 | `GATE-STACK-SUPPLY` | Partial — lock files, checksum-verified scanner install, shipped-artifact SBOM/Grype/Gitleaks, and license inventory |
 | `GATE-STACK-OPERABILITY` | Partial — liveness/readiness and graceful work-claim stop only |
-| `GATE-STACK-SCHEMA` | Partial — **artifact 2 complete** (`c10cdf2`): `JsonSchema.Net` `9.4.0` pinned; contract harness enforces Draft 2020-12 dialect, keyword profile, and fail-closed fixtures; representative product schemas remain artifact 3 |
-| `GATE-STACK-JCS` | Partial — **artifact 2 complete** (`c10cdf2`): vendored `cyberphone/json-canonicalization` commit `19d51d7f…`, official vectors, wrapper limits/errors, explicit compile inventory, per-file license provenance; ADR-001/ADR-004 procedure fixtures remain artifact 3 |
+| `GATE-STACK-SCHEMA` | Partial — **artifact 3 in progress**: canonical Draft 2020-12 catalog (7 representative + 4 digest schemas), fixtures, C#/TypeScript mappings, OpenAPI projection, and contract tests; HTTP runtime validation remains deferred |
+| `GATE-STACK-JCS` | Partial — **artifact 3 in progress**: language-neutral ADR-001/ADR-004/Evidence-set fixtures with independent .NET and Node verification; production normalization builders remain deferred |
 | `GATE-STACK-HTTP`, `GATE-STACK-POSTGRES`, `GATE-STACK-ISOLATION`, `GATE-STACK-PROVIDERS`, `GATE-STACK-ARTIFACTS`, `GATE-STACK-SESSION`, `GATE-STACK-BROWSER` | Deferred — later sequenced artifacts |
 
 Focused verification for schema/JCS infrastructure:
@@ -146,6 +146,7 @@ Focused verification for schema/JCS infrastructure:
 ```bash
 dotnet test --project tests/Contract/FlexAgent.Contract.Tests/FlexAgent.Contract.Tests.csproj -c Release
 dotnet test --project tests/CanonicalJson/FlexAgent.CanonicalJson.Tests/FlexAgent.CanonicalJson.Tests.csproj -c Release
+pnpm --filter @flex-agent/contracts test
 ```
 
 Overall scaffold acceptance in

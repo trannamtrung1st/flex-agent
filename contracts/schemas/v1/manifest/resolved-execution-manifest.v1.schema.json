@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/manifest/resolved-execution-manifest.v1.schema.json",
+  "title": "Resolved execution manifest v1",
+  "description": "Representative append-only resolved execution manifest with configuration binding and runtime records.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_id",
+    "ownership",
+    "configuration_ref",
+    "runtime_records",
+    "terminal_state"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "manifest_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "ownership": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/session_ownership_ref"
+    },
+    "configuration_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["configuration_id", "configuration_digest"],
+      "properties": {
+        "configuration_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "configuration_digest": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+        }
+      }
+    },
+    "runtime_records": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/runtime_record" }
+    },
+    "terminal_state": {
+      "type": "string",
+      "enum": ["active", "completing", "completed", "terminated", "aborted"]
+    },
+    "terminal_seal": { "$ref": "#/$defs/terminal_seal" }
+  },
+  "$defs": {
+    "runtime_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequence",
+        "record_type",
+        "service_actor",
+        "occurred_at",
+        "payload_ref"
+      ],
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "record_type": {
+          "type": "string",
+          "enum": [
+            "model.invocation.v1",
+            "transcript.append.v1",
+            "timer.event.v1"
+          ]
+        },
+        "service_actor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "occurred_at": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "payload_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["protected_ref", "content_digest"],
+          "properties": {
+            "protected_ref": {
+              "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+            },
+            "content_digest": {
+              "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+            }
+          }
+        }
+      }
+    },
+    "terminal_seal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["procedure_id", "seal_digest"],
+      "properties": {
+        "procedure_id": {
+          "type": "string",
+          "const": "manifest-jcs-sha256-v1"
+        },
+        "seal_digest": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+        }
+      }
+    }
+  }
+}

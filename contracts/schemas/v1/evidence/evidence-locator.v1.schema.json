@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/evidence/evidence-locator.v1.schema.json",
+  "title": "Evidence locator v1",
+  "description": "Tagged evidence-locator.v1 union per evaluation-execution-contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "locator_schema",
+    "source_type",
+    "source_ref",
+    "ownership_ref",
+    "location",
+    "precision",
+    "integrity",
+    "created_by"
+  ],
+  "properties": {
+    "locator_schema": {
+      "type": "string",
+      "const": "evidence-locator.v1"
+    },
+    "source_type": {
+      "type": "string",
+      "enum": [
+        "submission.direct_text",
+        "submission.text_attachment",
+        "session.transcript_item",
+        "session.work_trace",
+        "configuration.fact",
+        "manifest.fact",
+        "deterministic.fact"
+      ]
+    },
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "source_version"],
+      "properties": {
+        "source_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "source_version": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "terminal_cutoff_sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "ownership_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "organization_id",
+        "activity_id",
+        "participant_id",
+        "attempt_id",
+        "session_id",
+        "evaluation_id"
+      ],
+      "properties": {
+        "organization_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "activity_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "participant_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "attempt_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "session_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "evaluation_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        }
+      }
+    },
+    "location": {
+      "$ref": "#/$defs/whole_item_location"
+    },
+    "precision": {
+      "type": "string",
+      "enum": ["exact_range", "stable_segment", "whole_item"]
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_digest",
+        "adapter_version",
+        "verification_state"
+      ],
+      "properties": {
+        "source_digest": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+        },
+        "adapter_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "verification_state": {
+          "type": "string",
+          "enum": ["verified", "degraded", "failed"]
+        }
+      }
+    },
+    "created_by": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["service_id", "invocation_id"],
+      "properties": {
+        "service_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "invocation_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "whole_item_location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["location_type", "item_id"],
+      "properties": {
+        "location_type": { "const": "whole_item" },
+        "item_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        }
+      }
+    },
+    "byte_range_location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["location_type", "item_id", "start_inclusive", "end_exclusive"],
+      "properties": {
+        "location_type": { "const": "utf8_byte_range" },
+        "item_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "start_inclusive": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1048576
+        },
+        "end_exclusive": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048577
+        },
+        "excerpt_digest": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+        }
+      }
+    },
+    "json_pointer_location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["location_type", "json_pointer"],
+      "properties": {
+        "location_type": { "const": "json_pointer" },
+        "json_pointer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^/"
+        }
+      }
+    }
+  }
+}

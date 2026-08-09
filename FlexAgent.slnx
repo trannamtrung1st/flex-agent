@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/BuildingBlocks/FlexAgent.CanonicalJson/FlexAgent.CanonicalJson.csproj" />
+    <Project Path="src/BuildingBlocks/FlexAgent.Contracts/FlexAgent.Contracts.csproj" />
     <Project Path="src/Hosts/FlexAgent.Api/FlexAgent.Api.csproj" />
     <Project Path="src/Hosts/FlexAgent.Worker/FlexAgent.Worker.csproj" />
   </Folder>

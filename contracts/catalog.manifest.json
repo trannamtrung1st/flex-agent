@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/catalog.manifest.json",
+  "catalog_version": "1",
+  "schema_dialect": "https://json-schema.org/draft/2020-12/schema",
+  "id_namespace": "https://flex-agent.local/contracts/",
+  "representative_schemas": [
+    {
+      "category": "command",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/command-envelope.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/session/command-envelope"
+    },
+    {
+      "category": "event",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/state-event-envelope.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/session/state-event-envelope"
+    },
+    {
+      "category": "manifest",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/manifest/resolved-execution-manifest.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/manifest/resolved-execution-manifest"
+    },
+    {
+      "category": "evidence_locator",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/evidence/evidence-locator.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/evidence/evidence-locator"
+    },
+    {
+      "category": "audit_event",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/audit/audit-event.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/audit/audit-event"
+    },
+    {
+      "category": "safe_error",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/transport/safe-error-response.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/transport/safe-error-response"
+    },
+    {
+      "category": "sse_event",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/transport/sse-event.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/transport/sse-event"
+    }
+  ],
+  "digest_schemas": [
+    {
+      "procedure_id": "rsc-jcs-sha256-v1",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/digest/rsc-digest-document.v1.schema.json",
+      "fixture_dir": "fixtures/jcs/rsc-jcs-sha256-v1"
+    },
+    {
+      "procedure_id": "manifest-jcs-sha256-v1",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/digest/manifest-seal-document.v1.schema.json",
+      "fixture_dir": "fixtures/jcs/manifest-jcs-sha256-v1"
+    },
+    {
+      "procedure_id": "activation-baseline-jcs-sha256-v1",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/digest/activation-baseline-digest-document.v1.schema.json",
+      "fixture_dir": "fixtures/jcs/activation-baseline-jcs-sha256-v1"
+    },
+    {
+      "procedure_id": "evidence-set-jcs-sha256-v1",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/digest/evidence-set-seal-document.v1.schema.json",
+      "fixture_dir": "fixtures/jcs/evidence-set-jcs-sha256-v1"
+    }
+  ],
+  "projections": {
+    "openapi": "projections/openapi.v3.1.yaml",
+    "csharp_dto_root": "src/BuildingBlocks/FlexAgent.Contracts/",
+    "typescript_root": "web/src/contracts/"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "fixture_version": "1",
+  "procedure_id": "rsc-jcs-sha256-v1",
+  "case_id": "minimal-stable-domain",
+  "outcome": "success",
+  "limits": {
+    "maxUtf8Bytes": 65536,
+    "maxNestingDepth": 64,
+    "maxPropertyCount": 4096,
+    "maxArrayLength": 4096
+  },
+  "digest_document": {
+    "procedure_id": "rsc-jcs-sha256-v1",
+    "schema_version": "v1",
+    "canonicalization_version": "rfc8785",
+    "effective_configuration": {
+      "domains": [
+        {
+          "domain_key": "memory_mode",
+          "effective_value": { "mode": "stable" },
+          "provenance_classification": "inherited"
+        }
+      ]
+    },
+    "source_references": [
+      {
+        "source_key": "agent",
+        "source_id": "agent.synth.01",
+        "source_version": "rev.0001",
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "resolution_decisions": [
+      {
+        "decision_key": "memory_mode",
+        "outcome": "stable_required"
+      }
+    ]
+  },
+  "expected_canonical_utf8_hex": "7b2263616e6f6e6963616c697a6174696f6e5f76657273696f6e223a2272666338373835222c226566666563746976655f636f6e66696775726174696f6e223a7b22646f6d61696e73223a5b7b22646f6d61696e5f6b6579223a226d656d6f72795f6d6f6465222c226566666563746976655f76616c7565223a7b226d6f6465223a22737461626c65227d2c2270726f76656e616e63655f636c617373696669636174696f6e223a22696e68657269746564227d5d7d2c2270726f6365647572655f6964223a227273632d6a63732d7368613235362d7631222c227265736f6c7574696f6e5f6465636973696f6e73223a5b7b226465636973696f6e5f6b6579223a226d656d6f72795f6d6f6465222c226f7574636f6d65223a22737461626c655f7265717569726564227d5d2c22736368656d615f76657273696f6e223a227631222c22736f757263655f7265666572656e636573223a5b7b22636f6e74656e745f646967657374223a2261616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161222c22736f757263655f6964223a226167656e742e73796e74682e3031222c22736f757263655f6b6579223a226167656e74222c22736f757263655f76657273696f6e223a227265762e30303031227d5d7d",
+  "expected_sha256_hex": "ac061086af2a5869dbbfe45ee45b48204e163865186664c49c9874d6de961c13"
+}

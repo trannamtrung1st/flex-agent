@@ -1,0 +1,14 @@
+{
+  "schema_version": "v1",
+  "command_type": "session.message.send.v1",
+  "command_id": "cmd.synthetic.0002",
+  "idempotency_key": "idem-synthetic-0002",
+  "session_locator": {
+    "session_id": "sess.synthetic.0001"
+  },
+  "expected_session_version": 3,
+  "payload": {
+    "message_text": "Synthetic participant message for contract validation."
+  },
+  "unexpected_internal_field": "must-fail"
+}

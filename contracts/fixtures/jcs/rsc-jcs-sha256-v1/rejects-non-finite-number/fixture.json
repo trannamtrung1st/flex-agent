@@ -1,0 +1,14 @@
+{
+  "fixture_version": "1",
+  "procedure_id": "rsc-jcs-sha256-v1",
+  "case_id": "rejects-non-finite-number",
+  "outcome": "failure",
+  "failure_category": "non_finite_number",
+  "limits": {
+    "maxUtf8Bytes": 65536,
+    "maxNestingDepth": 64,
+    "maxPropertyCount": 4096,
+    "maxArrayLength": 4096
+  },
+  "raw_digest_document_utf8_hex": "7b2270726f6365647572655f6964223a227273632d6a63732d7368613235362d7631222c22736368656d615f76657273696f6e223a227631222c226c696d6974223a4e614e7d"
+}

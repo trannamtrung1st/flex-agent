@@ -12,6 +12,9 @@ pnpm install --frozen-lockfile
 echo "==> web boundary check"
 node build/scripts/check-web-boundaries.mjs
 
+echo "==> contracts JCS conformance"
+pnpm --filter @flex-agent/contracts test
+
 echo "==> web lint"
 pnpm lint
 

@@ -142,6 +142,12 @@
           "xunit.v3.extensibility.core": "[3.2.2]",
           "xunit.v3.runner.common": "[3.2.2]"
         }
+      },
+      "flexagent.canonicaljson": {
+        "type": "Project"
+      },
+      "flexagent.contracts": {
+        "type": "Project"
       }
     }
   }

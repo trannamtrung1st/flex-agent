@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FlexAgent.Contracts</RootNamespace>
+    <AssemblyName>FlexAgent.Contracts</AssemblyName>
+  </PropertyGroup>
+
+</Project>

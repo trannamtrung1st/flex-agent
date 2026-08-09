@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json",
+  "title": "Flex Agent common contract primitives",
+  "description": "Shared identifier, timestamp, and reference primitives for versioned contracts.",
+  "type": "object",
+  "additionalProperties": false,
+  "maxProperties": 0,
+  "$defs": {
+    "stable_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._-]{7,127}$"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "v1"
+    },
+    "utc_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 32
+    },
+    "sha256_hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "correlation_id": {
+      "$ref": "#/$defs/stable_id"
+    },
+    "organization_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["organization_id"],
+      "properties": {
+        "organization_id": { "$ref": "#/$defs/stable_id" }
+      }
+    },
+    "session_ownership_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "organization_id",
+        "activity_id",
+        "participant_id",
+        "attempt_id",
+        "session_id"
+      ],
+      "properties": {
+        "organization_id": { "$ref": "#/$defs/stable_id" },
+        "activity_id": { "$ref": "#/$defs/stable_id" },
+        "participant_id": { "$ref": "#/$defs/stable_id" },
+        "attempt_id": { "$ref": "#/$defs/stable_id" },
+        "session_id": { "$ref": "#/$defs/stable_id" }
+      }
+    },
+    "source_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "source_version", "content_digest"],
+      "properties": {
+        "source_id": { "$ref": "#/$defs/stable_id" },
+        "source_version": { "$ref": "#/$defs/stable_id" },
+        "content_digest": { "$ref": "#/$defs/sha256_hex" }
+      }
+    },
+    "semantic_string_set": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  }
+}
