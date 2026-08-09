@@ -2,9 +2,20 @@
 
 Specification-driven platform for configurable agent workflows, assessment sessions, evidence-based evaluation, and governed result release.
 
-**Current phase:** P0 design and realization. See the
+**Current phase:** P0 design and realization with an executable workspace scaffold. See the
 [current documentation maturity](docs/README.md#current-maturity) and
 [next work](docs/product/overview.md#what-to-do-next).
+
+## Develop
+
+Pinned toolchain and commands: [contributing/workspace.md](docs/contributing/workspace.md).
+
+```bash
+dotnet restore FlexAgent.slnx --locked-mode && dotnet test --solution FlexAgent.slnx
+corepack enable && pnpm install --frozen-lockfile && pnpm verify:web
+bash build/scripts/verify-oci.sh
+python3 scripts/check_docs.py
+```
 
 ## Start here
 
@@ -23,7 +34,7 @@ Authoritative product and engineering documentation lives in [`docs/`](docs/READ
 python3 scripts/check_docs.py
 ```
 
-GitHub Actions runs the same checks and Markdown lint on pull requests and pushes to `main` via [`.github/workflows/docs.yml`](.github/workflows/docs.yml).
+GitHub Actions runs documentation checks via [`.github/workflows/docs.yml`](.github/workflows/docs.yml) and implementation verification via [`.github/workflows/implementation.yml`](.github/workflows/implementation.yml).
 
 ## Development harness
 

@@ -74,6 +74,8 @@ Codex and Cursor use equivalent `implementation-workflow` skills (`.agents/skill
 
 Shared live state lives in `.work/active/<task-slug>.md`. Copy `.work/templates/implementation-plan.md` when starting a new task. See `.work/README.md` for naming, lifecycle, progress markers, and cleanup.
 
+Executable workspace commands and gate coverage for the current scaffold live in [`workspace.md`](workspace.md).
+
 `.work/` is temporary, non-authoritative execution state. Governing specs, ADRs, code, and tests remain authoritative. The workflow composes role skills and specification-driven TDD; it does not replace them. Trivial one-step edits do not require a task file.
 
 Active task files (`.work/active/*.md`) are gitignored. Templates and `.work/README.md` are tracked.

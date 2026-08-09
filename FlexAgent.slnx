@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Hosts/FlexAgent.Api/FlexAgent.Api.csproj" />
+    <Project Path="src/Hosts/FlexAgent.Worker/FlexAgent.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Architecture/FlexAgent.Architecture.Tests/FlexAgent.Architecture.Tests.csproj" />
+    <Project Path="tests/Runtime/FlexAgent.Runtime.Tests/FlexAgent.Runtime.Tests.csproj" />
+  </Folder>
+</Solution>

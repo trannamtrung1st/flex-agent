@@ -1,0 +1,14 @@
+**/.git
+**/.github
+**/.cursor
+**/.agents
+**/.work
+**/.playwright-mcp
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/.nuget
+temp/
+*.md
+!deploy/**

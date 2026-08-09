@@ -1,0 +1,167 @@
+name: Implementation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: implementation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-dotnet@v4.1.0
+        with:
+          dotnet-version: "10.0.100"
+
+      - name: Verify .NET workspace
+        run: bash build/scripts/verify-dotnet.sh
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: "22.18.0"
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Verify web workspace
+        run: bash build/scripts/verify-web.sh
+
+  supply-chain:
+    runs-on: ubuntu-latest
+    needs: [dotnet, web]
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-dotnet@v4.1.0
+        with:
+          dotnet-version: "10.0.100"
+
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: "22.18.0"
+
+      - run: corepack enable
+
+      - name: Restore dependencies
+        run: |
+          dotnet restore FlexAgent.slnx --locked-mode
+          pnpm install --frozen-lockfile
+
+      - name: NuGet vulnerability scan
+        run: |
+          dotnet list FlexAgent.slnx package --vulnerable --include-transitive | tee artifacts-nuget-vuln.txt
+          if grep -q "has the following vulnerable packages" artifacts-nuget-vuln.txt; then
+            exit 1
+          fi
+
+      - name: pnpm audit
+        run: pnpm audit --audit-level=high
+
+      - name: License inventory
+        run: |
+          mkdir -p artifacts/supply-chain
+          dotnet list FlexAgent.slnx package --include-transitive --format json > artifacts/supply-chain/nuget-packages.json
+          pnpm licenses list --json > artifacts/supply-chain/npm-licenses.json || pnpm licenses ls --json > artifacts/supply-chain/npm-licenses.json
+
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/v1.38.0/install.sh | sh -s -- -b /usr/local/bin v1.38.0
+
+      - name: Generate SBOM
+        run: syft dir:. -o cyclonedx-json > artifacts/supply-chain/sbom-repo.cdx.json
+
+      - name: Install Grype
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/v0.104.1/install.sh | sh -s -- -b /usr/local/bin v0.104.1
+
+      - name: Scan SBOM for vulnerabilities
+        run: grype sbom:artifacts/supply-chain/sbom-repo.cdx.json --fail-on high
+
+      - name: Install Gitleaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz | tar -xz -C /usr/local/bin gitleaks
+
+      - name: Secret scan
+        run: gitleaks detect --source . --no-banner --redact
+
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: supply-chain-evidence
+          path: artifacts/supply-chain/
+
+  oci:
+    runs-on: ubuntu-latest
+    needs: [dotnet, web]
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            docker_platform: linux/amd64
+          - platform: linux/arm64
+            docker_platform: linux/arm64
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: "22.18.0"
+
+      - run: corepack enable
+
+      - name: Prepare web lockfile context
+        run: pnpm install --frozen-lockfile
+
+      - uses: docker/setup-qemu-action@v3.6.0
+
+      - uses: docker/setup-buildx-action@v3.11.0
+
+      - name: Build API image (${{ matrix.platform }})
+        uses: docker/build-push-action@v6.15.0
+        with:
+          context: .
+          file: deploy/docker/api.Dockerfile
+          platforms: ${{ matrix.docker_platform }}
+          push: false
+          tags: flex-agent-api:${{ matrix.platform }}
+
+      - name: Build worker image (${{ matrix.platform }})
+        uses: docker/build-push-action@v6.15.0
+        with:
+          context: .
+          file: deploy/docker/worker.Dockerfile
+          platforms: ${{ matrix.docker_platform }}
+          push: false
+          tags: flex-agent-worker:${{ matrix.platform }}
+
+      - name: Build SPA image (${{ matrix.platform }})
+        uses: docker/build-push-action@v6.15.0
+        with:
+          context: .
+          file: deploy/docker/spa.Dockerfile
+          platforms: ${{ matrix.docker_platform }}
+          push: false
+          tags: flex-agent-spa:${{ matrix.platform }}
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-python@v5.4.0
+        with:
+          python-version: "3.12"
+
+      - name: Run documentation checks
+        run: python3 scripts/check_docs.py

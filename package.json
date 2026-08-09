@@ -1,0 +1,19 @@
+{
+  "name": "flex-agent",
+  "private": true,
+  "packageManager": "pnpm@9.6.0",
+  "engines": {
+    "node": "22.18.0",
+    "pnpm": "9.6.0"
+  },
+  "scripts": {
+    "lint": "pnpm --filter @flex-agent/web lint",
+    "typecheck": "pnpm --filter @flex-agent/web typecheck",
+    "test": "pnpm --filter @flex-agent/web test",
+    "build": "pnpm --filter @flex-agent/web build",
+    "verify:web": "pnpm install --frozen-lockfile && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "verify:dotnet": "bash build/scripts/verify-dotnet.sh",
+    "verify:supply-chain": "bash build/scripts/verify-supply-chain.sh",
+    "verify:oci": "bash build/scripts/verify-oci.sh"
+  }
+}

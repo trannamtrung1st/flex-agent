@@ -1,0 +1,133 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--fg-default);
+  background: var(--canvas);
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.app-header,
+.app-main,
+.app-footer {
+  width: min(100%, 48rem);
+  margin-inline: auto;
+  padding: 1.5rem;
+}
+
+.app-header {
+  padding-top: 2.5rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+h1,
+h2 {
+  margin: 0 0 0.75rem;
+  color: var(--fg-strong);
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: clamp(1.625rem, 4vw, 1.875rem);
+}
+
+h2 {
+  font-size: 1.125rem;
+}
+
+.lede {
+  margin: 0;
+  max-width: 42rem;
+}
+
+.status-panel {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  background: var(--surface-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-focus) 12%, transparent);
+}
+
+.status-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.status-grid div {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.status-grid dt {
+  font-size: 0.8125rem;
+  color: var(--fg-muted);
+}
+
+.status-grid dd {
+  margin: 0;
+  color: var(--fg-strong);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.actions {
+  margin-top: 1.25rem;
+}
+
+.button-primary {
+  appearance: none;
+  border: 1px solid var(--border-focus);
+  border-radius: 0.625rem;
+  padding: 0.625rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(180deg, var(--brand-signal), var(--brand-primary));
+  box-shadow: 0 0 0 3px var(--emission-focus);
+  cursor: pointer;
+}
+
+.button-primary:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.app-footer {
+  padding-bottom: 2rem;
+  color: var(--fg-muted);
+  font-size: 0.875rem;
+}
+
+@media (min-width: 40rem) {
+  .status-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

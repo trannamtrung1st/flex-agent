@@ -434,6 +434,10 @@ FodyWeavers.xsd
 # Temporary files
 temp/
 
+# Local build and verification artifacts
+artifacts/
+.tools/
+
 # Coding-agent implementation working state (templates and README are tracked)
 .work/active/*
 !.work/active/.gitkeep
