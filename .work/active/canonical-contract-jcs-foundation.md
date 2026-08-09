@@ -1,6 +1,6 @@
 ---
 id: canonical-contract-jcs-foundation
-status: in_progress
+status: completed
 created: 2026-08-09
 updated: 2026-08-10
 ---
@@ -137,12 +137,10 @@ Implementation complete locally. Pinned `JsonSchema.Net` `9.4.0` and upstream
 JCS commit `19d51d7fe467d4706a3ff08adf8a748f29fc21e0`. Added
 `FlexAgent.CanonicalJson`, contract/canonicalization test projects, minimal
 `contracts/` fixtures, architecture boundary tests, lock files, toolchain pins,
-and workspace gate documentation. All 42 .NET tests pass; supply-chain, docs,
-and gitleaks checks pass locally. External code review on `790cfb8` remediated
-locally (wrapper isolation, nested property limits, arrays vector upstream
-test, expanded provenance manifest, per-component licenses, harness keyword
-ordering). GitHub Actions confirmation for the remediation commit remains
-pending.
+and workspace gate documentation. All 43 .NET tests pass on `39df777`;
+supply-chain, docs, and gitleaks checks pass locally. External code review
+findings through `d369500` and provenance cleanup in `39df777` are remediated.
+GitHub Actions confirmation for `39df777` remains the external-review gap.
 
 # Decisions
 
@@ -221,11 +219,11 @@ pending.
 | Supply-chain and license regression | pass | `bash build/scripts/verify-supply-chain.sh` |
 | Gitleaks | pass | `gitleaks detect --source .` — no leaks found |
 | Documentation validation | pass | `python3 scripts/check_docs.py` |
-| Gate reconciliation | partial | `GATE-STACK-SCHEMA` and `GATE-STACK-JCS` partial (artifact 2); product schemas and ADR-001/ADR-004 fixtures deferred to artifact 3; CI rerun pending |
+| Gate reconciliation | partial | `GATE-STACK-SCHEMA` and `GATE-STACK-JCS` partial (artifact 2); product schemas and ADR-001/ADR-004 fixtures deferred to artifact 3; CI confirmation on `39df777` pending |
 
 # Blockers
 
-None locally. GitHub Actions confirmation for this artifact remains the
+None locally. GitHub Actions confirmation on `39df777` remains the
 external-review gap.
 
 # Completion
@@ -234,5 +232,5 @@ external-review gap.
 - [x] Applicable focused tests pass
 - [x] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked
-- [>] Remaining gaps or unverified behavior are recorded
-- [>] Task state is safe and complete for external review
+- [x] Remaining gaps or unverified behavior are recorded
+- [x] Task state is safe and complete for external review
