@@ -22,8 +22,10 @@ Equivalent project skills under `.cursor/skills/` (Cursor) and `.agents/skills/`
 - `architect` — governs system boundaries, quality attributes, technical decisions, and ADRs
 - `ui-ux-designer` — designs accessible journeys, interaction states, responsive behavior, and design-system guidance
 - `documentation-author` — composes product, architecture, and UI/UX perspectives into authoritative documents under `docs/`
+- `developer` — coordinates full-stack work by composing the backend and frontend developer roles
 - `backend-developer` — implements server behavior through TDD
 - `frontend-developer` — implements accessible, resilient UI and verifies it in the live browser
+- `reviewer` — coordinates independent backend, frontend, and security/privacy review into one evidence-backed result
 - `backend-reviewer` — reviews correctness, contracts, data, concurrency, security, and tests
 - `frontend-reviewer` — reviews code plus rendered UX, accessibility, responsiveness, and polish
 - `tester` — runs risk-based functional, integration, regression, accessibility, and UI/UX testing
@@ -39,13 +41,13 @@ drift between harnesses.
 Workflow skills cover delivery processes that compose roles:
 
 - `git-workflow` — local git commits, branches, merges, and pull requests without defaulting to GitHub login
-- `implementation-workflow` — plan, track, verify, and complete substantive implementation work using shared task state under `.work/active/`
+- `implementation-workflow` — plan, track, review, and complete substantive implementation work using shared task state under `.work/active/`
 
 The security/privacy role is intentionally included beyond the requested minimum. This product handles sensitive participant content, consequential evaluations, external tools, dynamic memory, and multi-tenant boundaries; treating those concerns as a late generic review would be unsafe.
 
 ## Role and workflow separation
 
-Role skills define capabilities, responsibilities, quality standards, and expected outputs. They are applicable independently and may compose one another when work crosses roles. `documentation-author` explicitly composes `business-analyst`, `architect`, and `ui-ux-designer` perspectives for authoritative documents under `docs/`, adding security/privacy review when relevant. Roles do not prescribe a project-specific sequence, handoff, approval path, or release process.
+Role skills define capabilities, responsibilities, quality standards, and expected outputs. They are applicable independently and may compose one another when work crosses roles. `developer` composes `backend-developer` and `frontend-developer` for full-stack changes. `reviewer` composes `backend-reviewer`, `frontend-reviewer`, and `security-privacy-reviewer`; `tester` remains a separate QA role. `documentation-author` explicitly composes `business-analyst`, `architect`, and `ui-ux-designer` perspectives for authoritative documents under `docs/`, adding security/privacy review when relevant. Roles do not prescribe a project-specific sequence, handoff, approval path, or release process.
 
 When the project adopts additional concrete processes—such as feature discovery, pull-request review, release readiness, or incident response—define each as a separate workflow skill that invokes the relevant roles. Installed workflow skills:
 
@@ -72,13 +74,13 @@ Codex and Cursor use equivalent `implementation-workflow` skills (`.agents/skill
 - **Codex:** matching section in `AGENTS.md`
 - **Both:** load `implementation-workflow` for substantive implementation work
 
-Shared live state lives in `.work/active/<task-slug>.md`. Copy `.work/templates/implementation-plan.md` when starting a new task. See `.work/README.md` for naming, lifecycle, progress markers, and cleanup.
+Shared live state lives in `.work/active/<task-slug>.md`. Copy `.work/templates/implementation-plan.md` when starting a new task. See `.work/README.md` for naming, lifecycle, progress markers, review handoff, and retirement.
 
 Executable workspace commands and gate coverage for the current scaffold live in [`workspace.md`](workspace.md).
 
-`.work/` is temporary, non-authoritative execution state. Governing specs, ADRs, code, and tests remain authoritative. The workflow composes role skills and specification-driven TDD; it does not replace them. Trivial one-step edits do not require a task file.
+`.work/` is Git-tracked temporary, non-authoritative execution state so external reviewers can inspect implementation plans and evidence. Governing specs, ADRs, code, and tests remain authoritative. The workflow composes role skills and specification-driven TDD; it does not replace them. Trivial one-step edits do not require a task file. Task files must not contain secrets, credentials, sensitive participant data, or hidden reasoning.
 
-Active task files (`.work/active/*.md`) are gitignored. Templates and `.work/README.md` are tracked.
+All files under `.work/`, including live and retained completed task files, are Git-visible. Keep completed files through external review, then remove them when review concludes or the repository owner directs otherwise. This tracking policy is temporary and may be revisited later.
 
 ## Git workflow
 

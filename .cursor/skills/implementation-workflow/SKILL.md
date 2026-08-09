@@ -1,6 +1,6 @@
 ---
 name: implementation-workflow
-description: Plan, track, and complete substantive implementation work using shared task state under .work/active/. Use for multi-step features, refactors, migrations, investigations, and other non-trivial coding tasks.
+description: Plan, track, review, and complete substantive implementation work using shared Git-tracked task state under .work/active/. Use for multi-step features, refactors, migrations, investigations, external review handoffs, and other non-trivial coding tasks.
 ---
 
 # Implementation Workflow
@@ -41,6 +41,8 @@ If the task is substantive, create or resume:
 ```
 
 Copy from `.work/templates/implementation-plan.md`. One task, one file. Do not create separate `PLAN.md`, `PROGRESS.md`, or similar for the same task.
+
+Task files are tracked for collaboration and external review. Never record secrets, sensitive participant data, credentials, or hidden chain-of-thought.
 
 ### 3. Plan before substantial implementation
 
@@ -92,8 +94,8 @@ Before declaring completion:
 - move durable decisions or newly discovered requirements into authoritative artifacts (`docs/`, ADRs, specs) when required
 - record remaining gaps or unverified behavior
 
-### 8. Clean up
+### 8. Prepare review handoff
 
-Delete `.work/active/<task-slug>.md` after completion unless there is a clear reason to retain it.
+Mark the task completed and keep `.work/active/<task-slug>.md` through external review. Remove it after review concludes or when the repository owner directs otherwise. Promote durable decisions before removal; the task file never becomes authoritative documentation.
 
 Completion is not achieved by manually checking boxes alone. Verification must support the claim.

@@ -58,3 +58,4 @@ None.
 - [ ] Applicable integration/regression checks pass
 - [ ] Governing specifications were rechecked
 - [ ] Remaining gaps or unverified behavior are recorded
+- [ ] Task state is safe and complete for external review

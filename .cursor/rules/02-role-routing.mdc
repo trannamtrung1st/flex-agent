@@ -11,8 +11,10 @@ Load the matching project skill from `.cursor/skills/` before substantive work. 
 - Cross-cutting technical design, system boundaries, quality attributes, technology decisions, or ADRs: `architect`
 - User journeys, information architecture, interaction states, accessibility, visual design, or design systems: `ui-ux-designer`
 - Authoritative product, UI/UX, architecture, or technical documentation under `docs/`: `documentation-author`
+- Full-stack implementation spanning backend and frontend: `developer`
 - APIs, domain logic, persistence, auth, jobs, or integrations: `backend-developer`
 - Web UI implementation, client state, components, styling, accessibility implementation, or frontend defects: `frontend-developer`
+- Cross-cutting review spanning backend, frontend, and security/privacy: `reviewer`
 - Backend review: `backend-reviewer`
 - Frontend review or UI polish review: `frontend-reviewer`
 - QA, acceptance, regression, functional, accessibility, or UX testing: `tester`
@@ -20,6 +22,6 @@ Load the matching project skill from `.cursor/skills/` before substantive work. 
 - Commits, branches, merges, or pull requests: `git-workflow`
 - Substantive implementation planning, execution tracking, and completion: `implementation-workflow`
 
-Load multiple skills when the task crosses roles. Keep implementation and review perspectives distinct: a reviewer reports findings and evidence, and does not edit unless the user also requests fixes.
+Use `developer` and `reviewer` for their defined cross-cutting compositions; load specialist skills directly for narrower work. Keep implementation and review perspectives distinct: a reviewer reports findings and evidence, and does not edit unless the user also requests fixes.
 
 Role skills define reusable responsibilities, standards, and output quality. Workflow skills cover delivery processes that compose roles: load `git-workflow` when the task is primarily about version control; load `implementation-workflow` for substantive implementation work alongside applicable role skills.

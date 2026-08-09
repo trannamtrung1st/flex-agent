@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reviewer"
+  short_description: "Coordinate cross-cutting Flex Agent reviews"
+  default_prompt: "Use $reviewer to review this Flex Agent change across all relevant surfaces."

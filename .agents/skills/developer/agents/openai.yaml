@@ -1,0 +1,4 @@
+interface:
+  display_name: "Developer"
+  short_description: "Coordinate full-stack Flex Agent implementation"
+  default_prompt: "Use $developer to implement this full-stack Flex Agent change."

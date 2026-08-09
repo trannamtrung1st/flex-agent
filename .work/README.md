@@ -1,6 +1,6 @@
 # Implementation working state
 
-`.work/` holds temporary coding-agent execution state. It is **not** authoritative product, architecture, or requirements documentation.
+`.work/` holds temporary coding-agent execution state. It is tracked in Git so external reviewers and collaborators can inspect plans, progress, decisions, and verification evidence. It is **not** authoritative product, architecture, or requirements documentation.
 
 Permanent truth lives in approved specs under `docs/`, ADRs, code, tests, migrations, and durable developer documentation such as `AGENTS.md` and `docs/contributing/development-harness.md`.
 
@@ -49,7 +49,8 @@ Prefer stable, descriptive names over ticket numbers alone.
 2. **Execute** — update the file continuously as steps start, complete, change, block, or verify.
 3. **Reconcile** — compare planned work to actual changes before claiming completion.
 4. **Promote** — move durable decisions or newly discovered requirements into authoritative artifacts when needed.
-5. **Clean up** — delete the active task file after completion unless there is a clear reason to retain it.
+5. **Review** — mark the task completed and retain it while external review is pending.
+6. **Retire** — remove the task file after review concludes or when the repository owner directs otherwise.
 
 Update the front-matter `status` and `updated` fields as work proceeds (`planned`, `in-progress`, `blocked`, `completed`).
 
@@ -77,7 +78,7 @@ All coding agents and humans use the same file under `.work/active/`. Before sub
 
 Keep `# Current state`, `# Findings / deviations`, `# Blockers`, and `# Verification` accurate enough that another agent can resume without re-deriving context.
 
-Record concise implementation summaries only. Do not persist hidden chain-of-thought or private reasoning.
+Record concise implementation summaries only. Because task files are Git-visible, never persist secrets, credentials, sensitive participant data, hidden chain-of-thought, or private reasoning.
 
 ## What belongs elsewhere
 
@@ -93,17 +94,15 @@ If a discovery changes product meaning, requirements, architecture, or another d
 
 ## Git policy
 
-Tracked:
+Tracked for implementation collaboration and external review:
 
 - `.work/README.md`
 - `.work/templates/`
-- `.work/active/.gitkeep`
+- `.work/active/`, including live and retained completed task files
 
-Ignored:
+Nothing under `.work/` is intentionally ignored. Before adding or updating a task file, ensure it contains no secrets, credentials, sensitive participant data, or unnecessary raw output.
 
-- `.work/active/*.md` (live task files)
-
-Active plans are temporary execution state, not permanent project history. If the team later needs cross-machine or branch-persisted planning state, this policy may be intentionally changed.
+Tracked plans remain temporary execution state, not permanent product or architecture history. Keep them through external review, then remove them when review concludes or the repository owner requests cleanup. Promote durable decisions to their authoritative artifacts before removal. This tracking policy is intentionally temporary and may be revisited later.
 
 ## Completion
 
@@ -113,6 +112,7 @@ Completion requires evidence, not checklist theater:
 - run applicable focused tests and proportionate integration or regression checks
 - recheck governing specifications
 - record remaining gaps or unverified behavior
-- remove the active task file when done
+- mark the task completed and make it safe and complete for external review
+- retain it through review, then remove it when review concludes or the repository owner directs otherwise
 
 Do not claim completion merely because checklist items were manually marked complete.
