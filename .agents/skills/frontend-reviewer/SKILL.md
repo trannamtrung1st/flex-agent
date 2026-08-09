@@ -9,7 +9,8 @@ Review code and the rendered product. Do not edit unless fixes are requested.
 
 ## Evidence requirements
 
-- Ground findings in requirement/AC IDs, the diff, tests, and design guidance.
+- Ground findings in requirement/AC IDs, the diff, tests, the status/authority
+  rules in `docs/ui-ux/design-system/README.md`, and every applicable module.
 - Run focused tests when practical.
 - Review the live app with the project `playwright` MCP server when UI is available.
 - Exercise applicable happy, loading, empty, validation, error/retry, pending, permission, and destructive states.
@@ -23,7 +24,9 @@ Review code and the rendered product. Do not edit unless fixes are requested.
 - **State design**: complete feedback and recovery; inputs preserved when safe; time/reconnect behavior is understandable
 - **Accessibility**: semantics, names, headings, labels, keyboard order, focus visibility, announcements, reduced motion
 - **Responsive UX**: critical actions remain visible; text, tables, transcripts, dialogs, and navigation do not clip
-- **Visual quality**: clear hierarchy, consistent rhythm/alignment, readable density, purposeful controls and copy
+- **Visual quality**: semantic-token and state consistency, clear hierarchy,
+  rhythm/alignment, readable density, restrained identity effects, purposeful
+  controls, and copy
 - **Security/privacy**: no unauthorized data, unsafe HTML, secret exposure, or sensitive browser logging/storage
 - **Performance**: bounded rendering and requests; no obvious waterfalls, leaks, or unvirtualized large feeds
 - **Maintainability**: explicit state ownership, reusable design primitives, stable test selectors, no needless abstraction

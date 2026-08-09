@@ -19,8 +19,9 @@ and the approved
 [Text Session](text-session.md) and
 [Evidence, Evaluation, and Human Review](evidence-evaluation-human-review.md)
 interaction specifications and the approved
-[Result and Release](result-release.md) interaction specification; then author
-design-system guidance. Every state and
+[Result and Release](result-release.md) interaction specification. The shared
+[design system](design-system/README.md) is now **In review v0.1** and must be
+approved before it governs implementation. Every state and
 interaction must trace to the owning `AC-*` criteria
 and preserve the SPA/server authority boundary defined by `AR-DEC-12`.
 
@@ -61,6 +62,7 @@ UI/UX documents implement and extend approved requirements; they do not override
 | [Text Session interaction specification](text-session.md) | P0 surface interaction specification | Approved | Participant pre-start acknowledgment, committed Session entry, durable token-by-token Agent-response streaming, Agent work state, timing, reconnect, partial-stream recovery, pause, completion, terminal transcript access, administrator control, accessibility, responsive, and protected-content behavior |
 | [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md) | P0 surface interaction specification | Approved | Assigned Review work, Evaluation processing and candidate lineage, criterion/Evidence inspection, optional Human revision, Review decision, and Result-ready/not-released handoff |
 | [Result and Release interaction specification](result-release.md) | P0 surface interaction specification | Approved | Release work, immutable Result preview, explicit Release confirmation and reconciliation, Participant pre-release/released/corrected/unavailable Results, notification handoff, accessibility, responsive behavior, and protected-content interaction |
+| [Flex Agent design system](design-system/README.md) | Shared visual, interaction, accessibility, and product-pattern foundation | In review v0.1 | Semantic tokens, foundations, reusable components, cross-surface product patterns, authority boundaries, later-release applicability, and implementation checklist |
 
 ## Related documents
 

@@ -27,13 +27,13 @@ Follow the git workflow section in `AGENTS.md`. In Cursor, the always-on rule `.
 3. Match recent commit message style; focus on why, not just what.
 4. Commit with a HEREDOC message, for example:
 
-```bash
-git commit -m "$(cat <<'EOF'
-Why the change matters.
+    ```bash
+    git commit -m "$(cat <<'EOF'
+    Why the change matters.
 
-EOF
-)"
-```
+    EOF
+    )"
+    ```
 
 5. Verify with `git status`.
 

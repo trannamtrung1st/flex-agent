@@ -1008,9 +1008,11 @@ None. `PROP-UI-REV-1`–`PROP-UI-REV-12` were approved on 2026-08-09.
 - The approved [Result and Release interaction specification](result-release.md)
   consumes the exact **Result ready · Not released** handoff without adding a
   Release action here or redefining the preview payload.
-- The design-system foundation must define reusable status, criterion list,
-  source viewer, structured difference, confirmation, error summary, protected
-  content, and responsive stacked-record patterns identified here.
+- The in-review [design-system foundation](design-system/README.md) defines
+  reusable status, criterion list, source viewer, structured difference,
+  confirmation, error-summary, protected-content, and responsive
+  stacked-record patterns identified here; approval must confirm conformance to
+  this specification.
 - Frontend and backend contracts must expose the six independent state tracks,
   exact candidate/version, source precision, permitted actions, expected
   versions, and bounded recovery categories without making the browser

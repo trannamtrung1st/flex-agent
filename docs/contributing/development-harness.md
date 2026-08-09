@@ -28,6 +28,13 @@ Equivalent project skills under `.cursor/skills/` (Cursor) and `.agents/skills/`
 - `tester` — runs risk-based functional, integration, regression, accessibility, and UI/UX testing
 - `security-privacy-reviewer` — reviews the trust boundaries that are unusually important for participant data, memory, tools, uploads, evidence, and evaluations
 
+For every UI role, the shared [design system](../ui-ux/design-system/README.md)
+provides the status/authority boundary and
+[implementation guide](../ui-ux/design-system/implementation-guide.md) used to
+select relevant foundations, components, and product patterns. The equivalent
+Cursor and Codex role skills point to the same source so visual rules do not
+drift between harnesses.
+
 Workflow skills cover delivery processes that compose roles:
 
 - `git-workflow` — local git commits, branches, merges, and pull requests without defaulting to GitHub login
@@ -75,7 +82,9 @@ UI/UX designers, frontend developers, frontend reviewers, and testers must use t
 1. Reach each applicable state through real interactions.
 2. Use accessibility snapshots to inspect names, roles, focus order, and structure.
 3. Take desktop and narrow screenshots.
-4. Evaluate hierarchy, copy, affordances, spacing, alignment, clipping, feedback, focus, contrast clues, and polish.
+4. Evaluate hierarchy, copy, affordances, spacing, alignment, clipping,
+   feedback, focus, contrast clues, applicable design-system conformance, and
+   polish.
 5. Repeat after fixes and cite `.playwright-mcp/` evidence.
 
 Typical coverage includes loading, empty, populated, validation, error/retry, pending, disabled, dialogs, destructive confirmation, permission denied, keyboard focus, time warnings, expiry, completion, release, and applicable voice states.

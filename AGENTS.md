@@ -61,6 +61,13 @@ Load the matching repository skill from `.agents/skills/` before substantive wor
 
 Load multiple skills when a task crosses roles. Keep implementation and review perspectives distinct: a reviewer reports findings and evidence and does not edit unless fixes were also requested. Role skills define reusable responsibilities and quality standards. Workflow skills such as `git-workflow` cover delivery processes that compose roles; load them when the task is primarily about that process.
 
+For any UI design, implementation, review, or testing task, read
+`docs/ui-ux/design-system/README.md` and its status/authority rules, then load
+the applicable modules through
+`docs/ui-ux/design-system/implementation-guide.md`. A narrower approved UI/UX
+specification governs feature-specific behavior. A design-system module does
+not authorize a deferred capability.
+
 ## Specification-driven TDD
 
 For each behavior change:
@@ -83,7 +90,9 @@ For every UI-affecting change when the app can run, use the project `playwright`
 1. Reach each changed state through real interactions.
 2. Use accessibility snapshots to inspect controls, names, structure, and focus.
 3. Take screenshots before judging visual quality.
-4. Evaluate hierarchy, copy, spacing, alignment, overflow, feedback, focus, contrast clues, responsiveness, and polish.
+4. Evaluate hierarchy, copy, spacing, alignment, overflow, feedback, focus,
+   contrast clues, responsiveness, polish, and conformance to the applicable
+   design-system modules.
 5. Fix defects and repeat the browser check.
 
 Cover applicable loading, empty, populated, success, validation, error/retry, pending, disabled, dialog, destructive confirmation, keyboard-focus, permission, session lifecycle, release, and voice states at desktop and narrow viewports. Store artifacts only in `.playwright-mcp/`. Omit custom screenshot filenames so the pinned server honors its output directory. Never put real credentials, secrets, or participant data in artifacts. If the server or runnable app is unavailable, report the exact blocker and manual checks; do not claim visual verification from source alone.

@@ -982,9 +982,11 @@ streaming decision, were approved on 2026-08-09.
 - The approved [Result and Release interaction specification](result-release.md)
   keeps Session completion neutral until an independently authorized Release
   makes a Result visible.
-- The design-system foundation should extract repeated status, transcript,
-  composer, warning, dialog, protected-content, and responsive-record patterns
-  without weakening the authority or privacy boundaries in this specification.
+- The in-review [design-system foundation](design-system/README.md) defines
+  repeated status, transcript, composer, warning, dialog, protected-content,
+  and responsive-record patterns; approval must confirm that those shared
+  patterns do not weaken the authority or privacy boundaries in this
+  specification.
 
 ## Approval record
 

@@ -12,7 +12,9 @@ For every UI-affecting change when the app can run:
 1. Navigate and interact with the live UI to reach the state under test.
 2. Use accessibility snapshots to identify controls and verify semantic structure.
 3. Take screenshots before judging visual quality.
-4. Evaluate screenshots against the spec and established UX practice: hierarchy, copy, spacing, alignment, overflow, feedback, focus, contrast clues, and polish.
+4. Evaluate screenshots against the governing UI/UX specification and
+   applicable design-system modules: hierarchy, copy, spacing, alignment,
+   overflow, feedback, focus, contrast clues, theme/state semantics, and polish.
 5. Fix defects and repeat the browser check.
 
 Cover applicable states, not only the happy path:

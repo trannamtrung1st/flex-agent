@@ -926,9 +926,10 @@ None.
   remain delivery gaps; approval of this specification does not imply them.
 - Frontend and backend contracts must map each state to bounded server reason
   categories without moving workflow authority into the SPA.
-- The later design-system foundation should extract repeated upload, status,
-  confirmation, protected-content viewer, error-summary, and responsive record
-  patterns without weakening this surface contract.
+- The in-review [design-system foundation](design-system/README.md) defines
+  repeated upload, status, confirmation, protected-content viewer,
+  error-summary, and responsive-record patterns; approval must confirm that
+  those shared patterns do not weaken this surface contract.
 - The Text Session interaction specification must accept only the committed
   active Session handoff and exact bound Submission summary defined here.
 

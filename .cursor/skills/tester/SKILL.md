@@ -11,6 +11,9 @@ Test stated requirements first, then quality risks. Never fill requirement gaps 
 
 - Ground testing in specifications, AC IDs, out-of-scope notes, architecture decisions, and known risks.
 - Build traceability from each in-scope criterion to test cases and evidence.
+- For UI/UX coverage, read `docs/ui-ux/design-system/README.md` and the
+  applicable modules selected by its `implementation-guide.md`; distinguish
+  approved requirements from in-review design proposals.
 - Prioritize by harm and change: isolation/security, scoring/evidence, timed sessions, data loss, permissions, voice interruption, common journeys, and polish.
 - Distinguish assumptions, blockers, untested areas, functional defects, and UX findings. When reporting an open question or unverified assumption, include an **interim default** with brief rationale.
 - Select unit, integration, contract, browser, exploratory, performance, or manual techniques according to the risk.
@@ -36,7 +39,9 @@ For every relevant UI state:
 1. Use the project `playwright` MCP server to navigate and interact.
 2. Use accessibility snapshots for names, roles, landmarks, and keyboard paths.
 3. Take screenshots at desktop and narrow viewports, including focus, error, dialog, and transitional states.
-4. Evaluate hierarchy, copy, affordance, feedback, spacing, alignment, clipping, contrast clues, responsiveness, and overall polish.
+4. Evaluate semantic-token/state consistency, hierarchy, copy, affordance,
+   feedback, spacing, alignment, clipping, contrast clues, responsiveness, and
+   overall polish.
 5. Save evidence only under `.playwright-mcp/`.
 
 ## Result format

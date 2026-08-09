@@ -34,8 +34,9 @@ Session publication boundary is revised by
 [MVP operational defaults](../requirements/mvp-operational-defaults.md) resolve
 upload, application-session, lifecycle, and recovery-placement policy. The
 approved [Result and Release interaction specification](../ui-ux/result-release.md)
-completes the P0 surface interaction set. Remaining shared UI design-system
-guidance, ADR-008 component compatibility evidence, machine-readable contract
+completes the P0 surface interaction set. The shared
+[design system](../ui-ux/design-system/README.md) is in review; its approval,
+ADR-008 component compatibility evidence, machine-readable contract
 schemas/fixtures, and production evidence remain staged work as mapped in the
 approved overview.
 

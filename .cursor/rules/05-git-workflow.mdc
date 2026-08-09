@@ -30,13 +30,13 @@ When the user asks for a commit:
 3. Draft a concise 1–2 sentence message focused on why, matching repository style.
 4. Commit with a HEREDOC message, for example:
 
-```bash
-git commit -m "$(cat <<'EOF'
-Why the change matters.
+    ```bash
+    git commit -m "$(cat <<'EOF'
+    Why the change matters.
 
-EOF
-)"
-```
+    EOF
+    )"
+    ```
 
 5. Run `git status` after the commit to verify success.
 

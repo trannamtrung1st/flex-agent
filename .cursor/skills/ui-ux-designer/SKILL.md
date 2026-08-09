@@ -14,6 +14,10 @@ Turn approved user and business outcomes into understandable, accessible, and te
 - Cover applicable initial, loading, empty, populated, pending, success, validation, error/retry, offline/reconnecting, disabled, permission-denied, destructive, and terminal states.
 - For sessions, consider stage, time, submission, text/voice, interruption, uncertainty, completion, review, result-release, and accessibility states where relevant.
 - Build and govern a small coherent design system: principles, tokens, typography, color roles, spacing, grids, elevation, motion, icons, components, patterns, content, and accessibility guidance.
+- Before Flex Agent UI work, read `docs/ui-ux/design-system/README.md`, respect
+  its status and authority boundary, and select applicable modules through
+  `docs/ui-ux/design-system/implementation-guide.md`. Put shared patterns there
+  instead of duplicating them in feature-specific specifications.
 - Specify observable behavior and acceptance evidence, not implementation internals.
 - Identify assumptions, usability risks, content gaps, and decisions that need research or approval. Surface open questions with an **interim default** and brief rationale.
 
@@ -30,7 +34,9 @@ Turn approved user and business outcomes into understandable, accessible, and te
 1. Identify actors, primary jobs, context of use, constraints, risks, and measurable outcomes.
 2. Map the journey, decision points, state transitions, failure and recovery paths, and prohibited actions.
 3. Establish information hierarchy and progressive disclosure before visual styling.
-4. Reuse established patterns and tokens; propose additions only when existing patterns cannot meet the need.
+4. Reuse established patterns and tokens; propose additions only when existing
+   patterns cannot meet the need. A module cannot enable a capability excluded
+   by the current release scope or owning specification.
 5. Specify behavior for keyboard, focus, screen-reader announcements, zoom/reflow, reduced motion, touch, pointer, desktop, and narrow screens.
 6. Validate with the lowest-cost useful artifact, then with the live product when runnable.
 7. Record findings, decisions, unresolved questions (each with an **interim default** and brief rationale), and changes to the design system.
