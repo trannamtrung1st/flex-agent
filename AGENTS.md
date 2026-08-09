@@ -74,9 +74,9 @@ For substantive implementation work, load `implementation-workflow` from `.agent
 
 Keep the active task file current during execution: steps, discoveries, blockers, verification evidence, and next actions. One task normally has one state file; do not split the same work across separate plan or progress files.
 
-`.work/` is tracked temporary, non-authoritative working state so external reviewers can inspect implementation plans and evidence. Never put secrets, sensitive data, or hidden reasoning in it. If a discovery changes product meaning, requirements, architecture, or another durable contract, move it into the appropriate authoritative artifact.
+`.work/` is tracked, non-authoritative working state so external reviewers can inspect implementation plans and evidence and maintainers can retain completed task history. Never put secrets, sensitive data, or hidden reasoning in it. If a discovery changes product meaning, requirements, architecture, or another durable contract, move it into the appropriate authoritative artifact.
 
-Completion requires reconciling planned work with actual changes, proportionate verification with evidence, and rechecking governing specifications. Do not claim completion from checklist marks alone. Keep the completed task file through external review; remove it after review concludes or when the repository owner directs otherwise.
+Completion requires reconciling planned work with actual changes, proportionate verification with evidence, and rechecking governing specifications. Do not claim completion from checklist marks alone. Keep the completed task file after completion and external review for tracking. Do not remove it as part of the implementation workflow; repository maintainers may clean up retained task files when they choose.
 
 For any UI design, implementation, review, or testing task, read
 `docs/ui-ux/design-system/README.md` and its status/authority rules, then load

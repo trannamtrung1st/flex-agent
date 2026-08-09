@@ -1,6 +1,6 @@
 # Implementation working state
 
-`.work/` holds temporary coding-agent execution state. It is tracked in Git so external reviewers and collaborators can inspect plans, progress, decisions, and verification evidence. It is **not** authoritative product, architecture, or requirements documentation.
+`.work/` holds coding-agent execution records. It is tracked in Git so external reviewers and collaborators can inspect plans, progress, decisions, and verification evidence and maintainers can retain completed task history. It is **not** authoritative product, architecture, or requirements documentation.
 
 Permanent truth lives in approved specs under `docs/`, ADRs, code, tests, migrations, and durable developer documentation such as `AGENTS.md` and `docs/contributing/development-harness.md`.
 
@@ -49,8 +49,8 @@ Prefer stable, descriptive names over ticket numbers alone.
 2. **Execute** — update the file continuously as steps start, complete, change, block, or verify.
 3. **Reconcile** — compare planned work to actual changes before claiming completion.
 4. **Promote** — move durable decisions or newly discovered requirements into authoritative artifacts when needed.
-5. **Review** — mark the task completed and retain it while external review is pending.
-6. **Retire** — remove the task file after review concludes or when the repository owner directs otherwise.
+5. **Review** — mark the task completed and retain it during external review.
+6. **Track** — keep the completed task file as implementation history; repository maintainers may clean up retained files when they choose.
 
 Update the front-matter `status` and `updated` fields as work proceeds (`planned`, `in-progress`, `blocked`, `completed`).
 
@@ -102,7 +102,7 @@ Tracked for implementation collaboration and external review:
 
 Nothing under `.work/` is intentionally ignored. Before adding or updating a task file, ensure it contains no secrets, credentials, sensitive participant data, or unnecessary raw output.
 
-Tracked plans remain temporary execution state, not permanent product or architecture history. Keep them through external review, then remove them when review concludes or the repository owner requests cleanup. Promote durable decisions to their authoritative artifacts before removal. This tracking policy is intentionally temporary and may be revisited later.
+Tracked plans remain non-authoritative execution records, not permanent product or architecture truth. Keep them after completion and external review for implementation tracking. Do not remove them as part of the implementation workflow; repository maintainers may clean them up when they choose. Promote durable decisions to their authoritative artifacts regardless of task-file retention.
 
 ## Completion
 
@@ -113,6 +113,6 @@ Completion requires evidence, not checklist theater:
 - recheck governing specifications
 - record remaining gaps or unverified behavior
 - mark the task completed and make it safe and complete for external review
-- retain it through review, then remove it when review concludes or the repository owner directs otherwise
+- retain it after completion and review for tracking; leave any cleanup to repository maintainers
 
 Do not claim completion merely because checklist items were manually marked complete.

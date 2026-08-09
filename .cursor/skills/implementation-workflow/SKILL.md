@@ -96,6 +96,6 @@ Before declaring completion:
 
 ### 8. Prepare review handoff
 
-Mark the task completed and keep `.work/active/<task-slug>.md` through external review. Remove it after review concludes or when the repository owner directs otherwise. Promote durable decisions before removal; the task file never becomes authoritative documentation.
+Mark the task completed and keep `.work/active/<task-slug>.md` after completion and external review as retained implementation history. Do not remove completed task files as part of the implementation workflow; repository maintainers may clean them up when they choose. Promote durable decisions to authoritative artifacts because task files remain non-authoritative working records.
 
 Completion is not achieved by manually checking boxes alone. Verification must support the claim.
