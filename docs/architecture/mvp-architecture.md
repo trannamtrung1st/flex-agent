@@ -10,9 +10,9 @@ Approved technical realization baseline for the P0 assessment vertical slice.
 | **Owner** | Architecture Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, UI/UX, documentation |
-| **Version** | 0.6 |
-| **Approved date** | 2026-08-08 |
-| **Approval reference** | MVP architecture review approved on 2026-08-06; formalized by [ADR-006](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md), extended by [ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md), assigned model-neutral component/provider profiles by amended [ADR-008](decisions/ADR-008-bounded-oss-component-set.md), detailed for Session/Evaluation/Review through [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md), and assigned the implementation stack by [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) |
+| **Version** | 0.7 |
+| **Approved date** | 2026-08-08; version 0.7 approved 2026-08-09 |
+| **Approval reference** | MVP architecture review approved on 2026-08-06; formalized by [ADR-006](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md), extended by [ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md), assigned model-neutral component/provider profiles by amended [ADR-008](decisions/ADR-008-bounded-oss-component-set.md), detailed for Session/Evaluation/Review through [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md), assigned the implementation stack by [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md), and revised for participant-visible durable streaming by [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md) |
 | **Governs** | MVP system boundaries, logical ownership, runtime flows, consistency boundaries, trust boundaries, deployment shape, recovery baseline, and architecture verification |
 
 This approved architecture does not override approved product documents or
@@ -20,8 +20,9 @@ feature specifications. Approved requirements govern observable behavior;
 approved ADRs govern technical realization. The approved
 [MVP operational defaults](../requirements/mvp-operational-defaults.md) govern
 the intake, authentication-session, lifecycle, and recovery defaults. The
-detailed Session, Evaluation, and Review/Release contracts are approved through
-ADR-009. Component and provider/deployment defaults are approved through
+detailed Evaluation and Review/Release contracts are approved through ADR-009;
+the Session publication contract is revised by ADR-011. Component and
+provider/deployment defaults are approved through
 ADR-008; compatibility evidence and remaining delivery artifacts retain their
 stated status and owners. The model-provider architecture is model-neutral;
 deployment-managed profiles and Organization BYOK are supported without making
@@ -81,6 +82,7 @@ document, ADR-008, and ADR-010.
 | [ADR-008](decisions/ADR-008-bounded-oss-component-set.md) | Select bounded infrastructure and model-provider defaults, scoped credential/BYOK boundaries, Docker Compose reference profiles, operator-owned recovery execution, and evidence gates |
 | [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md) | Approve the detailed Session, Evaluation, and Review/Release realization contracts and their provider-streaming, optional-broker, and notification boundaries |
 | [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) | Select the .NET/React application stack, canonical schema and RFC 8785 boundaries, Npgsql/Dapper persistence, Grate migrations, workspace rules, and stack verification gates |
+| [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md) | Supersede complete-message-only Session publication with durable-before-display participant-visible incremental Agent-response streaming |
 
 ## Scope
 
@@ -167,6 +169,7 @@ alters their consequences requires an explicit update or superseding ADR.
 | `AR-DEC-19` | Apply the approved Submission limits, quarantine/cleanup, inert-link, and authorized-download defaults in the [MVP operational defaults](../requirements/mvp-operational-defaults.md#submission-intake-defaults). | Resolves intake resource and fail-closed behavior without selecting a scanner or parser product. |
 | `AR-DEC-20` | Apply the approved OIDC flow, application-session, revocation, and MFA defaults in the [MVP operational defaults](../requirements/mvp-operational-defaults.md#oidc-and-application-session-defaults). | Resolves the authentication-session security posture while retaining a provider-neutral identity boundary. |
 | `AR-DEC-21` | Apply the approved record-class lifecycle matrix and same-jurisdiction secondary recovery placement in the [MVP operational defaults](../requirements/mvp-operational-defaults.md#protected-data-lifecycle-defaults). | Replaces unspecified retention and recovery placement with explicit, testable defaults that deployments may only narrow through approved policy. |
+| `AR-DEC-22` | Stream Agent responses incrementally to Participants through the durable-before-display fragment, first-fragment publication claim, replay, cutoff, and backpressure contract approved in ADR-011. | Makes streaming an MVP and future foundation without trusting provider transport, SSE, the browser, or an external broker for transcript authority. |
 
 ## System context and trust boundaries
 
@@ -497,10 +500,12 @@ retain only the minimum policy-permitted reference and provenance.
   accepted lifecycle, message, turn, timing, and manifest-relevant records.
 - A participant send commits its accepted message and response-slot identity
   before model generation begins.
-- At most one Agent response becomes published for a response slot. Every model
-  attempt remains inspectable even when timed out, cancelled, invalid, late, or
-  superseded.
-- Terminal transitions compete with message publication through the same
+- The first durable Agent-response fragment claims one visible generation
+  attempt and stable Agent message for a response slot. Fragments append in
+  contiguous fragment order and each receives an authoritative Session order.
+  Every model attempt remains inspectable even when timed out, cancelled,
+  invalid, late, incomplete, or superseded.
+- Terminal transitions compete with every response-fragment publication through the same
   authoritative Session version/sequence boundary. Provider output arriving
   after the transcript cutoff may be recorded as provenance but cannot enter the
   terminal transcript.
@@ -572,10 +577,16 @@ sequenceDiagram
   B->>D: Claim durable generation work
   B->>D: Revalidate delegation, scope, Session state
   B->>M: Bounded frozen-context request
-  M-->>B: Untrusted candidate response
-  B->>D: Validate and commit attempt + at-most-one publication
-  D-->>W: Event available after authoritative commit
-  W-->>P: Reconnectable ordered event
+  M-->>B: Untrusted incremental response deltas
+  loop Each participant-visible delta within bounds
+    B->>B: Rolling validation
+    B->>D: Commit exact fragment + claim/verify visible publisher
+    D-->>W: Fragment event available after commit
+    W-->>P: Reconnectable ordered fragment
+  end
+  B->>D: Commit complete or incomplete Agent-message outcome
+  D-->>W: Outcome event available after commit
+  W-->>P: Reconnectable outcome
 ```
 
 The server owns elapsed-time accounting, pause intervals, warning schedule, and
@@ -687,7 +698,7 @@ cryptography, compliance claims, consent rules, or retention durations.
 | `QA-4` | Assessment readiness/activation or resolved configuration/start runs with pre-versioned sources available. | Each authoritative operation completes in no more than 2 seconds at p95 under its approved preconditions; partial state is never exposed. | Assessment setup `PROP-4`; resolved configuration `PROP-7` |
 | `QA-5` | Enrollment mutation, Attempt eligibility, or accepted-version metadata finalization runs with authoritative dependencies available. | Synchronous platform work completes in no more than 2 seconds at p95; transfer, scanning, external delivery, and end-user network time remain separate. | Submission/Attempts `PROP-5`, `AC-SUBM-27` |
 | `QA-6` | A bounded active Session admits a message or reconnects after authenticated transport restoration. | Return authoritative admission or reconciliation state within 2 seconds at p95; model/provider and end-user network latency are separate. | Text Session `PROP-4`, `AC-SESS-27` |
-| `QA-7` | Duplicate, concurrent, delayed, or late provider work competes with Session terminalization. | Preserve one authoritative order, publish at most one response per slot, exclude post-cutoff output, and recover without duplicate transcript entries. | `REQ-SESS-8`–`REQ-SESS-41` |
+| `QA-7` | Duplicate, concurrent, delayed, or late provider work competes with Session terminalization. | Preserve one authoritative order, allow at most one visible generation attempt per response slot, exclude new post-cutoff output while retaining authorized replay of pre-cutoff transcript content, and recover without duplicate transcript entries. | `REQ-SESS-8`–`REQ-SESS-41`, `REQ-SESS-55`–`REQ-SESS-60` |
 | `QA-8` | An eligible bounded Evaluation is requested outside a declared provider-wide outage. | Return queued/running/existing status within 2 seconds at p95; at least 95 percent complete within 120 seconds; queue, provider, timeout, and retry outcomes remain separately observable. | Evidence/Evaluation `PROP-6`, `AC-EVAL-29` |
 | `QA-9` | Bounded Review/Release work runs outside a declared platform-wide outage. | At least 95 percent of scoped reads and authoritative acknowledgments complete within 2 seconds; committed Release becomes visible through the authoritative participant path within 5 seconds at p95. | Review/Release `PROP-8`, `AC-REV-17` |
 | `QA-10` | Process termination, dependency failure, audit failure, projection lag, or lost response occurs at a protected mutation. | Before commit, expose no success or partial authority; after commit, reconcile from idempotency and authoritative bindings without a second mutation or silent history loss. | ADR-003 through ADR-005 and P0 recovery ACs |
@@ -780,7 +791,7 @@ requirement implemented.
 
 | Timing | Work still required | Status and interim direction |
 | --- | --- | --- |
-| Text Session implementation | Implement against the approved [text Session runtime contract](session-runtime-contract.md), including complete-message publication, provider-to-worker candidate streaming, primary-store replay, SSE, and deferred non-authoritative broker use. | Detailed architecture complete through [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md); implementation and verification remain. Preserve `AR-DEC-3`, `AR-DEC-4`, `AR-DEC-14`, ADR-001, ADR-002, ADR-003, and ADR-005. |
+| Text Session implementation | Implement against version 0.2 of the approved [text Session runtime contract](session-runtime-contract.md), including durable-before-display fragments, first-fragment publication claim, exact replay, incomplete-stream recovery, cutoff, SSE, backpressure, and deferred non-authoritative broker use. | Detailed architecture complete through [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md) and [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md); implementation and verification remain. Preserve `AR-DEC-3`, `AR-DEC-4`, `AR-DEC-14`, `AR-DEC-22`, ADR-001, ADR-002, ADR-003, and ADR-005. |
 | Evaluation implementation | Implement against the approved [Evidence and Evaluation execution contract](evaluation-execution-contract.md), covering Evidence locator/set-seal, evaluator provenance, deterministic isolation, invocation retry/completion, model trust, and replacement lineage. | Detailed architecture complete through ADR-009; implementation and verification remain. Preserve `AR-DEC-7` and `AR-DEC-8`. |
 | Review/Release implementation | Implement against the approved [Human review, Result, and Release contract](review-result-release-contract.md), covering Review case/candidate, Human revision, Review decision, Result/current-visible lineage, correction, atomic Release, and availability-only MVP notifications. | Detailed architecture complete through ADR-009; implementation and verification remain. Preserve `AR-DEC-10` and `AR-DEC-11`. |
 | Before Submission intake implementation | Pass ADR-008's SeaweedFS and artifact-safety adapter gates; encode the approved limits, policy-controlled scanner mode, timeouts, cleanup, and failure behavior. | Component and adapter direction is approved; compatibility evidence remains blocking for the affected implementation. Policy is governed by `AR-DEC-19`, `REQ-OPS-1` through `REQ-OPS-8`, and the Submission specification. |
@@ -824,11 +835,12 @@ Their schema and canonicalization evidence gates remain mandatory.
 The MVP architecture baseline is approved. Implementation readiness is staged,
 not all-or-nothing:
 
-1. Foundation work may begin against ADR-001 through ADR-010 and `AR-DEC-1`
-   through `AR-DEC-21`.
+1. Foundation work may begin against ADR-001 through ADR-011 and `AR-DEC-1`
+   through `AR-DEC-22`.
 2. Text Session, Evaluation, and Review/Release implementations must conform to
-   the approved detailed contracts adopted by ADR-009. Their former detailed
-   architecture blockers are resolved.
+   the approved detailed contracts adopted by ADR-009 and, for Session
+   publication, superseding ADR-011. Their former detailed architecture blockers
+   are resolved.
 3. Backend, frontend, security, and test plans must map each P0 requirement/AC
    group to implementation surfaces and repeatable verification using
    specification-driven TDD.

@@ -2,7 +2,8 @@
 
 ## Status
 
-Approved
+Approved; Session complete-message-only publication boundary superseded by
+[ADR-011](ADR-011-participant-visible-agent-response-streaming.md)
 
 ## Decision metadata
 
@@ -15,6 +16,10 @@ Approved
 | **Approval reference** | Contract review approved `SESS-DEC-1`–`SESS-DEC-8`, `EVAL-DEC-1`–`EVAL-DEC-8`, and `REV-DEC-1`–`REV-DEC-9`; provider-streaming, broker, and notification scope confirmed in follow-up review |
 | **Governs** | Detailed MVP Session runtime, Evidence/Evaluation execution, and Human review/Result/Release realization |
 
+ADR-011 supersedes only this ADR's participant-invisible provider-streaming and
+complete-message-only Session publication clauses. The optional-broker,
+Evaluation, Review/Release, and notification decisions remain approved.
+
 ## Context
 
 [ADR-006](ADR-006-mvp-architecture-baseline-and-evolution.md) approved the MVP
@@ -25,10 +30,11 @@ fix authoritative ordering, timing, publication, Evidence location and sealing,
 evaluator execution, completion atomicity, review candidate selection, Result
 construction, Release visibility, correction, and recovery semantics.
 
-The contract review also clarified two infrastructure questions:
+The original contract review also clarified two infrastructure questions:
 
-- A model provider may stream candidate tokens directly to a worker, but the MVP
-  does not publish final Agent answers token by token to the Participant.
+- A model provider could stream candidate tokens directly to a worker, while the
+  original version did not publish them token by token to the Participant. This
+  clause is superseded by ADR-011.
 - Redis Streams, Kafka, or another broker is not needed for MVP correctness.
   The primary relational store and transactional outbox remain authoritative;
   a broker may later accelerate delivery only under the approved non-authority
@@ -83,6 +89,9 @@ contracts and this ADR govern their detailed MVP technical realization.
 
 ### Provider token-streaming boundary
 
+> **Superseded for Session publication by ADR-011.** The text below is retained
+> as historical rationale for the original version 0.1 contract.
+
 The worker may receive a bounded token stream from the model-provider adapter as
 internal, untrusted candidate data. The worker buffers and validates the
 candidate, then commits one complete durable Agent message through the approved
@@ -115,11 +124,10 @@ only when:
 - retention or trimming cannot remove authoritative history.
 
 Making a broker mandatory or authoritative requires an architecture update or
-superseding ADR. Participant-visible token streaming is a separate future
-feature and must define durable-before-display chunks, ordering, exact exposed
-content, terminal cutoff, authorization, retention, fan-out, and recovery. Its
-stable identity hierarchy begins with `session_id`, `turn_id`,
-`response_slot_id`, `generation_attempt_id`, and `chunk_sequence`.
+superseding ADR. Participant-visible token streaming was originally deferred;
+ADR-011 now makes it an MVP requirement and defines durable-before-display
+fragments, ordering, exact exposed content, terminal cutoff, authorization,
+retention, fan-out, and recovery using an expanded stable identity hierarchy.
 
 ### Notification boundary
 
@@ -133,8 +141,8 @@ authorization.
 
 - Text Session, Evaluation, and Review/Release backend implementation may begin
   against the approved contracts using specification-driven TDD.
-- Final Agent answers favor durable complete-message publication over immediate
-  Participant-visible token latency in the MVP.
+- The original complete-message-only consequence is superseded by ADR-011;
+  Agent answers now stream through durable-before-display fragments.
 - A worker restart may repeat model generation, but response-slot uniqueness and
   immutable attempt provenance prevent duplicate final publication.
 - PostgreSQL-backed work and outbox behavior remains sufficient for correctness;
@@ -160,3 +168,4 @@ authorization.
 - [Text Session lifecycle](../../requirements/features/session-text-lifecycle.md)
 - [Evidence and Evaluation](../../requirements/features/evidence-evaluation.md)
 - [Human review and Result Release](../../requirements/features/review-result-release.md)
+- [ADR-011: Participant-visible Agent-response streaming](ADR-011-participant-visible-agent-response-streaming.md)

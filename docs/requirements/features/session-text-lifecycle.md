@@ -3,14 +3,16 @@
 ## Status and source
 
 - Status: Approved
+- Version: 0.2
 - Owner: Product Lead
 - Approvers: Product Lead, Architecture Lead, UI/UX reviewer, Security/Privacy reviewer
 - Approved date: 2026-08-06
+- Latest approved revision: 2026-08-09 — participant-visible incremental Agent-response streaming added to the MVP and prior complete-message-only publication superseded
 - Source: [Session](../../product/concept-model.md#session), [Workflow model](../../product/concept-model.md#workflow-model), [Session state and events](../../product/concept-model.md#session-state-and-events), [Inspectable justification boundary](../../product/concept-model.md#evaluation-review-decision-result-and-release), [Product invariants](../../product/concept-model.md#product-invariants), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice), [MVP executable workflow](../../product/mvp-scope.md#mvp-executable-workflow), and [Participant capabilities](../../product/mvp-scope.md#participant-capabilities-mvp)
 - Catalog entry: P0 #5 — [P0 authoring order](../README.md#p0-authoring-order)
 - Related requirements: Consumes authorization and isolation from [`auth-resource-isolation.md`](auth-resource-isolation.md), the frozen configuration and manifest from [`resolved-session-configuration.md`](resolved-session-configuration.md), the activated text workflow from [`assessment-setup.md`](assessment-setup.md), and the active Attempt plus exact Submission binding from [`submission-attempts.md`](submission-attempts.md). Supplies a terminal, ordered transcript and lifecycle record to [`evidence-evaluation.md`](evidence-evaluation.md).
-- Related decisions: Approved defaults `PROP-1`–`PROP-8` in this specification. [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs manifest integrity and terminal sealing. [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) governs interactive, real-time, and service authorization. [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) governs durable audit. [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) governs the committed readiness boundary from which this lifecycle begins. [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs the SPA/API/gateway, request/response plus SSE, worker, persistence, and recovery baseline. [ADR-009](../../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md) approves the detailed [text Session runtime contract](../../architecture/session-runtime-contract.md), including complete-message publication, internal provider-to-worker token streaming, primary-store replay, SSE, and deferred optional broker use. The [MVP operational defaults](../mvp-operational-defaults.md#protected-data-lifecycle-defaults) govern the default transcript, configuration, manifest, and working-context lifecycle.
-- Decision approval: `PROP-1`–`PROP-8` and the participant-visible work-trace direction were approved on 2026-08-06.
+- Related decisions: Approved defaults `PROP-1`–`PROP-8` in this specification, with `PROP-7` revised by the 2026-08-09 product decision. [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs manifest integrity and terminal sealing. [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) governs interactive, real-time, and service authorization. [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) governs durable audit. [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) governs the committed readiness boundary from which this lifecycle begins. [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs the SPA/API/gateway, request/response plus SSE, worker, persistence, and recovery baseline. [ADR-009](../../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md) approved the original detailed Session contract; [ADR-011](../../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md) supersedes its complete-message-only publication boundary and approves version 0.2 of the [text Session runtime contract](../../architecture/session-runtime-contract.md). The [MVP operational defaults](../mvp-operational-defaults.md#protected-data-lifecycle-defaults) govern the default transcript, configuration, manifest, and working-context lifecycle.
+- Decision approval: `PROP-1`–`PROP-8` and the participant-visible work-trace direction were approved on 2026-08-06. The revised `PROP-7`, incremental-streaming requirements `REQ-SESS-55`–`REQ-SESS-60`, and `AC-SESS-32` were approved by the Product Lead on 2026-08-09.
 
 This approved specification is authoritative for observable text Session lifecycle behavior in the MVP. Architecture, UI/UX, implementation, and downstream specifications must preserve its stable requirements, acceptance criteria, and approved decision dispositions.
 
@@ -24,7 +26,7 @@ The measurable outcome is:
 
 - Every started assessment Session begins only from the committed Attempt, resolved configuration, manifest, exact Submission binding, and readiness state defined by ADR-005.
 - Every required instruction or consent acknowledgment is versioned, actor-bound, and verified before the start commit.
-- Every accepted participant message, participant-visible Agent message, and participant-visible Agent work-trace update has one stable identity, one unambiguous Session-local order, and an immutable historical representation.
+- Every accepted participant message, participant-visible Agent-response fragment, completed or incomplete Agent message, and participant-visible Agent work-trace update has one stable identity, one unambiguous Session-local order, and an immutable historical representation.
 - Duplicate, concurrent, retried, stale, or cross-Session commands cannot create duplicate or mis-scoped transcript entries or state transitions.
 - The participant can reconnect to the same authoritative Session state without losing accepted messages, silently extending time, or creating another Attempt.
 - Active-time, paused-time, warnings, and terminal cutoff are derived from server-authoritative state and remain reconstructable in UTC order.
@@ -54,7 +56,7 @@ All actions are governed by [`auth-resource-isolation.md`](auth-resource-isolati
 - Participant-visible pre-start instructions, rules, consent notices, and required acknowledgment records used by the Session start boundary.
 - Live execution after ADR-005 commits the Session readiness state.
 - One participant in one isolated text Session.
-- Ordered participant and Agent text messages plus participant-visible Agent work status and concise reasoning summaries under the frozen workflow and adaptive-follow-up policy.
+- Ordered participant messages, incrementally streamed Agent-response fragments, completed or explicitly incomplete Agent messages, and participant-visible Agent work status and concise reasoning summaries under the frozen workflow and adaptive-follow-up policy.
 - Message admission, idempotency, ordering, pending state, Agent generation, publication, retry, cancellation, and safe failure.
 - Server-authoritative Session duration, hard timing bounds, remaining-time display, warning events, pause intervals, and terminal cutoff.
 - Authorized administrative pause, resume, and termination.
@@ -78,7 +80,9 @@ All actions are governed by [`auth-resource-isolation.md`](auth-resource-isolati
 ### Boundary terms
 
 - An **accepted participant message** is participant-authored text durably committed to the authoritative Session transcript. A local draft, optimistic placeholder, rejected command, or transport retry is not accepted transcript content.
-- A **published Agent message** is Agent-authored text durably committed and authorized for participant display. An internal prompt, partial generation, failed candidate, retry candidate, or hidden evaluation instruction is not published transcript content.
+- A **published Agent message** is one stable Agent-authored response whose participant-visible content is assembled from ordered durable fragments. It begins publication only after its first fragment commits, ends as `Complete` or an explicit `Incomplete`/`Cancelled` visible outcome, and never includes an uncommitted provider fragment, hidden prompt, failed hidden candidate, or hidden evaluation instruction.
+- A **published Agent-response fragment** is one exact incremental text delta durably committed before display with stable message, response-slot, generation-attempt, fragment-order, Session-order, provenance, and UTC publication facts. A provider fragment that has not crossed this boundary is not transcript content.
+- **Token-by-token streaming** means publishing each provider-emitted text delta at the finest granularity the selected provider interface exposes, without application-added batching. A provider delta may contain more than one model token when the provider does not expose literal token boundaries; the platform must not claim a finer boundary than it receives.
 - A **published Agent work-trace update** is a durably recorded participant-visible status label or concise authored reasoning summary about the current turn. It is a product-facing explanation, not raw model chain-of-thought, and it must remain distinguishable from the final Agent message and trusted system status.
 - A **turn** links one accepted participant message to zero or one published Agent response plus the generation attempts and terminal outcome needed to explain processing. The frozen workflow may define Agent-initiated opening or closing messages separately.
 - The **terminal transcript cutoff** is the last committed Session-local sequence included in the completed, terminated, or aborted transcript. Later commands cannot change it.
@@ -134,7 +138,7 @@ Connection states such as `Connecting`, `Connected`, `Reconnecting`, and `Offlin
 4. A permitted message is committed once with a stable identifier and Session-local order. The UI replaces any optimistic placeholder with the authoritative message state.
 5. The execution service builds the next turn only from the frozen configuration and exact authoritative Session context, including permitted Submission material and prior published transcript content.
 6. When enabled by the frozen participant-visible work-trace policy, the Session may publish predefined work-status labels and concise authored reasoning summaries while the turn runs. Each update is committed before display and remains distinct from hidden reasoning and the final answer.
-7. The Agent response is validated against the enabled text-only capability and frozen workflow, then committed as one published Agent message before it is represented as authoritative transcript content.
+7. The Agent response is validated incrementally against the enabled text-only capability and frozen workflow. Each exact response fragment is committed before display and appended to one stable Agent message; a final record marks that message `Complete`, or an explicit visible outcome preserves it as `Incomplete`/`Cancelled` when streaming cannot finish.
 8. The participant may send the next permitted message or request completion. The workflow, not model-authored text, controls allowed transitions.
 
 ### A turn fails and recovers
@@ -142,8 +146,8 @@ Connection states such as `Connecting`, `Connected`, `Reconnecting`, and `Offlin
 1. The participant message commits, but provider generation, validation, manifest append, or Agent-message publication fails or times out.
 2. The accepted participant message remains visible and immutable; the system does not ask the participant to retype it or silently remove it.
 3. The turn enters a bounded failed/retryable or paused state with a safe explanation.
-4. A retry uses the same accepted participant message and a stable turn identity. It records distinct generation-attempt provenance without publishing duplicate Agent messages.
-5. At most one Agent response becomes the published response for that turn unless the frozen workflow explicitly permits multiple ordered Agent messages.
+4. If no Agent fragment was displayed, a retry may use the same accepted participant message, stable turn, and response slot while recording a distinct generation attempt. If any fragment was displayed, it remains immutable and the attempt cannot restart or replace that visible message; a permitted continuation uses a new explicitly linked response slot.
+5. At most one generation attempt may become the visible publisher for a response slot. Every displayed fragment remains attributable to that winning attempt and one stable Agent message.
 6. If safe recovery cannot preserve ordering, authorization, or manifest/audit integrity, the Session pauses or transitions through `Completing` to `Aborted` according to the governing policy.
 
 ### Participant loses connection and reconnects
@@ -200,7 +204,7 @@ Connection states such as `Connecting`, `Connected`, `Reconnecting`, and `Offlin
 
 ### Text messages and turns
 
-- `REQ-SESS-8` — The frozen text workflow/policy must define positive bounded participant-message size, Session turn/message limits where applicable, permitted Agent-opening/closing behavior, concurrent-pending-turn policy, generation timeout/retry bounds, completion handling for a pending turn, adaptive-follow-up constraints, participant-visible work-trace policy, and configurable warning schedule before the Session starts.
+- `REQ-SESS-8` — The frozen text workflow/policy must define positive bounded participant-message size, Session turn/message limits where applicable, permitted Agent-opening/closing behavior, concurrent-pending-turn policy, generation timeout/retry bounds, incremental-fragment size/rate/count and total-response bounds, partial-stream recovery, completion handling for a pending turn, adaptive-follow-up constraints, participant-visible work-trace policy, and configurable warning schedule before the Session starts.
 - `REQ-SESS-9` — A participant message may be accepted only while the Session is `Active`, current authorization permits it, the server-authoritative terminal cutoff has not occurred, and all frozen message and rate limits are satisfied.
 - `REQ-SESS-10` — Each accepted participant message must have a stable identifier, Session and participant ownership, author type, immutable protected content or content reference, Session-local order, accepted UTC time, idempotency/correlation reference, and turn linkage.
 - `REQ-SESS-11` — Message admission must be idempotent and concurrency-safe. Equivalent retries must return the same authoritative message; reuse of an idempotency key with different trusted content or scope must fail without altering the original.
@@ -208,14 +212,20 @@ Connection states such as `Connecting`, `Connected`, `Reconnecting`, and `Offlin
 - `REQ-SESS-13` — Local drafts and optimistic UI placeholders must remain distinguishable from accepted transcript content and must not be exposed to the Agent, reviewer, audit transcript, evidence, or another device before authoritative acceptance.
 - `REQ-SESS-14` — Agent generation must use the trusted Session binding, frozen configuration, permitted exact Submission material, approved memory-read state, and authoritative published transcript; it must not re-resolve mutable sources or accept participant content as policy, authorization, tool approval, or workflow authority.
 - `REQ-SESS-15` — Each generation attempt must record stable turn/configuration/model references, ordered timing, outcome, bounded failure category, and protected input/output references required by the manifest without copying unnecessary raw content into audit or operational logs.
-- `REQ-SESS-16` — Agent text becomes authoritative participant-visible transcript content only after it is durably committed as a published Agent message with stable identity, Session-local order, exact visible content or protected reference, model/generation provenance, publication time, and turn linkage.
-- `REQ-SESS-17` — Failed, cancelled, superseded-before-publication, or partial generation must not be represented as a published Agent message. If any partial content was exposed to the participant, the system must preserve exactly what was exposed as a distinct published record or terminate the turn with an explicit visibility record; it must not claim the content was never shown.
-- `REQ-SESS-18` — Retrying a failed turn must reuse the accepted participant message and stable turn identity, preserve each generation-attempt outcome, and prevent multiple Agent responses from being published accidentally for the same response slot.
+- `REQ-SESS-16` — Agent text becomes authoritative participant-visible transcript content only through ordered Agent-response fragments durably committed before display. One stable published Agent message must own the assembled content, response slot, visible generation attempt, Session-local order range, exact visible text, model/configuration provenance, start/completion times, and completion outcome.
+- `REQ-SESS-17` — Failed, cancelled, late, or superseded generation content that was not durably published must remain absent from the transcript. If any fragment was published, the system must preserve exactly the visible prefix and append an explicit `Incomplete`/`Cancelled` outcome when the stream does not complete; it must not silently discard, replace, expand, or relabel the prefix as complete.
+- `REQ-SESS-18` — A retry before any visible fragment must reuse the accepted participant message, stable turn, and response slot, preserve each generation-attempt outcome, and allow only one attempt to claim visible publication. After any fragment publishes, the visible attempt and message are immutable; recovery may only finish that same valid stream or create a separately ordered, explicitly linked continuation response slot when the frozen workflow permits it.
 - `REQ-SESS-19` — Text, links, markup, code, and metadata from participants, Submissions, models, or knowledge sources must be treated as untrusted content and rendered without enabling script execution, hidden capability escalation, external retrieval, tool execution, or a state transition.
 - `REQ-SESS-51` — The frozen participant-visible work-trace policy must define whether work status and concise reasoning summaries are displayed, which predefined status labels and summary fields are permitted, update-rate and length bounds, accessibility behavior, and whether a final “Why this response or question?” explanation accompanies the published Agent message.
 - `REQ-SESS-52` — A participant-visible work-trace update must be durably committed before display with a stable identifier, Session/turn ownership, type, exact displayed content, Session-local order, UTC publication time, and generation/configuration provenance. It must remain distinguishable from the final Agent message, trusted system status, and unpublished internal processing.
 - `REQ-SESS-53` — A participant-visible work-trace update must be a concise Agent-authored explanation for the participant and must not expose or claim to reproduce raw chain-of-thought, hidden prompts, rubric internals, expected-answer criteria, secrets, security controls, unrelated participant data, or protected reviewer-only content.
 - `REQ-SESS-54` — If a proposed work-trace update violates the frozen visibility policy or cannot be safely recorded, the system must suppress that update and continue with a permitted generic status or fail the affected publication safely; it must not leak the prohibited content through errors, logs, analytics, or fallback text.
+- `REQ-SESS-55` — Participant-visible token-by-token streaming is required for MVP Agent responses. The system must publish provider-emitted text deltas at the finest granularity the selected provider interface exposes without application-added batching. The stable identity hierarchy must be `Session -> turn -> response slot -> generation attempt -> Agent message -> response fragment`, and each fragment must have a positive contiguous fragment order plus one authoritative Session-local order.
+- `REQ-SESS-56` — Every response fragment must be validated and durably committed with its exact text delta or protected content reference, trusted scope, visible generation attempt, configuration/model provenance, UTC publication time, integrity metadata, and idempotent digest before any client displays it. Provider delivery, worker memory, SSE receipt, or client buffering alone is not publication.
+- `REQ-SESS-57` — The first committed fragment must atomically claim the response slot and visible generation attempt. Later fragments must append only to that message and attempt in contiguous order; duplicate delivery must reconcile, while a gap, digest mismatch, competing attempt, or changed scope must fail without displaying or mutating content.
+- `REQ-SESS-58` — Completing an Agent message must append one authoritative completion record covering the ordered fragment range and assembled-content integrity. A completed projection must reproduce exactly those fragments; it must not replace them with a provider's later full candidate or a regenerated answer.
+- `REQ-SESS-59` — Reconnect, multiple-device delivery, and historical transcript reads must replay authorized response fragments from authoritative storage after a trusted Session cursor, deduplicate them by stable identity/order, and reconstruct the same visible prefix and completion outcome without trusting client-held text or fragment position.
+- `REQ-SESS-60` — Pause, completion, expiry, termination, authorization loss, or abort must compete with each response-fragment commit through the authoritative Session version/order boundary. No new fragment may commit as participant-visible transcript content after the winning cutoff. A fragment committed at or before the cutoff remains immutable transcript content and may be delivered or replayed afterward only when current authorization and lifecycle policy permit, with an explicit terminal stream outcome when incomplete.
 
 ### Timing, warnings, pause, and connection recovery
 
@@ -269,7 +279,7 @@ Architecture may choose physical storage only if it preserves ownership, authori
 | Acknowledgment | Preserve a deliberate participant decision | Acknowledgment ID, participant/enrollment/Attempt scope, exact notice version, outcome, actor, UTC time/order, idempotency/correlation, withdrawal/supersession reference when policy permits |
 | Session | Own live and terminal execution state | Session ID, organization/activity/cohort/enrollment/participant/Attempt references, configuration/manifest/Submission-binding references, state, state revision, start/terminal order and times |
 | Session lifecycle event | Preserve every transition without overwriting | Event ID/order, prior/new state, actor/service, reason category, protected note reference when permitted, timing effect, correlation, UTC time |
-| Message | Preserve one authoritative visible transcript item | Message ID, Session/turn, author type and actor reference where applicable, immutable content/protected reference, state, Session-local sequence, accepted/published time, idempotency/correlation |
+| Message | Preserve one authoritative visible transcript item | Message ID, Session/turn, author type and actor reference where applicable; immutable Participant content/protected reference or Agent fragment range and rebuildable assembled-content projection; state and completion outcome; first/last Session-local sequence; accepted/publication/outcome times; idempotency/correlation |
 | Agent work-trace update | Preserve exactly what participant-visible “thinking” showed without storing hidden reasoning | Update ID, Session/turn, status-or-summary type, exact displayed content/protected reference, policy/configuration/generation provenance, Session-local sequence, publication time |
 | Turn | Connect participant input to Agent processing | Turn ID/order, triggering message or Agent-initiated type, frozen configuration reference, status, generation-attempt references, published-response reference, terminal outcome |
 | Generation attempt | Preserve runtime provenance without conflating it with visible transcript | Attempt ID/order, turn/configuration/model references, start/end times, outcome, bounded failure/cancellation category, protected input/output references, manifest sequence |
@@ -323,6 +333,10 @@ Audit and manifest records use protected message, content, and transcript refere
 - Loading, connecting, active, sending, waiting for Agent, retryable turn failure, reconnecting, offline, paused, expiring, completing, completed, terminated, aborted, access-expired, and unavailable states must be distinct in text and structure and must not rely on color, motion, sound, or spinner state alone.
 - The composer must distinguish local draft, sending, accepted, failed-before-acceptance, and accepted-but-response-failed states. Recoverable local text should remain available when safe, but stale or unauthorized drafts must never be sent automatically.
 - Transcript items must expose author, order, content, and status with semantic structure. Screen-reader reading order must match authoritative order; new messages and status updates must use non-disruptive announcements.
+- Incremental Agent-response text must remain readable while it grows without
+  moving focus or announcing every fragment. Assistive technology receives
+  rate-bounded progress and one completion/incomplete announcement; the full
+  assembled text remains available through normal reading navigation.
 - Frequent work-trace updates must be rate-bounded and announced without overwhelming assistive-technology users. Replaced visual status text must remain available through the authoritative ordered history when policy exposes it.
 - Remaining time must be available as text, update without excessive announcements, and announce each configured warning and terminal expiry. Color or animation alone must not communicate urgency.
 - Pause, permission change, reconnect, and terminal states must move focus to the status or next safe action when appropriate while preserving readable transcript context permitted by policy.
@@ -330,7 +344,8 @@ Audit and manifest records use protected message, content, and transcript refere
 - Keyboard focus must remain logical when messages arrive, must not be stolen by ordinary Agent output, and must return predictably after retry, reconnect, confirmation, or error dismissal.
 - The experience must support keyboard-only use, screen readers, reduced motion, 400 percent zoom, reflow, and narrow viewports without hiding status, time, composer state, completion consequence, or recovery action.
 - Raw model formatting must not break semantic structure, overflow the viewport, obscure controls, spoof system notices, or execute active content. Agent and participant content must remain visually and programmatically distinguishable from trusted system status.
-- WCAG 2.2 AA is the proposed accessibility baseline pending an approved UI/UX specification.
+- The approved [Text Session interaction specification](../../ui-ux/text-session.md)
+  establishes WCAG 2.2 AA as the Text Session accessibility baseline.
 
 ### Performance and reliability
 
@@ -338,6 +353,15 @@ Audit and manifest records use protected message, content, and transcript refere
 - Under `PROP-4`, a participant message must receive an authoritative accepted, rejected, or reconciliation-required outcome within 2 seconds at the 95th percentile when authorization, Session state, and primary persistence are available inside the platform boundary; end-user network latency and Agent generation are excluded and measured separately.
 - Under `PROP-4`, reconnect state synchronization after successful authentication and transport restoration must return authoritative lifecycle, timer, and transcript delta state within 2 seconds at the 95th percentile for a bounded MVP transcript; larger historical transcript loading may paginate after the current state and recent context are safe to display.
 - Agent generation must use a positive bounded timeout and retry budget from the frozen policy. Provider latency, timeout, cancellation, publication, and participant-perceived wait must be measured separately.
+- Incremental publication must enforce positive fragment-size, fragment-rate,
+  fragment-count, total-response, in-flight, and per-Session bounds. Backpressure
+  must pause provider consumption or cancel the attempt before authoritative
+  storage, outbox, SSE delivery, or an individual Session can grow without
+  bound.
+- A fragment must never be displayed before its authoritative commit. Commit,
+  outbox/event delivery, reconnect replay, duplicate suppression, and final
+  assembly must remain correct under worker restart, lost SSE delivery,
+  duplicate provider deltas, and multiple web runtimes.
 - Message and lifecycle ordering must remain correct under duplicate delivery, concurrent tabs/devices, delayed events, process restart, model retry, terminal races, and projection lag.
 - Acknowledgment, message, Agent publication, pause/resume, and terminal success must not be acknowledged before their required authoritative records are durably associated.
 - Failure after participant-message acceptance must preserve that message and expose the turn's authoritative pending/retry/failed state; it must not require blind resubmission.
@@ -352,6 +376,13 @@ Audit and manifest records use protected message, content, and transcript refere
 - Session identifiers, last-seen sequences, message IDs, idempotency keys, author fields, timer values, and state versions are untrusted input and must not permit cross-scope substitution, replay, ordering manipulation, or state rollback.
 - Participant, Submission, knowledge, and model content must be treated as untrusted at model and rendering boundaries. Prompt injection cannot grant capabilities, alter policy, enable tools/memory, reveal hidden prompts, or authorize state transitions.
 - Participant-visible work-trace generation must use a dedicated constrained output contract. It must not expose raw chain-of-thought, hidden prompts, rubric internals, expected answers, secrets, security controls, reviewer-only material, unrelated participant content, or content outside the current Session's authorized context.
+- Participant-visible response streaming must validate every incremental
+  fragment before durable publication, maintain bounded rolling validation
+  state across fragments, stop on a prohibited or unrecordable delta, and never
+  repeat the rejected content through errors, work traces, logs, or fallback
+  text. Because already displayed fragments cannot be recalled, any later
+  validation failure must preserve the visible prefix and mark the message
+  incomplete rather than rewriting history.
 - The MVP resolved configuration's empty tool set, disabled voice, disabled Dynamic memory, and no shared-Session behavior must be enforced throughout execution rather than treated as UI-only settings.
 - Rendering must prevent script execution, unsafe URL behavior, markup spoofing of trusted system notices, data exfiltration, and leakage through previews or embedded content.
 - Queries, caches, transcript projections, queues, events, provider requests, temporary data, analytics, logs, traces, and browser/test artifacts must preserve organization/activity/participant/Session scope.
@@ -393,11 +424,12 @@ Audit and manifest records use protected message, content, and transcript refere
 - **And** mismatched reuse reports a conflict without changing the original
 - **And** no duplicate Agent response is published accidentally.
 
-### `AC-SESS-5` — Agent response becomes visible only after publication
+### `AC-SESS-5` — Agent response becomes visible only through durable publication
 
 - **Given** an accepted participant message has an eligible turn
-- **When** Agent generation succeeds under the frozen configuration and text workflow
-- **Then** one published Agent message is durably committed with exact visible content, stable order, turn/model provenance, and UTC publication time before it is authoritative in the transcript
+- **When** Agent generation emits participant-visible text under the frozen configuration and text workflow
+- **Then** each exact incremental fragment is validated and durably committed before display with stable message/attempt identity, contiguous fragment order, authoritative Session order, turn/model provenance, and UTC publication time
+- **And** one completion record covers the final ordered fragment range and assembled-content integrity before the message is labeled complete
 - **And** participant content does not enable tools, memory writes, external retrieval, or a state transition
 - **And** hidden prompts and unpublished candidates remain absent from the participant transcript.
 
@@ -407,15 +439,17 @@ Audit and manifest records use protected message, content, and transcript refere
 - **When** the turn reaches its bounded failure or timeout
 - **Then** the participant message remains immutable and visible
 - **And** the turn shows a retryable, paused, or terminal outcome without requiring blind resubmission
-- **And** a retry uses the same turn, preserves prior attempt provenance, and publishes at most one response for the response slot.
+- **And** before any fragment is visible, a retry uses the same turn/response slot and preserves prior attempt provenance
+- **And** after any fragment is visible, the exact prefix remains immutable and recovery does not restart or replace it; any permitted continuation is separately ordered and explicitly linked.
 
 ### `AC-SESS-7` — Partial Agent visibility is recorded honestly
 
-- **Given** Agent content is generated or streamed but publication does not complete normally
+- **Given** Agent content is generated or incrementally streamed but the response does not complete normally
 - **When** no content reached the participant
-- **Then** it is not represented as a published transcript message
+- **Then** it is not represented as participant-visible transcript content
 - **But given** any partial content did reach the participant
-- **Then** the exact exposed portion and visibility outcome are preserved distinctly and are not silently discarded or expanded.
+- **Then** every displayed fragment was already durable and the exact visible prefix plus `Incomplete`/`Cancelled` outcome are preserved distinctly
+- **And** the prefix is not silently discarded, replaced, expanded, or labeled complete.
 
 ### `AC-SESS-8` — Concurrent Sessions remain isolated
 
@@ -526,7 +560,9 @@ Audit and manifest records use protected message, content, and transcript refere
 
 ### `AC-SESS-21` — Transcript history is exact and immutable
 
-- **Given** accepted participant messages, published Agent messages, published Agent work-trace updates, failed generations, retries, and lifecycle notices exist
+- **Given** accepted participant messages, streamed Agent-response fragments,
+  completed or incomplete Agent messages, published Agent work-trace updates,
+  failed generations, retries, and lifecycle notices exist
 - **When** an authorized actor inspects structured history
 - **Then** visible transcript content is distinguishable from drafts and unpublished generations
 - **And** final Agent messages, participant-visible work status or reasoning summaries, hidden processing, and trusted system notices are distinguishable
@@ -594,7 +630,7 @@ Audit and manifest records use protected message, content, and transcript refere
 
 - **Given** the text Session lifecycle is considered for release
 - **When** its verification suite runs
-- **Then** tests cover wrong organization/activity/cohort/participant/Session, forged parent/author/order/state/timer, guessed message/turn, stale authorization, replay and mismatched idempotency, duplicate/concurrent sends, cross-Session cache/event leakage, provider and manifest failure, reconnect, multiple devices, exact timer boundaries, configurable warning schedules, pause/terminal races, audit failure, prompt injection, unsafe markup, prohibited work-trace disclosure, rate exhaustion, and post-terminal callbacks
+- **Then** tests cover wrong organization/activity/cohort/participant/Session, forged parent/author/order/state/timer, guessed message/turn, stale authorization, replay and mismatched idempotency, duplicate/concurrent sends, competing visible generation attempts, duplicate/gapped/mismatched fragments, cross-Session cache/event leakage, provider and manifest failure, partial-stream failure, reconnect/replay, multiple devices, exact timer boundaries, configurable warning schedules, fragment/pause/terminal races, audit failure, prompt injection, unsafe markup, prohibited streamed/work-trace disclosure, rate exhaustion, and post-terminal callbacks
 - **And** the feature is not release-ready while an applicable negative case is missing or failing.
 
 ### `AC-SESS-30` — Historical access remains scoped after completion
@@ -615,6 +651,26 @@ Audit and manifest records use protected message, content, and transcript refere
 - **And** a prohibited or unrecordable update is suppressed in favor of a permitted generic status or safe failure without leaking its content
 - **And** the final Agent message may include the configured concise “Why this response or question?” explanation without claiming to reproduce complete internal reasoning.
 
+### `AC-SESS-32` — Incremental Agent streaming is ordered, replayable, and cutoff-safe
+
+- **Given** an eligible Agent response emits incremental provider fragments
+- **When** the worker validates and publishes them to an authorized Participant
+- **Then** the first durable fragment claims one visible generation attempt and
+  stable Agent message for the response slot
+- **And** every displayed fragment has one contiguous fragment order and one
+  authoritative Session-local order committed before display
+- **And** the application adds no batching between provider-emitted text deltas
+  and authoritative fragment publication
+- **And** duplicate delivery, reconnect, another device, or process restart
+  reconstructs the same visible text and completion state without gaps or
+  duplication
+- **And** pause, expiry, completion, termination, authorization loss, or abort
+  prevents any new fragment from committing after the authoritative cutoff,
+  while currently authorized replay may still deliver fragments committed at
+  or before that cutoff
+- **And** a stream that stops after visible content preserves the exact prefix
+  as incomplete and never substitutes a regenerated or later provider answer.
+
 ## Edge and failure cases
 
 | Case | Required outcome |
@@ -626,6 +682,9 @@ Audit and manifest records use protected message, content, and transcript refere
 | Participant loses connection after send but before response | Reconcile whether the message committed; preserve accepted input and return the authoritative turn state |
 | Provider returns after timeout or terminal cutoff | Record the late provider outcome as permitted provenance; do not publish it into the terminal transcript |
 | Agent output is partially displayed before disconnect | Preserve exactly the exposed portion and visibility outcome; do not replace it silently with a longer candidate |
+| Duplicate provider fragment or SSE delivery | Deduplicate by message/attempt/fragment identity and digest; do not append the text twice |
+| Fragment gap or digest mismatch | Stop display, reconcile from authoritative storage, and fail the stream safely if contiguous reconstruction cannot be proven |
+| Streaming fails after one or more fragments | Preserve the exact durable prefix as incomplete; do not restart in place; offer only an explicitly linked continuation when policy permits |
 | Session pauses during an in-flight turn | Apply the frozen cancellation/commit boundary and record the outcome; do not leave ambiguous visible content |
 | Client countdown reaches zero early or late | Use authoritative service time and state; reconcile the UI without changing the terminal boundary |
 | Warning cannot be delivered | Preserve the warning/threshold outcome when required; do not extend time or claim delivery |
@@ -654,7 +713,7 @@ Audit and manifest records use protected message, content, and transcript refere
 - Protected transcript/payload storage and rendering capable of exact Session scoping, immutable accepted/published records, ordered retrieval, safe markup, and lifecycle-policy enforcement.
 - [`evidence-evaluation.md`](evidence-evaluation.md) consumer contract for the terminal transcript cutoff and protected evidence references.
 - [`review-result-release.md`](review-result-release.md) for assigned review access, review decisions, participant-visible Result, and Release.
-- Approved [text Session runtime contract](../../architecture/session-runtime-contract.md) and [ADR-009](../../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md), covering authoritative ordering, timer accounting, terminal consistency, complete-message publication, constrained work traces, provider streaming, SSE/reconnect, optional-broker boundaries, and recovery.
+- Approved version 0.2 of the [text Session runtime contract](../../architecture/session-runtime-contract.md), [ADR-009](../../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md), and superseding publication decision [ADR-011](../../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md), covering authoritative ordering, timer accounting, terminal consistency, durable-before-display incremental publication, constrained work traces, SSE/reconnect, optional-broker boundaries, and recovery.
 - UI/UX interaction specification covering the Session state model, participant-visible work-trace region, content, focus, configurable warning behavior, responsive layout, and accessibility before UI implementation is considered complete.
 
 ### Rollout
@@ -665,7 +724,7 @@ Audit and manifest records use protected message, content, and transcript refere
 - Do not enable a workflow unless required message/turn/generation limits, participant-visible work-trace policy, configurable timer/warning behavior, pause/completion policy, instruction/notice versions, and terminal mapping are complete and validated.
 - Roll out with seeded non-sensitive test cohorts and failure injection for duplicate/concurrent sends, lost responses, provider timeout/late callback, persistence and audit failure, reconnect, revocation, pause, expiry, terminal races, and manifest sealing.
 - Quarantine migrated or prototype Sessions whose participant/Attempt/configuration/manifest/Submission ownership, transcript order, timer state, or terminal cutoff cannot be verified; do not use them for Evaluation.
-- UI rollout requires automated component checks plus Playwright accessibility snapshots and desktop/narrow screenshots for every applicable state in `AC-SESS-24`–`AC-SESS-26` and `AC-SESS-31`.
+- UI rollout requires automated component checks plus Playwright accessibility snapshots and desktop/narrow screenshots for every applicable state in `AC-SESS-24`–`AC-SESS-26`, `AC-SESS-31`, and `AC-SESS-32`.
 
 ### Observability
 
@@ -699,7 +758,7 @@ None. `Q-1`–`Q-7` were resolved on 2026-08-06 as recorded below.
 | `PROP-4` | Set initial platform objectives of no more than 2 seconds at the 95th percentile for authoritative message-admission outcome and bounded reconnect synchronization, excluding end-user network latency and Agent/provider generation. | The platform boundary receives a measurable target without conflating model latency or participant network conditions. |
 | `Q-5`, `PROP-5` | Map participant/workflow completion and time expiry to Session/Attempt `Completed`; administrative early termination to Session `Terminated` and Attempt `Aborted`; unrecoverable execution/integrity failure to Session/Attempt `Aborted`. | Normal completion, operator intervention, and platform failure remain distinguishable while preserving the approved Attempt terminal model. |
 | `Q-4`, `PROP-6` | Make the versioned warning schedule configurable within upper-scope policy bounds and freeze the selected non-empty schedule for each timed Session. Emit only configured thresholds once each; do not impose universal fixed thresholds. | Organizations and Activities can choose appropriate warnings without changing an in-progress Session or relying on hard-coded product timing. |
-| `Q-6`, `PROP-7` | Support participant-visible Agent work status and concise authored reasoning summaries under a frozen policy, with exact displayed-content recording. Publish final Agent answers as complete durable messages by default; raw chain-of-thought and protected internals are prohibited. | Participants receive transparent progress and a useful explanation without exposing hidden prompts, rubrics, expected answers, secrets, or unreliable internal reasoning. |
+| `Q-6`, `PROP-7` | **Revised 2026-08-09.** Support participant-visible Agent work status and concise authored reasoning summaries under a frozen policy, with exact displayed-content recording. Require participant-visible incremental Agent-response streaming in the MVP, with every exact fragment durably committed before display and incomplete prefixes preserved. Raw chain-of-thought and protected internals remain prohibited. This supersedes only the prior complete-message-only publication clause. | Participants receive immediate incremental answers and a reusable streaming foundation while ordering, reconnect, cutoff, and historical reconstruction remain authoritative. The platform accepts higher write/event volume and the irreversibility of already displayed safe fragments. |
 | `Q-7`, `PROP-8` | Permit read-only participant access to the participant-visible terminal transcript before Result release only while current authorization, relationship, Session visibility, and lifecycle policy permit it; keep hidden and outcome content release-gated. | Participants may revisit content they saw without gaining access to Evaluation, review, hidden instructions, or unreleased Results. |
 
 ## Approved defaults
@@ -712,7 +771,7 @@ These defaults are approved with this specification and govern MVP text Session 
 - `PROP-4` — Apply the 2-second p95 platform objectives for message-admission outcome and bounded reconnect synchronization under the stated exclusions.
 - `PROP-5` — Apply the approved Session-to-Attempt terminal mapping for completion, termination, and abort.
 - `PROP-6` — Use only the configurable, versioned, non-empty warning schedule frozen for the timed Session; impose no universal warning thresholds.
-- `PROP-7` — Display frozen-policy Agent work status and concise authored reasoning summaries, record exactly what was shown, publish final answers as complete durable messages by default, and never expose raw chain-of-thought or protected internals.
+- `PROP-7` — Display frozen-policy Agent work status and concise authored reasoning summaries, record exactly what was shown, stream Agent responses incrementally in the MVP with each fragment durable before display, preserve incomplete visible prefixes honestly, and never expose raw chain-of-thought or protected internals. The 2026-08-09 revision supersedes the prior complete-message-only clause.
 - `PROP-8` — Permit scoped read-only access to the participant-visible terminal transcript before Result release while keeping hidden and outcome content gated.
 
 ## Traceability
@@ -720,10 +779,10 @@ These defaults are approved with this specification and govern MVP text Session 
 | Requirement/AC | Implementation | Automated verification | Playwright/manual evidence | Status |
 | --- | --- | --- | --- | --- |
 | `REQ-SESS-1`–`REQ-SESS-7`, `AC-SESS-1`, `AC-SESS-2` | Instruction/notice versioning, acknowledgment command, ADR-005 readiness consumer, and canonical Session state — architecture approved in the [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Current/stale/declined acknowledgment; cross-scope; pre-commit failure; duplicate start tests | Pre-start instructions, required acknowledgment, blocked, starting, and active states | Gap |
-| `REQ-SESS-8`–`REQ-SESS-19`, `REQ-SESS-51`–`REQ-SESS-54`, `AC-SESS-3`–`AC-SESS-8`, `AC-SESS-31`, `PROP-7` | Ordered message/turn/work-trace model, generation adapter, constrained explanation contract, complete-message publication boundary, and safe renderer — architecture approved in the [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Idempotency, concurrency, ordering, retry, partial visibility, work-trace policy/leakage, cross-Session, prompt-injection, unsafe-markup tests | Draft/sending/accepted/thinking/waiting/retry/published states at desktop and narrow widths | Gap |
+| `REQ-SESS-8`–`REQ-SESS-19`, `REQ-SESS-51`–`REQ-SESS-60`, `AC-SESS-3`–`AC-SESS-8`, `AC-SESS-31`, `AC-SESS-32`, `PROP-7` | Ordered message/turn/work-trace/response-fragment model, generation adapter, constrained explanation contract, durable-before-display streaming boundary, and safe renderer — architecture approved in version 0.2 of the [text Session runtime contract](../../architecture/session-runtime-contract.md) through [ADR-011](../../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md); implementation TBD | Idempotency, concurrent publisher, fragment order/digest/gap/duplicate, reconnect replay, partial-stream failure, cutoff, work-trace policy/leakage, cross-Session, prompt-injection, unsafe-markup tests | Draft/sending/accepted/streaming/incomplete/retrying/published states at desktop and narrow widths | Gap |
 | `REQ-SESS-20`–`REQ-SESS-30`, `AC-SESS-9`–`AC-SESS-14`, `PROP-2`, `PROP-3`, `PROP-6` | Authoritative timer, pause intervals, warning scheduler, and reconnect/revocation protocol — architecture approved in the [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Exact boundary, pause accounting, disconnect, reconnect, stale client, revocation, multiple-device tests | Timer/warnings, reconnecting, offline, paused, resumed, permission-changed states | Gap |
 | `REQ-SESS-31`–`REQ-SESS-41`, `AC-SESS-15`–`AC-SESS-20`, `PROP-5` | Terminal command/order, transcript cutoff, Attempt mapping, manifest seal, and handoff boundary — architecture approved in the [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Completion/expiry/termination/abort, message-terminal race, audit/seal failure, post-terminal callback tests | Confirmation, completing, completed, terminated, aborted, recovery states | Gap |
 | `REQ-SESS-42`–`REQ-SESS-50`, `AC-SESS-21`–`AC-SESS-23`, `AC-SESS-28`–`AC-SESS-30`, `PROP-1`, `PROP-8` | Transcript history, authorization/audit adapters, lifecycle enforcement, and scoped historical views — architecture approved in the [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Immutability, correction, audit durability/redaction, retention/unavailability, access-scope, disabled-learning tests | Participant transcript, assigned review, administrator monitoring, denied/unavailable states | Gap |
-| UX/accessibility requirements, `AC-SESS-24`–`AC-SESS-26`, `AC-SESS-31` | Session interaction specification, participant-visible work-trace region, and accessible components — UI/UX spec TBD | Keyboard, focus, live-region rate, semantic-order, zoom/reflow, reduced-motion, work-trace labeling, safe-rendering component tests | Playwright accessibility snapshots and desktop/narrow screenshots for every applicable state | Gap |
+| UX/accessibility requirements, `AC-SESS-24`–`AC-SESS-26`, `AC-SESS-31`, `AC-SESS-32` | Approved [Text Session interaction specification](../../ui-ux/text-session.md), participant-visible streaming message/work-trace regions, and accessible components — implementation TBD | Keyboard, focus, streamed-content announcement rate, semantic order, zoom/reflow, reduced-motion, work-trace labeling, safe-rendering component tests | Playwright accessibility snapshots and desktop/narrow screenshots for every applicable state | Gap |
 | Performance/reliability requirements, `AC-SESS-6`, `AC-SESS-9`–`AC-SESS-11`, `AC-SESS-27`, `PROP-4` | Backpressure, SLO telemetry, provider timeout/cancellation, and state reconciliation — architecture approved in the [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Load, bounded transcript, process restart, delayed event, timeout, projection-lag, recovery tests | Pending, delayed, retry, reconnect, timer reconciliation, degraded states | Gap |
 | Security/privacy requirements, `AC-SESS-8`, `AC-SESS-13`, `AC-SESS-14`, `AC-SESS-23`, `AC-SESS-26`, `AC-SESS-29` | Enforcement adapters, scoped transport/cache/events, and content security controls — approved [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md), and [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Full negative authorization/isolation, replay, injection, XSS, rate/resource exhaustion, data-leakage suite | Non-disclosing denial, safe content, access-expired, post-terminal states | Gap |

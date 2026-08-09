@@ -329,10 +329,11 @@ and `AC-AUTH-2`–`AC-AUTH-4`.
 2. Composer text remains a local draft until deliberate send. A pending
    placeholder must be visually and programmatically distinct from an accepted
    message and replaced by the server-confirmed ordered message state.
-3. The Agent response appears as authoritative transcript content only after
-   complete publication. If participant-visible work status is enabled by the
-   frozen policy, it remains distinct from the final message and hidden
-   reasoning.
+3. The Agent response streams token by token only from exact fragments committed
+   before display. The growing message remains one stable transcript item and
+   ends explicitly as complete or incomplete. If participant-visible work
+   status is enabled by frozen policy, it remains distinct from the streamed
+   answer and hidden reasoning.
 4. A failed Agent turn preserves the accepted Participant message and offers a
    bounded retry/recovery state without asking the Participant to retype it.
 5. On connection loss, **Reconnecting** does not claim the Session or timer is
@@ -346,12 +347,13 @@ and `AC-AUTH-2`–`AC-AUTH-4`.
    `Terminated`; unrecoverable failure ends as `Aborted`. Every terminal view
    avoids implying an Evaluation, score, or Result.
 
-Key alternate states: connecting, active, sending, Agent working, retryable
-turn failure, offline/reconnecting, paused, authorization loss, completing,
-completed, terminated, aborted, time warning, expiry, duplicate send, stale
-control, and post-terminal command.
+Key alternate states: connecting, active, sending, Agent working, Agent
+streaming, stream incomplete, retryable-before-visibility, linked continuation,
+offline/reconnecting, paused, authorization loss, completing, completed,
+terminated, aborted, time warning, expiry, duplicate send, stale control, and
+post-terminal command.
 
-Trace: `AC-SESS-1`–`AC-SESS-31`, `AC-RSC-12`–`AC-RSC-17`,
+Trace: `AC-SESS-1`–`AC-SESS-32`, `AC-RSC-12`–`AC-RSC-17`,
 `AC-AUTH-11`, `AC-AUTH-19`–`AC-AUTH-20`, and `AR-DEC-4`.
 
 ### `JRN-MVP-5` — Produce and inspect Evaluation
@@ -703,7 +705,7 @@ None.
 | `JRN-MVP-1` | `AC-ACT-1`–`AC-ACT-27` | Approved [assessment Campaign setup interaction specification](assessment-campaign-setup.md) | Draft, readiness, activation, stale/concurrent, denial, failure/recovery, immutable baseline, desktop/narrow evidence |
 | `JRN-MVP-2` | `AC-SUBM-1`–`AC-SUBM-4`, `AC-SUBM-19`, `AC-SUBM-24`, `AC-SUBM-29` | Approved [Submission and Attempt interaction specification](submission-attempt.md) | Activated-cohort assignment, duplicate/conflict, suspension/revocation, scoped discovery, denial and empty states |
 | `JRN-MVP-3` | `AC-SUBM-5`–`AC-SUBM-32`; `AC-RSC-1`–`AC-RSC-14`, `AC-RSC-22` | Approved [Submission and Attempt interaction specification](submission-attempt.md) | Intake categories/limits, progress, validation/rejection, versions, deadline/entitlement, atomic start, uncertain reconciliation, accessibility evidence |
-| `JRN-MVP-4` | `AC-SESS-1`–`AC-SESS-31`; `AC-RSC-12`–`AC-RSC-17`; `AC-AUTH-19` | Text Session interaction specification | Instructions, acknowledgment, message order, Agent publication, retry, reconnect, timer, pause, terminal states, untrusted content, responsive/a11y evidence |
+| `JRN-MVP-4` | `AC-SESS-1`–`AC-SESS-32`; `AC-RSC-12`–`AC-RSC-17`; `AC-AUTH-19` | Approved [Text Session interaction specification](text-session.md) | Instructions, acknowledgment, message order, durable token streaming, partial recovery, retry, reconnect, timer, pause, terminal states, untrusted content, responsive/a11y evidence |
 | `JRN-MVP-5` | `AC-EVAL-1`–`AC-EVAL-38`; `AC-REV-1`–`AC-REV-5` | Evaluation and review interaction specification | Queue/running/failure states, exact Evidence navigation, integrity/unavailable states, evaluator provenance/conflict, assignment revocation, responsive/a11y evidence |
 | `JRN-MVP-6` | `AC-REV-1`–`AC-REV-20`; `AC-EVAL-19`–`AC-EVAL-23` | Evaluation and review interaction specification | Unchanged approval, Human revision, rejection, escalation, stale/concurrent decisions, internal/participant content separation, audit failure |
 | `JRN-MVP-7` | `AC-REL-1`–`AC-REL-15`; `AC-AUTH-18`, `AC-AUTH-23`; `AC-REV-16`–`AC-REV-20` | Result and Release interaction specification | Independent Release authority, confirmation, idempotency/conflict/audit failure, neutral pre-release, own released Result, correction/unavailable states |
@@ -716,7 +718,7 @@ This approved journey is followed by these bounded documents:
 
 1. [Assessment Campaign setup interaction specification](assessment-campaign-setup.md) — Approved.
 2. [Submission and Attempt interaction specification](submission-attempt.md) — Approved.
-3. Text Session interaction specification.
+3. [Text Session interaction specification](text-session.md) — Approved.
 4. Evaluation and review interaction specification.
 5. Result and Release interaction specification.
 6. Design-system foundation and shared content/accessibility patterns, refined

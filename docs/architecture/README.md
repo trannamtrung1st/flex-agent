@@ -26,9 +26,11 @@ does not block MVP or production architecture. Approved detailed contracts cover
 [text Session runtime](session-runtime-contract.md),
 [Evidence and Evaluation execution](evaluation-execution-contract.md), and
 [Human review, Result, and Release](review-result-release-contract.md). The three
-contracts and their provider-streaming, optional-broker, and notification
-boundaries are approved through
-[ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md). The cross-cutting
+contracts and their original provider-streaming, optional-broker, and
+notification boundaries were approved through
+[ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md); the
+Session publication boundary is revised by
+[ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md). The cross-cutting
 [MVP operational defaults](../requirements/mvp-operational-defaults.md) resolve
 upload, application-session, lifecycle, and recovery-placement policy. The
 remaining detailed UI/UX contracts, ADR-008 component compatibility evidence,
@@ -44,6 +46,13 @@ workspace boundaries, and application dependency policy. Its schema, RFC 8785,
 database, provider, artifact, session, and operability gates remain required
 implementation evidence.
 
+[ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md)
+supersedes ADR-009's complete-message-only Session publication boundary and
+approves participant-visible durable-before-display incremental Agent-response
+streaming for the MVP. The primary store, transactional outbox, SSE replay,
+cutoff, validation, and backpressure contract remain authoritative; no external
+broker becomes mandatory.
+
 ## Purpose
 
 This area governs how the system is structured: boundaries, data ownership, runtime flows, deployment topology, quality attributes, and integration contracts.
@@ -54,6 +63,7 @@ This area governs how the system is structured: boundaries, data ownership, runt
 | --- | --- |
 | Review the approved end-to-end P0 technical shape | [MVP architecture](mvp-architecture.md) |
 | Review approved cross-cutting decisions | [Architecture decisions](decisions/README.md) |
+| Review participant-visible Agent-response streaming | [ADR-011: participant-visible Agent-response streaming](decisions/ADR-011-participant-visible-agent-response-streaming.md) |
 | Review the approved implementation stack and workspace | [ADR-010: .NET implementation stack](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) |
 | Review approved OSS component defaults and pending evidence gates | [ADR-008: bounded OSS component set](decisions/ADR-008-bounded-oss-component-set.md) |
 | Implement the approved text Session realization | [Text Session runtime contract](session-runtime-contract.md) |

@@ -164,7 +164,7 @@ by supplying them.
 | --- | --- |
 | `submission.direct_text` | Exact Submission version and material item; whole item, one-based inclusive line range, or half-open UTF-8 byte range |
 | `submission.text_attachment` | Exact accepted `.txt`/`.md` version and item; whole item, one-based inclusive line range, or half-open UTF-8 byte range over the validated immutable bytes |
-| `session.transcript_item` | Exact accepted/published transcript item at or before cutoff; whole item or half-open UTF-8 byte range over exact displayed content |
+| `session.transcript_item` | Exact accepted/published transcript item at or before cutoff; an Agent item is reconstructed only from its ordered durable response fragments and complete/incomplete outcome; locator uses the whole item or a half-open UTF-8 byte range over exact displayed content |
 | `session.work_trace` | Exact published work-trace item at or before cutoff; whole item or half-open UTF-8 byte range |
 | `configuration.fact` | Exact resolved-configuration or activation-baseline digest plus an allowlisted JSON Pointer into a safe fairness/configuration projection |
 | `manifest.fact` | Exact manifest identity/sequence/seal plus an allowlisted JSON Pointer into a safe provenance projection |

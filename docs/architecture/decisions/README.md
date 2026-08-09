@@ -4,7 +4,7 @@ Architecture Decision Records (ADRs) for Flex Agent.
 
 ## Status
 
-**Ten approved decisions.**
+**Eleven approved decisions.**
 
 | ADR | Status | Decision |
 | --- | --- | --- |
@@ -16,8 +16,9 @@ Architecture Decision Records (ADRs) for Flex Agent.
 | [ADR-006](ADR-006-mvp-architecture-baseline-and-evolution.md) | Approved | MVP application/deployment baseline, SPA/API/gateway, OIDC, persistence/work, recovery, optional caching, and deferred Kubernetes evolution boundaries |
 | [ADR-007](ADR-007-oss-first-self-hostable-deployment.md) | Approved | OSS-first self-hostable reference deployment, open integration contracts, OCI packaging, agent-friendly automation, and optional cloud adapters |
 | [ADR-008](ADR-008-bounded-oss-component-set.md) | Approved | Bounded OSS components, model-neutral provider profiles, scoped BYOK and Organization model endpoints, development-only operator-pulled LGTM, synthetic-evaluation versus production-pilot gates, external recovery responsibility, version policy, evidence gates, and Docker Compose reference orchestration |
-| [ADR-009](ADR-009-mvp-session-evaluation-review-contracts.md) | Approved | Detailed Session, Evidence/Evaluation, and Review/Result/Release contracts, including provider-streaming, optional-broker, and notification boundaries |
+| [ADR-009](ADR-009-mvp-session-evaluation-review-contracts.md) | Approved; Session publication partially superseded by ADR-011 | Detailed Session, Evidence/Evaluation, and Review/Result/Release contracts, including original provider-streaming, optional-broker, and notification boundaries |
 | [ADR-010](ADR-010-dotnet-implementation-stack-and-workspace.md) | Approved | .NET 10/ASP.NET Core API and worker, React/Vite SPA, `JsonSchema.Net`, separate pinned-source JCS project, Npgsql/Dapper persistence, Grate migrations, test stack, workspace boundaries, and supply-chain conventions |
+| [ADR-011](ADR-011-participant-visible-agent-response-streaming.md) | Approved | Durable-before-display participant-visible incremental Agent-response fragments, ordering, replay, incomplete-stream recovery, cutoff, validation, and backpressure |
 
 ## Purpose
 

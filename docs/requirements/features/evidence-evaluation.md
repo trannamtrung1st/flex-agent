@@ -176,7 +176,7 @@ Completed ── authorized new invocation ──> new Completed Evaluation
 
 - `REQ-EVAL-8` — Every Evidence item must belong to exactly one organization and one Evaluation context through an unambiguous activity, participant, Attempt, Session, and source-ownership chain.
 - `REQ-EVAL-9` — An Evidence item must identify an exact source type, stable source reference and version, integrity reference or digest when available, locator schema/version, source-native location, creator service or actor, UTC creation time, and current verification state.
-- `REQ-EVAL-10` — A transcript Evidence locator must resolve only to accepted participant messages, published Agent messages, published work-trace updates, or participant-visible system notices at or before the authoritative terminal cutoff; failed generations, local drafts, unpublished outputs, hidden prompts, and post-cutoff content are not transcript Evidence.
+- `REQ-EVAL-10` — A transcript Evidence locator must resolve only to accepted participant messages, exact durable Agent-response fragments assembled into a published complete or explicitly incomplete Agent message, published work-trace updates, or participant-visible system notices at or before the authoritative terminal cutoff; failed hidden generations, uncommitted provider deltas, local drafts, unpublished outputs, hidden prompts, and post-cutoff content are not transcript Evidence.
 - `REQ-EVAL-11` — A Submission Evidence locator must resolve only to an exact accepted version and material item in the Session's immutable Submission binding. Failed, quarantined, rejected, later unbound, or mutable-alias material is not Evaluation Evidence.
 - `REQ-EVAL-12` — A configuration or manifest Evidence locator may identify a frozen fact when that fact is material to the judgment or fairness review, but it must not disclose secrets, credentials, raw hidden prompts, unrestricted knowledge content, or unrelated protected fields.
 - `REQ-EVAL-13` — A locator must identify the narrowest trustworthy source location available under the approved locator contract. When fine-grained location cannot be verified, the item must cite the whole exact artifact and expose its lower precision rather than inventing a range or quote.
@@ -257,7 +257,9 @@ Architecture may choose physical storage only if it preserves logical ownership,
 The P0 candidate-source boundary begins with only sources already bound to the Session:
 
 - Exact accepted Submission versions and material items in the immutable Submission binding.
-- Accepted participant messages, published Agent messages, published work-trace updates, and participant-visible system notices through the terminal transcript cutoff.
+- Accepted participant messages, exact durable Agent-response fragments and
+  their complete/incomplete message outcomes, published work-trace updates, and
+  participant-visible system notices through the terminal transcript cutoff.
 - Frozen resolved-configuration, activation-baseline, and execution-manifest facts when material to a criterion or fairness explanation.
 
 A frozen deterministic evaluator may derive a protected fact from those exact sources. That fact becomes an Evidence item only with the evaluator, canonical-input, output-integrity, criterion, and manifest provenance required by `REQ-EVAL-48`–`REQ-EVAL-52`; it does not expand the candidate-source boundary.
