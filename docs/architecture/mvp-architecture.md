@@ -845,8 +845,9 @@ not all-or-nothing:
    group to implementation surfaces and repeatable verification using
    specification-driven TDD.
 4. Frontend implementation must conform to the approved Activity/Campaign
-   journey and must not outrun the missing approved surface interaction
-   specifications.
+   journey, all five approved P0 surface interaction specifications, and the
+   approved shared design system. Implementation and Playwright verification
+   remain outstanding; the governing UI/UX documentation does not.
 5. Scaffold acceptance must pass ADR-010's runtime, schema, JCS, HTTP,
    PostgreSQL/Grate, module-boundary, supply-chain, and operability gates.
 6. Production pilot remains blocked on lifecycle, identity, upload, provider

@@ -3,7 +3,7 @@
 ## Core Specs
 
 | Size | Container | Icon |
-|---|---:|---:|
+| --- | ---: | ---: |
 | XS | 24px | 14px |
 | SM | 28px | 16px |
 | MD | 36px | 18px |

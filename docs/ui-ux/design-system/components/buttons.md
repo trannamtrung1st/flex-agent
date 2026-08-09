@@ -16,7 +16,7 @@ Buttons should feel like precise command controls, not glossy consumer CTAs.
 ## Sizes
 
 | Size | Height | Horizontal padding | Font |
-|---|---:|---:|---:|
+| --- | ---: | ---: | ---: |
 | XS | 28px | 8px | 12px |
 | SM | 32px | 10px | 13px |
 | Base | 36px | 12px | 14px |

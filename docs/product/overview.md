@@ -25,14 +25,18 @@ OSS-first self-hostable
 [Review/Release](../architecture/review-result-release-contract.md) contracts are
 approved. The P0 Activity journey and all five P0 surface interaction
 specifications, including [Result and Release](../ui-ux/result-release.md), are
-also approved. Complete the compatibility evidence required by approved
+also approved. Begin the provider-independent foundation, canonical contracts,
+and first authorization/configuration vertical slice described by
+[ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#traceability-and-downstream-work).
+In parallel, complete the applicable compatibility evidence required by
 [ADR-008](../architecture/decisions/ADR-008-bounded-oss-component-set.md),
 including qualification of each enabled provider deployment profile and
-provider-credential/Organization-endpoint isolation, plus machine-readable
-contract schemas/fixtures; apply the approved shared
-[design system](../ui-ux/design-system/README.md) with the approved interaction
-specifications
-and implement and verify the
+provider-credential/Organization-endpoint isolation. An affected integration
+must not be accepted or enabled for real use until its gates pass, and the
+production pilot remains blocked on the evidence listed in
+[MVP architecture implementation readiness](../architecture/mvp-architecture.md#implementation-readiness).
+Apply the approved shared [design system](../ui-ux/design-system/README.md) with
+the approved interaction specifications and implement and verify the
 [MVP executable workflow](mvp-scope.md#mvp-executable-workflow) with
 specification-driven TDD.
 

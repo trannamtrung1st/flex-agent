@@ -3,7 +3,7 @@
 ## Width Scale
 
 | Context | Width |
-|---|---:|
+| --- | ---: |
 | Hairline structure | 1px |
 | Default controls | 1px |
 | Selected/emphasis | 1px + state treatment |

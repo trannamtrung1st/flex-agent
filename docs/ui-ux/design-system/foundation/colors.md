@@ -20,7 +20,7 @@ The dark theme is the canonical brand expression. The light theme is a supported
 ### Deep-Space Surfaces
 
 | Token | Light | Dark |
-|---|---|---|
+| --- | --- | --- |
 | canvas | #F4F8FC | #04070D |
 | surface-primary | #FFFFFF | #080D16 |
 | surface-secondary | #EEF4FA | #0C1320 |
@@ -36,7 +36,7 @@ The dark theme is the canonical brand expression. The light theme is a supported
 ### Brand / Signal
 
 | Token | Light | Dark |
-|---|---|---|
+| --- | --- | --- |
 | brand-softer | #EAF4FF | #06182B |
 | brand-soft | #D5E9FF | #08233D |
 | brand-primary | #086CEB | #1684FF |
@@ -50,7 +50,7 @@ The dark theme is the canonical brand expression. The light theme is a supported
 ### Semantic
 
 | Token | Light | Dark |
-|---|---|---|
+| --- | --- | --- |
 | success-soft | #EAF8F0 | #0B2518 |
 | success | #1F7A49 | #53D28A |
 | warning-soft | #FFF4DF | #30220B |
@@ -64,7 +64,7 @@ The dark theme is the canonical brand expression. The light theme is a supported
 ## Foreground Tokens
 
 | Token | Light | Dark |
-|---|---|---|
+| --- | --- | --- |
 | fg-strong | #07111E | #F2F8FF |
 | fg-default | #28384A | #C9D8E8 |
 | fg-muted | #52677B | #8398AD |
@@ -83,7 +83,7 @@ The dark theme is the canonical brand expression. The light theme is a supported
 ## Border / Signal Tokens
 
 | Token | Light | Dark |
-|---|---|---|
+| --- | --- | --- |
 | border-subtle | #DCE7F1 | #152235 |
 | border-default | #C8D8E7 | #20334C |
 | border-hover | #6F93B6 | #315A82 |
@@ -103,7 +103,7 @@ The dark theme is the canonical brand expression. The light theme is a supported
 Emission is a controlled science-fiction effect, not a general shadow style.
 
 | Token | Light | Dark | Intended use |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | emission-focus | rgba(8,125,244,.20) | rgba(59,167,255,.34) | keyboard focus / scanner edge |
 | emission-selected | rgba(11,116,229,.12) | rgba(32,140,255,.22) | selected panel/row/context |
 | emission-live | rgba(0,127,158,.16) | rgba(34,199,242,.30) | listening/speaking/live signal |

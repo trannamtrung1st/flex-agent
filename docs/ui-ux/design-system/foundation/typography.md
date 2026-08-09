@@ -31,7 +31,7 @@ Do not use a futuristic display face for normal application headings.
 ## Heading Scale
 
 | Role | Desktop | Mobile | Weight | Line height |
-|---|---:|---:|---:|---:|
+| --- | ---: | ---: | ---: | ---: |
 | Display | 40px | 32px | 600 | 1.1 |
 | H1 | 30px | 26px | 600 | 1.2 |
 | H2 | 24px | 22px | 600 | 1.25 |
@@ -46,7 +46,7 @@ Use semantic `h1`–`h6` in document order regardless of visual token chosen.
 ## Body Scale
 
 | Role | Size | Line height | Usage |
-|---|---:|---:|---|
+| --- | ---: | ---: | --- |
 | Reading large | 18px | 1.65 | participant answers, long agent responses, review narratives |
 | Body | 15px | 1.6 | standard application content |
 | Compact body | 14px | 1.5 | workspace panels, tables, settings |

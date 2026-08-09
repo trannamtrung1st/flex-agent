@@ -11,7 +11,7 @@
 ## Variants
 
 | Variant | Background | Foreground | Border | Typical use |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Neutral | surface-secondary | fg-default | border-subtle | metadata/lifecycle |
 | Brand | brand-softer | fg-brand | border-brand | current/selected context |
 | Live | brand-live-soft | fg-live | border-live | listening/streaming/live |

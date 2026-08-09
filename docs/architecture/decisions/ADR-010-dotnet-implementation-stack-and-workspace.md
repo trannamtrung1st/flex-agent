@@ -376,6 +376,12 @@ is still required and cannot be inferred from selection approval.
 
 ## Traceability and downstream work
 
+**Downstream status note (2026-08-09):** The P0 Activity journey, all five P0
+surface interaction specifications, and the shared design system were approved
+after this ADR. The updated rows below record current realization work; they do
+not amend the approved stack decisions or erase the sequencing context in which
+this ADR was approved.
+
 | Governing source | Stack realization | Evidence still required |
 | --- | --- | --- |
 | Authorization/isolation P0; ADR-002 and ADR-003 | Scoped module repositories, ASP.NET identity/context adapter, PostgreSQL constraints, audit/outbox, application-session store | Positive/negative resource-action and repository isolation matrix; multi-instance rotation/revocation |
@@ -384,7 +390,7 @@ is still required and cannot be inferred from selection approval.
 | Text Session lifecycle and runtime contract | ASP.NET commands/SSE, worker composition root, durable work, provider port | Ordering, reconnect/replay, timeout, cancellation, late callback, and load evidence |
 | Evidence/Evaluation contract | Versioned schemas, restricted worker adapter, immutable database records | Evidence seal, injection, sandbox/egress, retry/completion, and lineage tests |
 | Review/Result/Release contract | Review-release module, strict DTO projections, atomic PostgreSQL Release boundary, React surfaces | Wrong-scope, stale/concurrent decision, pre-Release denial, atomic failure, correction, and visibility tests |
-| UI/UX documentation gap | React/Vite SPA platform only | Approved journeys, interaction states, content, accessibility, responsive behavior, screenshots, and Playwright evidence |
+| Approved P0 UI/UX contracts and design system | React/Vite SPA platform and feature surfaces | Implementation of approved journeys, interaction states, content, accessibility, and responsive behavior; screenshots and Playwright evidence |
 | ADR-008 component and supply-chain gates | .NET OCI images, locked NuGet/frontend graphs, SBOM/scanning, provider and S3 adapters | Exact locks, compatibility/recovery evidence, and production-profile certification |
 
 The next artifacts are:
@@ -397,8 +403,9 @@ The next artifacts are:
 3. the canonical contract package and ADR-001/ADR-004 conformance fixtures;
 4. Grate migrations and the scoped PostgreSQL repository test harness for the
    first authorization/configuration vertical slice; and
-5. approved UI/UX journeys before frontend feature implementation outruns the
-   interaction specifications.
+5. frontend realization of the approved Activity journey, five P0 surface
+   interaction specifications, and shared design system, with accessibility,
+   desktop/narrow, and Playwright evidence.
 
 ## Upstream references reviewed
 

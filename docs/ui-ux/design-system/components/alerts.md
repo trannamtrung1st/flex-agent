@@ -12,7 +12,7 @@
 ## Variants
 
 | Variant | Background | Text/Icon | Border |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Info | info-soft | fg-info | border-info |
 | Brand | brand-softer | fg-brand | border-brand |
 | Success | success-soft | fg-success | border-success |

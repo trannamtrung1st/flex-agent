@@ -3,7 +3,7 @@
 The system is engineered and precise rather than soft or bubbly.
 
 | Token | Value | Usage |
-|---|---:|---|
+| --- | ---: | --- |
 | xs | 2px | tiny controls, telemetry chips, code tokens |
 | sm | 4px | buttons, inputs, compact menus |
 | md | 6px | cards, dropdowns, panels |

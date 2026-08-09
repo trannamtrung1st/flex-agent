@@ -3,7 +3,7 @@
 ## Reading Widths
 
 | Content | Max width |
-|---|---:|
+| --- | ---: |
 | Long conversation / narrative | 760px |
 | Documentation / review text | 800px |
 | Form | 640–760px unless multi-column |

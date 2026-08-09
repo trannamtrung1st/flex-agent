@@ -5,7 +5,7 @@ Motion makes the onboard intelligence feel responsive. It must be tied to state,
 ## Timing
 
 | Interaction | Duration |
-|---|---:|
+| --- | ---: |
 | hover / selection | 100–150ms |
 | press feedback | 80–120ms |
 | signal/focus sweep | 140–220ms |

@@ -5,7 +5,7 @@
 Base unit: **4px**. Prefer this token ladder:
 
 | Token | Value |
-|---|---:|
+| --- | ---: |
 | 1 | 4px |
 | 2 | 8px |
 | 3 | 12px |
@@ -43,7 +43,7 @@ Use compact text/mono metadata and thin separators. Do not turn the rail into a 
 ## Standard Widths
 
 | Surface | Width |
-|---|---|
+| --- | --- |
 | Global sidebar expanded | 232–260px |
 | Global sidebar compact | 56–68px |
 | Context rail | 220–280px |

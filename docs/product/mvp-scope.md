@@ -178,14 +178,20 @@ defaults are approved — see
 [ADR-009](../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md).
 The P0 Activity journey and all five P0 surface interaction specifications,
 including [Result and Release](../ui-ux/result-release.md), are also approved.
-Complete ADR-008's applicable compatibility and provider-credential evidence,
-qualify at least one concrete provider deployment profile for each claimed
-execution profile without making its model a product dependency, and complete
-the remaining machine-readable schemas/fixtures; then apply the approved
-[design system](../ui-ux/design-system/README.md) and interaction specifications
-and proceed with
-specification-driven implementation and end-to-end verification while
-preserving the approved product scope and feature boundaries.
+Begin the provider-independent scaffold, canonical contracts, and first
+authorization/configuration vertical slice defined by
+[ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#traceability-and-downstream-work).
+In parallel, complete ADR-008's applicable compatibility and
+provider-credential evidence, qualify at least one concrete provider deployment
+profile for each claimed execution profile without making its model a product
+dependency, and complete the remaining machine-readable schemas/fixtures. An
+affected integration must pass its gates before acceptance or real use; the
+production pilot must pass the broader evidence gates in
+[MVP architecture implementation readiness](../architecture/mvp-architecture.md#implementation-readiness).
+Apply the approved [design system](../ui-ux/design-system/README.md) and
+interaction specifications throughout specification-driven implementation and
+end-to-end verification while preserving the approved product scope and feature
+boundaries.
 
 ## Platform differentiation (product level)
 

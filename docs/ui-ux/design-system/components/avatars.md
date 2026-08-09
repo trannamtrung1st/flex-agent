@@ -14,7 +14,7 @@ Agent avatars may use dither/grid identity artwork rather than humanoid robot im
 ## Sizes
 
 | Size | Dimensions |
-|---|---:|
+| --- | ---: |
 | XS | 20px |
 | SM | 24px |
 | Base | 32px |
