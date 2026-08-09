@@ -67,6 +67,11 @@ internal static class SchemaKeywordProfile
 
         foreach (var property in schemaObject.EnumerateObject())
         {
+            if (!allowedKeywords.Contains(property.Name))
+            {
+                throw new SchemaCompatibilityException(SchemaCompatibilityFailure.UnsupportedKeyword);
+            }
+
             if (SchemaMapKeywords.Contains(property.Name))
             {
                 if (property.Value.ValueKind == JsonValueKind.Object)
@@ -78,11 +83,6 @@ internal static class SchemaKeywordProfile
                 }
 
                 continue;
-            }
-
-            if (!allowedKeywords.Contains(property.Name))
-            {
-                throw new SchemaCompatibilityException(SchemaCompatibilityFailure.UnsupportedKeyword);
             }
 
             if (SchemaArrayKeywords.Contains(property.Name))

@@ -57,4 +57,14 @@ public sealed class UpstreamVectorTests
             Assert.Equal(Encoding.UTF8.GetString(expected), Encoding.UTF8.GetString(actual));
         }
     }
+
+    [Fact]
+    public void Upstream_reference_implementation_matches_arrays_vector()
+    {
+        var root = Path.Combine(AppContext.BaseDirectory, "Fixtures", "UpstreamVectors");
+        var input = File.ReadAllText(Path.Combine(root, "input", "arrays.json"));
+        var expected = File.ReadAllBytes(Path.Combine(root, "output", "arrays.json"));
+        var actual = new JsonCanonicalizer(input).GetEncodedUTF8();
+        Assert.Equal(Encoding.UTF8.GetString(expected), Encoding.UTF8.GetString(actual));
+    }
 }

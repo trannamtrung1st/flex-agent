@@ -88,6 +88,33 @@ public sealed class CanonicalJsonProcessorTests
     }
 
     [Fact]
+    public void Property_count_limit_is_not_reset_by_nested_empty_object()
+    {
+        var limits = new CanonicalJsonLimits(maxUtf8Bytes: 512, maxNestingDepth: 8, maxObjectProperties: 2, maxArrayElements: 8);
+        var input = Encoding.UTF8.GetBytes("""{"a":1,"b":{},"c":1}""");
+        var ex = Assert.Throws<CanonicalJsonException>(() => CanonicalJsonProcessor.CanonicalizeUtf8(input, limits));
+        Assert.Equal(CanonicalJsonFailureCategory.PropertyCountExceeded, ex.Category);
+    }
+
+    [Fact]
+    public void Nested_object_property_limit_is_enforced_independently()
+    {
+        var limits = new CanonicalJsonLimits(maxUtf8Bytes: 512, maxNestingDepth: 8, maxObjectProperties: 2, maxArrayElements: 8);
+        var input = Encoding.UTF8.GetBytes("""{"outer":{"a":1,"b":2,"c":3}}""");
+        var ex = Assert.Throws<CanonicalJsonException>(() => CanonicalJsonProcessor.CanonicalizeUtf8(input, limits));
+        Assert.Equal(CanonicalJsonFailureCategory.PropertyCountExceeded, ex.Category);
+    }
+
+    [Fact]
+    public void Property_count_allows_distinct_limits_per_nesting_level()
+    {
+        var limits = new CanonicalJsonLimits(maxUtf8Bytes: 512, maxNestingDepth: 8, maxObjectProperties: 2, maxArrayElements: 8);
+        var input = Encoding.UTF8.GetBytes("""{"a":1,"b":{"c":1,"d":1}}""");
+        var canonical = CanonicalJsonProcessor.CanonicalizeUtf8(input, limits);
+        Assert.NotEmpty(canonical);
+    }
+
+    [Fact]
     public void Array_length_limit_is_enforced()
     {
         var limits = new CanonicalJsonLimits(maxUtf8Bytes: 512, maxNestingDepth: 8, maxObjectProperties: 8, maxArrayElements: 1);

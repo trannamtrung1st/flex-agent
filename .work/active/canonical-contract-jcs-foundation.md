@@ -2,7 +2,7 @@
 id: canonical-contract-jcs-foundation
 status: in_progress
 created: 2026-08-09
-updated: 2026-08-09
+updated: 2026-08-10
 ---
 
 # Goal
@@ -137,8 +137,11 @@ Implementation complete locally. Pinned `JsonSchema.Net` `9.4.0` and upstream
 JCS commit `19d51d7fe467d4706a3ff08adf8a748f29fc21e0`. Added
 `FlexAgent.CanonicalJson`, contract/canonicalization test projects, minimal
 `contracts/` fixtures, architecture boundary tests, lock files, toolchain pins,
-and workspace gate documentation. All 36 .NET tests pass; supply-chain and docs
-checks pass locally. GitHub Actions confirmation for this artifact remains
+and workspace gate documentation. All 42 .NET tests pass; supply-chain, docs,
+and gitleaks checks pass locally. External code review on `790cfb8` remediated
+locally (wrapper isolation, nested property limits, arrays vector upstream
+test, expanded provenance manifest, per-component licenses, harness keyword
+ordering). GitHub Actions confirmation for the remediation commit remains
 pending.
 
 # Decisions
@@ -183,6 +186,21 @@ pending.
 - Review fix: array-length limits now use a per-array counter stack so nested
   object elements are counted correctly; negative-zero detection uses numeric
   sign instead of literal substring matching.
+- Review fix (`790cfb8`): upstream canonicalizer compiled from an
+  `internal`-visibility adapted copy; pristine verbatim snapshot retained under
+  `Upstream/Pristine/` (excluded from compile). Architecture test asserts the
+  complete assembly exported-type set.
+- Review fix: `MaxObjectProperties` uses a per-object counter stack so nested
+  objects cannot reset the parent property count.
+- Review fix: `arrays.json` is exercised by a dedicated upstream-reference test
+  (wrapper tests still skip top-level arrays per object-root policy).
+- Review fix: `upstream-manifest.json` inventories pristine sources, compiled
+  sources, and official vectors with SHA-256; provenance tests assert exact file
+  set equality with disk.
+- Review fix: `NOTICE.md` records per-component licenses (Apache-2.0, V8
+  BSD-3-Clause, MPL-2.0) and documented local visibility modifications.
+- Review fix: `SchemaKeywordProfile` checks `allowedKeywords` before structural
+  recursion so removed keywords are not implicitly allowed.
 - Review fix: `contracts/*` changes now trigger the Implementation workflow via
   `detect-implementation-changes.sh`; provenance files are copied into test
   output instead of relying on fragile relative source paths.
@@ -194,13 +212,14 @@ pending.
 | Prerequisite scaffold CI reconciliation | pass | Scaffold task records Implementation #10 green on `6cd7fc4`; local `verify-dotnet.sh` baseline green before implementation |
 | Red-phase schema harness tests | pass | Contract harness tests added before implementation; failures observed for missing dialect, wrong dialect, unsupported keyword |
 | Red-phase canonicalization and limit tests | pass | CanonicalJson tests added before implementation; failures observed for top-level array, duplicate keys, limits |
-| Focused contract/JCS tests | pass | `dotnet test --solution FlexAgent.slnx -c Release` — 37/37 passed |
-| Architecture dependency tests | pass | `CanonicalJsonBoundaryTests` — BCL-only references, hosts do not reference CanonicalJson, wrapper-only public API |
-| Official RFC/upstream vectors and provenance drift | pass | 5 object vectors byte-match; `ProvenanceTests` + `upstream-manifest.json` |
+| Focused contract/JCS tests | pass | `dotnet test --solution FlexAgent.slnx -c Release` — 42/42 passed |
+| Architecture dependency tests | pass | `CanonicalJsonBoundaryTests` — BCL-only references, hosts do not reference CanonicalJson, complete exported-type surface is wrapper-only |
+| Official RFC/upstream vectors and provenance drift | pass | 5 object vectors byte-match via wrapper; `arrays.json` via upstream reference test; `ProvenanceTests` + expanded `upstream-manifest.json` |
 | Malformed, boundary, and resource-limit cases | pass | `CanonicalJsonProcessorTests` |
-| Safe failure-content scan | pass | Synthetic secret marker absent from `CanonicalJsonException` and `SchemaCompatibilityException` messages |
+| Safe failure-content scan | pass | Runtime synthetic secret markers absent from `CanonicalJsonException` and `SchemaCompatibilityException` messages |
 | Locked full .NET/runtime regression | pass | `bash build/scripts/verify-dotnet.sh` |
 | Supply-chain and license regression | pass | `bash build/scripts/verify-supply-chain.sh` |
+| Gitleaks | pass | `gitleaks detect --source .` — no leaks found |
 | Documentation validation | pass | `python3 scripts/check_docs.py` |
 | Gate reconciliation | partial | `GATE-STACK-SCHEMA` and `GATE-STACK-JCS` partial (artifact 2); product schemas and ADR-001/ADR-004 fixtures deferred to artifact 3; CI rerun pending |
 

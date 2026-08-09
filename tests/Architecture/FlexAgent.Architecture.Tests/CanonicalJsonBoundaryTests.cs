@@ -37,12 +37,12 @@ public sealed class CanonicalJsonBoundaryTests
     }
 
     [Fact]
-    public void Application_public_surface_is_wrapper_only()
+    public void Assembly_exports_only_application_wrapper_surface()
     {
         var assembly = typeof(CanonicalJsonProcessor).Assembly;
-        var applicationTypes = assembly.GetExportedTypes()
-            .Where(type => type.Namespace?.StartsWith("FlexAgent.CanonicalJson", StringComparison.Ordinal) == true)
-            .Select(type => type.FullName)
+        var exportedTypes = assembly.GetExportedTypes()
+            .Select(type => type.FullName!)
+            .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
         Assert.Equal(
@@ -52,6 +52,6 @@ public sealed class CanonicalJsonBoundaryTests
                 "FlexAgent.CanonicalJson.CanonicalJsonLimits",
                 "FlexAgent.CanonicalJson.CanonicalJsonProcessor",
             ],
-            applicationTypes.OrderBy(name => name, StringComparer.Ordinal));
+            exportedTypes);
     }
 }

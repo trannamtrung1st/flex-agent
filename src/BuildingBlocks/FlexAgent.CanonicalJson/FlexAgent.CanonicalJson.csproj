@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="FlexAgent.CanonicalJson.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Upstream/Pristine/**" />
     <Compile Update="Upstream/**/*.cs">
       <Nullable>disable</Nullable>
     </Compile>

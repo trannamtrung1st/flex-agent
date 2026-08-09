@@ -28,7 +28,7 @@ using Org.Webpki.Es6NumberSerialization;
 
 namespace Org.Webpki.JsonCanonicalizer
 {
-    internal class JsonCanonicalizer
+    public class JsonCanonicalizer
     {
         StringBuilder buffer;
 

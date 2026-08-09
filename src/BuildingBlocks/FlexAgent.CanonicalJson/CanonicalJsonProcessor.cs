@@ -89,7 +89,7 @@ public static class CanonicalJsonProcessor
         }
 
         var objectPropertyNames = new Stack<HashSet<string>>();
-        var objectPropertyCount = 0;
+        var objectPropertyCounts = new Stack<int>();
         var containerKinds = new Stack<bool>();
         var arrayElementCounts = new Stack<int>();
 
@@ -122,11 +122,12 @@ public static class CanonicalJsonProcessor
 
                     containerKinds.Push(false);
                     objectPropertyNames.Push(new HashSet<string>(StringComparer.Ordinal));
-                    objectPropertyCount = 0;
+                    objectPropertyCounts.Push(0);
                     break;
 
                 case JsonTokenType.EndObject:
                     objectPropertyNames.Pop();
+                    objectPropertyCounts.Pop();
                     containerKinds.Pop();
                     break;
 
@@ -170,11 +171,13 @@ public static class CanonicalJsonProcessor
                         throw new CanonicalJsonException(CanonicalJsonFailureCategory.DuplicateProperty);
                     }
 
-                    objectPropertyCount++;
-                    if (objectPropertyCount > limits.MaxObjectProperties)
+                    var propertyCount = objectPropertyCounts.Pop() + 1;
+                    if (propertyCount > limits.MaxObjectProperties)
                     {
                         throw new CanonicalJsonException(CanonicalJsonFailureCategory.PropertyCountExceeded);
                     }
+
+                    objectPropertyCounts.Push(propertyCount);
 
                     break;
                 }

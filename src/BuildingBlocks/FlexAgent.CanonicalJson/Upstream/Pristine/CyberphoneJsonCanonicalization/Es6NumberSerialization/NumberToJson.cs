@@ -26,7 +26,7 @@ using System.Text;
 
 namespace Org.Webpki.Es6NumberSerialization
 {
-    internal static class NumberToJson
+    public static class NumberToJson
     {
         /*
          * Formats a JSON number according to ES6.
