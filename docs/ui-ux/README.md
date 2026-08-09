@@ -6,9 +6,8 @@ Product meaning and scope boundaries live under [product documentation](../produ
 
 ## Status
 
-**The platform Activity IA, end-to-end P0 assessment Campaign journey, and the
-assessment Campaign setup, Submission and Attempt, Text Session, and Evidence,
-Evaluation, and Human Review interaction specifications are approved.** All seven
+**The platform Activity IA, end-to-end P0 assessment Campaign journey, and all
+five P0 surface interaction specifications are approved.** All seven
 P0 feature specifications, the
 [MVP operational defaults](../requirements/mvp-operational-defaults.md), and the
 [MVP architecture](../architecture/mvp-architecture.md) are approved, so entry
@@ -19,8 +18,9 @@ and the approved
 [Submission and Attempt](submission-attempt.md) and
 [Text Session](text-session.md) and
 [Evidence, Evaluation, and Human Review](evidence-evaluation-human-review.md)
-interaction specifications; then author the remaining Result and Release
-interaction specification and design-system guidance. Every state and
+interaction specifications and the approved
+[Result and Release](result-release.md) interaction specification; then author
+design-system guidance. Every state and
 interaction must trace to the owning `AC-*` criteria
 and preserve the SPA/server authority boundary defined by `AR-DEC-12`.
 
@@ -60,6 +60,7 @@ UI/UX documents implement and extend approved requirements; they do not override
 | [Submission and Attempt interaction specification](submission-attempt.md) | P0 surface interaction specification | Approved | Administrator Enrollment and fairness-exception approval interaction; Participant Submission preparation, intake, immutable accepted versions, Attempt readiness/start/recovery, accessibility, responsive, and protected-content behavior |
 | [Text Session interaction specification](text-session.md) | P0 surface interaction specification | Approved | Participant pre-start acknowledgment, committed Session entry, durable token-by-token Agent-response streaming, Agent work state, timing, reconnect, partial-stream recovery, pause, completion, terminal transcript access, administrator control, accessibility, responsive, and protected-content behavior |
 | [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md) | P0 surface interaction specification | Approved | Assigned Review work, Evaluation processing and candidate lineage, criterion/Evidence inspection, optional Human revision, Review decision, and Result-ready/not-released handoff |
+| [Result and Release interaction specification](result-release.md) | P0 surface interaction specification | Approved | Release work, immutable Result preview, explicit Release confirmation and reconciliation, Participant pre-release/released/corrected/unavailable Results, notification handoff, accessibility, responsive behavior, and protected-content interaction |
 
 ## Related documents
 

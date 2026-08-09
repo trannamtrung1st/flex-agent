@@ -656,7 +656,7 @@ progress.
 Terminal views never show or imply internal Evaluation state, reviewer activity,
 score, pass/fail outcome, Result availability, or Release time. If participant-
 facing Results are later released, their navigation and content belong to the
-Result and Release interaction specification.
+[Result and Release interaction specification](result-release.md).
 
 ### Read-only terminal transcript
 
@@ -979,8 +979,9 @@ streaming decision, were approved on 2026-08-09.
 - The approved [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md)
   consumes only the authorized immutable terminal transcript/cutoff and does
   not add live-Session controls or expose review state to the Participant.
-- The Result and Release interaction specification must keep Session completion
-  neutral until an independently authorized Release makes a Result visible.
+- The approved [Result and Release interaction specification](result-release.md)
+  keeps Session completion neutral until an independently authorized Release
+  makes a Result visible.
 - The design-system foundation should extract repeated status, transcript,
   composer, warning, dialog, protected-content, and responsive-record patterns
   without weakening the authority or privacy boundaries in this specification.

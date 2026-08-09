@@ -1005,9 +1005,9 @@ None. `PROP-UI-REV-1`–`PROP-UI-REV-12` were approved on 2026-08-09.
 
 ## Downstream gaps and review needed
 
-- The Result and Release interaction specification must consume the exact
-  **Result ready · Not released** handoff without adding a Release action here
-  or redefining the preview payload.
+- The approved [Result and Release interaction specification](result-release.md)
+  consumes the exact **Result ready · Not released** handoff without adding a
+  Release action here or redefining the preview payload.
 - The design-system foundation must define reusable status, criterion list,
   source viewer, structured difference, confirmation, error summary, protected
   content, and responsive stacked-record patterns identified here.

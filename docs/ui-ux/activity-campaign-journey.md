@@ -232,7 +232,7 @@ exact participant-facing Result. Only then can the Participant view it.
 | `JRN-MVP-4` | Conduct text Session | Participant; authorized Session controller for exceptional control | Active Session | Immutable terminal Session state and transcript cutoff | [Text Session interaction specification](text-session.md) |
 | `JRN-MVP-5` | Produce and inspect Evaluation | Platform services; assigned Reviewer | Eligible completed Session handoff | Immutable internal Evaluation with exact Evidence, or an honest pending/failure/review-required state | [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md) |
 | `JRN-MVP-6` | Review and decide | Assigned Reviewer | Eligible selected Evaluation and active assignment | Immutable `Approved`, `Rejected`, or `Escalated` Review decision; optional Human revision remains separate | [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md) |
-| `JRN-MVP-7` | Release and view Result | Release-authorized actor; Participant | Exact approved decision and valid Result | One auditable Release; Participant can view only the released Result | Result and Release interaction specification |
+| `JRN-MVP-7` | Release and view Result | Release-authorized actor; Participant | Exact approved decision and valid Result | One auditable Release; Participant can view only the released Result | [Result and Release interaction specification](result-release.md) |
 
 ## Journey details
 
@@ -688,7 +688,7 @@ identifiers are retained for history.
 | `Q-UX-1` | Use **Activities** for platform navigation; identify `Campaign` as form and `Assessment` as the P0 type/use case. | Navigation remains suitable for future non-Campaign Activity forms. |
 | `Q-UX-2` | Do not provide a general Organization switcher in P0. | Multi-Organization context change requires a later approved authentication and unsaved-work contract. |
 | `Q-UX-3` | Keep Review and Release as separate destinations and permission boundaries. | Approval and participant visibility remain visibly distinct. |
-| `Q-UX-4` | Participant Result views show only the frozen Result schema, authoritative Release time, correction status, and an Organization-configured support route when present. | The Result interaction specification must define exact copy and empty/unavailable presentation without adding fields. |
+| `Q-UX-4` | Participant Result views show only the frozen Result schema, authoritative Release time, correction status, and an Organization-configured support route when present. | The approved [Result and Release interaction specification](result-release.md) defines exact copy and empty/unavailable presentation without adding fields. |
 | `Q-UX-5` | Show assigned cases only; expose claim or reassignment only when the server returns a separately authorized bounded action. | Avoids a general case-search/staffing feature and reduces cross-Participant discovery risk. |
 | `Q-UX-6` | Use WCAG 2.2 AA as the contractual target. | Detailed interaction specifications and verification must map applicable success criteria to evidence. |
 | `Q-UX-7` | Use the ordered Home priority bands and server-authoritative tie rules in `IA-MVP-1`. | Preserves Session continuity and urgency without leaking or trusting client-derived state. |
@@ -708,8 +708,8 @@ None.
 | `JRN-MVP-4` | `AC-SESS-1`–`AC-SESS-32`; `AC-RSC-12`–`AC-RSC-17`; `AC-AUTH-19` | Approved [Text Session interaction specification](text-session.md) | Instructions, acknowledgment, message order, durable token streaming, partial recovery, retry, reconnect, timer, pause, terminal states, untrusted content, responsive/a11y evidence |
 | `JRN-MVP-5` | `AC-EVAL-1`–`AC-EVAL-38`; `AC-REV-1`–`AC-REV-5` | Approved [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md) | Queue/running/failure states, exact Evidence navigation, integrity/unavailable states, evaluator provenance/conflict, assignment revocation, responsive/a11y evidence |
 | `JRN-MVP-6` | `AC-REV-1`–`AC-REV-20`; `AC-EVAL-19`–`AC-EVAL-23` | Approved [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md) | Unchanged approval, Human revision, rejection, escalation, stale/concurrent decisions, internal/participant content separation, audit failure |
-| `JRN-MVP-7` | `AC-REL-1`–`AC-REL-15`; `AC-AUTH-18`, `AC-AUTH-23`; `AC-REV-16`–`AC-REV-20` | Result and Release interaction specification | Independent Release authority, confirmation, idempotency/conflict/audit failure, neutral pre-release, own released Result, correction/unavailable states |
-| `UX-MVP-3` | `AC-EVAL-20`, `AC-REV-6`–`AC-REV-9`, `AC-REL-1`–`AC-REL-5` | Evaluation/review and Result/Release specifications | Assertions that Evaluation, revision, decision, Result, and Release labels/actions never collapse or leak |
+| `JRN-MVP-7` | `AC-REL-1`–`AC-REL-15`; `AC-AUTH-18`, `AC-AUTH-23`; `AC-REV-16`–`AC-REV-20` | Approved [Result and Release interaction specification](result-release.md) | Independent Release authority, confirmation, idempotency/conflict/audit failure, neutral pre-release, own released Result, correction/unavailable states |
+| `UX-MVP-3` | `AC-EVAL-20`, `AC-REV-6`–`AC-REV-9`, `AC-REL-1`–`AC-REL-5` | Approved Evaluation/review and [Result/Release](result-release.md) specifications | Assertions that Evaluation, revision, decision, Result, and Release labels/actions never collapse or leak |
 | `UX-MVP-4` and security/privacy controls | `AC-AUTH-2`–`AC-AUTH-24`; `AC-SUBM-18`–`AC-SUBM-21`, `AC-SUBM-26`, `AC-SUBM-28`; `AC-SESS-8`, `AC-SESS-14`, `AC-SESS-26`, `AC-SESS-29`; `AC-EVAL-21`–`AC-EVAL-27`, `AC-EVAL-30`; `AC-REV-4`–`AC-REV-5`, `AC-REV-9`, `AC-REV-12`, `AC-REL-9`, `AC-REL-12`, `AC-REV-16`, `AC-REV-19` | Every detailed interaction specification plus untrusted-content and protected-source patterns | Wrong-Organization/Participant/assignment/deep-link tests, content-injection tests, no loading/error leakage, authorized preview/download tests, artifact inspection |
 
 ## Downstream authoring order
@@ -720,7 +720,7 @@ This approved journey is followed by these bounded documents:
 2. [Submission and Attempt interaction specification](submission-attempt.md) — Approved.
 3. [Text Session interaction specification](text-session.md) — Approved.
 4. [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md) — Approved.
-5. Result and Release interaction specification.
+5. [Result and Release interaction specification](result-release.md) — Approved.
 6. Design-system foundation and shared content/accessibility patterns, refined
    as the interaction specifications identify repeated needs.
 

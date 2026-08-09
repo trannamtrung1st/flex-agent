@@ -33,10 +33,11 @@ Session publication boundary is revised by
 [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md). The cross-cutting
 [MVP operational defaults](../requirements/mvp-operational-defaults.md) resolve
 upload, application-session, lifecycle, and recovery-placement policy. The
-remaining Result/Release interaction contract and shared UI design-system
+approved [Result and Release interaction specification](../ui-ux/result-release.md)
+completes the P0 surface interaction set. Remaining shared UI design-system
 guidance, ADR-008 component compatibility evidence, machine-readable contract
-schemas/fixtures, and production evidence
-remain staged work as mapped in the approved overview.
+schemas/fixtures, and production evidence remain staged work as mapped in the
+approved overview.
 
 [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md)
 approves the .NET 10/ASP.NET Core API and worker, React/Vite SPA,

@@ -323,7 +323,7 @@ Events use UTC plus authoritative sequence or equivalent ordering. They contain 
 - Criterion and Evidence views must be fully keyboard operable, use programmatic headings and landmarks, preserve logical focus, expose status announcements, and avoid inaccessible custom tables or split panes.
 - At narrow widths and 400 percent zoom, the reviewer must be able to inspect one criterion and its Evidence sequentially without hidden actions, two-dimensional scrolling for ordinary text, or loss of source/version context.
 - Exact source content, provisional feedback, hidden rubric detail, and model/configuration provenance must be progressively disclosed according to current authorization and reviewer need.
-- WCAG 2.2 AA and the detailed Reviewer interaction contract are approved in the [Evidence, Evaluation, and Human Review interaction specification](../../ui-ux/evidence-evaluation-human-review.md). Implementation and Playwright evidence remain downstream traceability gaps; Release interactions remain owned by the separate Result and Release interaction specification.
+- WCAG 2.2 AA and the detailed Reviewer interaction contract are approved in the [Evidence, Evaluation, and Human Review interaction specification](../../ui-ux/evidence-evaluation-human-review.md). Implementation and Playwright evidence remain downstream traceability gaps; Release interactions are governed by the approved [Result and Release interaction specification](../../ui-ux/result-release.md).
 
 ### Performance and reliability
 

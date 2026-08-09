@@ -23,13 +23,15 @@ OSS-first self-hostable
 [Session](../architecture/session-runtime-contract.md),
 [Evaluation](../architecture/evaluation-execution-contract.md), and
 [Review/Release](../architecture/review-result-release-contract.md) contracts are
-approved. Complete the compatibility evidence required by approved
+approved. The P0 Activity journey and all five P0 surface interaction
+specifications, including [Result and Release](../ui-ux/result-release.md), are
+also approved. Complete the compatibility evidence required by approved
 [ADR-008](../architecture/decisions/ADR-008-bounded-oss-component-set.md),
 including qualification of each enabled provider deployment profile and
 provider-credential/Organization-endpoint isolation, plus machine-readable
-contract schemas/fixtures, the remaining Result and Release interaction
-specification, and shared design-system guidance under
-[UI/UX](../ui-ux/README.md); then implement and verify the
+contract schemas/fixtures and shared design-system guidance under
+[UI/UX](../ui-ux/README.md); then apply the approved interaction specifications
+and implement and verify the
 [MVP executable workflow](mvp-scope.md#mvp-executable-workflow) with
 specification-driven TDD.
 
