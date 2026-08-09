@@ -201,9 +201,9 @@ pending.
   BSD-3-Clause, MPL-2.0) and documented local visibility modifications.
 - Review fix: `SchemaKeywordProfile` checks `allowedKeywords` before structural
   recursion so removed keywords are not implicitly allowed.
-- Review fix: `contracts/*` changes now trigger the Implementation workflow via
-  `detect-implementation-changes.sh`; provenance files are copied into test
-  output instead of relying on fragile relative source paths.
+- Review fix (`d369500`): explicit `Compile Include` for vendored sources closes
+  accidental compile-inventory hole; per-file license attribution corrected
+  (V8 BSD vs MPL/Lucent); `localModifications` metadata scoped per file.
 
 # Verification
 
@@ -212,7 +212,7 @@ pending.
 | Prerequisite scaffold CI reconciliation | pass | Scaffold task records Implementation #10 green on `6cd7fc4`; local `verify-dotnet.sh` baseline green before implementation |
 | Red-phase schema harness tests | pass | Contract harness tests added before implementation; failures observed for missing dialect, wrong dialect, unsupported keyword |
 | Red-phase canonicalization and limit tests | pass | CanonicalJson tests added before implementation; failures observed for top-level array, duplicate keys, limits |
-| Focused contract/JCS tests | pass | `dotnet test --solution FlexAgent.slnx -c Release` — 42/42 passed |
+| Focused contract/JCS tests | pass | `dotnet test --solution FlexAgent.slnx -c Release` — 43/43 passed |
 | Architecture dependency tests | pass | `CanonicalJsonBoundaryTests` — BCL-only references, hosts do not reference CanonicalJson, complete exported-type surface is wrapper-only |
 | Official RFC/upstream vectors and provenance drift | pass | 5 object vectors byte-match via wrapper; `arrays.json` via upstream reference test; `ProvenanceTests` + expanded `upstream-manifest.json` |
 | Malformed, boundary, and resource-limit cases | pass | `CanonicalJsonProcessorTests` |

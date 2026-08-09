@@ -34,7 +34,29 @@ public sealed class ProvenanceTests
             EnumerateProjectFiles("Upstream/CyberphoneJsonCanonicalization")
                 .Concat(["Upstream/LICENSE"])
                 .OrderBy(path => path, StringComparer.Ordinal));
+        AssertCompiledSourceMetadata(root.GetProperty("compiledSources"));
         AssertOfficialVectors(root.GetProperty("officialVectors"));
+    }
+
+    [Fact]
+    public void Project_file_compiles_only_manifested_upstream_sources()
+    {
+        var projectPath = Path.Combine(CanonicalJsonProjectRoot, "FlexAgent.CanonicalJson.csproj");
+        var projectXml = File.ReadAllText(projectPath);
+        Assert.Contains("<Compile Remove=\"Upstream/**/*.cs\" />", projectXml, StringComparison.Ordinal);
+        Assert.Contains(
+            "<Compile Include=\"Upstream/CyberphoneJsonCanonicalization/**/*.cs\">",
+            projectXml,
+            StringComparison.Ordinal);
+
+        var unexpectedUpstreamSources = Directory
+            .EnumerateFiles(Path.Combine(CanonicalJsonProjectRoot, "Upstream"), "*.cs", SearchOption.AllDirectories)
+            .Select(path => Path.GetRelativePath(CanonicalJsonProjectRoot, path).Replace('\\', '/'))
+            .Where(path => !path.StartsWith("Upstream/Pristine/", StringComparison.Ordinal)
+                && !path.StartsWith("Upstream/CyberphoneJsonCanonicalization/", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Empty(unexpectedUpstreamSources);
     }
 
     [Fact]
@@ -46,6 +68,8 @@ public sealed class ProvenanceTests
         Assert.Contains("Upstream/Pristine/", notice, StringComparison.Ordinal);
         Assert.Contains("internal class", notice, StringComparison.Ordinal);
         Assert.Contains("BSD-3-Clause", notice, StringComparison.Ordinal);
+        Assert.Contains("MPL-2.0", notice, StringComparison.Ordinal);
+        Assert.Contains("Lucent permissive", notice, StringComparison.Ordinal);
         Assert.Contains("upstream-manifest.json", notice, StringComparison.Ordinal);
     }
 
@@ -74,6 +98,37 @@ public sealed class ProvenanceTests
             var filePath = Path.Combine(CanonicalJsonProjectRoot, fileEntry.Name);
             var actualHash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(filePath))).ToLowerInvariant();
             Assert.Equal(expectedHash, actualHash);
+        }
+    }
+
+    private static void AssertCompiledSourceMetadata(JsonElement compiledSources)
+    {
+        foreach (var fileEntry in compiledSources.EnumerateObject())
+        {
+            var entry = fileEntry.Value;
+            Assert.True(entry.TryGetProperty("licenses", out var licenses));
+            Assert.NotEmpty(licenses.EnumerateArray());
+
+            var modifications = entry.GetProperty("localModifications").EnumerateArray()
+                .Select(element => element.GetString()!)
+                .ToArray();
+
+            if (fileEntry.Name.EndsWith("/JsonCanonicalizer.cs", StringComparison.Ordinal))
+            {
+                Assert.Single(modifications);
+                Assert.Contains("JsonCanonicalizer", modifications[0], StringComparison.Ordinal);
+                Assert.DoesNotContain("NumberToJson", modifications[0], StringComparison.Ordinal);
+            }
+            else if (fileEntry.Name.EndsWith("/NumberToJson.cs", StringComparison.Ordinal))
+            {
+                Assert.Single(modifications);
+                Assert.Contains("NumberToJson", modifications[0], StringComparison.Ordinal);
+                Assert.DoesNotContain("JsonCanonicalizer", modifications[0], StringComparison.Ordinal);
+            }
+            else
+            {
+                Assert.Empty(modifications);
+            }
         }
     }
 

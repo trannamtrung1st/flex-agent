@@ -11,8 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="Upstream/Pristine/**" />
-    <Compile Update="Upstream/**/*.cs">
+    <Compile Remove="Upstream/**/*.cs" />
+    <Compile Include="Upstream/CyberphoneJsonCanonicalization/**/*.cs">
       <Nullable>disable</Nullable>
     </Compile>
   </ItemGroup>

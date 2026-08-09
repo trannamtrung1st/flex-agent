@@ -4,20 +4,12 @@
   "components": [
     {
       "name": "json-canonicalizer",
-      "licenses": [
-        "Apache-2.0"
-      ],
       "upstreamPaths": [
         "dotnet/jsoncanonicalizer/JsonCanonicalizer.cs"
       ]
     },
     {
       "name": "es6-number-serialization",
-      "licenses": [
-        "Apache-2.0",
-        "BSD-3-Clause (V8 project, see file headers)",
-        "MPL-2.0 (see NumberFastDToA.cs header)"
-      ],
       "upstreamPaths": [
         "dotnet/es6numberserializer/NumberCachedPowers.cs",
         "dotnet/es6numberserializer/NumberDToA.cs",
@@ -30,9 +22,6 @@
     },
     {
       "name": "upstream-license",
-      "licenses": [
-        "Apache-2.0"
-      ],
       "upstreamPaths": [
         "LICENSE"
       ]
@@ -42,47 +31,75 @@
     "Upstream/Pristine/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberCachedPowers.cs": {
       "upstreamPath": "dotnet/es6numberserializer/NumberCachedPowers.cs",
       "sha256": "659174e3f8b2a3c69435538bbf30fa8781a584a209f1a962cd5514a8c0d1fd79",
-      "sizeBytes": 8882
+      "sizeBytes": 8882,
+      "licenses": [
+        "BSD-3-Clause (V8 project)"
+      ]
     },
     "Upstream/Pristine/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberDToA.cs": {
       "upstreamPath": "dotnet/es6numberserializer/NumberDToA.cs",
       "sha256": "f6c215b6787efa3871cf581c08cd645520066704e5a78a9c02856d5c448688cb",
-      "sizeBytes": 45874
+      "sizeBytes": 45874,
+      "licenses": [
+        "MPL-2.0",
+        "Lucent permissive (David M. Gay, see file header)"
+      ]
     },
     "Upstream/Pristine/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberDiyFp.cs": {
       "upstreamPath": "dotnet/es6numberserializer/NumberDiyFp.cs",
       "sha256": "be3a14af2fec6086f234e3cf06a90edb98cbdbef58447432485b3cac1684c3b5",
-      "sizeBytes": 6277
+      "sizeBytes": 6277,
+      "licenses": [
+        "BSD-3-Clause (V8 project)"
+      ]
     },
     "Upstream/Pristine/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberDoubleHelper.cs": {
       "upstreamPath": "dotnet/es6numberserializer/NumberDoubleHelper.cs",
       "sha256": "898c6ceee1025af51ba6abdd2111bc24e209857a23d53601edf699db9a1612df",
-      "sizeBytes": 6216
+      "sizeBytes": 6216,
+      "licenses": [
+        "BSD-3-Clause (V8 project)"
+      ]
     },
     "Upstream/Pristine/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberFastDToA.cs": {
       "upstreamPath": "dotnet/es6numberserializer/NumberFastDToA.cs",
       "sha256": "cbe35d5ed16acd05889d6fe9ffd052964cf06ffd831b13f21bfec61f6d548dc3",
-      "sizeBytes": 28601
+      "sizeBytes": 28601,
+      "licenses": [
+        "BSD-3-Clause (V8 project)"
+      ]
     },
     "Upstream/Pristine/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberFastDToABuilder.cs": {
       "upstreamPath": "dotnet/es6numberserializer/NumberFastDToABuilder.cs",
       "sha256": "82b39967c220a5bed069b36839a7d7993e907a668cc03b356939fd3f79b3742a",
-      "sizeBytes": 4142
+      "sizeBytes": 4142,
+      "licenses": [
+        "MPL-2.0"
+      ]
     },
     "Upstream/Pristine/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberToJson.cs": {
       "upstreamPath": "dotnet/es6numberserializer/NumberToJson.cs",
       "sha256": "aecd29efdaa1a193e43d5535d4efeb294314b5cbd436c70a8399b6040a0b0f6a",
-      "sizeBytes": 2092
+      "sizeBytes": 2092,
+      "licenses": [
+        "Apache-2.0"
+      ]
     },
     "Upstream/Pristine/CyberphoneJsonCanonicalization/JsonCanonicalizer.cs": {
       "upstreamPath": "dotnet/jsoncanonicalizer/JsonCanonicalizer.cs",
       "sha256": "234982a675b3d6ff12522bcbd823d3e6e0ccbe543029a6ff094da7401a844a29",
-      "sizeBytes": 12505
+      "sizeBytes": 12505,
+      "licenses": [
+        "Apache-2.0"
+      ]
     },
     "Upstream/Pristine/LICENSE": {
       "upstreamPath": "LICENSE",
       "sha256": "6821faaddedf2d78c95bb6d98b127e9e616097afd2f6bcc34389f000d13ab12d",
-      "sizeBytes": 600
+      "sizeBytes": 600,
+      "licenses": [
+        "Apache-2.0"
+      ]
     }
   },
   "compiledSources": {
@@ -90,61 +107,87 @@
       "upstreamPath": "dotnet/es6numberserializer/NumberCachedPowers.cs",
       "localModifications": [],
       "sha256": "659174e3f8b2a3c69435538bbf30fa8781a584a209f1a962cd5514a8c0d1fd79",
-      "sizeBytes": 8882
+      "sizeBytes": 8882,
+      "licenses": [
+        "BSD-3-Clause (V8 project)"
+      ]
     },
     "Upstream/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberDToA.cs": {
       "upstreamPath": "dotnet/es6numberserializer/NumberDToA.cs",
       "localModifications": [],
       "sha256": "f6c215b6787efa3871cf581c08cd645520066704e5a78a9c02856d5c448688cb",
-      "sizeBytes": 45874
+      "sizeBytes": 45874,
+      "licenses": [
+        "MPL-2.0",
+        "Lucent permissive (David M. Gay, see file header)"
+      ]
     },
     "Upstream/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberDiyFp.cs": {
       "upstreamPath": "dotnet/es6numberserializer/NumberDiyFp.cs",
       "localModifications": [],
       "sha256": "be3a14af2fec6086f234e3cf06a90edb98cbdbef58447432485b3cac1684c3b5",
-      "sizeBytes": 6277
+      "sizeBytes": 6277,
+      "licenses": [
+        "BSD-3-Clause (V8 project)"
+      ]
     },
     "Upstream/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberDoubleHelper.cs": {
       "upstreamPath": "dotnet/es6numberserializer/NumberDoubleHelper.cs",
       "localModifications": [],
       "sha256": "898c6ceee1025af51ba6abdd2111bc24e209857a23d53601edf699db9a1612df",
-      "sizeBytes": 6216
+      "sizeBytes": 6216,
+      "licenses": [
+        "BSD-3-Clause (V8 project)"
+      ]
     },
     "Upstream/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberFastDToA.cs": {
       "upstreamPath": "dotnet/es6numberserializer/NumberFastDToA.cs",
       "localModifications": [],
       "sha256": "cbe35d5ed16acd05889d6fe9ffd052964cf06ffd831b13f21bfec61f6d548dc3",
-      "sizeBytes": 28601
+      "sizeBytes": 28601,
+      "licenses": [
+        "BSD-3-Clause (V8 project)"
+      ]
     },
     "Upstream/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberFastDToABuilder.cs": {
       "upstreamPath": "dotnet/es6numberserializer/NumberFastDToABuilder.cs",
       "localModifications": [],
       "sha256": "82b39967c220a5bed069b36839a7d7993e907a668cc03b356939fd3f79b3742a",
-      "sizeBytes": 4142
+      "sizeBytes": 4142,
+      "licenses": [
+        "MPL-2.0"
+      ]
     },
     "Upstream/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberToJson.cs": {
       "upstreamPath": "dotnet/es6numberserializer/NumberToJson.cs",
       "localModifications": [
-        "JsonCanonicalizer: public -> internal",
-        "NumberToJson: public static -> internal static"
+        "NumberToJson: public static class -> internal static class"
       ],
       "sha256": "f36fa4b3cd668224612d7bb47b2d60680693f57c6eaa14159747520f78bd7dc0",
-      "sizeBytes": 2094
+      "sizeBytes": 2094,
+      "licenses": [
+        "Apache-2.0"
+      ]
     },
     "Upstream/CyberphoneJsonCanonicalization/JsonCanonicalizer.cs": {
       "upstreamPath": "dotnet/jsoncanonicalizer/JsonCanonicalizer.cs",
       "localModifications": [
-        "JsonCanonicalizer: public -> internal",
-        "NumberToJson: public static -> internal static"
+        "JsonCanonicalizer: public class -> internal class"
       ],
       "sha256": "7df7b2f5d7c4046a234432f7528ca11cc2a30cace6a94af2e7cabdbb054998bf",
-      "sizeBytes": 12507
+      "sizeBytes": 12507,
+      "licenses": [
+        "Apache-2.0"
+      ]
     },
     "Upstream/LICENSE": {
       "upstreamPath": "LICENSE",
       "localModifications": [],
       "sha256": "6821faaddedf2d78c95bb6d98b127e9e616097afd2f6bcc34389f000d13ab12d",
-      "sizeBytes": 600
+      "sizeBytes": 600,
+      "licenses": [
+        "Apache-2.0"
+      ]
     }
   },
   "officialVectors": {
