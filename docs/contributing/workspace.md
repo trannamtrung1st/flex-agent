@@ -126,13 +126,14 @@ deploy them.
 ## CI
 
 - [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml) — documentation validation
-- [`.github/workflows/implementation.yml`](../../.github/workflows/implementation.yml) — locked restore/build/test, web checks, supply-chain evidence, and multi-architecture OCI builds. Expensive jobs run only when implementation-relevant paths change (see [`build/scripts/detect-implementation-changes.sh`](../../build/scripts/detect-implementation-changes.sh)).
+- [`.github/workflows/implementation.yml`](../../.github/workflows/implementation.yml) — locked restore/build/test, web checks, supply-chain evidence, and **linux/amd64** OCI builds on every implementation-relevant change (see [`build/scripts/detect-implementation-changes.sh`](../../build/scripts/detect-implementation-changes.sh))
+- [`.github/workflows/architecture-certification.yml`](../../.github/workflows/architecture-certification.yml) — **non-blocking** weekly/manual **linux/arm64** OCI certification; required before claiming `arm64` release support (see [ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#oci-platform-certification))
 
 ## Gate coverage in this scaffold
 
 | Gate | Status in this artifact |
 | --- | --- |
-| `GATE-STACK-RUNTIME` | Partial — local/API/worker/SPA build, health endpoints, publish, and one API OCI build verified locally; CI covers multi-architecture builds |
+| `GATE-STACK-RUNTIME` | Partial — local/API/worker/SPA build, health endpoints, publish, and OCI runtime inspection verified locally on the developer host architecture; blocking CI enforces **linux/amd64** OCI builds; **linux/arm64** is deferred to non-blocking architecture certification |
 | `GATE-STACK-MODULES` | Partial — architecture and browser/backend boundary checks only |
 | `GATE-STACK-SUPPLY` | Partial — lock files, checksum-verified scanner install, shipped-artifact SBOM/Grype/Gitleaks, and license inventory pass locally; GitHub Actions evidence still required for acceptance |
 | `GATE-STACK-OPERABILITY` | Partial — liveness/readiness and graceful work-claim stop only |

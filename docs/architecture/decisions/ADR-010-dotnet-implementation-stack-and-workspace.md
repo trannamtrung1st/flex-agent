@@ -135,6 +135,23 @@ are the review baseline, not permission to use floating ranges. Any dependency
 that fails a verification gate must return to review rather than being silently
 substituted.
 
+## OCI platform certification
+
+Linux `amd64` is the required continuous-development target. The blocking
+`Implementation` workflow builds and verifies API, worker, and SPA OCI images for
+`linux/amd64` on every implementation-relevant push and pull request.
+
+Linux `arm64` remains a supported release target. A release or deployment
+profile may claim `arm64` support only after the applicable `arm64`
+certification workflow passes. `arm64` certification does not block every
+development commit. The non-blocking
+[`architecture-certification`](../../../.github/workflows/architecture-certification.yml)
+workflow runs on a weekly schedule and on manual dispatch.
+
+ADR-008 continues to treat multi-architecture portability as a design goal;
+continuous integration enforces `amd64`, while `arm64` evidence is collected
+through release certification rather than per-commit gating.
+
 ## Approved workspace direction
 
 ```text
@@ -289,7 +306,7 @@ to imitate a template.
 
 | ID | Gate | Required evidence |
 | --- | --- | --- |
-| `GATE-STACK-RUNTIME` | Runtime compatibility | Minimal API, worker, and SPA build; clean startup, readiness, graceful shutdown, and publish on supported Linux `amd64` and `arm64` CI or documented equivalent evidence |
+| `GATE-STACK-RUNTIME` | Runtime compatibility | Minimal API, worker, and SPA build; clean startup, readiness, graceful shutdown, and publish on supported Linux `amd64` in the blocking `Implementation` workflow; `arm64` OCI build evidence from the non-blocking architecture-certification workflow before claiming `arm64` release support |
 | `GATE-STACK-SCHEMA` | Schema compatibility | Representative command, event, canonical manifest, Evidence locator, audit event, error response, and SSE event validate through `JsonSchema.Net` from canonical schemas that declare Draft 2020-12; the runtime explicitly selects that dialect; derived C#/browser types and OpenAPI reproduce cleanly; preview-dialect, unexpected-keyword, and unsupported-keyword tests fail closed |
 | `GATE-STACK-JCS` | Canonicalization | The separate project records and preserves the exact vendored source commit and Apache-2.0 notices; official upstream/RFC 8785 vectors plus ADR-001, ADR-004, and Evidence-set cross-language fixtures reproduce byte-for-byte canonical UTF-8 and lowercase SHA-256 values; malformed input, verified errata, boundary, and resource-limit tests fail closed |
 | `GATE-STACK-HTTP` | HTTP and serialization | Contract tests prove body non-coercion, unknown-field rejection, bounded query/path parsing, safe error mapping, payload/connection limits, OIDC/session behavior, and no sensitive response-field leakage |
