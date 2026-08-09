@@ -63,7 +63,8 @@ A recognizable Flex Agent workspace often includes at least two of these where a
 - dark outer canvas around slightly lighter work planes
 - one active blue signal rail indicating current context
 - compact telemetry aligned to edges or headers
-- Agent Core anchor in agent/session interaction surfaces
+- Agent Core and bounded AI Observation Glass anchor in Agent/Session
+  interaction surfaces
 - precise split-pane boundaries
 - faint grid/dither only in intentionally empty or identity-bearing regions
 

@@ -9,12 +9,18 @@ The participant should feel they are **speaking with a present, responsive AI sy
 A live interaction surface typically contains:
 
 1. compact session/agent telemetry
-2. Agent Core or compact agent-presence anchor
+2. Agent Core within a bounded AI Observation Glass viewport or a compact
+   Agent-presence anchor
 3. conversation timeline
 4. current input/voice control zone
 5. optional contextual task/evidence panel
 
 Use a conversation timeline rather than left/right speech bubbles.
+
+The viewport establishes the feeling of addressing an onboard intelligence;
+the transcript and composer remain on stable readable planes in front of or
+adjacent to it. Do not place long conversation text beneath glass blur,
+reflection, dither, or animated fields.
 
 ## Conversational Turn Anatomy
 

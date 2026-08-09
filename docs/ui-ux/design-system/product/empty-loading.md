@@ -32,6 +32,8 @@ Use a stable command-deck shell with agent context rail, clear agent header with
 This is the most expressive application surface and should deliver the strongest starship-AI feeling:
 
 - Primary or Compact Agent Core anchored above/near the conversation
+- bounded AI Observation Glass framing the Agent focal plane without obscuring
+  transcript or controls
 - session/voice telemetry rail
 - readable auditable conversation timeline
 - integrated text + voice interaction zone

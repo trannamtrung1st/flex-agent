@@ -74,8 +74,9 @@ less perceivable, operable, understandable, or robust.
 - Avoid flashes, rapid high-contrast sweeps, and motion unrelated to state.
 - Voice and audio controls require visible state and an equivalent non-audio
   path where the owning feature specification requires one.
-- Decorative Agent Core and dither imagery uses empty alternative text or the
-  equivalent hidden presentation. State text carries meaning.
+- Decorative Agent Core, Observation Glass reflection, and dither imagery use
+  empty alternative text or the equivalent hidden presentation. State text
+  carries meaning.
 
 ## Verification
 

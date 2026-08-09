@@ -180,10 +180,10 @@ The P0 Activity journey and all five P0 surface interaction specifications,
 including [Result and Release](../ui-ux/result-release.md), are also approved.
 Complete ADR-008's applicable compatibility and provider-credential evidence,
 qualify at least one concrete provider deployment profile for each claimed
-execution profile without making its model a product dependency, complete the
-remaining machine-readable schemas/fixtures, and review and approve the shared
-[design system](../ui-ux/design-system/README.md); then apply the approved interaction
-specifications and proceed with
+execution profile without making its model a product dependency, and complete
+the remaining machine-readable schemas/fixtures; then apply the approved
+[design system](../ui-ux/design-system/README.md) and interaction specifications
+and proceed with
 specification-driven implementation and end-to-end verification while
 preserving the approved product scope and feature boundaries.
 

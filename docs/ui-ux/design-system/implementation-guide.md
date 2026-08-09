@@ -128,6 +128,9 @@ motion, dither, status, buttons, and inputs.
   pattern.
 - Live cyan, Agent Core motion, streaming markers, and voice signals reflect
   authoritative real state.
+- AI Observation Glass creates one bounded Agent focal plane without placing
+  transcript, form, table, Evidence, or review content beneath blur, reflection,
+  texture, or motion.
 - Product concepts remain distinct: Evaluation, Human revision, Review
   decision, Result, and Release are never collapsed.
 - When the app is runnable, accessibility snapshots and desktop/narrow

@@ -2,18 +2,20 @@
 
 ## Font roles
 
-- **UI / Body:** `--font-sans`; proposed preferred face Geist Sans, followed by
+- **UI / Body:** `--font-sans`; approved preferred face Geist Sans, followed by
   the approved system sans-serif fallback stack.
-- **Display / Brand:** `--font-display`; proposed preferred face Space Grotesk,
+- **Display / Brand:** `--font-display`; approved preferred face Space Grotesk,
   used sparingly for product/Agent identity, marketing, onboarding, and
   top-level display moments.
-- **Technical / Mono:** `--font-mono`; proposed preferred face IBM Plex Mono,
+- **Technical / Mono:** `--font-mono`; approved preferred face IBM Plex Mono,
   followed by the approved system monospace fallback stack.
 
-Font delivery is subject to `Q-DS-1` and `DS-PROP-1` in the
-[design-system root](../README.md#q-ds-1-font-delivery-and-dependency-approval).
-Do not introduce third-party font requests or unreviewed packages from this
-visual preference alone.
+The resolved `Q-DS-1` and approved `DS-PROP-1` in the
+[design-system root](../README.md#q-ds-1-font-delivery-and-dependency-approval)
+require self-hosted, version-pinned files after license and delivery-artifact
+review. Use the approved system fallbacks until those implementation checks
+pass; do not make third-party font requests from authenticated or Participant
+surfaces.
 
 Do not use a futuristic display face for normal application headings.
 

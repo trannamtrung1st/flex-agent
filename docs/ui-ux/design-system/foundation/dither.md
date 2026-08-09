@@ -9,6 +9,7 @@ The field should feel like an advanced onboard intelligence rendered through ins
 ## Allowed Uses
 
 - Agent Core
+- bounded AI Observation Glass viewport
 - agent identity artwork
 - onboarding/login
 - empty states
@@ -21,6 +22,8 @@ The field should feel like an advanced onboard intelligence rendered through ins
 ## Prohibited Uses
 
 - behind transcript text
+- beneath Observation Glass reflections when they would reduce control or state
+  contrast
 - behind form fields
 - beneath tables/evidence
 - beneath dense navigation
