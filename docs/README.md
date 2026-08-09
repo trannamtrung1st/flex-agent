@@ -55,7 +55,7 @@ Illustrative examples in product documents are not MVP commitments unless captur
 | --- | --- | --- |
 | Product | Approved v0.1 | [Product hub](product/README.md): overview, [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md) |
 | Requirements | P0 specifications and operational defaults approved | [Feature catalog](requirements/README.md#feature-catalog-overview); all seven P0 specifications and the [MVP operational defaults](requirements/mvp-operational-defaults.md) are `Approved` |
-| UI/UX | Journey and first surface specification approved | The platform-level [Flex Agent activity journey and MVP campaign information architecture](ui-ux/activity-campaign-journey.md) and [assessment Campaign setup interaction specification](ui-ux/assessment-campaign-setup.md) are `Approved`; four P0 surface specifications and design-system guidance remain to be authored |
+| UI/UX | Journey and first two surface specifications approved | The platform-level [Flex Agent activity journey and MVP campaign information architecture](ui-ux/activity-campaign-journey.md), [assessment Campaign setup interaction specification](ui-ux/assessment-campaign-setup.md), and [Submission and Attempt interaction specification](ui-ux/submission-attempt.md) are `Approved`; three P0 surface specifications and design-system guidance remain to be authored |
 | Architecture | Approved OSS-first, self-hostable architecture, model-neutral provider boundary, component baseline, detailed contracts, and .NET implementation stack; ten approved ADRs | [MVP architecture](architecture/mvp-architecture.md) governs the P0 baseline; [ADR-008](architecture/decisions/ADR-008-bounded-oss-component-set.md) selects components, provider-profile qualification, scoped BYOK, the future Organization-model extension seam, development-only operator-pulled LGTM, and deployment defaults without making a model part of the product identity; [ADR-009](architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md) approves the Session, Evaluation, and Review/Release contracts; [ADR-010](architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) approves the .NET/React stack, Npgsql/Dapper persistence, Grate migrations, workspace boundaries, and compatibility gates |
 | Feature specifications | Catalog complete; all seven P0 specs approved | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); see [features/](requirements/features/README.md) |
 | Contributing | Active | Cursor rules, role skills, TDD policy, and Playwright MCP guidance |
@@ -78,7 +78,7 @@ Illustrative examples in product documents are not MVP commitments unless captur
 
 ### UI/UX
 
-- [UI/UX documentation](ui-ux/README.md) — Approved platform Activity IA, end-to-end P0 assessment Campaign journey, assessment Campaign setup interaction specification, and the remaining interaction/accessibility/design-system catalog
+- [UI/UX documentation](ui-ux/README.md) — Approved platform Activity IA, end-to-end P0 assessment Campaign journey, approved assessment Campaign setup and Submission/Attempt interaction specifications, and the remaining interaction/accessibility/design-system catalog
 
 ### Architecture
 

@@ -227,8 +227,8 @@ exact participant-facing Result. Only then can the Participant view it.
 | ID | Stage | Primary actor | Entry state | Primary outcome | Owning detailed specification |
 | --- | --- | --- | --- | --- | --- |
 | `JRN-MVP-1` | Configure and activate assessment Campaign | Activity administrator | No Campaign draft or an editable draft/cohort | One activated cohort with an immutable baseline, or a recoverable draft with actionable blockers | [Assessment Campaign setup interaction specification](assessment-campaign-setup.md) |
-| `JRN-MVP-2` | Assign Participant | Activity administrator | Activated cohort | One active Enrollment visible to the authorized Participant | Submission and Attempt interaction specification |
-| `JRN-MVP-3` | Submit work and start Attempt | Participant | Active Enrollment | Exact accepted Submission versions and one atomically started Attempt, or a safe non-consuming failure | Submission and Attempt interaction specification |
+| `JRN-MVP-2` | Assign Participant | Activity administrator | Activated cohort | One active Enrollment visible to the authorized Participant | [Submission and Attempt interaction specification](submission-attempt.md) |
+| `JRN-MVP-3` | Submit work and start Attempt | Participant | Active Enrollment | Exact accepted Submission versions and one atomically started Attempt, or a safe non-consuming failure | [Submission and Attempt interaction specification](submission-attempt.md) |
 | `JRN-MVP-4` | Conduct text Session | Participant; authorized Session controller for exceptional control | Active Session | Immutable terminal Session state and transcript cutoff | Text Session interaction specification |
 | `JRN-MVP-5` | Produce and inspect Evaluation | Platform services; assigned Reviewer | Eligible completed Session handoff | Immutable internal Evaluation with exact Evidence, or an honest pending/failure/review-required state | Evaluation and review interaction specification |
 | `JRN-MVP-6` | Review and decide | Assigned Reviewer | Eligible selected Evaluation and active assignment | Immutable `Approved`, `Rejected`, or `Escalated` Review decision; optional Human revision remains separate | Evaluation and review interaction specification |
@@ -701,8 +701,8 @@ None.
 | --- | --- | --- | --- |
 | `UX-MVP-1`, `UX-MVP-2`, `IA-MVP-1`–`IA-MVP-4` | `AC-AUTH-1`–`AC-AUTH-24`; `AC-RSC-20`–`AC-RSC-22`; owning feature state/accessibility ACs | Every interaction specification plus design-system navigation/status patterns | Scoped list/count/deep-link tests; permission-loss tests; keyboard, focus, announcement, 400 percent zoom, desktop and narrow Playwright evidence |
 | `JRN-MVP-1` | `AC-ACT-1`–`AC-ACT-27` | Approved [assessment Campaign setup interaction specification](assessment-campaign-setup.md) | Draft, readiness, activation, stale/concurrent, denial, failure/recovery, immutable baseline, desktop/narrow evidence |
-| `JRN-MVP-2` | `AC-SUBM-1`–`AC-SUBM-4`, `AC-SUBM-19`, `AC-SUBM-24`, `AC-SUBM-29` | Submission and Attempt interaction specification | Activated-cohort assignment, duplicate/conflict, suspension/revocation, scoped discovery, denial and empty states |
-| `JRN-MVP-3` | `AC-SUBM-5`–`AC-SUBM-32`; `AC-RSC-1`–`AC-RSC-14`, `AC-RSC-22` | Submission and Attempt interaction specification | Intake categories/limits, progress, validation/rejection, versions, deadline/entitlement, atomic start, uncertain reconciliation, accessibility evidence |
+| `JRN-MVP-2` | `AC-SUBM-1`–`AC-SUBM-4`, `AC-SUBM-19`, `AC-SUBM-24`, `AC-SUBM-29` | Approved [Submission and Attempt interaction specification](submission-attempt.md) | Activated-cohort assignment, duplicate/conflict, suspension/revocation, scoped discovery, denial and empty states |
+| `JRN-MVP-3` | `AC-SUBM-5`–`AC-SUBM-32`; `AC-RSC-1`–`AC-RSC-14`, `AC-RSC-22` | Approved [Submission and Attempt interaction specification](submission-attempt.md) | Intake categories/limits, progress, validation/rejection, versions, deadline/entitlement, atomic start, uncertain reconciliation, accessibility evidence |
 | `JRN-MVP-4` | `AC-SESS-1`–`AC-SESS-31`; `AC-RSC-12`–`AC-RSC-17`; `AC-AUTH-19` | Text Session interaction specification | Instructions, acknowledgment, message order, Agent publication, retry, reconnect, timer, pause, terminal states, untrusted content, responsive/a11y evidence |
 | `JRN-MVP-5` | `AC-EVAL-1`–`AC-EVAL-38`; `AC-REV-1`–`AC-REV-5` | Evaluation and review interaction specification | Queue/running/failure states, exact Evidence navigation, integrity/unavailable states, evaluator provenance/conflict, assignment revocation, responsive/a11y evidence |
 | `JRN-MVP-6` | `AC-REV-1`–`AC-REV-20`; `AC-EVAL-19`–`AC-EVAL-23` | Evaluation and review interaction specification | Unchanged approval, Human revision, rejection, escalation, stale/concurrent decisions, internal/participant content separation, audit failure |
@@ -715,7 +715,7 @@ None.
 This approved journey is followed by these bounded documents:
 
 1. [Assessment Campaign setup interaction specification](assessment-campaign-setup.md) — Approved.
-2. Submission and Attempt interaction specification.
+2. [Submission and Attempt interaction specification](submission-attempt.md) — Approved.
 3. Text Session interaction specification.
 4. Evaluation and review interaction specification.
 5. Result and Release interaction specification.

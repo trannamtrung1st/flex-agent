@@ -6,17 +6,19 @@ Product meaning and scope boundaries live under [product documentation](../produ
 
 ## Status
 
-**The platform Activity IA, end-to-end P0 assessment Campaign journey, and
-assessment Campaign setup interaction specification are approved.** All seven
+**The platform Activity IA, end-to-end P0 assessment Campaign journey,
+assessment Campaign setup interaction specification, and Submission and
+Attempt interaction specification are approved.** All seven
 P0 feature specifications, the
 [MVP operational defaults](../requirements/mvp-operational-defaults.md), and the
 [MVP architecture](../architecture/mvp-architecture.md) are approved, so entry
 criteria are met for the complete MVP workflow. Apply the approved
 [Flex Agent activity journey and MVP campaign information architecture](activity-campaign-journey.md)
 and the approved
-[assessment Campaign setup interaction specification](assessment-campaign-setup.md),
-then author the remaining interaction specifications for Submission intake,
-text Session execution, Evaluation and human review, and Result Release. Trace
+[assessment Campaign setup](assessment-campaign-setup.md) and
+[Submission and Attempt](submission-attempt.md) interaction specifications, then
+author the remaining interaction specifications for text Session execution,
+Evaluation and human review, and Result Release. Trace
 every state and interaction to the owning `AC-*` criteria and preserve the
 SPA/server authority boundary defined by `AR-DEC-12`.
 
@@ -53,6 +55,7 @@ UI/UX documents implement and extend approved requirements; they do not override
 | --- | --- | --- | --- |
 | [Flex Agent activity journey and MVP campaign information architecture](activity-campaign-journey.md) | Platform IA and end-to-end P0 journey | Approved | Generic Activity navigation; assessment Campaign journey; capability-scoped navigation; state handoffs; and shared interaction principles |
 | [Assessment Campaign setup interaction specification](assessment-campaign-setup.md) | P0 surface interaction specification | Approved | Activity-administrator draft, readiness, activation, recovery, immutable-baseline, accessibility, responsive, and protected-content behavior |
+| [Submission and Attempt interaction specification](submission-attempt.md) | P0 surface interaction specification | Approved | Administrator Enrollment and fairness-exception approval interaction; Participant Submission preparation, intake, immutable accepted versions, Attempt readiness/start/recovery, accessibility, responsive, and protected-content behavior |
 
 ## Related documents
 

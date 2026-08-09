@@ -179,8 +179,8 @@ defaults are approved — see
 Complete ADR-008's applicable compatibility and provider-credential evidence,
 qualify at least one concrete provider deployment profile for each claimed
 execution profile without making its model a product dependency, and complete
-the remaining machine-readable
-schemas/fixtures and UI/UX contracts; then proceed with
+the remaining machine-readable schemas/fixtures and
+[UI/UX contracts](../ui-ux/README.md); then proceed with
 specification-driven implementation and end-to-end verification while
 preserving the approved product scope and feature boundaries.
 

@@ -326,7 +326,7 @@ The baseline is evidence about the conditions offered to a cohort. An authorized
 - A stale-edit or concurrent-activation conflict must preserve recoverable local input and show the current authoritative state before another action is attempted.
 - Baseline summaries and comparison views must provide meaningful headings, linear reading order, selectable/copyable permitted identifiers, and a compact layout at narrow widths.
 - Every control must have an accessible name, instructions and errors must be programmatically associated, and activation must be operable without pointer, hover, drag, sound, or motion.
-- The interface must support reflow at 400 percent zoom and narrow viewports without hiding the activation consequence, error recovery, or current status; WCAG 2.2 AA is the proposed baseline pending an approved UI/UX specification.
+- The interface must support reflow at 400 percent zoom and narrow viewports without hiding the activation consequence, error recovery, or current status; WCAG 2.2 AA is the contractual target under the approved [assessment Campaign setup interaction specification](../../ui-ux/assessment-campaign-setup.md).
 - Loading states must not render stale or unauthorized source details, participant data, hidden prompts, or secrets.
 
 ### Performance and reliability

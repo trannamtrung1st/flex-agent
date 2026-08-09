@@ -30,9 +30,9 @@ contracts and their provider-streaming, optional-broker, and notification
 boundaries are approved through
 [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md). The cross-cutting
 [MVP operational defaults](../requirements/mvp-operational-defaults.md) resolve
-upload, application-session, lifecycle, and recovery-placement policy. Detailed
-UI/UX contracts, ADR-008 component compatibility evidence, machine-readable
-contract schemas/fixtures, and production evidence
+upload, application-session, lifecycle, and recovery-placement policy. The
+remaining detailed UI/UX contracts, ADR-008 component compatibility evidence,
+machine-readable contract schemas/fixtures, and production evidence
 remain staged work as mapped in the approved overview.
 
 [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md)

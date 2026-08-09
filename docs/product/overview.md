@@ -27,8 +27,8 @@ approved. Complete the compatibility evidence required by approved
 [ADR-008](../architecture/decisions/ADR-008-bounded-oss-component-set.md),
 including qualification of each enabled provider deployment profile and
 provider-credential/Organization-endpoint isolation, plus machine-readable
-contract schemas/fixtures and the UI/UX
-contracts; then implement and verify the
+contract schemas/fixtures and the remaining
+[UI/UX contracts](../ui-ux/README.md); then implement and verify the
 [MVP executable workflow](mvp-scope.md#mvp-executable-workflow) with
 specification-driven TDD.
 
