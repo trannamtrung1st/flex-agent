@@ -1,6 +1,6 @@
 ---
 id: dotnet-react-workspace-scaffold
-status: in-progress
+status: completed
 created: 2026-08-09
 updated: 2026-08-09
 ---
@@ -110,12 +110,12 @@ for the applicable runtime, supply-chain, and operability gates.
 - [x] **Remediation pass (fourth review):** close supply-chain, reproducibility,
   shutdown-evidence, license-inventory, and CI-path gaps (code on `1d16fb1`).
 - [x] **Fifth-review cleanup (`5e0d671`):** NuGet license validator, OCI failure
-  cleanup, task remains in-progress pending CI.
-- [x] **ARM64 CI policy:** blocking `Implementation` workflow is **amd64-only**;
-  `architecture-certification.yml` covers **arm64** on schedule/manual dispatch;
-  ADR-010 updated.
-- [ ] Confirm blocking **Implementation** CI green on final commit; then mark
-  this task completed and retain it as implementation history.
+  cleanup.
+- [x] **ARM64 CI policy (`6cd7fc4`):** blocking `Implementation` workflow is
+  **amd64-only**; `architecture-certification.yml` covers **arm64** on
+  schedule/manual dispatch; ADR-010 updated.
+- [x] Confirm blocking **Implementation** CI green on final commit; mark this
+  task completed and retain it as implementation history.
 
 # Remediation pass (ordered)
 
@@ -140,10 +140,15 @@ for the applicable runtime, supply-chain, and operability gates.
 
 # Current state
 
-Baseline reviewed through `5e0d671`. ARM64 policy change moves blocking CI to
-**linux/amd64** only and adds non-blocking `architecture-certification.yml` for
-**linux/arm64**. Task remains **`in-progress`** until the blocking Implementation
-workflow passes on the final commit.
+**Complete.** Final implementation evidence is commit `6cd7fc4` with GitHub
+Actions **Implementation #10** and **Documentation #41** green (~4m07s and
+~13s respectively).
+
+The workspace scaffold task delivered ADR-010 artifact 1: pinned .NET 10
+API/worker + React/Vite SPA workspace, locked dependencies, portable OCI builds,
+supply-chain verification, and blocking **linux/amd64** continuous-development
+CI. **linux/arm64** remains a non-blocking release-certification target
+(`architecture-certification.yml`).
 
 Local verification (2026-08-09): `verify-dotnet.sh` (9/9), `verify-web.sh`,
 `verify-supply-chain.sh`, `verify-oci.sh`, and `check_docs.py` pass.
@@ -218,7 +223,7 @@ Local verification (2026-08-09): `verify-dotnet.sh` (9/9), `verify-web.sh`,
 
 | ID | Sev | Topic | Status |
 | --- | --- | --- | --- |
-| R5-1 | P1 | Task closure | **Open** — blocking Implementation CI green on final commit |
+| R5-1 | P1 | Task closure | **Resolved** — Implementation #10 green on `6cd7fc4` |
 | R5-2 | P2 | NuGet license validator | **Resolved** (`5e0d671`) |
 | R5-3 | P2 | OCI failure cleanup | **Resolved** (`5e0d671`) |
 | R5-4 | P2 | ARM64 CI policy | **Resolved** — amd64 blocking; arm64 certification workflow; ADR-010 updated |
@@ -248,14 +253,13 @@ Local verification (2026-08-09): `verify-dotnet.sh` (9/9), `verify-web.sh`,
 | Reproducibility / immutable CI inputs | pass | Both workflows SHA-pinned; SDK `rollForward: disable`; `LangVersion` `14.0` |
 | Secret scan | pass | Gitleaks in `verify-supply-chain.sh` and CI |
 | Playwright desktop/narrow smoke | pass | `.playwright-mcp/page-2026-08-09T14-11-15-518Z.png`, `...14-11-27-779Z.png` |
-| `python3 scripts/check_docs.py` | pass | Documentation workflow |
-| GitHub Actions Implementation workflow | pending | Awaiting green run on final commit (prior green: #6 on `e2e25a8`) |
+| `python3 scripts/check_docs.py` | pass | Documentation #41 green on `6cd7fc4` |
+| GitHub Actions Implementation workflow | pass | Implementation #10 green on `6cd7fc4` (linux/amd64 blocking gate) |
 | Governing-source and gate reconciliation | pass | Applicable `GATE-STACK-*` evidence reconciled; ADR-010 ARM64 policy updated |
 
 # Blockers
 
-**R5-1:** Blocking GitHub Actions **Implementation** workflow must pass on the
-final commit (amd64 jobs) before marking this task completed.
+None.
 
 # Completion
 
@@ -266,5 +270,5 @@ final commit (amd64 jobs) before marking this task completed.
 - [x] R4 remediation complete (`1d16fb1`)
 - [x] R5 cleanup complete (`5e0d671`)
 - [x] ARM64 moved to non-blocking release certification
-- [ ] AMD64 continuous-development CI confirmed on final commit
-- [ ] Task marked completed and retained for implementation history
+- [x] AMD64 continuous-development CI confirmed on `6cd7fc4`
+- [x] Task marked completed and retained for implementation history
