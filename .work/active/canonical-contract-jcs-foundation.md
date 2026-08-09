@@ -3,6 +3,7 @@ id: canonical-contract-jcs-foundation
 status: completed
 created: 2026-08-09
 updated: 2026-08-10
+closed: 2026-08-10
 ---
 
 # Goal
@@ -126,21 +127,26 @@ schemas or domain-specific digest procedures prematurely.
 - [x] Integrate the new projects into locked .NET verification and CI; regenerate
   license/SBOM evidence and run focused, architecture, runtime, supply-chain,
   documentation, and clean-room regression checks.
-- [>] Reconcile delivered evidence against the artifact-2 subset of
+- [x] Reconcile delivered evidence against the artifact-2 subset of
   `GATE-STACK-SCHEMA`, `GATE-STACK-JCS`, `GATE-STACK-MODULES`, and
   `GATE-STACK-SUPPLY`; document deferred artifact-3 evidence, recheck governing
   sources, and prepare the retained task record for independent review.
 
 # Current state
 
-Implementation complete locally. Pinned `JsonSchema.Net` `9.4.0` and upstream
-JCS commit `19d51d7fe467d4706a3ff08adf8a748f29fc21e0`. Added
+**Closed.** ADR-010 artifact 2 is delivered and externally approved on
+`c10cdf2`. Pinned `JsonSchema.Net` `9.4.0` and upstream JCS commit
+`19d51d7fe467d4706a3ff08adf8a748f29fc21e0`. Deliverables:
 `FlexAgent.CanonicalJson`, contract/canonicalization test projects, minimal
 `contracts/` fixtures, architecture boundary tests, lock files, toolchain pins,
-and workspace gate documentation. All 43 .NET tests pass on `39df777`;
-supply-chain, docs, and gitleaks checks pass locally. External code review
-findings through `d369500` and provenance cleanup in `39df777` are remediated.
-GitHub Actions confirmation for `39df777` remains the external-review gap.
+and workspace gate documentation. **43/43** .NET tests pass locally;
+supply-chain, docs, and gitleaks checks pass. Two review rounds (`790cfb8` →
+`d369500` → `39df777`) remediated all findings; external review approved with
+no remaining code changes requested.
+
+**Deferred to artifact 3:** representative product schemas and
+ADR-001/ADR-004/Evidence-set procedure fixtures required for full
+`GATE-STACK-SCHEMA` and `GATE-STACK-JCS` passage.
 
 # Decisions
 
@@ -219,12 +225,21 @@ GitHub Actions confirmation for `39df777` remains the external-review gap.
 | Supply-chain and license regression | pass | `bash build/scripts/verify-supply-chain.sh` |
 | Gitleaks | pass | `gitleaks detect --source .` — no leaks found |
 | Documentation validation | pass | `python3 scripts/check_docs.py` |
-| Gate reconciliation | partial | `GATE-STACK-SCHEMA` and `GATE-STACK-JCS` partial (artifact 2); product schemas and ADR-001/ADR-004 fixtures deferred to artifact 3; CI confirmation on `39df777` pending |
+| Gate reconciliation | partial (artifact 2 complete) | Artifact-2 subset satisfied on `c10cdf2`; full `GATE-STACK-SCHEMA`/`GATE-STACK-JCS` remain partial until artifact 3 product schemas and ADR-001/ADR-004 fixtures |
+| External code review | pass | Approved after remediation through `39df777`; no remaining findings |
 
 # Blockers
 
-None locally. GitHub Actions confirmation on `39df777` remains the
-external-review gap.
+None.
+
+# External review
+
+| Round | Base SHA | Outcome |
+| --- | --- | --- |
+| Initial | `790cfb8` | Changes requested — wrapper bypass, nested property limits, `arrays.json`, vector provenance, license metadata, keyword ordering |
+| Remediation | `d369500` | Changes requested — compile inventory hole, per-file license accuracy, `localModifications` metadata |
+| Final | `39df777` | Approved — no P1/runtime blockers; provenance cleanup accepted in `39df777` |
+| Closure | `c10cdf2` | Artifact 2 closed |
 
 # Completion
 
@@ -234,3 +249,4 @@ external-review gap.
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
 - [x] Task state is safe and complete for external review
+- [x] External review approved; artifact 2 closed
