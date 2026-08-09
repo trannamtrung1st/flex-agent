@@ -437,6 +437,8 @@ temp/
 # Local build and verification artifacts
 artifacts/
 .tools/
+web/dist/
+web/tsconfig.tsbuildinfo
 
 # Coding-agent implementation working state (templates and README are tracked)
 .work/active/*
