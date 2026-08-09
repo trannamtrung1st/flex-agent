@@ -13,6 +13,7 @@ Persistent Cursor rules under `.cursor/rules/` and Codex guidance in `AGENTS.md`
 - Reusable role selection
 - Mandatory Playwright MCP screenshot evaluation for UI work
 - Security, privacy, participant isolation, and audit defaults
+- Local git workflow defaults (`git` for commits and inspection; GitHub tooling only on explicit request)
 
 Equivalent project skills under `.cursor/skills/` (Cursor) and `.agents/skills/` (Codex) provide these roles:
 
@@ -27,13 +28,17 @@ Equivalent project skills under `.cursor/skills/` (Cursor) and `.agents/skills/`
 - `tester` — runs risk-based functional, integration, regression, accessibility, and UI/UX testing
 - `security-privacy-reviewer` — reviews the trust boundaries that are unusually important for participant data, memory, tools, uploads, evidence, and evaluations
 
+Workflow skills cover delivery processes that compose roles:
+
+- `git-workflow` — local git commits, branches, merges, and pull requests without defaulting to GitHub login
+
 The security/privacy role is intentionally included beyond the requested minimum. This product handles sensitive participant content, consequential evaluations, external tools, dynamic memory, and multi-tenant boundaries; treating those concerns as a late generic review would be unsafe.
 
 ## Role and workflow separation
 
 Role skills define capabilities, responsibilities, quality standards, and expected outputs. They are applicable independently and may compose one another when work crosses roles. `documentation-author` explicitly composes `business-analyst`, `architect`, and `ui-ux-designer` perspectives for authoritative documents under `docs/`, adding security/privacy review when relevant. Roles do not prescribe a project-specific sequence, handoff, approval path, or release process.
 
-When the project adopts a concrete process—such as feature discovery, implementation, pull-request review, release readiness, or incident response—define that process as a separate workflow skill that invokes the relevant roles. No end-to-end workflow skill is installed yet.
+When the project adopts additional concrete processes—such as feature discovery, pull-request review, release readiness, or incident response—define each as a separate workflow skill that invokes the relevant roles. `git-workflow` is the installed workflow skill for version control.
 
 ## Playwright MCP
 
@@ -46,6 +51,22 @@ When the project adopts a concrete process—such as feature discovery, implemen
 - Use synthetic accounts and data; browser artifacts must not contain real participant data or secrets.
 
 After cloning, open the repository in Cursor or trust it in Codex, then enable the project MCP server if prompted. Codex only loads project `.codex/config.toml` settings for trusted repositories. `npx` downloads the pinned Playwright MCP package on first use. Upgrade both MCP pins together and run a browser smoke test. If a browser binary is missing, follow the MCP server’s install prompt before testing.
+
+## Git workflow
+
+Agents use local `git` for routine version-control work.
+
+- **Cursor:** always-on rule `.cursor/rules/05-git-workflow.mdc`
+- **Codex:** matching section in `AGENTS.md`
+- **Both:** load the `git-workflow` skill from `.cursor/skills/` or `.agents/skills/` when the task is primarily about commits, branches, merges, or pull requests
+
+Defaults:
+
+- Use `git status`, `git diff`, `git log`, `git add`, and `git commit` for inspection and commits.
+- Do not offer Connect GitHub, ConnectScm, or GitHub login flows unless the user explicitly asks for GitHub-hosted operations.
+- Use `gh` only for explicit pull-request, issue, check, or release requests.
+- Commit and push only when the user explicitly asks.
+- Never update `git config`, skip hooks, or run destructive git commands unless explicitly requested.
 
 ## UI evidence standard
 

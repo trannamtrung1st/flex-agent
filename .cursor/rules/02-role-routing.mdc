@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Role Routing
 
-Load the matching project skill before substantive work:
+Load the matching project skill from `.cursor/skills/` before substantive work. Role and workflow skills live in that directory.
 
 - Requirements, scope, acceptance criteria, or spec decomposition: `business-analyst`
 - Cross-cutting technical design, system boundaries, quality attributes, technology decisions, or ADRs: `architect`
@@ -17,7 +17,8 @@ Load the matching project skill before substantive work:
 - Frontend review or UI polish review: `frontend-reviewer`
 - QA, acceptance, regression, functional, accessibility, or UX testing: `tester`
 - Threat modeling, privacy, isolation, memory, uploads, tools, or audit review: `security-privacy-reviewer`
+- Commits, branches, merges, or pull requests: `git-workflow`
 
 Load multiple skills when the task crosses roles. Keep implementation and review perspectives distinct: a reviewer reports findings and evidence, and does not edit unless the user also requests fixes.
 
-Role skills define reusable responsibilities, standards, and output quality. They must not impose a project-specific delivery sequence or handoff process. Put any future end-to-end process in a separate workflow skill.
+Role skills define reusable responsibilities, standards, and output quality. Workflow skills such as `git-workflow` cover delivery processes that compose roles; load them when the task is primarily about that process.

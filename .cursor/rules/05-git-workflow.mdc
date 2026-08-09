@@ -1,0 +1,49 @@
+---
+description: Local git workflow defaults; GitHub tooling only on explicit request
+alwaysApply: true
+---
+
+# Git workflow
+
+Use local `git` for routine version-control work. Do not offer Connect GitHub, ConnectScm, or other GitHub authentication flows unless the user explicitly asks for GitHub-hosted operations.
+
+## Default surface
+
+- Inspect and change local state with `git status`, `git diff`, `git log`, `git add`, `git commit`, `git branch`, `git merge`, and read-only `git rebase` inspection.
+- Use `gh` or GitHub APIs only when the user explicitly requests pull requests, issues, checks, releases, or other GitHub-hosted actions.
+- If GitHub access is unavailable, continue with local git and report what the user can do manually.
+
+## Commit and push discipline
+
+- Commit only when explicitly requested. Push only when explicitly requested.
+- Never update `git config`.
+- Never run destructive or irreversible git commands (for example `push --force`, `reset --hard`) unless the user explicitly requests them.
+- Never skip hooks (`--no-verify`, `--no-gpg-sign`, and similar) unless the user explicitly requests it.
+- Warn before any force-push to `main` or `master`.
+
+## Creating commits
+
+When the user asks for a commit:
+
+1. Run `git status`, `git diff`, and `git log` in parallel to inspect staged and unstaged changes and recent message style.
+2. Stage only relevant files. Do not commit likely secrets (`.env`, credentials files, and similar).
+3. Draft a concise 1–2 sentence message focused on why, matching repository style.
+4. Commit with a HEREDOC message, for example:
+
+```bash
+git commit -m "$(cat <<'EOF'
+Why the change matters.
+
+EOF
+)"
+```
+
+5. Run `git status` after the commit to verify success.
+
+If a pre-commit hook fails, fix the issue and create a new commit. Use `git commit --amend` only when the user explicitly requested amend, the failed commit was created in this session and not pushed, or a successful commit was auto-modified by hooks and needs inclusion.
+
+## Pull requests and remotes
+
+- Create or update pull requests only when explicitly requested.
+- Before using `gh`, confirm the branch state with local git (`git status`, `git log`, and `git diff` against the base branch).
+- Do not push to the remote unless the user explicitly asks.

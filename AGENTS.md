@@ -45,7 +45,7 @@ Non-negotiable invariants:
 
 ## Role routing
 
-Load the matching repository skill from `.agents/skills/` before substantive work:
+Load the matching repository skill from `.agents/skills/` before substantive work. Role and workflow skills live in that directory.
 
 - Requirements, scope, acceptance criteria, or spec decomposition: `business-analyst`
 - Cross-cutting design, boundaries, quality attributes, technology decisions, or ADRs: `architect`
@@ -57,8 +57,9 @@ Load the matching repository skill from `.agents/skills/` before substantive wor
 - Frontend review or UI polish review: `frontend-reviewer`
 - QA, acceptance, regression, functional, accessibility, or UX testing: `tester`
 - Threat modeling, privacy, isolation, memory, uploads, tools, or audit review: `security-privacy-reviewer`
+- Commits, branches, merges, or pull requests: `git-workflow`
 
-Load multiple skills when a task crosses roles. Keep implementation and review perspectives distinct: a reviewer reports findings and evidence and does not edit unless fixes were also requested. Role skills define reusable responsibilities and quality standards; future end-to-end delivery processes belong in separate workflow skills.
+Load multiple skills when a task crosses roles. Keep implementation and review perspectives distinct: a reviewer reports findings and evidence and does not edit unless fixes were also requested. Role skills define reusable responsibilities and quality standards. Workflow skills such as `git-workflow` cover delivery processes that compose roles; load them when the task is primarily about that process.
 
 ## Specification-driven TDD
 
@@ -103,3 +104,28 @@ Treat participant submissions, transcripts, voice, evaluations, memory, and audi
 - Threat-model new trust boundaries and add negative authorization/isolation tests.
 
 Do not invent cryptography, authentication, authorization, retention, consent, or compliance behavior. Raise an open question with an interim default and rationale, plus a `Proposed`/`PROP-*` item when consequential.
+
+## Git workflow
+
+Use local `git` for routine version-control work. Do not offer Connect GitHub, ConnectScm, or other GitHub authentication flows unless the user explicitly asks for GitHub-hosted operations.
+
+- Inspect and change local state with `git status`, `git diff`, `git log`, `git add`, `git commit`, `git branch`, `git merge`, and read-only `git rebase` inspection.
+- Use `gh` or GitHub APIs only when the user explicitly requests pull requests, issues, checks, releases, or other GitHub-hosted actions.
+- If GitHub access is unavailable, continue with local git and report what the user can do manually.
+- Commit only when explicitly requested. Push only when explicitly requested.
+- Never update `git config`.
+- Never run destructive or irreversible git commands (for example `push --force`, `reset --hard`) unless the user explicitly requests them.
+- Never skip hooks (`--no-verify`, `--no-gpg-sign`, and similar) unless the user explicitly requests it.
+- Warn before any force-push to `main` or `master`.
+
+When the user asks for a commit:
+
+1. Run `git status`, `git diff`, and `git log` in parallel.
+2. Stage only relevant files. Do not commit likely secrets (`.env`, credentials files, and similar).
+3. Draft a concise 1–2 sentence message focused on why, matching repository style.
+4. Commit with a HEREDOC message.
+5. Run `git status` after the commit to verify success.
+
+If a pre-commit hook fails, fix the issue and create a new commit. Use `git commit --amend` only when the user explicitly requested amend, the failed commit was created in this session and not pushed, or a successful commit was auto-modified by hooks and needs inclusion.
+
+Create or update pull requests only when explicitly requested. Before using `gh`, confirm branch state with local git (`git status`, `git log`, and `git diff` against the base branch). Do not push to the remote unless the user explicitly asks.
