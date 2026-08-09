@@ -57,7 +57,7 @@ Product documentation for v0.1 and all seven P0 feature specifications are appro
 
 1. Preserve all seven approved P0 contracts — see [P0 authoring order](../requirements/README.md#p0-authoring-order) and [`requirements/features/`](../requirements/features/README.md)
 2. Implement against the approved [MVP architecture](../architecture/mvp-architecture.md), [ADR-008 component/provider defaults](../architecture/decisions/ADR-008-bounded-oss-component-set.md), and [ADR-009 detailed contracts](../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md); complete the required compatibility evidence, provider-profile and scoped credential/endpoint tests, and machine-readable schemas/fixtures
-3. Author the remaining P0 UI/UX journeys and interaction specifications before frontend implementation is considered complete
+3. Apply the approved P0 Activity journey and assessment Campaign setup interaction specification; author the four remaining P0 surface interaction specifications before frontend implementation is considered complete
 4. Keep agent and harness **selection and assessment-required parameters** inside assessment setup — not general agent or harness management (P1)
 5. Record new or changed technical choices as ADRs when implementation evidence surfaces a consequential decision
 
