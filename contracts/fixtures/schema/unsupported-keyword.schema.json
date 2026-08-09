@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/fixtures/schema/unsupported-keyword.schema.json",
+  "title": "Unsupported keyword fixture",
+  "type": "object",
+  "notARealKeyword": true
+}

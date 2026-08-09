@@ -13,7 +13,7 @@ emit() {
 matches_implementation_path() {
   local path="$1"
   case "$path" in
-    src/*|web/*|tests/*|build/*|deploy/*) return 0 ;;
+    src/*|web/*|tests/*|contracts/*|build/*|deploy/*) return 0 ;;
     .github/workflows/implementation.yml) return 0 ;;
     global.json|Directory.Build.props|Directory.Build.targets|Directory.Packages.props|FlexAgent.slnx|nuget.config) return 0 ;;
     package.json|pnpm-lock.yaml|pnpm-workspace.yaml|.nvmrc) return 0 ;;

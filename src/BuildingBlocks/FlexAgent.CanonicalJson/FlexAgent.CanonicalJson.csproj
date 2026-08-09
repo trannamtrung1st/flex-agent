@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FlexAgent.CanonicalJson</RootNamespace>
+    <AssemblyName>FlexAgent.CanonicalJson</AssemblyName>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Update="Upstream/**/*.cs">
+      <Nullable>disable</Nullable>
+    </Compile>
+  </ItemGroup>
+
+</Project>

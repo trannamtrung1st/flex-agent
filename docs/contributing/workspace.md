@@ -129,15 +129,24 @@ deploy them.
 - [`.github/workflows/implementation.yml`](../../.github/workflows/implementation.yml) — locked restore/build/test, web checks, supply-chain evidence, and **linux/amd64** OCI builds on every implementation-relevant change (see [`build/scripts/detect-implementation-changes.sh`](../../build/scripts/detect-implementation-changes.sh))
 - [`.github/workflows/architecture-certification.yml`](../../.github/workflows/architecture-certification.yml) — **non-blocking** weekly/manual **linux/arm64** OCI certification; required before claiming `arm64` release support (see [ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#oci-platform-certification))
 
-## Gate coverage in this scaffold
+## Gate coverage
 
-| Gate | Status in this artifact |
+| Gate | Status |
 | --- | --- |
-| `GATE-STACK-RUNTIME` | Partial — local/API/worker/SPA build, health endpoints, publish, and OCI runtime inspection verified locally on the developer host architecture; blocking CI enforces **linux/amd64** OCI builds; **linux/arm64** is deferred to non-blocking architecture certification |
-| `GATE-STACK-MODULES` | Partial — architecture and browser/backend boundary checks only |
-| `GATE-STACK-SUPPLY` | Partial — lock files, checksum-verified scanner install, shipped-artifact SBOM/Grype/Gitleaks, and license inventory pass locally; GitHub Actions evidence still required for acceptance |
+| `GATE-STACK-RUNTIME` | Partial — local/API/worker/SPA build, health endpoints, publish, and OCI runtime inspection verified locally; blocking CI enforces **linux/amd64** OCI builds; **linux/arm64** is deferred to non-blocking architecture certification |
+| `GATE-STACK-MODULES` | Partial — composition-root, browser/backend, and `FlexAgent.CanonicalJson` dependency-boundary checks |
+| `GATE-STACK-SUPPLY` | Partial — lock files, checksum-verified scanner install, shipped-artifact SBOM/Grype/Gitleaks, and license inventory |
 | `GATE-STACK-OPERABILITY` | Partial — liveness/readiness and graceful work-claim stop only |
-| `GATE-STACK-SCHEMA`, `GATE-STACK-JCS`, `GATE-STACK-HTTP`, `GATE-STACK-POSTGRES`, `GATE-STACK-ISOLATION`, `GATE-STACK-PROVIDERS`, `GATE-STACK-ARTIFACTS`, `GATE-STACK-SESSION`, `GATE-STACK-BROWSER` | Deferred — next sequenced artifacts |
+| `GATE-STACK-SCHEMA` | Partial (artifact 2) — `JsonSchema.Net` `9.4.0` pinned; contract harness enforces Draft 2020-12 dialect, keyword profile, and fail-closed fixtures; representative product schemas remain artifact 3 |
+| `GATE-STACK-JCS` | Partial (artifact 2) — vendored `cyberphone/json-canonicalization` commit `19d51d7f…`, official object vectors, wrapper limits/errors, and provenance drift checks; ADR-001/ADR-004 procedure fixtures remain artifact 3 |
+| `GATE-STACK-HTTP`, `GATE-STACK-POSTGRES`, `GATE-STACK-ISOLATION`, `GATE-STACK-PROVIDERS`, `GATE-STACK-ARTIFACTS`, `GATE-STACK-SESSION`, `GATE-STACK-BROWSER` | Deferred — later sequenced artifacts |
+
+Focused verification for schema/JCS infrastructure:
+
+```bash
+dotnet test --project tests/Contract/FlexAgent.Contract.Tests/FlexAgent.Contract.Tests.csproj -c Release
+dotnet test --project tests/CanonicalJson/FlexAgent.CanonicalJson.Tests/FlexAgent.CanonicalJson.Tests.csproj -c Release
+```
 
 Overall scaffold acceptance in
 [`mvp-architecture.md`](../architecture/mvp-architecture.md#implementation-readiness)

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/compatibility/draft202012-keywords.json",
+  "title": "Flex Agent Draft 2020-12 keyword profile (artifact 2 minimal)",
+  "description": "Allowed keywords for schema compatibility harness testing until artifact 3 expands the profile.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["allowedKeywords"],
+  "properties": {
+    "allowedKeywords": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  }
+}

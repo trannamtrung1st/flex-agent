@@ -1,0 +1,43 @@
+{
+  "upstreamRepository": "https://github.com/cyberphone/json-canonicalization",
+  "upstreamCommit": "19d51d7fe467d4706a3ff08adf8a748f29fc21e0",
+  "license": "Apache-2.0",
+  "files": {
+    "Upstream/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberCachedPowers.cs": {
+      "sha256": "659174e3f8b2a3c69435538bbf30fa8781a584a209f1a962cd5514a8c0d1fd79",
+      "sizeBytes": 8882
+    },
+    "Upstream/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberDToA.cs": {
+      "sha256": "f6c215b6787efa3871cf581c08cd645520066704e5a78a9c02856d5c448688cb",
+      "sizeBytes": 45874
+    },
+    "Upstream/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberDiyFp.cs": {
+      "sha256": "be3a14af2fec6086f234e3cf06a90edb98cbdbef58447432485b3cac1684c3b5",
+      "sizeBytes": 6277
+    },
+    "Upstream/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberDoubleHelper.cs": {
+      "sha256": "898c6ceee1025af51ba6abdd2111bc24e209857a23d53601edf699db9a1612df",
+      "sizeBytes": 6216
+    },
+    "Upstream/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberFastDToA.cs": {
+      "sha256": "cbe35d5ed16acd05889d6fe9ffd052964cf06ffd831b13f21bfec61f6d548dc3",
+      "sizeBytes": 28601
+    },
+    "Upstream/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberFastDToABuilder.cs": {
+      "sha256": "82b39967c220a5bed069b36839a7d7993e907a668cc03b356939fd3f79b3742a",
+      "sizeBytes": 4142
+    },
+    "Upstream/CyberphoneJsonCanonicalization/Es6NumberSerialization/NumberToJson.cs": {
+      "sha256": "aecd29efdaa1a193e43d5535d4efeb294314b5cbd436c70a8399b6040a0b0f6a",
+      "sizeBytes": 2092
+    },
+    "Upstream/CyberphoneJsonCanonicalization/JsonCanonicalizer.cs": {
+      "sha256": "234982a675b3d6ff12522bcbd823d3e6e0ccbe543029a6ff094da7401a844a29",
+      "sizeBytes": 12505
+    },
+    "Upstream/LICENSE": {
+      "sha256": "6821faaddedf2d78c95bb6d98b127e9e616097afd2f6bcc34389f000d13ab12d",
+      "sizeBytes": 600
+    }
+  }
+}
