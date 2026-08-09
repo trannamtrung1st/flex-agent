@@ -49,7 +49,7 @@ for the applicable runtime, supply-chain, and operability gates.
   roots, the SPA, architecture/runtime tests, and deployment build inputs.
 - Provide bounded liveness/readiness and graceful-shutdown behavior for the API
   and worker without introducing feature/domain policy or durable work claims.
-- Add a strict-TypeScript React/Vite shell using mapped design tokens, system
+- Add a strict-TypeScript React/Vite SPA using mapped design tokens, system
   font fallbacks, semantic structure, dark/light support, and no product
   capability beyond a clearly labeled development smoke surface.
 - Add separate multi-stage OCI builds for API, worker, and static SPA/gateway;
@@ -106,18 +106,45 @@ for the applicable runtime, supply-chain, and operability gates.
   project Playwright MCP server for accessibility snapshots and desktop/narrow
   screenshots of the runnable SPA smoke surface, without claiming the later
   authenticated browser gate.
-- [>] Reconcile delivered evidence against `GATE-STACK-RUNTIME`,
+- [>] **Remediation pass (fourth review):** close supply-chain, reproducibility,
+  shutdown-evidence, license-inventory, and CI-path gaps before marking this task
+  complete (see Findings / deviations).
+- [ ] Reconcile delivered evidence against `GATE-STACK-RUNTIME`,
   `GATE-STACK-MODULES`, `GATE-STACK-SUPPLY`, and
-  `GATE-STACK-OPERABILITY`; document partial/deferred gates, update contributor
-  and maturity documentation, and re-run documentation validation.
+  `GATE-STACK-OPERABILITY`; update contributor and maturity documentation;
+  rerun Implementation CI on the remediation commit; then retire this task file.
+
+# Remediation pass (ordered)
+
+1. **[P1] OCI supply-chain evidence** — remove runtime `apt-get`/`apk add curl`
+   in favor of a reproducibly pinned health-probe approach; generate and scan
+   SBOMs for final API/worker/SPA images (not only publish output and npm graph).
+2. **[P1] Immutable docs CI bootstrap** — pin `docs.yml` actions to commit SHAs,
+   record them in `build/toolchain.json`, and add top-level `permissions:
+   contents: read`.
+3. **[P2] Fail-closed .NET SDK/language pins** — replace `rollForward:
+   latestFeature` and `<LangVersion>latest</LangVersion>` with exact reviewed
+   values.
+4. **[P2] Graceful shutdown evidence** — describe evidence accurately; add OCI
+   `docker stop` (SIGTERM) checks and API shutdown coverage where feasible;
+   stop using `docker rm -f` as shutdown proof.
+5. **[P2] NuGet license inventory** — produce package identity/version plus
+   license expression or license reference, not only `dotnet list package` JSON.
+6. **[P2] CI path filtering** — gate expensive Implementation jobs on
+   implementation-relevant paths so `.work/**` and docs-only commits stay on the
+   lightweight Documentation workflow; remove duplicate docs job from
+   Implementation when path-gated.
 
 # Current state
 
-Review findings from the post-push and follow-up supply-chain passes are fixed.
-Local verification scripts pass, including checksum-verified scanner install,
-locked SPA SBOM generation, and OCI checks. Changes are pushed on `main` at
-`251477b` (scaffold hardening) and `de11e7d` (composite skills). GitHub Actions
-execution of `.github/workflows/implementation.yml` remains to be confirmed.
+Scaffold foundation and hardening commits are on `main` (`251477b`, `de11e7d`).
+Implementation workflow **#6** is green on `e2e25a8` (multi-arch OCI and
+supply-chain jobs included). Local `verify-*` scripts pass.
+
+The fourth review approves the architecture/scaffold direction but requests
+changes before this task is marked complete. Remaining gaps are concentrated in
+supply-chain evidence/reproducibility, verification accuracy, and CI ergonomics
+—not in the fundamental workspace design.
 
 # Decisions
 
@@ -139,7 +166,8 @@ execution of `.github/workflows/implementation.yml` remains to be confirmed.
 - Use Syft, Grype, and Gitleaks in implementation CI per the interim default for
   supply-chain tooling.
 - Scope Grype/SBOM to shipped publish and SPA build outputs rather than the full
-  workspace tree so SDK restore caches do not fail the gate.
+  workspace tree so SDK restore caches do not fail the gate. **Remediation:**
+  extend to final OCI images without removing publish/npm evidence.
 
 # Open questions / interim defaults
 
@@ -152,33 +180,43 @@ execution of `.github/workflows/implementation.yml` remains to be confirmed.
   product architecture. Any tool that changes deployment topology, sends
   protected source externally, or weakens a required gate requires architecture
   and security/privacy review before adoption.
+- **Health probe without runtime package install (PROP-remediation):** prefer a
+  pinned static probe binary copied into the image, or a base image that already
+  includes the minimal probe dependency at a digest-pinned layer, rather than
+  unpinned `apt-get`/`apk add` during build. Record the chosen approach in
+  `build/toolchain.json` before closing the task.
 
 # Findings / deviations
 
-- Local preflight found .NET SDK `10.0.100`, Node.js `22.18.0`, Corepack
-  `0.33.0`, pnpm `9.6.0`, and Docker `29.4.2`; repository pins recorded in
-  `build/toolchain.json`, `.nvmrc`, `global.json`, and lock files.
-- `@vitejs/plugin-react` `6.0.5` is required for Vite `8.1.x` peer support.
-- Post-push review fixed: invalid OCI matrix tags (`linux/amd64` → `linux-amd64`),
-  mutable CI bootstrap (now commit-pinned actions + checksum-verified
-  `install-supply-chain-tools.sh`), digest-pinned OCI bases, disabled production
-  source maps, and SPA favicon.
-- Second review fixed: CI installer now uses writable `INSTALL_DIR` under
-  `$RUNNER_TEMP` with `$GITHUB_PATH`; local/CI verification always invokes
-  pinned tools from task-owned directories via `ensure-supply-chain-tools.sh`;
-  SPA SBOM generated from locked runtime dependency graph with
-  `@cyclonedx/cyclonedx-npm` and asserts `react`/`react-dom` at pinned versions.
-- Third review fixed: `@cyclonedx/cyclonedx-npm@6.0.0` added as a locked workspace
-  devDependency (no `pnpm dlx`); supply-chain tool reuse now verifies on-disk
-  binary SHA-256 against `build/toolchain.json` before execution.
-- ASP.NET runtime OCI base promoted from `10.0.0-noble` to `10.0.7-noble` to
-  address published framework advisories in the runtime image.
-- Playwright MCP screenshots captured at `.playwright-mcp/page-2026-08-09T14-11-15-518Z.png`
-  (desktop) and `.playwright-mcp/page-2026-08-09T14-11-27-779Z.png` (narrow).
-- The governing sequence separates the workspace scaffold from canonical
-  contracts/JCS and PostgreSQL/Grate work, while also stating that overall
-  scaffold acceptance requires all those gates. This task reports gate coverage
-  precisely and does not overstate acceptance.
+## Resolved (reviews 1–3)
+
+- Invalid OCI matrix tags; mutable implementation CI bootstrap (actions now
+  commit-pinned in `implementation.yml`); digest-pinned OCI bases; disabled
+  production source maps; SPA favicon.
+- Writable `INSTALL_DIR` for CI scanner install; pinned tool directory with
+  binary SHA-256 verification; locked `@cyclonedx/cyclonedx-npm@6.0.0` (no
+  `pnpm dlx`).
+- ASP.NET runtime OCI base promoted to `10.0.7-noble`.
+- Playwright evidence: `.playwright-mcp/page-2026-08-09T14-11-15-518Z.png`
+  (desktop), `.playwright-mcp/page-2026-08-09T14-11-27-779Z.png` (narrow).
+- Implementation CI confirmed green (workflow run #6 on `e2e25a8`).
+
+## Open (fourth review — block completion)
+
+| ID | Sev | Topic | Evidence gap |
+| --- | --- | --- | --- |
+| R4-1 | P1 | OCI supply-chain | Final images install floating `curl` via `apt-get`/`apk`; SBOM/Grype scan publish output and npm graph only, not final images |
+| R4-2 | P1 | Docs CI immutability | `docs.yml` still uses `@v4`/`@v5`/`@v18` floating actions |
+| R4-3 | P2 | SDK/language pins | `global.json` `rollForward: latestFeature`; `Directory.Build.props` `LangVersion` latest |
+| R4-4 | P2 | Graceful shutdown | Worker `WorkClaimGate` tested; OCI cleanup uses `docker rm -f`; no API shutdown or SIGTERM OCI test |
+| R4-5 | P2 | NuGet licenses | `dotnet list package` JSON is inventory, not license metadata (unlike `pnpm licenses`) |
+| R4-6 | P2 | CI path filtering | Implementation runs on every push (e.g. `.work/**` commits); duplicates docs checks |
+
+## Standing product boundary
+
+- Overall scaffold acceptance still requires later schema, JCS, HTTP, PostgreSQL,
+  and session/browser gates. This task reports applicable `GATE-STACK-*`
+  coverage precisely and does not overstate acceptance.
 
 # Verification
 
@@ -187,23 +225,30 @@ execution of `.github/workflows/implementation.yml` remains to be confirmed.
 | Clean .NET locked restore, build, test, and publish | pass | `bash build/scripts/verify-dotnet.sh` (8/8 tests) |
 | Clean pnpm frozen install, lint, typecheck, unit test, and Vite build | pass | `bash build/scripts/verify-web.sh` (2/2 Vitest tests; no `.map` in `web/dist`) |
 | Architecture tests for composition-root and browser/backend boundaries | pass | `FlexAgent.Architecture.Tests` + `build/scripts/check-web-boundaries.mjs` |
-| API and worker startup, readiness, graceful shutdown, and no-work-after-stop smoke tests | pass | `FlexAgent.Runtime.Tests` |
-| Linux `amd64`/`arm64` OCI build and runtime-content inspection | partial | Local `bash build/scripts/verify-oci.sh` on `linux/arm64` with digest-pinned bases and no SPA `.map` files; multi-arch CI job fixed but not run in GitHub Actions yet |
-| License inventory, SBOM, vulnerability scan, and secret scan | pass | `bash build/scripts/verify-supply-chain.sh` (pinned tool versions, publish SBOM, SPA runtime SBOM with react/react-dom, Grype clean, Gitleaks clean) |
-| Reproducibility checks reject lock drift, floating inputs, and unreviewed package sources | pass | `--locked-mode` / `--frozen-lockfile` enforced in verify scripts and CI; actions pinned by commit SHA in `implementation.yml` |
-| Playwright MCP accessibility snapshot plus desktop/narrow screenshots | pass | `.playwright-mcp/page-2026-08-09T14-11-15-518Z.png`, `.playwright-mcp/page-2026-08-09T14-11-27-779Z.png` |
-| `python3 scripts/check_docs.py` | pass | Ran after doc updates |
-| Governing-source and gate reconciliation | partial | `docs/contributing/workspace.md` updated; GitHub Actions run still required |
+| Worker shutdown gate closes during host stop | pass | `FlexAgent.Runtime.Tests` (`WorkClaimGate` / `StopAsync`) |
+| API/worker graceful process shutdown (OCI) | partial | Not verified; `verify-oci.sh` uses `docker rm -f` |
+| Linux `amd64`/`arm64` OCI build and runtime-content inspection | pass | Local `verify-oci.sh`; Implementation workflow #6 on `e2e25a8` |
+| Publish + SPA dependency SBOM and vulnerability scan | pass | `verify-supply-chain.sh`; Grype clean on publish + SPA runtime graph |
+| Final OCI image SBOM and vulnerability scan | fail | Not implemented; runtime `curl` installed from unpinned package managers |
+| NuGet + npm license inventory | partial | `pnpm licenses` present; NuGet side is package list only |
+| Reproducibility / immutable CI inputs | partial | `implementation.yml` pinned; `docs.yml`, SDK roll-forward, and LangVersion not fail-closed |
+| Secret scan | pass | Gitleaks in `verify-supply-chain.sh` and CI |
+| Playwright desktop/narrow smoke | pass | `.playwright-mcp/page-2026-08-09T14-11-15-518Z.png`, `...14-11-27-779Z.png` |
+| `python3 scripts/check_docs.py` | pass | Documentation workflow |
+| GitHub Actions Implementation workflow | pass | Run #6 green on `e2e25a8` |
+| Governing-source and gate reconciliation | partial | Remediation pass required before task completion |
 
 # Blockers
 
-GitHub Actions execution of `.github/workflows/implementation.yml` on pushed
-`main` (`de11e7d`) — confirm in the Actions tab.
+Remediation items **R4-1** through **R4-6** (see Open findings). GitHub Actions
+confirmation is no longer a blocker.
 
 # Completion
 
-- [x] Planned work is reconciled with actual changes
+- [x] Planned scaffold work reconciled with delivered commits through `e2e25a8`
 - [x] Applicable focused tests pass
-- [x] Applicable integration/regression checks pass
-- [x] Governing specifications were rechecked
-- [>] Remaining gaps or unverified behavior are recorded (GitHub Actions confirmation pending)
+- [x] Applicable integration/regression checks pass (baseline)
+- [x] Governing specifications rechecked
+- [x] GitHub Actions evidence confirmed (Implementation #6 on `e2e25a8`)
+- [>] Remediation pass R4-1–R4-6 complete with updated evidence
+- [ ] Task file retired after final reconciliation
