@@ -440,6 +440,5 @@ artifacts/
 web/dist/
 web/tsconfig.tsbuildinfo
 
-# Coding-agent implementation working state (templates and README are tracked)
-.work/active/*
-!.work/active/.gitkeep
+# Coding-agent implementation working state under .work/ is intentionally
+# tracked so external reviewers can inspect plans and verification evidence.

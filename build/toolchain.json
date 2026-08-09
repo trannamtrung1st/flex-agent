@@ -8,7 +8,7 @@
   ],
   "runtime": {
     "dotnetSdk": "10.0.100",
-    "aspnetCore": "10.0.0",
+    "aspnetCore": "10.0.7",
     "node": "22.18.0",
     "pnpm": "9.6.0",
     "react": "19.2.8",
@@ -22,22 +22,120 @@
     "vitest": "4.1.10"
   },
   "supplyChain": {
-    "syft": "1.38.0",
-    "grype": "0.104.1",
-    "gitleaks": "8.30.0"
+    "syft": {
+      "version": "1.38.0",
+      "artifacts": {
+        "linux_amd64": {
+          "archive": "syft_1.38.0_linux_amd64.tar.gz",
+          "sha256": "bc664debb00db1b9b4b9dae4ba1a29d99621e33b641b94b78b9048374b812a3d",
+          "binarySha256": "6d380157a79f5e9114c98df5a2ea22cb06e04d8b37343a6f638f12f4775ac180"
+        },
+        "darwin_amd64": {
+          "archive": "syft_1.38.0_darwin_amd64.tar.gz",
+          "sha256": "909fba8522094679d68111884e8ebca91a22078f20a0b102ea14abfed5f7a98c",
+          "binarySha256": "e3d4a2c0d4ea20a2f8c16f4474fb7032a59688af2b2ec92d1b2d9ecf6aafec4a"
+        },
+        "darwin_arm64": {
+          "archive": "syft_1.38.0_darwin_arm64.tar.gz",
+          "sha256": "e2a02cf6786e420d8fa7d7907dac86f59ecc011c014b08ef521e8ed4f4ed2cda",
+          "binarySha256": "fb569809bab9f24e81d5ca4b2ddef79dcca15cd0971c72904a50ac896d017cd5"
+        }
+      }
+    },
+    "grype": {
+      "version": "0.104.1",
+      "artifacts": {
+        "linux_amd64": {
+          "archive": "grype_0.104.1_linux_amd64.tar.gz",
+          "sha256": "2cb820b6c81f88fd6aff3fb4ca5a7161e9ab70af0f27fc5e99cd16deb987cd5f",
+          "binarySha256": "c833472c3d590cfc6861f948c21fd9f87350c663e0943ba0b35e278a88f94049"
+        },
+        "darwin_amd64": {
+          "archive": "grype_0.104.1_darwin_amd64.tar.gz",
+          "sha256": "eaed1f6d45587c2164a161c13c55cda64930fd96ba02177d3bd31fbd5b7cf77d",
+          "binarySha256": "d67f9116bcd6a703e4c0a81eb8e284e09a96474d7d325304ff7e90ea609b6332"
+        },
+        "darwin_arm64": {
+          "archive": "grype_0.104.1_darwin_arm64.tar.gz",
+          "sha256": "8d6e3f677e923965c782582760b43b9691bc2e1ce9d55459ba304402b056d600",
+          "binarySha256": "caf11cfb484977f2922abcdc29eb101222a0fda647ff262f34c8468dc7d93e99"
+        }
+      }
+    },
+    "gitleaks": {
+      "version": "8.30.0",
+      "artifacts": {
+        "linux_amd64": {
+          "archive": "gitleaks_8.30.0_linux_x64.tar.gz",
+          "sha256": "79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e",
+          "binarySha256": "8b6fd684fcd5b4ebe39b68abb072ce59e1063ce7ed4abd556157697845f1f088"
+        },
+        "darwin_amd64": {
+          "archive": "gitleaks_8.30.0_darwin_x64.tar.gz",
+          "sha256": "ca221d012d247080c2f6f61f4b7a83bffa2453806b0c195c795bbe9a8c775ed5",
+          "binarySha256": "f478677e8858ec3129153dec6e3f8dab5b5f674c120245e7878f89582444d06f"
+        },
+        "darwin_arm64": {
+          "archive": "gitleaks_8.30.0_darwin_arm64.tar.gz",
+          "sha256": "b251ab2bcd4cd8ba9e56ff37698c033ebf38582b477d21ebd86586d927cf87e7",
+          "binarySha256": "095bc4be1624239f52ebb90ff91668d1d3e78e0f8c5286e2d981887905c27561"
+        }
+      }
+    },
+    "cyclonedxNpm": {
+      "version": "6.0.0"
+    }
   },
   "oci": {
-    "dotnetRuntime": "mcr.microsoft.com/dotnet/aspnet:10.0.0-noble",
-    "dotnetSdk": "mcr.microsoft.com/dotnet/sdk:10.0.100-noble",
-    "nginx": "nginx:1.30.4-alpine",
-    "node": "node:22.18.0-alpine"
+    "dotnetRuntime": {
+      "image": "mcr.microsoft.com/dotnet/aspnet:10.0.7-noble",
+      "digest": "sha256:55e37c7795bfaf6b9cc5d77c155811d9569f529d86e20647704bc1d7dd9741d4"
+    },
+    "dotnetSdk": {
+      "image": "mcr.microsoft.com/dotnet/sdk:10.0.100-noble",
+      "digest": "sha256:c7445f141c04f1a6b454181bd098dcfa606c61ba0bd213d0a702489e5bd4cd71"
+    },
+    "nginx": {
+      "image": "nginx:1.30.4-alpine",
+      "digest": "sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46"
+    },
+    "node": {
+      "image": "node:22.18.0-alpine",
+      "digest": "sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b"
+    }
   },
   "githubActions": {
-    "checkout": "v4.2.2",
-    "setupDotnet": "v4.1.0",
-    "setupNode": "v4.4.0",
-    "setupPython": "v5.4.0",
-    "dockerBuildPush": "v6.15.0",
-    "uploadArtifact": "v4.6.2"
+    "checkout": {
+      "ref": "v4.2.2",
+      "commit": "11bd71901bbe5b1630ceea73d27597364c9af683"
+    },
+    "setupDotnet": {
+      "ref": "v4.1.0",
+      "commit": "3e891b0cb619bf60e2c25674b222b8940e2c1c25"
+    },
+    "setupNode": {
+      "ref": "v4.4.0",
+      "commit": "49933ea5288caeca8642d1e84afbd3f7d6820020"
+    },
+    "setupPython": {
+      "ref": "v5.4.0",
+      "commit": "42375524e23c412d93fb67b49958b491fce71c38"
+    },
+    "setupQemu": {
+      "ref": "v3.6.0",
+      "commit": "29109295f81e9208d7d86ff1c6c12d2833863392"
+    },
+    "setupBuildx": {
+      "ref": "v3.11.0",
+      "commit": "18ce135bb5112fa8ce4ed6c17ab05699d7f3a5e0"
+    },
+    "dockerBuildPush": {
+      "ref": "v6.15.0",
+      "commit": "471d1dc4e07e5cdedd4c2171150001c434f0b7a4"
+    },
+    "uploadArtifact": {
+      "ref": "v4.6.2",
+      "commit": "ea165f8d65b6e75b540449e92b4886f43607fa02"
+    }
   }
 }

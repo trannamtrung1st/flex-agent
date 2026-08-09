@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0.100-noble AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.100-noble@sha256:c7445f141c04f1a6b454181bd098dcfa606c61ba0bd213d0a702489e5bd4cd71 AS build
 WORKDIR /src
 
 COPY FlexAgent.slnx global.json Directory.Build.props Directory.Build.targets Directory.Packages.props nuget.config ./
@@ -14,7 +14,7 @@ RUN dotnet publish src/Hosts/FlexAgent.Worker/FlexAgent.Worker.csproj \
     /p:UseAppHost=false \
     --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.0-noble AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.7-noble@sha256:55e37c7795bfaf6b9cc5d77c155811d9569f529d86e20647704bc1d7dd9741d4 AS final
 WORKDIR /app
 
 RUN apt-get update \

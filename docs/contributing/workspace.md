@@ -10,6 +10,7 @@ Pinned toolchain versions are recorded in [`build/toolchain.json`](../../build/t
 | Tool | Pinned line |
 | --- | --- |
 | .NET SDK | `10.0.100` |
+| ASP.NET Core runtime (OCI) | `10.0.7` |
 | Node.js | `22.18.0` |
 | pnpm | `9.6.0` |
 | React | `19.2.8` |
@@ -72,6 +73,19 @@ cd web && pnpm dev
 bash build/scripts/verify-supply-chain.sh
 ```
 
+When Syft, Grype, or Gitleaks are not already on `PATH`, the script installs
+checksum-verified binaries from pinned release artifacts recorded in
+[`build/toolchain.json`](../../build/toolchain.json) via
+[`build/scripts/ensure-supply-chain-tools.sh`](../../build/scripts/ensure-supply-chain-tools.sh)
+into `.tools/supply-chain/bin` (or `INSTALL_DIR` when overridden). Existing
+binaries are reinstalled when their on-disk SHA-256 does not match the toolchain
+lock. The SPA runtime SBOM is generated from the locked npm dependency graph
+with the pinned `@cyclonedx/cyclonedx-npm` workspace devDependency via
+[`build/scripts/generate-spa-sbom.sh`](../../build/scripts/generate-spa-sbom.sh)
+and must include `react` and `react-dom` at the pinned versions.
+CI uses the same installer with `INSTALL_DIR` under `$RUNNER_TEMP` instead of
+piping remote install scripts.
+
 ### Documentation
 
 ```bash
@@ -106,7 +120,7 @@ deploy them.
 | --- | --- |
 | `GATE-STACK-RUNTIME` | Partial — local/API/worker/SPA build, health endpoints, publish, and one API OCI build verified locally; CI covers multi-architecture builds |
 | `GATE-STACK-MODULES` | Partial — architecture and browser/backend boundary checks only |
-| `GATE-STACK-SUPPLY` | Partial — lock files, audit/scan workflow, and license inventory scripted; full CI evidence required for acceptance |
+| `GATE-STACK-SUPPLY` | Partial — lock files, checksum-verified scanner install, shipped-artifact SBOM/Grype/Gitleaks, and license inventory pass locally; GitHub Actions evidence still required for acceptance |
 | `GATE-STACK-OPERABILITY` | Partial — liveness/readiness and graceful work-claim stop only |
 | `GATE-STACK-SCHEMA`, `GATE-STACK-JCS`, `GATE-STACK-HTTP`, `GATE-STACK-POSTGRES`, `GATE-STACK-ISOLATION`, `GATE-STACK-PROVIDERS`, `GATE-STACK-ARTIFACTS`, `GATE-STACK-SESSION`, `GATE-STACK-BROWSER` | Deferred — next sequenced artifacts |
 

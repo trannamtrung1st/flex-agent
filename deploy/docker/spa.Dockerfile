@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:22.18.0-alpine AS build
+FROM node:22.18.0-alpine@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS build
 WORKDIR /app
 
 ENV CI=true
@@ -13,7 +13,7 @@ RUN pnpm install --frozen-lockfile
 COPY web/ web/
 RUN pnpm build
 
-FROM nginx:1.30.4-alpine AS final
+FROM nginx:1.30.4-alpine@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46 AS final
 
 COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/web/dist /usr/share/nginx/html

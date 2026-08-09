@@ -58,4 +58,7 @@ echo "==> Verify publish output excludes development settings"
 docker exec flex-agent-oci-api sh -c 'test ! -f /app/appsettings.Development.json'
 docker exec flex-agent-oci-worker sh -c 'test ! -f /app/appsettings.Development.json'
 
+echo "==> Verify SPA image excludes source maps"
+docker exec flex-agent-oci-spa sh -c '! find /usr/share/nginx/html -name "*.map" | grep -q .'
+
 echo "==> OCI verification complete"

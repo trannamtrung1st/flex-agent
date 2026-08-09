@@ -2,6 +2,7 @@
 **/.github
 **/.cursor
 **/.agents
+# Git-tracked review state is not part of container build inputs.
 **/.work
 **/.playwright-mcp
 **/bin

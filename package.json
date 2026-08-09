@@ -15,5 +15,8 @@
     "verify:dotnet": "bash build/scripts/verify-dotnet.sh",
     "verify:supply-chain": "bash build/scripts/verify-supply-chain.sh",
     "verify:oci": "bash build/scripts/verify-oci.sh"
+  },
+  "devDependencies": {
+    "@cyclonedx/cyclonedx-npm": "6.0.0"
   }
 }

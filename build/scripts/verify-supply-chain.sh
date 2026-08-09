@@ -4,7 +4,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 ARTIFACTS="$ROOT/artifacts/supply-chain"
-mkdir -p "$ARTIFACTS"
+PUBLISH="$ROOT/artifacts/publish"
+INSTALL_DIR="${INSTALL_DIR:-$ROOT/.tools/supply-chain/bin}"
+mkdir -p "$ARTIFACTS" "$PUBLISH/api" "$PUBLISH/worker"
+
+corepack enable
+
+echo "==> Restore locked dependencies"
+dotnet restore FlexAgent.slnx --locked-mode
+pnpm install --frozen-lockfile
 
 echo "==> NuGet vulnerability scan"
 dotnet list FlexAgent.slnx package --vulnerable --include-transitive > "$ARTIFACTS/nuget-vulnerable.txt"
@@ -20,16 +28,29 @@ echo "==> License inventory"
 dotnet list FlexAgent.slnx package --include-transitive --format json > "$ARTIFACTS/nuget-packages.json"
 pnpm licenses list --json > "$ARTIFACTS/npm-licenses.json" || pnpm licenses ls --json > "$ARTIFACTS/npm-licenses.json"
 
-if command -v syft >/dev/null 2>&1; then
-  syft dir:"$ROOT" -o cyclonedx-json > "$ARTIFACTS/sbom-repo.cdx.json"
-else
-  echo "syft not installed locally; CI will generate SBOM."
-fi
+echo "==> Publish application artifacts for SBOM scan"
+dotnet publish src/Hosts/FlexAgent.Api/FlexAgent.Api.csproj \
+  -c Release \
+  -o "$PUBLISH/api" \
+  /p:UseAppHost=false
+dotnet publish src/Hosts/FlexAgent.Worker/FlexAgent.Worker.csproj \
+  -c Release \
+  -o "$PUBLISH/worker" \
+  /p:UseAppHost=false
+pnpm build
 
-if command -v gitleaks >/dev/null 2>&1; then
-  gitleaks detect --source "$ROOT" --no-banner --redact > "$ARTIFACTS/gitleaks.txt"
-else
-  echo "gitleaks not installed locally; CI will run secret scan."
-fi
+echo "==> Ensure pinned supply-chain tools"
+INSTALL_DIR="$INSTALL_DIR" bash "$ROOT/build/scripts/ensure-supply-chain-tools.sh"
+
+echo "==> SBOM generation (shipped artifacts)"
+"$INSTALL_DIR/syft" dir:"$PUBLISH" -o cyclonedx-json > "$ARTIFACTS/sbom-publish.cdx.json"
+bash "$ROOT/build/scripts/generate-spa-sbom.sh" "$ARTIFACTS/sbom-spa.cdx.json"
+
+echo "==> Vulnerability scan"
+"$INSTALL_DIR/grype" sbom:"$ARTIFACTS/sbom-publish.cdx.json" --fail-on high
+"$INSTALL_DIR/grype" sbom:"$ARTIFACTS/sbom-spa.cdx.json" --fail-on high
+
+echo "==> Secret scan"
+"$INSTALL_DIR/gitleaks" detect --source "$ROOT" --no-banner --redact > "$ARTIFACTS/gitleaks.txt"
 
 echo "==> supply-chain verification complete"
