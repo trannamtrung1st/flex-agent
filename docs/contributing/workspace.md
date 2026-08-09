@@ -10,7 +10,7 @@ Pinned toolchain versions are recorded in [`build/toolchain.json`](../../build/t
 | Tool | Pinned line |
 | --- | --- |
 | .NET SDK | `10.0.100` |
-| ASP.NET Core runtime (OCI) | `10.0.7` |
+| ASP.NET Core runtime (OCI) | `10.0.8` |
 | Node.js | `22.18.0` |
 | pnpm | `9.6.0` |
 | React | `19.2.8` |
@@ -82,7 +82,12 @@ binaries are reinstalled when their on-disk SHA-256 does not match the toolchain
 lock. The SPA runtime SBOM is generated from the locked npm dependency graph
 with the pinned `@cyclonedx/cyclonedx-npm` workspace devDependency via
 [`build/scripts/generate-spa-sbom.sh`](../../build/scripts/generate-spa-sbom.sh)
-and must include `react` and `react-dom` at the pinned versions.
+and must include `react` and `react-dom` at the pinned versions. NuGet license metadata is generated from committed `packages.lock.json` files and
+restored package `.nuspec` license expressions via
+[`build/scripts/generate-nuget-licenses.sh`](../../build/scripts/generate-nuget-licenses.sh).
+Final OCI image SBOMs are generated and scanned with
+[`build/scripts/scan-oci-image-sboms.sh`](../../build/scripts/scan-oci-image-sboms.sh)
+after [`build/scripts/build-oci-images.sh`](../../build/scripts/build-oci-images.sh).
 CI uses the same installer with `INSTALL_DIR` under `$RUNNER_TEMP` instead of
 piping remote install scripts.
 
@@ -98,6 +103,11 @@ python3 scripts/check_docs.py
 bash build/scripts/verify-oci.sh
 ```
 
+OCI health is probed externally from the host (`curl`); runtime images do not
+install probe packages or define Docker `HEALTHCHECK` instructions. The script
+also verifies SIGTERM graceful shutdown with `docker stop` and scans final image
+SBOMs.
+
 Or build individually:
 
 ```bash
@@ -112,7 +122,7 @@ deploy them.
 ## CI
 
 - [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml) — documentation validation
-- [`.github/workflows/implementation.yml`](../../.github/workflows/implementation.yml) — locked restore/build/test, web checks, supply-chain evidence, and multi-architecture OCI builds
+- [`.github/workflows/implementation.yml`](../../.github/workflows/implementation.yml) — locked restore/build/test, web checks, supply-chain evidence, and multi-architecture OCI builds. Expensive jobs run only when implementation-relevant paths change (see [`build/scripts/detect-implementation-changes.sh`](../../build/scripts/detect-implementation-changes.sh)).
 
 ## Gate coverage in this scaffold
 

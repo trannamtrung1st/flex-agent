@@ -25,7 +25,6 @@ echo "==> pnpm audit"
 pnpm audit --audit-level=high
 
 echo "==> License inventory"
-dotnet list FlexAgent.slnx package --include-transitive --format json > "$ARTIFACTS/nuget-packages.json"
 pnpm licenses list --json > "$ARTIFACTS/npm-licenses.json" || pnpm licenses ls --json > "$ARTIFACTS/npm-licenses.json"
 
 echo "==> Publish application artifacts for SBOM scan"
@@ -50,7 +49,13 @@ echo "==> Vulnerability scan"
 "$INSTALL_DIR/grype" sbom:"$ARTIFACTS/sbom-publish.cdx.json" --fail-on high
 "$INSTALL_DIR/grype" sbom:"$ARTIFACTS/sbom-spa.cdx.json" --fail-on high
 
+bash "$ROOT/build/scripts/generate-nuget-licenses.sh" "$ARTIFACTS/nuget-licenses.json"
+
 echo "==> Secret scan"
 "$INSTALL_DIR/gitleaks" detect --source "$ROOT" --no-banner --redact > "$ARTIFACTS/gitleaks.txt"
+
+echo "==> OCI image SBOM and vulnerability scan"
+bash "$ROOT/build/scripts/build-oci-images.sh" >/dev/null
+bash "$ROOT/build/scripts/scan-oci-image-sboms.sh"
 
 echo "==> supply-chain verification complete"

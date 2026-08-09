@@ -30,6 +30,18 @@ public sealed class ApiRuntimeTests : IClassFixture<WebApplicationFactory<ApiPro
     }
 
     [Fact]
+    public async Task Api_host_stops_cleanly_on_disposal()
+    {
+        await using var factory = _factory.WithWebHostBuilder(_ => { });
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/live", cancellationToken)).StatusCode);
+
+        await factory.DisposeAsync();
+    }
+
+    [Fact]
     public async Task Api_root_returns_development_smoke_payload()
     {
         var client = _factory.CreateClient();

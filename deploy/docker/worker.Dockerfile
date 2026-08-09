@@ -14,13 +14,10 @@ RUN dotnet publish src/Hosts/FlexAgent.Worker/FlexAgent.Worker.csproj \
     /p:UseAppHost=false \
     --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.7-noble@sha256:55e37c7795bfaf6b9cc5d77c155811d9569f529d86e20647704bc1d7dd9741d4 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.8-noble@sha256:8c0b6857eab7b2aa57884c839bf4678414606bd7d17370f18a842ac5cf414711 AS final
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && groupadd --gid 10001 appgroup \
+RUN groupadd --gid 10001 appgroup \
     && useradd --uid 10001 --gid appgroup --create-home --home-dir /home/appuser --shell /usr/sbin/nologin appuser \
     && chown -R appuser:appgroup /app
 
@@ -29,8 +26,5 @@ USER appuser
 
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
-
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD curl -fsS http://127.0.0.1:8080/health/live >/dev/null || exit 1
 
 ENTRYPOINT ["dotnet", "FlexAgent.Worker.dll"]
