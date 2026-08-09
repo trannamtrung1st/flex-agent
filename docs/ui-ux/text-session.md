@@ -976,9 +976,9 @@ streaming decision, were approved on 2026-08-09.
 - Frontend implementation, backend/UI state contracts, automated tests, and
   Playwright evidence remain delivery gaps; preparation of this specification
   does not imply implementation or release readiness.
-- The Evaluation and review interaction specification must consume only the
-  authorized immutable terminal transcript/cutoff and must not add live-Session
-  controls or expose review state to the Participant.
+- The approved [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md)
+  consumes only the authorized immutable terminal transcript/cutoff and does
+  not add live-Session controls or expose review state to the Participant.
 - The Result and Release interaction specification must keep Session completion
   neutral until an independently authorized Release makes a Result visible.
 - The design-system foundation should extract repeated status, transcript,

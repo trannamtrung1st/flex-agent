@@ -428,7 +428,7 @@ Approval unblocks Review/Release implementation and requires conformance from:
 - review-case, assignment, revision, decision, Result, Release, visibility,
   notification-outbox, correction, lifecycle, export, and audit modules;
 - Participant and Reviewer query/API contracts;
-- reviewer and Result UI/UX interaction specifications; and
+- Reviewer UI implementation conforming to the approved [Evidence, Evaluation, and Human Review interaction specification](../ui-ux/evidence-evaluation-human-review.md), plus Result UI implementation conforming to the remaining Result and Release interaction specification once approved; and
 - end-to-end isolation, failure, reconstruction, and Release-visibility tests.
 
 ## Related documents

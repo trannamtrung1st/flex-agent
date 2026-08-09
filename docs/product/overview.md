@@ -9,7 +9,7 @@
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.1 |
 | **Effective date** | 2026-08-05 |
-| **Last reviewed** | 2026-08-08 |
+| **Last reviewed** | 2026-08-09 |
 | **Approval reference** | Baseline v0.1 approved on `main` (commits `fff26df`, `d8291ef`, 2026-08-05) |
 
 Vision, positioning, and principles. Canonical concepts, scope boundaries, and requirements live in linked product and requirements documents.
@@ -27,8 +27,9 @@ approved. Complete the compatibility evidence required by approved
 [ADR-008](../architecture/decisions/ADR-008-bounded-oss-component-set.md),
 including qualification of each enabled provider deployment profile and
 provider-credential/Organization-endpoint isolation, plus machine-readable
-contract schemas/fixtures and the remaining
-[UI/UX contracts](../ui-ux/README.md); then implement and verify the
+contract schemas/fixtures, the remaining Result and Release interaction
+specification, and shared design-system guidance under
+[UI/UX](../ui-ux/README.md); then implement and verify the
 [MVP executable workflow](mvp-scope.md#mvp-executable-workflow) with
 specification-driven TDD.
 

@@ -33,8 +33,9 @@ Session publication boundary is revised by
 [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md). The cross-cutting
 [MVP operational defaults](../requirements/mvp-operational-defaults.md) resolve
 upload, application-session, lifecycle, and recovery-placement policy. The
-remaining detailed UI/UX contracts, ADR-008 component compatibility evidence,
-machine-readable contract schemas/fixtures, and production evidence
+remaining Result/Release interaction contract and shared UI design-system
+guidance, ADR-008 component compatibility evidence, machine-readable contract
+schemas/fixtures, and production evidence
 remain staged work as mapped in the approved overview.
 
 [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md)

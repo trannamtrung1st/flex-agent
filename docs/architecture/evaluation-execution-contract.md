@@ -416,7 +416,7 @@ from:
 - Evaluation persistence, work, evaluator registry/runner, model adapter,
   locator adapters, seal fixtures, authorization adapters, and tests;
 - the Review candidate-selection and source-navigation implementation;
-- reviewer UI/UX state and Evidence navigation specifications; and
+- Reviewer state and Evidence-navigation implementation conforming to the approved [Evidence, Evaluation, and Human Review interaction specification](../ui-ux/evidence-evaluation-human-review.md); and
 - lifecycle, reconciliation, audit, and operational runbooks.
 
 ## Related documents

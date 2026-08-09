@@ -11,7 +11,7 @@ First product experience, platform direction, explicit non-goals, and deferred c
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.1 |
 | **Effective date** | 2026-08-05 |
-| **Last reviewed** | 2026-08-08 |
+| **Last reviewed** | 2026-08-09 |
 | **Approval reference** | Baseline v0.1 approved on `main` (commits `fff26df`, `d8291ef`, 2026-08-05) |
 | **Related decisions** | [Concept model v0.1](concept-model.md) |
 
@@ -180,7 +180,8 @@ Complete ADR-008's applicable compatibility and provider-credential evidence,
 qualify at least one concrete provider deployment profile for each claimed
 execution profile without making its model a product dependency, and complete
 the remaining machine-readable schemas/fixtures and
-[UI/UX contracts](../ui-ux/README.md); then proceed with
+the remaining Result and Release interaction specification and shared
+design-system guidance under [UI/UX](../ui-ux/README.md); then proceed with
 specification-driven implementation and end-to-end verification while
 preserving the approved product scope and feature boundaries.
 
