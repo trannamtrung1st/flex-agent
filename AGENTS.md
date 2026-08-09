@@ -58,8 +58,23 @@ Load the matching repository skill from `.agents/skills/` before substantive wor
 - QA, acceptance, regression, functional, accessibility, or UX testing: `tester`
 - Threat modeling, privacy, isolation, memory, uploads, tools, or audit review: `security-privacy-reviewer`
 - Commits, branches, merges, or pull requests: `git-workflow`
+- Substantive implementation planning, execution tracking, and completion: `implementation-workflow`
 
-Load multiple skills when a task crosses roles. Keep implementation and review perspectives distinct: a reviewer reports findings and evidence and does not edit unless fixes were also requested. Role skills define reusable responsibilities and quality standards. Workflow skills such as `git-workflow` cover delivery processes that compose roles; load them when the task is primarily about that process.
+Load multiple skills when a task crosses roles. Keep implementation and review perspectives distinct: a reviewer reports findings and evidence and does not edit unless fixes were also requested. Role skills define reusable responsibilities and quality standards. Workflow skills cover delivery processes that compose roles: load `git-workflow` when the task is primarily about version control; load `implementation-workflow` for substantive implementation work alongside applicable role skills.
+
+## Implementation workflow
+
+For substantive implementation work, load `implementation-workflow` from `.agents/skills/`.
+
+- Shared mutable task state: `.work/active/<task-slug>.md` (template: `.work/templates/implementation-plan.md`)
+- Operational guidance: `.work/README.md`
+- Trivial one-step edits do not require a task file.
+
+Keep the active task file current during execution: steps, discoveries, blockers, verification evidence, and next actions. One task normally has one state file; do not split the same work across separate plan or progress files.
+
+`.work/` is temporary, non-authoritative working state. If a discovery changes product meaning, requirements, architecture, or another durable contract, move it into the appropriate authoritative artifact.
+
+Completion requires reconciling planned work with actual changes, proportionate verification with evidence, and rechecking governing specifications. Do not claim completion from checklist marks alone. Remove the active task file after completion unless there is a clear reason to retain it.
 
 For any UI design, implementation, review, or testing task, read
 `docs/ui-ux/design-system/README.md` and its status/authority rules, then load

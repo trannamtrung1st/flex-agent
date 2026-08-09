@@ -18,7 +18,8 @@ Load the matching project skill from `.cursor/skills/` before substantive work. 
 - QA, acceptance, regression, functional, accessibility, or UX testing: `tester`
 - Threat modeling, privacy, isolation, memory, uploads, tools, or audit review: `security-privacy-reviewer`
 - Commits, branches, merges, or pull requests: `git-workflow`
+- Substantive implementation planning, execution tracking, and completion: `implementation-workflow`
 
 Load multiple skills when the task crosses roles. Keep implementation and review perspectives distinct: a reviewer reports findings and evidence, and does not edit unless the user also requests fixes.
 
-Role skills define reusable responsibilities, standards, and output quality. Workflow skills such as `git-workflow` cover delivery processes that compose roles; load them when the task is primarily about that process.
+Role skills define reusable responsibilities, standards, and output quality. Workflow skills cover delivery processes that compose roles: load `git-workflow` when the task is primarily about version control; load `implementation-workflow` for substantive implementation work alongside applicable role skills.

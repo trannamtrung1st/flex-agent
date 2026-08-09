@@ -430,3 +430,10 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Temporary files
+temp/
+
+# Coding-agent implementation working state (templates and README are tracked)
+.work/active/*
+!.work/active/.gitkeep

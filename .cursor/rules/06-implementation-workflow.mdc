@@ -1,0 +1,36 @@
+---
+description: Route substantive implementation work through shared task state under .work/active/
+alwaysApply: true
+---
+
+# Implementation workflow
+
+For substantive implementation work, load the `implementation-workflow` skill from `.cursor/skills/`.
+
+## When to use
+
+Use tracked planning for new features, multi-file changes, migrations, meaningful refactors, architecture-sensitive work, UI journeys, investigations, and other non-trivial tasks.
+
+Trivial one-step edits (for example, a typo) do not require a task file.
+
+## Shared task state
+
+- Live implementation state: `.work/active/<task-slug>.md`
+- Template: `.work/templates/implementation-plan.md`
+- Operational guidance: `.work/README.md`
+
+One implementation task normally has one state file. Do not create separate plan, progress, or notes files for the same task.
+
+`.work/` is temporary, non-authoritative working state. Permanent decisions belong in authoritative artifacts under `docs/`, ADRs, code, and tests.
+
+## During execution
+
+- Inspect governing sources before substantial implementation.
+- Keep the active task file current as steps, discoveries, blockers, and verification change.
+- Compose applicable role skills; this workflow does not replace them.
+- Follow specification-driven TDD for behavior changes.
+- Record verification evidence; do not claim completion from checklist marks alone.
+- Reconcile the plan against actual changes before finishing.
+- Remove the active task file after completion unless there is a clear reason to retain it.
+
+`git-workflow` is separate. Commits, pushes, and pull requests happen only when explicitly requested.
