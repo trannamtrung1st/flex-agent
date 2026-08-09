@@ -630,8 +630,10 @@ or terminal state.
 ## UI/UX contract dependencies
 
 This section does not define interaction design. It identifies authoritative
-state that the architecture must expose so a later approved UI/UX specification
-can cover the required journeys without client-side inference.
+state that the architecture must expose so the approved
+[Activity/Campaign journey](../ui-ux/activity-campaign-journey.md) and its
+downstream interaction specifications can cover the required journeys without
+client-side inference.
 
 | Surface | State contract the architecture must expose |
 | --- | --- |
@@ -648,11 +650,12 @@ authorization, acceptance, timer outcome, Evaluation completion, or Release from
 optimistic state, connection status, notification delivery, or elapsed client
 time.
 
-The UI/UX specification remains responsible for information hierarchy, copy,
-focus, announcements, keyboard behavior, 400 percent zoom/reflow, reduced
-motion, desktop/narrow layouts, destructive confirmation, and preservation of
-user input on recoverable failure. Architecture must make these states reachable
-and testable but must not prescribe their visual design.
+The approved UI/UX journey and downstream interaction specifications remain
+responsible for information hierarchy, copy, focus, announcements, keyboard
+behavior, 400 percent zoom/reflow, reduced motion, desktop/narrow layouts,
+destructive confirmation, and preservation of user input on recoverable
+failure. Architecture must make these states reachable and testable but must
+not prescribe their visual design.
 
 ## Security and privacy model
 
@@ -784,7 +787,7 @@ requirement implemented.
 | Before authentication implementation | Pass ADR-008's Keycloak contract gate and encode the approved application-session and MFA settings. | Component direction and observable behavior are approved; compatibility evidence remains blocking for acceptance. |
 | Before model-provider implementation | Implement the provider-neutral adapter, provider-profile resolver, and `SecretSource` credential resolver; test deployment-default and Organization-BYOK scope, rotation/revocation, wrong-scope substitution, quota attribution, immutable provider/model identity, capability matching, and fail-closed no-fallback behavior. | Direct OpenAI is the first implementation adapter, not the product default. Each enabled deployment-managed or self-hosted profile must pass ADR-008's applicable quality, privacy, security, identity, capacity, license, and operational gates before real use. |
 | Before enabling an Organization-owned model endpoint | Add an installed/allowlisted adapter and operator-approved endpoint binding; test endpoint validation, network destination policy, credential isolation, immutable identity, capability compatibility, quotas, failure behavior, and every cross-Organization or silent-fallback case. | This extension seam is approved but is not an MVP acceptance requirement. Self-service executable plugin installation remains deferred and requires a feature specification, threat model, and ADR. |
-| Before frontend implementation | Author approved SPA journeys and interaction specifications for setup, Submission, Session, Evaluation/review, and Result/Release states. | UI/UX remains a documentation gap; `AR-DEC-12` defines authority, not visual interaction. |
+| Before frontend implementation | Apply the approved [Activity/Campaign journey](../ui-ux/activity-campaign-journey.md) and author approved interaction specifications for setup, Submission, Session, Evaluation/review, and Result/Release states. | The platform IA and P0 journey are approved; the five surface interaction specifications remain the UI/UX documentation gap. `AR-DEC-12` defines authority, not visual interaction. |
 | Before scaffold acceptance | Pass ADR-010's runtime, schema, RFC 8785, HTTP, PostgreSQL/Grate, module-boundary, supply-chain, and operability gates. | The stack and tooling direction are approved, including `JsonSchema.Net` and the separate vendored canonicalization project; exact version/source pins and executable compatibility evidence remain blocking for scaffold acceptance. |
 | Before implementation acceptance | Publish ADR-001/ADR-004 conformance fixtures and versioned schemas for commands, events, canonical documents, work, Evidence locators, audit, and artifacts. | Required verification evidence. |
 | Before production pilot | Implement and verify lifecycle enforcement, privileged access/secrets/encryption configuration, model-provider privacy and credential-isolation controls, same-jurisdiction secondary recovery, restore/failure-injection/load evidence, operational runbooks, upgrade/recovery procedures, and the component/SBOM inventory. | Approved policy exists; implementation and operational evidence remain production-pilot blockers. The single-host evaluation pilot is synthetic-data-only and cannot waive these gates. |
@@ -829,8 +832,9 @@ not all-or-nothing:
 3. Backend, frontend, security, and test plans must map each P0 requirement/AC
    group to implementation surfaces and repeatable verification using
    specification-driven TDD.
-4. Frontend implementation must not outrun the missing approved UI/UX journeys
-   and interaction specifications.
+4. Frontend implementation must conform to the approved Activity/Campaign
+   journey and must not outrun the missing approved surface interaction
+   specifications.
 5. Scaffold acceptance must pass ADR-010's runtime, schema, JCS, HTTP,
    PostgreSQL/Grate, module-boundary, supply-chain, and operability gates.
 6. Production pilot remains blocked on lifecycle, identity, upload, provider

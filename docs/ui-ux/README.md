@@ -6,14 +6,17 @@ Product meaning and scope boundaries live under [product documentation](../produ
 
 ## Status
 
-**No approved UI/UX documents yet.** All seven P0 feature specifications, the
+**The platform Activity IA and end-to-end P0 assessment Campaign journey are
+approved; surface interaction specifications remain to be authored.** All
+seven P0 feature specifications, the
 [MVP operational defaults](../requirements/mvp-operational-defaults.md), and the
 [MVP architecture](../architecture/mvp-architecture.md) are approved, so entry
-criteria are met for the complete MVP workflow. Author authoritative journeys
-and interaction specifications for assessment setup, Submission intake, text
-Session execution, Evaluation and human review, and Result Release. Trace every
-state and interaction to the owning `AC-*` criteria and preserve the SPA/server
-authority boundary defined by `AR-DEC-12`.
+criteria are met for the complete MVP workflow. Apply the approved
+[Flex Agent activity journey and MVP campaign information architecture](activity-campaign-journey.md),
+then author interaction specifications for assessment Campaign setup,
+Submission intake, text Session execution, Evaluation and human review, and
+Result Release. Trace every state and interaction to the owning `AC-*` criteria
+and preserve the SPA/server authority boundary defined by `AR-DEC-12`.
 
 ## Purpose
 
@@ -41,6 +44,12 @@ Begin UI/UX documentation when:
 ## Relationship to requirements
 
 UI/UX documents implement and extend approved requirements; they do not override acceptance criteria. Link interaction specs to `AC-*` IDs from feature specifications.
+
+## Document catalog
+
+| Document | Type | Status | Governs |
+| --- | --- | --- | --- |
+| [Flex Agent activity journey and MVP campaign information architecture](activity-campaign-journey.md) | Platform IA and end-to-end P0 journey | Approved | Generic Activity navigation; assessment Campaign journey; capability-scoped navigation; state handoffs; and shared interaction principles |
 
 ## Related documents
 
