@@ -290,6 +290,22 @@ components:
           enum: [active, completing, completed, terminated, aborted]
         terminal_seal:
           $ref: '#/components/schemas/TerminalSealV1'
+      allOf:
+        - if:
+            properties:
+              terminal_state:
+                enum: [completed, terminated, aborted]
+            required: [terminal_state]
+          then:
+            required: [terminal_seal]
+        - if:
+            properties:
+              terminal_state:
+                enum: [active, completing]
+            required: [terminal_state]
+          then:
+            properties:
+              terminal_seal: false
     SessionOwnershipRefV1:
       type: object
       additionalProperties: false
@@ -450,6 +466,55 @@ components:
               maxLength: 128
             invocation_id:
               $ref: '#/components/schemas/StableId'
+      allOf:
+        - if:
+            properties:
+              source_type:
+                enum:
+                  - submission.direct_text
+                  - submission.text_attachment
+            required: [source_type]
+          then:
+            properties:
+              location:
+                oneOf:
+                  - $ref: '#/components/schemas/WholeItemLocationV1'
+                  - $ref: '#/components/schemas/LineRangeLocationV1'
+                  - $ref: '#/components/schemas/Utf8ByteRangeLocationV1'
+              precision:
+                enum: [exact_range, whole_item]
+        - if:
+            properties:
+              source_type:
+                enum:
+                  - session.transcript_item
+                  - session.work_trace
+            required: [source_type]
+          then:
+            required: [source_ref]
+            properties:
+              source_ref:
+                required: [terminal_cutoff_sequence]
+              location:
+                oneOf:
+                  - $ref: '#/components/schemas/WholeItemLocationV1'
+                  - $ref: '#/components/schemas/Utf8ByteRangeLocationV1'
+              precision:
+                enum: [exact_range, whole_item]
+        - if:
+            properties:
+              source_type:
+                enum:
+                  - configuration.fact
+                  - manifest.fact
+                  - deterministic.fact
+            required: [source_type]
+          then:
+            properties:
+              location:
+                $ref: '#/components/schemas/JsonPointerLocationV1'
+              precision:
+                enum: [exact_range, stable_segment, whole_item]
     WholeItemLocationV1:
       type: object
       additionalProperties: false

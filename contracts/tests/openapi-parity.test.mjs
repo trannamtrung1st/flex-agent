@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import YAML from "yaml";
+import Ajv from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
 
 const contractsRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -41,6 +43,29 @@ const commandVariantMappings = [
   ["complete_command", "SessionCompleteCommandV1"],
   ["terminate_command", "SessionTerminateCommandV1"],
   ["reconcile_command", "SessionReconcileCommandV1"],
+];
+
+const projectionNegativeCases = [
+  {
+    fixture: "fixtures/schema/v1/manifest/resolved-execution-manifest/invalid-active-with-seal.json",
+    openApiComponent: "ResolvedExecutionManifestV1",
+    canonicalSchemaPath: "schemas/v1/manifest/resolved-execution-manifest.v1.schema.json",
+  },
+  {
+    fixture: "fixtures/schema/v1/manifest/resolved-execution-manifest/invalid-completed-without-seal.json",
+    openApiComponent: "ResolvedExecutionManifestV1",
+    canonicalSchemaPath: "schemas/v1/manifest/resolved-execution-manifest.v1.schema.json",
+  },
+  {
+    fixture: "fixtures/schema/v1/evidence/evidence-locator/invalid-configuration-whole-item.json",
+    openApiComponent: "EvidenceLocatorV1",
+    canonicalSchemaPath: "schemas/v1/evidence/evidence-locator.v1.schema.json",
+  },
+  {
+    fixture: "fixtures/schema/v1/session/command-envelope/invalid-pause-with-message-payload.json",
+    openApiComponent: "SessionCommandEnvelopeV1",
+    canonicalSchemaPath: "schemas/v1/session/command-envelope.v1.schema.json",
+  },
 ];
 
 const CONSTRAINT_KEYS = [
@@ -92,7 +117,11 @@ function resolveRef(ref, context, owner) {
   throw new Error(`Unsupported $ref: ${ref}`);
 }
 
-function dereference(schema, context, owner = context.jsonSchema, seen = new Set()) {
+function normalizeNode(schema, context, owner = context.jsonSchema, seen = new Set()) {
+  if (schema === false) {
+    return false;
+  }
+
   if (!schema || typeof schema !== "object") {
     return schema;
   }
@@ -108,62 +137,66 @@ function dereference(schema, context, owner = context.jsonSchema, seen = new Set
       ? context.primitives
       : ref.startsWith("#/components/schemas/")
         ? context.openApiComponents
-        : owner;
-    return dereference(resolved, context, resolvedOwner, seen);
+        : ref.startsWith("#/$defs/")
+          ? owner
+          : owner;
+    return normalizeNode(resolved, context, resolvedOwner, seen);
   }
 
-  if (schema.allOf) {
-    return mergeAllOf(
-      schema.allOf.map((branch) => dereference(branch, context, owner, new Set(seen))),
-    );
+  const normalized = {};
+  for (const key of CONSTRAINT_KEYS) {
+    if (schema[key] !== undefined) {
+      normalized[key] = schema[key];
+    }
   }
 
-  if (schema.oneOf) {
-    return {
-      oneOf: schema.oneOf.map((branch) => dereference(branch, context, owner, new Set(seen))),
-    };
+  if (schema.required) {
+    normalized.required = [...schema.required].sort();
   }
 
-  const copy = { ...schema };
   if (schema.properties) {
-    copy.properties = Object.fromEntries(
-      Object.entries(schema.properties).map(([key, value]) => [
-        key,
-        dereference(value, context, owner, new Set(seen)),
-      ]),
+    normalized.properties = Object.fromEntries(
+      Object.entries(schema.properties)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, value]) => [key, normalizeNode(value, context, owner, new Set(seen))]),
     );
   }
 
   if (schema.items) {
-    copy.items = dereference(schema.items, context, owner, new Set(seen));
+    normalized.items = normalizeNode(schema.items, context, owner, new Set(seen));
   }
 
-  return copy;
-}
-
-function mergeAllOf(branches) {
-  const merged = {
-    type: undefined,
-    required: [],
-    properties: {},
-    additionalProperties: undefined,
-  };
-
-  for (const branch of branches) {
-    if (!branch || typeof branch !== "object") continue;
-    if (branch.type) merged.type = branch.type;
-    if (branch.required) merged.required.push(...branch.required);
-    if (branch.properties) Object.assign(merged.properties, branch.properties);
-    if (branch.additionalProperties !== undefined) {
-      merged.additionalProperties = branch.additionalProperties;
-    }
-    for (const key of CONSTRAINT_KEYS) {
-      if (branch[key] !== undefined) merged[key] = branch[key];
-    }
+  if (schema.allOf) {
+    normalized.allOf = schema.allOf.map((branch) =>
+      normalizeNode(branch, context, owner, new Set(seen)),
+    );
   }
 
-  merged.required = [...new Set(merged.required)].sort();
-  return merged;
+  if (schema.oneOf) {
+    normalized.oneOf = schema.oneOf.map((branch) =>
+      normalizeNode(branch, context, owner, new Set(seen)),
+    );
+  }
+
+  if (schema.anyOf) {
+    normalized.anyOf = schema.anyOf.map((branch) =>
+      normalizeNode(branch, context, owner, new Set(seen)),
+    );
+  }
+
+  if (schema.if) {
+    normalized.if = normalizeNode(schema.if, context, owner, new Set(seen));
+  }
+
+  if (schema.then) {
+    normalized.then = normalizeNode(schema.then, context, owner, new Set(seen));
+  }
+
+  if (schema.else) {
+    normalized.else = normalizeNode(schema.else, context, owner, new Set(seen));
+  }
+
+  return normalized;
 }
 
 function normalizeComparableSchema(schema, context) {
@@ -172,10 +205,8 @@ function normalizeComparableSchema(schema, context) {
   delete base.$id;
   delete base.title;
   delete base.description;
-  delete base.allOf;
-  delete base.if;
-  delete base.then;
-  return dereference(base, context, context.jsonSchema);
+  delete base.$defs;
+  return normalizeNode(base, context, context.jsonSchema);
 }
 
 function commandTypeOf(schema) {
@@ -188,6 +219,16 @@ function branchFingerprint(schema) {
     if (schema?.[key] !== undefined) picked[key] = schema[key];
   }
   return JSON.stringify(picked);
+}
+
+function assertPropertySetsMatch(openApi, json, label) {
+  const openNames = new Set(Object.keys(openApi.properties ?? {}));
+  const jsonNames = new Set(Object.keys(json.properties ?? {}));
+  assert.deepEqual(
+    [...openNames].sort(),
+    [...jsonNames].sort(),
+    `${label}: property name set mismatch`,
+  );
 }
 
 function assertConstraintParity(openApiSchema, jsonSchema, label, context) {
@@ -225,15 +266,15 @@ function assertConstraintParity(openApiSchema, jsonSchema, label, context) {
 
   if (json.required) {
     assert.deepEqual(
-      [...(openApi.required ?? [])].sort(),
-      [...json.required].sort(),
+      openApi.required ?? [],
+      json.required,
       `${label}: required mismatch`,
     );
   }
 
-  if (json.properties) {
-    for (const property of Object.keys(json.properties)) {
-      assert.ok(openApi.properties?.[property], `${label}: OpenAPI missing property ${property}`);
+  if (json.properties || openApi.properties) {
+    assertPropertySetsMatch(openApi, json, label);
+    for (const property of Object.keys(json.properties ?? {})) {
       assertConstraintParity(
         openApi.properties[property],
         json.properties[property],
@@ -247,6 +288,89 @@ function assertConstraintParity(openApiSchema, jsonSchema, label, context) {
     assert.ok(openApi.items, `${label}: OpenAPI missing items schema`);
     assertConstraintParity(openApi.items, json.items, `${label}[]`, context);
   }
+
+  if (json.allOf || openApi.allOf) {
+    assert.ok(openApi.allOf && json.allOf, `${label}: allOf presence mismatch`);
+    assert.equal(openApi.allOf.length, json.allOf.length, `${label}: allOf length mismatch`);
+    for (let index = 0; index < json.allOf.length; index += 1) {
+      assertConstraintParity(
+        openApi.allOf[index],
+        json.allOf[index],
+        `${label}.allOf[${index}]`,
+        context,
+      );
+    }
+  }
+
+  for (const conditionalKey of ["if", "then", "else"]) {
+    if (json[conditionalKey] !== undefined) {
+      assert.ok(openApi[conditionalKey], `${label}: OpenAPI missing ${conditionalKey}`);
+      assertConstraintParity(
+        openApi[conditionalKey],
+        json[conditionalKey],
+        `${label}.${conditionalKey}`,
+        context,
+      );
+    }
+  }
+}
+
+function inlineOpenApiComponent(componentName, components) {
+  function resolve(node, stack = new Set()) {
+    if (!node || typeof node !== "object") {
+      return node;
+    }
+
+    if (Array.isArray(node)) {
+      return node.map((entry) => resolve(entry, stack));
+    }
+
+    if (node.$ref?.startsWith("#/components/schemas/")) {
+      const refName = node.$ref.slice("#/components/schemas/".length);
+      assert.ok(components[refName], `Missing OpenAPI component ${refName}`);
+      if (stack.has(refName)) {
+        return { $ref: node.$ref };
+      }
+      stack.add(refName);
+      const resolved = resolve(structuredClone(components[refName]), stack);
+      stack.delete(refName);
+      return resolved;
+    }
+
+    const resolved = {};
+    for (const [key, value] of Object.entries(node)) {
+      resolved[key] = resolve(value, stack);
+    }
+    return resolved;
+  }
+
+  return resolve(structuredClone(components[componentName]));
+}
+
+function compileOpenApiComponent(ajv, componentName, openApi) {
+  return ajv.compile(inlineOpenApiComponent(componentName, openApi.components.schemas));
+}
+
+function createAjv() {
+  const ajv = new Ajv({
+    strict: false,
+    allErrors: true,
+    validateFormats: true,
+  });
+  addFormats(ajv);
+  return ajv;
+}
+
+async function registerCanonicalValidators(ajv, schemaPaths) {
+  const primitives = await loadJson("schemas/v1/common/primitives.v1.schema.json");
+  ajv.addSchema(primitives);
+  const validators = new Map();
+  for (const schemaPath of schemaPaths) {
+    const schema = await loadJson(schemaPath);
+    ajv.addSchema(schema);
+    validators.set(schemaPath, ajv.getSchema(schema.$id));
+  }
+  return validators;
 }
 
 test("OpenAPI representative components mirror canonical JSON Schema constraints", async () => {
@@ -313,4 +437,36 @@ test("OpenAPI int64 wire primitives enforce signed-int64 bounds and positive sem
     "NonnegativeInt64WireString",
     context,
   );
+});
+
+test("OpenAPI projection rejects canonical negative fixtures", async () => {
+  const openApi = YAML.parse(
+    await readFile(path.join(contractsRoot, "projections/openapi.v3.1.yaml"), "utf8"),
+  );
+  const ajv = createAjv();
+  const canonicalValidators = await registerCanonicalValidators(ajv, [
+    ...new Set(projectionNegativeCases.map((entry) => entry.canonicalSchemaPath)),
+  ]);
+
+  for (const negativeCase of projectionNegativeCases) {
+    const instance = await loadJson(negativeCase.fixture);
+    const openApiValidate = compileOpenApiComponent(
+      ajv,
+      negativeCase.openApiComponent,
+      openApi,
+    );
+    const canonicalValidate = canonicalValidators.get(negativeCase.canonicalSchemaPath);
+    assert.ok(canonicalValidate, `Missing canonical validator for ${negativeCase.canonicalSchemaPath}`);
+
+    assert.equal(
+      openApiValidate(instance),
+      false,
+      `${negativeCase.fixture} should be rejected by OpenAPI projection`,
+    );
+    assert.equal(
+      canonicalValidate(instance),
+      false,
+      `${negativeCase.fixture} should be rejected by canonical schema`,
+    );
+  }
 });

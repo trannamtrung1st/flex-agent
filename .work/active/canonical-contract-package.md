@@ -269,6 +269,18 @@ Post-remediation verification:
 | P1/P2 evidence reconstruction metadata | Require `line_split_procedure_version` and `excerpt_digest`; C# members non-nullable; negative fixtures added |
 | P2 OpenAPI drift / weak parity | Fixed SSE `fragment_sequence`/`text_delta` bounds; recursive constraint parity test with command variant comparison |
 
+## Third review round (post `8ed18c9`)
+
+| Finding | Fix |
+| --- | --- |
+| P2 OpenAPI drops `allOf`/conditionals | Manifest and Evidence OpenAPI projections mirror `if`/`then` conditionals; parity checker preserves/compares `allOf`/`if`/`then`/`else`; exact property-set parity; four negative projection tests via Ajv |
+
+Post-remediation verification:
+
+- `verify-dotnet.sh`: 83/83 pass
+- `verify-web.sh`: pass (contracts 8/8 Node tests, lint, typecheck, build)
+- Fixture discovery: **20 valid**, **10 invalid**
+
 # Findings / deviations
 
 - Artifact-2 baseline remained green before edits (contract 6/6, JCS 25/25).
