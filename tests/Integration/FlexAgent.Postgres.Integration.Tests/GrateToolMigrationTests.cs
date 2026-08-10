@@ -138,18 +138,29 @@ public sealed class GrateToolMigrationTests
     }
 
     [Fact]
-    public async Task Grate_tool_concurrent_invocations_on_migrated_database_both_succeed()
+    public async Task RunAsync_concurrent_invocations_on_migrated_database_both_succeed()
     {
         await using var container = await StartContainerAsync();
         var connectionString = container.GetConnectionString();
+        var migrationsDirectory = GetProductionMigrationsDirectory();
 
-        GrateMigrationRunner.InvokeTool(connectionString).EnsureSuccessful();
+        await GrateMigrationRunner.RunAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            allowEmbeddedFallback: false);
 
-        var results = await Task.WhenAll(
-            Task.Run(() => GrateMigrationRunner.InvokeTool(connectionString)),
-            Task.Run(() => GrateMigrationRunner.InvokeTool(connectionString)));
-
-        Assert.All(results, result => result.EnsureSuccessful());
+        await Task.WhenAll(
+            GrateMigrationRunner.RunAsync(
+                connectionString,
+                migrationsDirectory,
+                TestContext.Current.CancellationToken,
+                allowEmbeddedFallback: false),
+            GrateMigrationRunner.RunAsync(
+                connectionString,
+                migrationsDirectory,
+                TestContext.Current.CancellationToken,
+                allowEmbeddedFallback: false));
 
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
@@ -158,28 +169,23 @@ public sealed class GrateToolMigrationTests
     }
 
     [Fact]
-    public async Task Grate_tool_concurrent_invocations_on_empty_database_serialize_pending_migrations()
+    public async Task RunAsync_concurrent_invocations_on_empty_database_both_succeed()
     {
         await using var container = await StartContainerAsync();
         var connectionString = container.GetConnectionString();
+        var migrationsDirectory = GetProductionMigrationsDirectory();
 
-        var results = await Task.WhenAll(
-            Task.Run(() => GrateMigrationRunner.InvokeTool(connectionString)),
-            Task.Run(() => GrateMigrationRunner.InvokeTool(connectionString)));
-
-        foreach (var result in results)
-        {
-            if (result.WasSuccessful)
-            {
-                continue;
-            }
-
-            Assert.True(
-                IsTransientConcurrentBootstrapFailure(result),
-                $"Unexpected concurrent migration failure:{Environment.NewLine}{result.CombinedOutput}");
-
-            GrateMigrationRunner.InvokeTool(connectionString).EnsureSuccessful();
-        }
+        await Task.WhenAll(
+            GrateMigrationRunner.RunAsync(
+                connectionString,
+                migrationsDirectory,
+                TestContext.Current.CancellationToken,
+                allowEmbeddedFallback: false),
+            GrateMigrationRunner.RunAsync(
+                connectionString,
+                migrationsDirectory,
+                TestContext.Current.CancellationToken,
+                allowEmbeddedFallback: false));
 
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
@@ -192,10 +198,7 @@ public sealed class GrateToolMigrationTests
     {
         await using var container = await StartContainerAsync();
         var connectionString = container.GetConnectionString();
-        var productionMigrationsDirectory = Path.Combine(
-            FindRepositoryRoot(),
-            "database",
-            "migrations");
+        var productionMigrationsDirectory = GetProductionMigrationsDirectory();
         var hostileMigrationsDirectory = Path.Combine(
             FindRepositoryRoot(),
             "tests",
@@ -233,10 +236,8 @@ public sealed class GrateToolMigrationTests
         }
     }
 
-    private static bool IsTransientConcurrentBootstrapFailure(GrateToolInvocationResult result) =>
-        !result.WasSuccessful
-        && result.CombinedOutput.Contains("grate-internal/", StringComparison.OrdinalIgnoreCase)
-        && result.CombinedOutput.Contains("42P01", StringComparison.OrdinalIgnoreCase);
+    private static string GetProductionMigrationsDirectory() =>
+        Path.Combine(FindRepositoryRoot(), "database", "migrations");
 
     private static async Task AssertFullyMigratedExactlyOnceAsync(NpgsqlConnection connection)
     {

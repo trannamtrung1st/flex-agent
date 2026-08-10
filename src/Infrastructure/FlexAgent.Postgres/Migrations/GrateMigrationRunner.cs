@@ -10,37 +10,63 @@ public static class GrateMigrationRunner
 {
     public const string AllowEmbeddedFallbackEnvironmentVariable = "FLEXAGENT_ALLOW_EMBEDDED_MIGRATION_FALLBACK";
 
+    private const int MaxConcurrentBootstrapRetryAttempts = 5;
+    private static readonly TimeSpan ConcurrentBootstrapRetryBaseDelay = TimeSpan.FromMilliseconds(100);
+
     public static async Task RunAsync(
         string connectionString,
         string migrationsDirectory,
         CancellationToken cancellationToken = default,
         bool? allowEmbeddedFallback = null)
     {
-        var toolResult = TryRunDotnetTool(
-            connectionString,
-            new GrateToolInvocationOptions(MigrationsDirectory: migrationsDirectory));
-        if (toolResult.WasSuccessful)
+        var toolOptions = new GrateToolInvocationOptions(MigrationsDirectory: migrationsDirectory);
+        ToolInvocationResult? lastToolResult = null;
+
+        for (var attempt = 1; attempt <= MaxConcurrentBootstrapRetryAttempts; attempt++)
         {
-            return;
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var toolResult = TryRunDotnetTool(connectionString, toolOptions);
+            if (toolResult.WasSuccessful)
+            {
+                return;
+            }
+
+            lastToolResult = toolResult;
+
+            if (IsTransientConcurrentBootstrapFailure(toolResult.Error)
+                && attempt < MaxConcurrentBootstrapRetryAttempts)
+            {
+                await Task.Delay(
+                    TimeSpan.FromMilliseconds(
+                        ConcurrentBootstrapRetryBaseDelay.TotalMilliseconds * Math.Pow(2, attempt - 1)),
+                    cancellationToken);
+                continue;
+            }
+
+            break;
         }
+
+        var toolResultForFailure = lastToolResult
+            ?? throw new InvalidOperationException("Grate migration did not run.");
 
         if (!IsEmbeddedFallbackAllowed(allowEmbeddedFallback))
         {
             throw new InvalidOperationException(
-                $"Grate migration failed and embedded fallback is disabled.{Environment.NewLine}{toolResult.Error}");
+                $"Grate migration failed and embedded fallback is disabled.{Environment.NewLine}{toolResultForFailure.Error}");
         }
 
-        if (!toolResult.IsRuntimeIncompatibility)
+        if (!toolResultForFailure.IsRuntimeIncompatibility)
         {
             throw new InvalidOperationException(
-                $"Grate migration failed with a non-recoverable error.{Environment.NewLine}{toolResult.Error}");
+                $"Grate migration failed with a non-recoverable error.{Environment.NewLine}{toolResultForFailure.Error}");
         }
 
         await RunEmbeddedMigrationsAsync(
             connectionString,
             migrationsDirectory,
             cancellationToken,
-            toolResult.Error);
+            toolResultForFailure.Error);
     }
 
     public static GrateToolInvocationResult InvokeTool(
@@ -274,6 +300,11 @@ public static class GrateMigrationRunner
             }
         }
     }
+
+    private static bool IsTransientConcurrentBootstrapFailure(string? combinedOutput) =>
+        !string.IsNullOrEmpty(combinedOutput)
+        && combinedOutput.Contains("grate-internal/", StringComparison.OrdinalIgnoreCase)
+        && combinedOutput.Contains("42P01", StringComparison.OrdinalIgnoreCase);
 
     private static string FindRepositoryRoot()
     {

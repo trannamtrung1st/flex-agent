@@ -208,7 +208,7 @@ Session configuration, or start an assessment workflow.
   - [x] Grate **tool** repeat no-op (`GrateToolMigrationTests.Grate_tool_repeat_is_no_op`)
   - [x] changed one-time script failure (`GrateToolMigrationTests.Grate_tool_changed_one_time_script_fails_closed`)
   - [x] transactional migration failure rollback (`GrateToolMigrationTests.Grate_tool_failed_script_rolls_back_within_transaction`)
-  - [x] concurrent migration runners/locking (`Grate_tool_concurrent_invocations_on_empty_database_serialize_pending_migrations` for pending migrations; `Grate_tool_concurrent_invocations_on_migrated_database_both_succeed` for repeat no-op)
+  - [x] concurrent migration contention (`RunAsync_concurrent_invocations_on_empty_database_both_succeed` with bounded bootstrap retry; `RunAsync_concurrent_invocations_on_migrated_database_both_succeed` for repeat no-op)
   - [x] supported upgrade path (embedded + historical fixtures)
   - [x] append-only audit mutation rejection
   - [x] tool dry-run is non-mutating (`GrateToolMigrationTests.Grate_tool_dry_run_is_non_mutating`); migration reproducibility via changed-script hash enforcement and upgrade-path regressions
@@ -291,10 +291,10 @@ follow-up outside this artifact slice.
 - Grate tool evidence (2026-08-10): `GrateToolMigrationTests` (eight tests)
   exercises `build/scripts/run-grate-migrations.sh` (Grate 2.1.6) against
   PostgreSQL 18 without embedded fallback: empty migrate, repeat no-op, changed
-  one-time script failure, transactional rollback, concurrent pending-migration
-  contention on an empty database (transient grate-internal bootstrap failure
-  retryable; final schema applied exactly once), concurrent no-op invocations on
-  a migrated database (both succeed), dry-run non-mutation, and `RunAsync`
+  one-time script failure, transactional rollback, concurrent `RunAsync`
+  invocations on an empty database (bounded retry for transient grate-internal
+  `42P01` bootstrap races; both callers succeed), concurrent `RunAsync` no-op
+  invocations on a migrated database, dry-run non-mutation, and `RunAsync`
   explicit-directory override of ambient `FLEXAGENT_MIGRATIONS_DIRECTORY`.
   Migration reproducibility is evidenced by changed-script failure and
   historical upgrade checksum regressions, not dry-run alone. Local smoke
@@ -305,9 +305,9 @@ follow-up outside this artifact slice.
   `migrationsDirectory` to the Grate tool path and always sets
   `FLEXAGENT_MIGRATIONS_DIRECTORY` on the child process; dry-run evidence
   renamed to non-mutation only.
-- Review follow-up (2026-08-10, round 6): added empty-database concurrent
-  pending-migration test with explicit transient-bootstrap retry contract;
-  migrated-database concurrent test retained for no-op path.
+- Review follow-up (2026-08-10, round 7): `RunAsync` retries transient
+  grate-internal `42P01` bootstrap races with bounded exponential backoff;
+  concurrent empty-database evidence uses two parallel `RunAsync` calls directly.
 
 # Open questions / interim defaults
 
@@ -361,7 +361,7 @@ follow-up outside this artifact slice.
 | Governing product, requirement, architecture, and completed prerequisite review | pass | Sources listed above inspected during planning on 2026-08-10 |
 | Exact dependency/tool versions and primary-source behavior | pass | Npgsql 10.0.3, Dapper 2.1.79, Grate 2.1.6, Testcontainers.PostgreSql 4.11.0 pinned in `Directory.Packages.props`, `.config/dotnet-tools.json`, `build/toolchain.json` |
 | Artifact-3 focused contract/JCS baseline | pass | `dotnet test --solution FlexAgent.slnx -c Release` — 83 pre-artifact tests green before implementation |
-| Grate migration safety matrix against PostgreSQL 18 | pass | `GrateToolMigrationTests` (eight tool-path scenarios including empty-DB concurrent pending migration + migrated-DB concurrent no-op); embedded fallback test-only; `0001→0004` upgrade/idempotency backfill; historical checksum regressions; reproducibility via changed-script enforcement + upgrade regressions; dry-run proves non-mutation only |
+| Grate migration safety matrix against PostgreSQL 18 | pass | `GrateToolMigrationTests` (eight tool-path scenarios); `RunAsync` bounded retry for concurrent bootstrap contention; embedded fallback test-only; `0001→0004` upgrade/idempotency backfill; historical checksum regressions; reproducibility via changed-script enforcement + upgrade regressions; dry-run proves non-mutation only |
 | Scoped repository authorization/isolation matrix | pass | Authorization, isolation, commit lock race, concurrent idempotency, digest-key reservation, source-scoped version resolution |
 | Atomic configuration/audit/outbox boundary | pass | Success correlation; audit `relationship_version`; audit/outbox fault-injection rollback tests |
 | Module/dependency architecture tests | pass | `ModuleBoundaryTests` — no Npgsql/Dapper in domain/application; no unscoped get-by-id; Configuration.Application does not reference CanonicalJson |
