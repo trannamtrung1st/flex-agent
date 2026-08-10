@@ -278,6 +278,11 @@ backend/security sign-off.
 - Review follow-up (2026-08-10, round 4): restored shipped `0003` from `d244a6a`;
   moved `conrelid` constraint hardening into `0004`; added historical `d244a6a`
   `0003` checksum regression test.
+- Code review (2026-08-10): **approved** at `acaf9e3` — no blocking correctness
+  findings; migration-history immutability closed; optional future hardening:
+  synthetic same-name constraint collision regression for `0004`.
+- CI (2026-08-10): GitHub Actions green on `main` for `acaf9e3` — Implementation
+  #29 (5m 5s), Documentation #60 (16s); prior `458ec97` also green.
 
 # Open questions / interim defaults
 
@@ -335,9 +340,9 @@ backend/security sign-off.
 | Scoped repository authorization/isolation matrix | pass | Authorization, isolation, commit lock race, concurrent idempotency, digest-key reservation, source-scoped version resolution |
 | Atomic configuration/audit/outbox boundary | pass | Success correlation; audit `relationship_version`; audit/outbox fault-injection rollback tests |
 | Module/dependency architecture tests | pass | `ModuleBoundaryTests` — no Npgsql/Dapper in domain/application; no unscoped get-by-id; Configuration.Application does not reference CanonicalJson |
-| Locked aggregate regression and CI | pass | `bash build/scripts/verify-dotnet.sh` — restore/build/test/publish green (109 tests after round-4 review fixes) |
+| Locked aggregate regression and CI | pass | `bash build/scripts/verify-dotnet.sh` — 109 tests green; GitHub Actions Implementation #29 + Documentation #60 passed on `acaf9e3` |
 | Frontend and Playwright | not applicable | No UI-affecting work in artifact 4; revisit if scope changes |
-| Independent backend/security review | pending | Required after implementation evidence is complete |
+| Independent backend/security review | partial | Code review + CI approved at `acaf9e3` (2026-08-10); formal security-privacy sign-off still pending |
 
 # Blockers
 
