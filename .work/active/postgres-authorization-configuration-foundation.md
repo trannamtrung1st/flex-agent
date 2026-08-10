@@ -275,6 +275,9 @@ backend/security sign-off.
 - Review follow-up (2026-08-10, round 3): restored shipped `0002` byte-for-byte;
   moved all repair logic into `0003` with table-scoped constraint checks;
   added historical `4e21917` `0002` checksum regression test.
+- Review follow-up (2026-08-10, round 4): restored shipped `0003` from `d244a6a`;
+  moved `conrelid` constraint hardening into `0004`; added historical `d244a6a`
+  `0003` checksum regression test.
 
 # Open questions / interim defaults
 
@@ -328,11 +331,11 @@ backend/security sign-off.
 | Governing product, requirement, architecture, and completed prerequisite review | pass | Sources listed above inspected during planning on 2026-08-10 |
 | Exact dependency/tool versions and primary-source behavior | pass | Npgsql 10.0.3, Dapper 2.1.79, Grate 2.1.6, Testcontainers.PostgreSql 4.11.0 pinned in `Directory.Packages.props`, `.config/dotnet-tools.json`, `build/toolchain.json` |
 | Artifact-3 focused contract/JCS baseline | pass | `dotnet test --solution FlexAgent.slnx -c Release` — 83 pre-artifact tests green before implementation |
-| Grate migration safety matrix against PostgreSQL 18 | partial | Repeat no-op; fail-closed tool path; embedded fallback test-only; `0001→0002→0003` upgrade/idempotency backfill; historical `4e21917` `0002` checksum regression; changed-script hash in fallback; concurrency/failure matrix still partial |
+| Grate migration safety matrix against PostgreSQL 18 | partial | Repeat no-op; fail-closed tool path; embedded fallback test-only; `0001→0002→0003→0004` upgrade/idempotency backfill; historical `4e21917` `0002` and `d244a6a` `0003` checksum regressions; changed-script hash in fallback; concurrency/failure matrix still partial |
 | Scoped repository authorization/isolation matrix | pass | Authorization, isolation, commit lock race, concurrent idempotency, digest-key reservation, source-scoped version resolution |
 | Atomic configuration/audit/outbox boundary | pass | Success correlation; audit `relationship_version`; audit/outbox fault-injection rollback tests |
 | Module/dependency architecture tests | pass | `ModuleBoundaryTests` — no Npgsql/Dapper in domain/application; no unscoped get-by-id; Configuration.Application does not reference CanonicalJson |
-| Locked aggregate regression and CI | pass | `bash build/scripts/verify-dotnet.sh` — restore/build/test/publish green (108 tests after round-3 review fixes) |
+| Locked aggregate regression and CI | pass | `bash build/scripts/verify-dotnet.sh` — restore/build/test/publish green (109 tests after round-4 review fixes) |
 | Frontend and Playwright | not applicable | No UI-affecting work in artifact 4; revisit if scope changes |
 | Independent backend/security review | pending | Required after implementation evidence is complete |
 

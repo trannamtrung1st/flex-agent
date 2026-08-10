@@ -15,6 +15,8 @@ namespace FlexAgent.Postgres.Integration.Tests;
 public sealed class MigrationUpgradeTests
 {
     private const string Historical0002ScriptName = "0002_idempotency_and_version_immutability.sql";
+    private const string Historical0003ScriptName = "0003_repair_idempotency_backfill_and_source_version_fk.sql";
+    private const string Current0004ScriptName = "0004_harden_constraint_scope_checks.sql";
 
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
@@ -36,6 +38,13 @@ public sealed class MigrationUpgradeTests
             migrationsDirectory,
             TestContext.Current.CancellationToken);
 
+        await AssertAppliedScriptsAsync(
+            connectionString,
+            "0001_initial_authorization_configuration_schema.sql",
+            Historical0002ScriptName,
+            Historical0003ScriptName,
+            Current0004ScriptName);
+
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
 
@@ -45,16 +54,7 @@ public sealed class MigrationUpgradeTests
         await using var container = await StartContainerAsync();
         var connectionString = container.GetConnectionString();
         var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
-        var historical0002Sql = await File.ReadAllTextAsync(
-            Path.Combine(
-                FindRepositoryRoot(),
-                "tests",
-                "Integration",
-                "FlexAgent.Postgres.Integration.Tests",
-                "Fixtures",
-                "migrations",
-                "0002_idempotency_and_version_immutability_4e21917.sql"),
-            TestContext.Current.CancellationToken);
+        var historical0002Sql = await ReadHistoricalFixtureAsync("0002_idempotency_and_version_immutability_4e21917.sql");
 
         Assert.Equal(
             GrateMigrationRunner.ComputeScriptHash(historical0002Sql),
@@ -77,49 +77,124 @@ public sealed class MigrationUpgradeTests
             historical0002Sql,
             TestContext.Current.CancellationToken);
 
-        await using (var connection = new NpgsqlConnection(connectionString))
-        {
-            await connection.OpenAsync(TestContext.Current.CancellationToken);
-            var idempotencyCount = await connection.ExecuteScalarAsync<int>(
-                """
-                SELECT COUNT(*)
-                FROM configuration_source_version_idempotency
-                WHERE organization_id = @OrganizationId
-                  AND configuration_source_id = @ConfigurationSourceId
-                  AND idempotency_key = @IdempotencyKey;
-                """,
-                new
-                {
-                    seededState.OrganizationId,
-                    ConfigurationSourceId = seededState.SourceId,
-                    seededState.IdempotencyKey,
-                });
-
-            Assert.Equal(0, idempotencyCount);
-        }
+        await AssertIdempotencyRowCountAsync(connectionString, seededState, expectedCount: 0);
 
         await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
             connectionString,
             migrationsDirectory,
             TestContext.Current.CancellationToken);
 
-        await using (var connection = new NpgsqlConnection(connectionString))
-        {
-            await connection.OpenAsync(TestContext.Current.CancellationToken);
-            var appliedScripts = (await connection.QueryAsync<string>(
-                "SELECT script_name FROM grate_migrations ORDER BY script_name;")).AsList();
-
-            Assert.Equal(
-                [
-                    "0001_initial_authorization_configuration_schema.sql",
-                    Historical0002ScriptName,
-                    "0003_repair_idempotency_backfill_and_source_version_fk.sql",
-                ],
-                appliedScripts);
-        }
+        await AssertAppliedScriptsAsync(
+            connectionString,
+            "0001_initial_authorization_configuration_schema.sql",
+            Historical0002ScriptName,
+            Historical0003ScriptName,
+            Current0004ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
+
+    [Fact]
+    public async Task Upgrade_from_recorded_historical_0003_applies_0004_without_checksum_failure()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+        var historical0002Sql = await ReadHistoricalFixtureAsync("0002_idempotency_and_version_immutability_4e21917.sql");
+        var historical0003Sql = await ReadHistoricalFixtureAsync("0003_repair_idempotency_backfill_and_source_version_fk_d244a6a.sql");
+
+        Assert.Equal(
+            GrateMigrationRunner.ComputeScriptHash(historical0003Sql),
+            GrateMigrationRunner.ComputeScriptHash(
+                await File.ReadAllTextAsync(
+                    Path.Combine(migrationsDirectory, "up", Historical0003ScriptName),
+                    TestContext.Current.CancellationToken)));
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: "0001_initial_authorization_configuration_schema.sql");
+
+        var seededState = await SeedLegacyVersionAsync(connectionString);
+
+        await GrateMigrationRunner.ApplyRecordedMigrationForTestsAsync(
+            connectionString,
+            Historical0002ScriptName,
+            historical0002Sql,
+            TestContext.Current.CancellationToken);
+
+        await GrateMigrationRunner.ApplyRecordedMigrationForTestsAsync(
+            connectionString,
+            Historical0003ScriptName,
+            historical0003Sql,
+            TestContext.Current.CancellationToken);
+
+        await AssertIdempotencyRowCountAsync(connectionString, seededState, expectedCount: 1);
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
+
+        await AssertAppliedScriptsAsync(
+            connectionString,
+            "0001_initial_authorization_configuration_schema.sql",
+            Historical0002ScriptName,
+            Historical0003ScriptName,
+            Current0004ScriptName);
+
+        await AssertRepairEvidenceAsync(connectionString, seededState);
+    }
+
+    private static async Task AssertAppliedScriptsAsync(
+        string connectionString,
+        params string[] expectedScripts)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var appliedScripts = (await connection.QueryAsync<string>(
+            "SELECT script_name FROM grate_migrations ORDER BY script_name;")).AsList();
+
+        Assert.Equal(expectedScripts, appliedScripts);
+    }
+
+    private static async Task AssertIdempotencyRowCountAsync(
+        string connectionString,
+        LegacyVersionSeed seededState,
+        int expectedCount)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var idempotencyCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM configuration_source_version_idempotency
+            WHERE organization_id = @OrganizationId
+              AND configuration_source_id = @ConfigurationSourceId
+              AND idempotency_key = @IdempotencyKey;
+            """,
+            new
+            {
+                seededState.OrganizationId,
+                ConfigurationSourceId = seededState.SourceId,
+                seededState.IdempotencyKey,
+            });
+
+        Assert.Equal(expectedCount, idempotencyCount);
+    }
+
+    private static async Task<string> ReadHistoricalFixtureAsync(string fileName) =>
+        await File.ReadAllTextAsync(
+            Path.Combine(
+                FindRepositoryRoot(),
+                "tests",
+                "Integration",
+                "FlexAgent.Postgres.Integration.Tests",
+                "Fixtures",
+                "migrations",
+                fileName),
+            TestContext.Current.CancellationToken);
 
     private static async Task<LegacyVersionSeed> SeedLegacyVersionAsync(string connectionString)
     {
