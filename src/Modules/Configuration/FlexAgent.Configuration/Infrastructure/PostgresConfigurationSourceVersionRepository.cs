@@ -33,7 +33,7 @@ public sealed class PostgresConfigurationSourceVersionRepository(PostgresConnect
           AND content_digest = @ContentDigest;
         """;
 
-    private const string SelectByIdSql = """
+    private const string SelectByIdForSourceSql = """
         SELECT
             id AS Id,
             organization_id AS OrganizationId,
@@ -45,6 +45,7 @@ public sealed class PostgresConfigurationSourceVersionRepository(PostgresConnect
             created_at AS CreatedAt
         FROM configuration_source_versions
         WHERE organization_id = @OrganizationId
+          AND configuration_source_id = @ConfigurationSourceId
           AND id = @VersionId;
         """;
 
@@ -153,16 +154,22 @@ public sealed class PostgresConfigurationSourceVersionRepository(PostgresConnect
                 cancellationToken: cancellationToken));
     }
 
-    public async Task<ConfigurationSourceVersionRow?> GetByIdAsync(
+    public async Task<ConfigurationSourceVersionRow?> GetByIdForSourceAsync(
         Guid organizationId,
+        Guid configurationSourceId,
         Guid versionId,
         NpgsqlTransaction transaction,
         CancellationToken cancellationToken = default)
     {
         return await transaction.Connection!.QuerySingleOrDefaultAsync<ConfigurationSourceVersionRow>(
             new CommandDefinition(
-                SelectByIdSql,
-                new { OrganizationId = organizationId, VersionId = versionId },
+                SelectByIdForSourceSql,
+                new
+                {
+                    OrganizationId = organizationId,
+                    ConfigurationSourceId = configurationSourceId,
+                    VersionId = versionId,
+                },
                 transaction,
                 cancellationToken: cancellationToken));
     }

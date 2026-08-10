@@ -59,6 +59,7 @@ public sealed class ModuleBoundaryTests
           "ListForSourceAsync",
           "CountForSourceAsync",
           "SourceExistsInOrganizationAsync",
+          "GetByIdForSourceAsync",
       };
 
       foreach (var methodName in scopedMethods)

@@ -223,13 +223,20 @@ public sealed class RegisterConfigurationSourceVersionHandler(
                 null);
         }
 
-        var version = await versionRepository.GetByIdAsync(
+        var version = await versionRepository.GetByIdForSourceAsync(
             command.Organization.OrganizationId,
+            command.ConfigurationSourceId,
             existingIdempotency.VersionId,
             transaction,
             cancellationToken);
 
-        return version is null ? Denied() : Success(version);
+        if (version is null
+            || version.ConfigurationSourceId != command.ConfigurationSourceId)
+        {
+            return Denied();
+        }
+
+        return Success(version);
     }
 
     private async Task<RegisterConfigurationSourceVersionResult> BindIdempotencyAndReturnAsync(

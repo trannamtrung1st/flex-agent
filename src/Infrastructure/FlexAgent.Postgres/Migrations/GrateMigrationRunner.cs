@@ -34,7 +34,11 @@ public static class GrateMigrationRunner
                 $"Grate migration failed with a non-recoverable error.{Environment.NewLine}{toolResult.Error}");
         }
 
-        await RunEmbeddedMigrationsAsync(connectionString, migrationsDirectory, cancellationToken, toolResult.Error);
+        await RunEmbeddedMigrationsAsync(
+            connectionString,
+            migrationsDirectory,
+            cancellationToken,
+            toolResult.Error);
     }
 
     private static bool IsEmbeddedFallbackAllowed(bool? allowEmbeddedFallback)
@@ -86,11 +90,24 @@ public static class GrateMigrationRunner
             isRuntimeIncompatibility);
     }
 
+    public static Task RunEmbeddedMigrationsForTestsAsync(
+        string connectionString,
+        string migrationsDirectory,
+        CancellationToken cancellationToken = default,
+        string? inclusiveMaxScriptName = null) =>
+        RunEmbeddedMigrationsAsync(
+            connectionString,
+            migrationsDirectory,
+            cancellationToken,
+            toolError: null,
+            inclusiveMaxScriptName: inclusiveMaxScriptName);
+
     private static async Task RunEmbeddedMigrationsAsync(
         string connectionString,
         string migrationsDirectory,
         CancellationToken cancellationToken,
-        string? toolError)
+        string? toolError,
+        string? inclusiveMaxScriptName = null)
     {
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
@@ -158,6 +175,11 @@ public static class GrateMigrationRunner
             {
                 await transaction.RollbackAsync(cancellationToken);
                 throw;
+            }
+
+            if (string.Equals(scriptName, inclusiveMaxScriptName, StringComparison.Ordinal))
+            {
+                break;
             }
         }
     }

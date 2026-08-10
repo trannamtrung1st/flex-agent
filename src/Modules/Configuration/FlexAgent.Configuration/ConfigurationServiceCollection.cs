@@ -10,7 +10,10 @@ namespace FlexAgent.Configuration;
 
 public static class ConfigurationServiceCollection
 {
-    public static ServiceBundle Create(string connectionString)
+    public static ServiceBundle Create(
+        string connectionString,
+        IAuditEventWriter? auditEventWriter = null,
+        IOutboxItemWriter? outboxItemWriter = null)
     {
         var dataSourceFactory = new PostgresDataSourceFactory();
         var dataSource = dataSourceFactory.Create(connectionString);
@@ -20,8 +23,8 @@ public static class ConfigurationServiceCollection
         var versionRepository = new PostgresConfigurationSourceVersionRepository(connectionAccessor);
         var idempotencyRepository = new PostgresConfigurationSourceVersionIdempotencyRepository();
         var digestVerifier = new ConfigurationDigestVerifier();
-        var auditWriter = new PostgresAuditEventWriter();
-        var outboxWriter = new PostgresOutboxItemWriter();
+        var auditWriter = auditEventWriter ?? new PostgresAuditEventWriter();
+        var outboxWriter = outboxItemWriter ?? new PostgresOutboxItemWriter();
 
         var handler = new RegisterConfigurationSourceVersionHandler(
             authorizationKernel,

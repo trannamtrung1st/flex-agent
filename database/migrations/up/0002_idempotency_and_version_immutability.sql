@@ -1,6 +1,8 @@
 -- Immutable one-time migration: idempotency records, version immutability enforcement.
 -- ADR-010 artifact 4 follow-up; UTC-ordered; do not edit after merge.
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TABLE configuration_source_version_idempotency (
     organization_id UUID NOT NULL,
     configuration_source_id UUID NOT NULL,
@@ -12,11 +14,40 @@ CREATE TABLE configuration_source_version_idempotency (
     PRIMARY KEY (organization_id, configuration_source_id, action, idempotency_key),
     CONSTRAINT fk_configuration_source_version_idempotency_source
         FOREIGN KEY (organization_id, configuration_source_id)
-        REFERENCES configuration_sources (organization_id, id),
-    CONSTRAINT fk_configuration_source_version_idempotency_version
-        FOREIGN KEY (organization_id, version_id)
-        REFERENCES configuration_source_versions (organization_id, id)
+        REFERENCES configuration_sources (organization_id, id)
 );
+
+ALTER TABLE configuration_source_versions
+    ADD CONSTRAINT uq_configuration_source_versions_org_source_version
+    UNIQUE (organization_id, configuration_source_id, id);
+
+INSERT INTO configuration_source_version_idempotency (
+    organization_id,
+    configuration_source_id,
+    action,
+    idempotency_key,
+    version_id,
+    payload_fingerprint,
+    created_at)
+SELECT
+    organization_id,
+    configuration_source_id,
+    'configuration_source_version.register',
+    idempotency_key,
+    id,
+    encode(
+        digest(
+            procedure_id || '|' || schema_version || '|' || content_digest,
+            'sha256'),
+        'hex'),
+    created_at
+FROM configuration_source_versions
+ON CONFLICT DO NOTHING;
+
+ALTER TABLE configuration_source_version_idempotency
+    ADD CONSTRAINT fk_configuration_source_version_idempotency_source_version
+        FOREIGN KEY (organization_id, configuration_source_id, version_id)
+        REFERENCES configuration_source_versions (organization_id, configuration_source_id, id);
 
 ALTER TABLE configuration_source_versions
     DROP CONSTRAINT IF EXISTS uq_configuration_source_versions_idempotency;
