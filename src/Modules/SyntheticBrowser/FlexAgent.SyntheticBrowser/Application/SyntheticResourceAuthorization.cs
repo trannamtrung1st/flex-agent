@@ -60,7 +60,7 @@ internal static class SyntheticResourceAuthorization
 
     internal static bool CanReadResultDetail(SyntheticSessionRecord session, SyntheticScenarioState state, string resultId)
     {
-        if (!HasCapability(session, "participant") || IsAccessRevoked(session, state))
+        if (!HasCapability(session, "participant") || IsAccessRevoked(session, state) || !state.EnrollmentCreated)
         {
             return false;
         }
@@ -68,7 +68,7 @@ internal static class SyntheticResourceAuthorization
         return string.Equals(resultId, SyntheticCommandAuthorization.SyntheticResultId, StringComparison.Ordinal);
     }
 
-    private static bool IsAccessRevoked(SyntheticSessionRecord session, SyntheticScenarioState state) =>
+    internal static bool IsAccessRevoked(SyntheticSessionRecord session, SyntheticScenarioState state) =>
         session.ScenarioId == SyntheticScenarioIds.DeniedAccess || state.PermissionRevoked;
 
     private static bool HasCapability(SyntheticSessionRecord session, string capability) =>

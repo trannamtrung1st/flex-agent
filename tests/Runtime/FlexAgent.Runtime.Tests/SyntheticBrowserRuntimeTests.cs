@@ -226,6 +226,128 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
     }
 
     [Fact]
+    public async Task Command_after_harness_revocation_is_denied()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await PrepareActiveSessionAsync(instanceId, cancellationToken);
+
+        var admin = await CreateAuthenticatedClientAsync(
+            SyntheticActorStages.Administrator,
+            instanceId: instanceId);
+        await RevokeScenarioAccessAsync(instanceId, cancellationToken);
+
+        var response = await PostCommandRawAsync(
+            admin,
+            "activity.save_draft",
+            "post-revoke-save",
+            cancellationToken,
+            resourceId: ActivityId,
+            expectedVersion: 3);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Second_submission_after_acceptance_is_denied_and_preserves_content()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var admin = await CreateAuthenticatedClientAsync(SyntheticActorStages.Administrator, instanceId: instanceId);
+        await PostCommandAsync(admin, "activity.save_draft", "save", cancellationToken, activityVersion: 1);
+        await PostCommandAsync(admin, "activity.activate_cohort", "activate", cancellationToken, activityVersion: 2);
+        await PostCommandAsync(admin, "enrollment.assign", "enroll", cancellationToken, activityVersion: 3);
+
+        var participant = await CreateAuthenticatedClientAsync(SyntheticActorStages.Participant, instanceId: instanceId);
+        await PostCommandAsync(
+            participant,
+            "submission.submit_text",
+            "submit-1",
+            cancellationToken,
+            payload: new Dictionary<string, string> { ["submission_text"] = "Answer A." });
+
+        var forged = await PostCommandRawAsync(
+            participant,
+            "submission.submit_text",
+            "submit-2",
+            cancellationToken,
+            resourceId: EnrollmentId,
+            payload: new Dictionary<string, string> { ["submission_text"] = "Answer B." });
+
+        Assert.Equal(HttpStatusCode.Forbidden, forged.StatusCode);
+
+        var assignment = await participant.GetFromJsonAsync<AssignmentDto>("/browser/my-work", JsonOptions, cancellationToken);
+        Assert.Single(assignment!.SubmissionVersions);
+        Assert.Contains("Answer A.", assignment.SubmissionVersions[0].ContentPreview, StringComparison.Ordinal);
+        Assert.DoesNotContain("Answer B.", assignment.SubmissionVersions[0].ContentPreview ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Session_complete_command_returns_session_lifecycle_state()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await PrepareActiveSessionAsync(instanceId, cancellationToken);
+
+        var participant = await CreateAuthenticatedClientAsync(SyntheticActorStages.Participant, instanceId: instanceId);
+        var response = await PostCommandRawAsync(
+            participant,
+            "session.complete",
+            "complete",
+            cancellationToken,
+            resourceId: SessionId,
+            expectedVersion: 1);
+
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<CommandResultDetailDto>(JsonOptions, cancellationToken);
+        Assert.Equal("succeeded", body!.Outcome);
+        Assert.Equal("completed", body.LifecycleState);
+        Assert.Equal(2, body.NewVersion);
+    }
+
+    [Fact]
+    public async Task Enrollment_assign_rejects_unpermitted_participant_id()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var admin = await CreateAuthenticatedClientAsync(SyntheticActorStages.Administrator, instanceId: instanceId);
+        await PostCommandAsync(admin, "activity.save_draft", "save", cancellationToken, activityVersion: 1);
+        await PostCommandAsync(admin, "activity.activate_cohort", "activate", cancellationToken, activityVersion: 2);
+
+        var response = await PostCommandRawAsync(
+            admin,
+            "enrollment.assign",
+            "bad-enroll",
+            cancellationToken,
+            resourceId: ActivityId,
+            expectedVersion: 3,
+            payload: new Dictionary<string, string> { ["participant_id"] = "part.other.999" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task My_work_before_enrollment_does_not_disclose_assignment_details()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var admin = await CreateAuthenticatedClientAsync(SyntheticActorStages.Administrator, instanceId: instanceId);
+        await PostCommandAsync(admin, "activity.save_draft", "save", cancellationToken, activityVersion: 1);
+        await PostCommandAsync(admin, "activity.activate_cohort", "activate", cancellationToken, activityVersion: 2);
+
+        var participant = await CreateAuthenticatedClientAsync(SyntheticActorStages.Participant, instanceId: instanceId);
+        var assignment = await participant.GetFromJsonAsync<AssignmentDto>("/browser/my-work", JsonOptions, cancellationToken);
+
+        Assert.Equal("no_assignment", assignment!.LifecycleState);
+        Assert.Equal(string.Empty, assignment.ActivityTitle);
+        Assert.Equal(string.Empty, assignment.EnrollmentId);
+        Assert.Empty(assignment.PermittedActions);
+    }
+
+    [Fact]
     public async Task Review_escalate_records_escalated_decision()
     {
         var instanceId = NewInstanceId();
@@ -539,6 +661,7 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
         int? releaseVersion = null,
         IReadOnlyDictionary<string, string>? payload = null)
     {
+        var effectivePayload = payload ?? ResolveDefaultPayload(commandType);
         var response = await PostCommandRawAsync(
             client,
             commandType,
@@ -546,11 +669,18 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
             cancellationToken,
             resourceId: ResolveResourceId(commandType),
             expectedVersion: ResolveExpectedVersion(commandType, activityVersion, sessionVersion, reviewVersion, releaseVersion),
-            payload: payload);
+            payload: effectivePayload);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<CommandResultDto>(JsonOptions, cancellationToken);
         Assert.Equal("succeeded", body!.Outcome);
     }
+
+    private static IReadOnlyDictionary<string, string>? ResolveDefaultPayload(string commandType) =>
+        commandType switch
+        {
+            "enrollment.assign" => new Dictionary<string, string> { ["participant_id"] = "part.synthetic.001" },
+            _ => null,
+        };
 
     private static Task<HttpResponseMessage> PostCommandRawAsync(
         HttpClient client,
@@ -603,6 +733,14 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
     private sealed record ReleaseItemDto(string StatusLabel);
     private sealed record ResultDetailDto(string LifecycleState, string? Content);
     private sealed record CommandResultDto(string Outcome);
+    private sealed record CommandResultDetailDto(string Outcome, string? LifecycleState, int? NewVersion);
+    private sealed record AssignmentDto(
+        string LifecycleState,
+        string ActivityTitle,
+        string EnrollmentId,
+        IReadOnlyList<SubmissionVersionDto> SubmissionVersions,
+        IReadOnlyList<object> PermittedActions);
+    private sealed record SubmissionVersionDto(string? ContentPreview);
     private sealed record GrantDto(string GrantToken);
     private sealed record ExchangeDto(string SchemaVersion, DateTimeOffset ExpiresAt);
     private sealed record NavigationDto(IReadOnlyList<DestinationDto> Destinations);

@@ -93,6 +93,17 @@ export function MyWorkPage() {
     return <Alert variant="danger" title="Could not load assignment">{error ?? "Assignment not found"}</Alert>;
   }
 
+  if (assignment.lifecycle_state === "no_assignment") {
+    return (
+      <div>
+        <header className="page-header">
+          <h1>My work</h1>
+          <p>No assignment is available for your account.</p>
+        </header>
+      </div>
+    );
+  }
+
   const canSubmit = assignment.permitted_actions.some((action) => action.action_id === "submit_text");
 
   return (

@@ -11,6 +11,7 @@ internal static class SyntheticCommandAuthorization
     internal const string SyntheticReviewCaseId = "rev.synthetic.001";
     internal const string SyntheticReleaseId = "rel.synthetic.001";
     internal const string SyntheticResultId = "res.synthetic.001";
+    internal const string SyntheticParticipantId = "part.synthetic.001";
 
     internal static BrowserCommandResultV1? Authorize(
         SyntheticSessionRecord session,
@@ -97,6 +98,17 @@ internal static class SyntheticCommandAuthorization
             return Denied("An active enrollment already exists.");
         }
 
+        var participantFailure = SyntheticCommandValidation.RequirePayloadValue(command, "participant_id");
+        if (participantFailure is not null)
+        {
+            return participantFailure;
+        }
+
+        if (!string.Equals(command.Payload!["participant_id"], SyntheticParticipantId, StringComparison.Ordinal))
+        {
+            return Denied("Participant is not permitted for assignment.");
+        }
+
         return RequireExpectedVersion(command.ExpectedVersion, state.ActivityVersion, "Activity");
     }
 
@@ -118,6 +130,11 @@ internal static class SyntheticCommandAuthorization
         if (!state.EnrollmentCreated)
         {
             return Denied("No active enrollment is available.");
+        }
+
+        if (state.SubmissionAccepted)
+        {
+            return Denied("A submission version is already accepted.");
         }
 
         return SyntheticCommandValidation.RequirePayloadValue(command, "submission_text");

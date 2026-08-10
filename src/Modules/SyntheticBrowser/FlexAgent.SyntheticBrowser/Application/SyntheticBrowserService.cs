@@ -211,59 +211,63 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             return new HomeProjectionV1(BrowserSchemaVersion.V1, "Access unavailable", [], []);
         }
 
-        var state = GetState(session);
-        var items = new List<HomeWorkItemV1>();
-
-        if (session.ActorStage == SyntheticActorStages.Administrator)
+        return WithState(session, state =>
         {
-            if (state.ActivityLifecycle == "draft")
+            var items = new List<HomeWorkItemV1>();
+
+            if (session.ActorStage == SyntheticActorStages.Administrator)
             {
-                items.Add(new HomeWorkItemV1("hw-1", "Assessment Campaign draft", "Draft · Not activated", "campaign_administration", $"/activities/{SyntheticActivityId}", "Continue setup"));
+                if (state.ActivityLifecycle == "draft")
+                {
+                    items.Add(new HomeWorkItemV1("hw-1", "Assessment Campaign draft", "Draft · Not activated", "campaign_administration", $"/activities/{SyntheticActivityId}", "Continue setup"));
+                }
+                else if (state.ActivityLifecycle == "activated" && !state.EnrollmentCreated)
+                {
+                    items.Add(new HomeWorkItemV1("hw-2", "Assign Participants", "Activated cohort", "campaign_administration", $"/activities/{SyntheticActivityId}/enrollment", "Assign Participant"));
+                }
             }
-            else if (state.ActivityLifecycle == "activated" && !state.EnrollmentCreated)
+
+            if (session.ActorStage == SyntheticActorStages.Participant && state.EnrollmentCreated)
             {
-                items.Add(new HomeWorkItemV1("hw-2", "Assign Participants", "Activated cohort", "campaign_administration", $"/activities/{SyntheticActivityId}/enrollment", "Assign Participant"));
+                items.Add(new HomeWorkItemV1("hw-3", "Assessment assignment", ResolveAssignmentStatus(state), "participant_work", "/my-work", ResolveParticipantNextAction(state)));
             }
-        }
 
-        if (session.ActorStage == SyntheticActorStages.Participant && state.EnrollmentCreated)
-        {
-            items.Add(new HomeWorkItemV1("hw-3", "Assessment assignment", ResolveAssignmentStatus(state), "participant_work", "/my-work", ResolveParticipantNextAction(state)));
-        }
+            if (session.ActorStage == SyntheticActorStages.Reviewer && state.SessionLifecycle is "completed" or "terminated")
+            {
+                items.Add(new HomeWorkItemV1("hw-4", "Review case", state.ReviewLifecycle == "ready_for_review" ? "Ready for review" : "Awaiting evaluation", "review", $"/review-work/{SyntheticReviewCaseId}", "Open case"));
+            }
 
-        if (session.ActorStage == SyntheticActorStages.Reviewer && state.SessionLifecycle is "completed" or "terminated")
-        {
-            items.Add(new HomeWorkItemV1("hw-4", "Review case", state.ReviewLifecycle == "ready_for_review" ? "Ready for review" : "Awaiting evaluation", "review", $"/review-work/{SyntheticReviewCaseId}", "Open case"));
-        }
+            if (session.ActorStage == SyntheticActorStages.ReleaseActor && state.ReviewLifecycle == "approved")
+            {
+                items.Add(new HomeWorkItemV1("hw-5", "Result ready · Not released", "Approved · Awaiting Release", "release", $"/release-work/{SyntheticReleaseId}", "Preview and Release"));
+            }
 
-        if (session.ActorStage == SyntheticActorStages.ReleaseActor && state.ReviewLifecycle == "approved")
-        {
-            items.Add(new HomeWorkItemV1("hw-5", "Result ready · Not released", "Approved · Awaiting Release", "release", $"/release-work/{SyntheticReleaseId}", "Preview and Release"));
-        }
-
-        return new HomeProjectionV1(
-            BrowserSchemaVersion.V1,
-            $"Welcome, {ResolveActorDisplayName(session.ActorStage)}",
-            items,
-            []);
+            return new HomeProjectionV1(
+                BrowserSchemaVersion.V1,
+                $"Welcome, {ResolveActorDisplayName(session.ActorStage)}",
+                items,
+                []);
+        });
     }
 
     public ActivitiesListProjectionV1 GetActivities(SyntheticSessionRecord session)
     {
         RequireCapability(session, "activity_admin");
-        var state = GetState(session);
-        var activities = new List<ActivitySummaryV1>
+        return WithState(session, state =>
         {
-            new(SyntheticActivityId, "Synthetic Assessment Campaign", "Campaign", "Assessment", FormatActivityStatus(state), $"/activities/{SyntheticActivityId}"),
-        };
+            var activities = new List<ActivitySummaryV1>
+            {
+                new(SyntheticActivityId, "Synthetic Assessment Campaign", "Campaign", "Assessment", FormatActivityStatus(state), $"/activities/{SyntheticActivityId}"),
+            };
 
-        var actions = new List<PermittedActionV1>();
-        if (state.ActivityLifecycle == "draft")
-        {
-            actions.Add(Action("create_campaign", "New assessment Campaign", "Start a new Campaign draft", false));
-        }
+            var actions = new List<PermittedActionV1>();
+            if (state.ActivityLifecycle == "draft")
+            {
+                actions.Add(Action("create_campaign", "New assessment Campaign", "Start a new Campaign draft", false));
+            }
 
-        return new ActivitiesListProjectionV1(BrowserSchemaVersion.V1, activities, actions);
+            return new ActivitiesListProjectionV1(BrowserSchemaVersion.V1, activities, actions);
+        });
     }
 
     public ActivityDetailProjectionV1? GetActivityDetail(SyntheticSessionRecord session, string activityId)
@@ -274,34 +278,36 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             return null;
         }
 
-        var state = GetState(session);
-        var readiness = BuildReadinessCategories(state);
-        var actions = new List<PermittedActionV1>();
-
-        if (state.ActivityLifecycle == "draft")
+        return WithState(session, state =>
         {
-            actions.Add(Action("save_draft", "Save draft", null, false));
-            if (readiness.All(c => !c.IsBlocking))
+            var readiness = BuildReadinessCategories(state);
+            var actions = new List<PermittedActionV1>();
+
+            if (state.ActivityLifecycle == "draft")
             {
-                actions.Add(Action("activate_cohort", "Activate cohort", "Material values become immutable", false));
+                actions.Add(Action("save_draft", "Save draft", null, false));
+                if (readiness.All(c => !c.IsBlocking))
+                {
+                    actions.Add(Action("activate_cohort", "Activate cohort", "Material values become immutable", false));
+                }
             }
-        }
-        else if (state.ActivityLifecycle == "activated")
-        {
-            actions.Add(Action("assign_participants", "Assign Participants", null, false));
-        }
+            else if (state.ActivityLifecycle == "activated")
+            {
+                actions.Add(Action("assign_participants", "Assign Participants", null, false));
+            }
 
-        return new ActivityDetailProjectionV1(
-            BrowserSchemaVersion.V1,
-            SyntheticActivityId,
-            "Synthetic Assessment Campaign",
-            "Campaign",
-            "Assessment",
-            state.ActivityLifecycle,
-            state.ActivityVersion,
-            readiness,
-            actions,
-            state.ActivityLifecycle == "activated" ? "Activated baseline v1 · immutable" : null);
+            return new ActivityDetailProjectionV1(
+                BrowserSchemaVersion.V1,
+                SyntheticActivityId,
+                "Synthetic Assessment Campaign",
+                "Campaign",
+                "Assessment",
+                state.ActivityLifecycle,
+                state.ActivityVersion,
+                readiness,
+                actions,
+                state.ActivityLifecycle == "activated" ? "Activated baseline v1 · immutable" : null);
+        });
     }
 
     public EnrollmentProjectionV1? GetEnrollment(SyntheticSessionRecord session, string activityId)
@@ -312,34 +318,67 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             return null;
         }
 
-        var state = GetState(session);
-        var enrollments = state.EnrollmentCreated
-            ? new List<EnrollmentSummaryV1> { new(SyntheticEnrollmentId, "Synthetic Participant", "Active") }
-            : [];
-
-        var actions = new List<PermittedActionV1>();
-        if (state.ActivityLifecycle == "activated" && !state.EnrollmentCreated)
+        return WithState(session, state =>
         {
-            actions.Add(Action("assign_participant", "Assign Participant", null, false));
-        }
+            var enrollments = state.EnrollmentCreated
+                ? new List<EnrollmentSummaryV1> { new(SyntheticEnrollmentId, "Synthetic Participant", "Active") }
+                : [];
 
-        return new EnrollmentProjectionV1(
-            BrowserSchemaVersion.V1,
-            SyntheticActivityId,
-            state.ActivityLifecycle,
-            state.ActivityVersion,
-            enrollments,
-            state.EnrollmentCreated ? [] : [new ParticipantChoiceV1("part.synthetic.001", "Synthetic Participant")],
-            actions);
+            var actions = new List<PermittedActionV1>();
+            if (state.ActivityLifecycle == "activated" && !state.EnrollmentCreated)
+            {
+                actions.Add(Action("assign_participant", "Assign Participant", null, false));
+            }
+
+            return new EnrollmentProjectionV1(
+                BrowserSchemaVersion.V1,
+                SyntheticActivityId,
+                state.ActivityLifecycle,
+                state.ActivityVersion,
+                enrollments,
+                state.EnrollmentCreated ? [] : [new ParticipantChoiceV1(SyntheticCommandAuthorization.SyntheticParticipantId, "Synthetic Participant")],
+                actions);
+        });
     }
 
     public AssignmentProjectionV1? GetMyWorkAssignment(SyntheticSessionRecord session, string? enrollmentId)
     {
         RequireCapability(session, "participant");
-        var state = GetState(session);
-
-        if (!state.EnrollmentCreated)
+        return WithState(session, state =>
         {
+            if (!state.EnrollmentCreated)
+            {
+                return new AssignmentProjectionV1(
+                    BrowserSchemaVersion.V1,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    null,
+                    "Not available",
+                    [],
+                    [],
+                    "no_assignment");
+            }
+
+            var versions = state.SubmissionAccepted
+                ? new List<SubmissionVersionV1> { new("subv.synthetic.001", "Version 1", "Accepted", state.SubmissionPreview ?? "Synthetic submission content for demonstration.") }
+                : [];
+
+            var actions = new List<PermittedActionV1>();
+            if (!state.SubmissionAccepted)
+            {
+                actions.Add(Action("submit_text", "Submit text", "Provide .txt or .md content", false));
+            }
+            else if (!state.AttemptStarted)
+            {
+                actions.Add(Action("start_attempt", "Start Attempt", "Consumes one Attempt entitlement", false));
+            }
+            else if (state.SessionLifecycle == "active")
+            {
+                actions.Add(Action("open_session", "Continue Session", null, false));
+            }
+
             return new AssignmentProjectionV1(
                 BrowserSchemaVersion.V1,
                 SyntheticEnrollmentId,
@@ -347,41 +386,11 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
                 "Complete the synthetic assessment task using permitted text material.",
                 "UTC",
                 "2026-12-31T23:59:59Z",
-                "Not available",
-                [],
-                [],
-                "no_assignment");
-        }
-
-        var versions = state.SubmissionAccepted
-            ? new List<SubmissionVersionV1> { new("subv.synthetic.001", "Version 1", "Accepted", state.SubmissionPreview ?? "Synthetic submission content for demonstration.") }
-            : [];
-
-        var actions = new List<PermittedActionV1>();
-        if (!state.SubmissionAccepted)
-        {
-            actions.Add(Action("submit_text", "Submit text", "Provide .txt or .md content", false));
-        }
-        else if (!state.AttemptStarted)
-        {
-            actions.Add(Action("start_attempt", "Start Attempt", "Consumes one Attempt entitlement", false));
-        }
-        else if (state.SessionLifecycle == "active")
-        {
-            actions.Add(Action("open_session", "Continue Session", null, false));
-        }
-
-        return new AssignmentProjectionV1(
-            BrowserSchemaVersion.V1,
-            SyntheticEnrollmentId,
-            "Synthetic Assessment Campaign",
-            "Complete the synthetic assessment task using permitted text material.",
-            "UTC",
-            "2026-12-31T23:59:59Z",
-            state.AttemptStarted ? "Active" : "Available",
-            versions,
-            actions,
-            ResolveAssignmentLifecycle(state));
+                state.AttemptStarted ? "Active" : "Available",
+                versions,
+                actions,
+                ResolveAssignmentLifecycle(state));
+        });
     }
 
     public SessionProjectionV1? GetSession(SyntheticSessionRecord session, string sessionId)
@@ -391,165 +400,184 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             return null;
         }
 
-        var state = GetState(session);
-        if (!SyntheticResourceAuthorization.CanAccessSessionResource(session, state))
+        return WithState(session, state =>
         {
-            return null;
-        }
+            if (!SyntheticResourceAuthorization.CanAccessSessionResource(session, state))
+            {
+                return null;
+            }
 
-        var actions = new List<PermittedActionV1>();
-        if (state.SessionLifecycle == "active")
-        {
-            actions.Add(Action("send_message", "Send", null, false));
-            actions.Add(Action("pause_session", "Pause", null, false));
-            actions.Add(Action("complete_session", "Complete Session", "Ends the Session deliberately", false));
-        }
-        else if (state.SessionLifecycle == "paused")
-        {
-            actions.Add(Action("resume_session", "Resume", null, false));
-        }
+            var actions = new List<PermittedActionV1>();
+            if (state.SessionLifecycle == "active")
+            {
+                actions.Add(Action("send_message", "Send", null, false));
+                actions.Add(Action("pause_session", "Pause", null, false));
+                actions.Add(Action("complete_session", "Complete Session", "Ends the Session deliberately", false));
+            }
+            else if (state.SessionLifecycle == "paused")
+            {
+                actions.Add(Action("resume_session", "Resume", null, false));
+            }
 
-        return new SessionProjectionV1(
-            BrowserSchemaVersion.V1,
-            SyntheticSessionId,
-            state.SessionLifecycle,
-            state.SessionLifecycle == "active" ? "45:00" : null,
-            state.Transcript,
-            actions,
-            state.SubmissionAccepted ? "Submission v1 · accepted" : null,
-            state.SessionVersion,
-            state.SessionSequence > 0 ? state.SessionSequence.ToString() : null);
+            return new SessionProjectionV1(
+                BrowserSchemaVersion.V1,
+                SyntheticSessionId,
+                state.SessionLifecycle,
+                state.SessionLifecycle == "active" ? "45:00" : null,
+                state.Transcript.ToArray(),
+                actions,
+                state.SubmissionAccepted ? "Submission v1 · accepted" : null,
+                state.SessionVersion,
+                state.SessionSequence > 0 ? state.SessionSequence.ToString() : null);
+        });
     }
 
     public ReviewWorkProjectionV1 GetReviewWork(SyntheticSessionRecord session)
     {
         RequireCapability(session, "reviewer");
-        var state = GetState(session);
-        var cases = new List<ReviewCaseSummaryV1>();
-
-        if (state.SessionLifecycle is "completed" or "terminated")
+        return WithState(session, state =>
         {
-            cases.Add(new ReviewCaseSummaryV1(
-                SyntheticReviewCaseId,
-                "Synthetic review case",
-                state.ReviewLifecycle == "ready_for_review" ? "Ready for review" : "Awaiting evaluation",
-                $"/review-work/{SyntheticReviewCaseId}"));
-        }
+            var cases = new List<ReviewCaseSummaryV1>();
 
-        return new ReviewWorkProjectionV1(BrowserSchemaVersion.V1, cases, []);
+            if (state.SessionLifecycle is "completed" or "terminated")
+            {
+                cases.Add(new ReviewCaseSummaryV1(
+                    SyntheticReviewCaseId,
+                    "Synthetic review case",
+                    state.ReviewLifecycle == "ready_for_review" ? "Ready for review" : "Awaiting evaluation",
+                    $"/review-work/{SyntheticReviewCaseId}"));
+            }
+
+            return new ReviewWorkProjectionV1(BrowserSchemaVersion.V1, cases, []);
+        });
     }
 
     public ReviewCaseDetailProjectionV1? GetReviewCase(SyntheticSessionRecord session, string caseId)
     {
         RequireCapability(session, "reviewer");
-        var state = GetState(session);
-        if (!SyntheticResourceAuthorization.CanReadReviewCase(session, state, caseId))
+        return WithState(session, state =>
         {
-            return null;
-        }
+            if (!SyntheticResourceAuthorization.CanReadReviewCase(session, state, caseId))
+            {
+                return null;
+            }
 
-        var evidence = new List<EvidenceItemV1>
-        {
-            new("ev.synthetic.001", "Transcript excerpt", "session.transcript · lines 1-5", "Participant: Hello, I am ready to begin."),
-        };
+            var evidence = new List<EvidenceItemV1>
+            {
+                new("ev.synthetic.001", "Transcript excerpt", "session.transcript · lines 1-5", "Participant: Hello, I am ready to begin."),
+            };
 
-        var criteria = new List<CriterionResultV1>
-        {
-            new("crit.synthetic.001", "Task completion", state.ReviewLifecycle == "awaiting_evaluation" ? "Pending" : "Met", evidence),
-        };
+            var criteria = new List<CriterionResultV1>
+            {
+                new("crit.synthetic.001", "Task completion", state.ReviewLifecycle == "awaiting_evaluation" ? "Pending" : "Met", evidence),
+            };
 
-        var actions = new List<PermittedActionV1>();
-        if (state.ReviewLifecycle == "ready_for_review")
-        {
-            actions.Add(Action("approve", "Approve", null, false));
-            actions.Add(Action("reject", "Reject", null, true));
-            actions.Add(Action("escalate", "Escalate", null, false));
-        }
+            var actions = new List<PermittedActionV1>();
+            if (state.ReviewLifecycle == "ready_for_review")
+            {
+                actions.Add(Action("approve", "Approve", null, false));
+                actions.Add(Action("reject", "Reject", null, true));
+                actions.Add(Action("escalate", "Escalate", null, false));
+            }
 
-        return new ReviewCaseDetailProjectionV1(
-            BrowserSchemaVersion.V1,
-            SyntheticReviewCaseId,
-            FormatReviewStatus(state.ReviewLifecycle),
-            "Evaluation candidate v1",
-            criteria,
-            actions,
-            null,
-            state.ReviewLifecycle,
-            state.ReviewCaseVersion);
+            return new ReviewCaseDetailProjectionV1(
+                BrowserSchemaVersion.V1,
+                SyntheticReviewCaseId,
+                FormatReviewStatus(state.ReviewLifecycle),
+                "Evaluation candidate v1",
+                criteria,
+                actions,
+                null,
+                state.ReviewLifecycle,
+                state.ReviewCaseVersion);
+        });
     }
 
     public ReleaseWorkProjectionV1 GetReleaseWork(SyntheticSessionRecord session)
     {
         RequireCapability(session, "release");
-        var state = GetState(session);
-        var items = new List<ReleaseItemSummaryV1>();
-
-        if (state.ReviewLifecycle == "approved")
+        return WithState(session, state =>
         {
-            items.Add(new ReleaseItemSummaryV1(
-                SyntheticReleaseId,
-                "Synthetic Result",
-                state.ReleaseLifecycle == "released" ? "Released" : "Result ready · Not released",
-                $"/release-work/{SyntheticReleaseId}"));
-        }
+            var items = new List<ReleaseItemSummaryV1>();
 
-        return new ReleaseWorkProjectionV1(BrowserSchemaVersion.V1, items, []);
+            if (state.ReviewLifecycle == "approved")
+            {
+                items.Add(new ReleaseItemSummaryV1(
+                    SyntheticReleaseId,
+                    "Synthetic Result",
+                    state.ReleaseLifecycle == "released" ? "Released" : "Result ready · Not released",
+                    $"/release-work/{SyntheticReleaseId}"));
+            }
+
+            return new ReleaseWorkProjectionV1(BrowserSchemaVersion.V1, items, []);
+        });
     }
 
     public ReleaseDetailProjectionV1? GetReleaseDetail(SyntheticSessionRecord session, string releaseId)
     {
         RequireCapability(session, "release");
-        var state = GetState(session);
-        if (!SyntheticResourceAuthorization.CanReadReleaseDetail(session, state, releaseId))
+        return WithState(session, state =>
         {
-            return null;
-        }
+            if (!SyntheticResourceAuthorization.CanReadReleaseDetail(session, state, releaseId))
+            {
+                return null;
+            }
 
-        var actions = new List<PermittedActionV1>();
-        if (state.ReleaseLifecycle != "released")
-        {
-            actions.Add(Action("release_result", "Release Result", "Makes the Result visible to the Participant", false));
-        }
+            var actions = new List<PermittedActionV1>();
+            if (state.ReleaseLifecycle != "released")
+            {
+                actions.Add(Action("release_result", "Release Result", "Makes the Result visible to the Participant", false));
+            }
 
-        return new ReleaseDetailProjectionV1(
-            BrowserSchemaVersion.V1,
-            SyntheticReleaseId,
-            state.ReleaseLifecycle == "released" ? "Released" : "Result ready · Not released",
-            "Synthetic participant-facing Result preview text.",
-            "Participant only · same Organization",
-            actions,
-            state.ReleaseVersion,
-            state.ReleaseLifecycle);
+            return new ReleaseDetailProjectionV1(
+                BrowserSchemaVersion.V1,
+                SyntheticReleaseId,
+                state.ReleaseLifecycle == "released" ? "Released" : "Result ready · Not released",
+                "Synthetic participant-facing Result preview text.",
+                "Participant only · same Organization",
+                actions,
+                state.ReleaseVersion,
+                state.ReleaseLifecycle);
+        });
     }
 
     public ResultsProjectionV1 GetResults(SyntheticSessionRecord session)
     {
         RequireCapability(session, "participant");
-        var state = GetState(session);
-        var results = new List<ResultItemV1>
+        return WithState(session, state =>
         {
-            new(SyntheticResultId, "Synthetic Assessment Campaign", FormatResultStatus(state), $"/results/{SyntheticResultId}"),
-        };
+            if (!state.EnrollmentCreated)
+            {
+                return new ResultsProjectionV1(BrowserSchemaVersion.V1, [], []);
+            }
 
-        return new ResultsProjectionV1(BrowserSchemaVersion.V1, results, []);
+            var results = new List<ResultItemV1>
+            {
+                new(SyntheticResultId, "Synthetic Assessment Campaign", FormatResultStatus(state), $"/results/{SyntheticResultId}"),
+            };
+
+            return new ResultsProjectionV1(BrowserSchemaVersion.V1, results, []);
+        });
     }
 
     public ResultDetailProjectionV1? GetResultDetail(SyntheticSessionRecord session, string resultId)
     {
         RequireCapability(session, "participant");
-        var state = GetState(session);
-        if (!SyntheticResourceAuthorization.CanReadResultDetail(session, state, resultId))
+        return WithState(session, state =>
         {
-            return null;
-        }
+            if (!SyntheticResourceAuthorization.CanReadResultDetail(session, state, resultId))
+            {
+                return null;
+            }
 
-        return new ResultDetailProjectionV1(
-            BrowserSchemaVersion.V1,
-            SyntheticResultId,
-            FormatResultStatus(state),
-            state.ReleaseLifecycle == "released" ? "Synthetic released Result content." : null,
-            state.ResultLifecycle,
-            null);
+            return new ResultDetailProjectionV1(
+                BrowserSchemaVersion.V1,
+                SyntheticResultId,
+                FormatResultStatus(state),
+                state.ReleaseLifecycle == "released" ? "Synthetic released Result content." : null,
+                state.ResultLifecycle,
+                null);
+        });
     }
 
     public GovernanceProjectionV1 GetGovernance(SyntheticSessionRecord session)
@@ -576,15 +604,15 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
 
     public BrowserCommandResultV1 ExecuteCommand(SyntheticSessionRecord session, BrowserCommandEnvelopeV1 command)
     {
-        if (IsAccessDenied(session))
-        {
-            return Denied("Access has changed.");
-        }
-
         var instance = GetInstance(session.ScenarioId, session.ScenarioInstanceId);
         lock (instance.Sync)
         {
             var state = instance.State;
+            if (SyntheticResourceAuthorization.IsAccessRevoked(session, state))
+            {
+                return Denied("Access has changed.");
+            }
+
             var scopeKey = SyntheticIdempotency.BuildScopeKey(session, command);
             var requestDigest = SyntheticIdempotency.BuildRequestDigest(command);
             var replay = SyntheticIdempotency.TryReplay(state.IdempotencyRecords, scopeKey, requestDigest);
@@ -719,20 +747,20 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     private BrowserCommandResultV1 HandleSaveDraft(SyntheticScenarioState state)
     {
         state.ActivityVersion++;
-        return Success(state, "Draft saved.");
+        return Success("activity.save_draft", state, "Draft saved.");
     }
 
     private BrowserCommandResultV1 HandleActivate(SyntheticScenarioState state)
     {
         state.ActivityLifecycle = "activated";
         state.ActivityVersion++;
-        return Success(state, "Cohort activated.");
+        return Success("activity.activate_cohort", state, "Cohort activated.");
     }
 
     private BrowserCommandResultV1 HandleAssign(SyntheticScenarioState state)
     {
         state.EnrollmentCreated = true;
-        return Success(state, "Participant assigned.");
+        return Success("enrollment.assign", state, "Participant assigned.");
     }
 
     private BrowserCommandResultV1 HandleSubmit(SyntheticScenarioState state, BrowserCommandEnvelopeV1 command)
@@ -745,7 +773,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             state.SubmissionPreview = preview;
         }
 
-        return Success(state, "Submission accepted as version 1.");
+        return Success("submission.submit_text", state, "Submission accepted as version 1.");
     }
 
     private BrowserCommandResultV1 HandleStartAttempt(SyntheticScenarioState state)
@@ -753,7 +781,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         state.AttemptStarted = true;
         state.SessionLifecycle = "active";
         state.Transcript.Add(new SessionTranscriptItemV1("msg.sys.001", "system", "Session started. Good luck.", "confirmed", DateTimeOffset.UtcNow.ToString("O")));
-        return Success(state, "Attempt started.");
+        return Success("attempt.start", state, "Attempt started.");
     }
 
     private BrowserCommandResultV1 HandleSendMessage(SyntheticScenarioState state, BrowserCommandEnvelopeV1 command)
@@ -766,21 +794,21 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             "confirmed",
             DateTimeOffset.UtcNow.ToString("O")));
         state.SessionVersion++;
-        return Success(state, "Message sent.");
+        return Success("session.send_message", state, "Message sent.");
     }
 
     private BrowserCommandResultV1 HandlePause(SyntheticScenarioState state)
     {
         state.SessionLifecycle = "paused";
         state.SessionVersion++;
-        return Success(state, "Session paused.");
+        return Success("session.pause", state, "Session paused.");
     }
 
     private BrowserCommandResultV1 HandleResume(SyntheticScenarioState state)
     {
         state.SessionLifecycle = "active";
         state.SessionVersion++;
-        return Success(state, "Session resumed.");
+        return Success("session.resume", state, "Session resumed.");
     }
 
     private BrowserCommandResultV1 HandleComplete(SyntheticScenarioState state)
@@ -788,7 +816,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         state.SessionLifecycle = "completed";
         state.SessionVersion++;
         state.ReviewLifecycle = "ready_for_review";
-        return Success(state, "Session completed.");
+        return Success("session.complete", state, "Session completed.");
     }
 
     private BrowserCommandResultV1 HandleReviewApprove(SyntheticScenarioState state)
@@ -796,21 +824,21 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         state.ReviewLifecycle = "approved";
         state.ReviewCaseVersion++;
         state.ReleaseLifecycle = "ready";
-        return Success(state, "Review decision recorded: Approved.");
+        return Success("review.approve", state, "Review decision recorded: Approved.");
     }
 
     private BrowserCommandResultV1 HandleReviewReject(SyntheticScenarioState state)
     {
         state.ReviewLifecycle = "rejected";
         state.ReviewCaseVersion++;
-        return Success(state, "Review decision recorded: Rejected.");
+        return Success("review.reject", state, "Review decision recorded: Rejected.");
     }
 
     private BrowserCommandResultV1 HandleReviewEscalate(SyntheticScenarioState state)
     {
         state.ReviewLifecycle = "escalated";
         state.ReviewCaseVersion++;
-        return Success(state, "Review decision recorded: Escalated.");
+        return Success("review.escalate", state, "Review decision recorded: Escalated.");
     }
 
     private BrowserCommandResultV1 HandleRelease(SyntheticScenarioState state)
@@ -818,11 +846,37 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         state.ReleaseLifecycle = "released";
         state.ReleaseVersion++;
         state.ResultLifecycle = "released";
-        return Success(state, "Result released.");
+        return Success("release.confirm", state, "Result released.");
     }
 
-    private static BrowserCommandResultV1 Success(SyntheticScenarioState state, string message) =>
-        new(BrowserSchemaVersion.V1, "succeeded", Guid.NewGuid().ToString("N"), state.ActivityVersion, state.ActivityLifecycle, "none", message);
+    private static BrowserCommandResultV1 Success(string commandType, SyntheticScenarioState state, string message)
+    {
+        var (newVersion, lifecycleState) = ResolveCommandResultState(commandType, state);
+        return new BrowserCommandResultV1(
+            BrowserSchemaVersion.V1,
+            "succeeded",
+            Guid.NewGuid().ToString("N"),
+            newVersion,
+            lifecycleState,
+            "none",
+            message);
+    }
+
+    private static (int? NewVersion, string? LifecycleState) ResolveCommandResultState(
+        string commandType,
+        SyntheticScenarioState state) =>
+        commandType switch
+        {
+            "activity.save_draft" or "activity.activate_cohort" or "enrollment.assign" =>
+                (state.ActivityVersion, state.ActivityLifecycle),
+            "submission.submit_text" or "attempt.start" => (null, null),
+            var sessionCommand when sessionCommand.StartsWith("session.", StringComparison.Ordinal) =>
+                (state.SessionVersion, state.SessionLifecycle),
+            var reviewCommand when reviewCommand.StartsWith("review.", StringComparison.Ordinal) =>
+                (state.ReviewCaseVersion, state.ReviewLifecycle),
+            "release.confirm" => (state.ReleaseVersion, state.ReleaseLifecycle),
+            _ => (state.ActivityVersion, state.ActivityLifecycle),
+        };
 
     private static BrowserCommandResultV1 Denied(string message) =>
         new(BrowserSchemaVersion.V1, "denied", Guid.NewGuid().ToString("N"), null, null, "contact_administrator", message);
@@ -833,12 +887,12 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     private static BrowserCommandResultV1 Uncertain(string message) =>
         new(BrowserSchemaVersion.V1, "uncertain", Guid.NewGuid().ToString("N"), null, null, "reconcile", message);
 
-    private SyntheticScenarioState GetState(SyntheticSessionRecord session)
+    private T WithState<T>(SyntheticSessionRecord session, Func<SyntheticScenarioState, T> project)
     {
         var instance = GetInstance(session.ScenarioId, session.ScenarioInstanceId);
         lock (instance.Sync)
         {
-            return instance.State;
+            return project(instance.State);
         }
     }
 
@@ -857,7 +911,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             return true;
         }
 
-        return GetState(session).PermissionRevoked;
+        return WithState(session, state => state.PermissionRevoked);
     }
 
     private static string FormatReviewStatus(string reviewLifecycle) => reviewLifecycle switch

@@ -368,8 +368,8 @@ adapter (`FlexAgent.SyntheticBrowser`), browser feature projections
 | UI/UX and design-system routing | passed | Approved Activity journey, five surface specifications, design-system authority, implementation guide, and applicable MVP modules inspected |
 | Current implementation inventory | passed | React/Vite smoke page, basic tokens/tests, representative browser contract types, API smoke/health endpoints, NGINX/OCI scaffold, and Playwright configuration inspected |
 | Independent plan review remediation | passed | Navigation, synthetic-authentication scope, direct ADR authority, and task lifecycle findings reconciled on 2026-08-10; `git diff --check` and documentation validation passed |
-| Baseline test execution | passed | `pnpm verify:web`, `bash build/scripts/verify-dotnet.sh` (139 tests) |
-| Synthetic auth boundary | passed | `SyntheticBrowserRuntimeTests` (20+): harness key, grant cookie exchange, cross-role denial, idempotency, concurrency, full journey |
+| Baseline test execution | passed | `pnpm verify:web`, `bash build/scripts/verify-dotnet.sh` (144 tests) |
+| Synthetic auth boundary | passed | `SyntheticBrowserRuntimeTests` (25+): harness key, grant cookie exchange, cross-role denial, idempotency, concurrency, full journey, tranche-3 immutability/revocation |
 | Playwright (NGINX SPA) | passed | `pnpm test:e2e` (6 passed) via `deploy/nginx/e2e.conf` + API on `:18080` |
 | Web unit tests | passed | 4 tests (`App.test.tsx`, `AppShell.test.tsx`, `HomePage.test.tsx`) |
 
@@ -399,6 +399,17 @@ without rethinking the overall ADR-010 artifact-5 direction.
 | Ephemeral harness API key (not committed) | done | removed from `appsettings.Development.json`; Playwright generates per-run key |
 | Active→revoked session/SSE coverage | done | harness `revoke-access` endpoint + runtime transition test |
 | Isolated scenario instances + full NGINX browser journey | done | `scenario_instance_id` on grants; Playwright 6-test suite incl. multi-actor UI journey |
+
+# Remediation tranche 3 (2026-08-10, post-review of `e5844cd`)
+
+| Review item | Status | Evidence |
+| --- | --- | --- |
+| Commit-time revocation re-check inside scenario lock | done | `ExecuteCommand()` checks `IsAccessRevoked` under `instance.Sync` before authorize/mutate; runtime `Command_after_harness_revocation_is_denied` |
+| Accepted submission immutability | done | `AuthorizeParticipantSubmission` denies when `SubmissionAccepted`; runtime `Second_submission_after_acceptance_is_denied_and_preserves_content` |
+| Resource-specific command result version/state | done | `ResolveCommandResultState()`; runtime `Session_complete_command_returns_session_lifecycle_state` |
+| Snapshot reads under per-instance lock | done | `WithState()` projections; `GetSession` copies `Transcript.ToArray()` |
+| Non-disclosing pre-enrollment My Work / Results | done | empty `AssignmentProjectionV1` + empty `ResultsProjectionV1`; runtime `My_work_before_enrollment_does_not_disclose_assignment_details`; `MyWorkPage` no-assignment UI |
+| Enrollment `participant_id` validation | done | `SyntheticParticipantId` allowlist in `AuthorizeEnrollmentAssign`; runtime `Enrollment_assign_rejects_unpermitted_participant_id` |
 
 # Blockers
 
