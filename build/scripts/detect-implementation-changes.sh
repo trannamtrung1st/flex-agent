@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=matches-implementation-path.sh
+source "$SCRIPT_DIR/matches-implementation-path.sh"
+
+bash "$SCRIPT_DIR/detect-implementation-changes.test.sh" >/dev/null
+
 # Emits implementation=true|false to $GITHUB_OUTPUT when set; otherwise prints to stdout.
 emit() {
   if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
@@ -8,17 +14,6 @@ emit() {
   else
     echo "$1"
   fi
-}
-
-matches_implementation_path() {
-  local path="$1"
-  case "$path" in
-    src/*|web/*|tests/*|contracts/*|build/*|deploy/*) return 0 ;;
-    .github/workflows/implementation.yml) return 0 ;;
-    global.json|Directory.Build.props|Directory.Build.targets|Directory.Packages.props|FlexAgent.slnx|nuget.config) return 0 ;;
-    package.json|pnpm-lock.yaml|pnpm-workspace.yaml|.nvmrc) return 0 ;;
-    *) return 1 ;;
-  esac
 }
 
 BASE_SHA="${BASE_SHA:-${GITHUB_EVENT_BEFORE:-}}"
