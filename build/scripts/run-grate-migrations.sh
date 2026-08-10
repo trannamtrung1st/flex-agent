@@ -15,6 +15,11 @@ MIGRATIONS_DIRECTORY="${FLEXAGENT_MIGRATIONS_DIRECTORY:-${ROOT}/database/migrati
 
 RESTORE_LOCK_DIR="${ROOT}/artifacts/.grate-tool-restore.lock.d"
 mkdir -p "$(dirname "${RESTORE_LOCK_DIR}")"
+
+cleanup_restore_lock() {
+  rmdir "${RESTORE_LOCK_DIR}" 2>/dev/null || true
+}
+
 restore_lock_attempts=0
 until mkdir "${RESTORE_LOCK_DIR}" 2>/dev/null; do
   restore_lock_attempts=$((restore_lock_attempts + 1))
@@ -24,8 +29,10 @@ until mkdir "${RESTORE_LOCK_DIR}" 2>/dev/null; do
   fi
   sleep 0.1
 done
-trap 'rmdir "${RESTORE_LOCK_DIR}" 2>/dev/null || true' EXIT
+trap cleanup_restore_lock EXIT INT TERM
 dotnet tool restore >/dev/null
+cleanup_restore_lock
+trap - EXIT INT TERM
 
 GRATE_ARGS=(
   --connectionstring="${FLEXAGENT_DATABASE_URL}"

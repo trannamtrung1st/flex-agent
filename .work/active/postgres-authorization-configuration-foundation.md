@@ -305,8 +305,10 @@ follow-up outside this artifact slice.
   `migrationsDirectory` to the Grate tool path and always sets
   `FLEXAGENT_MIGRATIONS_DIRECTORY` on the child process; dry-run evidence
   renamed to non-mutation only.
-- Review follow-up (2026-08-10, round 10): serialize `dotnet tool restore` with
-  `flock` and retry transient grate nupkg file-lock failures in `RunAsync`.
+- Review follow-up (2026-08-10, round 10): portable `mkdir` lock serializes only
+  `dotnet tool restore` (released before `dotnet tool run grate`); `RunAsync`
+  retries transient grate nupkg file-lock failures. CI green: Implementation #37,
+  Documentation #68 on `6b1f87a`.
 
 # Open questions / interim defaults
 
