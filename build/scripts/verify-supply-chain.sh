@@ -52,7 +52,7 @@ echo "==> Vulnerability scan"
 bash "$ROOT/build/scripts/generate-nuget-licenses.sh" "$ARTIFACTS/nuget-licenses.json"
 
 echo "==> Secret scan"
-"$INSTALL_DIR/gitleaks" detect --source "$ROOT" --no-banner --redact > "$ARTIFACTS/gitleaks.txt"
+"$INSTALL_DIR/gitleaks" detect --source "$ROOT" --config "$ROOT/gitleaks.toml" --no-banner --redact > "$ARTIFACTS/gitleaks.txt"
 
 echo "==> OCI image SBOM and vulnerability scan"
 bash "$ROOT/build/scripts/build-oci-images.sh" >/dev/null

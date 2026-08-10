@@ -1,0 +1,11 @@
+title = "flex-agent"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Synthetic contract fixtures use idempotency_key fields with non-secret demo values."
+paths = [
+  '''(?i)contracts/fixtures/''',
+  '''(?i)contracts/tests/openapi-parity\.test\.mjs''',
+]

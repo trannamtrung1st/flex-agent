@@ -1,5 +1,8 @@
 # Gitleaks fingerprint allowlist for documented false positives.
 # Format: commit:file:rule-id:start-line
+#
+# Path-based allowlists for synthetic contract fixtures and parity tests live in
+# gitleaks.toml at the repository root.
 
 # 790cfb8 — safe-error regression tests used static fixture property names that
 # tripped generic-api-key. Markers are now runtime-generated; entries pin the

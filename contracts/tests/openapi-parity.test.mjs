@@ -11,27 +11,27 @@ const contractsRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 
 const representativeMappings = [
   {
-    openApiComponent: "SessionStateEventEnvelopeV1",
+    schemaComponent: "SessionStateEventEnvelopeV1",
     schemaPath: "schemas/v1/session/state-event-envelope.v1.schema.json",
   },
   {
-    openApiComponent: "ResolvedExecutionManifestV1",
+    schemaComponent: "ResolvedExecutionManifestV1",
     schemaPath: "schemas/v1/manifest/resolved-execution-manifest.v1.schema.json",
   },
   {
-    openApiComponent: "EvidenceLocatorV1",
+    schemaComponent: "EvidenceLocatorV1",
     schemaPath: "schemas/v1/evidence/evidence-locator.v1.schema.json",
   },
   {
-    openApiComponent: "AuditEventV1",
+    schemaComponent: "AuditEventV1",
     schemaPath: "schemas/v1/audit/audit-event.v1.schema.json",
   },
   {
-    openApiComponent: "SafeErrorResponseV1",
+    schemaComponent: "SafeErrorResponseV1",
     schemaPath: "schemas/v1/transport/safe-error-response.v1.schema.json",
   },
   {
-    openApiComponent: "SseSessionEventV1",
+    schemaComponent: "SseSessionEventV1",
     schemaPath: "schemas/v1/transport/sse-event.v1.schema.json",
   },
 ];
@@ -48,22 +48,22 @@ const commandVariantMappings = [
 const projectionNegativeCases = [
   {
     fixture: "fixtures/schema/v1/manifest/resolved-execution-manifest/invalid-active-with-seal.json",
-    openApiComponent: "ResolvedExecutionManifestV1",
+    schemaComponent: "ResolvedExecutionManifestV1",
     canonicalSchemaPath: "schemas/v1/manifest/resolved-execution-manifest.v1.schema.json",
   },
   {
     fixture: "fixtures/schema/v1/manifest/resolved-execution-manifest/invalid-completed-without-seal.json",
-    openApiComponent: "ResolvedExecutionManifestV1",
+    schemaComponent: "ResolvedExecutionManifestV1",
     canonicalSchemaPath: "schemas/v1/manifest/resolved-execution-manifest.v1.schema.json",
   },
   {
     fixture: "fixtures/schema/v1/evidence/evidence-locator/invalid-configuration-whole-item.json",
-    openApiComponent: "EvidenceLocatorV1",
+    schemaComponent: "EvidenceLocatorV1",
     canonicalSchemaPath: "schemas/v1/evidence/evidence-locator.v1.schema.json",
   },
   {
     fixture: "fixtures/schema/v1/session/command-envelope/invalid-pause-with-message-payload.json",
-    openApiComponent: "SessionCommandEnvelopeV1",
+    schemaComponent: "SessionCommandEnvelopeV1",
     canonicalSchemaPath: "schemas/v1/session/command-envelope.v1.schema.json",
   },
 ];
@@ -386,9 +386,9 @@ test("OpenAPI representative components mirror canonical JSON Schema constraints
       jsonSchema,
       primitives,
     };
-    const openApiSchema = openApi.components.schemas[mapping.openApiComponent];
-    assert.ok(openApiSchema, `Missing OpenAPI component ${mapping.openApiComponent}`);
-    assertConstraintParity(openApiSchema, jsonSchema, mapping.openApiComponent, context);
+    const openApiSchema = openApi.components.schemas[mapping.schemaComponent];
+    assert.ok(openApiSchema, `Missing OpenAPI component ${mapping.schemaComponent}`);
+    assertConstraintParity(openApiSchema, jsonSchema, mapping.schemaComponent, context);
   }
 });
 
@@ -404,11 +404,11 @@ test("OpenAPI command variants mirror canonical command envelope constraints", a
     primitives,
   };
 
-  for (const [jsonDef, openApiComponent] of commandVariantMappings) {
+  for (const [jsonDef, schemaComponent] of commandVariantMappings) {
     assertConstraintParity(
-      openApi.components.schemas[openApiComponent],
+      openApi.components.schemas[schemaComponent],
       jsonSchema.$defs[jsonDef],
-      openApiComponent,
+      schemaComponent,
       context,
     );
   }
@@ -452,7 +452,7 @@ test("OpenAPI projection rejects canonical negative fixtures", async () => {
     const instance = await loadJson(negativeCase.fixture);
     const openApiValidate = compileOpenApiComponent(
       ajv,
-      negativeCase.openApiComponent,
+      negativeCase.schemaComponent,
       openApi,
     );
     const canonicalValidate = canonicalValidators.get(negativeCase.canonicalSchemaPath);
