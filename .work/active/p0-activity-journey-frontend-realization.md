@@ -1,6 +1,6 @@
 ---
 id: p0-activity-journey-frontend-realization
-status: completed
+status: in_progress
 created: 2026-08-10
 updated: 2026-08-10
 ---
@@ -368,11 +368,26 @@ adapter (`FlexAgent.SyntheticBrowser`), browser feature projections
 | UI/UX and design-system routing | passed | Approved Activity journey, five surface specifications, design-system authority, implementation guide, and applicable MVP modules inspected |
 | Current implementation inventory | passed | React/Vite smoke page, basic tokens/tests, representative browser contract types, API smoke/health endpoints, NGINX/OCI scaffold, and Playwright configuration inspected |
 | Independent plan review remediation | passed | Navigation, synthetic-authentication scope, direct ADR authority, and task lifecycle findings reconciled on 2026-08-10; `git diff --check` and documentation validation passed |
-| Baseline test execution | passed | `pnpm verify:web`, `bash build/scripts/verify-dotnet.sh` (126 tests) |
-| Traceability matrix completeness | passed | Synthetic scenario classes map journeys/states; runtime negative tests for denial/revocation/stale/uncertain |
-| Live accessibility and visual evidence | passed | MCP snapshots + screenshots: Home (`page-2026-08-10T14-29-57-048Z.png`), Activities (`page-2026-08-10T14-30-21-580Z.png`); `pnpm test:e2e` (2 passed) |
-| Synthetic auth boundary | passed | `SyntheticBrowserRuntimeTests` (7): grant exchange, reuse rejection, capability gating, denied scenario |
+| Baseline test execution | passed | `pnpm verify:web`, `bash build/scripts/verify-dotnet.sh` (132 tests) |
+| Traceability matrix completeness | passed | Synthetic scenario classes map journeys/states; runtime negative tests for denial/revocation/stale/uncertain/idempotency |
+| Live accessibility and visual evidence | passed | Prior MCP snapshots; `pnpm test:e2e` (5 passed) via NGINX-served production build |
+| Synthetic auth boundary | passed | `SyntheticBrowserRuntimeTests` (13): harness key, grant cookie exchange, cross-role denial, idempotency, full journey |
 | Web unit tests | passed | 4 tests (`App.test.tsx`, `AppShell.test.tsx`, `HomePage.test.tsx`) |
+
+# Remediation tranche (2026-08-10, post-review of `6c834cf`)
+
+External review identified seven synthetic-boundary gaps. This tranche addresses them
+without rethinking the overall ADR-010 artifact-5 direction.
+
+| Review item | Status | Evidence |
+| --- | --- | --- |
+| Server-side command authorization (capability/resource/lifecycle/version) | done | `SyntheticCommandAuthorization.cs`; negative runtime tests (participant `release.confirm`, reviewer session/SSE) |
+| SSE session resource authorization + cursor replay | done | `GetSession`/`GetSessionEvents` share access check; `id:` + `Last-Event-ID`; client sequence dedup in `SessionPage.tsx` |
+| Harness-only grant issuance; no URL grants; no `session_id` in exchange JSON | done | `/browser/harness/scenario-grants` + `X-Synthetic-Harness-Key`; `AuthGatePage` form-only; `ScenarioGrantExchangeResponseV1` omits session id |
+| Typed 403/409 command outcomes in frontend | done | `executeBrowserCommand()` parses command result bodies for 403/409 |
+| Request-digested idempotency scoped by actor/command/resource | done | `SyntheticIdempotency.cs`; runtime digest-conflict + independent command-type tests |
+| Negative cross-role/resource HTTP tests | done | `SyntheticBrowserRuntimeTests` expanded (13 tests) |
+| NGINX-served browser journey evidence | done | `deploy/nginx/e2e.conf`, `build/scripts/serve-e2e-spa.sh`; Playwright 5 tests via production build + NGINX |
 
 # Blockers
 
@@ -382,7 +397,14 @@ artifact-store, provider, and operational implementation gates.
 
 # Completion
 
+Artifact 5 remediation is implemented and verified locally; status remains **in_progress**
+until an independent reviewer accepts the synthetic-boundary fixes for `GATE-STACK-BROWSER`.
+
+- [x] Remediation tranche implemented per review
 - [x] Planned work is reconciled with actual changes
+- [x] Applicable focused tests pass
+- [x] Applicable integration/regression checks pass
+- [ ] External reviewer sign-off on remediation
 - [x] Applicable focused tests pass
 - [x] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked

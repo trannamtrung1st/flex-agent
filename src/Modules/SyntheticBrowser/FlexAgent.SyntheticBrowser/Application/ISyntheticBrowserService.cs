@@ -8,9 +8,11 @@ public interface ISyntheticBrowserService
 {
     bool IsEnabled { get; }
 
+    bool IsHarnessAuthorized(string? harnessApiKey);
+
     ScenarioGrantResponseV1 CreateScenarioGrant(ScenarioGrantRequestV1 request);
 
-    ScenarioGrantExchangeResponseV1? ExchangeGrant(string grantToken);
+    ScenarioGrantExchangeResultV1? ExchangeGrant(string grantToken);
 
     SyntheticSessionRecord? ResolveSession(string sessionId);
 
@@ -48,5 +50,8 @@ public interface ISyntheticBrowserService
 
     BrowserCommandResultV1 ExecuteCommand(SyntheticSessionRecord session, BrowserCommandEnvelopeV1 command);
 
-    IEnumerable<SseSessionEventV1> GetSessionEvents(SyntheticSessionRecord session, string sessionId);
+    IEnumerable<SseSessionEventV1> GetSessionEvents(
+        SyntheticSessionRecord session,
+        string sessionId,
+        string? lastEventId);
 }

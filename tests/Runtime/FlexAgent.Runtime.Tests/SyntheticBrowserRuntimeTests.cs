@@ -4,12 +4,14 @@ using System.Text.Json;
 using FlexAgent.SyntheticBrowser;
 using FlexAgent.SyntheticBrowser.Domain;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using ApiProgram = FlexAgent.Api.Program;
 
 namespace FlexAgent.Runtime.Tests;
 
 public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationFactory<ApiProgram>>
 {
+    private const string HarnessApiKey = "test-harness-key";
     private readonly WebApplicationFactory<ApiProgram> _factory;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -18,7 +20,17 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
 
     public SyntheticBrowserRuntimeTests(WebApplicationFactory<ApiProgram> factory)
     {
-        _factory = factory.WithWebHostBuilder(_ => { });
+        _factory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["SyntheticBrowser:Enabled"] = "true",
+                    ["SyntheticBrowser:HarnessApiKey"] = HarnessApiKey,
+                });
+            });
+        });
     }
 
     [Fact]
@@ -28,9 +40,16 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
         var cancellationToken = TestContext.Current.CancellationToken;
 
         var grant = await CreateGrantAsync(client, SyntheticScenarioIds.CampaignFullJourney, SyntheticActorStages.Administrator, cancellationToken);
-        var exchange = await ExchangeGrantAsync(client, grant, cancellationToken);
+        var exchangeResponse = await ExchangeGrantRawAsync(client, grant, cancellationToken);
 
-        Assert.False(string.IsNullOrWhiteSpace(exchange.SessionId));
+        Assert.Equal(HttpStatusCode.OK, exchangeResponse.StatusCode);
+        Assert.Contains(
+            SyntheticBrowserEndpointExtensions.SessionCookieName,
+            exchangeResponse.Headers.GetValues("Set-Cookie").First(),
+            StringComparison.Ordinal);
+
+        var exchangeContent = await exchangeResponse.Content.ReadAsStringAsync(cancellationToken);
+        Assert.DoesNotContain("session_id", exchangeContent, StringComparison.OrdinalIgnoreCase);
 
         var actorResponse = await client.GetAsync("/browser/actor-context", cancellationToken);
         Assert.Equal(HttpStatusCode.OK, actorResponse.StatusCode);
@@ -45,6 +64,21 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
         var grant = await CreateGrantAsync(client, SyntheticScenarioIds.CampaignFullJourney, SyntheticActorStages.Administrator, cancellationToken);
         Assert.Equal(HttpStatusCode.OK, (await ExchangeGrantRawAsync(client, grant, cancellationToken)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await ExchangeGrantRawAsync(client, grant, cancellationToken)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Harness_grant_creation_requires_api_key()
+    {
+        var client = _factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var withoutKey = await client.PostAsJsonAsync("/browser/harness/scenario-grants", new
+        {
+            scenario_id = SyntheticScenarioIds.CampaignFullJourney,
+            actor_stage = SyntheticActorStages.Administrator,
+        }, JsonOptions, cancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, withoutKey.StatusCode);
     }
 
     [Fact]
@@ -81,6 +115,81 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
     }
 
     [Fact]
+    public async Task Participant_cannot_execute_release_confirm()
+    {
+        var client = await CreateAuthenticatedClientAsync(SyntheticActorStages.Participant);
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        await PrepareReleasedScenarioAsync(cancellationToken);
+
+        var response = await PostCommandRawAsync(
+            client,
+            "release.confirm",
+            "participant-release-forgery",
+            cancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<CommandResultDto>(JsonOptions, cancellationToken);
+        Assert.Equal("denied", body!.Outcome);
+    }
+
+    [Fact]
+    public async Task Reviewer_cannot_access_session_projection_or_events()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await PrepareActiveSessionAsync(cancellationToken);
+
+        var reviewer = await CreateAuthenticatedClientAsync(SyntheticActorStages.Reviewer);
+        var sessionResponse = await reviewer.GetAsync("/browser/sessions/sess.synthetic.001", cancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, sessionResponse.StatusCode);
+
+        var eventsResponse = await reviewer.GetAsync("/browser/sessions/sess.synthetic.001/events", cancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, eventsResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Idempotency_key_reuse_with_different_command_types_are_independent()
+    {
+        var client = await CreateAuthenticatedClientAsync(SyntheticActorStages.Administrator);
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var save = await PostCommandRawAsync(client, "activity.save_draft", "shared-key", cancellationToken);
+        Assert.Equal(HttpStatusCode.OK, save.StatusCode);
+
+        var activate = await PostCommandRawAsync(client, "activity.activate_cohort", "shared-key", cancellationToken);
+        Assert.Equal(HttpStatusCode.OK, activate.StatusCode);
+    }
+
+    [Fact]
+    public async Task Idempotency_key_reuse_with_different_digest_conflicts()
+    {
+        var client = await CreateAuthenticatedClientAsync(SyntheticActorStages.Administrator);
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var first = await client.PostAsJsonAsync("/browser/commands", new
+        {
+            schema_version = "v1",
+            command_id = Guid.NewGuid().ToString("N"),
+            idempotency_key = "digest-key",
+            command_type = "activity.save_draft",
+            expected_version = 1,
+        }, JsonOptions, cancellationToken);
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+
+        var second = await client.PostAsJsonAsync("/browser/commands", new
+        {
+            schema_version = "v1",
+            command_id = Guid.NewGuid().ToString("N"),
+            idempotency_key = "digest-key",
+            command_type = "activity.save_draft",
+            expected_version = 2,
+        }, JsonOptions, cancellationToken);
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        var body = await second.Content.ReadFromJsonAsync<CommandResultDto>(JsonOptions, cancellationToken);
+        Assert.Equal("conflict", body!.Outcome);
+    }
+
+    [Fact]
     public async Task Denied_scenario_returns_null_actor_context()
     {
         var client = await CreateAuthenticatedClientAsync(
@@ -98,23 +207,8 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
         var client = await CreateAuthenticatedClientAsync(SyntheticActorStages.Administrator);
         var cancellationToken = TestContext.Current.CancellationToken;
 
-        await client.PostAsJsonAsync("/browser/commands", new
-        {
-            schema_version = "v1",
-            command_id = Guid.NewGuid().ToString("N"),
-            idempotency_key = "save-1",
-            command_type = "activity.save_draft",
-        }, JsonOptions, cancellationToken);
-
-        var activate = await client.PostAsJsonAsync("/browser/commands", new
-        {
-            schema_version = "v1",
-            command_id = Guid.NewGuid().ToString("N"),
-            idempotency_key = "activate-1",
-            command_type = "activity.activate_cohort",
-        }, JsonOptions, cancellationToken);
-
-        Assert.Equal(HttpStatusCode.OK, activate.StatusCode);
+        await PostCommandAsync(client, "activity.save_draft", "save-1", cancellationToken);
+        await PostCommandAsync(client, "activity.activate_cohort", "activate-1", cancellationToken);
 
         var detail = await client.GetFromJsonAsync<ActivityDetailDto>(
             "/browser/activities/act.synthetic.campaign-001",
@@ -123,50 +217,6 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
 
         Assert.Equal("activated", detail!.LifecycleState);
     }
-
-    private async Task<HttpClient> CreateAuthenticatedClientAsync(
-        string actorStage,
-        string scenarioId = SyntheticScenarioIds.CampaignFullJourney)
-    {
-        var client = _factory.CreateClient();
-        var cancellationToken = TestContext.Current.CancellationToken;
-        var grant = await CreateGrantAsync(client, scenarioId, actorStage, cancellationToken);
-        await ExchangeGrantAsync(client, grant, cancellationToken);
-        return client;
-    }
-
-    private static async Task<string> CreateGrantAsync(
-        HttpClient client,
-        string scenarioId,
-        string actorStage,
-        CancellationToken cancellationToken)
-    {
-        var response = await client.PostAsJsonAsync("/browser/test/scenario-grants", new
-        {
-            scenario_id = scenarioId,
-            actor_stage = actorStage,
-        }, JsonOptions, cancellationToken);
-
-        response.EnsureSuccessStatusCode();
-        var body = await response.Content.ReadFromJsonAsync<GrantDto>(JsonOptions, cancellationToken);
-        return body!.GrantToken;
-    }
-
-    private static async Task<ExchangeDto> ExchangeGrantAsync(
-        HttpClient client,
-        string grantToken,
-        CancellationToken cancellationToken)
-    {
-        var response = await ExchangeGrantRawAsync(client, grantToken, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ExchangeDto>(JsonOptions, cancellationToken))!;
-    }
-
-    private static Task<HttpResponseMessage> ExchangeGrantRawAsync(
-        HttpClient client,
-        string grantToken,
-        CancellationToken cancellationToken) =>
-        client.PostAsJsonAsync("/browser/auth/exchange", new { grant_token = grantToken }, JsonOptions, cancellationToken);
 
     [Fact]
     public async Task Full_synthetic_campaign_journey_reaches_released_result()
@@ -177,7 +227,7 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
         async Task<HttpClient> ClientFor(string stage)
         {
             var client = _factory.CreateClient();
-            var grant = await CreateGrantForScenarioAsync(client, scenarioId, stage, cancellationToken);
+            var grant = await CreateGrantAsync(client, scenarioId, stage, cancellationToken);
             await ExchangeGrantAsync(client, grant, cancellationToken);
             return client;
         }
@@ -221,22 +271,81 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
         Assert.Contains("Synthetic released Result", participantResult.Content, StringComparison.Ordinal);
     }
 
-    private static async Task<string> CreateGrantForScenarioAsync(
+    private async Task PrepareActiveSessionAsync(CancellationToken cancellationToken)
+    {
+        var admin = await CreateAuthenticatedClientAsync(SyntheticActorStages.Administrator);
+        await PostCommandAsync(admin, "activity.save_draft", "prep-save", cancellationToken);
+        await PostCommandAsync(admin, "activity.activate_cohort", "prep-activate", cancellationToken);
+        await PostCommandAsync(admin, "enrollment.assign", "prep-enroll", cancellationToken);
+
+        var participant = await CreateAuthenticatedClientAsync(SyntheticActorStages.Participant);
+        await PostCommandAsync(
+            participant,
+            "submission.submit_text",
+            "prep-submit",
+            cancellationToken,
+            new Dictionary<string, string> { ["submission_text"] = "Prep answer." });
+        await PostCommandAsync(participant, "attempt.start", "prep-start", cancellationToken);
+    }
+
+    private async Task PrepareReleasedScenarioAsync(CancellationToken cancellationToken)
+    {
+        await PrepareActiveSessionAsync(cancellationToken);
+
+        var participant = await CreateAuthenticatedClientAsync(SyntheticActorStages.Participant);
+        await PostCommandAsync(participant, "session.complete", "prep-complete", cancellationToken);
+
+        var reviewer = await CreateAuthenticatedClientAsync(SyntheticActorStages.Reviewer);
+        await PostCommandAsync(reviewer, "review.approve", "prep-approve", cancellationToken);
+    }
+
+    private async Task<HttpClient> CreateAuthenticatedClientAsync(
+        string actorStage,
+        string scenarioId = SyntheticScenarioIds.CampaignFullJourney)
+    {
+        var client = _factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var grant = await CreateGrantAsync(client, scenarioId, actorStage, cancellationToken);
+        await ExchangeGrantAsync(client, grant, cancellationToken);
+        return client;
+    }
+
+    private async Task<string> CreateGrantAsync(
         HttpClient client,
         string scenarioId,
         string actorStage,
         CancellationToken cancellationToken)
     {
-        var response = await client.PostAsJsonAsync("/browser/test/scenario-grants", new
+        var request = new HttpRequestMessage(HttpMethod.Post, "/browser/harness/scenario-grants")
         {
-            scenario_id = scenarioId,
-            actor_stage = actorStage,
-        }, JsonOptions, cancellationToken);
+            Content = JsonContent.Create(new
+            {
+                scenario_id = scenarioId,
+                actor_stage = actorStage,
+            }, options: JsonOptions),
+        };
+        request.Headers.Add(SyntheticBrowserEndpointExtensions.HarnessApiKeyHeaderName, HarnessApiKey);
 
+        var response = await client.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<GrantDto>(JsonOptions, cancellationToken);
         return body!.GrantToken;
     }
+
+    private static async Task ExchangeGrantAsync(
+        HttpClient client,
+        string grantToken,
+        CancellationToken cancellationToken)
+    {
+        var response = await ExchangeGrantRawAsync(client, grantToken, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static Task<HttpResponseMessage> ExchangeGrantRawAsync(
+        HttpClient client,
+        string grantToken,
+        CancellationToken cancellationToken) =>
+        client.PostAsJsonAsync("/browser/auth/exchange", new { grant_token = grantToken }, JsonOptions, cancellationToken);
 
     private static async Task PostCommandAsync(
         HttpClient client,
@@ -245,7 +354,19 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
         CancellationToken cancellationToken,
         IReadOnlyDictionary<string, string>? payload = null)
     {
-        var response = await client.PostAsJsonAsync("/browser/commands", new
+        var response = await PostCommandRawAsync(client, commandType, idempotencyKey, cancellationToken, payload);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<CommandResultDto>(JsonOptions, cancellationToken);
+        Assert.Equal("succeeded", body!.Outcome);
+    }
+
+    private static Task<HttpResponseMessage> PostCommandRawAsync(
+        HttpClient client,
+        string commandType,
+        string idempotencyKey,
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, string>? payload = null) =>
+        client.PostAsJsonAsync("/browser/commands", new
         {
             schema_version = "v1",
             command_id = Guid.NewGuid().ToString("N"),
@@ -254,11 +375,6 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
             payload,
         }, JsonOptions, cancellationToken);
 
-        response.EnsureSuccessStatusCode();
-        var body = await response.Content.ReadFromJsonAsync<CommandResultDto>(JsonOptions, cancellationToken);
-        Assert.Equal("succeeded", body!.Outcome);
-    }
-
     private sealed record ReviewWorkDto(IReadOnlyList<ReviewCaseDto> Cases);
     private sealed record ReviewCaseDto(string StatusLabel);
     private sealed record ReleaseWorkDto(IReadOnlyList<ReleaseItemDto> Items);
@@ -266,7 +382,7 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
     private sealed record ResultDetailDto(string LifecycleState, string? Content);
     private sealed record CommandResultDto(string Outcome);
     private sealed record GrantDto(string GrantToken);
-    private sealed record ExchangeDto(string SessionId);
+    private sealed record ExchangeDto(string SchemaVersion, DateTimeOffset ExpiresAt);
     private sealed record NavigationDto(IReadOnlyList<DestinationDto> Destinations);
     private sealed record DestinationDto(string DestinationId, bool IsAvailable);
     private sealed record ActivityDetailDto(string LifecycleState);

@@ -27,6 +27,7 @@ export function SessionPage() {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const seenSequencesRef = useRef<Set<string>>(new Set());
 
   const loadSession = useCallback(async () => {
     if (!sessionId) {
@@ -62,8 +63,18 @@ export function SessionPage() {
       try {
         const payload = JSON.parse(event.data) as {
           event_type?: string;
+          session_sequence?: string;
           payload?: { text_delta?: string; agent_message_id?: string };
         };
+
+        const sequence = payload.session_sequence ?? event.lastEventId;
+        if (sequence && seenSequencesRef.current.has(sequence)) {
+          return;
+        }
+
+        if (sequence) {
+          seenSequencesRef.current.add(sequence);
+        }
 
         const content = payload.payload?.text_delta ?? "";
         const messageId = payload.payload?.agent_message_id ?? crypto.randomUUID();

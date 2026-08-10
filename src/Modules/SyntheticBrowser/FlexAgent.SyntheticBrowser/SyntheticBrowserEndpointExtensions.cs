@@ -14,6 +14,7 @@ namespace FlexAgent.SyntheticBrowser;
 public static class SyntheticBrowserEndpointExtensions
 {
     public const string SessionCookieName = "flex_agent_synthetic_session";
+    public const string HarnessApiKeyHeaderName = "X-Synthetic-Harness-Key";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -25,7 +26,7 @@ public static class SyntheticBrowserEndpointExtensions
     {
         var browser = endpoints.MapGroup("/browser");
 
-        browser.MapPost("/test/scenario-grants", CreateScenarioGrant);
+        browser.MapPost("/harness/scenario-grants", CreateScenarioGrant);
         browser.MapPost("/auth/exchange", ExchangeGrant);
         browser.MapPost("/auth/logout", Logout);
         browser.MapGet("/actor-context", GetActorContext);
@@ -86,6 +87,11 @@ public static class SyntheticBrowserEndpointExtensions
             return Disabled();
         }
 
+        if (!service.IsHarnessAuthorized(context.Request.Headers[HarnessApiKeyHeaderName]))
+        {
+            return Results.NotFound();
+        }
+
         try
         {
             var response = service.CreateScenarioGrant(request);
@@ -111,8 +117,8 @@ public static class SyntheticBrowserEndpointExtensions
             return Disabled();
         }
 
-        var response = service.ExchangeGrant(request.GrantToken);
-        if (response is null)
+        var exchange = service.ExchangeGrant(request.GrantToken);
+        if (exchange is null)
         {
             return Results.Json(new SafeErrorResponseV1(
                 BrowserSchemaVersion.V1,
@@ -123,16 +129,16 @@ public static class SyntheticBrowserEndpointExtensions
                 null), JsonOptions, statusCode: StatusCodes.Status401Unauthorized);
         }
 
-        context.Response.Cookies.Append(SessionCookieName, response.SessionId, new CookieOptions
+        context.Response.Cookies.Append(SessionCookieName, exchange.SessionId, new CookieOptions
         {
             HttpOnly = true,
             Secure = context.Request.IsHttps,
             SameSite = SameSiteMode.Strict,
             Path = "/",
-            Expires = response.ExpiresAt,
+            Expires = exchange.Response.ExpiresAt,
         });
 
-        return Results.Json(response, JsonOptions);
+        return Results.Json(exchange.Response, JsonOptions);
     }
 
     private static IResult Logout(HttpContext context)
@@ -352,12 +358,22 @@ public static class SyntheticBrowserEndpointExtensions
             return;
         }
 
+        if (service.GetSession(session, sessionId) is null)
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        var lastEventId = context.Request.Headers["Last-Event-ID"].FirstOrDefault()
+            ?? context.Request.Query["last_event_id"].FirstOrDefault();
+
         context.Response.Headers.ContentType = "text/event-stream";
         context.Response.Headers.CacheControl = "no-cache";
 
-        await foreach (var evt in service.GetSessionEvents(session, sessionId).ToAsyncEnumerable())
+        await foreach (var evt in service.GetSessionEvents(session, sessionId, lastEventId).ToAsyncEnumerable())
         {
             var json = JsonSerializer.Serialize(evt, JsonOptions);
+            await context.Response.WriteAsync($"id: {evt.SessionSequence}\n");
             await context.Response.WriteAsync($"data: {json}\n\n");
             await context.Response.Body.FlushAsync();
         }

@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState } from "react";
 import { exchangeScenarioGrant } from "../api/browser-client";
 import { useBrowserApi } from "../api/browser-api";
 import { Alert } from "../components/ui/Alert";
@@ -9,11 +8,9 @@ import { StatusPanel } from "../components/ui/StatusPanel";
 
 export function AuthGatePage() {
   const { refresh, apiState } = useBrowserApi();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [grantInput, setGrantInput] = useState(searchParams.get("grant") ?? "");
+  const [grantInput, setGrantInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [exchanging, setExchanging] = useState(false);
-  const attemptedUrlGrant = useRef(false);
 
   const exchangeGrant = async (token: string) => {
     if (!token.trim()) {
@@ -26,7 +23,7 @@ export function AuthGatePage() {
 
     try {
       await exchangeScenarioGrant(token.trim());
-      setSearchParams({});
+      setGrantInput("");
       await refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Grant exchange failed");
@@ -34,14 +31,6 @@ export function AuthGatePage() {
       setExchanging(false);
     }
   };
-
-  useEffect(() => {
-    const grantFromUrl = searchParams.get("grant");
-    if (grantFromUrl && apiState === "idle" && !attemptedUrlGrant.current) {
-      attemptedUrlGrant.current = true;
-      void exchangeGrant(grantFromUrl);
-    }
-  }, [searchParams, apiState]);
 
   if (exchanging || apiState === "loading") {
     return <ProtectedLoading label="Establishing synthetic session…" />;
@@ -59,8 +48,8 @@ export function AuthGatePage() {
       <section className="page-section" aria-labelledby="grant-heading">
         <h2 id="grant-heading">Test harness grant</h2>
         <p>
-          For automated and local verification, exchange a one-time scenario grant from the
-          synthetic API test harness.
+          For automated and local verification, paste a one-time scenario grant issued by the
+          synthetic test harness. Grants are never accepted from URL parameters.
         </p>
 
         {error ? (
@@ -77,11 +66,12 @@ export function AuthGatePage() {
             type="text"
             value={grantInput}
             onChange={(event) => { setGrantInput(event.target.value); }}
-            placeholder="Paste grant token or use ?grant= in the URL"
+            placeholder="Paste grant token from the test harness"
             aria-describedby="grant-hint"
+            autoComplete="off"
           />
           <p id="grant-hint" style={{ color: "var(--fg-muted)", fontSize: "0.875rem" }}>
-            Grants are single-use and expire quickly. No role switcher is provided in product UI.
+            Grants are single-use, expire quickly, and must be exchanged through this form.
           </p>
         </div>
 

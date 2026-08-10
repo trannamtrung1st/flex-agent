@@ -55,11 +55,31 @@ export async function loadBrowserContext(): Promise<{
 export async function executeBrowserCommand(
   command: Omit<BrowserCommandEnvelopeV1, "schema_version">,
 ): Promise<BrowserCommandResultV1> {
-  return apiFetch<BrowserCommandResultV1>("/browser/commands", {
+  const response = await fetch("/browser/commands", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({ schema_version: "v1", ...command }),
   });
+
+  if (response.status === 401) {
+    throw new Error("unauthenticated");
+  }
+
+  const body = (await response.json()) as BrowserCommandResultV1;
+
+  if (response.status === 403 || response.status === 409) {
+    return body;
+  }
+
+  if (!response.ok) {
+    throw new Error(body.safe_message ?? `Request failed: ${String(response.status)}`);
+  }
+
+  return body;
 }
 
 export async function exchangeScenarioGrant(grantToken: string): Promise<void> {
@@ -68,13 +88,4 @@ export async function exchangeScenarioGrant(grantToken: string): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ grant_token: grantToken }),
   });
-}
-
-export async function createScenarioGrant(scenarioId: string, actorStage: string): Promise<string> {
-  const response = await apiFetch<{ grant_token: string }>("/browser/test/scenario-grants", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ scenario_id: scenarioId, actor_stage: actorStage }),
-  });
-  return response.grant_token;
 }

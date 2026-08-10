@@ -14,16 +14,16 @@ export default defineConfig({
   webServer: [
     {
       command:
-        "ASPNETCORE_ENVIRONMENT=Development dotnet run --project ../src/Hosts/FlexAgent.Api/FlexAgent.Api.csproj --no-launch-profile --urls http://localhost:8080",
-      url: "http://localhost:8080/health/live",
-      reuseExistingServer: !process.env.CI,
+        "ASPNETCORE_ENVIRONMENT=Development SyntheticBrowser__HarnessApiKey=flex-agent-synthetic-harness-dev dotnet run --project ../src/Hosts/FlexAgent.Api/FlexAgent.Api.csproj --no-launch-profile --urls http://localhost:18080",
+      url: "http://localhost:18080/health/live",
+      reuseExistingServer: false,
       timeout: 120000,
     },
     {
-      command: "npm run dev",
+      command: "bash ../build/scripts/serve-e2e-spa.sh",
       url: "http://localhost:5173",
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000,
+      reuseExistingServer: false,
+      timeout: 180000,
     },
   ],
   projects: [

@@ -19,8 +19,11 @@ public sealed record ScenarioGrantExchangeRequestV1(string GrantToken);
 
 public sealed record ScenarioGrantExchangeResponseV1(
     string SchemaVersion,
-    string SessionId,
     DateTimeOffset ExpiresAt);
+
+public sealed record ScenarioGrantExchangeResultV1(
+    string SessionId,
+    ScenarioGrantExchangeResponseV1 Response);
 
 public sealed record ActorContextV1(
     string SchemaVersion,
