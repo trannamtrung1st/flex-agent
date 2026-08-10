@@ -20,7 +20,13 @@
     "xunitV3": "3.2.2",
     "netArchTestRules": "1.3.2",
     "vitest": "4.1.10",
-    "jsonSchemaNet": "9.4.0"
+    "jsonSchemaNet": "9.4.0",
+    "npgsql": "10.0.3",
+    "dapper": "2.1.79",
+    "grate": "2.1.6",
+    "testcontainers": "4.11.0",
+    "testcontainersPostgreSql": "4.11.0",
+    "postgresImage": "postgres:18"
   },
   "supplyChain": {
     "syft": {

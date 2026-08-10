@@ -4,11 +4,15 @@
     <Project Path="src/BuildingBlocks/FlexAgent.Contracts/FlexAgent.Contracts.csproj" />
     <Project Path="src/Hosts/FlexAgent.Api/FlexAgent.Api.csproj" />
     <Project Path="src/Hosts/FlexAgent.Worker/FlexAgent.Worker.csproj" />
+    <Project Path="src/Infrastructure/FlexAgent.Postgres/FlexAgent.Postgres.csproj" />
+    <Project Path="src/Modules/Configuration/FlexAgent.Configuration/FlexAgent.Configuration.csproj" />
+    <Project Path="src/Modules/IdentityAccess/FlexAgent.IdentityAccess/FlexAgent.IdentityAccess.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Architecture/FlexAgent.Architecture.Tests/FlexAgent.Architecture.Tests.csproj" />
     <Project Path="tests/CanonicalJson/FlexAgent.CanonicalJson.Tests/FlexAgent.CanonicalJson.Tests.csproj" />
     <Project Path="tests/Contract/FlexAgent.Contract.Tests/FlexAgent.Contract.Tests.csproj" />
+    <Project Path="tests/Integration/FlexAgent.Postgres.Integration.Tests/FlexAgent.Postgres.Integration.Tests.csproj" />
     <Project Path="tests/Runtime/FlexAgent.Runtime.Tests/FlexAgent.Runtime.Tests.csproj" />
   </Folder>
 </Solution>
