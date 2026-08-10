@@ -1,0 +1,80 @@
+import type {
+  ActorContextV1,
+  BrowserCommandEnvelopeV1,
+  BrowserCommandResultV1,
+  NavigationProjectionV1,
+} from "./browser-contracts";
+
+export type ApiState = "idle" | "loading" | "protected" | "denied" | "error" | "ready";
+
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  headers.set("Accept", "application/json");
+
+  const response = await fetch(path, {
+    credentials: "include",
+    ...init,
+    headers,
+  });
+
+  if (response.status === 401) {
+    throw new Error("unauthenticated");
+  }
+
+  if (response.status === 403) {
+    const body = (await response.json()) as { safe_message?: string };
+    throw new Error(body.safe_message ?? "Access denied");
+  }
+
+  if (response.status === 404) {
+    throw new Error("protected");
+  }
+
+  if (!response.ok) {
+    throw new Error(`Request failed: ${String(response.status)}`);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+export async function loadBrowserContext(): Promise<{
+  actor: ActorContextV1;
+  navigation: NavigationProjectionV1;
+}> {
+  const [actor, navigation] = await Promise.all([
+    apiFetch<ActorContextV1>("/browser/actor-context"),
+    apiFetch<NavigationProjectionV1>("/browser/navigation"),
+  ]);
+  return { actor, navigation };
+}
+
+export async function executeBrowserCommand(
+  command: Omit<BrowserCommandEnvelopeV1, "schema_version">,
+): Promise<BrowserCommandResultV1> {
+  return apiFetch<BrowserCommandResultV1>("/browser/commands", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ schema_version: "v1", ...command }),
+  });
+}
+
+export async function exchangeScenarioGrant(grantToken: string): Promise<void> {
+  await apiFetch("/browser/auth/exchange", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ grant_token: grantToken }),
+  });
+}
+
+export async function createScenarioGrant(scenarioId: string, actorStage: string): Promise<string> {
+  const response = await apiFetch<{ grant_token: string }>("/browser/test/scenario-grants", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scenario_id: scenarioId, actor_stage: actorStage }),
+  });
+  return response.grant_token;
+}

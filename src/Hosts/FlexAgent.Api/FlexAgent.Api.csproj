@@ -5,4 +5,8 @@
     <AssemblyName>FlexAgent.Api</AssemblyName>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\Modules\SyntheticBrowser\FlexAgent.SyntheticBrowser\FlexAgent.SyntheticBrowser.csproj" />
+  </ItemGroup>
+
 </Project>

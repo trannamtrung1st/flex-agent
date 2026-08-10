@@ -7,6 +7,7 @@
     <Project Path="src/Infrastructure/FlexAgent.Postgres/FlexAgent.Postgres.csproj" />
     <Project Path="src/Modules/Configuration/FlexAgent.Configuration/FlexAgent.Configuration.csproj" />
     <Project Path="src/Modules/IdentityAccess/FlexAgent.IdentityAccess/FlexAgent.IdentityAccess.csproj" />
+    <Project Path="src/Modules/SyntheticBrowser/FlexAgent.SyntheticBrowser/FlexAgent.SyntheticBrowser.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Architecture/FlexAgent.Architecture.Tests/FlexAgent.Architecture.Tests.csproj" />

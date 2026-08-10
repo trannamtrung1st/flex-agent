@@ -423,6 +423,8 @@ FodyWeavers.xsd
 
 # Local Playwright MCP screenshots, traces, logs, and browser state
 .playwright-mcp/
+web/test-results/
+web/playwright-report/
 
 # Windows Installer files from build outputs
 *.cab

@@ -421,7 +421,19 @@
         }
       },
       "flexagent.api": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.SyntheticBrowser": "[1.0.0, )"
+        }
+      },
+      "flexagent.contracts": {
         "type": "Project"
+      },
+      "flexagent.syntheticbrowser": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.Contracts": "[1.0.0, )"
+        }
       },
       "flexagent.worker": {
         "type": "Project"

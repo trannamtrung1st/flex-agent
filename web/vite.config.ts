@@ -6,6 +6,12 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    proxy: {
+      "/browser": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+      },
+    },
   },
   build: {
     outDir: "dist",
@@ -15,5 +21,6 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     globals: true,
+    exclude: ["**/node_modules/**", "**/dist/**", "e2e/**"],
   },
 });

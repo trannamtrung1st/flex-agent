@@ -143,7 +143,10 @@
         }
       },
       "flexagent.api": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.SyntheticBrowser": "[1.0.0, )"
+        }
       },
       "flexagent.canonicaljson": {
         "type": "Project"
@@ -170,6 +173,12 @@
         "dependencies": {
           "Dapper": "[2.1.79, )",
           "Npgsql": "[10.0.3, )"
+        }
+      },
+      "flexagent.syntheticbrowser": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.Contracts": "[1.0.0, )"
         }
       },
       "flexagent.worker": {
