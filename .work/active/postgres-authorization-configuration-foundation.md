@@ -223,12 +223,11 @@ Session configuration, or start an assessment workflow.
 
 # Current state
 
-Artifact 4 is implemented with review follow-up addressing commit-time grant
-locking (`FOR SHARE`), separate idempotency records, `ON CONFLICT` insert
-reconciliation, fail-closed Grate execution, version immutability triggers,
-race-oriented integration tests, and the full Grate tool-path safety matrix.
-Task status is `completed`; formal security-privacy sign-off remains a
-follow-up outside this artifact slice.
+Artifact 4 is implemented and **fully approved** (code review + push CI green at
+`65a6bc4`, 2026-08-10). Review follow-up closed Grate contention evidence,
+`RunAsync` directory semantics, bounded bootstrap/tool-restore retry, and
+restore-lock scope. Task status is `completed`; formal security-privacy
+reviewer sign-off remains an optional follow-up outside this artifact slice.
 
 # Decisions
 
@@ -306,9 +305,13 @@ follow-up outside this artifact slice.
   `FLEXAGENT_MIGRATIONS_DIRECTORY` on the child process; dry-run evidence
   renamed to non-mutation only.
 - Review follow-up (2026-08-10, round 10): portable `mkdir` lock serializes only
-  `dotnet tool restore` (released before `dotnet tool run grate`); `RunAsync`
-  retries transient grate nupkg file-lock failures. CI green: Implementation #37,
-  Documentation #68 on `6b1f87a`.
+  `dotnet tool restore` (initially held through Grate — corrected in round 11);
+  `RunAsync` retries transient grate nupkg file-lock failures. CI green:
+  Implementation #37, Documentation #68 on `6b1f87a`.
+- Review follow-up (2026-08-10, round 11): release restore lock before
+  `dotnet tool run grate` so concurrent migration evidence remains valid.
+  **Final approval:** code review + push CI green at `65a6bc4` — Implementation
+  #38 (5m 40s), Documentation #69 (18s). Artifact 4 review sequence closed.
 
 # Open questions / interim defaults
 
@@ -366,9 +369,9 @@ follow-up outside this artifact slice.
 | Scoped repository authorization/isolation matrix | pass | Authorization, isolation, commit lock race, concurrent idempotency, digest-key reservation, source-scoped version resolution |
 | Atomic configuration/audit/outbox boundary | pass | Success correlation; audit `relationship_version`; audit/outbox fault-injection rollback tests |
 | Module/dependency architecture tests | pass | `ModuleBoundaryTests` — no Npgsql/Dapper in domain/application; no unscoped get-by-id; Configuration.Application does not reference CanonicalJson |
-| Locked aggregate regression and CI | pass | `bash build/scripts/verify-dotnet.sh` — 119 tests green (2026-08-10 post CI nupkg-lock fix) |
+| Locked aggregate regression and CI | pass | `bash build/scripts/verify-dotnet.sh` — 119 tests green; GitHub Actions Implementation #38 (5m 40s) + Documentation #69 (18s) on `65a6bc4` |
 | Frontend and Playwright | not applicable | No UI-affecting work in artifact 4; revisit if scope changes |
-| Independent backend/security review | pass (code) | Code review + CI approved at `acaf9e3` (2026-08-10); formal security-privacy reviewer sign-off deferred as follow-up |
+| Independent backend/security review | pass | Code review + push CI fully approved at `65a6bc4` (2026-08-10); formal security-privacy reviewer sign-off optional follow-up |
 
 # Blockers
 
@@ -383,4 +386,5 @@ evidence.
 - [x] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
-- [x] Task marked `completed` (2026-08-10) — Grate matrix closed; security-privacy reviewer sign-off tracked separately
+- [x] Task marked `completed` (2026-08-10) — Grate matrix closed; review sequence
+  fully approved at `65a6bc4` (Implementation #38, Documentation #69)
