@@ -10,7 +10,7 @@ public static class GrateMigrationRunner
 {
     public const string AllowEmbeddedFallbackEnvironmentVariable = "FLEXAGENT_ALLOW_EMBEDDED_MIGRATION_FALLBACK";
 
-    private const int MaxConcurrentBootstrapRetryAttempts = 5;
+    private const int MaxConcurrentToolRetryAttempts = 5;
 
     public static Task RunAsync(
         string connectionString,
@@ -36,7 +36,7 @@ public static class GrateMigrationRunner
         var toolOptions = new GrateToolInvocationOptions(MigrationsDirectory: migrationsDirectory);
         ToolInvocationResult? lastToolResult = null;
 
-        for (var attempt = 1; attempt <= MaxConcurrentBootstrapRetryAttempts; attempt++)
+        for (var attempt = 1; attempt <= MaxConcurrentToolRetryAttempts; attempt++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -48,8 +48,8 @@ public static class GrateMigrationRunner
 
             lastToolResult = toolResult;
 
-            if (IsTransientConcurrentBootstrapFailure(toolResult.Error)
-                && attempt < MaxConcurrentBootstrapRetryAttempts)
+            if (IsTransientConcurrentToolFailure(toolResult.Error)
+                && attempt < MaxConcurrentToolRetryAttempts)
             {
                 await Task.Delay(retryDelayPolicy.GetDelay(attempt), cancellationToken);
                 continue;
@@ -266,10 +266,22 @@ public static class GrateMigrationRunner
         }
     }
 
-    private static bool IsTransientConcurrentBootstrapFailure(string? combinedOutput) =>
-        !string.IsNullOrEmpty(combinedOutput)
-        && combinedOutput.Contains("grate-internal/", StringComparison.OrdinalIgnoreCase)
-        && combinedOutput.Contains("42P01", StringComparison.OrdinalIgnoreCase);
+    private static bool IsTransientConcurrentToolFailure(string? combinedOutput)
+    {
+        if (string.IsNullOrEmpty(combinedOutput))
+        {
+            return false;
+        }
+
+        if (combinedOutput.Contains("grate-internal/", StringComparison.OrdinalIgnoreCase)
+            && combinedOutput.Contains("42P01", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return combinedOutput.Contains("being used by another process", StringComparison.OrdinalIgnoreCase)
+            && combinedOutput.Contains("grate", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static string FindRepositoryRoot()
     {

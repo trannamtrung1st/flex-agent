@@ -209,6 +209,35 @@ public sealed class GrateToolMigrationTests
     }
 
     [Fact]
+    public async Task RunAsync_retries_transient_tool_restore_file_lock()
+    {
+        var toolInvoker = new SequenceGrateToolInvoker(attempt =>
+        {
+            if (attempt == 1)
+            {
+                return GrateMigrationRunner.ToolInvocationResult.Failed(
+                    """
+                    Unhandled exception: The process cannot access the file '/path/grate.2.1.6.nupkg' because it is being used by another process.
+                    """,
+                    isRuntimeIncompatibility: false,
+                    exitCode: 1);
+            }
+
+            return GrateMigrationRunner.ToolInvocationResult.Success();
+        });
+
+        await GrateMigrationRunner.RunAsync(
+            "Host=unused;Database=unused;Username=unused;Password=unused",
+            GetProductionMigrationsDirectory(),
+            TestContext.Current.CancellationToken,
+            allowEmbeddedFallback: false,
+            toolInvoker,
+            ZeroBootstrapRetryDelayPolicy.Instance);
+
+        Assert.Equal(2, toolInvoker.Attempts);
+    }
+
+    [Fact]
     public async Task RunAsync_uses_explicit_migrations_directory_over_ambient_environment()
     {
         await using var container = await StartContainerAsync();
