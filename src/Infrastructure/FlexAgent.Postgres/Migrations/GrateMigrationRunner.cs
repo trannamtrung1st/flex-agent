@@ -13,6 +13,10 @@ public static class GrateMigrationRunner
     private const int MaxConcurrentBootstrapRetryAttempts = 5;
     private static readonly TimeSpan ConcurrentBootstrapRetryBaseDelay = TimeSpan.FromMilliseconds(100);
 
+    internal static Func<string, GrateToolInvocationOptions, ToolInvocationResult>? TryRunDotnetToolTestOverride { get; set; }
+
+    internal static int? ConcurrentBootstrapRetryDelayMillisecondsTestOverride { get; set; }
+
     public static async Task RunAsync(
         string connectionString,
         string migrationsDirectory,
@@ -37,10 +41,9 @@ public static class GrateMigrationRunner
             if (IsTransientConcurrentBootstrapFailure(toolResult.Error)
                 && attempt < MaxConcurrentBootstrapRetryAttempts)
             {
-                await Task.Delay(
-                    TimeSpan.FromMilliseconds(
-                        ConcurrentBootstrapRetryBaseDelay.TotalMilliseconds * Math.Pow(2, attempt - 1)),
-                    cancellationToken);
+                var delayMilliseconds = ConcurrentBootstrapRetryDelayMillisecondsTestOverride
+                    ?? (int)(ConcurrentBootstrapRetryBaseDelay.TotalMilliseconds * Math.Pow(2, attempt - 1));
+                await Task.Delay(TimeSpan.FromMilliseconds(delayMilliseconds), cancellationToken);
                 continue;
             }
 
@@ -97,6 +100,11 @@ public static class GrateMigrationRunner
         string connectionString,
         GrateToolInvocationOptions options)
     {
+        if (TryRunDotnetToolTestOverride is not null)
+        {
+            return TryRunDotnetToolTestOverride(connectionString, options);
+        }
+
         var root = FindRepositoryRoot();
         var script = Path.Combine(root, "build", "scripts", "run-grate-migrations.sh");
         var scriptArguments = options.DryRun ? $"\"{script}\" --dryrun" : $"\"{script}\"";
@@ -322,7 +330,7 @@ public static class GrateMigrationRunner
         throw new InvalidOperationException("Could not locate repository root.");
     }
 
-    private sealed record ToolInvocationResult(
+    internal sealed record ToolInvocationResult(
         bool WasSuccessful,
         string? Error,
         bool IsRuntimeIncompatibility,

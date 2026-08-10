@@ -305,9 +305,9 @@ follow-up outside this artifact slice.
   `migrationsDirectory` to the Grate tool path and always sets
   `FLEXAGENT_MIGRATIONS_DIRECTORY` on the child process; dry-run evidence
   renamed to non-mutation only.
-- Review follow-up (2026-08-10, round 7): `RunAsync` retries transient
-  grate-internal `42P01` bootstrap races with bounded exponential backoff;
-  concurrent empty-database evidence uses two parallel `RunAsync` calls directly.
+- Review follow-up (2026-08-10, round 8): concurrent `RunAsync` tests use
+  `Task.Run` plus a start gate for genuine overlap; deterministic bootstrap-retry
+  test seam added.
 
 # Open questions / interim defaults
 
@@ -365,7 +365,7 @@ follow-up outside this artifact slice.
 | Scoped repository authorization/isolation matrix | pass | Authorization, isolation, commit lock race, concurrent idempotency, digest-key reservation, source-scoped version resolution |
 | Atomic configuration/audit/outbox boundary | pass | Success correlation; audit `relationship_version`; audit/outbox fault-injection rollback tests |
 | Module/dependency architecture tests | pass | `ModuleBoundaryTests` — no Npgsql/Dapper in domain/application; no unscoped get-by-id; Configuration.Application does not reference CanonicalJson |
-| Locked aggregate regression and CI | pass | `bash build/scripts/verify-dotnet.sh` — 117 tests green (2026-08-10 post review round 6); GitHub Actions Implementation #29 + Documentation #60 passed on `acaf9e3` |
+| Locked aggregate regression and CI | pass | `bash build/scripts/verify-dotnet.sh` — 118 tests green (2026-08-10 post review round 8); GitHub Actions Implementation #29 + Documentation #60 passed on `acaf9e3` |
 | Frontend and Playwright | not applicable | No UI-affecting work in artifact 4; revisit if scope changes |
 | Independent backend/security review | pass (code) | Code review + CI approved at `acaf9e3` (2026-08-10); formal security-privacy reviewer sign-off deferred as follow-up |
 

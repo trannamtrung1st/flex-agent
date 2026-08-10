@@ -10,4 +10,8 @@
     <PackageReference Include="Npgsql" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="FlexAgent.Postgres.Integration.Tests" />
+  </ItemGroup>
+
 </Project>

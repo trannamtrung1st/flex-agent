@@ -150,17 +150,10 @@ public sealed class GrateToolMigrationTests
             TestContext.Current.CancellationToken,
             allowEmbeddedFallback: false);
 
-        await Task.WhenAll(
-            GrateMigrationRunner.RunAsync(
-                connectionString,
-                migrationsDirectory,
-                TestContext.Current.CancellationToken,
-                allowEmbeddedFallback: false),
-            GrateMigrationRunner.RunAsync(
-                connectionString,
-                migrationsDirectory,
-                TestContext.Current.CancellationToken,
-                allowEmbeddedFallback: false));
+        await RunTwoGatedConcurrentRunAsyncCallsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
 
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
@@ -175,22 +168,53 @@ public sealed class GrateToolMigrationTests
         var connectionString = container.GetConnectionString();
         var migrationsDirectory = GetProductionMigrationsDirectory();
 
-        await Task.WhenAll(
-            GrateMigrationRunner.RunAsync(
-                connectionString,
-                migrationsDirectory,
-                TestContext.Current.CancellationToken,
-                allowEmbeddedFallback: false),
-            GrateMigrationRunner.RunAsync(
-                connectionString,
-                migrationsDirectory,
-                TestContext.Current.CancellationToken,
-                allowEmbeddedFallback: false));
+        await RunTwoGatedConcurrentRunAsyncCallsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
 
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
 
         await AssertFullyMigratedExactlyOnceAsync(connection);
+    }
+
+    [Fact]
+    public async Task RunAsync_retries_transient_grate_internal_bootstrap_failure()
+    {
+        var attempts = 0;
+        GrateMigrationRunner.TryRunDotnetToolTestOverride = (_, _) =>
+        {
+            attempts++;
+            if (attempts == 1)
+            {
+                return GrateMigrationRunner.ToolInvocationResult.Failed(
+                    """
+                    grate-internal/01_create_schema_grate.sql: 42P01: relation "grate.GrateVersion" does not exist
+                    """,
+                    isRuntimeIncompatibility: false,
+                    exitCode: 1);
+            }
+
+            return GrateMigrationRunner.ToolInvocationResult.Success();
+        };
+        GrateMigrationRunner.ConcurrentBootstrapRetryDelayMillisecondsTestOverride = 0;
+
+        try
+        {
+            await GrateMigrationRunner.RunAsync(
+                "Host=unused;Database=unused;Username=unused;Password=unused",
+                GetProductionMigrationsDirectory(),
+                TestContext.Current.CancellationToken,
+                allowEmbeddedFallback: false);
+
+            Assert.Equal(2, attempts);
+        }
+        finally
+        {
+            GrateMigrationRunner.TryRunDotnetToolTestOverride = null;
+            GrateMigrationRunner.ConcurrentBootstrapRetryDelayMillisecondsTestOverride = null;
+        }
     }
 
     [Fact]
@@ -238,6 +262,47 @@ public sealed class GrateToolMigrationTests
 
     private static string GetProductionMigrationsDirectory() =>
         Path.Combine(FindRepositoryRoot(), "database", "migrations");
+
+    private static async Task RunTwoGatedConcurrentRunAsyncCallsAsync(
+        string connectionString,
+        string migrationsDirectory,
+        CancellationToken cancellationToken)
+    {
+        using var startGate = new ManualResetEventSlim(initialState: false);
+
+        var first = Task.Run(async () =>
+        {
+            if (!startGate.Wait(Timeout.InfiniteTimeSpan, cancellationToken))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            await GrateMigrationRunner.RunAsync(
+                connectionString,
+                migrationsDirectory,
+                cancellationToken,
+                allowEmbeddedFallback: false);
+        }, cancellationToken);
+
+        var second = Task.Run(async () =>
+        {
+            if (!startGate.Wait(Timeout.InfiniteTimeSpan, cancellationToken))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            await GrateMigrationRunner.RunAsync(
+                connectionString,
+                migrationsDirectory,
+                cancellationToken,
+                allowEmbeddedFallback: false);
+        }, cancellationToken);
+
+        await Task.Yield();
+        startGate.Set();
+
+        await Task.WhenAll(first, second);
+    }
 
     private static async Task AssertFullyMigratedExactlyOnceAsync(NpgsqlConnection connection)
     {
