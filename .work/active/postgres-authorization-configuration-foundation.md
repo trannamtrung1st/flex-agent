@@ -305,9 +305,10 @@ follow-up outside this artifact slice.
   `migrationsDirectory` to the Grate tool path and always sets
   `FLEXAGENT_MIGRATIONS_DIRECTORY` on the child process; dry-run evidence
   renamed to non-mutation only.
-- Review follow-up (2026-08-10, round 8): concurrent `RunAsync` tests use
-  `Task.Run` plus a start gate for genuine overlap; deterministic bootstrap-retry
-  test seam added.
+- Review follow-up (2026-08-10, round 9): concurrent tests use ready
+  `CountdownEvent` before start release; bootstrap-retry test uses injected
+  `IGrateToolInvoker`/`IGrateBootstrapRetryDelayPolicy` instead of mutable
+  static seams.
 
 # Open questions / interim defaults
 

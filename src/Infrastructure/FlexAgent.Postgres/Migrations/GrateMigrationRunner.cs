@@ -11,17 +11,27 @@ public static class GrateMigrationRunner
     public const string AllowEmbeddedFallbackEnvironmentVariable = "FLEXAGENT_ALLOW_EMBEDDED_MIGRATION_FALLBACK";
 
     private const int MaxConcurrentBootstrapRetryAttempts = 5;
-    private static readonly TimeSpan ConcurrentBootstrapRetryBaseDelay = TimeSpan.FromMilliseconds(100);
 
-    internal static Func<string, GrateToolInvocationOptions, ToolInvocationResult>? TryRunDotnetToolTestOverride { get; set; }
-
-    internal static int? ConcurrentBootstrapRetryDelayMillisecondsTestOverride { get; set; }
-
-    public static async Task RunAsync(
+    public static Task RunAsync(
         string connectionString,
         string migrationsDirectory,
         CancellationToken cancellationToken = default,
-        bool? allowEmbeddedFallback = null)
+        bool? allowEmbeddedFallback = null) =>
+        RunAsync(
+            connectionString,
+            migrationsDirectory,
+            cancellationToken,
+            allowEmbeddedFallback,
+            ProcessGrateToolInvoker.Instance,
+            ExponentialBootstrapRetryDelayPolicy.Instance);
+
+    internal static async Task RunAsync(
+        string connectionString,
+        string migrationsDirectory,
+        CancellationToken cancellationToken,
+        bool? allowEmbeddedFallback,
+        IGrateToolInvoker toolInvoker,
+        IGrateBootstrapRetryDelayPolicy retryDelayPolicy)
     {
         var toolOptions = new GrateToolInvocationOptions(MigrationsDirectory: migrationsDirectory);
         ToolInvocationResult? lastToolResult = null;
@@ -30,7 +40,7 @@ public static class GrateMigrationRunner
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var toolResult = TryRunDotnetTool(connectionString, toolOptions);
+            var toolResult = toolInvoker.Invoke(connectionString, toolOptions);
             if (toolResult.WasSuccessful)
             {
                 return;
@@ -41,9 +51,7 @@ public static class GrateMigrationRunner
             if (IsTransientConcurrentBootstrapFailure(toolResult.Error)
                 && attempt < MaxConcurrentBootstrapRetryAttempts)
             {
-                var delayMilliseconds = ConcurrentBootstrapRetryDelayMillisecondsTestOverride
-                    ?? (int)(ConcurrentBootstrapRetryBaseDelay.TotalMilliseconds * Math.Pow(2, attempt - 1));
-                await Task.Delay(TimeSpan.FromMilliseconds(delayMilliseconds), cancellationToken);
+                await Task.Delay(retryDelayPolicy.GetDelay(attempt), cancellationToken);
                 continue;
             }
 
@@ -76,7 +84,9 @@ public static class GrateMigrationRunner
         string connectionString,
         GrateToolInvocationOptions? options = null)
     {
-        var toolResult = TryRunDotnetTool(connectionString, options ?? GrateToolInvocationOptions.Default);
+        var toolResult = ProcessGrateToolInvoker.Instance.Invoke(
+            connectionString,
+            options ?? GrateToolInvocationOptions.Default);
         return new GrateToolInvocationResult(
             toolResult.WasSuccessful,
             toolResult.Error ?? string.Empty,
@@ -94,59 +104,6 @@ public static class GrateMigrationRunner
         var configured = Environment.GetEnvironmentVariable(AllowEmbeddedFallbackEnvironmentVariable);
         return string.Equals(configured, "true", StringComparison.OrdinalIgnoreCase)
             || string.Equals(configured, "1", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static ToolInvocationResult TryRunDotnetTool(
-        string connectionString,
-        GrateToolInvocationOptions options)
-    {
-        if (TryRunDotnetToolTestOverride is not null)
-        {
-            return TryRunDotnetToolTestOverride(connectionString, options);
-        }
-
-        var root = FindRepositoryRoot();
-        var script = Path.Combine(root, "build", "scripts", "run-grate-migrations.sh");
-        var scriptArguments = options.DryRun ? $"\"{script}\" --dryrun" : $"\"{script}\"";
-        var startInfo = new ProcessStartInfo("/bin/bash", scriptArguments)
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
-        startInfo.Environment["FLEXAGENT_DATABASE_URL"] = connectionString;
-        startInfo.Environment["DOTNET_ROLL_FORWARD"] = "LatestPatch";
-        var migrationsDirectory = string.IsNullOrWhiteSpace(options.MigrationsDirectory)
-            ? Path.Combine(root, "database", "migrations")
-            : options.MigrationsDirectory;
-        startInfo.Environment["FLEXAGENT_MIGRATIONS_DIRECTORY"] = migrationsDirectory;
-
-        using var process = Process.Start(startInfo);
-        if (process is null)
-        {
-            return ToolInvocationResult.Failed(
-                "Failed to start grate migration script.",
-                isRuntimeIncompatibility: true,
-                exitCode: -1);
-        }
-
-        var stdout = process.StandardOutput.ReadToEnd();
-        var stderr = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-
-        if (process.ExitCode == 0)
-        {
-            return ToolInvocationResult.Success();
-        }
-
-        var combined = $"{stdout}{Environment.NewLine}{stderr}";
-        var isRuntimeIncompatibility = process.ExitCode == 150
-            && combined.Contains("You must install or update .NET", StringComparison.OrdinalIgnoreCase);
-
-        return ToolInvocationResult.Failed(
-            $"Grate tool failed ({process.ExitCode}):{Environment.NewLine}{combined}",
-            isRuntimeIncompatibility,
-            process.ExitCode);
     }
 
     public static Task RunEmbeddedMigrationsForTestsAsync(
@@ -341,6 +298,93 @@ public static class GrateMigrationRunner
         public static ToolInvocationResult Failed(string error, bool isRuntimeIncompatibility, int exitCode) =>
             new(false, error, isRuntimeIncompatibility, exitCode);
     }
+}
+
+internal interface IGrateToolInvoker
+{
+    GrateMigrationRunner.ToolInvocationResult Invoke(string connectionString, GrateToolInvocationOptions options);
+}
+
+internal interface IGrateBootstrapRetryDelayPolicy
+{
+    TimeSpan GetDelay(int attempt);
+}
+
+internal sealed class ProcessGrateToolInvoker : IGrateToolInvoker
+{
+  public static ProcessGrateToolInvoker Instance { get; } = new();
+
+  public GrateMigrationRunner.ToolInvocationResult Invoke(string connectionString, GrateToolInvocationOptions options)
+  {
+    var root = FindRepositoryRoot();
+    var script = Path.Combine(root, "build", "scripts", "run-grate-migrations.sh");
+    var scriptArguments = options.DryRun ? $"\"{script}\" --dryrun" : $"\"{script}\"";
+    var startInfo = new ProcessStartInfo("/bin/bash", scriptArguments)
+    {
+      RedirectStandardOutput = true,
+      RedirectStandardError = true,
+      UseShellExecute = false,
+    };
+    startInfo.Environment["FLEXAGENT_DATABASE_URL"] = connectionString;
+    startInfo.Environment["DOTNET_ROLL_FORWARD"] = "LatestPatch";
+    var migrationsDirectory = string.IsNullOrWhiteSpace(options.MigrationsDirectory)
+      ? Path.Combine(root, "database", "migrations")
+      : options.MigrationsDirectory;
+    startInfo.Environment["FLEXAGENT_MIGRATIONS_DIRECTORY"] = migrationsDirectory;
+
+    using var process = Process.Start(startInfo);
+    if (process is null)
+    {
+      return GrateMigrationRunner.ToolInvocationResult.Failed(
+        "Failed to start grate migration script.",
+        isRuntimeIncompatibility: true,
+        exitCode: -1);
+    }
+
+    var stdout = process.StandardOutput.ReadToEnd();
+    var stderr = process.StandardError.ReadToEnd();
+    process.WaitForExit();
+
+    if (process.ExitCode == 0)
+    {
+      return GrateMigrationRunner.ToolInvocationResult.Success();
+    }
+
+    var combined = $"{stdout}{Environment.NewLine}{stderr}";
+    var isRuntimeIncompatibility = process.ExitCode == 150
+      && combined.Contains("You must install or update .NET", StringComparison.OrdinalIgnoreCase);
+
+    return GrateMigrationRunner.ToolInvocationResult.Failed(
+      $"Grate tool failed ({process.ExitCode}):{Environment.NewLine}{combined}",
+      isRuntimeIncompatibility,
+      process.ExitCode);
+  }
+
+  private static string FindRepositoryRoot()
+  {
+    var directory = new DirectoryInfo(AppContext.BaseDirectory);
+    while (directory is not null)
+    {
+      if (File.Exists(Path.Combine(directory.FullName, "FlexAgent.slnx")))
+      {
+        return directory.FullName;
+      }
+
+      directory = directory.Parent;
+    }
+
+    throw new InvalidOperationException("Could not locate repository root.");
+  }
+}
+
+internal sealed class ExponentialBootstrapRetryDelayPolicy : IGrateBootstrapRetryDelayPolicy
+{
+  private static readonly TimeSpan BaseDelay = TimeSpan.FromMilliseconds(100);
+
+  public static ExponentialBootstrapRetryDelayPolicy Instance { get; } = new();
+
+  public TimeSpan GetDelay(int attempt) =>
+    TimeSpan.FromMilliseconds(BaseDelay.TotalMilliseconds * Math.Pow(2, attempt - 1));
 }
 
 public sealed record GrateToolInvocationOptions(

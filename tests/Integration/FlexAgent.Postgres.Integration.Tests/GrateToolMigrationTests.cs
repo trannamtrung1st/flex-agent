@@ -182,11 +182,9 @@ public sealed class GrateToolMigrationTests
     [Fact]
     public async Task RunAsync_retries_transient_grate_internal_bootstrap_failure()
     {
-        var attempts = 0;
-        GrateMigrationRunner.TryRunDotnetToolTestOverride = (_, _) =>
+        var toolInvoker = new SequenceGrateToolInvoker(attempt =>
         {
-            attempts++;
-            if (attempts == 1)
+            if (attempt == 1)
             {
                 return GrateMigrationRunner.ToolInvocationResult.Failed(
                     """
@@ -197,24 +195,17 @@ public sealed class GrateToolMigrationTests
             }
 
             return GrateMigrationRunner.ToolInvocationResult.Success();
-        };
-        GrateMigrationRunner.ConcurrentBootstrapRetryDelayMillisecondsTestOverride = 0;
+        });
 
-        try
-        {
-            await GrateMigrationRunner.RunAsync(
-                "Host=unused;Database=unused;Username=unused;Password=unused",
-                GetProductionMigrationsDirectory(),
-                TestContext.Current.CancellationToken,
-                allowEmbeddedFallback: false);
+        await GrateMigrationRunner.RunAsync(
+            "Host=unused;Database=unused;Username=unused;Password=unused",
+            GetProductionMigrationsDirectory(),
+            TestContext.Current.CancellationToken,
+            allowEmbeddedFallback: false,
+            toolInvoker,
+            ZeroBootstrapRetryDelayPolicy.Instance);
 
-            Assert.Equal(2, attempts);
-        }
-        finally
-        {
-            GrateMigrationRunner.TryRunDotnetToolTestOverride = null;
-            GrateMigrationRunner.ConcurrentBootstrapRetryDelayMillisecondsTestOverride = null;
-        }
+        Assert.Equal(2, toolInvoker.Attempts);
     }
 
     [Fact]
@@ -268,11 +259,13 @@ public sealed class GrateToolMigrationTests
         string migrationsDirectory,
         CancellationToken cancellationToken)
     {
-        using var startGate = new ManualResetEventSlim(initialState: false);
+        using var ready = new CountdownEvent(2);
+        using var start = new ManualResetEventSlim(initialState: false);
 
-        var first = Task.Run(async () =>
+        Task Worker() => Task.Run(async () =>
         {
-            if (!startGate.Wait(Timeout.InfiniteTimeSpan, cancellationToken))
+            ready.Signal();
+            if (!start.Wait(Timeout.InfiniteTimeSpan, cancellationToken))
             {
                 cancellationToken.ThrowIfCancellationRequested();
             }
@@ -284,22 +277,11 @@ public sealed class GrateToolMigrationTests
                 allowEmbeddedFallback: false);
         }, cancellationToken);
 
-        var second = Task.Run(async () =>
-        {
-            if (!startGate.Wait(Timeout.InfiniteTimeSpan, cancellationToken))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-            }
+        var first = Worker();
+        var second = Worker();
 
-            await GrateMigrationRunner.RunAsync(
-                connectionString,
-                migrationsDirectory,
-                cancellationToken,
-                allowEmbeddedFallback: false);
-        }, cancellationToken);
-
-        await Task.Yield();
-        startGate.Set();
+        ready.Wait(cancellationToken);
+        start.Set();
 
         await Task.WhenAll(first, second);
     }
@@ -423,5 +405,25 @@ public sealed class GrateToolMigrationTests
         }
 
         throw new InvalidOperationException("Could not locate repository root.");
+    }
+
+    private sealed class SequenceGrateToolInvoker(Func<int, GrateMigrationRunner.ToolInvocationResult> resultFactory)
+        : IGrateToolInvoker
+    {
+        private int _attempts;
+
+        public int Attempts => _attempts;
+
+        public GrateMigrationRunner.ToolInvocationResult Invoke(
+            string connectionString,
+            GrateToolInvocationOptions options) =>
+            resultFactory(++_attempts);
+    }
+
+    private sealed class ZeroBootstrapRetryDelayPolicy : IGrateBootstrapRetryDelayPolicy
+    {
+        public static ZeroBootstrapRetryDelayPolicy Instance { get; } = new();
+
+        public TimeSpan GetDelay(int attempt) => TimeSpan.Zero;
     }
 }
