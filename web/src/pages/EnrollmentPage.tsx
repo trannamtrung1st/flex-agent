@@ -67,6 +67,7 @@ export function EnrollmentPage() {
         idempotency_key: createIdempotencyKey(),
         command_type: commandType,
         resource_id: enrollment.activity_id,
+        expected_version: enrollment.expected_version,
         payload: selectedParticipant ? { participant_id: selectedParticipant } : undefined,
       });
 

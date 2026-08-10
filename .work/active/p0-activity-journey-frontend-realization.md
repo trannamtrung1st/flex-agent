@@ -368,10 +368,9 @@ adapter (`FlexAgent.SyntheticBrowser`), browser feature projections
 | UI/UX and design-system routing | passed | Approved Activity journey, five surface specifications, design-system authority, implementation guide, and applicable MVP modules inspected |
 | Current implementation inventory | passed | React/Vite smoke page, basic tokens/tests, representative browser contract types, API smoke/health endpoints, NGINX/OCI scaffold, and Playwright configuration inspected |
 | Independent plan review remediation | passed | Navigation, synthetic-authentication scope, direct ADR authority, and task lifecycle findings reconciled on 2026-08-10; `git diff --check` and documentation validation passed |
-| Baseline test execution | passed | `pnpm verify:web`, `bash build/scripts/verify-dotnet.sh` (132 tests) |
-| Traceability matrix completeness | passed | Synthetic scenario classes map journeys/states; runtime negative tests for denial/revocation/stale/uncertain/idempotency |
-| Live accessibility and visual evidence | passed | Prior MCP snapshots; `pnpm test:e2e` (5 passed) via NGINX-served production build |
-| Synthetic auth boundary | passed | `SyntheticBrowserRuntimeTests` (13): harness key, grant cookie exchange, cross-role denial, idempotency, full journey |
+| Baseline test execution | passed | `pnpm verify:web`, `bash build/scripts/verify-dotnet.sh` (139 tests) |
+| Synthetic auth boundary | passed | `SyntheticBrowserRuntimeTests` (20+): harness key, grant cookie exchange, cross-role denial, idempotency, concurrency, full journey |
+| Playwright (NGINX SPA) | passed | `pnpm test:e2e` (6 passed) via `deploy/nginx/e2e.conf` + API on `:18080` |
 | Web unit tests | passed | 4 tests (`App.test.tsx`, `AppShell.test.tsx`, `HomePage.test.tsx`) |
 
 # Remediation tranche (2026-08-10, post-review of `6c834cf`)
@@ -388,6 +387,18 @@ without rethinking the overall ADR-010 artifact-5 direction.
 | Request-digested idempotency scoped by actor/command/resource | done | `SyntheticIdempotency.cs`; runtime digest-conflict + independent command-type tests |
 | Negative cross-role/resource HTTP tests | done | `SyntheticBrowserRuntimeTests` expanded (13 tests) |
 | NGINX-served browser journey evidence | done | `deploy/nginx/e2e.conf`, `build/scripts/serve-e2e-spa.sh`; Playwright 5 tests via production build + NGINX |
+
+# Remediation tranche 2 (2026-08-10, post-review of `1c264dc`)
+
+| Review item | Status | Evidence |
+| --- | --- | --- |
+| Required command resource/version/schema validation (fail-closed) | done | `SyntheticCommandValidation` + strict `SyntheticCommandAuthorization`; runtime missing-resource denial |
+| Atomic grant exchange, idempotency, and scenario mutations | done | `TryRemove` grants; per-instance `lock`; concurrent `Task.WhenAll` tests |
+| Protected read predicates aligned with workflow state | done | `SyntheticResourceAuthorization` for session/review/release/result reads |
+| Distinct Escalated review decision | done | `HandleReviewEscalate()` + status labels |
+| Ephemeral harness API key (not committed) | done | removed from `appsettings.Development.json`; Playwright generates per-run key |
+| Active→revoked session/SSE coverage | done | harness `revoke-access` endpoint + runtime transition test |
+| Isolated scenario instances + full NGINX browser journey | done | `scenario_instance_id` on grants; Playwright 6-test suite incl. multi-actor UI journey |
 
 # Blockers
 

@@ -1,4 +1,9 @@
+import { randomBytes } from "node:crypto";
 import { defineConfig, devices } from "@playwright/test";
+
+const harnessApiKey =
+  process.env.SYNTHETIC_BROWSER_HARNESS_KEY ?? randomBytes(32).toString("hex");
+process.env.SYNTHETIC_BROWSER_HARNESS_KEY = harnessApiKey;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -14,7 +19,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        "ASPNETCORE_ENVIRONMENT=Development SyntheticBrowser__HarnessApiKey=flex-agent-synthetic-harness-dev dotnet run --project ../src/Hosts/FlexAgent.Api/FlexAgent.Api.csproj --no-launch-profile --urls http://localhost:18080",
+        `ASPNETCORE_ENVIRONMENT=Development SyntheticBrowser__HarnessApiKey=${harnessApiKey} dotnet run --project ../src/Hosts/FlexAgent.Api/FlexAgent.Api.csproj --no-launch-profile --urls http://localhost:18080`,
       url: "http://localhost:18080/health/live",
       reuseExistingServer: false,
       timeout: 120000,

@@ -10,12 +10,19 @@ internal static class SyntheticCommandAuthorization
     internal const string SyntheticSessionId = "sess.synthetic.001";
     internal const string SyntheticReviewCaseId = "rev.synthetic.001";
     internal const string SyntheticReleaseId = "rel.synthetic.001";
+    internal const string SyntheticResultId = "res.synthetic.001";
 
     internal static BrowserCommandResultV1? Authorize(
         SyntheticSessionRecord session,
         BrowserCommandEnvelopeV1 command,
         SyntheticScenarioState state)
     {
+        var envelopeFailure = SyntheticCommandValidation.ValidateEnvelope(command);
+        if (envelopeFailure is not null)
+        {
+            return envelopeFailure;
+        }
+
         return command.CommandType switch
         {
             "activity.save_draft" => AuthorizeActivityAdmin(session, command, state, requiredLifecycle: "draft"),
@@ -23,7 +30,7 @@ internal static class SyntheticCommandAuthorization
             "enrollment.assign" => AuthorizeEnrollmentAssign(session, command, state),
             "submission.submit_text" => AuthorizeParticipantSubmission(session, command, state),
             "attempt.start" => AuthorizeAttemptStart(session, command, state),
-            "session.send_message" => AuthorizeSessionCommand(session, command, state, requireActive: true),
+            "session.send_message" => AuthorizeSessionCommand(session, command, state, requireActive: true, requirePayloadKey: "message_text"),
             "session.pause" => AuthorizeSessionCommand(session, command, state, requireActive: true),
             "session.resume" => AuthorizeSessionCommand(session, command, state, requirePaused: true),
             "session.complete" => AuthorizeSessionCommand(session, command, state, requireActiveOrPaused: true),
@@ -47,9 +54,9 @@ internal static class SyntheticCommandAuthorization
             return Denied("Activity administration is not permitted for this actor.");
         }
 
-        if (!ResourceMatches(command.ResourceId, SyntheticActivityId))
+        if (!ResourceMatchesRequired(command.ResourceId, SyntheticActivityId))
         {
-            return Denied("Activity resource is not authorized.");
+            return Denied("Activity resource is required and must be authorized.");
         }
 
         if (!string.Equals(state.ActivityLifecycle, requiredLifecycle, StringComparison.Ordinal))
@@ -62,12 +69,7 @@ internal static class SyntheticCommandAuthorization
             return Denied("Draft must be saved before activation.");
         }
 
-        if (command.ExpectedVersion.HasValue && command.ExpectedVersion.Value != state.ActivityVersion)
-        {
-            return Conflict("Revision is stale. Refresh and retry.");
-        }
-
-        return null;
+        return RequireExpectedVersion(command.ExpectedVersion, state.ActivityVersion, "Activity");
     }
 
     private static BrowserCommandResultV1? AuthorizeEnrollmentAssign(
@@ -80,9 +82,9 @@ internal static class SyntheticCommandAuthorization
             return Denied("Enrollment assignment is not permitted for this actor.");
         }
 
-        if (!ResourceMatches(command.ResourceId, SyntheticActivityId, SyntheticEnrollmentId))
+        if (!ResourceMatchesRequired(command.ResourceId, SyntheticActivityId))
         {
-            return Denied("Enrollment resource is not authorized.");
+            return Denied("Activity resource is required and must be authorized.");
         }
 
         if (!string.Equals(state.ActivityLifecycle, "activated", StringComparison.Ordinal))
@@ -95,7 +97,7 @@ internal static class SyntheticCommandAuthorization
             return Denied("An active enrollment already exists.");
         }
 
-        return null;
+        return RequireExpectedVersion(command.ExpectedVersion, state.ActivityVersion, "Activity");
     }
 
     private static BrowserCommandResultV1? AuthorizeParticipantSubmission(
@@ -108,9 +110,9 @@ internal static class SyntheticCommandAuthorization
             return Denied("Submission is not permitted for this actor.");
         }
 
-        if (!ResourceMatches(command.ResourceId, SyntheticEnrollmentId))
+        if (!ResourceMatchesRequired(command.ResourceId, SyntheticEnrollmentId))
         {
-            return Denied("Enrollment resource is not authorized.");
+            return Denied("Enrollment resource is required and must be authorized.");
         }
 
         if (!state.EnrollmentCreated)
@@ -118,7 +120,7 @@ internal static class SyntheticCommandAuthorization
             return Denied("No active enrollment is available.");
         }
 
-        return null;
+        return SyntheticCommandValidation.RequirePayloadValue(command, "submission_text");
     }
 
     private static BrowserCommandResultV1? AuthorizeAttemptStart(
@@ -131,9 +133,9 @@ internal static class SyntheticCommandAuthorization
             return Denied("Attempt start is not permitted for this actor.");
         }
 
-        if (!ResourceMatches(command.ResourceId, SyntheticEnrollmentId))
+        if (!ResourceMatchesRequired(command.ResourceId, SyntheticEnrollmentId))
         {
-            return Denied("Enrollment resource is not authorized.");
+            return Denied("Enrollment resource is required and must be authorized.");
         }
 
         if (!state.EnrollmentCreated || !state.SubmissionAccepted)
@@ -155,16 +157,17 @@ internal static class SyntheticCommandAuthorization
         SyntheticScenarioState state,
         bool requireActive = false,
         bool requirePaused = false,
-        bool requireActiveOrPaused = false)
+        bool requireActiveOrPaused = false,
+        string? requirePayloadKey = null)
     {
-        if (!CanAccessSessionResource(session, state))
+        if (!SyntheticResourceAuthorization.CanAccessSessionResource(session, state))
         {
             return Denied("Session access is not permitted for this actor.");
         }
 
-        if (!ResourceMatches(command.ResourceId, SyntheticSessionId))
+        if (!ResourceMatchesRequired(command.ResourceId, SyntheticSessionId))
         {
-            return Denied("Session resource is not authorized.");
+            return Denied("Session resource is required and must be authorized.");
         }
 
         if (requireActive && state.SessionLifecycle != "active")
@@ -182,12 +185,16 @@ internal static class SyntheticCommandAuthorization
             return Denied("Session cannot be completed from the current state.");
         }
 
-        if (command.ExpectedVersion.HasValue && command.ExpectedVersion.Value != state.SessionVersion)
+        if (requirePayloadKey is not null)
         {
-            return Conflict("Session version is stale. Refresh and retry.");
+            var payloadFailure = SyntheticCommandValidation.RequirePayloadValue(command, requirePayloadKey);
+            if (payloadFailure is not null)
+            {
+                return payloadFailure;
+            }
         }
 
-        return null;
+        return RequireExpectedVersion(command.ExpectedVersion, state.SessionVersion, "Session");
     }
 
     private static BrowserCommandResultV1? AuthorizeReviewDecision(
@@ -200,9 +207,9 @@ internal static class SyntheticCommandAuthorization
             return Denied("Review decisions are not permitted for this actor.");
         }
 
-        if (!ResourceMatches(command.ResourceId, SyntheticReviewCaseId))
+        if (!ResourceMatchesRequired(command.ResourceId, SyntheticReviewCaseId))
         {
-            return Denied("Review case is not authorized.");
+            return Denied("Review case resource is required and must be authorized.");
         }
 
         if (state.SessionLifecycle is not ("completed" or "terminated"))
@@ -215,7 +222,7 @@ internal static class SyntheticCommandAuthorization
             return Denied("Review case is not ready for decision.");
         }
 
-        return null;
+        return RequireExpectedVersion(command.ExpectedVersion, state.ReviewCaseVersion, "Review case");
     }
 
     private static BrowserCommandResultV1? AuthorizeReleaseConfirm(
@@ -228,9 +235,9 @@ internal static class SyntheticCommandAuthorization
             return Denied("Release is not permitted for this actor.");
         }
 
-        if (!ResourceMatches(command.ResourceId, SyntheticReleaseId))
+        if (!ResourceMatchesRequired(command.ResourceId, SyntheticReleaseId))
         {
-            return Denied("Release resource is not authorized.");
+            return Denied("Release resource is required and must be authorized.");
         }
 
         if (state.ReviewLifecycle != "approved")
@@ -243,20 +250,10 @@ internal static class SyntheticCommandAuthorization
             return Denied("Result has already been released.");
         }
 
-        return null;
+        return RequireExpectedVersion(command.ExpectedVersion, state.ReleaseVersion, "Release");
     }
 
-    internal static bool CanAccessSessionResource(SyntheticSessionRecord session, SyntheticScenarioState state)
-    {
-        if (!state.AttemptStarted)
-        {
-            return false;
-        }
-
-        return session.ActorStage is SyntheticActorStages.Participant or SyntheticActorStages.Administrator;
-    }
-
-    private static bool HasCapability(SyntheticSessionRecord session, string capability) =>
+    internal static bool HasCapability(SyntheticSessionRecord session, string capability) =>
         ResolveCapabilities(session.ActorStage).Contains(capability);
 
     private static IReadOnlyList<string> ResolveCapabilities(string actorStage) => actorStage switch
@@ -268,14 +265,23 @@ internal static class SyntheticCommandAuthorization
         _ => [],
     };
 
-    private static bool ResourceMatches(string? resourceId, params string[] allowed)
+    private static bool ResourceMatchesRequired(string? resourceId, params string[] allowed) =>
+        !string.IsNullOrWhiteSpace(resourceId) &&
+        allowed.Any(id => string.Equals(resourceId, id, StringComparison.Ordinal));
+
+    private static BrowserCommandResultV1? RequireExpectedVersion(int? expectedVersion, int currentVersion, string resourceLabel)
     {
-        if (string.IsNullOrWhiteSpace(resourceId))
+        if (!expectedVersion.HasValue)
         {
-            return true;
+            return Denied($"{resourceLabel} expected version is required.");
         }
 
-        return allowed.Any(id => string.Equals(resourceId, id, StringComparison.Ordinal));
+        if (expectedVersion.Value != currentVersion)
+        {
+            return Conflict($"{resourceLabel} version is stale. Refresh and retry.");
+        }
+
+        return null;
     }
 
     private static BrowserCommandResultV1 Denied(string message) =>

@@ -99,6 +99,7 @@ export interface EnrollmentProjectionV1 {
   schema_version: SchemaVersionV1;
   activity_id: string;
   lifecycle_state: string;
+  expected_version: number;
   enrollments: EnrollmentSummaryV1[];
   permitted_participants: ParticipantChoiceV1[];
   permitted_actions: PermittedActionV1[];

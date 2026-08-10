@@ -12,6 +12,8 @@ public interface ISyntheticBrowserService
 
     ScenarioGrantResponseV1 CreateScenarioGrant(ScenarioGrantRequestV1 request);
 
+    bool RevokeScenarioAccess(ScenarioInstanceRevokeRequestV1 request);
+
     ScenarioGrantExchangeResultV1? ExchangeGrant(string grantToken);
 
     SyntheticSessionRecord? ResolveSession(string sessionId);

@@ -27,6 +27,7 @@ public static class SyntheticBrowserEndpointExtensions
         var browser = endpoints.MapGroup("/browser");
 
         browser.MapPost("/harness/scenario-grants", CreateScenarioGrant);
+        browser.MapPost("/harness/scenario-instances/revoke-access", RevokeScenarioAccess);
         browser.MapPost("/auth/exchange", ExchangeGrant);
         browser.MapPost("/auth/logout", Logout);
         browser.MapGet("/actor-context", GetActorContext);
@@ -107,6 +108,24 @@ public static class SyntheticBrowserEndpointExtensions
                 null,
                 null));
         }
+    }
+
+    private static IResult RevokeScenarioAccess(HttpContext context, ScenarioInstanceRevokeRequestV1 request)
+    {
+        var service = GetService(context);
+        if (!service.IsEnabled)
+        {
+            return Disabled();
+        }
+
+        if (!service.IsHarnessAuthorized(context.Request.Headers[HarnessApiKeyHeaderName]))
+        {
+            return Results.NotFound();
+        }
+
+        return service.RevokeScenarioAccess(request)
+            ? Results.NoContent()
+            : Results.BadRequest();
     }
 
     private static IResult ExchangeGrant(HttpContext context, ScenarioGrantExchangeRequestV1 request)

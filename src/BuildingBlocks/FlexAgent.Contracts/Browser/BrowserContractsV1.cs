@@ -8,7 +8,12 @@ public static class BrowserSchemaVersion
 /// <summary>Opaque one-time grant created by the test harness; exchanged for an HttpOnly application session.</summary>
 public sealed record ScenarioGrantRequestV1(
     string ScenarioId,
-    string ActorStage);
+    string ActorStage,
+    string? ScenarioInstanceId = null);
+
+public sealed record ScenarioInstanceRevokeRequestV1(
+    string ScenarioId,
+    string ScenarioInstanceId);
 
 public sealed record ScenarioGrantResponseV1(
     string SchemaVersion,
@@ -112,6 +117,7 @@ public sealed record EnrollmentProjectionV1(
     string SchemaVersion,
     string ActivityId,
     string LifecycleState,
+    int ExpectedVersion,
     IReadOnlyList<EnrollmentSummaryV1> Enrollments,
     IReadOnlyList<ParticipantChoiceV1> PermittedParticipants,
     IReadOnlyList<PermittedActionV1> PermittedActions);

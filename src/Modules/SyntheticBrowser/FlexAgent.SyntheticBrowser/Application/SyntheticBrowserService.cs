@@ -30,7 +30,9 @@ public sealed class SyntheticScenarioState
     public long SessionSequence { get; set; }
     public List<SessionTranscriptItemV1> Transcript { get; } = [];
     public string ReviewLifecycle { get; set; } = "awaiting_evaluation";
+    public int ReviewCaseVersion { get; set; } = 1;
     public string ReleaseLifecycle { get; set; } = "not_ready";
+    public int ReleaseVersion { get; set; } = 1;
     public string ResultLifecycle { get; set; } = "neutral_pre_release";
     public bool PermissionRevoked { get; set; }
     public Dictionary<string, SyntheticIdempotencyRecord> IdempotencyRecords { get; } = [];
@@ -43,7 +45,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     private readonly IHostEnvironment _environment;
     private readonly ConcurrentDictionary<string, ScenarioGrantRecord> _grants = new();
     private readonly ConcurrentDictionary<string, SyntheticSessionRecord> _sessions = new();
-    private readonly ConcurrentDictionary<string, SyntheticScenarioState> _scenarioStates = new();
+    private readonly ConcurrentDictionary<string, SyntheticScenarioInstance> _scenarioInstances = new();
 
     private const string SyntheticOrgId = "org.synthetic.demo";
     private const string SyntheticOrgName = "Synthetic Demo Organization";
@@ -73,48 +75,66 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         EnsureEnabled();
         ValidateScenario(request.ScenarioId, request.ActorStage);
 
+        var scenarioInstanceId = string.IsNullOrWhiteSpace(request.ScenarioInstanceId)
+            ? Guid.NewGuid().ToString("N")
+            : request.ScenarioInstanceId;
+
         var grantToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
         var expiresAt = DateTimeOffset.UtcNow.Add(_options.GrantLifetime);
         var record = new ScenarioGrantRecord
         {
             GrantToken = grantToken,
             ScenarioId = request.ScenarioId,
+            ScenarioInstanceId = scenarioInstanceId,
             ActorStage = request.ActorStage,
             ExpiresAt = expiresAt,
         };
 
         _grants[grantToken] = record;
-        _scenarioStates.TryAdd(request.ScenarioId, new SyntheticScenarioState());
-
-        if (request.ScenarioId == SyntheticScenarioIds.PermissionRevoked)
-        {
-            _scenarioStates[request.ScenarioId].PermissionRevoked = true;
-        }
+        _ = GetInstance(request.ScenarioId, scenarioInstanceId);
 
         return new ScenarioGrantResponseV1(BrowserSchemaVersion.V1, grantToken, expiresAt);
+    }
+
+    public bool RevokeScenarioAccess(ScenarioInstanceRevokeRequestV1 request)
+    {
+        EnsureEnabled();
+
+        if (string.IsNullOrWhiteSpace(request.ScenarioId) || string.IsNullOrWhiteSpace(request.ScenarioInstanceId))
+        {
+            return false;
+        }
+
+        var instance = GetInstance(request.ScenarioId, request.ScenarioInstanceId);
+        lock (instance.Sync)
+        {
+            instance.State.PermissionRevoked = true;
+        }
+
+        return true;
     }
 
     public ScenarioGrantExchangeResultV1? ExchangeGrant(string grantToken)
     {
         EnsureEnabled();
 
-        if (!_grants.TryGetValue(grantToken, out var grant))
+        if (!_grants.TryRemove(grantToken, out var grant))
         {
             return null;
         }
 
-        if (grant.IsConsumed || grant.ExpiresAt <= DateTimeOffset.UtcNow)
+        if (grant.ExpiresAt <= DateTimeOffset.UtcNow)
         {
             return null;
         }
 
-        grant.IsConsumed = true;
         var sessionId = Convert.ToBase64String(RandomNumberGenerator.GetBytes(24));
         var expiresAt = DateTimeOffset.UtcNow.Add(_options.SessionLifetime);
         var session = new SyntheticSessionRecord
         {
             SessionId = sessionId,
             ScenarioId = grant.ScenarioId,
+            ScenarioInstanceId = grant.ScenarioInstanceId,
             ActorStage = grant.ActorStage,
             ActorId = ResolveActorId(grant.ActorStage),
             ExpiresAt = expiresAt,
@@ -191,7 +211,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             return new HomeProjectionV1(BrowserSchemaVersion.V1, "Access unavailable", [], []);
         }
 
-        var state = GetState(session.ScenarioId);
+        var state = GetState(session);
         var items = new List<HomeWorkItemV1>();
 
         if (session.ActorStage == SyntheticActorStages.Administrator)
@@ -231,7 +251,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     public ActivitiesListProjectionV1 GetActivities(SyntheticSessionRecord session)
     {
         RequireCapability(session, "activity_admin");
-        var state = GetState(session.ScenarioId);
+        var state = GetState(session);
         var activities = new List<ActivitySummaryV1>
         {
             new(SyntheticActivityId, "Synthetic Assessment Campaign", "Campaign", "Assessment", FormatActivityStatus(state), $"/activities/{SyntheticActivityId}"),
@@ -254,7 +274,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             return null;
         }
 
-        var state = GetState(session.ScenarioId);
+        var state = GetState(session);
         var readiness = BuildReadinessCategories(state);
         var actions = new List<PermittedActionV1>();
 
@@ -292,7 +312,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             return null;
         }
 
-        var state = GetState(session.ScenarioId);
+        var state = GetState(session);
         var enrollments = state.EnrollmentCreated
             ? new List<EnrollmentSummaryV1> { new(SyntheticEnrollmentId, "Synthetic Participant", "Active") }
             : [];
@@ -307,6 +327,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             BrowserSchemaVersion.V1,
             SyntheticActivityId,
             state.ActivityLifecycle,
+            state.ActivityVersion,
             enrollments,
             state.EnrollmentCreated ? [] : [new ParticipantChoiceV1("part.synthetic.001", "Synthetic Participant")],
             actions);
@@ -315,7 +336,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     public AssignmentProjectionV1? GetMyWorkAssignment(SyntheticSessionRecord session, string? enrollmentId)
     {
         RequireCapability(session, "participant");
-        var state = GetState(session.ScenarioId);
+        var state = GetState(session);
 
         if (!state.EnrollmentCreated)
         {
@@ -370,8 +391,8 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             return null;
         }
 
-        var state = GetState(session.ScenarioId);
-        if (!SyntheticCommandAuthorization.CanAccessSessionResource(session, state))
+        var state = GetState(session);
+        if (!SyntheticResourceAuthorization.CanAccessSessionResource(session, state))
         {
             return null;
         }
@@ -403,7 +424,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     public ReviewWorkProjectionV1 GetReviewWork(SyntheticSessionRecord session)
     {
         RequireCapability(session, "reviewer");
-        var state = GetState(session.ScenarioId);
+        var state = GetState(session);
         var cases = new List<ReviewCaseSummaryV1>();
 
         if (state.SessionLifecycle is "completed" or "terminated")
@@ -421,12 +442,12 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     public ReviewCaseDetailProjectionV1? GetReviewCase(SyntheticSessionRecord session, string caseId)
     {
         RequireCapability(session, "reviewer");
-        if (!string.Equals(caseId, SyntheticReviewCaseId, StringComparison.Ordinal))
+        var state = GetState(session);
+        if (!SyntheticResourceAuthorization.CanReadReviewCase(session, state, caseId))
         {
             return null;
         }
 
-        var state = GetState(session.ScenarioId);
         var evidence = new List<EvidenceItemV1>
         {
             new("ev.synthetic.001", "Transcript excerpt", "session.transcript · lines 1-5", "Participant: Hello, I am ready to begin."),
@@ -448,19 +469,19 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         return new ReviewCaseDetailProjectionV1(
             BrowserSchemaVersion.V1,
             SyntheticReviewCaseId,
-            state.ReviewLifecycle == "approved" ? "Approved" : "In review",
+            FormatReviewStatus(state.ReviewLifecycle),
             "Evaluation candidate v1",
             criteria,
             actions,
             null,
             state.ReviewLifecycle,
-            1);
+            state.ReviewCaseVersion);
     }
 
     public ReleaseWorkProjectionV1 GetReleaseWork(SyntheticSessionRecord session)
     {
         RequireCapability(session, "release");
-        var state = GetState(session.ScenarioId);
+        var state = GetState(session);
         var items = new List<ReleaseItemSummaryV1>();
 
         if (state.ReviewLifecycle == "approved")
@@ -478,12 +499,12 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     public ReleaseDetailProjectionV1? GetReleaseDetail(SyntheticSessionRecord session, string releaseId)
     {
         RequireCapability(session, "release");
-        if (!string.Equals(releaseId, SyntheticReleaseId, StringComparison.Ordinal))
+        var state = GetState(session);
+        if (!SyntheticResourceAuthorization.CanReadReleaseDetail(session, state, releaseId))
         {
             return null;
         }
 
-        var state = GetState(session.ScenarioId);
         var actions = new List<PermittedActionV1>();
         if (state.ReleaseLifecycle != "released")
         {
@@ -497,14 +518,14 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             "Synthetic participant-facing Result preview text.",
             "Participant only · same Organization",
             actions,
-            1,
+            state.ReleaseVersion,
             state.ReleaseLifecycle);
     }
 
     public ResultsProjectionV1 GetResults(SyntheticSessionRecord session)
     {
         RequireCapability(session, "participant");
-        var state = GetState(session.ScenarioId);
+        var state = GetState(session);
         var results = new List<ResultItemV1>
         {
             new(SyntheticResultId, "Synthetic Assessment Campaign", FormatResultStatus(state), $"/results/{SyntheticResultId}"),
@@ -516,12 +537,12 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     public ResultDetailProjectionV1? GetResultDetail(SyntheticSessionRecord session, string resultId)
     {
         RequireCapability(session, "participant");
-        if (!string.Equals(resultId, SyntheticResultId, StringComparison.Ordinal))
+        var state = GetState(session);
+        if (!SyntheticResourceAuthorization.CanReadResultDetail(session, state, resultId))
         {
             return null;
         }
 
-        var state = GetState(session.ScenarioId);
         return new ResultDetailProjectionV1(
             BrowserSchemaVersion.V1,
             SyntheticResultId,
@@ -560,49 +581,53 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             return Denied("Access has changed.");
         }
 
-        var state = GetState(session.ScenarioId);
-        var scopeKey = SyntheticIdempotency.BuildScopeKey(session, command);
-        var requestDigest = SyntheticIdempotency.BuildRequestDigest(command);
-        var replay = SyntheticIdempotency.TryReplay(state.IdempotencyRecords, scopeKey, requestDigest);
-        if (replay is not null)
+        var instance = GetInstance(session.ScenarioId, session.ScenarioInstanceId);
+        lock (instance.Sync)
         {
-            return replay;
+            var state = instance.State;
+            var scopeKey = SyntheticIdempotency.BuildScopeKey(session, command);
+            var requestDigest = SyntheticIdempotency.BuildRequestDigest(command);
+            var replay = SyntheticIdempotency.TryReplay(state.IdempotencyRecords, scopeKey, requestDigest);
+            if (replay is not null)
+            {
+                return replay;
+            }
+
+            if (session.ScenarioId == SyntheticScenarioIds.UncertainReconciliation &&
+                command.CommandType == "activity.activate_cohort")
+            {
+                var uncertain = Uncertain("Activation outcome uncertain. Reconcile from current state.");
+                SyntheticIdempotency.Remember(state.IdempotencyRecords, scopeKey, requestDigest, uncertain);
+                return uncertain;
+            }
+
+            var authorizationFailure = SyntheticCommandAuthorization.Authorize(session, command, state);
+            if (authorizationFailure is not null)
+            {
+                return authorizationFailure;
+            }
+
+            var result = command.CommandType switch
+            {
+                "activity.save_draft" => HandleSaveDraft(state),
+                "activity.activate_cohort" => HandleActivate(state),
+                "enrollment.assign" => HandleAssign(state),
+                "submission.submit_text" => HandleSubmit(state, command),
+                "attempt.start" => HandleStartAttempt(state),
+                "session.send_message" => HandleSendMessage(state, command),
+                "session.pause" => HandlePause(state),
+                "session.resume" => HandleResume(state),
+                "session.complete" => HandleComplete(state),
+                "review.approve" => HandleReviewApprove(state),
+                "review.reject" => HandleReviewReject(state),
+                "review.escalate" => HandleReviewEscalate(state),
+                "release.confirm" => HandleRelease(state),
+                _ => Denied("Action is not permitted."),
+            };
+
+            SyntheticIdempotency.Remember(state.IdempotencyRecords, scopeKey, requestDigest, result);
+            return result;
         }
-
-        if (session.ScenarioId == SyntheticScenarioIds.UncertainReconciliation &&
-            command.CommandType == "activity.activate_cohort")
-        {
-            var uncertain = Uncertain("Activation outcome uncertain. Reconcile from current state.");
-            SyntheticIdempotency.Remember(state.IdempotencyRecords, scopeKey, requestDigest, uncertain);
-            return uncertain;
-        }
-
-        var authorizationFailure = SyntheticCommandAuthorization.Authorize(session, command, state);
-        if (authorizationFailure is not null)
-        {
-            return authorizationFailure;
-        }
-
-        var result = command.CommandType switch
-        {
-            "activity.save_draft" => HandleSaveDraft(state),
-            "activity.activate_cohort" => HandleActivate(state),
-            "enrollment.assign" => HandleAssign(state),
-            "submission.submit_text" => HandleSubmit(state, command),
-            "attempt.start" => HandleStartAttempt(state),
-            "session.send_message" => HandleSendMessage(state, command),
-            "session.pause" => HandlePause(state),
-            "session.resume" => HandleResume(state),
-            "session.complete" => HandleComplete(state),
-            "review.approve" => HandleReviewApprove(state),
-            "review.reject" => HandleReviewReject(state),
-            "review.escalate" => HandleReviewReject(state),
-            "release.confirm" => HandleRelease(state),
-            _ => Denied("Action is not permitted."),
-        };
-
-        SyntheticIdempotency.Remember(state.IdempotencyRecords, scopeKey, requestDigest, result);
-        return result;
     }
 
     public IEnumerable<SseSessionEventV1> GetSessionEvents(
@@ -610,22 +635,35 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         string sessionId,
         string? lastEventId)
     {
-        if (!string.Equals(sessionId, SyntheticCommandAuthorization.SyntheticSessionId, StringComparison.Ordinal))
-        {
-            yield break;
-        }
-
-        var state = GetState(session.ScenarioId);
-        if (!SyntheticCommandAuthorization.CanAccessSessionResource(session, state))
-        {
-            yield break;
-        }
-
-        EnsureSyntheticAgentStream(state);
-
-        foreach (var evt in state.EmittedSseEvents.Where(evt => IsAfterCursor(evt.SessionSequence, lastEventId)))
+        foreach (var evt in CollectSessionEvents(session, sessionId, lastEventId))
         {
             yield return evt;
+        }
+    }
+
+    private List<SseSessionEventV1> CollectSessionEvents(
+        SyntheticSessionRecord session,
+        string sessionId,
+        string? lastEventId)
+    {
+        if (!string.Equals(sessionId, SyntheticCommandAuthorization.SyntheticSessionId, StringComparison.Ordinal))
+        {
+            return [];
+        }
+
+        var instance = GetInstance(session.ScenarioId, session.ScenarioInstanceId);
+        lock (instance.Sync)
+        {
+            var state = instance.State;
+            if (!SyntheticResourceAuthorization.CanAccessSessionResource(session, state))
+            {
+                return [];
+            }
+
+            EnsureSyntheticAgentStream(state);
+            return state.EmittedSseEvents
+                .Where(evt => IsAfterCursor(evt.SessionSequence, lastEventId))
+                .ToList();
         }
     }
 
@@ -734,18 +772,21 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     private BrowserCommandResultV1 HandlePause(SyntheticScenarioState state)
     {
         state.SessionLifecycle = "paused";
+        state.SessionVersion++;
         return Success(state, "Session paused.");
     }
 
     private BrowserCommandResultV1 HandleResume(SyntheticScenarioState state)
     {
         state.SessionLifecycle = "active";
+        state.SessionVersion++;
         return Success(state, "Session resumed.");
     }
 
     private BrowserCommandResultV1 HandleComplete(SyntheticScenarioState state)
     {
         state.SessionLifecycle = "completed";
+        state.SessionVersion++;
         state.ReviewLifecycle = "ready_for_review";
         return Success(state, "Session completed.");
     }
@@ -753,6 +794,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     private BrowserCommandResultV1 HandleReviewApprove(SyntheticScenarioState state)
     {
         state.ReviewLifecycle = "approved";
+        state.ReviewCaseVersion++;
         state.ReleaseLifecycle = "ready";
         return Success(state, "Review decision recorded: Approved.");
     }
@@ -760,12 +802,21 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     private BrowserCommandResultV1 HandleReviewReject(SyntheticScenarioState state)
     {
         state.ReviewLifecycle = "rejected";
+        state.ReviewCaseVersion++;
         return Success(state, "Review decision recorded: Rejected.");
+    }
+
+    private BrowserCommandResultV1 HandleReviewEscalate(SyntheticScenarioState state)
+    {
+        state.ReviewLifecycle = "escalated";
+        state.ReviewCaseVersion++;
+        return Success(state, "Review decision recorded: Escalated.");
     }
 
     private BrowserCommandResultV1 HandleRelease(SyntheticScenarioState state)
     {
         state.ReleaseLifecycle = "released";
+        state.ReleaseVersion++;
         state.ResultLifecycle = "released";
         return Success(state, "Result released.");
     }
@@ -782,8 +833,22 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     private static BrowserCommandResultV1 Uncertain(string message) =>
         new(BrowserSchemaVersion.V1, "uncertain", Guid.NewGuid().ToString("N"), null, null, "reconcile", message);
 
-    private SyntheticScenarioState GetState(string scenarioId) =>
-        _scenarioStates.GetOrAdd(scenarioId, _ => new SyntheticScenarioState());
+    private SyntheticScenarioState GetState(SyntheticSessionRecord session)
+    {
+        var instance = GetInstance(session.ScenarioId, session.ScenarioInstanceId);
+        lock (instance.Sync)
+        {
+            return instance.State;
+        }
+    }
+
+    private SyntheticScenarioInstance GetInstance(string scenarioId, string scenarioInstanceId) =>
+        _scenarioInstances.GetOrAdd(
+            BuildInstanceKey(scenarioId, scenarioInstanceId),
+            _ => new SyntheticScenarioInstance());
+
+    private static string BuildInstanceKey(string scenarioId, string scenarioInstanceId) =>
+        $"{scenarioId}::{scenarioInstanceId}";
 
     private bool IsAccessDenied(SyntheticSessionRecord session)
     {
@@ -792,8 +857,17 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             return true;
         }
 
-        return GetState(session.ScenarioId).PermissionRevoked;
+        return GetState(session).PermissionRevoked;
     }
+
+    private static string FormatReviewStatus(string reviewLifecycle) => reviewLifecycle switch
+    {
+        "approved" => "Approved",
+        "rejected" => "Rejected",
+        "escalated" => "Escalated",
+        "ready_for_review" => "Ready for review",
+        _ => "In review",
+    };
 
     private void RequireCapability(SyntheticSessionRecord session, string capability)
     {
