@@ -16,7 +16,9 @@ public static class GrateMigrationRunner
         CancellationToken cancellationToken = default,
         bool? allowEmbeddedFallback = null)
     {
-        var toolResult = TryRunDotnetTool(connectionString, GrateToolInvocationOptions.Default);
+        var toolResult = TryRunDotnetTool(
+            connectionString,
+            new GrateToolInvocationOptions(MigrationsDirectory: migrationsDirectory));
         if (toolResult.WasSuccessful)
         {
             return;
@@ -80,10 +82,10 @@ public static class GrateMigrationRunner
         };
         startInfo.Environment["FLEXAGENT_DATABASE_URL"] = connectionString;
         startInfo.Environment["DOTNET_ROLL_FORWARD"] = "LatestPatch";
-        if (!string.IsNullOrWhiteSpace(options.MigrationsDirectory))
-        {
-            startInfo.Environment["FLEXAGENT_MIGRATIONS_DIRECTORY"] = options.MigrationsDirectory;
-        }
+        var migrationsDirectory = string.IsNullOrWhiteSpace(options.MigrationsDirectory)
+            ? Path.Combine(root, "database", "migrations")
+            : options.MigrationsDirectory;
+        startInfo.Environment["FLEXAGENT_MIGRATIONS_DIRECTORY"] = migrationsDirectory;
 
         using var process = Process.Start(startInfo);
         if (process is null)

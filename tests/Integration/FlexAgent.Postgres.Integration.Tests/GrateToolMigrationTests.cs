@@ -57,7 +57,7 @@ public sealed class GrateToolMigrationTests
     }
 
     [Fact]
-    public async Task Grate_tool_dry_run_does_not_apply_schema_changes()
+    public async Task Grate_tool_dry_run_is_non_mutating()
     {
         await using var container = await StartContainerAsync();
         var connectionString = container.GetConnectionString();
@@ -138,23 +138,66 @@ public sealed class GrateToolMigrationTests
     }
 
     [Fact]
-    public async Task Grate_tool_concurrent_runs_remain_idempotent()
+    public async Task Grate_tool_concurrent_invocations_on_migrated_database_both_succeed()
     {
         await using var container = await StartContainerAsync();
         var connectionString = container.GetConnectionString();
+
+        GrateMigrationRunner.InvokeTool(connectionString).EnsureSuccessful();
 
         var results = await Task.WhenAll(
             Task.Run(() => GrateMigrationRunner.InvokeTool(connectionString)),
             Task.Run(() => GrateMigrationRunner.InvokeTool(connectionString)));
 
+        Assert.All(results, result => result.EnsureSuccessful());
+
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(
-            results.Any(result => result.WasSuccessful),
-            "At least one concurrent Grate invocation must succeed.");
         Assert.Equal(ExpectedOneTimeScriptCount, await CountOneTimeScriptsAsync(connection));
         Assert.True(await TableExistsAsync(connection, "configuration_source_versions"));
+    }
+
+    [Fact]
+    public async Task RunAsync_uses_explicit_migrations_directory_over_ambient_environment()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var productionMigrationsDirectory = Path.Combine(
+            FindRepositoryRoot(),
+            "database",
+            "migrations");
+        var hostileMigrationsDirectory = Path.Combine(
+            FindRepositoryRoot(),
+            "tests",
+            "Integration",
+            "FlexAgent.Postgres.Integration.Tests",
+            "Fixtures",
+            "grate-migrations",
+            "atomic-failure");
+
+        Environment.SetEnvironmentVariable(
+            "FLEXAGENT_MIGRATIONS_DIRECTORY",
+            hostileMigrationsDirectory);
+
+        try
+        {
+            await GrateMigrationRunner.RunAsync(
+                connectionString,
+                productionMigrationsDirectory,
+                TestContext.Current.CancellationToken,
+                allowEmbeddedFallback: false);
+
+            await using var connection = new NpgsqlConnection(connectionString);
+            await connection.OpenAsync(TestContext.Current.CancellationToken);
+
+            Assert.Equal(ExpectedOneTimeScriptCount, await CountOneTimeScriptsAsync(connection));
+            Assert.True(await TableExistsAsync(connection, "configuration_source_versions"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FLEXAGENT_MIGRATIONS_DIRECTORY", null);
+        }
     }
 
     private static string CopyProductionMigrationsToTempDirectory()
