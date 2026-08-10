@@ -1,4 +1,4 @@
--- Repair migration for upgrades that applied 0002 before idempotency backfill shipped.
+-- Repair migration after original 0002: backfill idempotency and composite source/version FK.
 -- ADR-010 artifact 4 review follow-up; UTC-ordered; do not edit after merge.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -8,7 +8,8 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1
         FROM pg_constraint
-        WHERE conname = 'uq_configuration_source_versions_org_source_version')
+        WHERE conname = 'uq_configuration_source_versions_org_source_version'
+          AND conrelid = 'configuration_source_versions'::regclass)
     THEN
         ALTER TABLE configuration_source_versions
             ADD CONSTRAINT uq_configuration_source_versions_org_source_version
@@ -51,7 +52,8 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1
         FROM pg_constraint
-        WHERE conname = 'fk_configuration_source_version_idempotency_source_version')
+        WHERE conname = 'fk_configuration_source_version_idempotency_source_version'
+          AND conrelid = 'configuration_source_version_idempotency'::regclass)
     THEN
         ALTER TABLE configuration_source_version_idempotency
             ADD CONSTRAINT fk_configuration_source_version_idempotency_source_version

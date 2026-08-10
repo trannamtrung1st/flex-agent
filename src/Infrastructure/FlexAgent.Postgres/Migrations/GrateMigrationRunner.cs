@@ -102,6 +102,72 @@ public static class GrateMigrationRunner
             toolError: null,
             inclusiveMaxScriptName: inclusiveMaxScriptName);
 
+    public static async Task ApplyRecordedMigrationForTestsAsync(
+        string connectionString,
+        string scriptName,
+        string sql,
+        CancellationToken cancellationToken = default)
+    {
+        var scriptHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sql))).ToLowerInvariant();
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                CREATE TABLE IF NOT EXISTS grate_migrations (
+                    script_name TEXT PRIMARY KEY,
+                    script_hash CHAR(64) NOT NULL,
+                    applied_at TIMESTAMPTZ NOT NULL
+                );
+                """,
+                cancellationToken: cancellationToken));
+
+        var existingHash = await connection.ExecuteScalarAsync<string?>(
+            new CommandDefinition(
+                "SELECT script_hash FROM grate_migrations WHERE script_name = @ScriptName;",
+                new { ScriptName = scriptName },
+                cancellationToken: cancellationToken));
+
+        if (existingHash is not null
+            && !string.Equals(existingHash, scriptHash, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Migration script '{scriptName}' changed after it was applied.");
+        }
+
+        if (existingHash is not null)
+        {
+            return;
+        }
+
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await connection.ExecuteAsync(
+                new CommandDefinition(sql, transaction: transaction, cancellationToken: cancellationToken));
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO grate_migrations (script_name, script_hash, applied_at)
+                    VALUES (@ScriptName, @ScriptHash, NOW() AT TIME ZONE 'UTC');
+                    """,
+                    new { ScriptName = scriptName, ScriptHash = scriptHash },
+                    transaction: transaction,
+                    cancellationToken: cancellationToken));
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public static string ComputeScriptHash(string sql) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sql))).ToLowerInvariant();
+
     private static async Task RunEmbeddedMigrationsAsync(
         string connectionString,
         string migrationsDirectory,

@@ -14,16 +14,12 @@ namespace FlexAgent.Postgres.Integration.Tests;
 
 public sealed class MigrationUpgradeTests
 {
+    private const string Historical0002ScriptName = "0002_idempotency_and_version_immutability.sql";
+
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
     {
-        await using var container = new PostgreSqlBuilder("postgres:18")
-            .WithDatabase("flexagent_upgrade_test")
-            .WithUsername("flexagent")
-            .WithPassword("flexagent_upgrade_password")
-            .Build();
-
-        await container.StartAsync(TestContext.Current.CancellationToken);
+        await using var container = await StartContainerAsync();
         var connectionString = container.GetConnectionString();
         var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
 
@@ -33,6 +29,100 @@ public sealed class MigrationUpgradeTests
             TestContext.Current.CancellationToken,
             inclusiveMaxScriptName: "0001_initial_authorization_configuration_schema.sql");
 
+        var seededState = await SeedLegacyVersionAsync(connectionString);
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
+
+        await AssertRepairEvidenceAsync(connectionString, seededState);
+    }
+
+    [Fact]
+    public async Task Upgrade_from_recorded_historical_0002_repairs_via_0003_without_checksum_failure()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+        var historical0002Sql = await File.ReadAllTextAsync(
+            Path.Combine(
+                FindRepositoryRoot(),
+                "tests",
+                "Integration",
+                "FlexAgent.Postgres.Integration.Tests",
+                "Fixtures",
+                "migrations",
+                "0002_idempotency_and_version_immutability_4e21917.sql"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            GrateMigrationRunner.ComputeScriptHash(historical0002Sql),
+            GrateMigrationRunner.ComputeScriptHash(
+                await File.ReadAllTextAsync(
+                    Path.Combine(migrationsDirectory, "up", Historical0002ScriptName),
+                    TestContext.Current.CancellationToken)));
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: "0001_initial_authorization_configuration_schema.sql");
+
+        var seededState = await SeedLegacyVersionAsync(connectionString);
+
+        await GrateMigrationRunner.ApplyRecordedMigrationForTestsAsync(
+            connectionString,
+            Historical0002ScriptName,
+            historical0002Sql,
+            TestContext.Current.CancellationToken);
+
+        await using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync(TestContext.Current.CancellationToken);
+            var idempotencyCount = await connection.ExecuteScalarAsync<int>(
+                """
+                SELECT COUNT(*)
+                FROM configuration_source_version_idempotency
+                WHERE organization_id = @OrganizationId
+                  AND configuration_source_id = @ConfigurationSourceId
+                  AND idempotency_key = @IdempotencyKey;
+                """,
+                new
+                {
+                    seededState.OrganizationId,
+                    ConfigurationSourceId = seededState.SourceId,
+                    seededState.IdempotencyKey,
+                });
+
+            Assert.Equal(0, idempotencyCount);
+        }
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
+
+        await using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync(TestContext.Current.CancellationToken);
+            var appliedScripts = (await connection.QueryAsync<string>(
+                "SELECT script_name FROM grate_migrations ORDER BY script_name;")).AsList();
+
+            Assert.Equal(
+                [
+                    "0001_initial_authorization_configuration_schema.sql",
+                    Historical0002ScriptName,
+                    "0003_repair_idempotency_backfill_and_source_version_fk.sql",
+                ],
+                appliedScripts);
+        }
+
+        await AssertRepairEvidenceAsync(connectionString, seededState);
+    }
+
+    private static async Task<LegacyVersionSeed> SeedLegacyVersionAsync(string connectionString)
+    {
         var organizationId = Guid.NewGuid();
         var actorId = Guid.NewGuid();
         var sourceId = Guid.NewGuid();
@@ -41,64 +131,68 @@ public sealed class MigrationUpgradeTests
         var digest = PostgresIntegrationFixture.MinimalStableDomainDigest;
         var now = DateTimeOffset.UtcNow;
 
-        await using (var connection = new NpgsqlConnection(connectionString))
-        {
-            await connection.OpenAsync(TestContext.Current.CancellationToken);
-            await connection.ExecuteAsync(
-                """
-                INSERT INTO organizations (id, created_at) VALUES (@OrganizationId, @CreatedAt);
-                INSERT INTO actors (id, created_at) VALUES (@ActorId, @CreatedAt);
-                INSERT INTO actor_organization_grants (
-                    organization_id, actor_id, relationship_version, granted_action, created_at)
-                VALUES (
-                    @OrganizationId, @ActorId, 1, @GrantedAction, @CreatedAt);
-                INSERT INTO configuration_sources (id, organization_id, source_kind, created_at)
-                VALUES (@SourceId, @OrganizationId, @SourceKind, @CreatedAt);
-                INSERT INTO configuration_source_versions (
-                    id,
-                    organization_id,
-                    configuration_source_id,
-                    schema_version,
-                    procedure_id,
-                    content_digest,
-                    idempotency_key,
-                    created_at)
-                VALUES (
-                    @VersionId,
-                    @OrganizationId,
-                    @SourceId,
-                    @SchemaVersion,
-                    @ProcedureId,
-                    @ContentDigest,
-                    @IdempotencyKey,
-                    @CreatedAt);
-                """,
-                new
-                {
-                    OrganizationId = organizationId,
-                    ActorId = actorId,
-                    SourceId = sourceId,
-                    VersionId = versionId,
-                    GrantedAction = AuthorizationActions.RegisterConfigurationSourceVersion,
-                    SourceKind = ConfigurationSourceKinds.SyntheticV1,
-                    SchemaVersion = ConfigurationSchemaVersions.V1,
-                    ProcedureId = ConfigurationProcedureIds.RscJcsSha256V1,
-                    ContentDigest = digest,
-                    IdempotencyKey = idempotencyKey,
-                    CreatedAt = now,
-                });
-        }
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO organizations (id, created_at) VALUES (@OrganizationId, @CreatedAt);
+            INSERT INTO actors (id, created_at) VALUES (@ActorId, @CreatedAt);
+            INSERT INTO actor_organization_grants (
+                organization_id, actor_id, relationship_version, granted_action, created_at)
+            VALUES (
+                @OrganizationId, @ActorId, 1, @GrantedAction, @CreatedAt);
+            INSERT INTO configuration_sources (id, organization_id, source_kind, created_at)
+            VALUES (@SourceId, @OrganizationId, @SourceKind, @CreatedAt);
+            INSERT INTO configuration_source_versions (
+                id,
+                organization_id,
+                configuration_source_id,
+                schema_version,
+                procedure_id,
+                content_digest,
+                idempotency_key,
+                created_at)
+            VALUES (
+                @VersionId,
+                @OrganizationId,
+                @SourceId,
+                @SchemaVersion,
+                @ProcedureId,
+                @ContentDigest,
+                @IdempotencyKey,
+                @CreatedAt);
+            """,
+            new
+            {
+                OrganizationId = organizationId,
+                ActorId = actorId,
+                SourceId = sourceId,
+                VersionId = versionId,
+                GrantedAction = AuthorizationActions.RegisterConfigurationSourceVersion,
+                SourceKind = ConfigurationSourceKinds.SyntheticV1,
+                SchemaVersion = ConfigurationSchemaVersions.V1,
+                ProcedureId = ConfigurationProcedureIds.RscJcsSha256V1,
+                ContentDigest = digest,
+                IdempotencyKey = idempotencyKey,
+                CreatedAt = now,
+            });
 
-        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
-            connectionString,
-            migrationsDirectory,
-            TestContext.Current.CancellationToken);
+        return new LegacyVersionSeed(
+            organizationId,
+            actorId,
+            sourceId,
+            versionId,
+            idempotencyKey,
+            digest);
+    }
 
+    private static async Task AssertRepairEvidenceAsync(string connectionString, LegacyVersionSeed seededState)
+    {
         var content = PostgresIntegrationFixture.LoadMinimalStableDomainCanonicalUtf8();
         var expectedFingerprint = Convert.ToHexString(
                 SHA256.HashData(
                     Encoding.UTF8.GetBytes(
-                        $"{ConfigurationProcedureIds.RscJcsSha256V1}|{ConfigurationSchemaVersions.V1}|{digest}")))
+                        $"{ConfigurationProcedureIds.RscJcsSha256V1}|{ConfigurationSchemaVersions.V1}|{seededState.Digest}")))
             .ToLowerInvariant();
 
         await using (var connection = new NpgsqlConnection(connectionString))
@@ -114,9 +208,9 @@ public sealed class MigrationUpgradeTests
                 """,
                 new
                 {
-                    OrganizationId = organizationId,
-                    ConfigurationSourceId = sourceId,
-                    IdempotencyKey = idempotencyKey,
+                    seededState.OrganizationId,
+                    ConfigurationSourceId = seededState.SourceId,
+                    seededState.IdempotencyKey,
                 });
 
             Assert.Equal(expectedFingerprint, backfilledFingerprint);
@@ -124,11 +218,11 @@ public sealed class MigrationUpgradeTests
 
         var services = ConfigurationServiceCollection.Create(connectionString);
         var seeded = new SeededOrganization(
-            organizationId,
-            actorId,
-            sourceId,
-            new TrustedActor(actorId, "synthetic.test_actor"),
-            new OrganizationScope(organizationId));
+            seededState.OrganizationId,
+            seededState.ActorId,
+            seededState.SourceId,
+            new TrustedActor(seededState.ActorId, "synthetic.test_actor"),
+            new OrganizationScope(seededState.OrganizationId));
 
         var alternateContent = Encoding.UTF8.GetBytes(
             """
@@ -147,7 +241,7 @@ public sealed class MigrationUpgradeTests
                 ConfigurationSchemaVersions.V1,
                 alternateContent,
                 alternateDigest,
-                idempotencyKey,
+                seededState.IdempotencyKey,
                 Guid.NewGuid(),
                 "integration.test"),
             TestContext.Current.CancellationToken);
@@ -163,17 +257,17 @@ public sealed class MigrationUpgradeTests
                 ConfigurationProcedureIds.RscJcsSha256V1,
                 ConfigurationSchemaVersions.V1,
                 content,
-                digest,
-                idempotencyKey,
+                seededState.Digest,
+                seededState.IdempotencyKey,
                 Guid.NewGuid(),
                 "integration.test"),
             TestContext.Current.CancellationToken);
 
         Assert.True(idempotentRetry.Succeeded);
-        Assert.Equal(versionId, idempotentRetry.Identity!.VersionId);
+        Assert.Equal(seededState.VersionId, idempotentRetry.Identity!.VersionId);
         Assert.Equal(1, await services.VersionRepository.CountForSourceAsync(
-            organizationId,
-            sourceId,
+            seededState.OrganizationId,
+            seededState.SourceId,
             TestContext.Current.CancellationToken));
 
         await using var verifyConnection = await services.ConnectionAccessor.OpenConnectionAsync(
@@ -188,12 +282,24 @@ public sealed class MigrationUpgradeTests
             """,
             new
             {
-                OrganizationId = organizationId,
-                ConfigurationSourceId = sourceId,
-                IdempotencyKey = idempotencyKey,
+                seededState.OrganizationId,
+                ConfigurationSourceId = seededState.SourceId,
+                seededState.IdempotencyKey,
             });
 
         Assert.Equal(1, idempotencyCount);
+    }
+
+    private static async Task<PostgreSqlContainer> StartContainerAsync()
+    {
+        var container = new PostgreSqlBuilder("postgres:18")
+            .WithDatabase("flexagent_upgrade_test")
+            .WithUsername("flexagent")
+            .WithPassword("flexagent_upgrade_password")
+            .Build();
+
+        await container.StartAsync(TestContext.Current.CancellationToken);
+        return container;
     }
 
     private static string FindRepositoryRoot()
@@ -211,4 +317,12 @@ public sealed class MigrationUpgradeTests
 
         throw new InvalidOperationException("Could not locate repository root.");
     }
+
+    private sealed record LegacyVersionSeed(
+        Guid OrganizationId,
+        Guid ActorId,
+        Guid SourceId,
+        Guid VersionId,
+        string IdempotencyKey,
+        string Digest);
 }
