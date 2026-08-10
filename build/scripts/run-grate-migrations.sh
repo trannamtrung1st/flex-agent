@@ -11,11 +11,13 @@ fi
 
 export DOTNET_ROLL_FORWARD="${DOTNET_ROLL_FORWARD:-LatestPatch}"
 
+MIGRATIONS_DIRECTORY="${FLEXAGENT_MIGRATIONS_DIRECTORY:-${ROOT}/database/migrations}"
+
 dotnet tool restore >/dev/null
 
 GRATE_ARGS=(
   --connectionstring="${FLEXAGENT_DATABASE_URL}"
-  --sqlfilesdirectory="${ROOT}/database/migrations"
+  --sqlfilesdirectory="${MIGRATIONS_DIRECTORY}"
   --databasetype=postgresql
   --transaction
   --disabletokenreplacement

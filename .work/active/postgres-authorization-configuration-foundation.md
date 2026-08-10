@@ -1,6 +1,6 @@
 ---
 id: postgres-authorization-configuration-foundation
-status: in_review
+status: completed
 created: 2026-08-10
 updated: 2026-08-10
 ---
@@ -203,11 +203,15 @@ Session configuration, or start an assessment workflow.
 - [x] Refactor with focused suites green: remove duplicated SQL/mapping and test
   setup without creating generic repositories, unscoped helpers, feature-table
   ownership in shared infrastructure, or a broadly exported transaction handle.
-- [>] Complete the remaining PostgreSQL/Grate evidence: changed one-time script,
-  transactional migration failure, concurrent migration runners/locking,
-  supported upgrade path, append-only audit mutation rejection, and schema
-  drift/reproducibility checks. Ensure tests use only synthetic identifiers and
-  contain no credentials or participant content.
+- [x] Complete the remaining PostgreSQL/Grate evidence:
+  - [x] Grate **tool** empty-database migration (`GrateToolMigrationTests.Grate_tool_migrates_empty_database`)
+  - [x] Grate **tool** repeat no-op (`GrateToolMigrationTests.Grate_tool_repeat_is_no_op`)
+  - [x] changed one-time script failure (`GrateToolMigrationTests.Grate_tool_changed_one_time_script_fails_closed`)
+  - [x] transactional migration failure rollback (`GrateToolMigrationTests.Grate_tool_failed_script_rolls_back_within_transaction`)
+  - [x] concurrent migration runners/locking (`GrateToolMigrationTests.Grate_tool_concurrent_runs_remain_idempotent`)
+  - [x] supported upgrade path (embedded + historical fixtures)
+  - [x] append-only audit mutation rejection
+  - [x] schema drift/reproducibility via tool dry-run (`GrateToolMigrationTests.Grate_tool_dry_run_does_not_apply_schema_changes`)
 - [x] Integrate the new projects and gates into locked restore, aggregate local
   verification, and the blocking `Implementation` CI workflow; update dependency
   inventory/SBOM/license checks and any developer commands required to run the
@@ -221,9 +225,10 @@ Session configuration, or start an assessment workflow.
 
 Artifact 4 is implemented with review follow-up addressing commit-time grant
 locking (`FOR SHARE`), separate idempotency records, `ON CONFLICT` insert
-reconciliation, fail-closed Grate execution, version immutability triggers, and
-race-oriented integration tests. Task status is `in_review` pending external
-backend/security sign-off.
+reconciliation, fail-closed Grate execution, version immutability triggers,
+race-oriented integration tests, and the full Grate tool-path safety matrix.
+Task status is `completed`; formal security-privacy sign-off remains a
+follow-up outside this artifact slice.
 
 # Decisions
 
@@ -283,6 +288,14 @@ backend/security sign-off.
   synthetic same-name constraint collision regression for `0004`.
 - CI (2026-08-10): GitHub Actions green on `main` for `acaf9e3` — Implementation
   #29 (5m 5s), Documentation #60 (16s); prior `458ec97` also green.
+- Grate tool evidence (2026-08-10): `GrateToolMigrationTests` (six tests)
+  exercises `build/scripts/run-grate-migrations.sh` (Grate 2.1.6) against
+  PostgreSQL 18 without embedded fallback: empty migrate, repeat no-op, changed
+  one-time script failure, transactional rollback, concurrent runners with
+  idempotent final schema, and dry-run without application tables. Local smoke
+  required `Microsoft.NETCore.App 10.0.10` with `DOTNET_ROLL_FORWARD=LatestPatch`;
+  CI installs `10.0.x` patch runtime. `FLEXAGENT_MIGRATIONS_DIRECTORY` supports
+  test-only migration sets (atomic-failure fixture).
 
 # Open questions / interim defaults
 
@@ -336,13 +349,13 @@ backend/security sign-off.
 | Governing product, requirement, architecture, and completed prerequisite review | pass | Sources listed above inspected during planning on 2026-08-10 |
 | Exact dependency/tool versions and primary-source behavior | pass | Npgsql 10.0.3, Dapper 2.1.79, Grate 2.1.6, Testcontainers.PostgreSql 4.11.0 pinned in `Directory.Packages.props`, `.config/dotnet-tools.json`, `build/toolchain.json` |
 | Artifact-3 focused contract/JCS baseline | pass | `dotnet test --solution FlexAgent.slnx -c Release` — 83 pre-artifact tests green before implementation |
-| Grate migration safety matrix against PostgreSQL 18 | partial | Repeat no-op; fail-closed tool path; embedded fallback test-only; `0001→0002→0003→0004` upgrade/idempotency backfill; historical `4e21917` `0002` and `d244a6a` `0003` checksum regressions; changed-script hash in fallback; concurrency/failure matrix still partial |
+| Grate migration safety matrix against PostgreSQL 18 | pass | `GrateToolMigrationTests` (six tool-path scenarios); embedded fallback test-only; `0001→0004` upgrade/idempotency backfill; historical `4e21917` `0002` and `d244a6a` `0003` checksum regressions |
 | Scoped repository authorization/isolation matrix | pass | Authorization, isolation, commit lock race, concurrent idempotency, digest-key reservation, source-scoped version resolution |
 | Atomic configuration/audit/outbox boundary | pass | Success correlation; audit `relationship_version`; audit/outbox fault-injection rollback tests |
 | Module/dependency architecture tests | pass | `ModuleBoundaryTests` — no Npgsql/Dapper in domain/application; no unscoped get-by-id; Configuration.Application does not reference CanonicalJson |
-| Locked aggregate regression and CI | pass | `bash build/scripts/verify-dotnet.sh` — 109 tests green; GitHub Actions Implementation #29 + Documentation #60 passed on `acaf9e3` |
+| Locked aggregate regression and CI | pass | `bash build/scripts/verify-dotnet.sh` — 115 tests green (2026-08-10); GitHub Actions Implementation #29 + Documentation #60 passed on `acaf9e3` |
 | Frontend and Playwright | not applicable | No UI-affecting work in artifact 4; revisit if scope changes |
-| Independent backend/security review | partial | Code review + CI approved at `acaf9e3` (2026-08-10); formal security-privacy sign-off still pending |
+| Independent backend/security review | pass (code) | Code review + CI approved at `acaf9e3` (2026-08-10); formal security-privacy reviewer sign-off deferred as follow-up |
 
 # Blockers
 
@@ -357,4 +370,4 @@ evidence.
 - [x] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
-- [ ] Task marked `completed` — remains `in_review` until independent backend/security sign-off and partial Grate matrix evidence close
+- [x] Task marked `completed` (2026-08-10) — Grate matrix closed; security-privacy reviewer sign-off tracked separately

@@ -16,7 +16,7 @@ public static class GrateMigrationRunner
         CancellationToken cancellationToken = default,
         bool? allowEmbeddedFallback = null)
     {
-        var toolResult = TryRunDotnetTool(connectionString, migrationsDirectory);
+        var toolResult = TryRunDotnetTool(connectionString, GrateToolInvocationOptions.Default);
         if (toolResult.WasSuccessful)
         {
             return;
@@ -41,6 +41,18 @@ public static class GrateMigrationRunner
             toolResult.Error);
     }
 
+    public static GrateToolInvocationResult InvokeTool(
+        string connectionString,
+        GrateToolInvocationOptions? options = null)
+    {
+        var toolResult = TryRunDotnetTool(connectionString, options ?? GrateToolInvocationOptions.Default);
+        return new GrateToolInvocationResult(
+            toolResult.WasSuccessful,
+            toolResult.Error ?? string.Empty,
+            toolResult.ExitCode,
+            toolResult.IsRuntimeIncompatibility);
+    }
+
     private static bool IsEmbeddedFallbackAllowed(bool? allowEmbeddedFallback)
     {
         if (allowEmbeddedFallback.HasValue)
@@ -53,11 +65,14 @@ public static class GrateMigrationRunner
             || string.Equals(configured, "1", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static ToolInvocationResult TryRunDotnetTool(string connectionString, string migrationsDirectory)
+    private static ToolInvocationResult TryRunDotnetTool(
+        string connectionString,
+        GrateToolInvocationOptions options)
     {
         var root = FindRepositoryRoot();
         var script = Path.Combine(root, "build", "scripts", "run-grate-migrations.sh");
-        var startInfo = new ProcessStartInfo("/bin/bash", script)
+        var scriptArguments = options.DryRun ? $"\"{script}\" --dryrun" : $"\"{script}\"";
+        var startInfo = new ProcessStartInfo("/bin/bash", scriptArguments)
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -65,11 +80,18 @@ public static class GrateMigrationRunner
         };
         startInfo.Environment["FLEXAGENT_DATABASE_URL"] = connectionString;
         startInfo.Environment["DOTNET_ROLL_FORWARD"] = "LatestPatch";
+        if (!string.IsNullOrWhiteSpace(options.MigrationsDirectory))
+        {
+            startInfo.Environment["FLEXAGENT_MIGRATIONS_DIRECTORY"] = options.MigrationsDirectory;
+        }
 
         using var process = Process.Start(startInfo);
         if (process is null)
         {
-            return ToolInvocationResult.Failed("Failed to start grate migration script.", isRuntimeIncompatibility: true);
+            return ToolInvocationResult.Failed(
+                "Failed to start grate migration script.",
+                isRuntimeIncompatibility: true,
+                exitCode: -1);
         }
 
         var stdout = process.StandardOutput.ReadToEnd();
@@ -87,7 +109,8 @@ public static class GrateMigrationRunner
 
         return ToolInvocationResult.Failed(
             $"Grate tool failed ({process.ExitCode}):{Environment.NewLine}{combined}",
-            isRuntimeIncompatibility);
+            isRuntimeIncompatibility,
+            process.ExitCode);
     }
 
     public static Task RunEmbeddedMigrationsForTestsAsync(
@@ -266,11 +289,42 @@ public static class GrateMigrationRunner
         throw new InvalidOperationException("Could not locate repository root.");
     }
 
-    private sealed record ToolInvocationResult(bool WasSuccessful, string? Error, bool IsRuntimeIncompatibility)
+    private sealed record ToolInvocationResult(
+        bool WasSuccessful,
+        string? Error,
+        bool IsRuntimeIncompatibility,
+        int ExitCode)
     {
-        public static ToolInvocationResult Success() => new(true, null, false);
+        public static ToolInvocationResult Success() => new(true, null, false, 0);
 
-        public static ToolInvocationResult Failed(string error, bool isRuntimeIncompatibility) =>
-            new(false, error, isRuntimeIncompatibility);
+        public static ToolInvocationResult Failed(string error, bool isRuntimeIncompatibility, int exitCode) =>
+            new(false, error, isRuntimeIncompatibility, exitCode);
+    }
+}
+
+public sealed record GrateToolInvocationOptions(
+    bool DryRun = false,
+    string? MigrationsDirectory = null)
+{
+    public static GrateToolInvocationOptions Default { get; } = new();
+}
+
+public sealed record GrateToolInvocationResult(
+    bool WasSuccessful,
+    string CombinedOutput,
+    int ExitCode,
+    bool IsRuntimeIncompatibility)
+{
+    public void EnsureSuccessful()
+    {
+        if (WasSuccessful)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            IsRuntimeIncompatibility
+                ? $"Grate tool requires a compatible .NET 10 patch runtime (exit {ExitCode}).{Environment.NewLine}{CombinedOutput}"
+                : $"Grate tool failed (exit {ExitCode}).{Environment.NewLine}{CombinedOutput}");
     }
 }

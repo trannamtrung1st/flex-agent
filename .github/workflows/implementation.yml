@@ -39,7 +39,9 @@ jobs:
 
       - uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4.1.0
         with:
-          dotnet-version: "10.0.100"
+          dotnet-version: |
+            10.0.100
+            10.0.x
 
       - name: Verify .NET workspace
         run: bash build/scripts/verify-dotnet.sh
@@ -70,7 +72,9 @@ jobs:
 
       - uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4.1.0
         with:
-          dotnet-version: "10.0.100"
+          dotnet-version: |
+            10.0.100
+            10.0.x
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
