@@ -1,11 +1,17 @@
 # Gitleaks fingerprint allowlist for documented false positives.
 # Format: commit:file:rule-id:start-line
 #
-# Path-based allowlists for synthetic contract fixtures and parity tests live in
-# gitleaks.toml at the repository root.
+# Narrow synthetic-value suppressions for generic-api-key live in gitleaks.toml.
+# Use fingerprints here only for historical commits that no longer match current
+# sources (for example, renamed test metadata keys).
 
 # 790cfb8 — safe-error regression tests used static fixture property names that
 # tripped generic-api-key. Markers are now runtime-generated; entries pin the
 # historical commit only.
 790cfb8da06f3cefc32f8bf686349e877b5bb890:tests/Contract/FlexAgent.Contract.Tests/Draft202012SchemaHarnessTests.cs:generic-api-key:50
 790cfb8da06f3cefc32f8bf686349e877b5bb890:tests/CanonicalJson/FlexAgent.CanonicalJson.Tests/CanonicalJsonProcessorTests.cs:generic-api-key:111
+
+# 7c5df2f / 7c17a38 — openapi-parity mapping key was renamed openApiComponent →
+# schemaComponent; historical commits retain the old property name.
+7c5df2f24786e6f1d5914a02325508cfaa4741ce:contracts/tests/openapi-parity.test.mjs:generic-api-key:20
+7c17a383c2f845c48354471e3d3003cf89f77041:contracts/tests/openapi-parity.test.mjs:generic-api-key:61

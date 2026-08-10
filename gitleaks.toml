@@ -3,9 +3,13 @@ title = "flex-agent"
 [extend]
 useDefault = true
 
-[allowlist]
-description = "Synthetic contract fixtures use idempotency_key fields with non-secret demo values."
-paths = [
-  '''(?i)contracts/fixtures/''',
-  '''(?i)contracts/tests/openapi-parity\.test\.mjs''',
-]
+# Extend the default generic-api-key rule with a narrow allowlist: only synthetic
+# idempotency_key fixture values under contracts/fixtures/.
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Documented synthetic idempotency_key values in JSON schema fixtures."
+condition = "AND"
+paths = ['''(?i)contracts/fixtures/''']
+regexes = ['''(?i)^idem-synthetic-\d{4}$''']
