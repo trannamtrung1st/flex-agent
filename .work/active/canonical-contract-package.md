@@ -257,9 +257,17 @@ Addressed six review findings blocking approval:
 
 Post-remediation verification:
 
-- `verify-dotnet.sh`: 79/79 pass
-- `verify-web.sh`: pass (contracts 6/6 Node tests, lint, typecheck, build)
-- Contract catalog: auto-discovered valid/invalid fixtures (20 valid, 6 invalid)
+- `verify-dotnet.sh`: 83/83 pass
+- `verify-web.sh`: pass (contracts 7/7 Node tests, lint, typecheck, build)
+- Fixture discovery: **20 valid**, **10 invalid**
+
+## Second review round (post `7c5df2f`)
+
+| Finding | Fix |
+| --- | --- |
+| P1 int64 wire string too broad | Split into `positive_int64_wire_string` and `nonnegative_int64_wire_string` with signed-int64 max via `int64_wire_string_nineteen_digit`; sequences use positive, safe-error uses nonnegative |
+| P1/P2 evidence reconstruction metadata | Require `line_split_procedure_version` and `excerpt_digest`; C# members non-nullable; negative fixtures added |
+| P2 OpenAPI drift / weak parity | Fixed SSE `fragment_sequence`/`text_delta` bounds; recursive constraint parity test with command variant comparison |
 
 # Findings / deviations
 

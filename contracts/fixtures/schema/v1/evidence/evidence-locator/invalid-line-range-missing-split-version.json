@@ -1,8 +1,8 @@
 {
   "locator_schema": "evidence-locator.v1",
-  "source_type": "submission.text_attachment",
+  "source_type": "submission.direct_text",
   "source_ref": {
-    "source_id": "att.synthetic.0002",
+    "source_id": "sub.synthetic.0098",
     "source_version": "rev.0001"
   },
   "ownership_ref": {
@@ -14,11 +14,10 @@
     "evaluation_id": "eval.synthetic.0001"
   },
   "location": {
-    "location_type": "utf8_byte_range",
-    "item_id": "att.synthetic.0002",
-    "start_inclusive": 0,
-    "end_exclusive": 128,
-    "excerpt_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    "location_type": "line_range",
+    "item_id": "sub.synthetic.0098",
+    "start_line_inclusive": 3,
+    "end_line_inclusive": 7
   },
   "precision": "exact_range",
   "integrity": {
@@ -28,6 +27,6 @@
   },
   "created_by": {
     "service_id": "evaluation-service",
-    "invocation_id": "inv.synthetic.0003"
+    "invocation_id": "inv.synthetic.0098"
   }
 }

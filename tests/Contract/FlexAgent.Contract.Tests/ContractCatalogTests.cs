@@ -63,7 +63,7 @@ public sealed class ContractCatalogTests
         Assert.DoesNotContain("organization_scope_proof", content, StringComparison.Ordinal);
         Assert.Contains("SessionMessageSendCommandV1", content, StringComparison.Ordinal);
         Assert.Contains("EvidenceLocatorV1", content, StringComparison.Ordinal);
-        Assert.Contains("Int64WireString", content, StringComparison.Ordinal);
+        Assert.Contains("PositiveInt64WireString", content, StringComparison.Ordinal);
     }
 
     public static TheoryData<string, string> ValidFixtureCases => DiscoverFixtures("valid-");

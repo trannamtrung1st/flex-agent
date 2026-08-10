@@ -90,7 +90,7 @@
       ],
       "properties": {
         "sequence": {
-          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/int64_wire_string"
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
         },
         "record_type": {
           "type": "string",

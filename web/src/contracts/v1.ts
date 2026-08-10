@@ -1,7 +1,10 @@
 export type SchemaVersionV1 = 'v1';
 
-/** Decimal string wire encoding for canonical int64 sequence and cursor fields. */
-export type Int64WireString = string;
+/** Decimal string wire encoding for canonical positive int64 sequence and cursor fields. */
+export type PositiveInt64WireString = string;
+
+/** Decimal string wire encoding for canonical nonnegative int64 fields (includes zero). */
+export type NonnegativeInt64WireString = string;
 
 export interface SessionLocatorV1 {
   session_id: string;
@@ -23,7 +26,7 @@ interface SessionCommandEnvelopeCoreV1 {
   idempotency_key: string;
   session_locator: SessionLocatorV1;
   expected_session_version: number;
-  client_last_seen_sequence?: Int64WireString;
+  client_last_seen_sequence?: PositiveInt64WireString;
 }
 
 export interface SessionMessageSendCommandV1 extends SessionCommandEnvelopeCoreV1 {
@@ -53,7 +56,7 @@ export interface SessionTerminateCommandV1 extends SessionCommandEnvelopeCoreV1 
 
 export interface SessionReconcileCommandV1 extends SessionCommandEnvelopeCoreV1 {
   command_type: 'session.reconcile.v1';
-  client_last_seen_sequence: Int64WireString;
+  client_last_seen_sequence: PositiveInt64WireString;
   payload: EmptyCommandPayloadV1;
 }
 
@@ -74,7 +77,7 @@ export interface SessionStateEventEnvelopeV1 {
   schema_version: SchemaVersionV1;
   event_type: string;
   session_id: string;
-  session_sequence: Int64WireString;
+  session_sequence: PositiveInt64WireString;
   session_version: number;
   occurred_at: string;
   correlation_id?: string;
@@ -95,7 +98,7 @@ export interface ConfigurationRefV1 {
 }
 
 export interface ManifestRuntimeRecordV1 {
-  sequence: Int64WireString;
+  sequence: PositiveInt64WireString;
   record_type: string;
   service_actor: string;
   occurred_at: string;
@@ -128,7 +131,7 @@ export interface LineRangeLocationV1 {
   item_id: string;
   start_line_inclusive: number;
   end_line_inclusive: number;
-  line_split_procedure_version?: string;
+  line_split_procedure_version: string;
 }
 
 export interface Utf8ByteRangeLocationV1 {
@@ -136,7 +139,7 @@ export interface Utf8ByteRangeLocationV1 {
   item_id: string;
   start_inclusive: number;
   end_exclusive: number;
-  excerpt_digest?: string;
+  excerpt_digest: string;
 }
 
 export interface JsonPointerLocationV1 {
@@ -156,7 +159,7 @@ export interface EvidenceLocatorV1 {
   source_ref: {
     source_id: string;
     source_version: string;
-    terminal_cutoff_sequence?: Int64WireString;
+    terminal_cutoff_sequence?: PositiveInt64WireString;
   };
   ownership_ref: {
     organization_id: string;
@@ -205,7 +208,7 @@ export interface SafeErrorResponseV1 {
   correlation_id: string;
   permitted_recovery_action: 'retry' | 'reconcile' | 'contact_administrator' | 'none';
   session_version?: number;
-  session_sequence?: Int64WireString;
+  session_sequence?: NonnegativeInt64WireString;
 }
 
 export interface SseSessionEventPayloadV1 {
@@ -219,7 +222,7 @@ export interface SseSessionEventV1 {
   schema_version: SchemaVersionV1;
   event_type: string;
   session_id: string;
-  session_sequence: Int64WireString;
+  session_sequence: PositiveInt64WireString;
   occurred_at: string;
   payload: SseSessionEventPayloadV1;
 }

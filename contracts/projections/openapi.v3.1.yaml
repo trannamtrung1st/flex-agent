@@ -42,10 +42,38 @@ paths:
                 $ref: '#/components/schemas/SseSessionEventV1'
 components:
   schemas:
-    Int64WireString:
+    Int64WireStringNineteenDigit:
       type: string
-      pattern: '^(0|[1-9][0-9]{0,18})$'
+      minLength: 19
       maxLength: 19
+      pattern: '^(922337203685477580[0-7]|92233720368547758[0-6][0-9]|9223372036854775[0-7][0-9]{2}|922337203685477[0-4][0-9]{3}|92233720368547[0-5][0-9]{4}|9223372036854[0-6][0-9]{5}|922337203685[0-3][0-9]{6}|92233720368[0-4][0-9]{7}|9223372036[0-7][0-9]{8}|922337203[0-5][0-9]{9}|92233720[0-2][0-9]{10}|9223372[0-0][0-9]{11}|922337[0-1][0-9]{12}|92233[0-6][0-9]{13}|9223[0-2][0-9]{14}|922[0-2][0-9]{15}|92[0-1][0-9]{16}|9[0-1][0-9]{17}|[1-8][0-9]{18})$'
+    PositiveInt64WireString:
+      oneOf:
+        - type: string
+          pattern: '^[1-9]$'
+        - type: string
+          pattern: '^[1-9][0-9]{1,16}$'
+          minLength: 2
+          maxLength: 17
+        - type: string
+          pattern: '^[1-9][0-9]{17}$'
+          minLength: 18
+          maxLength: 18
+        - $ref: '#/components/schemas/Int64WireStringNineteenDigit'
+    NonnegativeInt64WireString:
+      oneOf:
+        - const: '0'
+        - type: string
+          pattern: '^[1-9]$'
+        - type: string
+          pattern: '^[1-9][0-9]{1,16}$'
+          minLength: 2
+          maxLength: 17
+        - type: string
+          pattern: '^[1-9][0-9]{17}$'
+          minLength: 18
+          maxLength: 18
+        - $ref: '#/components/schemas/Int64WireStringNineteenDigit'
     UtcTimestamp:
       type: string
       format: date-time
@@ -99,7 +127,7 @@ components:
           minimum: 0
           maximum: 2147483647
         client_last_seen_sequence:
-          $ref: '#/components/schemas/Int64WireString'
+          $ref: '#/components/schemas/PositiveInt64WireString'
         payload:
           type: object
     SessionMessageSendCommandV1:
@@ -204,7 +232,7 @@ components:
         session_id:
           $ref: '#/components/schemas/StableId'
         session_sequence:
-          $ref: '#/components/schemas/Int64WireString'
+          $ref: '#/components/schemas/PositiveInt64WireString'
         session_version:
           type: integer
           minimum: 0
@@ -293,7 +321,7 @@ components:
         - payload_ref
       properties:
         sequence:
-          $ref: '#/components/schemas/Int64WireString'
+          $ref: '#/components/schemas/PositiveInt64WireString'
         record_type:
           type: string
           enum:
@@ -363,7 +391,7 @@ components:
             source_version:
               $ref: '#/components/schemas/StableId'
             terminal_cutoff_sequence:
-              $ref: '#/components/schemas/Int64WireString'
+              $ref: '#/components/schemas/PositiveInt64WireString'
         ownership_ref:
           type: object
           additionalProperties: false
@@ -434,7 +462,7 @@ components:
     LineRangeLocationV1:
       type: object
       additionalProperties: false
-      required: [location_type, item_id, start_line_inclusive, end_line_inclusive]
+      required: [location_type, item_id, start_line_inclusive, end_line_inclusive, line_split_procedure_version]
       properties:
         location_type:
           const: line_range
@@ -455,7 +483,7 @@ components:
     Utf8ByteRangeLocationV1:
       type: object
       additionalProperties: false
-      required: [location_type, item_id, start_inclusive, end_exclusive]
+      required: [location_type, item_id, start_inclusive, end_exclusive, excerpt_digest]
       properties:
         location_type:
           const: utf8_byte_range
@@ -579,7 +607,7 @@ components:
           minimum: 0
           maximum: 2147483647
         session_sequence:
-          $ref: '#/components/schemas/Int64WireString'
+          $ref: '#/components/schemas/NonnegativeInt64WireString'
     SseSessionEventV1:
       type: object
       additionalProperties: false
@@ -596,10 +624,14 @@ components:
           const: v1
         event_type:
           type: string
+          enum:
+            - session.agent.fragment.v1
+            - session.state.changed.v1
+            - session.terminal.v1
         session_id:
           $ref: '#/components/schemas/StableId'
         session_sequence:
-          $ref: '#/components/schemas/Int64WireString'
+          $ref: '#/components/schemas/PositiveInt64WireString'
         occurred_at:
           $ref: '#/components/schemas/UtcTimestamp'
         payload:
@@ -613,11 +645,10 @@ components:
               maxLength: 512
             fragment_sequence:
               type: integer
-              minimum: 0
-              maximum: 2147483647
+              minimum: 1
+              maximum: 65535
             agent_message_id:
               $ref: '#/components/schemas/StableId'
             text_delta:
               type: string
-              minLength: 1
-              maxLength: 16384
+              maxLength: 4096

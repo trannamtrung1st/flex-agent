@@ -37,13 +37,13 @@ public sealed record LineRangeLocationV1(
     string ItemId,
     int StartLineInclusive,
     int EndLineInclusive,
-    string? LineSplitProcedureVersion);
+    string LineSplitProcedureVersion);
 
 public sealed record Utf8ByteRangeLocationV1(
     string LocationType,
     string ItemId,
     int StartInclusive,
     int EndExclusive,
-    string? ExcerptDigest);
+    string ExcerptDigest);
 
 public sealed record JsonPointerLocationV1(string LocationType, string JsonPointer);

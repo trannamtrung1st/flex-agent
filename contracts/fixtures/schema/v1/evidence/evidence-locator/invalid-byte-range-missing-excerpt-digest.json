@@ -2,7 +2,7 @@
   "locator_schema": "evidence-locator.v1",
   "source_type": "submission.text_attachment",
   "source_ref": {
-    "source_id": "att.synthetic.0002",
+    "source_id": "att.synthetic.0099",
     "source_version": "rev.0001"
   },
   "ownership_ref": {
@@ -15,10 +15,9 @@
   },
   "location": {
     "location_type": "utf8_byte_range",
-    "item_id": "att.synthetic.0002",
+    "item_id": "att.synthetic.0099",
     "start_inclusive": 0,
-    "end_exclusive": 128,
-    "excerpt_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    "end_exclusive": 128
   },
   "precision": "exact_range",
   "integrity": {
@@ -28,6 +27,6 @@
   },
   "created_by": {
     "service_id": "evaluation-service",
-    "invocation_id": "inv.synthetic.0003"
+    "invocation_id": "inv.synthetic.0099"
   }
 }
