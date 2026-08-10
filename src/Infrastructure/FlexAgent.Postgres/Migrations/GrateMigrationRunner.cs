@@ -8,19 +8,49 @@ namespace FlexAgent.Postgres.Migrations;
 
 public static class GrateMigrationRunner
 {
-    public static async Task RunAsync(string connectionString, string migrationsDirectory, CancellationToken cancellationToken = default)
+    public const string AllowEmbeddedFallbackEnvironmentVariable = "FLEXAGENT_ALLOW_EMBEDDED_MIGRATION_FALLBACK";
+
+    public static async Task RunAsync(
+        string connectionString,
+        string migrationsDirectory,
+        CancellationToken cancellationToken = default,
+        bool? allowEmbeddedFallback = null)
     {
-        if (TryRunDotnetTool(connectionString, migrationsDirectory, out var toolError))
+        var toolResult = TryRunDotnetTool(connectionString, migrationsDirectory);
+        if (toolResult.WasSuccessful)
         {
             return;
         }
 
-        await RunEmbeddedMigrationsAsync(connectionString, migrationsDirectory, cancellationToken, toolError);
+        if (!IsEmbeddedFallbackAllowed(allowEmbeddedFallback))
+        {
+            throw new InvalidOperationException(
+                $"Grate migration failed and embedded fallback is disabled.{Environment.NewLine}{toolResult.Error}");
+        }
+
+        if (!toolResult.IsRuntimeIncompatibility)
+        {
+            throw new InvalidOperationException(
+                $"Grate migration failed with a non-recoverable error.{Environment.NewLine}{toolResult.Error}");
+        }
+
+        await RunEmbeddedMigrationsAsync(connectionString, migrationsDirectory, cancellationToken, toolResult.Error);
     }
 
-    private static bool TryRunDotnetTool(string connectionString, string migrationsDirectory, out string? error)
+    private static bool IsEmbeddedFallbackAllowed(bool? allowEmbeddedFallback)
     {
-        error = null;
+        if (allowEmbeddedFallback.HasValue)
+        {
+            return allowEmbeddedFallback.Value;
+        }
+
+        var configured = Environment.GetEnvironmentVariable(AllowEmbeddedFallbackEnvironmentVariable);
+        return string.Equals(configured, "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(configured, "1", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ToolInvocationResult TryRunDotnetTool(string connectionString, string migrationsDirectory)
+    {
         var root = FindRepositoryRoot();
         var script = Path.Combine(root, "build", "scripts", "run-grate-migrations.sh");
         var startInfo = new ProcessStartInfo("/bin/bash", script)
@@ -35,8 +65,7 @@ public static class GrateMigrationRunner
         using var process = Process.Start(startInfo);
         if (process is null)
         {
-            error = "Failed to start grate migration script.";
-            return false;
+            return ToolInvocationResult.Failed("Failed to start grate migration script.", isRuntimeIncompatibility: true);
         }
 
         var stdout = process.StandardOutput.ReadToEnd();
@@ -45,11 +74,16 @@ public static class GrateMigrationRunner
 
         if (process.ExitCode == 0)
         {
-            return true;
+            return ToolInvocationResult.Success();
         }
 
-        error = $"Grate tool failed ({process.ExitCode}):{Environment.NewLine}{stdout}{Environment.NewLine}{stderr}";
-        return false;
+        var combined = $"{stdout}{Environment.NewLine}{stderr}";
+        var isRuntimeIncompatibility = process.ExitCode == 150
+            && combined.Contains("You must install or update .NET", StringComparison.OrdinalIgnoreCase);
+
+        return ToolInvocationResult.Failed(
+            $"Grate tool failed ({process.ExitCode}):{Environment.NewLine}{combined}",
+            isRuntimeIncompatibility);
     }
 
     private static async Task RunEmbeddedMigrationsAsync(
@@ -142,5 +176,13 @@ public static class GrateMigrationRunner
         }
 
         throw new InvalidOperationException("Could not locate repository root.");
+    }
+
+    private sealed record ToolInvocationResult(bool WasSuccessful, string? Error, bool IsRuntimeIncompatibility)
+    {
+        public static ToolInvocationResult Success() => new(true, null, false);
+
+        public static ToolInvocationResult Failed(string error, bool isRuntimeIncompatibility) =>
+            new(false, error, isRuntimeIncompatibility);
     }
 }

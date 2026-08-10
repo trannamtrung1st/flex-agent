@@ -6,7 +6,6 @@ using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Audit;
 using FlexAgent.Postgres.Outbox;
-using Npgsql;
 
 namespace FlexAgent.Configuration.Infrastructure;
 
@@ -14,6 +13,7 @@ public sealed class RegisterConfigurationSourceVersionHandler(
     IAuthorizationKernel authorizationKernel,
     ICommitAuthorizationKernel commitAuthorizationKernel,
     PostgresConfigurationSourceVersionRepository versionRepository,
+    PostgresConfigurationSourceVersionIdempotencyRepository idempotencyRepository,
     ConfigurationDigestVerifier digestVerifier,
     PostgresConnectionAccessor connectionAccessor,
     IAuditEventWriter auditEventWriter,
@@ -55,6 +55,8 @@ public sealed class RegisterConfigurationSourceVersionHandler(
                 null);
         }
 
+        var payloadFingerprint = ConfigurationPayloadFingerprint.Compute(command);
+
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
 
         try
@@ -82,26 +84,24 @@ public sealed class RegisterConfigurationSourceVersionHandler(
                 return Denied();
             }
 
-            var existingByIdempotency = await versionRepository.GetByIdempotencyKeyAsync(
+            var existingIdempotency = await idempotencyRepository.GetByKeyAsync(
                 command.Organization.OrganizationId,
                 command.ConfigurationSourceId,
+                AuthorizationActions.RegisterConfigurationSourceVersion,
                 command.IdempotencyKey,
                 scope.Transaction,
                 cancellationToken);
 
-            if (existingByIdempotency is not null)
+            if (existingIdempotency is not null)
             {
-                if (!MatchesPayload(existingByIdempotency, command))
-                {
-                    await scope.RollbackAsync(cancellationToken);
-                    return new RegisterConfigurationSourceVersionResult(
-                        false,
-                        RegisterConfigurationSourceVersionFailureCodes.IdempotencyConflict,
-                        null);
-                }
+                var result = await ResolveIdempotencyRecordAsync(
+                    command,
+                    existingIdempotency,
+                    scope.Transaction,
+                    cancellationToken);
 
                 await scope.CommitAsync(cancellationToken);
-                return Success(existingByIdempotency);
+                return result;
             }
 
             var existingByDigest = await versionRepository.GetByDigestAsync(
@@ -113,8 +113,15 @@ public sealed class RegisterConfigurationSourceVersionHandler(
 
             if (existingByDigest is not null)
             {
+                var result = await BindIdempotencyAndReturnAsync(
+                    command,
+                    existingByDigest,
+                    payloadFingerprint,
+                    scope.Transaction,
+                    cancellationToken);
+
                 await scope.CommitAsync(cancellationToken);
-                return Success(existingByDigest);
+                return result;
             }
 
             var versionId = Guid.NewGuid();
@@ -129,57 +136,71 @@ public sealed class RegisterConfigurationSourceVersionHandler(
                 command.IdempotencyKey,
                 createdAt);
 
-            try
-            {
-                await versionRepository.InsertAsync(row, scope.Transaction, cancellationToken);
-            }
-            catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
-            {
-                var reconciled = await ReconcileUniqueViolationAsync(command, scope.Transaction, cancellationToken);
-                if (reconciled is not null)
-                {
-                    await scope.CommitAsync(cancellationToken);
-                    return reconciled;
-                }
-
-                throw;
-            }
-
-            await auditEventWriter.InsertAsync(
-                new AuditEventWriteModel(
-                    EventId: Guid.NewGuid(),
-                    OrganizationId: command.Organization.OrganizationId,
-                    EventSchemaVersion: "audit-event.v1",
-                    OccurredAt: new DateTimeOffset(createdAt, TimeSpan.Zero),
-                    CorrelationId: command.CorrelationId,
-                    ActorType: command.Actor.ActorType,
-                    ActorId: command.Actor.ActorId,
-                    Action: AuthorizationActions.RegisterConfigurationSourceVersion,
-                    ResourceType: AuthorizationResourceTypes.ConfigurationSourceVersion,
-                    ResourceId: versionId,
-                    Outcome: "succeeded",
-                    ReasonCode: null,
-                    RelationshipVersion: commitDecision.RelationshipVersion,
-                    SourceChannel: command.SourceChannel,
-                    PayloadDigest: command.DeclaredContentDigest),
+            var inserted = await versionRepository.TryInsertAsync(row, scope.Transaction, cancellationToken);
+            var authoritativeRow = inserted ?? await versionRepository.GetByDigestAsync(
+                command.Organization.OrganizationId,
+                command.ConfigurationSourceId,
+                command.DeclaredContentDigest,
                 scope.Transaction,
                 cancellationToken);
 
-            await outboxItemWriter.InsertAsync(
-                new OutboxItemWriteModel(
-                    Id: Guid.NewGuid(),
-                    OrganizationId: command.Organization.OrganizationId,
-                    EventType: "configuration_source_version.registered",
-                    AggregateType: AuthorizationResourceTypes.ConfigurationSourceVersion,
-                    AggregateId: versionId,
-                    CorrelationId: command.CorrelationId,
-                    PayloadDigest: command.DeclaredContentDigest,
-                    CreatedAt: new DateTimeOffset(createdAt, TimeSpan.Zero)),
+            if (authoritativeRow is null)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                throw new InvalidOperationException("Configuration source version insert did not produce an authoritative row.");
+            }
+
+            var idempotencyResult = await BindIdempotencyAndReturnAsync(
+                command,
+                authoritativeRow,
+                payloadFingerprint,
                 scope.Transaction,
                 cancellationToken);
+
+            if (!idempotencyResult.Succeeded)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return idempotencyResult;
+            }
+
+            if (inserted is not null)
+            {
+                await auditEventWriter.InsertAsync(
+                    new AuditEventWriteModel(
+                        EventId: Guid.NewGuid(),
+                        OrganizationId: command.Organization.OrganizationId,
+                        EventSchemaVersion: "audit-event.v1",
+                        OccurredAt: new DateTimeOffset(createdAt, TimeSpan.Zero),
+                        CorrelationId: command.CorrelationId,
+                        ActorType: command.Actor.ActorType,
+                        ActorId: command.Actor.ActorId,
+                        Action: AuthorizationActions.RegisterConfigurationSourceVersion,
+                        ResourceType: AuthorizationResourceTypes.ConfigurationSourceVersion,
+                        ResourceId: authoritativeRow.Id,
+                        Outcome: "succeeded",
+                        ReasonCode: null,
+                        RelationshipVersion: commitDecision.RelationshipVersion,
+                        SourceChannel: command.SourceChannel,
+                        PayloadDigest: command.DeclaredContentDigest),
+                    scope.Transaction,
+                    cancellationToken);
+
+                await outboxItemWriter.InsertAsync(
+                    new OutboxItemWriteModel(
+                        Id: Guid.NewGuid(),
+                        OrganizationId: command.Organization.OrganizationId,
+                        EventType: "configuration_source_version.registered",
+                        AggregateType: AuthorizationResourceTypes.ConfigurationSourceVersion,
+                        AggregateId: authoritativeRow.Id,
+                        CorrelationId: command.CorrelationId,
+                        PayloadDigest: command.DeclaredContentDigest,
+                        CreatedAt: new DateTimeOffset(createdAt, TimeSpan.Zero)),
+                    scope.Transaction,
+                    cancellationToken);
+            }
 
             await scope.CommitAsync(cancellationToken);
-            return Success(row);
+            return idempotencyResult;
         }
         catch
         {
@@ -188,36 +209,75 @@ public sealed class RegisterConfigurationSourceVersionHandler(
         }
     }
 
-    private async Task<RegisterConfigurationSourceVersionResult?> ReconcileUniqueViolationAsync(
+    private async Task<RegisterConfigurationSourceVersionResult> ResolveIdempotencyRecordAsync(
         RegisterConfigurationSourceVersionCommand command,
-        NpgsqlTransaction transaction,
+        ConfigurationSourceVersionIdempotencyRow existingIdempotency,
+        Npgsql.NpgsqlTransaction transaction,
         CancellationToken cancellationToken)
     {
-        var existingByIdempotency = await versionRepository.GetByIdempotencyKeyAsync(
+        if (!string.Equals(existingIdempotency.PayloadFingerprint, ConfigurationPayloadFingerprint.Compute(command), StringComparison.Ordinal))
+        {
+            return new RegisterConfigurationSourceVersionResult(
+                false,
+                RegisterConfigurationSourceVersionFailureCodes.IdempotencyConflict,
+                null);
+        }
+
+        var version = await versionRepository.GetByIdAsync(
+            command.Organization.OrganizationId,
+            existingIdempotency.VersionId,
+            transaction,
+            cancellationToken);
+
+        return version is null ? Denied() : Success(version);
+    }
+
+    private async Task<RegisterConfigurationSourceVersionResult> BindIdempotencyAndReturnAsync(
+        RegisterConfigurationSourceVersionCommand command,
+        ConfigurationSourceVersionRow version,
+        string payloadFingerprint,
+        Npgsql.NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        if (!MatchesPayload(version, command))
+        {
+            return new RegisterConfigurationSourceVersionResult(
+                false,
+                RegisterConfigurationSourceVersionFailureCodes.IdempotencyConflict,
+                null);
+        }
+
+        var insertedVersionId = await idempotencyRepository.TryInsertAsync(
+            new ConfigurationSourceVersionIdempotencyRow(
+                command.Organization.OrganizationId,
+                command.ConfigurationSourceId,
+                AuthorizationActions.RegisterConfigurationSourceVersion,
+                command.IdempotencyKey,
+                version.Id,
+                payloadFingerprint,
+                DateTime.UtcNow),
+            transaction,
+            cancellationToken);
+
+        if (insertedVersionId is not null)
+        {
+            return Success(version);
+        }
+
+        var existingIdempotency = await idempotencyRepository.GetByKeyAsync(
             command.Organization.OrganizationId,
             command.ConfigurationSourceId,
+            AuthorizationActions.RegisterConfigurationSourceVersion,
             command.IdempotencyKey,
             transaction,
             cancellationToken);
 
-        if (existingByIdempotency is not null)
+        if (existingIdempotency is null)
         {
-            return MatchesPayload(existingByIdempotency, command)
-                ? Success(existingByIdempotency)
-                : new RegisterConfigurationSourceVersionResult(
-                    false,
-                    RegisterConfigurationSourceVersionFailureCodes.IdempotencyConflict,
-                    null);
+            throw new InvalidOperationException("Idempotency record conflict could not be reconciled.");
         }
 
-        var existingByDigest = await versionRepository.GetByDigestAsync(
-            command.Organization.OrganizationId,
-            command.ConfigurationSourceId,
-            command.DeclaredContentDigest,
-            transaction,
-            cancellationToken);
-
-        return existingByDigest is not null ? Success(existingByDigest) : null;
+        return await ResolveIdempotencyRecordAsync(command, existingIdempotency, transaction, cancellationToken);
     }
 
     private static bool MatchesPayload(ConfigurationSourceVersionRow existing, RegisterConfigurationSourceVersionCommand command) =>

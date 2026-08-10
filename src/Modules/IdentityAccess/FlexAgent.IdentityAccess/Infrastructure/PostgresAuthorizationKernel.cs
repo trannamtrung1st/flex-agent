@@ -18,6 +18,16 @@ public sealed class PostgresAuthorizationKernel(PostgresConnectionAccessor conne
           AND revoked_at IS NULL;
         """;
 
+    private const string ActiveGrantForCommitSql = """
+        SELECT relationship_version
+        FROM actor_organization_grants
+        WHERE organization_id = @OrganizationId
+          AND actor_id = @ActorId
+          AND granted_action = @GrantedAction
+          AND revoked_at IS NULL
+        FOR SHARE;
+        """;
+
     private const string ActorExistsSql = """
         SELECT 1
         FROM actors
@@ -27,16 +37,17 @@ public sealed class PostgresAuthorizationKernel(PostgresConnectionAccessor conne
     public Task<AuthorizationDecision> AuthorizeAsync(
         AuthorizationRequest request,
         CancellationToken cancellationToken = default) =>
-        EvaluateAsync(request, connection: null, transaction: null, cancellationToken);
+        EvaluateAsync(request, useCommitLock: false, connection: null, transaction: null, cancellationToken);
 
     public Task<AuthorizationDecision> ReauthorizeInTransactionAsync(
         AuthorizationRequest request,
         NpgsqlTransaction transaction,
         CancellationToken cancellationToken = default) =>
-        EvaluateAsync(request, transaction.Connection, transaction, cancellationToken);
+        EvaluateAsync(request, useCommitLock: true, transaction.Connection, transaction, cancellationToken);
 
     private async Task<AuthorizationDecision> EvaluateAsync(
         AuthorizationRequest request,
+        bool useCommitLock,
         NpgsqlConnection? connection,
         NpgsqlTransaction? transaction,
         CancellationToken cancellationToken)
@@ -63,9 +74,10 @@ public sealed class PostgresAuthorizationKernel(PostgresConnectionAccessor conne
                 return AuthorizationDecision.Deny(AuthorizationReasonCodes.UnknownActor);
             }
 
+            var grantSql = useCommitLock ? ActiveGrantForCommitSql : ActiveGrantSql;
             var relationshipVersion = await connection.ExecuteScalarAsync<long?>(
                 new CommandDefinition(
-                    ActiveGrantSql,
+                    grantSql,
                     new
                     {
                         OrganizationId = request.Organization.OrganizationId,

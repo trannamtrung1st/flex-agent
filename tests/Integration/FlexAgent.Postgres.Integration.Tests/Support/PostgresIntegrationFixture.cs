@@ -36,7 +36,10 @@ public sealed class PostgresIntegrationFixture : IAsyncLifetime
     {
         var root = FindRepositoryRoot();
         var migrationsDirectory = Path.Combine(root, "database", "migrations");
-        await GrateMigrationRunner.RunAsync(ConnectionString, migrationsDirectory);
+        await GrateMigrationRunner.RunAsync(
+            ConnectionString,
+            migrationsDirectory,
+            allowEmbeddedFallback: true);
     }
 
     public async Task<SeededOrganization> SeedOrganizationAsync(string suffix = "")

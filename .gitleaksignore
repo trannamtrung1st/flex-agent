@@ -15,3 +15,7 @@
 # schemaComponent; historical commits retain the old property name.
 7c5df2f24786e6f1d5914a02325508cfaa4741ce:contracts/tests/openapi-parity.test.mjs:generic-api-key:20
 7c17a383c2f845c48354471e3d3003cf89f77041:contracts/tests/openapi-parity.test.mjs:generic-api-key:61
+
+# b3e4d71 — planning doc phrase "unique/idempotency" tripped generic-api-key;
+# wording fixed in a follow-up commit.
+b3e4d71ade79df8eebd3c653399ce5c9a9891a73:.work/active/postgres-authorization-configuration-foundation.md:generic-api-key:117

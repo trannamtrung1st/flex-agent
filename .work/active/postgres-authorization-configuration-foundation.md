@@ -1,6 +1,6 @@
 ---
 id: postgres-authorization-configuration-foundation
-status: completed
+status: in_review
 created: 2026-08-10
 updated: 2026-08-10
 ---
@@ -114,8 +114,8 @@ Session configuration, or start an assessment workflow.
 - Implement only scoped repository entry points. Protected get/list/count and
   mutation methods require trusted Organization/resource scope; there is no
   unscoped `GetById`, list-all, or count-all path for protected records.
-- Enforce critical invariants in PostgreSQL with composite keys/foreign keys,
-  unique/idempotency constraints, UTC timestamps, immutable version rows, and
+- Enforce critical invariants in PostgreSQL with composite keys, foreign keys,
+  unique constraints, idempotency keys, UTC timestamps, immutable version rows, and
   mutation-rejecting protection for append-only audit history where supported
   by the approved design.
 - Add architecture tests rejecting persistence/framework imports from
@@ -219,13 +219,11 @@ Session configuration, or start an assessment workflow.
 
 # Current state
 
-Artifact 4 is implemented and verified locally. Added `FlexAgent.Postgres`
-infrastructure, `FlexAgent.IdentityAccess` and `FlexAgent.Configuration`
-modules, Grate SQL migrations, dotnet tool pin, integration tests against
-PostgreSQL 18 via Testcontainers, and architecture boundary tests. The
-protected `RegisterConfigurationSourceVersion` command exercises deny-by-default
-authorization, commit-time reauthorization, digest validation, scoped
-repositories, idempotency, and atomic version/audit/outbox persistence.
+Artifact 4 is implemented with review follow-up addressing commit-time grant
+locking (`FOR SHARE`), separate idempotency records, `ON CONFLICT` insert
+reconciliation, fail-closed Grate execution, version immutability triggers, and
+race-oriented integration tests. Task status is `in_review` pending external
+backend/security sign-off.
 
 # Decisions
 
@@ -260,15 +258,17 @@ repositories, idempotency, and atomic version/audit/outbox persistence.
 
 # Findings / deviations
 
-- Grate dotnet tool 2.1.6 failed on the local arm64 host (exit 150) due to a
-  patch-runtime mismatch; integration verification uses the repository-owned SQL
-  fallback with identical transactional semantics until CI/runtime alignment is
-  confirmed for the tool path.
+- Grate dotnet tool 2.1.6 may fail locally (exit 150) due to runtime patch
+  mismatch; embedded fallback is now **opt-in** via
+  `FLEXAGENT_ALLOW_EMBEDDED_MIGRATION_FALLBACK=true` (tests only). All other
+  Grate failures fail closed.
 - Full `GATE-STACK-ISOLATION` Activity/Participant/Session matrices remain
   deferred; this slice proves the Organization/configuration-source pattern
   only.
-- Changed-script failure, concurrent migration locking, and injected
-  audit/outbox rollback fault-injection tests are not yet automated.
+- Audit/outbox fault-injection rollback tests remain deferred.
+- Review follow-up (2026-08-10): addressed P1 grant lock, idempotency table,
+  `ON CONFLICT` reconciliation, fail-closed migrations, and version
+  immutability triggers.
 
 # Open questions / interim defaults
 
@@ -322,9 +322,9 @@ repositories, idempotency, and atomic version/audit/outbox persistence.
 | Governing product, requirement, architecture, and completed prerequisite review | pass | Sources listed above inspected during planning on 2026-08-10 |
 | Exact dependency/tool versions and primary-source behavior | pass | Npgsql 10.0.3, Dapper 2.1.79, Grate 2.1.6, Testcontainers.PostgreSql 4.11.0 pinned in `Directory.Packages.props`, `.config/dotnet-tools.json`, `build/toolchain.json` |
 | Artifact-3 focused contract/JCS baseline | pass | `dotnet test --solution FlexAgent.slnx -c Release` — 83 pre-artifact tests green before implementation; 98 total after |
-| Grate migration safety matrix against PostgreSQL 18 | partial | `GrateMigrationTests` (empty schema, repeat no-op via `grate_migrations`); changed-script/concurrency/transactional-failure cases deferred |
-| Scoped repository authorization/isolation matrix | pass | `AuthorizationTests`, `OrganizationIsolationTests` — unknown actor, revoked grant, forged scope, guessed source, cross-org list/count |
-| Atomic configuration/audit/outbox boundary | pass | `Successful_registration_persists_version_audit_and_outbox` correlates audit/outbox by correlation_id |
+| Grate migration safety matrix against PostgreSQL 18 | partial | Repeat no-op via schema stability; fail-closed tool path; embedded fallback test-only; changed-script hash in fallback |
+| Scoped repository authorization/isolation matrix | pass | Authorization, isolation, commit lock race, concurrent idempotency, digest-key reservation |
+| Atomic configuration/audit/outbox boundary | pass | Success correlation; audit `relationship_version`; audit/outbox fault injection deferred |
 | Module/dependency architecture tests | pass | `ModuleBoundaryTests` — no Npgsql/Dapper in domain/application; no unscoped get-by-id; Configuration.Application does not reference CanonicalJson |
 | Locked aggregate regression and CI | pass | `bash build/scripts/verify-dotnet.sh` — restore/build/test/publish green (98 tests) |
 | Frontend and Playwright | not applicable | No UI-affecting work in artifact 4; revisit if scope changes |

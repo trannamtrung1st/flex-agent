@@ -17,22 +17,6 @@ public sealed record ConfigurationSourceVersionRow(
 
 public sealed class PostgresConfigurationSourceVersionRepository(PostgresConnectionAccessor connectionAccessor)
 {
-    private const string SelectByIdempotencySql = """
-        SELECT
-            id AS Id,
-            organization_id AS OrganizationId,
-            configuration_source_id AS ConfigurationSourceId,
-            schema_version AS SchemaVersion,
-            procedure_id AS ProcedureId,
-            content_digest AS ContentDigest,
-            idempotency_key AS IdempotencyKey,
-            created_at AS CreatedAt
-        FROM configuration_source_versions
-        WHERE organization_id = @OrganizationId
-          AND configuration_source_id = @ConfigurationSourceId
-          AND idempotency_key = @IdempotencyKey;
-        """;
-
     private const string SelectByDigestSql = """
         SELECT
             id AS Id,
@@ -47,6 +31,21 @@ public sealed class PostgresConfigurationSourceVersionRepository(PostgresConnect
         WHERE organization_id = @OrganizationId
           AND configuration_source_id = @ConfigurationSourceId
           AND content_digest = @ContentDigest;
+        """;
+
+    private const string SelectByIdSql = """
+        SELECT
+            id AS Id,
+            organization_id AS OrganizationId,
+            configuration_source_id AS ConfigurationSourceId,
+            schema_version AS SchemaVersion,
+            procedure_id AS ProcedureId,
+            content_digest AS ContentDigest,
+            idempotency_key AS IdempotencyKey,
+            created_at AS CreatedAt
+        FROM configuration_source_versions
+        WHERE organization_id = @OrganizationId
+          AND id = @VersionId;
         """;
 
     private const string InsertSql = """
@@ -67,7 +66,17 @@ public sealed class PostgresConfigurationSourceVersionRepository(PostgresConnect
             @ProcedureId,
             @ContentDigest,
             @IdempotencyKey,
-            @CreatedAt);
+            @CreatedAt)
+        ON CONFLICT ON CONSTRAINT uq_configuration_source_versions_digest DO NOTHING
+        RETURNING
+            id AS Id,
+            organization_id AS OrganizationId,
+            configuration_source_id AS ConfigurationSourceId,
+            schema_version AS SchemaVersion,
+            procedure_id AS ProcedureId,
+            content_digest AS ContentDigest,
+            idempotency_key AS IdempotencyKey,
+            created_at AS CreatedAt;
         """;
 
     private const string ListSql = """
@@ -129,21 +138,6 @@ public sealed class PostgresConfigurationSourceVersionRepository(PostgresConnect
         }
     }
 
-    public async Task<ConfigurationSourceVersionRow?> GetByIdempotencyKeyAsync(
-        Guid organizationId,
-        Guid configurationSourceId,
-        string idempotencyKey,
-        NpgsqlTransaction transaction,
-        CancellationToken cancellationToken = default)
-    {
-        return await transaction.Connection!.QuerySingleOrDefaultAsync<ConfigurationSourceVersionRow>(
-            new CommandDefinition(
-                SelectByIdempotencySql,
-                new { OrganizationId = organizationId, ConfigurationSourceId = configurationSourceId, IdempotencyKey = idempotencyKey },
-                transaction,
-                cancellationToken: cancellationToken));
-    }
-
     public async Task<ConfigurationSourceVersionRow?> GetByDigestAsync(
         Guid organizationId,
         Guid configurationSourceId,
@@ -159,18 +153,27 @@ public sealed class PostgresConfigurationSourceVersionRepository(PostgresConnect
                 cancellationToken: cancellationToken));
     }
 
-    public async Task InsertAsync(
+    public async Task<ConfigurationSourceVersionRow?> GetByIdAsync(
+        Guid organizationId,
+        Guid versionId,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        return await transaction.Connection!.QuerySingleOrDefaultAsync<ConfigurationSourceVersionRow>(
+            new CommandDefinition(
+                SelectByIdSql,
+                new { OrganizationId = organizationId, VersionId = versionId },
+                transaction,
+                cancellationToken: cancellationToken));
+    }
+
+    public async Task<ConfigurationSourceVersionRow?> TryInsertAsync(
         ConfigurationSourceVersionRow row,
         NpgsqlTransaction transaction,
         CancellationToken cancellationToken = default)
     {
-        var rows = await transaction.Connection!.ExecuteAsync(
+        return await transaction.Connection!.QuerySingleOrDefaultAsync<ConfigurationSourceVersionRow>(
             new CommandDefinition(InsertSql, row, transaction, cancellationToken: cancellationToken));
-
-        if (rows != 1)
-        {
-            throw new InvalidOperationException("Configuration source version insert did not affect exactly one row.");
-        }
     }
 
     public async Task<IReadOnlyList<ConfigurationSourceVersionRow>> ListForSourceAsync(

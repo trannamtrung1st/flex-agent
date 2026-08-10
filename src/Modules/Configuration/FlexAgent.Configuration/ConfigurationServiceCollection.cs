@@ -18,6 +18,7 @@ public static class ConfigurationServiceCollection
 
         var authorizationKernel = new PostgresAuthorizationKernel(connectionAccessor);
         var versionRepository = new PostgresConfigurationSourceVersionRepository(connectionAccessor);
+        var idempotencyRepository = new PostgresConfigurationSourceVersionIdempotencyRepository();
         var digestVerifier = new ConfigurationDigestVerifier();
         var auditWriter = new PostgresAuditEventWriter();
         var outboxWriter = new PostgresOutboxItemWriter();
@@ -26,6 +27,7 @@ public static class ConfigurationServiceCollection
             authorizationKernel,
             authorizationKernel,
             versionRepository,
+            idempotencyRepository,
             digestVerifier,
             connectionAccessor,
             auditWriter,
@@ -35,6 +37,7 @@ public static class ConfigurationServiceCollection
             connectionAccessor,
             authorizationKernel,
             versionRepository,
+            idempotencyRepository,
             new PostgresGrantRepository(connectionAccessor),
             handler);
     }
@@ -43,6 +46,7 @@ public static class ConfigurationServiceCollection
         PostgresConnectionAccessor ConnectionAccessor,
         IAuthorizationKernel AuthorizationKernel,
         PostgresConfigurationSourceVersionRepository VersionRepository,
+        PostgresConfigurationSourceVersionIdempotencyRepository IdempotencyRepository,
         PostgresGrantRepository GrantRepository,
         IRegisterConfigurationSourceVersionHandler RegisterHandler);
 }
