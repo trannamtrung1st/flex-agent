@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FlexAgent.Contracts.Audit;
@@ -28,14 +27,19 @@ public sealed class ContractMappingParityTests
     [Fact]
     public void Exported_contract_dto_surface_matches_catalog_categories()
     {
-        var exported = typeof(SessionCommandEnvelopeV1).Assembly
+        var exported = typeof(ISessionCommandEnvelopeV1).Assembly
             .GetTypes()
             .Where(type => type is { IsPublic: true, IsAbstract: false })
             .Select(type => type.Name)
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Contains("SessionCommandEnvelopeV1", exported);
+        Assert.Contains("SessionMessageSendCommandV1", exported);
+        Assert.Contains("SessionPauseCommandV1", exported);
+        Assert.Contains("SessionResumeCommandV1", exported);
+        Assert.Contains("SessionCompleteCommandV1", exported);
+        Assert.Contains("SessionTerminateCommandV1", exported);
+        Assert.Contains("SessionReconcileCommandV1", exported);
         Assert.Contains("SessionStateEventEnvelopeV1", exported);
         Assert.Contains("ResolvedExecutionManifestV1", exported);
         Assert.Contains("EvidenceLocatorV1", exported);
@@ -50,18 +54,72 @@ public sealed class ContractMappingParityTests
     public void Representative_dto_round_trip_validates_against_schema()
     {
         var schemas = ContractSchemaRegistry.BuildCatalogSchemas(ContractsRoot, _catalog, AllowedKeywords);
+        var locator = new SessionLocatorV1("sess.synthetic.0001");
 
-        var command = new SessionCommandEnvelopeV1(
-            "v1",
-            "session.message.send.v1",
-            "cmd.synthetic.0001",
-            "idem-synthetic-0001",
-            new SessionLocatorV1("sess.synthetic.0001"),
-            3,
-            12,
-            new MessageSendPayloadV1("Synthetic participant message for contract validation."));
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/session/command-envelope.v1.schema.json",
+            new SessionMessageSendCommandV1(
+                "v1",
+                "session.message.send.v1",
+                "cmd.synthetic.0001",
+                "idem-synthetic-0001",
+                locator,
+                3,
+                "12",
+                new MessageSendPayloadV1("Synthetic participant message for contract validation.")));
 
-        ValidateDto(schemas, "https://flex-agent.local/contracts/schemas/v1/session/command-envelope.v1.schema.json", command);
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/session/command-envelope.v1.schema.json",
+            new SessionPauseCommandV1(
+                "v1",
+                "session.pause.v1",
+                "cmd.synthetic.0002",
+                "idem-synthetic-0002",
+                locator,
+                4,
+                null,
+                new EmptyCommandPayloadV1()));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/session/command-envelope.v1.schema.json",
+            new SessionTerminateCommandV1(
+                "v1",
+                "session.terminate.v1",
+                "cmd.synthetic.0005",
+                "idem-synthetic-0005",
+                locator,
+                7,
+                null,
+                new TerminateCommandPayloadV1("participant_requested")));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/session/command-envelope.v1.schema.json",
+            new SessionReconcileCommandV1(
+                "v1",
+                "session.reconcile.v1",
+                "cmd.synthetic.0006",
+                "idem-synthetic-0006",
+                locator,
+                8,
+                "9007199254740993",
+                new EmptyCommandPayloadV1()));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/session/state-event-envelope.v1.schema.json",
+            new SessionStateEventEnvelopeV1(
+                "v1",
+                "session.message.accepted.v1",
+                "sess.synthetic.0001",
+                "9007199254740993",
+                4,
+                "2026-08-10T00:00:00Z",
+                "corr.synthetic.0001",
+                new SessionStateEventPayloadV1("Participant message accepted.", "turn.synthetic.0001")));
 
         var audit = new AuditEventV1(
             "audit-event.v1",
@@ -78,8 +136,64 @@ public sealed class ContractMappingParityTests
 
         ValidateDto(schemas, "https://flex-agent.local/contracts/schemas/v1/audit/audit-event.v1.schema.json", audit);
 
-        var error = new SafeErrorResponseV1("v1", "conflict", "corr.synthetic.0003", "reconcile", 4, 13);
+        var error = new SafeErrorResponseV1("v1", "conflict", "corr.synthetic.0003", "reconcile", 4, "13");
         ValidateDto(schemas, "https://flex-agent.local/contracts/schemas/v1/transport/safe-error-response.v1.schema.json", error);
+
+        var manifest = new ResolvedExecutionManifestV1(
+            "v1",
+            "manifest.synthetic.0002",
+            new SessionOwnershipRefV1(
+                "org.synthetic.0001",
+                "act.synthetic.0001",
+                "part.synthetic.0001",
+                "att.synthetic.0001",
+                "sess.synthetic.0001"),
+            new ConfigurationRefV1(
+                "rsc.synthetic.0001",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            [
+                new ManifestRuntimeRecordV1(
+                    "42",
+                    "transcript.append.v1",
+                    "session-worker",
+                    "2026-08-10T00:00:02Z",
+                    new ProtectedPayloadRefV1(
+                        "prot.synthetic.0002",
+                        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")),
+            ],
+            "completed",
+            new TerminalSealV1(
+                "manifest-jcs-sha256-v1",
+                "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/manifest/resolved-execution-manifest.v1.schema.json",
+            manifest);
+
+        var evidence = new EvidenceLocatorV1(
+            "evidence-locator.v1",
+            "configuration.fact",
+            new EvidenceSourceRefV1("cfg.synthetic.0001", "rev.0001", null),
+            new EvidenceOwnershipRefV1(
+                "org.synthetic.0001",
+                "act.synthetic.0001",
+                "part.synthetic.0001",
+                "att.synthetic.0001",
+                "sess.synthetic.0001",
+                "eval.synthetic.0001"),
+            new JsonPointerLocationV1("json_pointer", "/facts/0/value"),
+            "exact_range",
+            new EvidenceIntegrityV1(
+                "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "locator-adapter.v1",
+                "verified"),
+            new EvidenceCreatedByV1("evaluation-service", "inv.synthetic.0004"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/evidence/evidence-locator.v1.schema.json",
+            evidence);
     }
 
     private void ValidateDto(IReadOnlyDictionary<string, Json.Schema.JsonSchema> schemas, string schemaId, object dto)

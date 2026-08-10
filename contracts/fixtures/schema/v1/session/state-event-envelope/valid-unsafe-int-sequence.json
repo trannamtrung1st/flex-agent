@@ -2,12 +2,10 @@
   "schema_version": "v1",
   "event_type": "session.message.accepted.v1",
   "session_id": "sess.synthetic.0001",
-  "session_sequence": "13",
+  "session_sequence": "9007199254740993",
   "session_version": 4,
   "occurred_at": "2026-08-10T00:00:00Z",
-  "correlation_id": "corr.synthetic.0001",
   "payload": {
-    "summary": "Participant message accepted.",
-    "turn_id": "turn.synthetic.0001"
+    "summary": "Unsafe integer boundary preserved as decimal string."
   }
 }

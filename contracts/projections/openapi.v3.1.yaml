@@ -1,11 +1,12 @@
 openapi: 3.1.0
 info:
   title: Flex Agent representative transport projection
-  version: 0.1.0
+  version: 0.2.0
   description: >
     Deterministic OpenAPI projection of representative command, event, manifest,
-    evidence locator, audit, safe error, and SSE shapes. This projection is not
-    authorization evidence and excludes internal-only fields by design.
+    evidence locator, audit, safe error, and SSE shapes. Structural fields mirror
+    the canonical JSON Schema catalog; this projection is not authorization evidence
+    and excludes internal-only fields by design.
 paths:
   /session/commands:
     post:
@@ -41,7 +42,29 @@ paths:
                 $ref: '#/components/schemas/SseSessionEventV1'
 components:
   schemas:
+    Int64WireString:
+      type: string
+      pattern: '^(0|[1-9][0-9]{0,18})$'
+      maxLength: 19
+    UtcTimestamp:
+      type: string
+      format: date-time
+      pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$'
+      maxLength: 32
+    StableId:
+      type: string
+      minLength: 8
+      maxLength: 128
+      pattern: '^[a-z][a-z0-9._-]{7,127}$'
     SessionCommandEnvelopeV1:
+      oneOf:
+        - $ref: '#/components/schemas/SessionMessageSendCommandV1'
+        - $ref: '#/components/schemas/SessionPauseCommandV1'
+        - $ref: '#/components/schemas/SessionResumeCommandV1'
+        - $ref: '#/components/schemas/SessionCompleteCommandV1'
+        - $ref: '#/components/schemas/SessionTerminateCommandV1'
+        - $ref: '#/components/schemas/SessionReconcileCommandV1'
+    SessionCommandEnvelopeCoreV1:
       type: object
       additionalProperties: false
       required:
@@ -59,22 +82,103 @@ components:
         command_type:
           type: string
         command_id:
-          type: string
+          $ref: '#/components/schemas/StableId'
         idempotency_key:
           type: string
+          minLength: 8
+          maxLength: 128
         session_locator:
           type: object
           additionalProperties: false
           required: [session_id]
           properties:
             session_id:
-              type: string
+              $ref: '#/components/schemas/StableId'
         expected_session_version:
           type: integer
+          minimum: 0
+          maximum: 2147483647
         client_last_seen_sequence:
-          type: integer
+          $ref: '#/components/schemas/Int64WireString'
         payload:
           type: object
+    SessionMessageSendCommandV1:
+      allOf:
+        - $ref: '#/components/schemas/SessionCommandEnvelopeCoreV1'
+        - type: object
+          properties:
+            command_type:
+              const: session.message.send.v1
+            payload:
+              type: object
+              additionalProperties: false
+              required: [message_text]
+              properties:
+                message_text:
+                  type: string
+                  minLength: 1
+                  maxLength: 16384
+    SessionPauseCommandV1:
+      allOf:
+        - $ref: '#/components/schemas/SessionCommandEnvelopeCoreV1'
+        - type: object
+          properties:
+            command_type:
+              const: session.pause.v1
+            payload:
+              type: object
+              additionalProperties: false
+              maxProperties: 0
+    SessionResumeCommandV1:
+      allOf:
+        - $ref: '#/components/schemas/SessionCommandEnvelopeCoreV1'
+        - type: object
+          properties:
+            command_type:
+              const: session.resume.v1
+            payload:
+              type: object
+              additionalProperties: false
+              maxProperties: 0
+    SessionCompleteCommandV1:
+      allOf:
+        - $ref: '#/components/schemas/SessionCommandEnvelopeCoreV1'
+        - type: object
+          properties:
+            command_type:
+              const: session.complete.v1
+            payload:
+              type: object
+              additionalProperties: false
+              maxProperties: 0
+    SessionTerminateCommandV1:
+      allOf:
+        - $ref: '#/components/schemas/SessionCommandEnvelopeCoreV1'
+        - type: object
+          properties:
+            command_type:
+              const: session.terminate.v1
+            payload:
+              type: object
+              additionalProperties: false
+              required: [reason_code]
+              properties:
+                reason_code:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+    SessionReconcileCommandV1:
+      allOf:
+        - $ref: '#/components/schemas/SessionCommandEnvelopeCoreV1'
+        - type: object
+          required: [client_last_seen_sequence]
+          properties:
+            command_type:
+              const: session.reconcile.v1
+            payload:
+              type: object
+              additionalProperties: false
+              maxProperties: 0
     SessionStateEventEnvelopeV1:
       type: object
       additionalProperties: false
@@ -89,30 +193,359 @@ components:
       properties:
         schema_version:
           type: string
+          const: v1
         event_type:
           type: string
+          enum:
+            - session.message.accepted.v1
+            - session.agent.fragment.v1
+            - session.state.changed.v1
+            - session.terminal.v1
         session_id:
-          type: string
+          $ref: '#/components/schemas/StableId'
         session_sequence:
-          type: integer
+          $ref: '#/components/schemas/Int64WireString'
         session_version:
           type: integer
+          minimum: 0
+          maximum: 2147483647
         occurred_at:
-          type: string
-          format: date-time
+          $ref: '#/components/schemas/UtcTimestamp'
         correlation_id:
-          type: string
+          $ref: '#/components/schemas/StableId'
         payload:
           type: object
+          additionalProperties: false
+          required: [summary]
+          properties:
+            summary:
+              type: string
+              minLength: 1
+              maxLength: 512
+            turn_id:
+              $ref: '#/components/schemas/StableId'
     ResolvedExecutionManifestV1:
       type: object
       additionalProperties: false
+      required:
+        - schema_version
+        - manifest_id
+        - ownership
+        - configuration_ref
+        - runtime_records
+        - terminal_state
+      properties:
+        schema_version:
+          type: string
+          const: v1
+        manifest_id:
+          $ref: '#/components/schemas/StableId'
+        ownership:
+          $ref: '#/components/schemas/SessionOwnershipRefV1'
+        configuration_ref:
+          type: object
+          additionalProperties: false
+          required: [configuration_id, configuration_digest]
+          properties:
+            configuration_id:
+              $ref: '#/components/schemas/StableId'
+            configuration_digest:
+              type: string
+              pattern: '^[0-9a-f]{64}$'
+        runtime_records:
+          type: array
+          maxItems: 256
+          items:
+            $ref: '#/components/schemas/ManifestRuntimeRecordV1'
+        terminal_state:
+          type: string
+          enum: [active, completing, completed, terminated, aborted]
+        terminal_seal:
+          $ref: '#/components/schemas/TerminalSealV1'
+    SessionOwnershipRefV1:
+      type: object
+      additionalProperties: false
+      required:
+        - organization_id
+        - activity_id
+        - participant_id
+        - attempt_id
+        - session_id
+      properties:
+        organization_id:
+          $ref: '#/components/schemas/StableId'
+        activity_id:
+          $ref: '#/components/schemas/StableId'
+        participant_id:
+          $ref: '#/components/schemas/StableId'
+        attempt_id:
+          $ref: '#/components/schemas/StableId'
+        session_id:
+          $ref: '#/components/schemas/StableId'
+    ManifestRuntimeRecordV1:
+      type: object
+      additionalProperties: false
+      required:
+        - sequence
+        - record_type
+        - service_actor
+        - occurred_at
+        - payload_ref
+      properties:
+        sequence:
+          $ref: '#/components/schemas/Int64WireString'
+        record_type:
+          type: string
+          enum:
+            - model.invocation.v1
+            - transcript.append.v1
+            - timer.event.v1
+        service_actor:
+          type: string
+          minLength: 1
+          maxLength: 128
+        occurred_at:
+          $ref: '#/components/schemas/UtcTimestamp'
+        payload_ref:
+          type: object
+          additionalProperties: false
+          required: [protected_ref, content_digest]
+          properties:
+            protected_ref:
+              $ref: '#/components/schemas/StableId'
+            content_digest:
+              type: string
+              pattern: '^[0-9a-f]{64}$'
+    TerminalSealV1:
+      type: object
+      additionalProperties: false
+      required: [procedure_id, seal_digest]
+      properties:
+        procedure_id:
+          type: string
+          const: manifest-jcs-sha256-v1
+        seal_digest:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
     EvidenceLocatorV1:
       type: object
       additionalProperties: false
+      required:
+        - locator_schema
+        - source_type
+        - source_ref
+        - ownership_ref
+        - location
+        - precision
+        - integrity
+        - created_by
+      properties:
+        locator_schema:
+          type: string
+          const: evidence-locator.v1
+        source_type:
+          type: string
+          enum:
+            - submission.direct_text
+            - submission.text_attachment
+            - session.transcript_item
+            - session.work_trace
+            - configuration.fact
+            - manifest.fact
+            - deterministic.fact
+        source_ref:
+          type: object
+          additionalProperties: false
+          required: [source_id, source_version]
+          properties:
+            source_id:
+              $ref: '#/components/schemas/StableId'
+            source_version:
+              $ref: '#/components/schemas/StableId'
+            terminal_cutoff_sequence:
+              $ref: '#/components/schemas/Int64WireString'
+        ownership_ref:
+          type: object
+          additionalProperties: false
+          required:
+            - organization_id
+            - activity_id
+            - participant_id
+            - attempt_id
+            - session_id
+            - evaluation_id
+          properties:
+            organization_id:
+              $ref: '#/components/schemas/StableId'
+            activity_id:
+              $ref: '#/components/schemas/StableId'
+            participant_id:
+              $ref: '#/components/schemas/StableId'
+            attempt_id:
+              $ref: '#/components/schemas/StableId'
+            session_id:
+              $ref: '#/components/schemas/StableId'
+            evaluation_id:
+              $ref: '#/components/schemas/StableId'
+        location:
+          oneOf:
+            - $ref: '#/components/schemas/WholeItemLocationV1'
+            - $ref: '#/components/schemas/LineRangeLocationV1'
+            - $ref: '#/components/schemas/Utf8ByteRangeLocationV1'
+            - $ref: '#/components/schemas/JsonPointerLocationV1'
+        precision:
+          type: string
+          enum: [exact_range, stable_segment, whole_item]
+        integrity:
+          type: object
+          additionalProperties: false
+          required: [source_digest, adapter_version, verification_state]
+          properties:
+            source_digest:
+              type: string
+              pattern: '^[0-9a-f]{64}$'
+            adapter_version:
+              type: string
+              minLength: 1
+              maxLength: 64
+            verification_state:
+              type: string
+              enum: [verified, degraded, failed]
+        created_by:
+          type: object
+          additionalProperties: false
+          required: [service_id, invocation_id]
+          properties:
+            service_id:
+              type: string
+              minLength: 1
+              maxLength: 128
+            invocation_id:
+              $ref: '#/components/schemas/StableId'
+    WholeItemLocationV1:
+      type: object
+      additionalProperties: false
+      required: [location_type, item_id]
+      properties:
+        location_type:
+          const: whole_item
+        item_id:
+          $ref: '#/components/schemas/StableId'
+    LineRangeLocationV1:
+      type: object
+      additionalProperties: false
+      required: [location_type, item_id, start_line_inclusive, end_line_inclusive]
+      properties:
+        location_type:
+          const: line_range
+        item_id:
+          $ref: '#/components/schemas/StableId'
+        start_line_inclusive:
+          type: integer
+          minimum: 1
+          maximum: 1048576
+        end_line_inclusive:
+          type: integer
+          minimum: 1
+          maximum: 1048576
+        line_split_procedure_version:
+          type: string
+          minLength: 1
+          maxLength: 64
+    Utf8ByteRangeLocationV1:
+      type: object
+      additionalProperties: false
+      required: [location_type, item_id, start_inclusive, end_exclusive]
+      properties:
+        location_type:
+          const: utf8_byte_range
+        item_id:
+          $ref: '#/components/schemas/StableId'
+        start_inclusive:
+          type: integer
+          minimum: 0
+          maximum: 1048576
+        end_exclusive:
+          type: integer
+          minimum: 1
+          maximum: 1048577
+        excerpt_digest:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+    JsonPointerLocationV1:
+      type: object
+      additionalProperties: false
+      required: [location_type, json_pointer]
+      properties:
+        location_type:
+          const: json_pointer
+        json_pointer:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: '^/'
     AuditEventV1:
       type: object
       additionalProperties: false
+      required:
+        - event_schema
+        - event_id
+        - actor
+        - organization_id
+        - action
+        - resource_ref
+        - outcome
+        - occurred_at
+        - correlation_id
+      properties:
+        event_schema:
+          type: string
+          const: audit-event.v1
+        event_id:
+          $ref: '#/components/schemas/StableId'
+        actor:
+          type: object
+          additionalProperties: false
+          required: [actor_type, actor_id]
+          properties:
+            actor_type:
+              type: string
+              enum: [human, service, system]
+            actor_id:
+              type: string
+              minLength: 1
+              maxLength: 128
+        organization_id:
+          $ref: '#/components/schemas/StableId'
+        action:
+          type: string
+          minLength: 1
+          maxLength: 128
+        resource_ref:
+          type: object
+          additionalProperties: false
+          required: [resource_type, resource_id]
+          properties:
+            resource_type:
+              type: string
+              minLength: 1
+              maxLength: 64
+            resource_id:
+              $ref: '#/components/schemas/StableId'
+        outcome:
+          type: string
+          enum: [succeeded, denied, failed]
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        occurred_at:
+          $ref: '#/components/schemas/UtcTimestamp'
+        correlation_id:
+          $ref: '#/components/schemas/StableId'
+        durability_class:
+          type: string
+          enum: [required_durable, bufferable]
     SafeErrorResponseV1:
       type: object
       additionalProperties: false
@@ -124,16 +557,29 @@ components:
       properties:
         schema_version:
           type: string
+          const: v1
         outcome:
           type: string
+          enum:
+            - validation_failed
+            - conflict
+            - unauthorized
+            - forbidden
+            - not_found
+            - rate_limited
+            - unavailable
+            - internal_error
         correlation_id:
-          type: string
+          $ref: '#/components/schemas/StableId'
         permitted_recovery_action:
           type: string
+          enum: [retry, reconcile, contact_administrator, none]
         session_version:
           type: integer
+          minimum: 0
+          maximum: 2147483647
         session_sequence:
-          type: integer
+          $ref: '#/components/schemas/Int64WireString'
     SseSessionEventV1:
       type: object
       additionalProperties: false
@@ -147,14 +593,31 @@ components:
       properties:
         schema_version:
           type: string
+          const: v1
         event_type:
           type: string
         session_id:
-          type: string
+          $ref: '#/components/schemas/StableId'
         session_sequence:
-          type: integer
+          $ref: '#/components/schemas/Int64WireString'
         occurred_at:
-          type: string
-          format: date-time
+          $ref: '#/components/schemas/UtcTimestamp'
         payload:
           type: object
+          additionalProperties: false
+          required: [summary]
+          properties:
+            summary:
+              type: string
+              minLength: 1
+              maxLength: 512
+            fragment_sequence:
+              type: integer
+              minimum: 0
+              maximum: 2147483647
+            agent_message_id:
+              $ref: '#/components/schemas/StableId'
+            text_delta:
+              type: string
+              minLength: 1
+              maxLength: 16384

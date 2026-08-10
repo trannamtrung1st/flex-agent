@@ -7,7 +7,7 @@ public sealed class ContractsBoundaryTests
     [Fact]
     public void Contracts_has_no_nuget_or_host_references()
     {
-        var assembly = typeof(SessionCommandEnvelopeV1).Assembly;
+        var assembly = typeof(ISessionCommandEnvelopeV1).Assembly;
         var references = assembly.GetReferencedAssemblies().Select(reference => reference.Name).ToArray();
 
         Assert.All(references, reference =>
@@ -21,7 +21,7 @@ public sealed class ContractsBoundaryTests
     [Fact]
     public void Contracts_exports_only_browser_safe_dto_surface()
     {
-        var exported = typeof(SessionCommandEnvelopeV1).Assembly
+        var exported = typeof(ISessionCommandEnvelopeV1).Assembly
             .GetExportedTypes()
             .Select(type => type.FullName!)
             .OrderBy(name => name, StringComparer.Ordinal)

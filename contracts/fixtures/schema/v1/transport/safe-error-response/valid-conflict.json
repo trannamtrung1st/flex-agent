@@ -4,5 +4,5 @@
   "correlation_id": "corr.synthetic.0003",
   "permitted_recovery_action": "reconcile",
   "session_version": 4,
-  "session_sequence": 13
+  "session_sequence": "13"
 }

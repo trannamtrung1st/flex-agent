@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "manifest_id": "manifest.synthetic.0099",
+  "ownership": {
+    "organization_id": "org.synthetic.0001",
+    "activity_id": "act.synthetic.0001",
+    "participant_id": "part.synthetic.0001",
+    "attempt_id": "att.synthetic.0001",
+    "session_id": "sess.synthetic.0001"
+  },
+  "configuration_ref": {
+    "configuration_id": "rsc.synthetic.0001",
+    "configuration_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "runtime_records": [],
+  "terminal_state": "terminated"
+}

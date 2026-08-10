@@ -19,7 +19,7 @@ public sealed record SessionOwnershipRefV1(
 public sealed record ConfigurationRefV1(string ConfigurationId, string ConfigurationDigest);
 
 public sealed record ManifestRuntimeRecordV1(
-    long Sequence,
+    string Sequence,
     string RecordType,
     string ServiceActor,
     string OccurredAt,

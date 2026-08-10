@@ -1,10 +1,9 @@
 {
   "locator_schema": "evidence-locator.v1",
-  "source_type": "session.transcript_item",
+  "source_type": "submission.direct_text",
   "source_ref": {
-    "source_id": "msg.synthetic.0001",
-    "source_version": "rev.0001",
-    "terminal_cutoff_sequence": "42"
+    "source_id": "sub.synthetic.0001",
+    "source_version": "rev.0001"
   },
   "ownership_ref": {
     "organization_id": "org.synthetic.0001",
@@ -15,10 +14,13 @@
     "evaluation_id": "eval.synthetic.0001"
   },
   "location": {
-    "location_type": "whole_item",
-    "item_id": "msg.synthetic.0001"
+    "location_type": "line_range",
+    "item_id": "sub.synthetic.0001",
+    "start_line_inclusive": 3,
+    "end_line_inclusive": 7,
+    "line_split_procedure_version": "line-split.v1"
   },
-  "precision": "whole_item",
+  "precision": "exact_range",
   "integrity": {
     "source_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
     "adapter_version": "locator-adapter.v1",
@@ -26,6 +28,6 @@
   },
   "created_by": {
     "service_id": "evaluation-service",
-    "invocation_id": "inv.synthetic.0001"
+    "invocation_id": "inv.synthetic.0002"
   }
 }

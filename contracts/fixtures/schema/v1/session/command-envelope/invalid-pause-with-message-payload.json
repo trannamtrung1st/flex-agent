@@ -1,0 +1,13 @@
+{
+  "schema_version": "v1",
+  "command_type": "session.pause.v1",
+  "command_id": "cmd.synthetic.0099",
+  "idempotency_key": "idem-synthetic-0099",
+  "session_locator": {
+    "session_id": "sess.synthetic.0001"
+  },
+  "expected_session_version": 3,
+  "payload": {
+    "message_text": "Pause commands must not carry message payloads."
+  }
+}

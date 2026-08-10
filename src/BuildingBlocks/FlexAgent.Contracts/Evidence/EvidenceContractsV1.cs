@@ -13,7 +13,7 @@ public sealed record EvidenceLocatorV1(
 public sealed record EvidenceSourceRefV1(
     string SourceId,
     string SourceVersion,
-    long? TerminalCutoffSequence);
+    string? TerminalCutoffSequence);
 
 public sealed record EvidenceOwnershipRefV1(
     string OrganizationId,
@@ -31,6 +31,13 @@ public sealed record EvidenceIntegrityV1(
 public sealed record EvidenceCreatedByV1(string ServiceId, string InvocationId);
 
 public sealed record WholeItemLocationV1(string LocationType, string ItemId);
+
+public sealed record LineRangeLocationV1(
+    string LocationType,
+    string ItemId,
+    int StartLineInclusive,
+    int EndLineInclusive,
+    string? LineSplitProcedureVersion);
 
 public sealed record Utf8ByteRangeLocationV1(
     string LocationType,

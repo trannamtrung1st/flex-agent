@@ -1,10 +1,9 @@
 {
   "locator_schema": "evidence-locator.v1",
-  "source_type": "session.transcript_item",
+  "source_type": "configuration.fact",
   "source_ref": {
-    "source_id": "msg.synthetic.0001",
-    "source_version": "rev.0001",
-    "terminal_cutoff_sequence": "42"
+    "source_id": "cfg.synthetic.0001",
+    "source_version": "rev.0001"
   },
   "ownership_ref": {
     "organization_id": "org.synthetic.0001",
@@ -16,7 +15,7 @@
   },
   "location": {
     "location_type": "whole_item",
-    "item_id": "msg.synthetic.0001"
+    "item_id": "cfg.synthetic.0001"
   },
   "precision": "whole_item",
   "integrity": {
@@ -26,6 +25,6 @@
   },
   "created_by": {
     "service_id": "evaluation-service",
-    "invocation_id": "inv.synthetic.0001"
+    "invocation_id": "inv.synthetic.0099"
   }
 }

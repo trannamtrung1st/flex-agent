@@ -6,13 +6,13 @@ public sealed record SafeErrorResponseV1(
     string CorrelationId,
     string PermittedRecoveryAction,
     int? SessionVersion,
-    long? SessionSequence);
+    string? SessionSequence);
 
 public sealed record SseSessionEventV1(
     string SchemaVersion,
     string EventType,
     string SessionId,
-    long SessionSequence,
+    string SessionSequence,
     string OccurredAt,
     SseSessionEventPayloadV1 Payload);
 

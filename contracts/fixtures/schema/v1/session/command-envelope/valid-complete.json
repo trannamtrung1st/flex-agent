@@ -1,0 +1,11 @@
+{
+  "schema_version": "v1",
+  "command_type": "session.complete.v1",
+  "command_id": "cmd.synthetic.0004",
+  "idempotency_key": "idem-synthetic-0004",
+  "session_locator": {
+    "session_id": "sess.synthetic.0001"
+  },
+  "expected_session_version": 6,
+  "payload": {}
+}

@@ -47,6 +47,36 @@
     },
     "terminal_seal": { "$ref": "#/$defs/terminal_seal" }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "terminal_state": {
+            "enum": ["completed", "terminated", "aborted"]
+          }
+        },
+        "required": ["terminal_state"]
+      },
+      "then": {
+        "required": ["terminal_seal"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "terminal_state": {
+            "enum": ["active", "completing"]
+          }
+        },
+        "required": ["terminal_state"]
+      },
+      "then": {
+        "properties": {
+          "terminal_seal": false
+        }
+      }
+    }
+  ],
   "$defs": {
     "runtime_record": {
       "type": "object",
@@ -60,9 +90,7 @@
       ],
       "properties": {
         "sequence": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 9223372036854775807
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/int64_wire_string"
         },
         "record_type": {
           "type": "string",

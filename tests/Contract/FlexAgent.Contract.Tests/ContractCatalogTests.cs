@@ -32,13 +32,7 @@ public sealed class ContractCatalogTests
     }
 
     [Theory]
-    [InlineData("fixtures/schema/v1/session/command-envelope/valid-message-send.json", "https://flex-agent.local/contracts/schemas/v1/session/command-envelope.v1.schema.json")]
-    [InlineData("fixtures/schema/v1/session/state-event-envelope/valid-message-accepted.json", "https://flex-agent.local/contracts/schemas/v1/session/state-event-envelope.v1.schema.json")]
-    [InlineData("fixtures/schema/v1/manifest/resolved-execution-manifest/valid-active.json", "https://flex-agent.local/contracts/schemas/v1/manifest/resolved-execution-manifest.v1.schema.json")]
-    [InlineData("fixtures/schema/v1/evidence/evidence-locator/valid-transcript-whole-item.json", "https://flex-agent.local/contracts/schemas/v1/evidence/evidence-locator.v1.schema.json")]
-    [InlineData("fixtures/schema/v1/audit/audit-event/valid-freeze.json", "https://flex-agent.local/contracts/schemas/v1/audit/audit-event.v1.schema.json")]
-    [InlineData("fixtures/schema/v1/transport/safe-error-response/valid-conflict.json", "https://flex-agent.local/contracts/schemas/v1/transport/safe-error-response.v1.schema.json")]
-    [InlineData("fixtures/schema/v1/transport/sse-event/valid-fragment.json", "https://flex-agent.local/contracts/schemas/v1/transport/sse-event.v1.schema.json")]
+    [MemberData(nameof(ValidFixtureCases))]
     public void Representative_valid_fixtures_validate(string relativeFixturePath, string schemaId)
     {
         var schemas = ContractSchemaRegistry.BuildCatalogSchemas(ContractsRoot, _catalog, AllowedKeywords);
@@ -48,16 +42,15 @@ public sealed class ContractCatalogTests
         Assert.True(result.IsValid, JsonSerializer.Serialize(result));
     }
 
-    [Fact]
-    public void Representative_invalid_fixture_rejects_unknown_fields()
+    [Theory]
+    [MemberData(nameof(InvalidFixtureCases))]
+    public void Representative_invalid_fixtures_reject(string relativeFixturePath, string schemaId)
     {
         var schemas = ContractSchemaRegistry.BuildCatalogSchemas(ContractsRoot, _catalog, AllowedKeywords);
-        var schema = schemas["https://flex-agent.local/contracts/schemas/v1/session/command-envelope.v1.schema.json"];
-        var instanceBytes = File.ReadAllBytes(Path.Combine(
-            ContractsRoot,
-            "fixtures/schema/v1/session/command-envelope/invalid-unknown-field.json"));
+        var schema = schemas[schemaId];
+        var instanceBytes = File.ReadAllBytes(Path.Combine(ContractsRoot, relativeFixturePath));
         var result = _harness.ValidateInstance(schema, instanceBytes);
-        Assert.False(result.IsValid);
+        Assert.False(result.IsValid, relativeFixturePath);
     }
 
     [Fact]
@@ -68,5 +61,43 @@ public sealed class ContractCatalogTests
         Assert.Contains("openapi: 3.1.0", content, StringComparison.Ordinal);
         Assert.DoesNotContain("internal_authorization_evidence", content, StringComparison.Ordinal);
         Assert.DoesNotContain("organization_scope_proof", content, StringComparison.Ordinal);
+        Assert.Contains("SessionMessageSendCommandV1", content, StringComparison.Ordinal);
+        Assert.Contains("EvidenceLocatorV1", content, StringComparison.Ordinal);
+        Assert.Contains("Int64WireString", content, StringComparison.Ordinal);
+    }
+
+    public static TheoryData<string, string> ValidFixtureCases => DiscoverFixtures("valid-");
+
+    public static TheoryData<string, string> InvalidFixtureCases => DiscoverFixtures("invalid-");
+
+    private static TheoryData<string, string> DiscoverFixtures(string prefix)
+    {
+        var fixturesRoot = Path.Combine(ContractsRoot, "fixtures", "schema", "v1");
+        var data = new TheoryData<string, string>();
+        foreach (var file in Directory.EnumerateFiles(fixturesRoot, $"{prefix}*.json", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(ContractsRoot, file).Replace('\\', '/');
+            var schemaId = ResolveSchemaId(relative);
+            data.Add(relative, schemaId);
+        }
+
+        return data;
+    }
+
+    private static string ResolveSchemaId(string relativeFixturePath)
+    {
+        var segments = relativeFixturePath.Split('/');
+        var category = segments[^2];
+        return category switch
+        {
+            "command-envelope" => "https://flex-agent.local/contracts/schemas/v1/session/command-envelope.v1.schema.json",
+            "state-event-envelope" => "https://flex-agent.local/contracts/schemas/v1/session/state-event-envelope.v1.schema.json",
+            "resolved-execution-manifest" => "https://flex-agent.local/contracts/schemas/v1/manifest/resolved-execution-manifest.v1.schema.json",
+            "evidence-locator" => "https://flex-agent.local/contracts/schemas/v1/evidence/evidence-locator.v1.schema.json",
+            "audit-event" => "https://flex-agent.local/contracts/schemas/v1/audit/audit-event.v1.schema.json",
+            "safe-error-response" => "https://flex-agent.local/contracts/schemas/v1/transport/safe-error-response.v1.schema.json",
+            "sse-event" => "https://flex-agent.local/contracts/schemas/v1/transport/sse-event.v1.schema.json",
+            _ => throw new InvalidOperationException($"Unknown fixture category: {category}"),
+        };
     }
 }

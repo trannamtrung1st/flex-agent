@@ -44,9 +44,7 @@
           "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
         },
         "terminal_cutoff_sequence": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 9223372036854775807
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/int64_wire_string"
         }
       }
     },
@@ -83,7 +81,12 @@
       }
     },
     "location": {
-      "$ref": "#/$defs/whole_item_location"
+      "oneOf": [
+        { "$ref": "#/$defs/whole_item_location" },
+        { "$ref": "#/$defs/line_range_location" },
+        { "$ref": "#/$defs/byte_range_location" },
+        { "$ref": "#/$defs/json_pointer_location" }
+      ]
     },
     "precision": {
       "type": "string",
@@ -128,6 +131,77 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_type": {
+            "enum": ["submission.direct_text", "submission.text_attachment"]
+          }
+        },
+        "required": ["source_type"]
+      },
+      "then": {
+        "properties": {
+          "location": {
+            "oneOf": [
+              { "$ref": "#/$defs/whole_item_location" },
+              { "$ref": "#/$defs/line_range_location" },
+              { "$ref": "#/$defs/byte_range_location" }
+            ]
+          },
+          "precision": {
+            "enum": ["exact_range", "whole_item"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_type": {
+            "enum": ["session.transcript_item", "session.work_trace"]
+          }
+        },
+        "required": ["source_type"]
+      },
+      "then": {
+        "required": ["source_ref"],
+        "properties": {
+          "source_ref": {
+            "required": ["terminal_cutoff_sequence"]
+          },
+          "location": {
+            "oneOf": [
+              { "$ref": "#/$defs/whole_item_location" },
+              { "$ref": "#/$defs/byte_range_location" }
+            ]
+          },
+          "precision": {
+            "enum": ["exact_range", "whole_item"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_type": {
+            "enum": ["configuration.fact", "manifest.fact", "deterministic.fact"]
+          }
+        },
+        "required": ["source_type"]
+      },
+      "then": {
+        "properties": {
+          "location": { "$ref": "#/$defs/json_pointer_location" },
+          "precision": {
+            "enum": ["exact_range", "stable_segment", "whole_item"]
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "whole_item_location": {
       "type": "object",
@@ -137,6 +211,32 @@
         "location_type": { "const": "whole_item" },
         "item_id": {
           "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        }
+      }
+    },
+    "line_range_location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["location_type", "item_id", "start_line_inclusive", "end_line_inclusive"],
+      "properties": {
+        "location_type": { "const": "line_range" },
+        "item_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "start_line_inclusive": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "end_line_inclusive": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "line_split_procedure_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
         }
       }
     },

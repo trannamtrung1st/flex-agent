@@ -7,7 +7,7 @@
     "session_id": "sess.synthetic.0001"
   },
   "expected_session_version": 3,
-  "client_last_seen_sequence": 12,
+  "client_last_seen_sequence": "12",
   "payload": {
     "message_text": "Synthetic participant message for contract validation."
   }

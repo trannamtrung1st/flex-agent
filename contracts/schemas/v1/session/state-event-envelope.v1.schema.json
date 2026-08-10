@@ -31,9 +31,7 @@
       "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
     },
     "session_sequence": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 9223372036854775807
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/int64_wire_string"
     },
     "session_version": {
       "type": "integer",

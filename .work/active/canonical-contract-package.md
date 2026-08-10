@@ -4,6 +4,7 @@ status: completed
 created: 2026-08-10
 updated: 2026-08-10
 closed: 2026-08-10
+review_remediation: 2026-08-10
 ---
 
 # Goal
@@ -240,6 +241,25 @@ Remaining gaps for later expansion (not blockers for this minimum artifact):
   explicit caller-supplied limits and use clearly test-only bounded values in
   conformance suites. Rationale: production defaults remain unapproved and
   belong to the consuming runtime boundary, not the contract package.
+
+# Review remediation (post `8d9ad0e`)
+
+Addressed six review findings blocking approval:
+
+| Finding | Fix |
+| --- | --- |
+| P1 command `payload` / `command_type` mismatch | Top-level `oneOf` with six command-specific variants; positive/negative fixtures per command |
+| P1 evidence locator location union | Tagged `oneOf` for whole-item, line-range, UTF-8 byte-range, JSON Pointer; `allOf` conditionals on `source_type`; fixtures per family |
+| P1/P2 unsafe TS `number` for int64 | `int64_wire_string` primitive (decimal string); C#/TS/OpenAPI aligned; Node round-trip fixture `9007199254740993` |
+| P2 nominal OpenAPI parity | Expanded `openapi.v3.1.yaml`; `contracts/tests/openapi-parity.test.mjs` compares required/properties/enums |
+| P2 timestamp validation not fail-closed | `RequireFormatValidation = true` in harness; `utc_timestamp` Z-only `pattern`; invalid timestamp fixtures |
+| P2 manifest seal not coupled to terminal state | `if/then`: terminal states require `terminal_seal`; active/completing forbid it |
+
+Post-remediation verification:
+
+- `verify-dotnet.sh`: 79/79 pass
+- `verify-web.sh`: pass (contracts 6/6 Node tests, lint, typecheck, build)
+- Contract catalog: auto-discovered valid/invalid fixtures (20 valid, 6 invalid)
 
 # Findings / deviations
 

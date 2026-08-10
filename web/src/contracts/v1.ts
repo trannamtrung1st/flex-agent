@@ -1,5 +1,8 @@
 export type SchemaVersionV1 = 'v1';
 
+/** Decimal string wire encoding for canonical int64 sequence and cursor fields. */
+export type Int64WireString = string;
+
 export interface SessionLocatorV1 {
   session_id: string;
 }
@@ -8,16 +11,59 @@ export interface MessageSendPayloadV1 {
   message_text: string;
 }
 
-export interface SessionCommandEnvelopeV1 {
+export interface TerminateCommandPayloadV1 {
+  reason_code: string;
+}
+
+export type EmptyCommandPayloadV1 = Record<string, never>;
+
+interface SessionCommandEnvelopeCoreV1 {
   schema_version: SchemaVersionV1;
-  command_type: string;
   command_id: string;
   idempotency_key: string;
   session_locator: SessionLocatorV1;
   expected_session_version: number;
-  client_last_seen_sequence?: number;
-  payload: MessageSendPayloadV1 | Record<string, never>;
+  client_last_seen_sequence?: Int64WireString;
 }
+
+export interface SessionMessageSendCommandV1 extends SessionCommandEnvelopeCoreV1 {
+  command_type: 'session.message.send.v1';
+  payload: MessageSendPayloadV1;
+}
+
+export interface SessionPauseCommandV1 extends SessionCommandEnvelopeCoreV1 {
+  command_type: 'session.pause.v1';
+  payload: EmptyCommandPayloadV1;
+}
+
+export interface SessionResumeCommandV1 extends SessionCommandEnvelopeCoreV1 {
+  command_type: 'session.resume.v1';
+  payload: EmptyCommandPayloadV1;
+}
+
+export interface SessionCompleteCommandV1 extends SessionCommandEnvelopeCoreV1 {
+  command_type: 'session.complete.v1';
+  payload: EmptyCommandPayloadV1;
+}
+
+export interface SessionTerminateCommandV1 extends SessionCommandEnvelopeCoreV1 {
+  command_type: 'session.terminate.v1';
+  payload: TerminateCommandPayloadV1;
+}
+
+export interface SessionReconcileCommandV1 extends SessionCommandEnvelopeCoreV1 {
+  command_type: 'session.reconcile.v1';
+  client_last_seen_sequence: Int64WireString;
+  payload: EmptyCommandPayloadV1;
+}
+
+export type SessionCommandEnvelopeV1 =
+  | SessionMessageSendCommandV1
+  | SessionPauseCommandV1
+  | SessionResumeCommandV1
+  | SessionCompleteCommandV1
+  | SessionTerminateCommandV1
+  | SessionReconcileCommandV1;
 
 export interface SessionStateEventPayloadV1 {
   summary: string;
@@ -28,7 +74,7 @@ export interface SessionStateEventEnvelopeV1 {
   schema_version: SchemaVersionV1;
   event_type: string;
   session_id: string;
-  session_sequence: number;
+  session_sequence: Int64WireString;
   session_version: number;
   occurred_at: string;
   correlation_id?: string;
@@ -49,7 +95,7 @@ export interface ConfigurationRefV1 {
 }
 
 export interface ManifestRuntimeRecordV1 {
-  sequence: number;
+  sequence: Int64WireString;
   record_type: string;
   service_actor: string;
   occurred_at: string;
@@ -72,13 +118,45 @@ export interface ResolvedExecutionManifestV1 {
   };
 }
 
+export interface WholeItemLocationV1 {
+  location_type: 'whole_item';
+  item_id: string;
+}
+
+export interface LineRangeLocationV1 {
+  location_type: 'line_range';
+  item_id: string;
+  start_line_inclusive: number;
+  end_line_inclusive: number;
+  line_split_procedure_version?: string;
+}
+
+export interface Utf8ByteRangeLocationV1 {
+  location_type: 'utf8_byte_range';
+  item_id: string;
+  start_inclusive: number;
+  end_exclusive: number;
+  excerpt_digest?: string;
+}
+
+export interface JsonPointerLocationV1 {
+  location_type: 'json_pointer';
+  json_pointer: string;
+}
+
+export type EvidenceLocationV1 =
+  | WholeItemLocationV1
+  | LineRangeLocationV1
+  | Utf8ByteRangeLocationV1
+  | JsonPointerLocationV1;
+
 export interface EvidenceLocatorV1 {
   locator_schema: 'evidence-locator.v1';
   source_type: string;
   source_ref: {
     source_id: string;
     source_version: string;
-    terminal_cutoff_sequence?: number;
+    terminal_cutoff_sequence?: Int64WireString;
   };
   ownership_ref: {
     organization_id: string;
@@ -88,7 +166,7 @@ export interface EvidenceLocatorV1 {
     session_id: string;
     evaluation_id: string;
   };
-  location: Record<string, unknown>;
+  location: EvidenceLocationV1;
   precision: 'exact_range' | 'stable_segment' | 'whole_item';
   integrity: {
     source_digest: string;
@@ -127,7 +205,7 @@ export interface SafeErrorResponseV1 {
   correlation_id: string;
   permitted_recovery_action: 'retry' | 'reconcile' | 'contact_administrator' | 'none';
   session_version?: number;
-  session_sequence?: number;
+  session_sequence?: Int64WireString;
 }
 
 export interface SseSessionEventPayloadV1 {
@@ -141,7 +219,7 @@ export interface SseSessionEventV1 {
   schema_version: SchemaVersionV1;
   event_type: string;
   session_id: string;
-  session_sequence: number;
+  session_sequence: Int64WireString;
   occurred_at: string;
   payload: SseSessionEventPayloadV1;
 }

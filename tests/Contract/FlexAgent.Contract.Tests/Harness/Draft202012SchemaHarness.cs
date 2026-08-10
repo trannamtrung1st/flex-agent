@@ -67,7 +67,9 @@ internal sealed class Draft202012SchemaHarness
 
         using (instance)
         {
-            return schema.Evaluate(instance.RootElement);
+            return schema.Evaluate(
+                instance.RootElement,
+                new EvaluationOptions { RequireFormatValidation = true });
         }
     }
 

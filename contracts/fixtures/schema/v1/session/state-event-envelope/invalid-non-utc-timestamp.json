@@ -4,10 +4,8 @@
   "session_id": "sess.synthetic.0001",
   "session_sequence": "13",
   "session_version": 4,
-  "occurred_at": "2026-08-10T00:00:00Z",
-  "correlation_id": "corr.synthetic.0001",
+  "occurred_at": "2026-08-10T00:00:00+00:00",
   "payload": {
-    "summary": "Participant message accepted.",
-    "turn_id": "turn.synthetic.0001"
+    "summary": "UTC timestamps must use Z suffix, not numeric offsets."
   }
 }
