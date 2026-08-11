@@ -1,7 +1,8 @@
 # Text Session runtime contract
 
 Approved detailed runtime contract for the MVP text Session lifecycle,
-including participant-visible incremental Agent-response streaming.
+including participant-visible incremental Agent-response streaming and the
+structured Agent Invocation/Decision plus next-timer replacement boundaries.
 
 ## Document metadata
 
@@ -11,15 +12,13 @@ including participant-visible incremental Agent-response streaming.
 | **Owner** | Architecture Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, UI/UX, security/privacy, documentation |
-| **Version** | 0.2 |
-| **Approved date** | 2026-08-06; version 0.2 approved 2026-08-09 |
-| **Approval reference** | [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md) approved `SESS-DEC-1`–`SESS-DEC-8`; [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md) supersedes `SESS-DEC-3` and approves `SESS-DEC-9`–`SESS-DEC-13` plus version 0.2 |
-| **Governs** | Session command, ordering, timing, publication, reconnect, terminalization, and recovery realization |
+| **Version** | 0.4 |
+| **Approved date** | Version 0.1 approved 2026-08-06; version 0.2 approved 2026-08-09; versions 0.3 and 0.4 approved 2026-08-11 |
+| **Approval reference** | [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md) approved `SESS-DEC-1`–`SESS-DEC-8`; [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md) approves `SESS-DEC-9`–`SESS-DEC-13`; [ADR-012](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) approves `SESS-DEC-14`–`SESS-DEC-23`; [ADR-013](decisions/ADR-013-agent-requested-next-timer-replacement.md) approves `SESS-DEC-24`–`SESS-DEC-28` |
+| **Governs** | Session command, Invocation/Decision, ordering, timing, publication, reconnect, terminalization, and recovery realization |
 
-This document does not alter observable behavior in the approved
-[text Session lifecycle specification](../requirements/features/session-text-lifecycle.md).
-It is authoritative for the detailed MVP technical realization within the
-approved product, requirements, and ADR boundaries.
+Version 0.4 is **approved** and supersedes version 0.3 while preserving its
+ADR-011 streaming and ADR-012 Invocation/Decision decisions.
 
 ## Purpose and audience
 
@@ -30,6 +29,8 @@ before the Evaluation handoff. It defines:
 
 - one Session state and ordering authority;
 - message, turn, work-trace, timing, and terminal record ownership;
+- trusted trigger admission, Agent Invocation, Agent Decision, validation, and
+  effect ownership;
 - synchronous command and asynchronous generation boundaries;
 - reconnect and SSE cursor behavior;
 - exact transaction, idempotency, audit, and manifest coupling; and
@@ -61,6 +62,10 @@ product, model provider, or SSE library.
   [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md).
 - Approved [MVP architecture](mvp-architecture.md), especially `AR-DEC-3`,
   `AR-DEC-4`, `AR-DEC-7`, and its ordering and durable-work rules.
+- Approved [ADR-012](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md)
+  for the provider-neutral Invocation/Decision boundary.
+- Approved [ADR-013](decisions/ADR-013-agent-requested-next-timer-replacement.md)
+  for optional one-lane next-timer replacement.
 
 ## Scope
 
@@ -71,6 +76,9 @@ product, model provider, or SSE library.
 - Participant message admission, turns, response slots, generation attempts,
   durable participant-visible Agent-response fragments, work-trace updates,
   complete/incomplete Agent-message outcomes, and replay.
+- P0 trusted Participant-input, permitted workflow, and optional one-lane timer
+  triggers; admitted Agent Invocations; Agent Decisions; optional next-timer
+  recommendations; explicit no-action; validation; and resulting effects.
 - Active-duration and absolute-deadline accounting, warnings, pause/resume,
   expiry, completion, termination, and abort.
 - Request/response commands, SSE delivery, bounded polling fallback, reconnect,
@@ -88,6 +96,8 @@ product, model provider, or SSE library.
   behavior. Those remain owned by an approved UI/UX interaction specification.
 - Voice, participant-session tools, Dynamic memory, shared Sessions, offline
   submission, and participant-provided code execution.
+- Silence-driven behavior, arbitrary or parallel timer lanes, Interaction
+  Controller runtime, and richer configurable trigger/workflow execution.
 
 ## Confirmed constraints
 
@@ -109,13 +119,22 @@ product, model provider, or SSE library.
    provider timestamps, resolve races.
 8. Required identity, authorization, ownership, integrity, manifest, or audit
    state fails closed.
+9. Model/provider output cannot establish a trusted trigger, authorize a
+   Decision, or write authoritative Session/workflow state.
+10. Agent Invocation, Turn, provider request, Agent Decision, Agent Message, and
+    authoritative effect remain separately identifiable.
+11. An Agent next-timer recommendation is not schedule or trigger authority;
+    one runtime-owned timer lane and its authoritative revision remain the only
+    source of a due timer event.
 
 ## Approved contract decisions
 
 `SESS-DEC-1`–`SESS-DEC-8` were approved on 2026-08-06.
 `SESS-DEC-9`–`SESS-DEC-13` were approved on 2026-08-09 through ADR-011.
+`SESS-DEC-14`–`SESS-DEC-23` were approved on 2026-08-11 through ADR-012.
+`SESS-DEC-24`–`SESS-DEC-28` were approved on 2026-08-11 through ADR-013.
 
-| ID | Approved decision | Rationale |
+| ID | Decision | Rationale |
 | --- | --- | --- |
 | `SESS-DEC-1` | Use one monotonically increasing `session_sequence` allocated by the primary store for every authoritative lifecycle, transcript, work-trace, warning, timer, terminal-intent, and manifest-relevant Session record. | One order resolves device, timer, model, and terminal races without trusting wall clocks. |
 | `SESS-DEC-2` | Represent a turn with one stable `turn_id` and one or more policy-declared response slots; the MVP default participant turn has exactly one Agent response slot. Enforce at most one published Agent message per slot. | Separates accepted input, generation attempts, and participant-visible publication while preventing duplicate answers. |
@@ -130,6 +149,21 @@ product, model provider, or SSE library.
 | `SESS-DEC-11` | The first fragment commit atomically claims the response slot, visible generation attempt, and Agent message. Only that attempt may append contiguous fragments. A final record seals the fragment range and assembled-content digest as `Complete`; stopped visible streams end explicitly as `Incomplete` or `Cancelled`. | Prevents two retries from interleaving or a later full candidate from replacing content already shown. |
 | `SESS-DEC-12` | A failure before the first visible fragment may retry the same response slot with a new generation attempt. After any visible fragment, an in-place restart is prohibited; the system may finish the same valid stream or, when frozen policy permits, create a new ordered continuation response slot linked to the incomplete message. | Preserves exact exposure while retaining an explicit recovery path. |
 | `SESS-DEC-13` | Enforce positive per-fragment, fragment-rate, fragment-count, total-response, in-flight, and Session stream bounds. Use rolling incremental validation, transactional outbox delivery, database-backed replay, and backpressure; no external broker is required for correctness. | Contains write amplification, resource exhaustion, incremental disclosure, and delivery failure while preserving the existing OSS-first topology. |
+| `SESS-DEC-14` | Allocate `agent_invocation_id` when the runtime durably admits a typed trusted trigger after eligibility, authorization, deduplication, lifecycle, and budget checks. Persist every admitted Invocation with minimized context/provenance; do not persist every raw signal as an Invocation. | Makes external reasoning and material no-effect outcomes reconstructable without indiscriminate controller/telemetry retention. |
+| `SESS-DEC-15` | Derive trigger provenance and Invocation context only from trusted Session state or an approved adapter. Unknown/prohibited triggers fail closed, and model-authored content cannot establish trigger, scope, authority, timing, or workflow facts. | Prevents prompt injection, confused-deputy behavior, and cross-scope contamination. |
+| `SESS-DEC-16` | One Invocation is one semantic decision opportunity with bounded execution attempts and lower-level provider requests. One successful Invocation yields exactly one Agent Decision; infrastructure failure yields an Invocation execution outcome and no fabricated Decision. | Decouples domain identity from provider retries and failure classification. |
+| `SESS-DEC-17` | Validate every Agent Decision independently against current authorization, Session/cutoff, frozen Harness/workflow policy, decision schema, capability, payload, and resource bounds. Record recommendation, validation outcome, and authoritative domain effect or explicit no-domain-effect outcome separately. | Keeps model output outside platform authority and distinguishes Decision rejection from provider or effect failure. |
+| `SESS-DEC-18` | Treat `no_action` as a successful Decision. For a Participant Turn, atomically or equivalently record the Decision, accepted validation, explicit response-slot/Turn terminal outcome, and required provenance without creating an Agent Message. | Prevents absence of a message from remaining ambiguous or causing reconnect retries. |
+| `SESS-DEC-19` | Separate structured decision/control semantics from participant-visible content at the Flex Agent boundary. Accept `emit_message` before content publication, then apply ADR-011 to every delta; permit one or multiple provider phases without requiring complete-message buffering or partial structured-control exposure. | Preserves provider neutrality and exact durable streaming. |
+| `SESS-DEC-20` | Scope Invocation idempotency to trusted Session, trigger identity/version, purpose, and frozen policy. Order admitted Invocations, Decisions, and effects when material; reconcile equivalent duplicates and reject mismatches/stale or post-cutoff results. | Prevents duplicate Agent effects and resolves lifecycle races deterministically. |
+| `SESS-DEC-21` | Freeze behaviorally material trigger/decision policy and positive attempt/chain/cooldown/loop bounds. Keep P0 voice signals, Participant Session tools, silence-driven behavior, arbitrary/parallel timers, and richer configurable workflow triggers disabled; permit only the ADR-013 timer lane when explicitly frozen as enabled. | Preserves cohort fairness and release-tier containment. |
+| `SESS-DEC-22` | Keep future Interaction Controller mechanics separate from Agent semantic judgment; only minimized authoritative playback/interruption/floor facts may enter a permitted Invocation, and voice continuity uses playback-confirmed content. | Preserves the voice product contract without enabling voice in P0. |
+| `SESS-DEC-23` | Keep transcript, Invocation, Decision, interaction events, tool/workflow records, Evidence, audit, and telemetry distinct. Use protected references and bounded categories; never require hidden chain-of-thought. | Supports reconstructability while minimizing sensitive duplication and retention. |
+| `SESS-DEC-24` | Permit one optional bounded `next_timer_request` on any successful Agent Decision when the frozen Session timer lane is enabled. Validate scheduling independently from the Decision's primary behavior. | Allows a message or no-action outcome to coexist with adaptive timing without turning scheduling rejection into a false primary failure. |
+| `SESS-DEC-25` | Permit at most one Agent timer lane per P0 Session and exactly one when enabled. An accepted request replaces its pending next event or, for the timer Invocation whose event already fired, installs the sole successor instead of the default successor. Use expected schedule revision and authoritative Session order; never append a parallel event. | Makes replacement, successor selection, retry, and concurrency deterministic. |
+| `SESS-DEC-26` | Use active Session time for P0 relative delay. Pause suspends the remaining delay; non-`Active`, revoked, completing, or terminal state prevents firing and rearming. | Aligns timer behavior with Session authority and fairness. |
+| `SESS-DEC-27` | When due, reauthorize and revalidate scope, state, policy, revision, budget, and cutoff before committing one trusted timer trigger and one idempotent Invocation. The Agent request remains provenance, not trigger authority. | Prevents stale, forged, cross-scope, or post-cutoff self-waking behavior. |
+| `SESS-DEC-28` | Arm the frozen default delay when an enabled lane's Session enters `Active`. After a timer-triggered Invocation terminalizes, arm that default again unless its successful Decision has an accepted replacement; omission or rejection does not disturb a still-valid pending event. Use positive delay, cooldown, replacement, Invocation, and Session budgets. | Establishes and restores predictable cadence while bounding feedback loops. |
 
 ## Logical ownership and records
 
@@ -139,11 +173,16 @@ product, model provider, or SSE library.
 | Session event | Session execution | Session, sequence, event type/schema, actor/service, UTC commit time, correlation, protected payload reference; append-only |
 | Message | Session execution | Session, author type, turn/slot, immutable Participant content or rebuildable Agent assembled-content projection, publication state, first/last Session sequence, UTC times, provenance, completion outcome; Participant content is immutable after acceptance, while Agent content and outcome derive only from append-only fragments and the final outcome record and are never replaced by a later candidate |
 | Agent response fragment | Session execution | Session, turn, response slot, visible generation attempt, Agent message, contiguous fragment sequence, authoritative Session sequence, exact text delta/protected reference, digest, UTC publication time, validation/configuration/model provenance; append-only |
+| Agent Invocation | Session execution | Stable Invocation identity, Session/configuration, contract version/purpose, typed trusted-trigger provenance, minimized context/protected references, idempotency/order, bounded execution outcome, attempt and Decision references; append-only facts plus state-transition history. `agent_invocation_id` is a linked reference and does not change the Turn/response-slot/generation/message/fragment containment hierarchy. |
+| Agent Invocation execution attempt | Session execution | Invocation/configuration/provider-orchestration references, attempt order, request correlations, timing, bounded outcome, protected input/output references; append-only |
+| Agent Decision | Session execution | Stable Decision and Invocation identity, typed/versioned semantic recommendation, optional bounded next-timer recommendation, bounded protected payload reference, produced order/time, independent validation outcomes, domain-effect or no-domain-effect references; immutable after commit |
+| Decision validation/effect | Session execution or effect-owning component | Decision reference, current policy/authorization/state checks, accepted/rejected/suppressed outcome, idempotent effect request/result, Session order where material; append-only history |
 | Turn | Session execution | Trigger message or Agent-initiated type, response-slot policy, state, exact configuration, attempt references, published response; state-transitioned with history |
 | Response slot | Session execution | Turn, ordinal/type, state, winning visible-generation and Agent-message references; first-fragment uniqueness prevents competing publication |
 | Generation attempt | Session execution | Turn/slot, work/delegation/model/configuration references, attempt order, timing, bounded outcome, protected input/output references; append-only |
 | Work-trace update | Session execution | Turn, sequence, allowed type, exact displayed content reference, policy/generation provenance, publication time; append-only |
 | Timer state | Session execution | Start, active budget, optional absolute endpoint, warning-schedule version, open-pause reference, revision; authoritative summary |
+| Agent timer schedule | Session execution | Stable Session/lane identity, frozen timer-policy reference, schedule revision, default/requested relative delay, active-time remaining delay, due instant, driving Decision and validation/effect references, state, fire/cancel/supersede provenance, Session order; one current pending/claimed event at most |
 | Pause interval | Session execution | Start/end sequences and UTC instants, actor/service, bounded reason, timer effect; append-only after close |
 | Warning occurrence | Session execution | Frozen threshold identity, sequence, due and committed UTC time, delivery status; unique per Session and threshold |
 | Terminal intent | Session execution | Requested terminal outcome/reason, actor/service, cutoff sequence, expected version, UTC time, idempotency; immutable |
@@ -193,6 +232,9 @@ Accepted input -> Work queued -> Generating -> Streaming -> Complete
 ```
 
 An accepted input remains in the transcript even if no Agent response publishes.
+The Turn and response slot end explicitly as intentional no-action when a valid
+`no_action` Decision is accepted; absence of an Agent Message alone never
+represents that outcome.
 Before visibility, each retry appends a generation attempt to the same response
 slot. The first-fragment transaction claims one visible attempt and Agent
 message. Uniqueness on the response-slot publication claim and on
@@ -236,13 +278,16 @@ version, idempotency, and required audit classification.
 ## Provider streaming and broker boundary
 
 The Agent is a reusable identity and frozen configuration, not an independent
-MVP service that writes platform state. A delegated worker executes one response
-slot and calls the model-provider adapter. The approved data path is:
+MVP service that writes platform state. Under the approved v0.3 boundary, a
+delegated worker executes one admitted Invocation and, for `emit_message`, the
+linked response slot/publication path. The data path is:
 
 ```text
-committed Participant message and durable work
+committed trusted trigger, Agent Invocation, and durable work
   -> worker claim and authorization
-  -> bounded provider request
+  -> bounded provider-neutral Agent execution
+  -> valid Agent Decision and independent runtime validation
+  -> accepted emit_message publication path
   -> provider-to-worker incremental response stream
   -> rolling validation of next exact delta
   -> authoritative fragment transaction
@@ -294,6 +339,13 @@ ADR-011. A broker alone does not provide publication durability, audience
 authorization, exact fragment reconstruction, or terminal-cutoff safety; those
 remain primary-store and application responsibilities.
 
+The decision/control discriminator and participant-visible content stream are
+separate at the Flex Agent contract level. A qualified provider adapter may
+obtain them through one interaction or multiple phases, but no content may
+publish before `emit_message` is structurally valid and currently accepted. A
+`no_action` Decision produces no content stream. Malformed or partial control
+syntax never becomes transcript content.
+
 ## Critical consistency flows
 
 ### Participant message admission
@@ -307,12 +359,39 @@ Within one primary-store transaction, the API:
 3. checks the scoped idempotency record and trusted request digest;
 4. increments `session_sequence` and commits one accepted Participant message;
 5. creates the stable turn, response slot, and durable generation work record;
+   the same transaction admits or idempotently reconciles the P0
+   `participant_input.message` Agent Invocation;
 6. appends required manifest/audit/outbox records under their approved durability
    classes; and
 7. stores the idempotent result reference and updated Session version.
 
 No model request starts before this commit. A pre-commit failure changes nothing;
 a lost post-commit response reconciles to the existing message and turn.
+
+### Agent Invocation execution and Decision commit
+
+The worker claims durable Invocation work, rederives trusted scope, reauthorizes
+the service, and loads only the frozen minimized context. Bounded external work
+occurs outside the primary-store transaction. Before a Decision commits, the
+runtime revalidates current Session state, policy, authorization, idempotency,
+and cutoff.
+
+- A valid `no_action` commit records the Decision and accepted validation,
+  terminalizes the response slot/Turn, appends required manifest/audit/outbox
+  provenance, and creates no Agent Message.
+- A valid `emit_message` commit or equivalent claim records the Decision and
+  accepted communication validation, then allows the linked fragment path below
+  to compete for the response slot's visible publisher.
+- An optional next-timer recommendation is validated as a separate scheduling
+  effect. Acceptance replaces the one pending lane revision; rejection retains
+  a valid existing/default schedule and does not by itself reject the primary
+  Decision behavior.
+- A prohibited Decision records a bounded rejection/suppression outcome and
+  causes no prohibited effect.
+- Provider timeout, malformed output, cancellation, or late return records an
+  Invocation execution outcome without a fabricated Decision.
+- Equivalent trigger/work redelivery reconciles to the same Invocation; a
+  mismatched trigger identity/version/purpose fails without mutation.
 
 ### Work-trace, Agent-fragment, and message-completion publication
 
@@ -364,6 +443,31 @@ upper boundary.
 - Expiry is an idempotent service command. A Participant message and expiry
   serialize through the same Session expected-version and sequence boundary.
 
+### Agent timer replacement and firing
+
+When the frozen timer lane is enabled, the primary store owns one current
+schedule revision. An accepted `next_timer_request` transaction:
+
+1. reauthorizes the service and validates current Session/configuration scope;
+2. validates `Active`, expected schedule revision, permitted stage, positive
+   delay bounds, active-time basis, cooldown, concurrency and total budgets;
+3. increments `session_sequence` and the lane schedule revision;
+4. when a prior event is still `Pending`, marks it `Superseded`; when the
+   driving timer event already fired, records that the accepted request selects
+   its sole successor instead of the default successor;
+5. records the one new schedule revision as `Pending`, atomically or through
+   equivalent uniqueness constraints;
+6. appends minimized manifest/audit/outbox provenance; and
+7. returns an idempotent effect outcome linked to the Decision.
+
+Pause preserves authoritative remaining active delay and makes the event
+ineligible to fire. Resume recomputes the due instant. At due time, the scheduler
+claims the exact revision, reauthorizes and revalidates lifecycle, policy,
+budget, and cutoff, then commits one trusted timer trigger and one Invocation
+admission. After that Invocation terminalizes, the lane receives the default
+next delay unless the successful Decision supplies an accepted replacement.
+Uniqueness and expected revision prevent overlapping timers or Invocations.
+
 ### Terminalization and Evaluation handoff
 
 1. Participant completion, workflow completion, expiry, authorized termination,
@@ -411,11 +515,13 @@ upper boundary.
 | Cross-Organization/Participant/Session access | Trusted parent-chain loading and ADR-002 enforcement before materialization, subscription, work, and commit | Wrong-scope read/write/list/event/work matrix |
 | Replay or multi-device race | Scoped idempotency, request digest, expected version, sequence and uniqueness constraints | Equivalent, conflicting, concurrent, and lost-response tests |
 | Prompt injection or confused deputy | Frozen system/policy channels, no MVP tools or memory writes, constrained output validators | Attempts to alter scope, timing, rubric, tools, memory, or terminal state |
+| Model-authored fake trigger or Decision authority | Trusted trigger adapters, minimized context builder, typed Decision schema, independent validation and effect authorization | Forged trigger/scope/timing/workflow/tool facts and unsupported Decision types |
+| Trigger replay, stale signal, or Invocation storm | Scoped trigger/Invocation idempotency, expected Session order, frozen eligibility/cooldown/chain budgets | Duplicate/mismatched trigger, late signal, self-event loop, rate/resource exhaustion tests |
 | Hidden-reasoning or protected-data disclosure | Separate constrained work-trace schema; deny hidden prompts, rubric internals, expected answers, secrets, reviewer data, and raw chain-of-thought | Prohibited-content and log/telemetry leakage tests |
 | Incremental disclosure before full-response validation | Validate every delta with bounded rolling state before commit; stop on a prohibited delta; preserve already visible safe fragments as incomplete rather than rewriting them | Split-across-fragment prohibited-content, late validation failure, incomplete-prefix, and no-error-echo tests |
 | Unsafe rendering or external retrieval | Treat all Participant/model text and links as inert untrusted content; no automatic fetch | XSS, unsafe URL, markup spoofing, preview, and exfiltration tests |
 | Competing, duplicate, gapped, or late fragment publication | First-fragment slot claim, fragment identity/digest uniqueness, contiguous order, and terminal cutoff at every commit | Concurrent attempt, duplicate, gap, digest mismatch, timeout, pause, expiry, termination, and late-callback races |
-| Timer manipulation | Authoritative server time, frozen policy, persisted pause intervals | Client-clock, disconnect, restart, boundary, and warning tests |
+| Timer manipulation or Agent-trigger storm | Authoritative server/active time, frozen delay and budget policy, one schedule lane/revision, persisted pause intervals, independent validation | Client-clock, min/max delay, repeated/concurrent replacement, disconnect, restart, pause/resume, cutoff, and exhaustion tests |
 | Audit or manifest divergence | Mutation-coupled required audit and terminal seal | Failure injection at every coupled write |
 
 Session working context is non-authoritative and follows the approved lifecycle.
@@ -430,6 +536,12 @@ or another Participant in the MVP.
 | Primary-store failure before commit | Expose no acceptance or state transition |
 | Lost response after commit | Reconcile by trusted scope and idempotency; do not repeat mutation |
 | Model timeout, cancellation, or invalid output before visibility | Preserve accepted input and attempt outcome; retry the response slot within frozen bounds or expose safe failure |
+| Valid intentional no-action | Record one successful Decision and explicit non-error terminal response-slot/Turn outcome; publish no Agent Message and do not retry on reconnect |
+| Prohibited or unsupported Agent Decision | Record bounded rejection/suppression, cause no prohibited effect, and keep it distinct from provider failure |
+| Duplicate, stale, or late Invocation trigger/result | Reconcile an equivalent duplicate; reject mismatched/stale work; record late/cancelled outcome without post-cutoff effect |
+| Omitted or rejected next-timer request | Preserve the primary Decision outcome; retain a valid existing event or arm the frozen default after the current timer Invocation |
+| Duplicate or concurrent next-timer request | Reconcile equivalent work; use expected revision and Session order for one winner; never create a parallel pending event |
+| Timer due during pause or after cutoff | Admit no Invocation; preserve active-time remainder only for permitted resume, otherwise cancel or expire the schedule |
 | Model timeout, cancellation, or invalid output after visibility | Preserve the exact durable prefix, append `Incomplete`/`Cancelled`, and never restart or replace it in place |
 | Worker crash or lost lease | Before visibility, permit safe redelivery; after visibility, resume only the proven same attempt/order or end incomplete; never permit competing publication |
 | Duplicate, cumulative, or divergent provider event; duplicate outbox/SSE delivery | Normalize to one non-overlapping delta, require cumulative-prefix continuity where applicable, and reconcile by message/attempt/fragment identity and digest; never append or display text twice |
@@ -454,6 +566,13 @@ or another Participant in the MVP.
   incomplete-stream rate, stream backpressure, completion latency, warning
   drift, pause duration, reconnect delta, revocation lag, terminalization age,
   audit/manifest failure, work backlog, and post-cutoff attempts.
+- Invocation admission/rejection by bounded trigger family, execution outcome,
+  Decision type, validation outcome, no-action rate, duplicate/stale trigger,
+  chain-budget exhaustion, and effect outcome are observable through bounded
+  labels without raw context or Decision payloads.
+- Timer-lane enabled state, replacement accepted/rejected/superseded outcome,
+  requested-delay bucket, schedule drift, duplicate/conflict, fire/cancel/expire
+  outcome, and timer budget exhaustion are observable through bounded labels.
 - Logs, metrics, traces, alerts, work records, and error responses contain
   bounded categories and protected references, never raw transcript, prompt,
   output, draft, credentials, unrestricted identifiers, or Participant data.
@@ -464,6 +583,8 @@ or another Participant in the MVP.
 | --- | --- | --- |
 | Entry and command authority | `REQ-SESS-1`–`REQ-SESS-7`; `AC-SESS-1`–`AC-SESS-2` | Committed-readiness, stale acknowledgment, wrong-scope, and pre-commit failure tests |
 | Messages, turns, fragments, work traces | `REQ-SESS-8`–`REQ-SESS-19`, `REQ-SESS-51`–`REQ-SESS-60`; `AC-SESS-3`–`AC-SESS-8`, `AC-SESS-31`, `AC-SESS-32` | Idempotency, concurrent publisher, provider delta/cumulative-snapshot normalization, first-fragment claim, contiguous order, digest conflict, duplicate/gap/divergence, retry/continuation, reconnect replay, cutoff, injection, unsafe rendering, and prohibited-disclosure tests |
+| Agent Invocation, Decision, validation, and effect | `REQ-SESS-61`–`REQ-SESS-70`; `AC-SESS-33`–`AC-SESS-37`; `REQ-RSC-47`–`REQ-RSC-50`; `AC-RSC-26` | Trusted/fake/prohibited trigger, exactly-one Decision, no-action, Decision rejection, duplicate/stale/late Invocation, context isolation, loop bounds, provider-neutral control/content separation, and P0-disabled capability tests |
+| Agent next-timer replacement | `REQ-SESS-71`–`REQ-SESS-77`; `AC-SESS-38`–`AC-SESS-41`; `REQ-RSC-51`–`REQ-RSC-53`; `AC-RSC-27` | Enabled/disabled policy, default cadence, accepted/rejected/omitted request, primary-Decision independence, min/max/cooldown/budget, one pending revision, duplicate/concurrent replacement, process restart, active-time pause/resume, trusted firing, and terminal-cutoff tests |
 | Timer, pause, warning, reconnect | `REQ-SESS-20`–`REQ-SESS-30`; `AC-SESS-9`–`AC-SESS-14` | Exact-boundary, disconnect, restart, revocation, warning uniqueness, and pause accounting tests |
 | Terminal and handoff | `REQ-SESS-31`–`REQ-SESS-41`; `AC-SESS-15`–`AC-SESS-20` | Message/expiry/termination races, seal/audit fault injection, mapping, post-cutoff callback, and handoff tests |
 | History, privacy, lifecycle | `REQ-SESS-42`–`REQ-SESS-50`; `AC-SESS-21`–`AC-SESS-23`, `AC-SESS-28`–`AC-SESS-30` | Immutability, current authorization, lawful unavailability, non-reuse, audit and leakage tests |
@@ -479,18 +600,16 @@ and is not satisfied by this architecture document.
 
 ## Open questions
 
-None. The approved feature specification resolves the relevant product and
-policy questions. Framework and library choices remain implementation details;
-component/provider profiles and their evidence gates are governed by ADR-008.
-ADR-008 intentionally selects no normative model. Every enabled deployment or
-Organization provider profile must satisfy its gates and does not change this
-contract's semantics.
+None. ADR-012 and ADR-013 approve the architectural decisions in this contract.
+Framework, physical schema, duration encoding, and provider-orchestration
+choices remain implementation details within those boundaries. ADR-008
+intentionally selects no normative model.
 
 ## Approval and downstream impact
 
-Version 0.2 approval through ADR-011 unblocks detailed streaming text Session
-implementation and makes the following downstream artifacts responsible for
-conforming to this contract:
+Version 0.4 is approved through ADR-013 and supersedes version 0.3.
+Invocation/Decision and next-timer implementation may proceed, and the following
+downstream artifacts must conform:
 
 - backend persistence schemas, Session domain modules, work records, APIs, SSE,
   authorization adapters, model adapters, and tests;
@@ -506,3 +625,6 @@ conforming to this contract:
 - [Human review, Result, and Release contract](review-result-release-contract.md)
 - [Architecture decisions](decisions/README.md)
 - [ADR-011: Participant-visible Agent-response streaming](decisions/ADR-011-participant-visible-agent-response-streaming.md)
+- [ADR-012: Structured Agent Invocation and Decision boundary](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md)
+- [ADR-013: Agent-requested next-timer replacement](decisions/ADR-013-agent-requested-next-timer-replacement.md)
+- [ADR-012: Structured Agent Invocation and Decision boundary](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md)

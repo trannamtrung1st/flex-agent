@@ -6,16 +6,19 @@ Canonical product concepts, relationships, lifecycles, and invariants for Flex A
 
 | Field | Value |
 | --- | --- |
-| **Status** | Approved v0.1 |
+| **Status** | Approved v0.3 |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead |
-| **Version** | 0.1 |
-| **Effective date** | 2026-08-05 |
-| **Last reviewed** | 2026-08-05 |
-| **Approval reference** | Baseline v0.1 approved on `main` (commits `fff26df`, `d8291ef`, 2026-08-05) |
-| **Related decisions** | None recorded yet |
+| **Version** | 0.3 |
+| **Effective date** | 2026-08-11 |
+| **Last reviewed** | 2026-08-11 |
+| **Approval reference** | v0.3 Agent-requested next-timer replacement approved 2026-08-11; supersedes v0.2 |
+| **Related decisions** | Approved [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) and [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) |
 
-**Approved v0.1** is the authoritative product model for domain meaning and scope. Normative system behavior is governed by approved feature specifications. Changes that alter domain meaning require a new version or superseding product decision.
+Version 0.3 is **approved** and supersedes v0.2. It preserves canonical Agent
+Invocation, Invocation Trigger, and Agent Decision semantics and adds bounded
+Agent recommendation of one replacement next-timer event. Normative system
+behavior remains governed by approved feature specifications.
 
 ## Purpose
 
@@ -37,6 +40,9 @@ Flex Agent separates **who the AI is**, **how it operates**, **what activity is 
 | **Enrollment / participation** | A participant's authorized relationship to an activity |
 | **Attempt** | A controlled execution attempt; in the MVP, typically maps to one session |
 | **Session** | One isolated execution between a resolved configuration and a participant or authorized role |
+| **Agent Invocation** | Structured, versioned execution input supplied to the resolved Agent when reasoning is required; identifies a trusted trigger and authorized, purpose-bound context |
+| **Invocation Trigger** | Typed, versioned reason an Agent Invocation was admitted, established from trusted platform state or a trusted adapter rather than model-authored content |
+| **Agent Decision** | Structured recommendation produced by a successful Agent Invocation; becomes an effect only after governing Harness, workflow, authorization, and runtime validation |
 | **Participant** | Person taking part in a session under activity or authorization rules |
 | **Reviewer** | Authorized human who inspects evidence, evaluations, and outcomes |
 | **Submission** | Versioned participant-provided material linked to an activity or session |
@@ -87,6 +93,13 @@ An agent may define:
 - Default memory mode and memory eligibility controls
 
 The same agent may be used across many activities while retaining a recognizable role and consistent operating identity.
+
+An Agent operates through structured decision opportunities rather than only a
+chat request/response loop. Given a trusted situation and authorized context,
+the Agent recommends semantic next behavior. It may recommend a bounded delay
+for the next event on an enabled system timer lane, but it does not schedule or
+wake itself, grant authority, mutate Session or workflow state directly, or
+make its own output a trusted platform fact.
 
 ### Harness
 
@@ -155,6 +168,76 @@ Many sessions may run concurrently under the same activity or agent. Conversatio
 
 Every session resolves against an activity definition. Deployment form (campaign, direct, embedded, or API) affects administration and enrollment, not session isolation rules.
 
+### Agent Invocation, Invocation Trigger, and Agent Decision
+
+An **Agent Invocation** is one semantic decision opportunity within a resolved
+Session. It identifies why reasoning is required and supplies only the
+authorized, purpose-bound context permitted by the frozen configuration. An
+invocation is not a model-provider request: one invocation may require bounded
+provider attempts, and provider failure may end the invocation without an Agent
+Decision.
+
+An **Invocation Trigger** is the typed, versioned reason the runtime admitted an
+invocation. Conceptual trigger families include participant input, interaction
+signals, workflow events, timer events, tool results, and system events. These
+families do not enable their corresponding capabilities. The MVP uses only the
+subset required by approved text Session behavior; voice, tools, richer
+workflow triggers, and general proactive behavior remain deferred.
+
+An **Agent Decision** is one structured semantic recommendation produced by a
+successful invocation. A small extensible decision vocabulary may include
+participant-visible communication, intentional no action, a tool request, a
+workflow-transition proposal, or escalation. Exact trigger and decision enums
+and wire schemas are architecture concerns.
+
+A successful Agent Decision may also include one optional **next-timer
+recommendation**: a requested positive relative delay for the next event on an
+enabled Session timer lane. The runtime independently validates the request and,
+when accepted, replaces rather than adds to the one pending next event. The
+runtime remains scheduler and trigger authority. If no request is accepted, the
+frozen system cadence remains or resumes.
+
+The governing relationship is:
+
+```text
+trusted trigger + authorized resolved context
+  -> Agent Invocation
+  -> Agent Decision
+  -> Harness/workflow/authorization/runtime validation
+  -> permitted authoritative effect, rejected/suppressed request, or no
+     participant-visible/workflow/tool effect
+```
+
+The Agent recommends; the governed platform decides what is permitted and makes
+authoritative effects real. Model-authored content cannot establish trigger
+provenance, authorize an effect, widen a capability, change frozen
+configuration, override timing, enable memory, execute a tool, transition the
+workflow, release a Result, or create another trusted system fact.
+
+An intentional **no-action** decision is a successful semantic outcome, not a
+provider failure, timeout, cancellation, policy rejection, or absence of work.
+When an existing Participant Turn owns an Agent response opportunity, the
+runtime must record an explicit terminal outcome even though no Agent Message is
+published. "No action" means no requested participant-visible, workflow, tool,
+or other domain effect; it does not omit the authoritative bookkeeping needed
+to record the Decision and terminalize the Invocation, response slot, and Turn.
+
+An Agent Invocation is not a Turn. A **Turn** is a conversational interaction
+unit; an invocation is a decision opportunity. A Participant Turn may end with
+no Agent Message, a non-conversational invocation need not create a Turn, and a
+permitted non-Participant trigger may later create an Agent-initiated Turn.
+Agent-initiated behavior always begins with a governed trusted trigger and is
+not an uncontrolled continuously running Agent process. The current P0 text
+workflow normally admits an Invocation for each eligible accepted Participant
+message, but that is not a universal platform invariant for every future
+workflow or input type.
+
+An enabled timer lane has one default cadence and at most one pending next
+event. A timer-triggered Invocation may recommend another bounded delay; the
+accepted recommendation replaces that one next event, and the default cadence
+resumes after it fires unless a later successful Decision replaces it again.
+Pause and terminal Session authority always take precedence.
+
 ### Participant
 
 A person taking part in a session under activity enrollment or authorization rules.
@@ -219,6 +302,10 @@ Participant information must not be reused across unrelated participants, sessio
 Material linked to evaluation and audit: submissions, conversation references, tool results, interruption and playback records, and other administrator-configured artifacts.
 
 Evidence references should point to stable locations within submitted or recorded material whenever possible.
+
+An Agent Decision may be referenced when a governing evaluation or audit policy
+makes it relevant, but it is not automatically Evidence and does not become
+participant-visible transcript content merely because the Agent produced it.
 
 ### Evaluation, review decision, result, and release
 
@@ -316,6 +403,10 @@ For assessment activities, the default policy is:
 - **Stable memory** during the active assessment period — no new persistent learning from assessment interactions
 - **No cross-participant learning** from assessment interactions
 - **Frozen configuration** at activity or cohort activation: resolved agent revision, harness revision or snapshot, model, knowledge sources, tools, workflow, and evaluation configuration
+- **Frozen decision policy** for behaviorally material trigger families,
+  permitted Agent decisions, Agent-initiated communication, intentional
+  no-action, optional next-timer replacement, and bounded chaining that could
+  affect comparable treatment
 - **Frozen approved-memory reads** for cohort fairness. Stable mode alone is not sufficient when approved memory could change between participants. For cohort assessment, the activity must either:
   - **Disable approved-memory reads**, or
   - **Pin an immutable memory snapshot** frozen at cohort activation
@@ -344,6 +435,9 @@ flowchart TB
   Enrollment[Enrollment]
   Attempt[Attempt]
   Session[Session]
+  TimerLane[Agent timer lane]
+  Invocation[Agent Invocation]
+  Decision[Agent Decision]
   Submission[Submission]
   Participant[Participant]
   Reviewer[Reviewer]
@@ -372,6 +466,14 @@ flowchart TB
   Enrollment -->|"authorizes"| Participant
   Enrollment -->|"permits"| Attempt
   Attempt -->|"executes as"| Session
+  Session -->|"owns at most one"| TimerLane
+  TimerLane -->|"emits trusted due trigger for"| Invocation
+  Session -->|"admits"| Invocation
+  Invocation -->|"produces at most one successful"| Decision
+  Harness -->|"constrains"| Invocation
+  Harness -->|"constrains"| Decision
+  Decision -->|"proposes effect in"| Session
+  Decision -->|"may recommend replacing next event in"| TimerLane
   Activity -->|"may coordinate"| Session
   AgentRevision -->|"executes in"| Session
   HarnessRevision -->|"governs"| Session
@@ -403,7 +505,7 @@ flowchart TB
 | Agent | Reusable identity, capability declarations, knowledge defaults, default memory mode |
 | Harness | Operating procedures, workflows, allowed tools, policies, rubrics, snapshots |
 | Activity | Activity rules, tasks, participants, limits, selected agent/harness configuration |
-| Session | Isolated execution, events, evidence, evaluation, and exact resolved configuration used |
+| Session | Isolated execution, trusted invocation admission, authoritative effects, events, evidence, evaluation, and exact resolved configuration used |
 
 ## Resolved execution manifest
 
@@ -425,6 +527,8 @@ Every session must record a **resolved execution manifest** containing at minimu
 - Knowledge-source versions or content hashes
 - Tool definitions and versions
 - Policies and workflow version
+- Agent Invocation contract version and permitted trigger/decision policy when
+  behaviorally material
 - Evaluation rubric version
 - Memory read/write policy
 - Memory snapshot identifier when approved-memory reads are enabled
@@ -438,7 +542,13 @@ This manifest, together with the event log and evidence references, allows admin
 
 Text and voice are **interaction surfaces**. A configurable workflow determines how the activity progresses and what the agent, participant, tools, and reviewers may do at each stage.
 
-The workflow may determine current session stage, permitted actions, required information, submission requirements, question and tool permissions, evidence recording, evaluation timing, pause and completion rules, output requirements, result release, and whether memory updates may be proposed.
+The workflow may determine current session stage, which trusted triggers may
+create Agent decision opportunities, permitted decisions and actions, response
+opportunity policy, required information, submission requirements, question and
+tool permissions, evidence recording, evaluation timing, pause and completion
+rules, output requirements, result release, and whether memory updates may be
+proposed. The Agent may recommend a transition; the workflow remains
+authoritative for whether it is legal and whether it occurs.
 
 Workflows are defined primarily by the harness and may be extended or constrained by activity configuration. Different activity types may share the same agent, harness, session, voice, evidence, memory, and audit foundations while using different workflows.
 
@@ -454,7 +564,15 @@ An activity may use the current approved harness, a pinned snapshot, a testing v
 
 The system maintains one canonical session state and event log used by workflow execution, tool orchestration, evaluation, human review, audit, and result generation.
 
-Events may include session lifecycle, authentication, instructions, submissions, speech and playback, interruptions, tool execution, evidence recording, workflow transitions, timing, evaluation, human review, result release, and memory or harness improvement proposals.
+Events may include Session lifecycle, authentication, instructions,
+submissions, admitted Agent Invocations and their outcomes, accepted/rejected
+Agent Decisions and resulting effects, speech and playback, interruptions, tool
+execution, evidence recording, workflow transitions, timing, evaluation, human
+review, Result release, and memory or Harness improvement proposals. Raw
+high-frequency signals, invocation records, participant-visible transcript,
+Evidence, audit records, and operational telemetry remain distinct; policy may
+retain minimized provenance or stable protected references instead of copying
+complete sensitive payloads.
 
 Audit-relevant history cannot be silently overwritten; previous versions remain inspectable. Recorded times have unambiguous ordering and timezone interpretation for audit and fairness analysis.
 
@@ -475,7 +593,15 @@ The platform must distinguish:
 
 Only the **playback-confirmed portion** should be treated as conversation input for continuity, transcript accuracy, evaluation fairness, and audit. Playback does not prove that a person heard content; the product records the technical proxy explicitly.
 
-Real-time voice floor management, speech timing, and playback control are technical realization concerns. The product contract is: voice is interruptible; playback progress is tracked; agent continuation uses only the playback-confirmed portion; interruption and cancellation are auditable. Authoritative implementation choices belong in architecture documentation and ADRs.
+The future Interaction Controller owns real-time interaction mechanics such as
+voice floor management, speech timing, silence measurement, interruption
+detection, and playback control. The Agent owns semantic judgment about how to
+react when the runtime supplies permitted minimized interaction facts. The
+product contract is: voice is interruptible; playback progress is tracked;
+Agent continuation uses only the playback-confirmed portion; interruption and
+cancellation are auditable; and a raw controller signal does not itself become
+an Agent decision or authoritative workflow effect. Authoritative
+implementation choices belong in architecture documentation and ADRs.
 
 ## Product invariants
 
@@ -492,6 +618,15 @@ These invariants apply across concepts and must be preserved in requirements, UI
 - Explicit authorization at every sensitive boundary
 - Participant data must not be reused for agent learning unless explicitly permitted
 - Lower configuration scopes may narrow but not widen capabilities beyond delegated upper-scope boundaries
+- Agent Decisions remain untrusted recommendations until independently
+  validated; trusted trigger provenance cannot originate solely from
+  model-authored content
+- Distinguish Agent Invocation, Agent Decision, conversational Turn, Agent
+  Message, and authoritative effect; intentional no-action is explicit
+- Govern Agent-initiated behavior through trusted platform triggers and bounded
+  policy rather than uncontrolled self-waking execution
+- Treat an Agent next-timer request as a non-authoritative recommendation that
+  can replace only one enabled, policy-bounded next event
 
 ## Related documents
 

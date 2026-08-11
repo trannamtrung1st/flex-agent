@@ -4,19 +4,24 @@
 
 | Field | Value |
 | --- | --- |
-| **Status** | Approved v0.1 |
+| **Status** | Approved v0.3 |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead |
-| **Version** | 0.1 |
-| **Effective date** | 2026-08-05 |
-| **Last reviewed** | 2026-08-09 |
-| **Approval reference** | Baseline v0.1 approved on `main` (commits `fff26df`, `d8291ef`, 2026-08-05) |
+| **Version** | 0.3 |
+| **Effective date** | 2026-08-11 |
+| **Last reviewed** | 2026-08-11 |
+| **Approval reference** | v0.3 optional Agent-requested next-timer replacement approved 2026-08-11; supersedes v0.2 |
 
 Vision, positioning, and principles. Canonical concepts, scope boundaries, and requirements live in linked product and requirements documents.
 
+Version 0.3 is approved and supersedes v0.2. Structured Agent
+Invocation/Decision and bounded next-timer replacement implementation may
+proceed against the approved product, requirements, UI/UX, and architecture
+package, subject to its contract and verification gates.
+
 ## What to do next
 
-Product baseline v0.1, all seven P0 feature specifications, the
+Product baseline v0.3, all seven P0 feature specifications, the
 [MVP operational defaults](../requirements/mvp-operational-defaults.md), and the
 OSS-first self-hostable
 [MVP architecture](../architecture/mvp-architecture.md) and the detailed
@@ -66,6 +71,21 @@ The product separates identity, operating environment, activity configuration, a
 - **Session** — one isolated interaction between a resolved configuration and a participant or authorized role.
 
 An agent should not need to be recreated for every assessment, interview, or support process. A campaign is one activity deployment mechanism within the platform, not the limit of the underlying agent model.
+
+Agents operate through structured decision opportunities, not only chatbot
+request/response exchanges. A trusted platform trigger and authorized resolved
+context form an [Agent Invocation](concept-model.md#agent-invocation-invocation-trigger-and-agent-decision);
+the Agent produces an Agent Decision that may recommend communication,
+intentional no action, or another permitted behavior. Harness, workflow,
+authorization, and runtime validation remain authoritative for any effect.
+Agent-initiated behavior therefore comes from governed events or signals rather
+than uncontrolled self-waking execution.
+
+When frozen Session policy enables one system timer cadence, a successful Agent
+Decision may optionally recommend a bounded delay for the next timer event. The
+runtime independently validates the recommendation and replaces the one pending
+next event; it does not add parallel timers or delegate scheduling authority to
+the Agent.
 
 Model providers and individual models are replaceable execution dependencies,
 not Flex Agent's core product value. The durable value is the application and

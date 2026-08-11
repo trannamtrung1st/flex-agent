@@ -10,12 +10,13 @@ Approved technical realization baseline for the P0 assessment vertical slice.
 | **Owner** | Architecture Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, UI/UX, documentation |
-| **Version** | 0.7 |
-| **Approved date** | 2026-08-08; version 0.7 approved 2026-08-09 |
-| **Approval reference** | MVP architecture review approved on 2026-08-06; formalized by [ADR-006](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md), extended by [ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md), assigned model-neutral component/provider profiles by amended [ADR-008](decisions/ADR-008-bounded-oss-component-set.md), detailed for Session/Evaluation/Review through [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md), assigned the implementation stack by [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md), and revised for participant-visible durable streaming by [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md) |
+| **Version** | 0.9 |
+| **Approved date** | Version 0.7 approved 2026-08-09; versions 0.8 and 0.9 approved 2026-08-11 |
+| **Approval reference** | Version 0.9 is approved through ADR-006–ADR-013; [ADR-013](decisions/ADR-013-agent-requested-next-timer-replacement.md) supplies optional one-lane next-timer replacement |
 | **Governs** | MVP system boundaries, logical ownership, runtime flows, consistency boundaries, trust boundaries, deployment shape, recovery baseline, and architecture verification |
 
-This approved architecture does not override approved product documents or
+Version 0.9 is **approved** and supersedes version 0.8. This architecture does
+not override approved product documents or
 feature specifications. Approved requirements govern observable behavior;
 approved ADRs govern technical realization. The approved
 [MVP operational defaults](../requirements/mvp-operational-defaults.md) govern
@@ -143,10 +144,9 @@ The following are not new proposals; they follow from approved sources:
 
 ## Approved MVP realization decisions
 
-The following decisions are approved for MVP realization. A later change that
-alters their consequences requires an explicit update or superseding ADR.
+`AR-DEC-1`–`AR-DEC-24` are approved for MVP realization.
 
-| ID | Approved decision | Rationale |
+| ID | Decision | Rationale |
 | --- | --- | --- |
 | `AR-DEC-1` | Use a modular monolith for domain behavior, deployed as a stateless web/API runtime and a separately scalable worker runtime from the same versioned codebase. | Preserves strong in-process policy and transaction boundaries without premature service/network failure modes. |
 | `AR-DEC-2` | Use one primary relational transactional store for authoritative metadata, state machines, immutable records, audit/outbox records, idempotency, ordering, and uniqueness. | ADR-003 through ADR-005 require strong shared consistency; relational constraints make those invariants explicit and testable. |
@@ -170,6 +170,8 @@ alters their consequences requires an explicit update or superseding ADR.
 | `AR-DEC-20` | Apply the approved OIDC flow, application-session, revocation, and MFA defaults in the [MVP operational defaults](../requirements/mvp-operational-defaults.md#oidc-and-application-session-defaults). | Resolves the authentication-session security posture while retaining a provider-neutral identity boundary. |
 | `AR-DEC-21` | Apply the approved record-class lifecycle matrix and same-jurisdiction secondary recovery placement in the [MVP operational defaults](../requirements/mvp-operational-defaults.md#protected-data-lifecycle-defaults). | Replaces unspecified retention and recovery placement with explicit, testable defaults that deployments may only narrow through approved policy. |
 | `AR-DEC-22` | Stream Agent responses incrementally to Participants through the durable-before-display fragment, first-fragment publication claim, replay, cutoff, and backpressure contract approved in ADR-011. | Makes streaming an MVP and future foundation without trusting provider transport, SSE, the browser, or an external broker for transcript authority. |
+| `AR-DEC-23` | Use the provider-neutral Agent Invocation → Agent Decision → independent validation → authoritative domain-effect/no-domain-effect boundary in ADR-012. Persist admitted minimized Invocations, keep trigger provenance trusted, represent no-action explicitly, link rather than nest Invocation identity into the Turn/publication hierarchy, and preserve ADR-011 for every visible delta. | Supports non-message decision opportunities and future voice/tools/workflows without making model output authoritative or expanding P0 scope. |
+| `AR-DEC-24` | When frozen Session policy enables it, use one primary-store-owned Agent timer lane with a default active-time cadence. Permit one optional next-timer recommendation on a successful Decision; independently validate it and replace the lane's next schedule revision under ADR-013. | Adapts the next check without parallel timers, provider-native scheduling authority, or uncontrolled self-waking. |
 
 ## System context and trust boundaries
 
@@ -562,6 +564,8 @@ Activity, Session, provider outage, or oversized artifact from starving others.
 
 ### 3. Text Session turn and recovery
 
+The following flow is approved for version 0.8 through ADR-012.
+
 ```mermaid
 sequenceDiagram
   participant P as Participant client
@@ -571,13 +575,23 @@ sequenceDiagram
   participant M as Model provider
 
   P->>W: Send message with idempotency key
-  W->>D: Authorize and commit accepted message + response slot
+  W->>D: Authorize and commit accepted message + response slot + Agent Invocation
   D-->>W: Authoritative sequence and status
   W-->>P: Accepted/rejected/reconciliation-required
-  B->>D: Claim durable generation work
+  B->>D: Claim durable Invocation work
   B->>D: Revalidate delegation, scope, Session state
-  B->>M: Bounded frozen-context request
-  M-->>B: Untrusted incremental response deltas
+  B->>M: Bounded frozen-context Agent execution
+  M-->>B: Untrusted Decision/control
+  B->>D: Validate and commit Decision or execution outcome
+  opt Valid Decision includes next-timer recommendation
+    B->>D: Independently validate and replace one timer-lane revision
+  end
+  alt Decision is no_action
+    B->>D: Terminalize response slot/Turn; publish no Agent Message
+    D-->>W: Reconnectable resolved turn outcome
+    W-->>P: Clear working state; no error or synthetic message
+  else Decision is permitted emit_message
+  M-->>B: Ordered untrusted content deltas through qualified adapter
   loop Each participant-visible delta within bounds
     B->>B: Rolling validation
     B->>D: Commit exact fragment + claim/verify visible publisher
@@ -587,7 +601,26 @@ sequenceDiagram
   B->>D: Commit complete or incomplete Agent-message outcome
   D-->>W: Outcome event available after commit
   W-->>P: Reconnectable outcome
+  else Decision is rejected or execution fails
+    B->>D: Commit bounded rejection/failure outcome; no prohibited effect
+    D-->>W: Safe recoverable/terminal turn state
+    W-->>P: Current permitted recovery without protected detail
+  end
 ```
+
+The diagram shows logical contract order, not a required provider wire protocol.
+A qualified adapter may receive control and content in one interleaved provider
+interaction, but it must buffer or otherwise withhold content from publication
+until the `emit_message` Decision is structurally valid and currently accepted.
+No provider delta becomes participant-visible before its own ADR-011 validation
+and durable commit.
+
+For the optional timer lane, a schedule worker later claims the exact due
+revision, reauthorizes and revalidates the `Active` Session, then commits one
+trusted timer trigger and one new Invocation. Pause suspends active delay;
+terminal or revoked state cancels/expires the event. After the timer-triggered
+Invocation terminalizes, the frozen default cadence resumes unless its
+successful Decision contains another accepted replacement.
 
 The server owns elapsed-time accounting, pause intervals, warning schedule, and
 terminal cutoff. Reconnect uses the last acknowledged authoritative sequence and
@@ -741,6 +774,12 @@ content.
 - Commands, events, provider requests/responses, canonical documents, work items,
   Evidence locators, audit events, and protected artifact metadata have explicit
   schema and procedure versions.
+- Agent Invocation, trusted-trigger, Agent Decision, validation, and effect
+  contracts have independent provider-neutral versions; provider-native control
+  or streaming events never define domain authority.
+- Next-timer recommendation, timer-lane policy, schedule revision, and trusted
+  timer-trigger contracts are versioned independently; provider-native delayed
+  jobs never define schedule or trigger authority.
 - Readers reject unsupported major versions and never reinterpret historical
   records using current serializers, policies, or mutable aliases.
 - Additive compatibility is permitted only when older consumers remain safe.
@@ -763,7 +802,7 @@ requirement implemented.
 | Resolved session configuration | Session-resolution component, versioned source registry, canonicalizer/digest, immutable configuration, manifest append/seal, reconstruction verifier | Precedence/property tests, conformance fixtures, drift/substitution tests, append concurrency, seal/tamper and degraded-source reconstruction |
 | Assessment setup | Assessment configuration, readiness validator, Activity revision, Cohort, activation coordinator, lifecycle and policy resolver | Draft concurrency, source/fairness validation, ADR-004 atomic fault injection, idempotent reconciliation and cross-scope tests |
 | Submission and Attempts | Participation/Submission, artifact adapter, accommodation and entitlement model, exact binding and start coordinator | Quarantine/validation matrix, immutable versions, timing and entitlement races, ADR-005 fault injection, capability and object-access tests |
-| Text Session lifecycle | Session execution, ordered command/event protocol, model adapter, server timer, terminal/seal coordinator, reconnect | Ordering/idempotency, multiple-device, timer/pause/expiry, provider late callback, revocation, recovery, manifest/audit failure and load tests |
+| Text Session lifecycle | Session execution, ordered command/event protocol, approved Invocation/Decision validation/effect boundary, one-lane Agent timer scheduler, model adapter, server timer, terminal/seal coordinator, reconnect | Trusted/fake/duplicate/late triggers, no-action, Decision rejection, default/accepted/rejected next timer, single-lane replacement, ordering/idempotency, multiple-device, pause/resume/expiry, provider late callback, revocation, recovery, manifest/audit failure and load tests |
 | Evidence and Evaluation | Evaluation request/invocation, Evidence locator/verifier, evaluator-mode runner, model adapter, immutable completion/lineage | Exact-source and locator tests, injection, deterministic conflict, sandbox/egress limits, provider retry, replacement and completion atomicity tests |
 | Human review and Result Release | Review case/assignment, candidate selector, revision/decision state machines, Result validator, atomic Release/current-visible resolver | Wrong-scope queue/case, stale/concurrent decision, content allowlist, pre-release denial, Release/audit/visibility fault injection, correction and lifecycle tests |
 
@@ -791,7 +830,7 @@ requirement implemented.
 
 | Timing | Work still required | Status and interim direction |
 | --- | --- | --- |
-| Text Session implementation | Implement against version 0.2 of the approved [text Session runtime contract](session-runtime-contract.md), including durable-before-display fragments, first-fragment publication claim, exact replay, incomplete-stream recovery, cutoff, SSE, backpressure, and deferred non-authoritative broker use. | Detailed architecture complete through [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md) and [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md); implementation and verification remain. Preserve `AR-DEC-3`, `AR-DEC-4`, `AR-DEC-14`, `AR-DEC-22`, ADR-001, ADR-002, ADR-003, and ADR-005. |
+| Text Session implementation | Implement approved version 0.4 streaming, Invocation/Decision, and next-timer replacement behavior through specification-driven TDD. | Approved architecture is complete through ADR-009 and ADR-011–ADR-013. Preserve `AR-DEC-3`, `AR-DEC-4`, `AR-DEC-14`, `AR-DEC-22`–`AR-DEC-24`, and ADR-001/002/003/005/011/012/013. |
 | Evaluation implementation | Implement against the approved [Evidence and Evaluation execution contract](evaluation-execution-contract.md), covering Evidence locator/set-seal, evaluator provenance, deterministic isolation, invocation retry/completion, model trust, and replacement lineage. | Detailed architecture complete through ADR-009; implementation and verification remain. Preserve `AR-DEC-7` and `AR-DEC-8`. |
 | Review/Release implementation | Implement against the approved [Human review, Result, and Release contract](review-result-release-contract.md), covering Review case/candidate, Human revision, Review decision, Result/current-visible lineage, correction, atomic Release, and availability-only MVP notifications. | Detailed architecture complete through ADR-009; implementation and verification remain. Preserve `AR-DEC-10` and `AR-DEC-11`. |
 | Before Submission intake implementation | Pass ADR-008's SeaweedFS and artifact-safety adapter gates; encode the approved limits, policy-controlled scanner mode, timeouts, cleanup, and failure behavior. | Component and adapter direction is approved; compatibility evidence remains blocking for the affected implementation. Policy is governed by `AR-DEC-19`, `REQ-OPS-1` through `REQ-OPS-8`, and the Submission specification. |
@@ -807,7 +846,9 @@ requirement implemented.
 
 ## Open architecture questions
 
-No product or policy confirmation currently blocks detailed MVP architecture.
+No open question is left without an interim default. The approved product and
+requirement revisions plus ADR-012 and ADR-013 govern Invocation/Decision and
+next-timer implementation; the verification gates below remain mandatory.
 `Q-ARCH-14`, `Q-ARCH-15`, `Q-OSS-1`, and `Q-OSS-2` are resolved by ADR-008.
 `Q-OSS-1` is resolved by certifying concrete provider deployment profiles
 instead of selecting a normative model; exact profile qualification remains
@@ -823,6 +864,7 @@ Their schema and canonicalization evidence gates remain mandatory.
 | Module boundaries exist only on paper | Cross-component writes and policy duplication erode invariants | Dependency tests and repository ownership checks; shared transactions exposed through named coordinators only |
 | Shared store permits accidental cross-tenant queries | Severe confidentiality breach | Mandatory trusted scope at repository contracts, composite scope constraints/indexes, and full negative query/list/count tests |
 | Background work acts on stale or forged scope | Cross-scope disclosure or mutation | Durable delegation lookup and reauthorization at claim and sensitive commit; tampered-work tests |
+| Agent timer replacement accumulates, races, or exceeds policy | Invocation storm, unfair treatment, or post-cutoff work | One primary-store-owned lane and revision, active-time clock, minimum/maximum delay, cooldown and Invocation budgets, claim-time reauthorization, duplicate/concurrency and cutoff tests |
 | Model or participant content changes system authority | Prompt injection, rubric manipulation, data disclosure, unauthorized Release | Fixed policy channels, structured validators, source allowlists, deterministic conflict tests, no participant-session tools |
 | Partial Evaluation or Release becomes visible | Misleading review or unauthorized participant outcome | Atomic completion/Release boundary ADRs and fault injection at every persistence/audit step |
 | Lifecycle policy is implemented incorrectly | Excessive retention, premature deletion, or broken lineage | Approved record-class policy matrix, hold/dependency checks, and lifecycle integration tests before pilot data |
@@ -832,11 +874,12 @@ Their schema and canonicalization evidence gates remain mandatory.
 
 ## Implementation readiness
 
-The MVP architecture baseline is approved. Implementation readiness is staged,
-not all-or-nothing:
+The MVP architecture version 0.9 baseline is approved. Implementation readiness
+is staged, not all-or-nothing:
 
-1. Foundation work may begin against ADR-001 through ADR-011 and `AR-DEC-1`
-   through `AR-DEC-22`.
+1. Foundation, structured Agent Invocation/Decision, and next-timer work may
+   proceed against ADR-001 through ADR-013 and `AR-DEC-1` through `AR-DEC-24`,
+   subject to the stated schema, migration, security, and verification gates.
 2. Text Session, Evaluation, and Review/Release implementations must conform to
    the approved detailed contracts adopted by ADR-009 and, for Session
    publication, superseding ADR-011. Their former detailed architecture blockers
@@ -845,9 +888,9 @@ not all-or-nothing:
    group to implementation surfaces and repeatable verification using
    specification-driven TDD.
 4. Frontend implementation must conform to the approved Activity/Campaign
-   journey, all five approved P0 surface interaction specifications, and the
-   approved shared design system. Implementation and Playwright verification
-   remain outstanding; the governing UI/UX documentation does not.
+   journey, the five approved P0 surface specifications including Text Session
+   v0.4, and the approved shared design system. Implementation and Playwright
+   verification remain outstanding.
 5. Scaffold acceptance must pass ADR-010's runtime, schema, JCS, HTTP,
    PostgreSQL/Grate, module-boundary, supply-chain, and operability gates.
 6. Production pilot remains blocked on lifecycle, identity, upload, provider

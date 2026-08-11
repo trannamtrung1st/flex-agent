@@ -7,18 +7,16 @@
 | **Status** | Approved |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, UI/UX reviewer, Architecture Lead, Security/Privacy reviewer |
-| **Version** | 0.2 |
-| **Prepared date** | 2026-08-09 |
-| **Approved date** | 2026-08-09 |
-| **Approval reference** | Product Lead approved `UI-SESS-DEC-1`–`UI-SESS-DEC-12` on 2026-08-09, with `UI-SESS-DEC-6` revised to require participant-visible token-by-token streaming in the MVP as a future foundation |
+| **Version** | 0.4 |
+| **Prepared date** | 2026-08-11 |
+| **Approved date** | Version 0.2 approved 2026-08-09; versions 0.3 and 0.4 approved 2026-08-11 |
+| **Approval reference** | `UI-SESS-DEC-1`–`UI-SESS-DEC-12` carried forward from v0.2; `UI-SESS-DEC-13` approved in v0.3; `UI-SESS-DEC-14` approved in v0.4 for next-timer presentation |
 | **Audience** | Product, design, frontend, backend, security/privacy, QA, and implementation reviewers |
 | **Governs** | Participant text Session entry, live interaction, timing, recovery, pause, completion, terminal transcript access, and authorized administrative Session control for the P0 assessment Campaign |
 | **Journey** | [`JRN-MVP-4`](activity-campaign-journey.md#jrn-mvp-4-conduct-text-session) |
 
-This approved UI/UX contract is authoritative for the governed interaction
-concerns. Approved product documents, feature specifications, operational
-defaults, and ADRs remain authoritative within their respective areas of
-concern.
+Version 0.4 is **approved** and supersedes version 0.3 while preserving its
+previously approved interaction behavior.
 
 ## Purpose and intended outcome
 
@@ -66,8 +64,9 @@ Observable Session behavior remains governed by the approved
 | Attempt entitlement, exact Submission binding, and committed Session handoff | [Submission and Attempts](../requirements/features/submission-attempts.md) and the [Submission and Attempt interaction specification](submission-attempt.md) |
 | Application-session and transcript lifecycle defaults | [MVP operational defaults](../requirements/mvp-operational-defaults.md) |
 | Platform journey, IA, content, accessibility, and responsive baseline | [Activity journey and Campaign information architecture](activity-campaign-journey.md) |
+| Shared Agent presence, status semantics, interaction-state completeness, and accessibility behavior | [Agent presence](design-system/product/agent-presence.md), [Status and feedback](design-system/foundation/status.md), [Interaction states](design-system/foundation/interaction-states.md), and [Accessibility](design-system/foundation/accessibility.md) |
 | Browser/server authority, request/response plus SSE, and protected-content boundaries | [MVP architecture](../architecture/mvp-architecture.md) |
-| Ordering, durable incremental publication, timing, reconnect, terminalization, and recovery realization | Version 0.2 of the [Text Session runtime contract](../architecture/session-runtime-contract.md), [ADR-009](../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md), and superseding [ADR-011](../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md) |
+| Ordering, durable incremental publication, timing, reconnect, terminalization, and recovery realization | Approved version 0.4 of the [Text Session runtime contract](../architecture/session-runtime-contract.md), [ADR-009](../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md), superseding [ADR-011](../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md), [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), and [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) |
 
 ## Scope and boundaries
 
@@ -137,7 +136,7 @@ Observable Session behavior remains governed by the approved
 The following decisions were approved on 2026-08-09. Stable IDs are retained
 for traceability and future supersession.
 
-| ID | Approved decision | Rationale and consequence |
+| ID | Decision | Rationale and consequence |
 | --- | --- | --- |
 | `UI-SESS-DEC-1` | Use one focused **Text Session** workspace entered only from a committed active Attempt or an authorized **Continue Session** action. | Prevents a readiness display, route transition, or local timer from being mistaken for Session start. |
 | `UI-SESS-DEC-2` | Keep six independently labeled state tracks: access, Session lifecycle, connection, Participant message admission, Agent turn, and authoritative time. | Prevents connection, spinner, send, and countdown states from collapsing into a misleading generic status. |
@@ -151,6 +150,8 @@ for traceability and future supersession.
 | `UI-SESS-DEC-10` | Use one deliberate **Complete Session** confirmation. After the authoritative terminal intent, replace live controls with **Finalizing Session** and then a distinct terminal view that contains no score or Result implication. | Makes the transcript cutoff consequential and separates Session completion from downstream outcome work. |
 | `UI-SESS-DEC-11` | Use a separate **Session operations** surface for administrator controls. Raw transcript is closed by default and requires a separate sensitive-content action; pause, resume, and terminate each reconcile uncertain outcomes before another command. | Avoids combining operational control with content surveillance or allowing lost responses to produce duplicate control actions. |
 | `UI-SESS-DEC-12` | Preserve a read-only participant-visible terminal transcript through the Assignment while current authorization, relationship, Session visibility, and lifecycle policy permit it. Show unavailable items honestly and never substitute later content. | Implements scoped historical access without leaking Evaluation, review, or unreleased Result content. |
+| `UI-SESS-DEC-13` | When authoritative state reports intentional no-action, stop the working indicator, keep the accepted Participant message, publish no synthetic Agent Message, show no error, announce the resolved turn outcome once without moving focus, and expose a neutral persistent turn status only when the workflow says the Participant needs one. Never expose `no_action`, raw Agent Decision data, or hidden reasoning as participant copy. | Resolves pending state accessibly and honestly without turning internal control semantics into transcript content or a false failure. |
+| `UI-SESS-DEC-14` | Keep the pending timer, Agent-requested delay, schedule revision, and scheduling rejection out of the Participant transcript and UI by default. When a trusted timer trigger admits visible Agent work, use the existing Agent queued/working and Agent-initiated message states without creating a synthetic Participant message; apply `UI-SESS-DEC-13` if it resolves as no-action. | Preserves a calm Session and avoids exposing internal orchestration while keeping participant-visible Agent activity honest and accessible. |
 
 ## Information architecture
 
@@ -240,7 +241,7 @@ create duplicate controls or independent pending outcomes.
 | Session lifecycle | Starting handoff; Active; Paused; Completing; Completed; Terminated; Aborted | Server-authoritative workflow state; terminal states never reopen |
 | Connection | Connecting; Connected; Reconnecting; Offline; synchronized | Delivery and recovery projection only; it does not itself change Session lifecycle or time |
 | Participant message | Local draft; sending—not accepted; checking status; accepted; failed before acceptance; conflict; blocked | Whether one Participant-authored item is local, uncertain, or immutable transcript content |
-| Agent turn | Idle; queued; working; streaming; complete; incomplete; retryable-before-visibility; paused/cancelled; terminal failure | Processing and exact visible outcome for one accepted message; an accepted message can exist without an Agent answer and a visible answer can end incomplete |
+| Agent turn | Idle; queued; working; streaming; complete; intentional no reply; incomplete; retryable-before-visibility; paused/cancelled; resolved without effect; terminal failure | Processing and exact visible or non-visible outcome for one accepted message; an accepted message can exist without an Agent answer and a visible answer can end incomplete |
 | Authoritative time | Checking; active; configured warning; paused active-time; expired; reconciling; unavailable | Server-derived duration, warning, pause, and terminal facts; the visible countdown is a projection |
 
 The page must not infer one track from another. For example:
@@ -296,6 +297,7 @@ stateDiagram-v2
   CheckingStatus --> Conflict: mismatched or stale command
   Accepted --> AgentWorking: turn admitted
   AgentWorking --> Streaming: first durable fragment
+  AgentWorking --> IntentionalNoResponse: valid no-action outcome
   AgentWorking --> RetryableFailure: failure before visibility
   RetryableFailure --> AgentWorking: retry same response slot
   Streaming --> Streaming: next durable fragment
@@ -309,7 +311,9 @@ admission creates the immutable Participant message and Agent turn. Lost
 responses reconcile instead of resending. Before Agent visibility, a turn retry
 reuses the accepted message and response slot. The first durable fragment claims
 one visible Agent message. Later fragments append in order; a failure preserves
-that prefix as incomplete and cannot restart or replace it in place.
+that prefix as incomplete and cannot restart or replace it in place. A valid
+intentional no-action outcome ends the working state without creating an Agent
+Message or error and does not restart on reconnect.
 
 ## Pre-start instructions and acknowledgment
 
@@ -486,6 +490,33 @@ and mark the message complete. Agent-activity history remains separate. If a
 configured concise explanation is present, expose it through **Why this
 response?** beneath the completed message and label it as a participant-facing
 explanation, not complete internal reasoning.
+
+When authoritative turn state instead reports intentional no-action, remove
+**Agent is preparing a response** or **Agent is working** and publish no empty,
+placeholder, or synthetic Agent transcript message. Do not show `no_action`, a
+success toast, or a provider error. If the frozen workflow requires the
+Participant to understand that the Turn resolved without an answer, show a
+neutral status such as **No Agent reply for this turn** associated with the
+accepted message; otherwise add no persistent turn-status content. In either
+case, update the shared Agent presence from `Processing` to `Ready` while the
+Session remains actively interactive, or to the lifecycle-appropriate state
+such as `Dormant` after terminalization. Announce the resolved turn outcome once
+through the associated status/live region at a useful rate, do not move focus
+for this background state change, and do not rely on the disappearance of a
+spinner as the only perceivable update. Reconnect restores this terminal turn
+outcome and does not replay the Invocation.
+
+### Timer-triggered Agent activity
+
+Do not show a countdown, scheduled-task row, requested delay, schedule revision,
+or rejection message for the internal Agent timer lane. Waiting for the next
+timer is ordinary `Ready` Agent presence, not `Processing`. If a trusted timer
+trigger later admits an Invocation whose work is participant-visible, transition
+to the existing queued/working presentation without fabricating a Participant
+message. A permitted Agent Message uses the existing Agent-initiated transcript
+path and ADR-011 streaming states; intentional no-action follows the section
+above. Announce only participant-relevant working or message state, not the
+internal timer firing itself, and do not move focus.
 
 ### Agent-turn failure and retry
 
@@ -901,6 +932,8 @@ journey.
 | Send response lost after possible commit | Checking message status | Draft, idempotent command context, last confirmed transcript | No blind resend or duplicate placeholder | Reconcile authoritative message/turn |
 | Duplicate or concurrent send | Synchronized message or bounded conflict | One authoritative order and accepted content | No duplicate turn or device-clock ordering | Reconcile and continue under frozen policy |
 | Agent timeout/invalid output before first fragment | Agent response failed before visibility | Accepted Participant message and turn | No retyping, hidden diagnostics, or transcript answer | Retry same response slot when permitted; pause/terminal fallback |
+| Intentional no-action | Working state ends; neutral persistent turn status only when workflow-required; resolved outcome announced once | Accepted Participant message and explicit terminal turn outcome | No empty Agent message, internal `no_action` label, error, focus movement, or automatic retry | Continue the Session under current workflow; reconnect preserves the resolved outcome |
+| Agent Decision rejected by policy | Safe bounded failure or neutral suppressed state returned by the workflow | Accepted Participant message and protected decision provenance | No prohibited effect, raw decision payload, or provider-failure mislabel | Follow only the current permitted recovery action |
 | Agent timeout/invalid output after fragments | Response incomplete | Accepted Participant message and exact durable Agent prefix | No restart, replacement, hidden diagnostics, or complete claim | Explicitly linked continuation only when frozen policy permits |
 | Duplicate, gapped, or conflicting stream fragment | Checking Agent response | Last contiguous authoritative prefix | No duplicate append or client-side gap filling | Reconcile exact fragments; mark incomplete if continuity cannot be proven |
 | SSE disconnect or gap | Reconnecting | Last authorized visible context and safe local draft | No pause, current-state, or time-stop claim | Reauthenticate and reconcile state/delta |
@@ -921,7 +954,7 @@ journey.
 | --- | --- | --- | --- |
 | Instructions, notices, acknowledgments, and committed entry | `AC-SESS-1`, `AC-SESS-2`; `AC-RSC-10`–`AC-RSC-14` | Assignment pre-start section, acknowledgment controls, Session resolver | Current/stale/declined/cross-scope acknowledgment, duplicate start, pre-commit failure, committed handoff, protected-loading tests; keyboard and narrow evidence |
 | Local draft, message admission, idempotency, and ordering | `AC-SESS-3`, `AC-SESS-4`, `AC-SESS-8`; `AC-AUTH-19` | Composer, pending message, admission outcome, reconciliation | Equivalent/mismatched keys, lost response, concurrent tab/device, wrong Session, size/rate, pre-commit failure, focus tests |
-| Agent work, incremental publication, failure, and partial visibility | `AC-SESS-5`–`AC-SESS-7`, `AC-SESS-31`, `AC-SESS-32` | Turn region, Agent activity, growing Agent message, complete/incomplete outcome, retry/continuation, explanation disclosure | Durable-before-display fragments, first-fragment slot claim, order/digest/duplicate/gap, timeout before/after visibility, reconnect replay, pause/cutoff race, prohibited streamed/work-trace content, announcement-rate tests |
+| Agent work, intentional no-action, decision rejection, next-timer replacement, incremental publication, failure, and partial visibility | `AC-SESS-5`–`AC-SESS-7`, `AC-SESS-31`–`AC-SESS-41` | Turn region, Agent activity, intentional-no-response outcome, timer-triggered Agent activity, growing Agent message, complete/incomplete outcome, retry/continuation, explanation disclosure | No-action versus failure/rejection, hidden pending timer, default/accepted/rejected timer request, duplicate trigger, late decision, governed timer-triggered Agent publication, durable-before-display fragments, first-fragment slot claim, order/digest/duplicate/gap, timeout before/after visibility, reconnect replay, pause/cutoff race, prohibited streamed/work-trace content, announcement-rate tests |
 | Reconnect, disconnection timing, warnings, pause, resume, and authorization loss | `AC-SESS-9`–`AC-SESS-14`; `AC-AUTH-11`, `AC-AUTH-12`, `AC-AUTH-20` | Status region, timer, warning notice, reconnect controls, paused state | SSE gap, offline, restart, stale cursor, client clock, configured warning, missed warning, pause interval, revocation within 60 seconds; desktop/narrow/focus evidence |
 | Participant completion, expiry, termination, abort, and post-terminal safety | `AC-SESS-15`–`AC-SESS-20`, `AC-SESS-28` | Completion dialog, checking/finalizing state, terminal views, administrator controls | Idempotent completion, message/expiry/control races, Attempt mapping, audit/seal failure, late callback, stale post-terminal action; dialog/announcement evidence |
 | Exact history, frozen sources, disabled capabilities, and scoped terminal access | `AC-SESS-21`–`AC-SESS-23`, `AC-SESS-30`; `AC-AUTH-6`, `AC-AUTH-8`, `AC-AUTH-23`; `AC-RSC-12`–`AC-RSC-17`, `AC-RSC-24`, `AC-RSC-25` | Transcript, Session details, bound Submission summary, assigned-review link | Immutable order/cutoff, changed source, exact binding, unavailable content, current relationship, wrong assignment, disabled voice/tools/memory/shared behavior, credential-failure tests |
@@ -968,8 +1001,16 @@ identifiers.
 
 ## Open questions
 
-None. `UI-SESS-DEC-1`–`UI-SESS-DEC-12`, including the revised incremental
-streaming decision, were approved on 2026-08-09.
+None. Approved `UI-SESS-DEC-13` follows the approved Session requirements:
+internal no-action is not participant copy; working state resolves without an
+error; the resolution is announced once; and a neutral persistent status
+appears only when the frozen workflow requires it. This is perceivable and
+honest without exposing internal Agent Decision details or adding transcript
+content.
+
+Approved `UI-SESS-DEC-14` introduces no participant timer control or copy. The
+timer remains internal unless its trusted trigger produces participant-relevant
+Agent work or a permitted Agent Message.
 
 ## Downstream gaps and review needed
 
@@ -992,6 +1033,9 @@ streaming decision, were approved on 2026-08-09.
 - Product Lead approved `UI-SESS-DEC-1`–`UI-SESS-DEC-12` on 2026-08-09 and
   required `UI-SESS-DEC-6` to stream Agent responses token by token in the MVP
   as a foundation for future interaction behavior.
+- The listed Product, UI/UX, Architecture, and Security/Privacy approvers made
+  `UI-SESS-DEC-13` authoritative on 2026-08-11.
+- The same listed approvers made `UI-SESS-DEC-14` authoritative on 2026-08-11.
 
 - Business-analysis review bounded the Participant, administrator, assigned-
   Reviewer, and service responsibilities; mapped happy, alternate, failure,
@@ -999,7 +1043,7 @@ streaming decision, were approved on 2026-08-09.
   `AC-*` criteria; and introduced no new MVP capability.
 - UI/UX review defined the information hierarchy, independent state tracks,
   composer, Agent activity, time, pause, completion, administrator-control,
-  accessibility, content, and responsive behavior proposed here.
+  accessibility, content, and responsive behavior governed here.
 - Architecture review preserved the primary-store Session authority,
   durable-before-display fragment publication, server time, Session and
   fragment sequence, request/response command, SSE/reconnect, idempotency,
@@ -1008,7 +1052,7 @@ streaming decision, were approved on 2026-08-09.
   Activity/Participant/Attempt/Session isolation, fail-closed dependencies,
   separate control/content capabilities, inert rendering, disabled learning and
   tools, minimized errors, and protected-artifact boundaries.
-- Traceability review covers `AC-SESS-1`–`AC-SESS-32` and the applicable
+- Traceability review covers `AC-SESS-1`–`AC-SESS-37` and the applicable
   `AC-AUTH-*`, `AC-RSC-*`, and `AC-OPS-4` lifecycle criteria. Implementation and
   verification evidence remain open.
 

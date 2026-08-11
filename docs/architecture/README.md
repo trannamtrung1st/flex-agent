@@ -6,7 +6,8 @@ Product concepts and invariants live under [product documentation](../product/RE
 
 ## Status
 
-**Approved MVP baseline.** The [MVP architecture](mvp-architecture.md) governs P0
+**Approved MVP version 0.9 baseline.** The
+[MVP architecture](mvp-architecture.md) governs P0
 boundaries, logical ownership, runtime flows, trust boundaries, SPA/API/gateway
 topology, OIDC direction, resilience, quality attributes, OSS-first
 self-hostability, and evolution seams.
@@ -22,8 +23,8 @@ not a preferred model. Deployment-managed profiles and Organization BYOK are
 the MVP credential modes; the same boundary preserves a separately gated path
 to Organization model endpoints without making that an MVP requirement.
 Optional LGTM is operator-pulled local/CI infrastructure and
-does not block MVP or production architecture. Approved detailed contracts cover
-[text Session runtime](session-runtime-contract.md),
+does not block MVP or production architecture. Approved baselines of the
+detailed contracts cover [text Session runtime](session-runtime-contract.md),
 [Evidence and Evaluation execution](evaluation-execution-contract.md), and
 [Human review, Result, and Release](review-result-release-contract.md). The three
 contracts and their original provider-streaming, optional-broker, and
@@ -56,6 +57,17 @@ streaming for the MVP. The primary store, transactional outbox, SSE replay,
 cutoff, validation, and backpressure contract remain authoritative; no external
 broker becomes mandatory.
 
+[ADR-012](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md)
+defines the approved provider-neutral Agent Invocation/Decision,
+validation/effect, and explicit no-action boundary. The related product,
+resolved-configuration, Session, UI/UX, and architecture revisions are approved
+and govern implementation.
+
+[ADR-013](decisions/ADR-013-agent-requested-next-timer-replacement.md)
+extends that boundary with one optional runtime-owned Session timer lane. An
+Agent Decision may recommend a bounded replacement delay, but the runtime
+validates, schedules, fires, pauses, and cancels the event authoritatively.
+
 ## Purpose
 
 This area governs how the system is structured: boundaries, data ownership, runtime flows, deployment topology, quality attributes, and integration contracts.
@@ -67,6 +79,8 @@ This area governs how the system is structured: boundaries, data ownership, runt
 | Review the approved end-to-end P0 technical shape | [MVP architecture](mvp-architecture.md) |
 | Review approved cross-cutting decisions | [Architecture decisions](decisions/README.md) |
 | Review participant-visible Agent-response streaming | [ADR-011: participant-visible Agent-response streaming](decisions/ADR-011-participant-visible-agent-response-streaming.md) |
+| Review the approved structured Agent boundary | [ADR-012: structured Agent Invocation and Decision](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) |
+| Review the approved next-timer replacement boundary | [ADR-013: Agent-requested next-timer replacement](decisions/ADR-013-agent-requested-next-timer-replacement.md) |
 | Review the approved implementation stack and workspace | [ADR-010: .NET implementation stack](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) |
 | Review approved OSS component defaults and pending evidence gates | [ADR-008: bounded OSS component set](decisions/ADR-008-bounded-oss-component-set.md) |
 | Implement the approved text Session realization | [Text Session runtime contract](session-runtime-contract.md) |

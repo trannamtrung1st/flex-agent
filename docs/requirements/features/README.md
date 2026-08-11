@@ -4,7 +4,11 @@ Home for Flex Agent feature specifications.
 
 ## Status
 
-**All seven P0 specifications are approved.** Nineteen spec files exist. [`auth-resource-isolation.md`](auth-resource-isolation.md) through [`review-result-release.md`](review-result-release.md) are `Approved`; all P1–P3 files remain placeholders. P0 implementation, architecture, UI/UX, and verification must preserve these approved contracts. Placeholders and drafts are not approved requirements.
+**All seven P0 specifications are approved at their current versions.** Nineteen
+spec files exist. [`resolved-session-configuration.md`](resolved-session-configuration.md)
+v0.3 and [`session-text-lifecycle.md`](session-text-lifecycle.md) v0.4 include
+approved structured Agent Invocation/Decision and one-lane next-timer behavior.
+All P1–P3 files remain placeholders. No eighth P0 feature is added.
 
 ## Purpose
 

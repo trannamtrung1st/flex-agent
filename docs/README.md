@@ -54,11 +54,11 @@ Illustrative examples in product documents are not MVP commitments unless captur
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Product | Approved v0.1 | [Product hub](product/README.md): overview, [concept model](product/concept-model.md), [MVP scope](product/mvp-scope.md) |
-| Requirements | P0 specifications and operational defaults approved | [Feature catalog](requirements/README.md#feature-catalog-overview); all seven P0 specifications and the [MVP operational defaults](requirements/mvp-operational-defaults.md) are `Approved` |
-| UI/UX | Journey, all five P0 surface specifications, and shared design system approved | The platform-level [Flex Agent activity journey and MVP campaign information architecture](ui-ux/activity-campaign-journey.md), [assessment Campaign setup interaction specification](ui-ux/assessment-campaign-setup.md), [Submission and Attempt interaction specification](ui-ux/submission-attempt.md), [Text Session interaction specification](ui-ux/text-session.md), [Evidence, Evaluation, and Human Review interaction specification](ui-ux/evidence-evaluation-human-review.md), [Result and Release interaction specification](ui-ux/result-release.md), and shared [design system](ui-ux/design-system/README.md) are `Approved` |
-| Architecture | Approved OSS-first, self-hostable architecture, model-neutral provider boundary, component baseline, detailed contracts, .NET implementation stack, and participant-visible durable streaming; eleven approved ADRs | [MVP architecture](architecture/mvp-architecture.md) governs the P0 baseline; [ADR-008](architecture/decisions/ADR-008-bounded-oss-component-set.md) selects components and provider/deployment defaults; [ADR-009](architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md) approves the original Session, Evaluation, and Review/Release contracts; [ADR-010](architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) approves the .NET/React stack; [ADR-011](architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md) supersedes complete-message-only Session publication with durable-before-display incremental streaming |
-| Feature specifications | Catalog complete; all seven P0 specs approved | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); see [features/](requirements/features/README.md) |
+| Product | Approved v0.3 | [Product hub](product/README.md): structured Agent Invocation/Decision and bounded next-timer revisions preserve the approved assessment scope |
+| Requirements | Seven P0 specifications approved at current versions | [Feature catalog](requirements/README.md#feature-catalog-overview); resolved configuration v0.3 and text Session v0.4 add one-lane next-timer replacement without an eighth P0 feature; [MVP operational defaults](requirements/mvp-operational-defaults.md) remain approved |
+| UI/UX | All five P0 surfaces approved; Text Session v0.4 current | The approved [Text Session](ui-ux/text-session.md) keeps internal timer controls hidden while presenting any resulting Agent activity through existing accessible states; the journey and shared [design system](ui-ux/design-system/README.md) remain approved |
+| Architecture | Approved v0.9 baseline and thirteen ADRs | [MVP architecture](architecture/mvp-architecture.md) v0.9, [ADR-012](architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), and [ADR-013](architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) govern Invocation/Decision and next-timer behavior while preserving ADR-011 streaming |
+| Feature specifications | Catalog complete; seven P0 specifications approved | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); see [features/](requirements/features/README.md) |
 | Implementation | Foundation scaffold in progress | Executable API, worker, SPA, locked restores, architecture/runtime tests, OCI build inputs, and implementation CI are present. See [workspace development](contributing/workspace.md). Provider-independent foundation work may proceed while schema/JCS/HTTP/PostgreSQL and later gates are completed; overall scaffold acceptance and gated integrations remain blocked without their required evidence. |
 | Contributing | Active | Cursor rules, role skills, TDD policy, and Playwright MCP guidance |
 | Templates | Active | Reusable authoring templates (not authoritative content) |
@@ -75,12 +75,15 @@ Illustrative examples in product documents are not MVP commitments unless captur
 ### Requirements
 
 - [Requirements hub](requirements/README.md) — lifecycle, ID conventions, and [feature catalog](requirements/README.md#feature-catalog-overview)
-- [Feature specifications](requirements/features/README.md) — 19 specs; all seven P0 specifications approved
+- [Feature specifications](requirements/features/README.md) — 19 specs; all seven P0 specifications approved at their current versions
 - [MVP operational defaults](requirements/mvp-operational-defaults.md) — approved intake, authentication-session, lifecycle, and recovery-placement defaults
 
 ### UI/UX
 
-- [UI/UX documentation](ui-ux/README.md) — Approved platform Activity IA, end-to-end P0 assessment Campaign journey, all five approved P0 surface interaction specifications, and the approved shared design system
+- [UI/UX documentation](ui-ux/README.md) — Approved platform Activity IA,
+  end-to-end P0 assessment Campaign journey, five approved P0 surface
+  specifications including Text Session v0.4, and the approved shared design
+  system
 
 ### Architecture
 

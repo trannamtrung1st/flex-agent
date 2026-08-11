@@ -4,7 +4,9 @@ Architecture Decision Records (ADRs) for Flex Agent.
 
 ## Status
 
-**Eleven approved decisions.**
+**Thirteen approved decisions.** ADR-012 and ADR-013 plus their approved
+upstream product/requirement revisions govern structured Agent
+Invocation/Decision and next-timer implementation.
 
 | ADR | Status | Decision |
 | --- | --- | --- |
@@ -19,6 +21,8 @@ Architecture Decision Records (ADRs) for Flex Agent.
 | [ADR-009](ADR-009-mvp-session-evaluation-review-contracts.md) | Approved; Session publication partially superseded by ADR-011 | Detailed Session, Evidence/Evaluation, and Review/Result/Release contracts, including original provider-streaming, optional-broker, and notification boundaries |
 | [ADR-010](ADR-010-dotnet-implementation-stack-and-workspace.md) | Approved | .NET 10/ASP.NET Core API and worker, React/Vite SPA, `JsonSchema.Net`, separate pinned-source JCS project, Npgsql/Dapper persistence, Grate migrations, test stack, workspace boundaries, and supply-chain conventions |
 | [ADR-011](ADR-011-participant-visible-agent-response-streaming.md) | Approved | Durable-before-display participant-visible incremental Agent-response fragments, ordering, replay, incomplete-stream recovery, cutoff, validation, and backpressure |
+| [ADR-012](ADR-012-structured-agent-invocation-and-decision-boundary.md) | Approved | Provider-neutral trusted Agent Invocation, structured Agent Decision, independent validation/effect, explicit no-action, ordering, streaming coexistence, and minimized provenance boundary |
+| [ADR-013](ADR-013-agent-requested-next-timer-replacement.md) | Approved | Optional Agent recommendation that replaces one runtime-owned next timer under frozen delay, lifecycle, idempotency, and loop bounds |
 
 ## Purpose
 

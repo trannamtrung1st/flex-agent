@@ -3,18 +3,19 @@
 ## Status and source
 
 - Status: Approved
-- Version: 0.2
+- Version: 0.4
 - Owner: Product Lead
 - Approvers: Product Lead, Architecture Lead, UI/UX reviewer, Security/Privacy reviewer
-- Approved date: 2026-08-06
-- Latest approved revision: 2026-08-09 — participant-visible incremental Agent-response streaming added to the MVP and prior complete-message-only publication superseded
-- Source: [Session](../../product/concept-model.md#session), [Workflow model](../../product/concept-model.md#workflow-model), [Session state and events](../../product/concept-model.md#session-state-and-events), [Inspectable justification boundary](../../product/concept-model.md#evaluation-review-decision-result-and-release), [Product invariants](../../product/concept-model.md#product-invariants), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice), [MVP executable workflow](../../product/mvp-scope.md#mvp-executable-workflow), and [Participant capabilities](../../product/mvp-scope.md#participant-capabilities-mvp)
+- Approved date: 2026-08-11
+- Approval history: Baseline approved 2026-08-06; v0.2 approved 2026-08-09 with participant-visible incremental Agent-response streaming; v0.3 approved 2026-08-11 with the structured Agent Invocation/Decision boundary and explicit intentional no-action outcome; v0.4 approved 2026-08-11 with optional Agent-requested next-timer replacement
+- Source: [Session](../../product/concept-model.md#session), [Agent Invocation, Invocation Trigger, and Agent Decision](../../product/concept-model.md#agent-invocation-invocation-trigger-and-agent-decision), [Workflow model](../../product/concept-model.md#workflow-model), [Session state and events](../../product/concept-model.md#session-state-and-events), [Inspectable justification boundary](../../product/concept-model.md#evaluation-review-decision-result-and-release), [Product invariants](../../product/concept-model.md#product-invariants), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice), [MVP executable workflow](../../product/mvp-scope.md#mvp-executable-workflow), and [Participant capabilities](../../product/mvp-scope.md#participant-capabilities-mvp)
 - Catalog entry: P0 #5 — [P0 authoring order](../README.md#p0-authoring-order)
 - Related requirements: Consumes authorization and isolation from [`auth-resource-isolation.md`](auth-resource-isolation.md), the frozen configuration and manifest from [`resolved-session-configuration.md`](resolved-session-configuration.md), the activated text workflow from [`assessment-setup.md`](assessment-setup.md), and the active Attempt plus exact Submission binding from [`submission-attempts.md`](submission-attempts.md). Supplies a terminal, ordered transcript and lifecycle record to [`evidence-evaluation.md`](evidence-evaluation.md).
-- Related decisions: Approved defaults `PROP-1`–`PROP-8` in this specification, with `PROP-7` revised by the 2026-08-09 product decision. [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs manifest integrity and terminal sealing. [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) governs interactive, real-time, and service authorization. [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) governs durable audit. [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) governs the committed readiness boundary from which this lifecycle begins. [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs the SPA/API/gateway, request/response plus SSE, worker, persistence, and recovery baseline. [ADR-009](../../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md) approved the original detailed Session contract; [ADR-011](../../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md) supersedes its complete-message-only publication boundary and approves version 0.2 of the [text Session runtime contract](../../architecture/session-runtime-contract.md). The [MVP operational defaults](../mvp-operational-defaults.md#protected-data-lifecycle-defaults) govern the default transcript, configuration, manifest, and working-context lifecycle.
-- Decision approval: `PROP-1`–`PROP-8` and the participant-visible work-trace direction were approved on 2026-08-06. The revised `PROP-7`, incremental-streaming requirements `REQ-SESS-55`–`REQ-SESS-60`, and `AC-SESS-32` were approved by the Product Lead on 2026-08-09.
+- Related decisions: Approved defaults `PROP-1`–`PROP-8` in this specification, with `PROP-7` revised by the 2026-08-09 product decision. [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs manifest integrity and terminal sealing. [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) governs interactive, real-time, and service authorization. [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) governs durable audit. [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) governs the committed readiness boundary from which this lifecycle begins. [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs the SPA/API/gateway, request/response plus SSE, worker, persistence, and recovery baseline. [ADR-009](../../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md) approved the original detailed Session contract; [ADR-011](../../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md) supersedes its complete-message-only publication boundary and approves version 0.2 of the [text Session runtime contract](../../architecture/session-runtime-contract.md). [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) approves the Invocation/Decision revision; [ADR-013](../../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) approves optional next-timer replacement. The [MVP operational defaults](../mvp-operational-defaults.md#protected-data-lifecycle-defaults) govern the default transcript, configuration, manifest, and working-context lifecycle.
+- Decision approval: `PROP-1`–`PROP-8` and the participant-visible work-trace direction were approved on 2026-08-06. The revised `PROP-7`, incremental-streaming requirements `REQ-SESS-55`–`REQ-SESS-60`, and `AC-SESS-32` were approved on 2026-08-09. Structured Invocation/Decision requirements `REQ-SESS-61`–`REQ-SESS-70` and `AC-SESS-33`–`AC-SESS-37` were approved on 2026-08-11 with ADR-012. Next-timer requirements `REQ-SESS-71`–`REQ-SESS-77` and `AC-SESS-38`–`AC-SESS-41` were approved on 2026-08-11 with ADR-013.
 
-This approved specification is authoritative for observable text Session lifecycle behavior in the MVP. Architecture, UI/UX, implementation, and downstream specifications must preserve its stable requirements, acceptance criteria, and approved decision dispositions.
+Version 0.4 is **approved** and supersedes version 0.3 while preserving its
+Invocation/Decision and ADR-011 participant-visible streaming behavior.
 
 ## Problem and measurable outcome
 
@@ -27,6 +28,11 @@ The measurable outcome is:
 - Every started assessment Session begins only from the committed Attempt, resolved configuration, manifest, exact Submission binding, and readiness state defined by ADR-005.
 - Every required instruction or consent acknowledgment is versioned, actor-bound, and verified before the start commit.
 - Every accepted participant message, participant-visible Agent-response fragment, completed or incomplete Agent message, and participant-visible Agent work-trace update has one stable identity, one unambiguous Session-local order, and an immutable historical representation.
+- Every admitted Agent decision opportunity identifies a trusted typed trigger,
+  uses authorized minimized Session context, and ends in either one structured
+  Agent Decision or an explicit execution failure/cancellation outcome.
+- Intentional no-action resolves its response opportunity without publishing an
+  Agent Message or presenting a provider failure.
 - Duplicate, concurrent, retried, stale, or cross-Session commands cannot create duplicate or mis-scoped transcript entries or state transitions.
 - The participant can reconnect to the same authoritative Session state without losing accepted messages, silently extending time, or creating another Attempt.
 - Active-time, paused-time, warnings, and terminal cutoff are derived from server-authoritative state and remain reconstructable in UTC order.
@@ -45,7 +51,7 @@ All actions are governed by [`auth-resource-isolation.md`](auth-resource-isolati
 | Activity administrator | Within current delegated activity and Session-control scope, monitor bounded operational state; pause, resume, or terminate when the governing policy permits; inspect transcript content only with an explicit sensitive-content capability | Cannot infer control authority from organization membership or a role label, silently change timing/configuration, impersonate the participant, author participant messages, rewrite transcript history, reopen a terminal Session, or inspect raw content without permission |
 | Organization administrator | Within explicitly delegated organization and action scope, inspect bounded operational and audit state and manage applicable upper-scope policy | Organization membership alone does not grant Session control, transcript access, or a bypass of activity, participant, or fairness boundaries |
 | Assigned reviewer | Within an active review assignment and applicable workflow state, inspect the terminal transcript, lifecycle summary, timing facts, and protected references made available for review | Cannot join the participant conversation, send or edit messages, pause/resume the Session, inspect an unassigned Session, or release a Result through this feature |
-| Session execution service | Under explicit service identity and bounded delegation, enforce state and timing, accept ordered commands, use the frozen configuration, request Agent generation, publish permitted Agent messages and work-trace updates, append manifest records, and commit lifecycle transitions | Cannot trust client scope, use mutable configuration, call disabled tools, learn from participant data, cross Session boundaries, expose prohibited internal reasoning, or continue after terminal cutoff |
+| Session execution service | Under explicit service identity and bounded delegation, enforce state and timing, admit trusted Agent Invocations, validate Agent Decisions, execute only permitted effects, use the frozen configuration, publish permitted Agent messages and work-trace updates, append manifest records, and commit lifecycle transitions | Cannot trust client or model-authored scope/trigger/authority, use mutable configuration, call disabled tools, learn from participant data, cross Session boundaries, expose prohibited internal reasoning, or continue after terminal cutoff |
 | Model provider adapter | Under the frozen model binding and bounded service delegation, process the exact permitted turn context and return generation outcomes | Cannot grant authority, change workflow state, access another Session, use capabilities absent from the resolved configuration, or make a generated state instruction authoritative |
 | Audit or compliance reviewer | Within explicitly delegated scope, inspect lifecycle, message-order, timing, recovery, transition, and access history | Cannot use audit access to obtain unrestricted raw transcript content, hidden prompts, credentials, unrelated participant records, or unrestricted exports |
 
@@ -58,6 +64,9 @@ All actions are governed by [`auth-resource-isolation.md`](auth-resource-isolati
 - One participant in one isolated text Session.
 - Ordered participant messages, incrementally streamed Agent-response fragments, completed or explicitly incomplete Agent messages, and participant-visible Agent work status and concise reasoning summaries under the frozen workflow and adaptive-follow-up policy.
 - Message admission, idempotency, ordering, pending state, Agent generation, publication, retry, cancellation, and safe failure.
+- The P0 `participant_input.message` Invocation Trigger, explicitly permitted
+  workflow-defined opening/closing triggers, structured Agent Decisions,
+  intentional no-action, and independent decision/effect validation.
 - Server-authoritative Session duration, hard timing bounds, remaining-time display, warning events, pause intervals, and terminal cutoff.
 - Authorized administrative pause, resume, and termination.
 - Participant completion, workflow-permitted completion, time-expiry completion, and unrecoverable abort.
@@ -73,6 +82,10 @@ All actions are governed by [`auth-resource-isolation.md`](auth-resource-isolati
 - Creating or replacing Submission versions. If the frozen requirement permits later in-Session material, [`submission-attempts.md`](submission-attempts.md) and ADR-005 govern exact-version intake and binding; this feature only gates use by current Session state.
 - Defining Evidence semantics, generating or revising an Evaluation, making a Review decision, constructing a Result, or releasing a Result.
 - Voice, playback, interruption, tool execution, Dynamic memory, memory candidates, cross-participant learning, shared real-time Sessions, video, proctoring, cheating detection, or biometric verification.
+- Silence-driven or arbitrary/parallel proactive Agent timers beyond the one
+  optional frozen Session timer lane, Interaction Controller signals,
+  configurable trigger catalogs, and decision-driven tool or richer workflow
+  execution; their contract seams do not enable these deferred capabilities.
 - Participant message editing or deletion after acceptance, private direct messages to administrators or reviewers, reviewer participation in the examination, or administrator impersonation.
 - Offline authoring that can be submitted without reauthorization, multi-device collaborative composition, or continuing a Session while the service is unreachable.
 - Product-wide retention durations, deletion schedules, legal-hold rules, consent wording, model-provider selection, transport protocol, queue topology, or database technology.
@@ -85,6 +98,14 @@ All actions are governed by [`auth-resource-isolation.md`](auth-resource-isolati
 - **Token-by-token streaming** means publishing each provider-emitted text delta at the finest granularity the selected provider interface exposes, without application-added batching. A provider delta may contain more than one model token when the provider does not expose literal token boundaries; the platform must not claim a finer boundary than it receives.
 - A **published Agent work-trace update** is a durably recorded participant-visible status label or concise authored reasoning summary about the current turn. It is a product-facing explanation, not raw model chain-of-thought, and it must remain distinguishable from the final Agent message and trusted system status.
 - A **turn** links one accepted participant message to zero or one published Agent response plus the generation attempts and terminal outcome needed to explain processing. The frozen workflow may define Agent-initiated opening or closing messages separately.
+- An **Agent Invocation** is one versioned semantic decision opportunity admitted
+  from a trusted typed trigger with authorized, purpose-bound resolved context.
+  It is not the Turn or a provider request.
+- An **Agent Decision** is one structured recommendation produced by a successful
+  Agent Invocation. It is not authoritative Session state or permission.
+- **Intentional no-action** is a successful Agent Decision that publishes no
+  Agent Message and ends the affected response opportunity explicitly; it is
+  not inferred from absence of content.
 - The **terminal transcript cutoff** is the last committed Session-local sequence included in the completed, terminated, or aborted transcript. Later commands cannot change it.
 - Connection state is not Session state. Closing a tab or losing a socket does not by itself create, complete, pause, terminate, or reset a Session.
 
@@ -226,6 +247,110 @@ Connection states such as `Connecting`, `Connected`, `Reconnecting`, and `Offlin
 - `REQ-SESS-58` — Completing an Agent message must append one authoritative completion record covering the ordered fragment range and assembled-content integrity. A completed projection must reproduce exactly those fragments; it must not replace them with a provider's later full candidate or a regenerated answer.
 - `REQ-SESS-59` — Reconnect, multiple-device delivery, and historical transcript reads must replay authorized response fragments from authoritative storage after a trusted Session cursor, deduplicate them by stable identity/order, and reconstruct the same visible prefix and completion outcome without trusting client-held text or fragment position.
 - `REQ-SESS-60` — Pause, completion, expiry, termination, authorization loss, or abort must compete with each response-fragment commit through the authoritative Session version/order boundary. No new fragment may commit as participant-visible transcript content after the winning cutoff. A fragment committed at or before the cutoff remains immutable transcript content and may be delivered or replayed afterward only when current authorization and lifecycle policy permit, with an explicit terminal stream outcome when incomplete.
+- `REQ-SESS-61` — Every admitted Agent Invocation must have a stable identity,
+  supported contract version, typed Invocation Trigger with trusted provenance,
+  frozen configuration reference, purpose, and authorized minimized context or
+  protected context references. Model-authored content must not establish the
+  trigger, scope, authorization, timing, or workflow facts.
+- `REQ-SESS-62` — In the P0 text Session, an accepted Participant message that
+  is eligible for Agent processing must create or idempotently reconcile one
+  Invocation linked to its Turn and response slot. An Agent-initiated opening or
+  closing, or one timer-triggered check when the Session timer lane is enabled,
+  may be invoked only from a trusted workflow/runtime trigger permitted by
+  frozen policy. No voice, silence-driven, arbitrary/parallel timer,
+  tool-result, or configurable workflow trigger is enabled by this requirement.
+- `REQ-SESS-63` — A successfully executed Agent Invocation must produce exactly
+  one typed Agent Decision. Provider unavailability, timeout, malformed output,
+  invalid decision schema, cancellation, pre-execution policy rejection, and a
+  late post-cutoff result must remain invocation execution outcomes and must not
+  be represented as `no_action` or another fabricated Agent Decision.
+- `REQ-SESS-64` — Every Agent Decision must be validated against current
+  authorization, Session state, terminal cutoff, frozen Harness/workflow policy,
+  and permitted decision capabilities before any effect. A decision must not
+  widen scope or capability, change frozen configuration, make trusted facts,
+  execute a tool, transition workflow, enable memory, override timing, or
+  release a Result by itself.
+- `REQ-SESS-65` — When frozen policy permits intentional no-action and the Agent
+  validly decides it for a Participant Turn, the response slot and Turn must
+  reach an explicit successful non-error terminal outcome, no Agent Message may
+  be published, reconnect must not restart the invocation merely because no
+  message exists, and authorized provenance must distinguish the outcome from
+  pending, failure, cancellation, and policy rejection.
+- `REQ-SESS-66` — A permitted communication decision must establish or claim
+  the authorized response/publication path before visible content is published.
+  Every participant-visible delta and final message outcome must continue to
+  satisfy `REQ-SESS-16`–`REQ-SESS-18` and `REQ-SESS-55`–`REQ-SESS-60`; structured
+  decision output must not require complete-message buffering or exposure of
+  incomplete structured control data.
+- `REQ-SESS-67` — Invocation admission, retries, decision recording, and effect
+  execution must be idempotent and ordered against Session lifecycle changes.
+  Duplicate trusted triggers must not create duplicate decisions or effects;
+  pause, revocation, completion, expiry, termination, or abort must prevent a
+  stale or late decision from causing a prohibited effect.
+- `REQ-SESS-68` — Invocation context must derive from the trusted Session
+  binding, frozen configuration, permitted exact Submission and knowledge
+  material, authoritative visible transcript, and other explicitly permitted
+  state. It must exclude unrelated Organization, Activity, Participant, Attempt,
+  and Session data and must not copy complete protected content where stable
+  protected references or minimized facts suffice.
+- `REQ-SESS-69` — Frozen policy must impose positive bounds on invocation
+  attempts and any permitted chaining, duplicate-trigger suppression, and
+  trigger eligibility. Self-generated events must not create an uncontrolled
+  Agent loop; P0 tools, voice, silence-driven behavior, arbitrary/parallel timer
+  lanes, and richer workflow chains remain disabled.
+- `REQ-SESS-70` — Authorized history must distinguish the trusted trigger,
+  Invocation execution outcome, successful Agent Decision, validation outcome,
+  and resulting authoritative domain effect or explicit absence of such an
+  effect without requiring or exposing hidden chain-of-thought or copying raw
+  sensitive payloads into audit, telemetry, or generic event records. An
+  explicit absence of domain effect must still preserve the lifecycle and
+  bookkeeping records needed to terminalize the Invocation and any linked Turn
+  or response slot.
+- `REQ-SESS-71` — When the frozen Session timer lane is enabled, any successful
+  Agent Decision may contain at most one optional next-timer recommendation with
+  a positive relative delay. This control is not a trusted trigger or schedule,
+  and its absence does not alter a still-valid pending event. The frozen default
+  cadence supplies the first event and resumes after a fired timer Invocation
+  when no accepted replacement governs its successor.
+- `REQ-SESS-72` — The runtime must validate a next-timer recommendation
+  independently from the Decision's primary behavior against current
+  authorization, `Active` Session state, timer-lane enablement, expected schedule
+  revision, permitted stage, positive minimum/maximum delay, active-time clock
+  basis, cooldown, concurrency, replacement, Invocation, and cutoff bounds. A
+  rejected scheduling recommendation must not by itself reject an otherwise
+  valid permitted Decision behavior.
+- `REQ-SESS-73` — Accepting a next-timer recommendation must atomically or
+  equivalently replace the timer lane's one pending next event with a new
+  ordered schedule revision. If the driving timer event already fired and its
+  Invocation is choosing the lane's successor, the accepted recommendation
+  must install that sole successor instead of the frozen default successor. It
+  must calculate the requested relative delay from the authoritative
+  scheduling-effect commit using active Session time and must not append a
+  parallel event. Equivalent retries reconcile to that revision; mismatched,
+  stale, or losing concurrent requests cause no scheduling effect and do not
+  erase a still-valid event.
+- `REQ-SESS-74` — P0 next-timer delay must use authoritative active Session
+  time. Pause suspends the remaining delay and prohibits firing; resume
+  recalculates the due instant from authoritative remaining active delay.
+  Revocation, completion, expiry, termination, or abort must cancel or expire
+  the pending event and prevent late work from rearming it.
+- `REQ-SESS-75` — When the one pending timer event becomes due, the scheduler
+  must reauthorize its service delegation and revalidate complete Session scope,
+  lifecycle, frozen policy, schedule revision, budget, and cutoff before
+  committing one typed trusted timer trigger and admitting or idempotently
+  reconciling one new Agent Invocation. Model-authored scheduling control must
+  remain provenance and must not become the trusted trigger itself.
+- `REQ-SESS-76` — When an enabled timer lane's Session enters `Active`, the
+  runtime must arm its first event using the frozen default delay. After a timer
+  event fires and its Invocation reaches a terminal outcome, the runtime must
+  arm the next event using the frozen default delay unless that successful
+  Decision contains an accepted replacement. At most one event may remain
+  pending, claimed, or eligible to fire for the lane.
+- `REQ-SESS-77` — Authorized history must distinguish the Agent's requested
+  delay, independent validation outcome, schedule revision and due facts,
+  replacement/supersession, fired/cancelled/expired state, trusted timer trigger,
+  and resulting Invocation using bounded categories and protected references.
+  Timer control must not become transcript content or copy hidden reasoning.
 
 ### Timing, warnings, pause, and connection recovery
 
@@ -282,6 +407,8 @@ Architecture may choose physical storage only if it preserves ownership, authori
 | Message | Preserve one authoritative visible transcript item | Message ID, Session/turn, author type and actor reference where applicable; immutable Participant content/protected reference or Agent fragment range and rebuildable assembled-content projection; state and completion outcome; first/last Session-local sequence; accepted/publication/outcome times; idempotency/correlation |
 | Agent work-trace update | Preserve exactly what participant-visible “thinking” showed without storing hidden reasoning | Update ID, Session/turn, status-or-summary type, exact displayed content/protected reference, policy/configuration/generation provenance, Session-local sequence, publication time |
 | Turn | Connect participant input to Agent processing | Turn ID/order, triggering message or Agent-initiated type, frozen configuration reference, status, generation-attempt references, published-response reference, terminal outcome |
+| Agent Invocation | Preserve one admitted decision opportunity independently from a Turn or provider call | Invocation ID, contract version, Session/configuration scope, typed trusted-trigger reference, purpose, minimized context/protected references, idempotency/order, execution outcome, attempt and decision references |
+| Agent Decision | Preserve one successful semantic recommendation independently from its effect | Decision ID/type/schema version, Invocation reference, validated bounded payload/protected references, produced time/order, validation outcome, effect reference or explicit no-effect outcome |
 | Generation attempt | Preserve runtime provenance without conflating it with visible transcript | Attempt ID/order, turn/configuration/model references, start/end times, outcome, bounded failure/cancellation category, protected input/output references, manifest sequence |
 | Timer state/interval | Reconstruct effective time | Start instant, duration/hard endpoint source, warning schedule/version, active/paused intervals, authoritative remaining time at transitions, timezone interpretation |
 | Connection/reconciliation record | Explain recovery without making transport authoritative | Connection/session reference, actor/device-session pseudonymous reference when policy permits, last-seen and returned sequence, outcome, bounded reason, UTC times |
@@ -344,7 +471,8 @@ Audit and manifest records use protected message, content, and transcript refere
 - Keyboard focus must remain logical when messages arrive, must not be stolen by ordinary Agent output, and must return predictably after retry, reconnect, confirmation, or error dismissal.
 - The experience must support keyboard-only use, screen readers, reduced motion, 400 percent zoom, reflow, and narrow viewports without hiding status, time, composer state, completion consequence, or recovery action.
 - Raw model formatting must not break semantic structure, overflow the viewport, obscure controls, spoof system notices, or execute active content. Agent and participant content must remain visually and programmatically distinguishable from trusted system status.
-- The approved [Text Session interaction specification](../../ui-ux/text-session.md)
+- Approved version 0.3 of the
+  [Text Session interaction specification](../../ui-ux/text-session.md)
   establishes WCAG 2.2 AA as the Text Session accessibility baseline.
 
 ### Performance and reliability
@@ -671,6 +799,107 @@ Audit and manifest records use protected message, content, and transcript refere
 - **And** a stream that stops after visible content preserves the exact prefix
   as incomplete and never substitutes a regenerated or later provider answer.
 
+### `AC-SESS-33` — Intentional no-action resolves without a false failure
+
+- **Given** an admitted Participant Turn whose frozen policy permits intentional
+  no-action
+- **When** the Agent successfully decides no-action
+- **Then** no Agent Message is published
+- **And** the Turn and response slot reach an explicit successful non-error
+  terminal outcome
+- **And** the Participant is not shown a provider failure
+- **And** reconnect does not restart the same invocation merely because no
+  message exists
+- **And** authorized provenance distinguishes no-action from pending, failure,
+  cancellation, and rejection.
+
+### `AC-SESS-34` — A prohibited Agent Decision causes no effect
+
+- **Given** an Agent Decision requests behavior outside current resolved policy
+  or workflow state
+- **When** the Session runtime validates the decision
+- **Then** the prohibited effect does not occur and authoritative state is not
+  widened or bypassed
+- **And** the rejection remains distinguishable from provider failure
+- **And** errors, audit, and telemetry disclose no protected decision payload.
+
+### `AC-SESS-35` — A governed Agent-initiated message preserves publication authority
+
+- **Given** a trusted workflow/runtime trigger is permitted by frozen P0 policy
+  to invoke an Agent opening, closing, or enabled timer-triggered check
+- **When** the Agent decides to communicate and current validation accepts it
+- **Then** the runtime creates the permitted Agent-initiated conversational
+  publication state in authoritative order
+- **And** every visible fragment follows ADR-011
+- **And** pause, terminal cutoff, and revocation races remain enforced
+- **And** the trigger, decision, validation, and published effect are traceable
+  through minimized protected provenance.
+
+### `AC-SESS-36` — Duplicate triggers do not duplicate Agent effects
+
+- **Given** the same idempotent trusted trigger is delivered, retried, or
+  reconciled more than once
+- **When** invocation processing occurs
+- **Then** one semantic Invocation identity is used
+- **And** no duplicate Agent Decision or authoritative effect is produced beyond
+  the frozen retry/idempotency contract.
+
+### `AC-SESS-37` — A late Agent Decision cannot cross the cutoff
+
+- **Given** an Agent Invocation is in flight when pause, revocation, completion,
+  expiry, termination, or abort wins the authoritative boundary
+- **When** a provider or orchestration result arrives later
+- **Then** the late outcome cannot publish an Agent Message or cause another
+  prohibited effect
+- **And** bounded provenance records the late/cancelled execution outcome
+  without fabricating a successful no-action decision.
+
+### `AC-SESS-38` — An accepted Agent request replaces the next timer
+
+- **Given** an `Active` Session with one enabled timer lane and either one
+  pending next event or a fired timer Invocation awaiting its sole successor
+- **When** a successful Agent Decision recommends a permitted bounded delay and
+  schedule validation accepts it
+- **Then** one new schedule revision replaces the pending event or becomes the
+  sole successor instead of the default successor
+- **And** its relative delay starts at the authoritative scheduling-effect
+  commit and advances only during active Session time
+- **And** no parallel event is added
+- **And** when it becomes due, one trusted timer trigger creates or reconciles
+  one Agent Invocation.
+
+### `AC-SESS-39` — Omission or rejection preserves the system cadence
+
+- **Given** the timer lane is enabled
+- **When** a successful Decision omits a next-timer recommendation, or its
+  structurally valid recommendation is rejected as out of bounds, stale, or
+  prohibited
+- **Then** the otherwise permitted Decision behavior is evaluated independently
+- **And** the existing valid next event remains, or the frozen default delay is
+  armed after a fired timer Invocation
+- **And** no rejected request creates, removes, or postpones another event.
+
+### `AC-SESS-40` — Timer replacement is idempotent and single-lane
+
+- **Given** equivalent retries, mismatched key reuse, concurrent Decisions, or
+  multiple scheduler workers target the same timer lane
+- **When** replacement or firing is attempted
+- **Then** expected revision, idempotency, uniqueness, and authoritative Session
+  order produce at most one winning pending event and at most one admitted
+  Invocation
+- **And** losing or duplicate work reconciles without a second effect.
+
+### `AC-SESS-41` — Pause and cutoff suppress the timer safely
+
+- **Given** a next timer is pending or due
+- **When** pause, revocation, completion, expiry, termination, or abort wins the
+  authoritative boundary
+- **Then** no timer-triggered Invocation is admitted while prohibited
+- **And** pause preserves only the authoritative remaining active delay for
+  permitted resume
+- **And** terminal or revoked state cancels/expires the event and prevents late
+  firing or rearming.
+
 ## Edge and failure cases
 
 | Case | Required outcome |
@@ -686,6 +915,10 @@ Audit and manifest records use protected message, content, and transcript refere
 | Fragment gap or digest mismatch | Stop display, reconcile from authoritative storage, and fail the stream safely if contiguous reconstruction cannot be proven |
 | Streaming fails after one or more fragments | Preserve the exact durable prefix as incomplete; do not restart in place; offer only an explicitly linked continuation when policy permits |
 | Session pauses during an in-flight turn | Apply the frozen cancellation/commit boundary and record the outcome; do not leave ambiguous visible content |
+| Agent requests a shorter or longer next delay within bounds | Replace the one pending timer event; do not add another event |
+| Agent omits or requests a prohibited delay | Retain the current valid next event, or arm the frozen default after a fired timer Invocation; keep primary Decision validation independent |
+| Timer replacement races another Decision or scheduler claim | Use expected schedule revision and authoritative Session order; permit one winner and no parallel timer |
+| Timer becomes due during pause or after cutoff | Do not admit an Invocation; preserve active-time remainder only for an authorized resume, otherwise cancel or expire the event |
 | Client countdown reaches zero early or late | Use authoritative service time and state; reconcile the UI without changing the terminal boundary |
 | Warning cannot be delivered | Preserve the warning/threshold outcome when required; do not extend time or claim delivery |
 | Participant is disconnected until after expiry | Complete at the authoritative boundary and show the terminal state on authorized reconnect |
@@ -713,7 +946,7 @@ Audit and manifest records use protected message, content, and transcript refere
 - Protected transcript/payload storage and rendering capable of exact Session scoping, immutable accepted/published records, ordered retrieval, safe markup, and lifecycle-policy enforcement.
 - [`evidence-evaluation.md`](evidence-evaluation.md) consumer contract for the terminal transcript cutoff and protected evidence references.
 - [`review-result-release.md`](review-result-release.md) for assigned review access, review decisions, participant-visible Result, and Release.
-- Approved version 0.2 of the [text Session runtime contract](../../architecture/session-runtime-contract.md), [ADR-009](../../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md), and superseding publication decision [ADR-011](../../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md), covering authoritative ordering, timer accounting, terminal consistency, durable-before-display incremental publication, constrained work traces, SSE/reconnect, optional-broker boundaries, and recovery.
+- Approved version 0.3 of the [text Session runtime contract](../../architecture/session-runtime-contract.md), [ADR-009](../../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md), superseding publication decision [ADR-011](../../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md), and [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), covering authoritative ordering, Invocation/Decision/effect separation, timer accounting, terminal consistency, durable-before-display incremental publication, constrained work traces, SSE/reconnect, optional-broker boundaries, and recovery.
 - UI/UX interaction specification covering the Session state model, participant-visible work-trace region, content, focus, configurable warning behavior, responsive layout, and accessibility before UI implementation is considered complete.
 
 ### Rollout
@@ -733,7 +966,10 @@ Track at minimum:
 - Sessions started, active, paused, resumed, completed, terminated, aborted, and stuck in completing by bounded reason.
 - Instruction/acknowledgment blocked starts by version-safe category.
 - Participant messages accepted, rejected, deduplicated, conflicted, and blocked after pause/terminal state.
-- Agent generations started, timed out, cancelled, retried, late, failed, and published; exposed-partial-answer cases should have a release target of zero when non-streaming is selected.
+- Agent Invocations admitted/rejected, execution attempts started, timed out,
+  cancelled, retried, late, and failed; Agent Decisions accepted, rejected,
+  suppressed, no-action, and effect-completed/failed; duplicate/stale triggers
+  and chain-budget exhaustion; and message publication/incomplete outcomes.
 - Participant-visible work-trace updates proposed, published, deduplicated, suppressed by bounded policy category, failed before publication, and rejected for prohibited-content risk.
 - Message-admission latency, provider latency, publication latency, and participant-perceived turn latency separately.
 - Reconnects, reconciliation conflicts, stale clients, transcript-delta size, and revocation-propagation lag.
@@ -746,7 +982,9 @@ Metrics, logs, traces, and alerts must use bounded labels and protected referenc
 
 ## Open questions
 
-None. `Q-1`–`Q-7` were resolved on 2026-08-06 as recorded below.
+None. `Q-1`–`Q-7` were resolved on 2026-08-06 as recorded below. The v0.3
+Invocation/Decision semantics and v0.4 next-timer replacement behavior were
+approved on 2026-08-11 and introduce no new open question.
 
 ## Approved decision disposition
 
@@ -780,6 +1018,7 @@ These defaults are approved with this specification and govern MVP text Session 
 | --- | --- | --- | --- | --- |
 | `REQ-SESS-1`–`REQ-SESS-7`, `AC-SESS-1`, `AC-SESS-2` | Instruction/notice versioning, acknowledgment command, ADR-005 readiness consumer, and canonical Session state — architecture approved in the [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Current/stale/declined acknowledgment; cross-scope; pre-commit failure; duplicate start tests | Pre-start instructions, required acknowledgment, blocked, starting, and active states | Gap |
 | `REQ-SESS-8`–`REQ-SESS-19`, `REQ-SESS-51`–`REQ-SESS-60`, `AC-SESS-3`–`AC-SESS-8`, `AC-SESS-31`, `AC-SESS-32`, `PROP-7` | Ordered message/turn/work-trace/response-fragment model, generation adapter, constrained explanation contract, durable-before-display streaming boundary, and safe renderer — architecture approved in version 0.2 of the [text Session runtime contract](../../architecture/session-runtime-contract.md) through [ADR-011](../../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md); implementation TBD | Idempotency, concurrent publisher, fragment order/digest/gap/duplicate, reconnect replay, partial-stream failure, cutoff, work-trace policy/leakage, cross-Session, prompt-injection, unsafe-markup tests | Draft/sending/accepted/streaming/incomplete/retrying/published states at desktop and narrow widths | Gap |
+| `REQ-SESS-61`–`REQ-SESS-77`, `AC-SESS-33`–`AC-SESS-41` | Provider-neutral trusted trigger, Agent Invocation, execution attempt, Agent Decision, validation/effect, explicit no-action, one-lane next-timer replacement, ordering, and minimized provenance — approved in [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and version 0.4 of the [runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Fake/unknown/prohibited trigger, context isolation, exactly-one Decision, no-action, rejection, accepted/rejected/omitted timer request, duplicate/concurrent replacement, single firing, pause/resume/cutoff, loop budget, provider-neutral control/content separation, and deferred-capability tests | Intentional-no-response, rejected/suppressed, governed timer-triggered Agent activity, and reconnect-resolved states | Gap |
 | `REQ-SESS-20`–`REQ-SESS-30`, `AC-SESS-9`–`AC-SESS-14`, `PROP-2`, `PROP-3`, `PROP-6` | Authoritative timer, pause intervals, warning scheduler, and reconnect/revocation protocol — architecture approved in the [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Exact boundary, pause accounting, disconnect, reconnect, stale client, revocation, multiple-device tests | Timer/warnings, reconnecting, offline, paused, resumed, permission-changed states | Gap |
 | `REQ-SESS-31`–`REQ-SESS-41`, `AC-SESS-15`–`AC-SESS-20`, `PROP-5` | Terminal command/order, transcript cutoff, Attempt mapping, manifest seal, and handoff boundary — architecture approved in the [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Completion/expiry/termination/abort, message-terminal race, audit/seal failure, post-terminal callback tests | Confirmation, completing, completed, terminated, aborted, recovery states | Gap |
 | `REQ-SESS-42`–`REQ-SESS-50`, `AC-SESS-21`–`AC-SESS-23`, `AC-SESS-28`–`AC-SESS-30`, `PROP-1`, `PROP-8` | Transcript history, authorization/audit adapters, lifecycle enforcement, and scoped historical views — architecture approved in the [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Immutability, correction, audit durability/redaction, retention/unavailability, access-scope, disabled-learning tests | Participant transcript, assigned review, administrator monitoring, denied/unavailable states | Gap |
