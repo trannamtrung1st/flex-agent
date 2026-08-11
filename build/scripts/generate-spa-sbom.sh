@@ -34,13 +34,14 @@ echo "==> Generate SPA runtime SBOM from locked dependency graph"
     web/package.json
 )
 
-python3 - "$OUTPUT" "$TOOLCHAIN" "$ROOT/package.json" <<'PY'
+python3 - "$OUTPUT" "$TOOLCHAIN" "$ROOT/package.json" "$ROOT/web/package.json" <<'PY'
 import json
 import sys
 
 output = sys.argv[1]
 toolchain = json.load(open(sys.argv[2]))
 package_json = json.load(open(sys.argv[3]))
+web_package_json = json.load(open(sys.argv[4]))
 bom = json.load(open(output))
 components = bom.get("components") or []
 names = {component.get("name", "").lower() for component in components}
@@ -54,15 +55,17 @@ if installed_generator != expected_generator:
         f"cyclonedx-npm version mismatch: toolchain {expected_generator}, package.json {installed_generator}"
     )
 
-required = {"react", "react-dom"}
-expected_versions = {
-    "react": toolchain["runtime"]["react"],
-    "react-dom": toolchain["runtime"]["react"],
-}
+expected_dependencies = web_package_json.get("dependencies") or {}
+if not expected_dependencies:
+    raise SystemExit("SPA package.json declares no runtime dependencies to validate")
 
-missing = sorted(required - names)
+missing = sorted(
+    name for name in expected_dependencies if name.lower() not in names
+)
 if missing:
-    raise SystemExit(f"SPA SBOM missing required runtime components: {', '.join(missing)}")
+    raise SystemExit(
+        f"SPA SBOM missing required runtime components: {', '.join(missing)}"
+    )
 
 if not components:
     raise SystemExit("SPA SBOM contains zero components")
@@ -74,12 +77,15 @@ for component in components:
     if name and version:
         version_by_name.setdefault(name, set()).add(version)
 
-for package, expected in expected_versions.items():
-    versions = version_by_name.get(package, set())
+for package, expected in expected_dependencies.items():
+    versions = version_by_name.get(package.lower(), set())
     if expected not in versions:
         raise SystemExit(
             f"SPA SBOM {package} version mismatch: expected {expected}, found {sorted(versions) or ['missing']}"
         )
 
-print(f"==> SPA SBOM validated ({len(components)} components, react/react-dom present)")
+validated = ", ".join(sorted(expected_dependencies))
+print(
+    f"==> SPA SBOM validated ({len(components)} components; direct runtime deps: {validated})"
+)
 PY
