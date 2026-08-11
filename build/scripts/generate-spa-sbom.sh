@@ -25,8 +25,11 @@ mkdir -p "$(dirname "$OUTPUT")"
 echo "==> Generate SPA runtime SBOM from locked dependency graph"
 (
   cd "$ROOT"
+  # pnpm workspaces symlink dependencies; npm ls then reports nested devDependency
+  # metadata as missing even though runtime packages are installed correctly.
   pnpm exec cyclonedx-npm \
     --omit dev \
+    --ignore-npm-errors \
     --output-file "$OUTPUT" \
     web/package.json
 )
