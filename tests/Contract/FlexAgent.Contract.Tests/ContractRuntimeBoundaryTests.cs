@@ -92,7 +92,7 @@ public sealed class ContractRuntimeBoundaryTests
             "turn.synthetic.0001",
             "slot.synthetic.0001");
 
-        var invocation = new AgentInvocationV1(
+        var invocation = new InProgressAgentInvocationV1(
             "v1",
             "ainv.synthetic.0001",
             "v1",
@@ -108,21 +108,48 @@ public sealed class ContractRuntimeBoundaryTests
             "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation.v1.schema.json",
             invocation);
 
-        var attempt = new AgentInvocationExecutionAttemptV1(
+        var decidedInvocation = new DecidedAgentInvocationV1(
+            "v1",
+            "ainv.synthetic.0002",
+            "v1",
+            "participant_turn_response",
+            ownership,
+            triggerProvenance,
+            "43",
+            "adec.synthetic.0002");
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation.v1.schema.json",
+            decidedInvocation);
+
+        var attempt = new DecisionProducedExecutionAttemptV1(
             "v1",
             "eatt.synthetic.0001",
             "ainv.synthetic.0001",
             1,
-            "decision_produced",
             "2026-08-11T00:00:00Z",
             "2026-08-11T00:00:05Z",
-            null,
             "adec.synthetic.0001");
 
         ValidateDto(
             schemas,
             "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation-execution-attempt.v1.schema.json",
             attempt);
+
+        var failedAttempt = new FailedExecutionAttemptV1(
+            "v1",
+            "eatt.synthetic.0002",
+            "ainv.synthetic.0001",
+            2,
+            "provider_timeout",
+            "2026-08-11T00:00:05Z",
+            "2026-08-11T00:00:10Z");
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation-execution-attempt.v1.schema.json",
+            failedAttempt);
 
         var executionOutcome = new AgentInvocationExecutionOutcomeV1(
             "v1",
@@ -138,13 +165,11 @@ public sealed class ContractRuntimeBoundaryTests
             "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation-execution-outcome.v1.schema.json",
             executionOutcome);
 
-        var noActionDecision = new AgentDecisionV1(
+        var noActionDecision = new NoActionAgentDecisionV1(
             "v1",
             "adec.synthetic.0002",
             "ainv.synthetic.0002",
-            "no_action",
             "2026-08-11T00:00:06Z",
-            null,
             new NoActionDecisionPayloadV1("intentional_silence"));
 
         ValidateDto(
@@ -152,14 +177,12 @@ public sealed class ContractRuntimeBoundaryTests
             "https://flex-agent.local/contracts/schemas/v1/session/agent-decision.v1.schema.json",
             noActionDecision);
 
-        var validation = new DecisionValidationEffectV1(
+        var validation = new AcceptedDecisionValidationEffectV1(
             "v1",
             "veff.synthetic.0002",
             "adec.synthetic.0002",
-            "accepted",
             "no_domain_effect",
             "2026-08-11T00:00:07Z",
-            null,
             "44",
             "omitted");
 
@@ -167,6 +190,18 @@ public sealed class ContractRuntimeBoundaryTests
             schemas,
             "https://flex-agent.local/contracts/schemas/v1/session/decision-validation-effect.v1.schema.json",
             validation);
+
+        var suppressedValidation = new SuppressedDecisionValidationEffectV1(
+            "v1",
+            "veff.synthetic.0003",
+            "adec.synthetic.0003",
+            "visibility_bounded",
+            "2026-08-11T00:00:08Z");
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/session/decision-validation-effect.v1.schema.json",
+            suppressedValidation);
 
         var schedule = new TimerScheduleRevisionV1(
             "v1",
@@ -228,11 +263,10 @@ public sealed class ContractRuntimeBoundaryTests
             "https://flex-agent.local/contracts/schemas/v1/transport/sse-event.v1.schema.json",
             completeEvent);
 
-        var emitMessageDecision = new AgentDecisionV1(
+        var emitMessageDecision = new EmitMessageAgentDecisionV1(
             "v1",
             "adec.synthetic.0001",
             "ainv.synthetic.0001",
-            "emit_message",
             "2026-08-11T00:00:05Z",
             new EmitMessageDecisionPayloadV1(
                 "participant_turn_reply",

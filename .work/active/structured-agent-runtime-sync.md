@@ -510,6 +510,12 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
   `AgentInvocationExecutionOutcomeV1`; replaced dual ownership with scope-free
   `TrustedTriggerProvenanceV1` on Invocation; honest synthetic completion
   digests; separated protected runtime TypeScript to `internal-runtime.v1.ts`.
+- Third review contract hardening (2026-08-11): discriminated Invocation
+  lifecycle/terminal references; execution-attempt success/failure branches;
+  execution-outcome category/reason pairings (removed `admission_rejected`);
+  `DecisionValidationEffectV1` accepted/rejected/suppressed branches with
+  `suppression_reason_category`; C#/TypeScript discriminated unions mirroring
+  canonical `oneOf` (separate records/interfaces per branch).
 - Existing implementation is intentionally synthetic and lacks a production
   Session module. Achieving full conformance for the approved change therefore
   requires a new durable vertical slice, not just editing current DTOs or
@@ -538,7 +544,7 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
 | Cross-cutting plan review | passed | Backend, frontend, security/privacy, and tester checklists applied to requirements, ADR-011–ADR-013, runtime contract, UI decisions, and current implementation boundary; omissions recorded above were incorporated into scope, mapping, steps, and completion gates |
 | Plan formatting and documentation validation | passed | `git diff --no-index --check /dev/null .work/active/structured-agent-runtime-sync.md` produced no whitespace diagnostics (exit `1` denotes the expected new-file difference); `python3 scripts/check_docs.py` passed |
 | Executable traceability/threat-model review | passed | `.work/active/structured-agent-runtime-traceability.md` — requirement matrix, STRIDE controls, module ownership, duration encoding |
-| Contract/catalog/C#/TypeScript/OpenAPI compatibility | partial | `dotnet test --project tests/Contract/FlexAgent.Contract.Tests` 90/90 passed; `pnpm --filter @flex-agent/contracts test` 8/8 passed; post-review fixes for duration bounds, discriminated decisions, invocation ownership, execution outcomes, synthetic digest integrity; protected runtime TS in `internal-runtime.v1.ts` |
+| Contract/catalog/C#/TypeScript/OpenAPI compatibility | partial | `bash build/scripts/verify-dotnet.sh` 206/206; `bash build/scripts/verify-web.sh` pass; contract hardening tranche: discriminated Invocation, attempts, outcomes, validation/effect; C#/TS union parity; 13 new schema fixtures |
 | Sessions domain/application focused tests | pending | |
 | PostgreSQL 18 migration/isolation/concurrency/fault tests | pending | |
 | API/worker/provider/scheduler runtime tests | pending | |

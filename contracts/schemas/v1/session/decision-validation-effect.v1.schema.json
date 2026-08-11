@@ -3,84 +3,150 @@
   "$id": "https://flex-agent.local/contracts/schemas/v1/session/decision-validation-effect.v1.schema.json",
   "title": "Decision validation and effect v1",
   "description": "Independent validation outcome and authoritative domain effect for one Agent Decision.",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "validation_effect_id",
-    "agent_decision_id",
-    "validation_outcome",
-    "effect_outcome",
-    "validated_at"
+  "oneOf": [
+    { "$ref": "#/$defs/accepted_validation" },
+    { "$ref": "#/$defs/rejected_validation" },
+    { "$ref": "#/$defs/suppressed_validation" }
   ],
-  "properties": {
-    "schema_version": {
-      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
-    },
-    "validation_effect_id": {
-      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
-    },
-    "agent_decision_id": {
-      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
-    },
-    "validation_outcome": {
-      "type": "string",
-      "enum": ["accepted", "rejected", "suppressed"]
-    },
-    "rejection_reason_category": {
-      "type": "string",
-      "enum": [
-        "policy_prohibited",
-        "capability_disabled",
-        "payload_invalid",
-        "state_ineligible",
-        "budget_exhausted",
-        "cutoff_exceeded"
-      ]
-    },
-    "effect_outcome": {
-      "type": "string",
-      "enum": [
-        "applied",
-        "no_domain_effect",
-        "effect_failed",
-        "not_attempted"
-      ]
-    },
-    "validated_at": {
-      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
-    },
-    "session_sequence": {
-      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
-    },
-    "timer_validation_outcome": {
-      "type": "string",
-      "enum": ["accepted", "rejected", "omitted", "not_present"]
-    },
-    "schedule_revision_id": {
-      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
-    }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": { "validation_outcome": { "const": "rejected" } },
-        "required": ["validation_outcome"]
-      },
-      "then": {
-        "properties": {
-          "effect_outcome": {
-            "not": { "const": "applied" }
-          }
+  "$defs": {
+    "accepted_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "validation_effect_id",
+        "agent_decision_id",
+        "validation_outcome",
+        "effect_outcome",
+        "validated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+        },
+        "validation_effect_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "agent_decision_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "validation_outcome": { "const": "accepted" },
+        "effect_outcome": {
+          "type": "string",
+          "enum": ["applied", "no_domain_effect", "effect_failed"]
+        },
+        "validated_at": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "session_sequence": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+        },
+        "timer_validation_outcome": {
+          "type": "string",
+          "enum": ["accepted", "rejected", "omitted", "not_present"]
+        },
+        "schedule_revision_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
         }
       }
     },
-    {
-      "if": {
-        "properties": { "validation_outcome": { "const": "rejected" } },
-        "required": ["validation_outcome"]
-      },
-      "then": { "required": ["rejection_reason_category"] }
+    "rejected_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "validation_effect_id",
+        "agent_decision_id",
+        "validation_outcome",
+        "effect_outcome",
+        "rejection_reason_category",
+        "validated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+        },
+        "validation_effect_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "agent_decision_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "validation_outcome": { "const": "rejected" },
+        "effect_outcome": { "const": "not_attempted" },
+        "rejection_reason_category": {
+          "type": "string",
+          "enum": [
+            "policy_prohibited",
+            "capability_disabled",
+            "payload_invalid",
+            "state_ineligible",
+            "budget_exhausted",
+            "cutoff_exceeded"
+          ]
+        },
+        "validated_at": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "session_sequence": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+        },
+        "timer_validation_outcome": {
+          "type": "string",
+          "enum": ["accepted", "rejected", "omitted", "not_present"]
+        },
+        "schedule_revision_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        }
+      }
+    },
+    "suppressed_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "validation_effect_id",
+        "agent_decision_id",
+        "validation_outcome",
+        "effect_outcome",
+        "suppression_reason_category",
+        "validated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+        },
+        "validation_effect_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "agent_decision_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "validation_outcome": { "const": "suppressed" },
+        "effect_outcome": { "const": "not_attempted" },
+        "suppression_reason_category": {
+          "type": "string",
+          "enum": [
+            "visibility_bounded",
+            "duplicate_stale",
+            "workflow_bounds",
+            "policy_prohibited"
+          ]
+        },
+        "validated_at": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "session_sequence": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+        },
+        "timer_validation_outcome": {
+          "type": "string",
+          "enum": ["accepted", "rejected", "omitted", "not_present"]
+        },
+        "schedule_revision_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        }
+      }
     }
-  ]
+  }
 }

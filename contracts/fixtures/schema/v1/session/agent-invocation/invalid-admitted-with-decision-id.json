@@ -1,0 +1,24 @@
+{
+  "schema_version": "v1",
+  "agent_invocation_id": "ainv.synthetic.bad",
+  "invocation_contract_version": "v1",
+  "purpose": "participant_turn_response",
+  "ownership": {
+    "organization_id": "org.synthetic.0001",
+    "activity_id": "act.synthetic.0001",
+    "participant_id": "part.synthetic.0001",
+    "attempt_id": "att.synthetic.0001",
+    "session_id": "sess.synthetic.0001"
+  },
+  "trigger": {
+    "schema_version": "v1",
+    "trigger_family": "participant_input",
+    "trigger_type": "participant_input.message",
+    "trigger_id": "trig.synthetic.bad",
+    "idempotency_key": "idem-trigger-bad",
+    "purpose": "participant_turn_response"
+  },
+  "session_sequence": "48",
+  "status": "admitted",
+  "agent_decision_id": "adec.synthetic.bad"
+}
