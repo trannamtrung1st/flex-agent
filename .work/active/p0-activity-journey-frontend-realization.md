@@ -368,9 +368,9 @@ adapter (`FlexAgent.SyntheticBrowser`), browser feature projections
 | UI/UX and design-system routing | passed | Approved Activity journey, five surface specifications, design-system authority, implementation guide, and applicable MVP modules inspected |
 | Current implementation inventory | passed | React/Vite smoke page, basic tokens/tests, representative browser contract types, API smoke/health endpoints, NGINX/OCI scaffold, and Playwright configuration inspected |
 | Independent plan review remediation | passed | Navigation, synthetic-authentication scope, direct ADR authority, and task lifecycle findings reconciled on 2026-08-10; `git diff --check` and documentation validation passed |
-| Baseline test execution | passed | `pnpm verify:web` (2026-08-11); `bash build/scripts/verify-dotnet.sh` **146 tests** when Postgres available (`116/146` locally — Docker unavailable, 30 Postgres integration failures) |
-| Synthetic auth boundary | passed | `SyntheticBrowserRuntimeTests` **33 tests** (2026-08-11 at `8d30e6b`): harness grant/cookie, cross-role denial, idempotency, concurrency, full journey, immutability/revocation, uncertain-after-auth, terminal review labels |
-| Playwright (NGINX SPA) | passed | `pnpm test:e2e` **6 passed** (prior run via `deploy/nginx/e2e.conf` + API `:18080`; not re-run 2026-08-11 — Docker unavailable) |
+| Baseline test execution | passed | `bash build/scripts/verify-dotnet.sh` **146/146 passed** (2026-08-11, Docker); `pnpm verify:web` passed |
+| Synthetic auth boundary | passed | `SyntheticBrowserRuntimeTests` **33/33 passed** (2026-08-11 at `921bb66`) |
+| Playwright (NGINX SPA) | passed | `pnpm test:e2e` **6/6 passed** (2026-08-11, NGINX `:5173` + API `:18080` via Docker) |
 | Web unit tests | passed | 4 tests (`App.test.tsx`, `AppShell.test.tsx`, `HomePage.test.tsx`) |
 
 # Remediation tranche (2026-08-10, post-review of `6c834cf`)
