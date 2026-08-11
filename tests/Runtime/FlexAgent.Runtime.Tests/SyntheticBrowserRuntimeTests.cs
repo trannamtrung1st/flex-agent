@@ -348,6 +348,92 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
     }
 
     [Fact]
+    public async Task Uncertain_reconciliation_requires_authorization_before_uncertain_outcome()
+    {
+        var instanceId = NewInstanceId();
+        var scenarioId = SyntheticScenarioIds.UncertainReconciliation;
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var participant = await CreateAuthenticatedClientAsync(
+            SyntheticActorStages.Participant,
+            scenarioId: scenarioId,
+            instanceId: instanceId);
+        var denied = await PostCommandRawAsync(
+            participant,
+            "activity.activate_cohort",
+            "uncertain-denied",
+            cancellationToken,
+            resourceId: ActivityId,
+            expectedVersion: 2);
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+
+        var admin = await CreateAuthenticatedClientAsync(
+            SyntheticActorStages.Administrator,
+            scenarioId: scenarioId,
+            instanceId: instanceId);
+        var missingResource = await PostCommandRawAsync(
+            admin,
+            "activity.activate_cohort",
+            "uncertain-missing-resource",
+            cancellationToken,
+            resourceId: string.Empty,
+            expectedVersion: 2);
+        Assert.Equal(HttpStatusCode.Forbidden, missingResource.StatusCode);
+
+        await PostCommandAsync(admin, "activity.save_draft", "uncertain-save", cancellationToken, activityVersion: 1);
+        var stale = await PostCommandRawAsync(
+            admin,
+            "activity.activate_cohort",
+            "uncertain-stale",
+            cancellationToken,
+            resourceId: ActivityId,
+            expectedVersion: 1);
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+
+        var uncertain = await PostCommandRawAsync(
+            admin,
+            "activity.activate_cohort",
+            "uncertain-valid",
+            cancellationToken,
+            resourceId: ActivityId,
+            expectedVersion: 2);
+        Assert.Equal(HttpStatusCode.Conflict, uncertain.StatusCode);
+        var body = await uncertain.Content.ReadFromJsonAsync<CommandResultDetailDto>(JsonOptions, cancellationToken);
+        Assert.Equal("uncertain", body!.Outcome);
+
+        var replay = await PostCommandRawAsync(
+            admin,
+            "activity.activate_cohort",
+            "uncertain-valid",
+            cancellationToken,
+            resourceId: ActivityId,
+            expectedVersion: 2);
+        Assert.Equal(HttpStatusCode.Conflict, replay.StatusCode);
+        var replayBody = await replay.Content.ReadFromJsonAsync<CommandResultDetailDto>(JsonOptions, cancellationToken);
+        Assert.Equal("uncertain", replayBody!.Outcome);
+
+        var detail = await admin.GetFromJsonAsync<ActivityDetailDto>(
+            $"/browser/activities/{ActivityId}",
+            JsonOptions,
+            cancellationToken);
+        Assert.Equal("draft", detail!.LifecycleState);
+    }
+
+    [Fact]
+    public async Task Review_work_reflects_terminal_review_status_labels()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await PrepareCompletedSessionAsync(instanceId, cancellationToken);
+
+        var reviewer = await CreateAuthenticatedClientAsync(SyntheticActorStages.Reviewer, instanceId: instanceId);
+        await PostCommandAsync(reviewer, "review.approve", "approve", cancellationToken, reviewVersion: 1);
+
+        var reviewWork = await reviewer.GetFromJsonAsync<ReviewWorkDto>("/browser/review-work", JsonOptions, cancellationToken);
+        Assert.Contains(reviewWork!.Cases, reviewCase => reviewCase.StatusLabel == "Approved");
+    }
+
+    [Fact]
     public async Task Review_escalate_records_escalated_decision()
     {
         var instanceId = NewInstanceId();

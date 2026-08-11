@@ -411,6 +411,14 @@ without rethinking the overall ADR-010 artifact-5 direction.
 | Non-disclosing pre-enrollment My Work / Results | done | empty `AssignmentProjectionV1` + empty `ResultsProjectionV1`; runtime `My_work_before_enrollment_does_not_disclose_assignment_details`; `MyWorkPage` no-assignment UI |
 | Enrollment `participant_id` validation | done | `SyntheticParticipantId` allowlist in `AuthorizeEnrollmentAssign`; runtime `Enrollment_assign_rejects_unpermitted_participant_id` |
 
+# Remediation tranche 4 (2026-08-11, post-review of `6bcc4d4`)
+
+| Review item | Status | Evidence |
+| --- | --- | --- |
+| Uncertain reconciliation only after authorization | done | `ExecuteCommand()` uncertainty injection moved after `Authorize()`; runtime `Uncertain_reconciliation_requires_authorization_before_uncertain_outcome` |
+| Combined read authorization + snapshot lock | done | `WithAuthorizedState()` performs capability, revocation, and projection under one scenario lock |
+| Review Work/Home terminal status labels | done | `FormatReviewStatus()` in `GetReviewWork()` and Home; runtime `Review_work_reflects_terminal_review_status_labels` |
+
 # Blockers
 
 No blocker prevents the planned prerequisite work. Full production workflow

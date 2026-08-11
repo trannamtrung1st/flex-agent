@@ -182,37 +182,40 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
 
     public NavigationProjectionV1 GetNavigation(SyntheticSessionRecord session)
     {
-        if (IsAccessDenied(session))
+        return WithState(session, state =>
         {
-            return new NavigationProjectionV1(BrowserSchemaVersion.V1, []);
-        }
+            if (SyntheticResourceAuthorization.IsAccessRevoked(session, state))
+            {
+                return new NavigationProjectionV1(BrowserSchemaVersion.V1, []);
+            }
 
-        var caps = ResolveCapabilities(session.ActorStage);
-        var destinations = new List<NavigationDestinationV1>
-        {
-            Nav("home", "Home", "/", "p0", true, null),
-            Nav("activities", "Activities", "/activities", "p0", caps.Contains("activity_admin"), caps.Contains("activity_admin") ? null : "No Activity administration access"),
-            Nav("agents", "Agents", "/agents", "p1", true, null),
-            Nav("harnesses", "Harnesses", "/harnesses", "p1", true, null),
-            Nav("my-work", "My work", "/my-work", "p0", caps.Contains("participant"), caps.Contains("participant") ? null : "No assigned Participant work"),
-            Nav("review-work", "Review work", "/review-work", "p0", caps.Contains("reviewer"), caps.Contains("reviewer") ? null : "No active Review assignment"),
-            Nav("release-work", "Release work", "/release-work", "p0", caps.Contains("release"), caps.Contains("release") ? null : "No Release authority"),
-            Nav("results", "Results", "/results", "p0", caps.Contains("participant"), caps.Contains("participant") ? null : "No authorized Results"),
-            Nav("governance", "Governance", "/governance", "p0", caps.Contains("governance"), caps.Contains("governance") ? null : "No governance access"),
-        };
+            var caps = ResolveCapabilities(session.ActorStage);
+            var destinations = new List<NavigationDestinationV1>
+            {
+                Nav("home", "Home", "/", "p0", true, null),
+                Nav("activities", "Activities", "/activities", "p0", caps.Contains("activity_admin"), caps.Contains("activity_admin") ? null : "No Activity administration access"),
+                Nav("agents", "Agents", "/agents", "p1", true, null),
+                Nav("harnesses", "Harnesses", "/harnesses", "p1", true, null),
+                Nav("my-work", "My work", "/my-work", "p0", caps.Contains("participant"), caps.Contains("participant") ? null : "No assigned Participant work"),
+                Nav("review-work", "Review work", "/review-work", "p0", caps.Contains("reviewer"), caps.Contains("reviewer") ? null : "No active Review assignment"),
+                Nav("release-work", "Release work", "/release-work", "p0", caps.Contains("release"), caps.Contains("release") ? null : "No Release authority"),
+                Nav("results", "Results", "/results", "p0", caps.Contains("participant"), caps.Contains("participant") ? null : "No authorized Results"),
+                Nav("governance", "Governance", "/governance", "p0", caps.Contains("governance"), caps.Contains("governance") ? null : "No governance access"),
+            };
 
-        return new NavigationProjectionV1(BrowserSchemaVersion.V1, destinations);
+            return new NavigationProjectionV1(BrowserSchemaVersion.V1, destinations);
+        });
     }
 
     public HomeProjectionV1 GetHome(SyntheticSessionRecord session)
     {
-        if (IsAccessDenied(session))
-        {
-            return new HomeProjectionV1(BrowserSchemaVersion.V1, "Access unavailable", [], []);
-        }
-
         return WithState(session, state =>
         {
+            if (SyntheticResourceAuthorization.IsAccessRevoked(session, state))
+            {
+                return new HomeProjectionV1(BrowserSchemaVersion.V1, "Access unavailable", [], []);
+            }
+
             var items = new List<HomeWorkItemV1>();
 
             if (session.ActorStage == SyntheticActorStages.Administrator)
@@ -234,7 +237,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
 
             if (session.ActorStage == SyntheticActorStages.Reviewer && state.SessionLifecycle is "completed" or "terminated")
             {
-                items.Add(new HomeWorkItemV1("hw-4", "Review case", state.ReviewLifecycle == "ready_for_review" ? "Ready for review" : "Awaiting evaluation", "review", $"/review-work/{SyntheticReviewCaseId}", "Open case"));
+                items.Add(new HomeWorkItemV1("hw-4", "Review case", FormatReviewStatus(state.ReviewLifecycle), "review", $"/review-work/{SyntheticReviewCaseId}", "Open case"));
             }
 
             if (session.ActorStage == SyntheticActorStages.ReleaseActor && state.ReviewLifecycle == "approved")
@@ -250,10 +253,8 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         });
     }
 
-    public ActivitiesListProjectionV1 GetActivities(SyntheticSessionRecord session)
-    {
-        RequireCapability(session, "activity_admin");
-        return WithState(session, state =>
+    public ActivitiesListProjectionV1 GetActivities(SyntheticSessionRecord session) =>
+        WithAuthorizedState(session, "activity_admin", state =>
         {
             var activities = new List<ActivitySummaryV1>
             {
@@ -268,17 +269,15 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
 
             return new ActivitiesListProjectionV1(BrowserSchemaVersion.V1, activities, actions);
         });
-    }
 
     public ActivityDetailProjectionV1? GetActivityDetail(SyntheticSessionRecord session, string activityId)
     {
-        RequireCapability(session, "activity_admin");
         if (!string.Equals(activityId, SyntheticActivityId, StringComparison.Ordinal))
         {
             return null;
         }
 
-        return WithState(session, state =>
+        return WithAuthorizedState(session, "activity_admin", state =>
         {
             var readiness = BuildReadinessCategories(state);
             var actions = new List<PermittedActionV1>();
@@ -312,13 +311,12 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
 
     public EnrollmentProjectionV1? GetEnrollment(SyntheticSessionRecord session, string activityId)
     {
-        RequireCapability(session, "activity_admin");
         if (!string.Equals(activityId, SyntheticActivityId, StringComparison.Ordinal))
         {
             return null;
         }
 
-        return WithState(session, state =>
+        return WithAuthorizedState(session, "activity_admin", state =>
         {
             var enrollments = state.EnrollmentCreated
                 ? new List<EnrollmentSummaryV1> { new(SyntheticEnrollmentId, "Synthetic Participant", "Active") }
@@ -341,10 +339,8 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         });
     }
 
-    public AssignmentProjectionV1? GetMyWorkAssignment(SyntheticSessionRecord session, string? enrollmentId)
-    {
-        RequireCapability(session, "participant");
-        return WithState(session, state =>
+    public AssignmentProjectionV1? GetMyWorkAssignment(SyntheticSessionRecord session, string? enrollmentId) =>
+        WithAuthorizedState(session, "participant", state =>
         {
             if (!state.EnrollmentCreated)
             {
@@ -391,7 +387,6 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
                 actions,
                 ResolveAssignmentLifecycle(state));
         });
-    }
 
     public SessionProjectionV1? GetSession(SyntheticSessionRecord session, string sessionId)
     {
@@ -432,10 +427,8 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         });
     }
 
-    public ReviewWorkProjectionV1 GetReviewWork(SyntheticSessionRecord session)
-    {
-        RequireCapability(session, "reviewer");
-        return WithState(session, state =>
+    public ReviewWorkProjectionV1 GetReviewWork(SyntheticSessionRecord session) =>
+        WithAuthorizedState(session, "reviewer", state =>
         {
             var cases = new List<ReviewCaseSummaryV1>();
 
@@ -444,18 +437,15 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
                 cases.Add(new ReviewCaseSummaryV1(
                     SyntheticReviewCaseId,
                     "Synthetic review case",
-                    state.ReviewLifecycle == "ready_for_review" ? "Ready for review" : "Awaiting evaluation",
+                    FormatReviewStatus(state.ReviewLifecycle),
                     $"/review-work/{SyntheticReviewCaseId}"));
             }
 
             return new ReviewWorkProjectionV1(BrowserSchemaVersion.V1, cases, []);
         });
-    }
 
-    public ReviewCaseDetailProjectionV1? GetReviewCase(SyntheticSessionRecord session, string caseId)
-    {
-        RequireCapability(session, "reviewer");
-        return WithState(session, state =>
+    public ReviewCaseDetailProjectionV1? GetReviewCase(SyntheticSessionRecord session, string caseId) =>
+        WithAuthorizedState(session, "reviewer", state =>
         {
             if (!SyntheticResourceAuthorization.CanReadReviewCase(session, state, caseId))
             {
@@ -491,12 +481,9 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
                 state.ReviewLifecycle,
                 state.ReviewCaseVersion);
         });
-    }
 
-    public ReleaseWorkProjectionV1 GetReleaseWork(SyntheticSessionRecord session)
-    {
-        RequireCapability(session, "release");
-        return WithState(session, state =>
+    public ReleaseWorkProjectionV1 GetReleaseWork(SyntheticSessionRecord session) =>
+        WithAuthorizedState(session, "release", state =>
         {
             var items = new List<ReleaseItemSummaryV1>();
 
@@ -511,12 +498,9 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
 
             return new ReleaseWorkProjectionV1(BrowserSchemaVersion.V1, items, []);
         });
-    }
 
-    public ReleaseDetailProjectionV1? GetReleaseDetail(SyntheticSessionRecord session, string releaseId)
-    {
-        RequireCapability(session, "release");
-        return WithState(session, state =>
+    public ReleaseDetailProjectionV1? GetReleaseDetail(SyntheticSessionRecord session, string releaseId) =>
+        WithAuthorizedState(session, "release", state =>
         {
             if (!SyntheticResourceAuthorization.CanReadReleaseDetail(session, state, releaseId))
             {
@@ -539,12 +523,9 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
                 state.ReleaseVersion,
                 state.ReleaseLifecycle);
         });
-    }
 
-    public ResultsProjectionV1 GetResults(SyntheticSessionRecord session)
-    {
-        RequireCapability(session, "participant");
-        return WithState(session, state =>
+    public ResultsProjectionV1 GetResults(SyntheticSessionRecord session) =>
+        WithAuthorizedState(session, "participant", state =>
         {
             if (!state.EnrollmentCreated)
             {
@@ -558,12 +539,9 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
 
             return new ResultsProjectionV1(BrowserSchemaVersion.V1, results, []);
         });
-    }
 
-    public ResultDetailProjectionV1? GetResultDetail(SyntheticSessionRecord session, string resultId)
-    {
-        RequireCapability(session, "participant");
-        return WithState(session, state =>
+    public ResultDetailProjectionV1? GetResultDetail(SyntheticSessionRecord session, string resultId) =>
+        WithAuthorizedState(session, "participant", state =>
         {
             if (!SyntheticResourceAuthorization.CanReadResultDetail(session, state, resultId))
             {
@@ -578,19 +556,18 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
                 state.ResultLifecycle,
                 null);
         });
-    }
 
-    public GovernanceProjectionV1 GetGovernance(SyntheticSessionRecord session)
-    {
-        RequireCapability(session, "governance");
-        var entries = new List<GovernanceEntryV1>
+    public GovernanceProjectionV1 GetGovernance(SyntheticSessionRecord session) =>
+        WithAuthorizedState(session, "governance", _ =>
         {
-            new("gov.synthetic.001", "activity.draft.saved", "Synthetic Administrator", "2026-08-10T10:00:00Z", "succeeded"),
-            new("gov.synthetic.002", "cohort.activated", "Synthetic Administrator", "2026-08-10T11:00:00Z", "succeeded"),
-        };
+            var entries = new List<GovernanceEntryV1>
+            {
+                new("gov.synthetic.001", "activity.draft.saved", "Synthetic Administrator", "2026-08-10T10:00:00Z", "succeeded"),
+                new("gov.synthetic.002", "cohort.activated", "Synthetic Administrator", "2026-08-10T11:00:00Z", "succeeded"),
+            };
 
-        return new GovernanceProjectionV1(BrowserSchemaVersion.V1, entries, [], true);
-    }
+            return new GovernanceProjectionV1(BrowserSchemaVersion.V1, entries, [], true);
+        });
 
     public PlannedTierProjectionV1 GetPlannedTier(SyntheticSessionRecord session, string moduleName)
     {
@@ -621,18 +598,18 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
                 return replay;
             }
 
+            var authorizationFailure = SyntheticCommandAuthorization.Authorize(session, command, state);
+            if (authorizationFailure is not null)
+            {
+                return authorizationFailure;
+            }
+
             if (session.ScenarioId == SyntheticScenarioIds.UncertainReconciliation &&
                 command.CommandType == "activity.activate_cohort")
             {
                 var uncertain = Uncertain("Activation outcome uncertain. Reconcile from current state.");
                 SyntheticIdempotency.Remember(state.IdempotencyRecords, scopeKey, requestDigest, uncertain);
                 return uncertain;
-            }
-
-            var authorizationFailure = SyntheticCommandAuthorization.Authorize(session, command, state);
-            if (authorizationFailure is not null)
-            {
-                return authorizationFailure;
             }
 
             var result = command.CommandType switch
@@ -893,6 +870,34 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         lock (instance.Sync)
         {
             return project(instance.State);
+        }
+    }
+
+    private T WithAuthorizedState<T>(
+        SyntheticSessionRecord session,
+        string capability,
+        Func<SyntheticScenarioState, T> project)
+    {
+        var instance = GetInstance(session.ScenarioId, session.ScenarioInstanceId);
+        lock (instance.Sync)
+        {
+            if (session.ScenarioId == SyntheticScenarioIds.DeniedAccess)
+            {
+                throw new SyntheticAccessDeniedException();
+            }
+
+            if (!ResolveCapabilities(session.ActorStage).Contains(capability))
+            {
+                throw new SyntheticAccessDeniedException();
+            }
+
+            var state = instance.State;
+            if (SyntheticResourceAuthorization.IsAccessRevoked(session, state))
+            {
+                throw new SyntheticAccessDeniedException();
+            }
+
+            return project(state);
         }
     }
 
