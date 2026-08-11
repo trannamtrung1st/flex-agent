@@ -162,23 +162,24 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         return session;
     }
 
-    public ActorContextV1? GetActorContext(SyntheticSessionRecord session)
-    {
-        if (IsAccessDenied(session))
+    public ActorContextV1? GetActorContext(SyntheticSessionRecord session) =>
+        WithState(session, state =>
         {
-            return null;
-        }
+            if (SyntheticResourceAuthorization.IsAccessRevoked(session, state))
+            {
+                return null;
+            }
 
-        return new ActorContextV1(
-            BrowserSchemaVersion.V1,
-            session.ActorId,
-            ResolveActorDisplayName(session.ActorStage),
-            SyntheticOrgId,
-            SyntheticOrgName,
-            ResolveCapabilities(session.ActorStage),
-            session.ActorStage,
-            true);
-    }
+            return new ActorContextV1(
+                BrowserSchemaVersion.V1,
+                session.ActorId,
+                ResolveActorDisplayName(session.ActorStage),
+                SyntheticOrgId,
+                SyntheticOrgName,
+                ResolveCapabilities(session.ActorStage),
+                session.ActorStage,
+                true);
+        });
 
     public NavigationProjectionV1 GetNavigation(SyntheticSessionRecord session)
     {
@@ -909,16 +910,6 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     private static string BuildInstanceKey(string scenarioId, string scenarioInstanceId) =>
         $"{scenarioId}::{scenarioInstanceId}";
 
-    private bool IsAccessDenied(SyntheticSessionRecord session)
-    {
-        if (session.ScenarioId == SyntheticScenarioIds.DeniedAccess)
-        {
-            return true;
-        }
-
-        return WithState(session, state => state.PermissionRevoked);
-    }
-
     private static string FormatReviewStatus(string reviewLifecycle) => reviewLifecycle switch
     {
         "approved" => "Approved",
@@ -927,19 +918,6 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         "ready_for_review" => "Ready for review",
         _ => "In review",
     };
-
-    private void RequireCapability(SyntheticSessionRecord session, string capability)
-    {
-        if (IsAccessDenied(session))
-        {
-            throw new SyntheticAccessDeniedException();
-        }
-
-        if (!ResolveCapabilities(session.ActorStage).Contains(capability))
-        {
-            throw new SyntheticAccessDeniedException();
-        }
-    }
 
     private void EnsureEnabled()
     {
