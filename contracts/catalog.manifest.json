@@ -39,6 +39,36 @@
       "category": "sse_event",
       "schema_id": "https://flex-agent.local/contracts/schemas/v1/transport/sse-event.v1.schema.json",
       "fixture_dir": "fixtures/schema/v1/transport/sse-event"
+    },
+    {
+      "category": "trusted_trigger",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/trusted-trigger.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/session/trusted-trigger"
+    },
+    {
+      "category": "agent_invocation",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/session/agent-invocation"
+    },
+    {
+      "category": "agent_invocation_execution_attempt",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation-execution-attempt.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/session/agent-invocation-execution-attempt"
+    },
+    {
+      "category": "agent_decision",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/agent-decision.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/session/agent-decision"
+    },
+    {
+      "category": "decision_validation_effect",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/decision-validation-effect.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/session/decision-validation-effect"
+    },
+    {
+      "category": "timer_schedule_revision",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/timer-schedule-revision.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/session/timer-schedule-revision"
     }
   ],
   "digest_schemas": [

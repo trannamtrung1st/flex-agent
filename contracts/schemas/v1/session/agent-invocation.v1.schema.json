@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation.v1.schema.json",
+  "title": "Agent Invocation v1",
+  "description": "Durable admitted Agent Invocation representing one semantic decision opportunity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "agent_invocation_id",
+    "invocation_contract_version",
+    "purpose",
+    "ownership",
+    "trigger",
+    "session_sequence",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "agent_invocation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "invocation_contract_version": {
+      "type": "string",
+      "const": "v1"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 128
+    },
+    "ownership": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/session_ownership_ref"
+    },
+    "trigger": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/session/trusted-trigger.v1.schema.json"
+    },
+    "session_sequence": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "admitted",
+        "executing",
+        "decided",
+        "execution_failed",
+        "cancelled"
+      ]
+    },
+    "policy_digest": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+    },
+    "context_ref": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/protected_reference"
+    },
+    "agent_decision_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "execution_outcome_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    }
+  }
+}

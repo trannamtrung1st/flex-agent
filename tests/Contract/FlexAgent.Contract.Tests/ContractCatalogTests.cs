@@ -17,7 +17,7 @@ public sealed class ContractCatalogTests
     public void Catalog_declares_draft_2020_12_and_complete_representative_set()
     {
         Assert.Equal("https://json-schema.org/draft/2020-12/schema", _catalog.SchemaDialect);
-        Assert.Equal(7, _catalog.RepresentativeSchemas.Count);
+        Assert.Equal(13, _catalog.RepresentativeSchemas.Count);
         Assert.Equal(4, _catalog.DigestSchemas.Count);
         Assert.All(_catalog.RepresentativeSchemas, entry =>
             Assert.StartsWith(_catalog.IdNamespace, entry.SchemaId, StringComparison.Ordinal));
@@ -28,7 +28,7 @@ public sealed class ContractCatalogTests
     {
         ContractSchemaRegistry.AssertReferenceClosure(ContractsRoot, _catalog);
         var schemas = ContractSchemaRegistry.BuildCatalogSchemas(ContractsRoot, _catalog, AllowedKeywords);
-        Assert.Equal(12, schemas.Count);
+        Assert.Equal(18, schemas.Count);
     }
 
     [Theory]
@@ -97,6 +97,12 @@ public sealed class ContractCatalogTests
             "audit-event" => "https://flex-agent.local/contracts/schemas/v1/audit/audit-event.v1.schema.json",
             "safe-error-response" => "https://flex-agent.local/contracts/schemas/v1/transport/safe-error-response.v1.schema.json",
             "sse-event" => "https://flex-agent.local/contracts/schemas/v1/transport/sse-event.v1.schema.json",
+            "trusted-trigger" => "https://flex-agent.local/contracts/schemas/v1/session/trusted-trigger.v1.schema.json",
+            "agent-invocation" => "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation.v1.schema.json",
+            "agent-invocation-execution-attempt" => "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation-execution-attempt.v1.schema.json",
+            "agent-decision" => "https://flex-agent.local/contracts/schemas/v1/session/agent-decision.v1.schema.json",
+            "decision-validation-effect" => "https://flex-agent.local/contracts/schemas/v1/session/decision-validation-effect.v1.schema.json",
+            "timer-schedule-revision" => "https://flex-agent.local/contracts/schemas/v1/session/timer-schedule-revision.v1.schema.json",
             _ => throw new InvalidOperationException($"Unknown fixture category: {category}"),
         };
     }

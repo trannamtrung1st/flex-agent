@@ -691,6 +691,8 @@ components:
           type: string
           enum:
             - session.agent.fragment.v1
+            - session.agent.complete.v1
+            - session.agent.work.v1
             - session.state.changed.v1
             - session.terminal.v1
         session_id:
@@ -717,3 +719,27 @@ components:
             text_delta:
               type: string
               maxLength: 4096
+            turn_id:
+              $ref: '#/components/schemas/StableId'
+            work_state:
+              type: string
+              enum:
+                - queued
+                - working
+                - resolved
+            resolution_category:
+              type: string
+              enum:
+                - message_stream
+                - no_action
+                - suppressed_failure
+                - execution_failure
+            show_persistent_turn_status:
+              type: boolean
+            assembled_content_digest:
+              type: string
+              pattern: '^[0-9a-f]{64}$'
+            fragment_count:
+              type: integer
+              minimum: 1
+              maximum: 65535

@@ -1,0 +1,15 @@
+{
+  "schema_version": "v1",
+  "trigger_family": "timer_event",
+  "trigger_type": "timer_event.lane_default",
+  "trigger_id": "trig.synthetic.timer.0001",
+  "idempotency_key": "idem-trigger-timer-0001",
+  "ownership": {
+    "organization_id": "org.synthetic.0001",
+    "activity_id": "act.synthetic.0001",
+    "participant_id": "part.synthetic.0001",
+    "attempt_id": "att.synthetic.0001",
+    "session_id": "sess.synthetic.0001"
+  },
+  "purpose": "timer_lane_fire"
+}

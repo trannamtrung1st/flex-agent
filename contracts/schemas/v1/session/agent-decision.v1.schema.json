@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/session/agent-decision.v1.schema.json",
+  "title": "Agent Decision v1",
+  "description": "Structured Agent Decision produced by a successful Invocation. P0 permits emit_message and no_action primary behaviors plus optional next_timer_request.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "agent_decision_id",
+    "agent_invocation_id",
+    "decision_type",
+    "produced_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "agent_decision_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "agent_invocation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "decision_type": {
+      "type": "string",
+      "enum": [
+        "emit_message",
+        "no_action",
+        "request_tool",
+        "propose_transition",
+        "escalate"
+      ]
+    },
+    "produced_at": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+    },
+    "emit_message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["communication_purpose"],
+      "properties": {
+        "communication_purpose": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 128
+        },
+        "turn_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "response_slot_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        }
+      }
+    },
+    "no_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason_category"],
+      "properties": {
+        "reason_category": {
+          "type": "string",
+          "enum": [
+            "intentional_silence",
+            "workflow_complete",
+            "awaiting_input"
+          ]
+        }
+      }
+    },
+    "next_timer_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_delay", "expected_schedule_revision"],
+      "properties": {
+        "relative_delay": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/iso8601_positive_duration"
+        },
+        "expected_schedule_revision": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+        }
+      }
+    },
+    "payload_ref": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/protected_reference"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "decision_type": { "const": "emit_message" } },
+        "required": ["decision_type"]
+      },
+      "then": { "required": ["emit_message"] }
+    },
+    {
+      "if": {
+        "properties": { "decision_type": { "const": "no_action" } },
+        "required": ["decision_type"]
+      },
+      "then": { "required": ["no_action"] }
+    }
+  ]
+}

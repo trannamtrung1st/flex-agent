@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/session/timer-schedule-revision.v1.schema.json",
+  "title": "Agent timer schedule revision v1",
+  "description": "One-lane timer schedule revision with authoritative active-time delay and lifecycle state.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "schedule_revision_id",
+    "session_id",
+    "schedule_revision",
+    "lane_state",
+    "relative_delay",
+    "requested_by_category",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "schedule_revision_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "session_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "schedule_revision": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+    },
+    "lane_state": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "claimed",
+        "fired",
+        "cancelled",
+        "superseded",
+        "expired"
+      ]
+    },
+    "relative_delay": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/iso8601_positive_duration"
+    },
+    "active_remaining_delay": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/iso8601_positive_duration"
+    },
+    "due_at": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+    },
+    "requested_by_category": {
+      "type": "string",
+      "enum": [
+        "default_cadence",
+        "agent_recommendation",
+        "successor_after_fire"
+      ]
+    },
+    "driving_decision_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "created_at": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+    },
+    "fired_invocation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    }
+  }
+}

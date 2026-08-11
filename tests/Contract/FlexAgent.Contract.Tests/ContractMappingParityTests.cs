@@ -46,6 +46,11 @@ public sealed class ContractMappingParityTests
         Assert.Contains("AuditEventV1", exported);
         Assert.Contains("SafeErrorResponseV1", exported);
         Assert.Contains("SseSessionEventV1", exported);
+        Assert.Contains("TrustedTriggerV1", exported);
+        Assert.Contains("AgentInvocationV1", exported);
+        Assert.Contains("AgentDecisionV1", exported);
+        Assert.Contains("DecisionValidationEffectV1", exported);
+        Assert.Contains("TimerScheduleRevisionV1", exported);
         Assert.DoesNotContain(exported, name => name.Contains("Authorization", StringComparison.Ordinal));
         Assert.DoesNotContain(exported, name => name.Contains("Secret", StringComparison.Ordinal));
     }

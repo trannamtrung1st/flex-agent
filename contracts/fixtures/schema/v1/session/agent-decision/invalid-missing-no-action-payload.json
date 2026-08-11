@@ -1,0 +1,7 @@
+{
+  "schema_version": "v1",
+  "agent_decision_id": "adec.synthetic.bad",
+  "agent_invocation_id": "ainv.synthetic.0001",
+  "decision_type": "no_action",
+  "produced_at": "2026-08-11T00:00:05Z"
+}

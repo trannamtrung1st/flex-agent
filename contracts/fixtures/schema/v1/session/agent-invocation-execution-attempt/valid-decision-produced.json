@@ -1,0 +1,10 @@
+{
+  "schema_version": "v1",
+  "execution_attempt_id": "eatt.synthetic.0001",
+  "agent_invocation_id": "ainv.synthetic.0001",
+  "attempt_ordinal": 1,
+  "outcome_category": "decision_produced",
+  "started_at": "2026-08-11T00:00:00Z",
+  "completed_at": "2026-08-11T00:00:05Z",
+  "agent_decision_id": "adec.synthetic.0001"
+}

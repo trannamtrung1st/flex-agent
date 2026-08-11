@@ -1,0 +1,10 @@
+{
+  "schema_version": "v1",
+  "validation_effect_id": "veff.synthetic.0001",
+  "agent_decision_id": "adec.synthetic.0001",
+  "validation_outcome": "accepted",
+  "effect_outcome": "applied",
+  "validated_at": "2026-08-11T00:00:06Z",
+  "session_sequence": "43",
+  "timer_validation_outcome": "not_present"
+}

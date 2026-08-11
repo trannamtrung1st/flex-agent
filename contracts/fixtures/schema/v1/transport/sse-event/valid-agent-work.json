@@ -1,0 +1,12 @@
+{
+  "schema_version": "v1",
+  "event_type": "session.agent.work.v1",
+  "session_id": "sess.synthetic.0001",
+  "session_sequence": "13",
+  "occurred_at": "2026-08-10T00:00:01Z",
+  "payload": {
+    "summary": "Agent is preparing a response.",
+    "turn_id": "turn.synthetic.0001",
+    "work_state": "working"
+  }
+}

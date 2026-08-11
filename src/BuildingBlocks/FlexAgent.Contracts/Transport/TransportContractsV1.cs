@@ -18,6 +18,12 @@ public sealed record SseSessionEventV1(
 
 public sealed record SseSessionEventPayloadV1(
     string Summary,
-    int? FragmentSequence,
-    string? AgentMessageId,
-    string? TextDelta);
+    int? FragmentSequence = null,
+    string? AgentMessageId = null,
+    string? TextDelta = null,
+    string? TurnId = null,
+    string? WorkState = null,
+    string? ResolutionCategory = null,
+    bool? ShowPersistentTurnStatus = null,
+    string? AssembledContentDigest = null,
+    int? FragmentCount = null);

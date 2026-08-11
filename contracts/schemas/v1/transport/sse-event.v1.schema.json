@@ -21,6 +21,8 @@
       "type": "string",
       "enum": [
         "session.agent.fragment.v1",
+        "session.agent.complete.v1",
+        "session.agent.work.v1",
         "session.state.changed.v1",
         "session.terminal.v1"
       ]
@@ -55,6 +57,33 @@
         "text_delta": {
           "type": "string",
           "maxLength": 4096
+        },
+        "turn_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "work_state": {
+          "type": "string",
+          "enum": ["queued", "working", "resolved"]
+        },
+        "resolution_category": {
+          "type": "string",
+          "enum": [
+            "message_stream",
+            "no_action",
+            "suppressed_failure",
+            "execution_failure"
+          ]
+        },
+        "show_persistent_turn_status": {
+          "type": "boolean"
+        },
+        "assembled_content_digest": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"
+        },
+        "fragment_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
         }
       }
     }

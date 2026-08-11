@@ -704,7 +704,13 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
                 "Agent response complete",
                 null,
                 "msg.synthetic.agent.001",
-                "This is a synthetic demonstration.")));
+                null,
+                null,
+                null,
+                null,
+                null,
+                "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                1)));
     }
 
     private static bool IsAfterCursor(string sessionSequence, string? lastEventId)

@@ -1,0 +1,11 @@
+{
+  "schema_version": "v1",
+  "schedule_revision_id": "tsrev.synthetic.0001",
+  "session_id": "sess.synthetic.0001",
+  "schedule_revision": "1",
+  "lane_state": "pending",
+  "relative_delay": "PT30S",
+  "active_remaining_delay": "PT30S",
+  "requested_by_category": "default_cadence",
+  "created_at": "2026-08-11T00:00:00Z"
+}

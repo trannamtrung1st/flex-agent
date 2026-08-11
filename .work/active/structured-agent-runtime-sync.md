@@ -1,0 +1,579 @@
+---
+id: structured-agent-runtime-sync
+status: in_progress
+created: 2026-08-11
+updated: 2026-08-11
+---
+
+# Goal
+
+Bring every currently executable Flex Agent surface into conformance with the
+approved structured Agent Invocation/Decision and one-lane next-timer contracts
+before unrelated product work starts. Deliver a production-shaped, durable
+Session runtime slice plus matching canonical contracts, synthetic-browser
+behavior, Participant UI states, and repeatable evidence for trusted trigger
+admission, exactly-one successful Decision or execution outcome, explicit
+`no_action`, durable `emit_message`, and optional bounded timer replacement.
+
+Completion is an implementation gate, not a contract-only milestone: DTOs,
+schemas, or synthetic UI changes alone do not satisfy this task. The task is
+complete only when all in-scope requirements are mapped to working code and
+tests, the existing implementation surfaces no longer contradict the approved
+documents, and independent backend, frontend, architecture, security/privacy,
+and test reviews have no unresolved blocking findings.
+
+# Governing sources
+
+- `AGENTS.md` — authority by concern, isolation and audit invariants,
+  specification-driven TDD, UI verification, security/privacy defaults, and
+  tracked implementation workflow
+- `docs/product/concept-model.md`, `docs/product/mvp-scope.md`, and
+  `docs/product/overview.md` — Session meaning, frozen configuration, P0 scope,
+  and provider-independent validation strategy
+- `docs/requirements/features/resolved-session-configuration.md`
+  - `REQ-RSC-46`, `AC-RSC-25`: trusted provider/credential binding and
+    fail-closed no-fallback behavior required before any model work
+  - `REQ-RSC-47`–`REQ-RSC-53`, `AC-RSC-26`, and `AC-RSC-27`: frozen
+    Invocation/Decision policy, one-lane timer policy, disabled P0 capabilities,
+    cohort consistency, and minimized manifest provenance
+- `docs/requirements/features/session-text-lifecycle.md`
+  - prerequisite Session invariants consumed by this slice: authoritative
+    Participant message/Turn/response-slot identity, Session order and
+    idempotency, active-time pause/cutoff, reconnect, terminalization,
+    authorized history, and Evaluation-handoff eligibility. Implementing the
+    new runtime must not bypass or falsely claim completion of the wider
+    lifecycle requirements.
+  - `REQ-SESS-55`–`REQ-SESS-60`, `AC-SESS-32`: durable incremental message
+    publication required by `emit_message`
+  - `REQ-SESS-61`–`REQ-SESS-70`, `AC-SESS-33`–`AC-SESS-37`: trusted
+    triggers, Invocation identity, attempts/outcomes, exactly-one Decision,
+    validation/effect separation, no-action, ordering, and bounded loops
+  - `REQ-SESS-71`–`REQ-SESS-77`, `AC-SESS-38`–`AC-SESS-41`: optional
+    Agent timer recommendation, independent validation, replacement semantics,
+    active-time delay, firing, default cadence, and provenance
+- `docs/ui-ux/text-session.md` — approved Participant-facing behavior,
+  especially `UI-SESS-DEC-13` and `UI-SESS-DEC-14`
+- `docs/ui-ux/design-system/README.md` and
+  `docs/ui-ux/design-system/implementation-guide.md`, including the applicable
+  accessibility, colors, typography, layout, density, interaction-states,
+  motion, status, conversation, timeline, agent-presence, session-controls,
+  empty/loading, and protected-content modules
+- `docs/architecture/mvp-architecture.md` — modular-monolith ownership,
+  PostgreSQL authority, provider adapters, durable work, audit/outbox,
+  browser/API authority, and isolation boundaries
+- `docs/architecture/session-runtime-contract.md` — `SESS-DEC-14`–
+  `SESS-DEC-28` and the corresponding verification matrix
+- `docs/architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md`
+  — immutable configuration and manifest integrity
+- `docs/architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md`
+  and `ADR-003-authorization-audit-persistence.md` — trusted scope,
+  commit-time authorization, atomic audit, and outbox rules
+- `docs/architecture/decisions/ADR-004-assessment-activation-baseline-and-atomicity.md`
+  and `ADR-005-atomic-attempt-start-and-submission-binding.md` — cohort and
+  Attempt/Session frozen-input boundaries
+- `docs/architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md`
+  — Session event/evidence ownership and terminalization
+- `docs/architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md`
+  — .NET/PostgreSQL/React stack, module boundaries, contract-first delivery,
+  and executable gates
+- `docs/architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md`
+  — durable fragment identity, ordering, publication, replay, and completion
+- `docs/architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md`
+  and `ADR-013-agent-requested-next-timer-replacement.md` — approved decisions
+  being implemented
+- `docs/requirements/mvp-operational-defaults.md` — applicable latency,
+  revocation, durability, availability, observability, and load-test gates;
+  exact timer cadence values remain resolved policy rather than universal
+  operational defaults
+- `.work/active/postgres-authorization-configuration-foundation.md` and
+  `.work/active/p0-activity-journey-frontend-realization.md` — completed
+  persistence and synthetic-browser baselines this task must extend without
+  overstating their production coverage
+
+# Current repository baseline
+
+- `main` is clean and synchronized with `origin/main` at `e8bb83a` at planning
+  time; all earlier `.work/active/*.md` task records are completed.
+- Canonical v1 Session contracts currently cover representative commands,
+  state events, and SSE only. They do not model trusted triggers, Invocation,
+  execution attempts/outcomes, Decision, validation/effect, no-action, timer
+  recommendations, schedule revisions, or firing provenance.
+- `session.agent.complete.v1` is emitted by the synthetic adapter but is absent
+  from the current SSE schema enum. This existing drift must be corrected as
+  part of contract parity, not preserved as an implicit exception.
+- The synthetic browser adapter creates an Agent fragment/complete stream when
+  an active Session SSE endpoint is read. It does not require a durable trusted
+  trigger or model Invocation and cannot demonstrate no-action, Decision
+  rejection, scheduling replacement, pause/resume timing, or restart recovery.
+- `SessionPage.tsx` renders the synthetic stream but has no authoritative
+  intentional-no-action resolution or timer-triggered Agent-work scenario. Raw
+  timer and Decision data is already absent from Participant copy and must
+  remain absent.
+- The worker is an idle heartbeat loop. There is no durable Session work claim,
+  provider-neutral model execution port, Invocation handler, Decision effect
+  processor, or timer scheduler.
+- PostgreSQL currently owns authorization/configuration-source, audit, and
+  outbox foundations only. There are no Session, message fragment, Invocation,
+  Decision, timer-lane, or runtime-work tables.
+- There is no production Sessions module or complete resolved-Session
+  configuration service. This task therefore includes the minimum production-
+  shaped Session/configuration prerequisites needed to implement the approved
+  contracts; it must not promote the synthetic adapter into domain authority.
+
+# Scope
+
+## In
+
+- Maintain one traceability matrix from every in-scope requirement, acceptance
+  criterion, UI decision, and architecture decision to code, migration,
+  focused test, integration/runtime test, and observable UI evidence.
+- Add canonical, versioned, provider-neutral JSON Schemas, fixtures, catalog
+  entries, C# DTOs, TypeScript/browser mappings, safe OpenAPI projections, and
+  compatibility/parity tests for the new runtime boundary. Internal protected
+  records and browser-safe projections remain distinct.
+- Add a `Sessions` module with framework-independent domain/application rules
+  for trusted trigger admission, Invocation identity, bounded attempts,
+  successful Decision versus execution outcome, independent Decision
+  validation, idempotency/order, response-slot terminalization, and explicit
+  no-domain-effect outcomes.
+- Resolve and freeze the minimum behaviorally material Session runtime policy:
+  allowed trigger and Decision types, deferred-capability denials, attempt and
+  chain bounds, timer-lane enablement, default/minimum/maximum delay, cooldown,
+  replacement/Invocation/Session budgets, schema/policy versions, and protected
+  provenance references. Lower scopes may narrow but never widen it.
+- Resolve the provider/model deployment and opaque Organization-scoped or
+  deployment-default credential binding from trusted configuration before
+  external model work. Missing, revoked, wrong-Organization, or provider-
+  mismatched bindings fail closed without fallback; credentials never enter
+  Session records, contracts, logs, metrics, fixtures, or browser artifacts.
+- Add append-only, Organization/Activity/Participant/Attempt/Session-scoped
+  PostgreSQL persistence for Session runtime state, ordered events, Participant
+  and Agent-initiated Turns, response slots, Participant/Agent Messages, trusted
+  trigger admission, Invocation, execution attempts/outcomes, Agent Decision,
+  decision and schedule validation/effect, Agent Message fragments/completion,
+  timer lane and schedule revisions, reconciliation records, lower-level
+  provider-request provenance where required, durable work, manifest runtime
+  append/seal references, audit, and outbox correlation.
+- Enforce exact-once domain effects through transaction boundaries,
+  idempotency keys, expected versions, authoritative Session sequence,
+  composite scope constraints, immutable history, and bounded work claims.
+- Add an application-owned model-execution port and deterministic fake adapter
+  proving provider-neutral structured control followed by optional participant-
+  visible content streaming. Provider requests/retries remain lower-level than
+  the stable Invocation identity.
+- Implement worker processing for durable Invocation work, bounded execution
+  attempts, cancellation/late-result handling, Decision validation/effect, and
+  ADR-011 fragment persistence/publication/replay. A failed execution records an
+  outcome and never fabricates a Decision.
+- Execute provider work only through a least-privilege, versioned service
+  delegation that is reauthorized at admission, provider disclosure, Decision/
+  effect commit, fragment commit, replay, and timer firing as applicable. Apply
+  approved provider/egress allowlists, request/response limits, timeouts, and
+  cancellation without letting an adapter select scope, payer, or authority.
+- Classify boundaries exactly: malformed or incomplete structured output that
+  cannot establish one valid Decision is an Invocation execution outcome, a
+  well-formed prohibited Decision is a Decision rejection, and an accepted
+  Decision whose effect fails is an effect failure. None may be rewritten as
+  `no_action` or as another category for retry convenience.
+- Implement the optional one-lane timer scheduler: default arm on `Active`,
+  independently accepted/rejected/omitted recommendation, pending-event
+  replacement or fired-event sole successor, expected revision, active Session
+  time, pause/resume, due reauthorization, one trusted firing, default
+  resumption, cutoff/terminal cancellation, restart recovery, and loop budgets.
+  All scheduling calculations use database-authoritative UTC and Session order,
+  never client, host-local, or provider time; named timezone facts remain
+  available where a governing wall-clock boundary must be explained.
+- Persist every admitted Invocation, but do not promote every rejected raw
+  signal, worker poll, provider callback, or operational observation into the
+  Session event stream. Retain only the bounded audit/operational outcome its
+  governing policy requires.
+- Extend the current synthetic API/scenario adapter to exercise the same
+  observable contract deterministically for emit-message, no-action,
+  rejected/failed Decision, accepted/rejected/omitted replacement, default
+  cadence, duplicate/concurrent schedule change, pause/resume, and cutoff.
+  Synthetic state remains test/development-only and explicitly non-authoritative.
+- Update the current Text Session client to consume authoritative Agent
+  queued/working/resolved projections, render no false Agent Message for
+  no-action, show no false Participant Message for timer triggers, announce the
+  resolution once without moving focus, and keep timer requests/revisions,
+  rejection reasons, raw Decisions, and hidden reasoning out of Participant UI.
+  A neutral persistent resolution appears only when frozen workflow policy
+  requires it; Agent-initiated opening, closing, and timer messages use an
+  authoritative Agent-initiated Turn and never invent Participant input.
+- Complete an internal production-shaped end-to-end proof from an ADR-005-style
+  committed readiness/binding fixture through Session activation, Participant
+  and permitted Agent-initiated Invocations, pause/cutoff/terminalization,
+  manifest runtime append and terminal seal, and eligible Evaluation handoff.
+  The proof uses trusted test actors and immutable fixture sources; it does not
+  claim the deferred production Campaign, authentication, or Evaluation UI.
+- Add bounded operational instrumentation for admission/rejection, execution
+  and effect outcomes, no-action, duplicate/stale/late work, fragment latency
+  and integrity, backlog/claims, timer acceptance/rejection/drift/fire/cancel/
+  expiry, budget exhaustion, cutoff attempts, and manifest/audit failures.
+  Verify label cardinality and protected-data exclusion, applicable p95 targets,
+  backpressure, recovery alerts, and Organization/Activity fairness.
+- Apply the existing lifecycle, retention, backup/restore, lawful-unavailability,
+  and export authorization rules to new protected records. Generic audit,
+  telemetry, browser, and export surfaces must not gain raw prompts, Decisions,
+  content, credentials, unrestricted identifiers, or cross-scope existence
+  signals merely because the records now exist.
+- Add observed red-green-refactor tests for every behavior change; focused
+  domain/contract tests, real PostgreSQL integration/concurrency/restart tests,
+  API/runtime tests, frontend component/state tests, and Playwright MCP
+  accessibility/visual verification at desktop and narrow viewports.
+- Reconcile implementation-status tables in authoritative docs only after the
+  corresponding evidence exists. Change `Gap`/`implementation TBD` claims to a
+  precise implemented or partial state; never use documentation edits to hide
+  an unimplemented behavior.
+- Run distinct implementation and review passes. Resolve every blocking
+  architecture, backend, frontend, security/privacy, and QA finding, then rerun
+  the affected focused and aggregate checks before marking the task completed.
+- Treat this task as a repository work freeze: no unrelated feature or
+  foundation item starts until this task is completed or the user explicitly
+  changes the priority/scope.
+
+## Out
+
+- Voice, playback/interruption, silence triggers, Participant Session tools,
+  general workflow triggers, Dynamic memory, shared Sessions, arbitrary or
+  parallel timers, or Agent/Harness self-modification. Tests must prove these
+  remain disabled in P0.
+- A provider-specific public contract, production OpenAI/Azure deployment, live
+  model credentials/calls, provider qualification, or `GATE-STACK-PROVIDERS`
+  certification. The deterministic adapter validates the application boundary;
+  each live provider remains a later qualified adapter.
+- Production OIDC/Keycloak login, MFA, opaque application-session persistence,
+  or complete public Participant/admin authorization delivery. Internal and
+  integration entry points use trusted test actors; no browser-controlled
+  identity or scope is introduced.
+- The complete production Activity, Enrollment, Submission, Attempt,
+  Evaluation, Review, Result, or Release implementation outside the minimum
+  immutable references and Session prerequisites required by this runtime
+  slice.
+- A universal product timer duration chosen in code. Production timer values
+  must come from the approved frozen policy; deterministic test/synthetic
+  profiles may use explicit fixture values that make no product-default claim.
+- Participant controls for viewing or editing timer timing, raw Invocations,
+  Decisions, validation data, or runtime provenance.
+- Commits, pushes, pull requests, deployments, or releases unless separately
+  requested.
+
+# Acceptance and verification mapping
+
+| Obligation | Implementation surface | Planned verification |
+| --- | --- | --- |
+| Frozen policy and provenance (`REQ-RSC-47`–`REQ-RSC-53`, `AC-RSC-26`, `AC-RSC-27`) | Configuration resolver, resolved Session configuration/manifest references, Sessions policy value object, activation/session binding | Exact version/digest/reference reconstruction; lower-scope narrowing; drift rejection; disabled-capability matrix; timer enabled/disabled and bounded-policy tests |
+| Provider/model authority (`REQ-RSC-46`, `AC-RSC-25`) | Trusted deployment and opaque credential-binding resolver, provider request context, worker preflight | Missing/revoked/wrong-Organization/provider-mismatched binding; no fallback payer/provider; credential absence from storage, DTOs, logs, telemetry, errors, fixtures, and artifacts |
+| Trusted admission and identity (`REQ-SESS-61`, `REQ-SESS-62`, `REQ-SESS-67`, `REQ-SESS-68`, `SESS-DEC-14`, `SESS-DEC-15`, `SESS-DEC-20`) | Trusted trigger adapter, admission command, scoped repository, Session sequence/idempotency | Accepted Participant/opening/closing/timer trigger; unknown/fake/prohibited trigger; forged scope; duplicate/mismatch; stale/lifecycle/cutoff/budget; cross-Organization/Activity/Participant/Session isolation |
+| Invocation execution (`REQ-SESS-63`, `REQ-SESS-69`, `SESS-DEC-16`, `SESS-DEC-21`) | Durable work row, claim/lease, Invocation handler, provider port/adapter, attempt/outcome and provider-request provenance | Exactly one Decision on success; timeout/unavailable/malformed/incomplete structured output with no fabricated Decision; bounded retry; cancellation/late result; crash at each commit boundary; lost response/lease; duplicate claim; attempt/chain/cooldown/Session budget exhaustion |
+| Decision authority/effect (`REQ-SESS-64`–`REQ-SESS-67`, `REQ-SESS-70`, `SESS-DEC-17`–`SESS-DEC-19`, `SESS-DEC-23`) | Decision schema/parser, validator, response-slot/Agent-initiated outcome state machine, effect transaction, audit/outbox | Accepted versus schema-valid policy/payload/capability rejection; schema-invalid/parse-bound failure remains an Invocation outcome; Participant and non-Turn no-action terminalization; emit-message slot claim; accepted-effect failure distinct from execution failure; atomic failure injection; current-policy recheck; immutable recommendation/validation/effect history |
+| Durable message streaming (`REQ-SESS-55`–`REQ-SESS-60`, `AC-SESS-32`, ADR-011) | Message/fragment/completion persistence, outbox/SSE projection and replay | Fragment order, duplicate/gap/mismatch, commit-before-publish, disconnect/replay, completion digest/length, partial failure, late/extra delta, multiple nodes, terminal transcript reconstruction |
+| One-lane scheduling (`REQ-SESS-71`–`REQ-SESS-77`, `AC-SESS-38`–`AC-SESS-41`, `SESS-DEC-24`–`SESS-DEC-28`) | Timer request parser/validator, timer-lane aggregate, schedule revision rows, durable due-work scheduler | Default first arm; accepted/rejected/omitted request; primary-Decision independence; replace pending versus sole successor; expected-revision conflict; duplicate/concurrent response; one pending event/firing; restart; active-time pause/resume; cutoff/revocation/terminal cancellation; loop budgets |
+| Participant presentation (`UI-SESS-DEC-13`, `UI-SESS-DEC-14`) | Browser-safe Session projection/SSE, synthetic scenarios, `SessionPage` working/resolved states | No synthetic Agent Message for no-action; no synthetic Participant Message for timer; one accessible announcement; no focus movement; real timer-triggered work/message only; raw control/timing data absent from DOM, storage, URL, logs, and screenshots |
+| Runtime foundation and handoff (ADR-005, ADR-009, runtime-contract implementation gate) | Trusted readiness/Session fixture, lifecycle/order boundary, manifest appender/sealer, Evaluation-handoff eligibility projection | End-to-end readiness → Active → Participant and Agent-initiated work → pause/cutoff/terminal → sealed manifest → eligible handoff; manifest/audit/seal fault injection leaves honest recoverable state |
+| Security/privacy and operations | Composite scope constraints, server-derived context, minimized records/logs/metrics, authorization/audit, bounded worker/scheduler, lifecycle/export controls | Guessed-ID and cross-scope query/cache/event/work/replay matrix; prompt/content cannot establish authority/timing; service authorization and revocation; current authorization for SSE/replay and the approved 60-second access-narrowing target; retention/export/backup and sensitive-data/log snapshots; timer storm/backpressure; database-time/clock-skew/restart fault injection; bounded metric labels; append-only history |
+| Performance and observability | Metrics/traces/alerts, claim fairness, load and failure harnesses | Applicable admission/reconnect p95 objective; time-to-first durable fragment and commit-to-display latency; Organization/Activity fair claiming; backlog, scheduler drift, restart, provider slowness, and post-cutoff alerts without sensitive/high-cardinality labels |
+| Repository and documentation consistency | Schema catalog, C#/TS/OpenAPI parity, module/architecture rules, docs status tables | Contract fixture/parity suites; architecture dependency tests; `check_docs.py`; no stale `implementation TBD` or false implementation claim; reviewer traceability audit |
+
+# Plan
+
+- [x] Inventory the approved deltas and current executable baseline. Confirm the
+  clean `e8bb83a` starting point, identify every affected contract/module/host/
+  migration/test/UI surface, and record the existing synthetic SSE-schema drift
+  and missing production Session-runtime foundations in this task.
+- [x] Build the executable traceability and threat-model matrix before feature
+  code. For each mapped requirement, specify the authoritative aggregate,
+  persisted record, transaction boundary, actor/service authorization,
+  idempotency/order key, browser-safe projection, positive test, negative test,
+  failure/restart case, and evidence location. Include protected assets,
+  actors/service identities, entry points, provider/database/SSE boundaries,
+  STRIDE and privacy misuse cases, lifecycle/retention/export treatment,
+  preventive/detective/recovery controls, and residual risks. Promote any newly
+  discovered product/architecture ambiguity before continuing.
+- [>] Define and test the canonical contract tranche first. Add red schema,
+  catalog, fixture, OpenAPI, C#, TypeScript, and compatibility tests for trusted
+  triggers, Invocation, attempt/outcome, Decision, validation/effect,
+  response-slot resolution, participant-visible work/message events, and timer
+  request/schedule/firing records; then implement the minimum versioned
+  contracts until parity is green. Keep protected internal envelopes separate
+  from Participant-safe DTOs and fix the existing SSE event-type drift. Select
+  and document one interoperable duration encoding, reject unsafe numeric/
+  overflow representations, require zero-or-one timer request, and cover
+  unknown versions/types and additive compatibility across JSON Schema, .NET,
+  TypeScript, and OpenAPI. Preserve existing v1 meanings and fixtures; use the
+  repository compatibility policy to choose a compatible addition or new
+  version rather than silently redefining a shipped event.
+- [ ] Add architecture red tests for the new Sessions ownership boundary,
+  forbidden provider/persistence imports in domain/application code, prohibited
+  cross-module table writes, unscoped repositories, host-owned policy, client-
+  supplied authority/timing, and direct provider types in public contracts.
+  Keep future Interaction Controller mechanics outside the Sessions/Agent
+  semantic boundary and prove voice/tool/workflow/memory/release effects remain
+  disabled. Create the minimum Sessions project/module and composition seams to
+  pass these rules.
+- [ ] Implement frozen runtime-policy resolution using TDD. Resolve immutable
+  Invocation/Decision/timer policy and protected provenance from approved source
+  versions, enforce required positive bounds and disabled capabilities, prove
+  lower-scope non-widening and cohort stability, and bind the resolved snapshot
+  to the Session/manifest. Resolve model deployment and opaque credential-
+  binding identity from trusted scope, fail closed without fallback when it is
+  missing/revoked/mismatched, and keep credential material out of the module.
+  Fail closed when required production policy values are absent; keep explicit
+  fixture timing values test-only.
+- [ ] Implement the framework-independent Sessions domain/application tranche
+  with red-green-refactor tests: lifecycle eligibility, trusted trigger
+  admission, stable Invocation identity, semantic decision opportunity versus
+  provider attempts, exactly-one successful Decision or execution outcome,
+  schema-invalid execution outcome versus well-formed Decision rejection versus
+  accepted-effect failure, independent validation, Participant response-slot
+  and non-Turn no-action terminalization, opening/closing/timer Agent-initiated
+  Turn creation, emit-message slot claim, idempotency/order, stale/late handling,
+  and positive loop/budget bounds. Build Invocation context only from the exact
+  trusted Session binding, frozen configuration, permitted Submission/knowledge/
+  memory-read references, and authoritative visible transcript; prove unrelated
+  and model-authored control facts cannot enter the context/provenance channel.
+- [ ] Design the minimum additive PostgreSQL schema and run migration tests red
+  before implementation. Add immutable/scoped Session runtime, event,
+  Invocation, attempt/outcome, Decision, validation/effect, response-slot,
+  message/fragment, timer-lane/revision, lower-level provider provenance where
+  required, pause intervals/active-time facts, terminal intent/record,
+  reconciliation, durable-work, and manifest runtime-reference records with
+  composite ownership, database-authoritative UTC/order semantics, expected
+  versions,
+  constraints enforcing at most one current pending/claimed lane event and one
+  effect, append-only protection, and audit/outbox correlation. Prove empty/
+  repeat/upgrade/changed-script/transactional/concurrent migration safety.
+- [ ] Implement scoped PostgreSQL repositories and transaction coordinators
+  against real PostgreSQL 18 tests. Cover wrong Organization/Activity/
+  Participant/Attempt/Session, forged ownership, guessed IDs, list/count leaks,
+  duplicate/mismatched idempotency, commit-time revocation, concurrent
+  admission/effect/replacement, injected audit/outbox failure, and immutable
+  history. Cover lifecycle disposition, authorized reconstruction, generic-
+  export exclusion, backup/restore reconstruction, and lawful unavailability.
+  No general repository or unscoped lookup is permitted.
+- [ ] Add the model-execution port and deterministic fake provider through
+  observed red-green-refactor. Prove structured control/content phase
+  separation, bounded provider requests within one Invocation, cancellation,
+  transient/permanent failure classification, malformed/incomplete/oversized
+  control, cumulative-snapshot versus non-overlapping-delta normalization,
+  duplicate/late completion, one- and multi-interaction profiles, no message
+  content before accepted communication control, no partial JSON exposure, and
+  absence of hidden reasoning in records or logs. Do not add a live provider
+  or credential. Preflight the trusted deployment and opaque credential-binding
+  identity, service delegation, egress allowlist, timeout, and payload limits;
+  prove no missing/mismatched binding falls back to another provider or payer.
+- [ ] Replace the worker heartbeat-only behavior with bounded durable-runtime
+  processing while retaining health/readiness behavior. Claim Invocation work,
+  reauthorize, execute attempts, record one Decision or execution outcome,
+  validate current policy, apply an idempotent effect, renew/expire claims, and
+  recover after process loss. Inject crashes after claim, provider return,
+  Decision commit, effect/schedule commit, fragment commit, and before
+  acknowledgement; prove lost-response reconciliation, backpressure, retry,
+  shutdown, database-time/host-clock skew, and multi-worker contention.
+- [ ] Implement ADR-011 as the `emit_message` effect seam required by this
+  task: durable Agent Message/fragment/completion records, commit-before-publish,
+  exact order and integrity checks, safe SSE projection, replay/gap recovery,
+  finest-provider-granularity publication without application-added batching,
+  cumulative-provider-event normalization, bounded rolling validation and
+  backpressure, completion/terminalization, and no post-terminal content. Reuse
+  one path for Participant, opening/closing, and timer-triggered Agent work.
+- [ ] Implement the one-lane scheduler with model-based/domain tests first,
+  then PostgreSQL/worker integration: default arm on `Active`, independent
+  recommendation validation, replacement/sole-successor atomicity, expected
+  revision and Session order, active-time pause/resume, due reauthorization,
+  one trusted trigger/Invocation, default resumption, restart recovery,
+  terminal/cutoff cancellation, and positive cooldown/replacement/Invocation/
+  Session budgets. Prove there can never be two pending events or two effects
+  from one due revision. Cover zero/negative/minimum/maximum/over-maximum delay,
+  malformed complete Decision control, structurally valid policy rejection,
+  accepted replacements coexisting with both `emit_message` and `no_action`,
+  default successor after every timer-Invocation terminal outcome unless its
+  successful Decision installed an accepted replacement,
+  long-running timer Invocation, concurrent non-timer Decision replacement,
+  claimed-work lease loss, scheduling-commit lost response, Session entry to
+  `Active`, repeated pause/resume, and every terminal race. Preserve requested
+  delay and accepted/rejected/superseded validation provenance separately from
+  schedule states `Pending`, `Claimed`, `Fired`, `Cancelled`, `Superseded`, and
+  `Expired`.
+- [ ] Extend the non-production synthetic adapter to mirror the browser-safe
+  semantics without becoming runtime authority. Add deterministic scenarios for
+  Participant reply, Agent opening/closing, Participant and timer no-action,
+  rejected Decision, accepted-effect failure, execution failure, default timer,
+  accepted/rejected/omitted replacement, duplicate/concurrent revision,
+  timer-triggered visible work, pause/resume, reconnect, and cutoff. Require a
+  trusted synthetic trigger instead of generating work merely because SSE was
+  read.
+- [ ] Update the Text Session UI under the approved design-system modules using
+  component/state TDD. Consume authoritative queued/working/resolved states,
+  stop work honestly on no-action, announce once without focus movement, render
+  no false transcript item, show persistent neutral resolution only when the
+  authoritative workflow projection requires it, reuse Agent presence for
+  opening/closing/timer-triggered work, and keep schedule/control/provenance
+  details absent. Present a policy-rejected Decision only through the workflow's
+  safe bounded failure or neutral suppressed state, never as provider failure or
+  no-action. Cover loading, empty, populated, reconnect/replay, error/retry,
+  permission loss, pause, terminal, bounded long-transcript rendering, reduced
+  motion, long content, and narrow layout.
+- [ ] Exercise the changed journey through real API/SSE interactions with
+  Playwright MCP. Inspect accessibility snapshots and screenshots at desktop
+  and narrow viewports; cover keyboard/focus, no-action, timer-triggered message
+  and no-action, disconnect/replay, pause/resume, error, permission loss,
+  terminal state, both themes, reduced motion, and 400-percent reflow. Iterate
+  until functional, accessibility, privacy, and visual evidence is clean; store
+  artifacts only under `.playwright-mcp/`.
+- [ ] Complete the production-shaped internal end-to-end proof from committed
+  readiness and immutable Session binding through `Active`, trusted Participant
+  and Agent-initiated triggers, no-action/message effects, timer replacement,
+  pause/cutoff/terminalization, manifest runtime append and terminal seal, and
+  eligible Evaluation handoff. Inject audit/manifest/seal failures and prove an
+  honest recoverable state with no post-cutoff publication or false handoff.
+- [ ] Add and verify bounded observability and performance coverage: admission/
+  rejection and effect categories, no-action, duplicate/stale/late work,
+  fragment latency/integrity, backlog/claims, timer drift/outcomes/budgets,
+  cutoff attempts, audit/manifest faults, alert recovery, and Organization/
+  Activity fair claiming. Exercise applicable p95 objectives and load/
+  backpressure profiles; prove labels and telemetry contain no sensitive or
+  unbounded identifiers/content.
+- [ ] Integrate focused and aggregate verification: contract/catalog/OpenAPI
+  parity, architecture tests, Sessions domain tests, PostgreSQL 18 migration/
+  isolation/concurrency/fault tests, API/worker runtime tests, locked web
+  lint/type/unit/build/e2e, OCI/runtime checks, supply-chain/SBOM/license/secret
+  checks, backup/restore and authorized-reconstruction exercises, and
+  documentation validation. Add proportionate blocking CI coverage and record
+  exact commands, counts, results, environments, and artifact paths here.
+- [ ] Reconcile code against every mapped requirement and governing document.
+  Update authoritative implementation-status/traceability tables only where
+  evidence supports the new state; record any remaining unrelated production
+  gates precisely and ensure no technical, product, or UI/UX document now
+  contradicts implemented behavior.
+- [ ] Run distinct architecture, backend, frontend, security/privacy, and QA
+  review passes over the final change set. Resolve all blocking findings,
+  rerun affected focused and full verification, confirm no unauthorized scope
+  growth, and retain review evidence in this task without secrets or sensitive
+  data.
+- [ ] Complete the work-freeze gate: reconcile planned versus actual changes,
+  confirm every in-scope row is implemented and verified rather than merely
+  documented or simulated, mark only truthful partial/deferred production
+  gates, update this task to `completed`, and obtain user confirmation before
+  moving to an unrelated new item.
+
+# Current state
+
+Planning and baseline inventory are complete. Implementation has started with
+the executable traceability/threat-model matrix
+(`.work/active/structured-agent-runtime-traceability.md`) and the first
+canonical contract tranche: six runtime-boundary JSON Schemas, fixtures,
+catalog entries, C#/TypeScript DTOs, SSE drift correction
+(`session.agent.complete.v1`, `session.agent.work.v1`), ISO 8601 duration
+encoding for timer delays, and observed contract parity tests (68 .NET, 8 Node).
+Sessions domain, PostgreSQL runtime schema, worker processing, synthetic
+adapter scenarios, UI states, and end-to-end proof remain pending.
+
+# Decisions
+
+- Use one tracked task for the full synchronization effort and deliver it in
+  ordered contract, domain, persistence, worker/scheduler, adapter/UI, and
+  review tranches. This keeps one end-to-end completion gate while allowing
+  each tranche to remain small enough for observed TDD and independent review.
+- Do not treat the existing synthetic browser journey as proof of production
+  Session behavior. It remains a presentation/e2e adapter; the Sessions module,
+  PostgreSQL records, and worker own runtime authority.
+- Add only the minimum Session/configuration prerequisites required to make the
+  approved boundary executable. Unrelated production Campaign/Submission/
+  Evaluation/Release and authentication work stays deferred and must not be
+  pulled into this task accidentally.
+- Keep a successful Decision and an infrastructure execution outcome mutually
+  exclusive. Persist recommendation, validation, authoritative effect, and
+  explicit no-domain-effect result separately; never reinterpret absence of a
+  message as no-action.
+- Treat output that cannot establish one schema-valid Decision—including a
+  malformed complete `next_timer_request`—as an Invocation execution outcome.
+  Only a schema-valid Decision can be independently accepted or
+  rejected; failure after acceptance belongs to the effect, not the Invocation.
+- Treat timer scheduling as one optional control on a successful Decision and
+  validate it independently. An accepted request replaces the single pending
+  event or becomes the fired timer Invocation's sole successor; it never
+  appends a parallel timer.
+- Use active Session time for relative delay. The authoritative scheduling-
+  effect commit starts the delay, pause suspends remaining duration, and
+  non-Active/revoked/completing/terminal state prevents firing or rearming.
+- Require timer values and budgets in frozen production policy. Tests and
+  synthetic scenarios declare their values explicitly; fixture numbers are not
+  promoted into product defaults.
+- Keep raw Invocation/Decision/timer records protected. Participant-visible
+  projections expose only honest Agent working/resolved/message state required
+  by the UI contract, never hidden reasoning or internal schedule details.
+
+# Findings / deviations
+
+- Existing implementation is intentionally synthetic and lacks a production
+  Session module. Achieving full conformance for the approved change therefore
+  requires a new durable vertical slice, not just editing current DTOs or
+  `SessionPage.tsx`.
+- Synthetic SSE currently emits `session.agent.complete.v1` although the
+  canonical SSE schema does not allow it, and synthetic Agent work is initiated
+  by reading SSE rather than a trusted admitted trigger. Both are correctness
+  gaps included in this plan.
+- Complete production OIDC, live provider qualification, and the surrounding
+  Campaign/Attempt product journeys remain separate gates. Their absence must
+  continue to be reported accurately, but it does not justify leaving the new
+  Session domain/persistence/worker contracts synthetic-only.
+- Second plan audit (2026-08-11) found and closed missing plan coverage for
+  scoped provider/credential no-fallback behavior, malformed-output versus
+  Decision/effect classification, non-Turn no-action and opening/closing
+  triggers, database-authoritative time, manifest append/seal and Evaluation
+  handoff, lifecycle/export controls, crash-boundary recovery, and bounded
+  operational/performance evidence.
+
+# Verification
+
+| Check | Status | Evidence |
+| --- | --- | --- |
+| Baseline branch/worktree inspection | passed | `git status --short --branch`; clean `main...origin/main` at `e8bb83a` |
+| Approved requirement/ADR/UI ID discovery | passed | `rg` across `docs/` confirms `REQ-RSC-47`–`53`, `REQ-SESS-61`–`77`, `SESS-DEC-14`–`28`, and `UI-SESS-DEC-13`–`14` are authoritative and currently marked implementation TBD/Gap where applicable |
+| Current contract/module/migration/test/UI inventory | passed | Repository inventory confirms representative Session contracts plus synthetic adapter/UI, with no production Sessions module, runtime persistence, provider port, or scheduler |
+| Cross-cutting plan review | passed | Backend, frontend, security/privacy, and tester checklists applied to requirements, ADR-011–ADR-013, runtime contract, UI decisions, and current implementation boundary; omissions recorded above were incorporated into scope, mapping, steps, and completion gates |
+| Plan formatting and documentation validation | passed | `git diff --no-index --check /dev/null .work/active/structured-agent-runtime-sync.md` produced no whitespace diagnostics (exit `1` denotes the expected new-file difference); `python3 scripts/check_docs.py` passed |
+| Executable traceability/threat-model review | passed | `.work/active/structured-agent-runtime-traceability.md` — requirement matrix, STRIDE controls, module ownership, duration encoding |
+| Contract/catalog/C#/TypeScript/OpenAPI compatibility | partial | `dotnet test --project tests/Contract/FlexAgent.Contract.Tests` 69/69 passed; `pnpm --filter @flex-agent/contracts test` 8/8 passed; `SyntheticSseConformanceTests` locks synthetic adapter SSE shapes; runtime schemas + SSE extension; OpenAPI SSE parity updated |
+| Sessions domain/application focused tests | pending | |
+| PostgreSQL 18 migration/isolation/concurrency/fault tests | pending | |
+| API/worker/provider/scheduler runtime tests | pending | |
+| Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
+| Web lint/type/unit/build/e2e | pending | |
+| Playwright accessibility/responsive/visual evaluation | pending | |
+| Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | pending | |
+| Performance, observability, lifecycle/export, backup/restore verification | pending | |
+| Architecture/backend/frontend/security/privacy/QA review | pending | |
+| Final specification and repository consistency audit | pending | |
+
+# Blockers
+
+None at planning time. Exact production timer durations are intentionally
+policy inputs, not an unresolved implementation blocker.
+
+# Completion
+
+- [ ] Planned work is reconciled with actual changes
+- [ ] Every in-scope requirement/acceptance/decision maps to implemented code
+      and repeatable evidence
+- [ ] No contract-only or synthetic-only gap remains for the approved runtime
+      boundary
+- [ ] Applicable focused tests pass
+- [ ] Applicable PostgreSQL concurrency, restart, isolation, and fault tests pass
+- [ ] Scoped provider/credential no-fallback behavior and credential non-
+      disclosure are verified
+- [ ] Manifest runtime append/seal, terminal recovery, and eligible Evaluation
+      handoff are verified end to end
+- [ ] Applicable integration/regression and full repository checks pass
+- [ ] Applicable latency/backpressure, bounded observability, lifecycle/export,
+      and backup/restore checks pass
+- [ ] Playwright accessibility and visual verification passes for affected UI
+      states
+- [ ] Governing product, requirements, technical, architecture, and UI/UX
+      specifications were rechecked and implementation status is truthful
+- [ ] Independent review findings are resolved and reverified
+- [ ] Remaining unrelated production gates or unverified behavior are recorded
+- [ ] Task state is safe and complete for external review and retained tracking
+- [ ] No unrelated new item starts before this completion gate or explicit user
+      reprioritization

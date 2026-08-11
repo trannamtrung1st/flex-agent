@@ -1,0 +1,14 @@
+{
+  "schema_version": "v1",
+  "event_type": "session.agent.work.v1",
+  "session_id": "sess.synthetic.0001",
+  "session_sequence": "16",
+  "occurred_at": "2026-08-10T00:00:04Z",
+  "payload": {
+    "summary": "Turn resolved without Agent reply.",
+    "turn_id": "turn.synthetic.0001",
+    "work_state": "resolved",
+    "resolution_category": "no_action",
+    "show_persistent_turn_status": true
+  }
+}
