@@ -35,7 +35,7 @@
       "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/session_ownership_ref"
     },
     "trigger": {
-      "$ref": "https://flex-agent.local/contracts/schemas/v1/session/trusted-trigger.v1.schema.json"
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/session/trusted-trigger-provenance.v1.schema.json"
     },
     "session_sequence": {
       "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"

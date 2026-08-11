@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/common/iso8601-positive-duration-fixture.v1.schema.json",
+  "title": "ISO 8601 positive duration fixture envelope v1",
+  "description": "Test envelope for validating timer-duration wire values against iso8601_positive_duration.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["duration"],
+  "properties": {
+    "duration": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/iso8601_positive_duration"
+    }
+  }
+}

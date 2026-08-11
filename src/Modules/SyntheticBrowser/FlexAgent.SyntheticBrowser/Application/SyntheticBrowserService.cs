@@ -673,6 +673,8 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         }
     }
 
+    private const string SyntheticAgentFragmentText = "Thank you for your response. ";
+
     private static void EnsureSyntheticAgentStream(SyntheticScenarioState state)
     {
         if (state.EmittedSseEvents.Count > 0 || state.SessionLifecycle != "active")
@@ -691,7 +693,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
                 "Agent response fragment",
                 1,
                 "msg.synthetic.agent.001",
-                "Thank you for your response. ")));
+                SyntheticAgentFragmentText)));
 
         state.SessionSequence++;
         state.EmittedSseEvents.Add(new SseSessionEventV1(
@@ -709,8 +711,14 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
                 null,
                 null,
                 null,
-                "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                ComputeSha256Hex(SyntheticAgentFragmentText),
                 1)));
+    }
+
+    private static string ComputeSha256Hex(string content)
+    {
+        var hash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(content));
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     private static bool IsAfterCursor(string sessionSequence, string? lastEventId)

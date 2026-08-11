@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FlexAgent.Contracts.Transport;
@@ -7,6 +9,9 @@ namespace FlexAgent.Contract.Tests;
 
 public sealed class SyntheticSseConformanceTests
 {
+    private const string SyntheticAgentFragmentText = "Thank you for your response. ";
+    private const string ExpectedAssembledDigest = "888d11eb3061c584bfcf4870fd2359cd00c1cd7dea9f4b7b788e1179e8d43203";
+
     private static readonly string ContractsRoot = Path.Combine(AppContext.BaseDirectory, "contracts");
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -36,7 +41,7 @@ public sealed class SyntheticSseConformanceTests
                 "Agent response fragment",
                 1,
                 "msg.synthetic.agent.001",
-                "Thank you for your response. "));
+                SyntheticAgentFragmentText));
 
         var complete = new SseSessionEventV1(
             "v1",
@@ -53,7 +58,7 @@ public sealed class SyntheticSseConformanceTests
                 null,
                 null,
                 null,
-                "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                ExpectedAssembledDigest,
                 1));
 
         foreach (var evt in new[] { fragment, complete })
@@ -62,5 +67,14 @@ public sealed class SyntheticSseConformanceTests
             var result = _harness.ValidateInstance(schemas[schemaId], json);
             Assert.True(result.IsValid, $"{evt.EventType}: {JsonSerializer.Serialize(result)}");
         }
+    }
+
+    [Fact]
+    public void Synthetic_complete_digest_matches_assembled_fragment_content()
+    {
+        var actualDigest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(SyntheticAgentFragmentText)))
+            .ToLowerInvariant();
+
+        Assert.Equal(ExpectedAssembledDigest, actualDigest);
     }
 }

@@ -69,6 +69,16 @@
       "category": "timer_schedule_revision",
       "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/timer-schedule-revision.v1.schema.json",
       "fixture_dir": "fixtures/schema/v1/session/timer-schedule-revision"
+    },
+    {
+      "category": "agent_invocation_execution_outcome",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation-execution-outcome.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/session/agent-invocation-execution-outcome"
+    },
+    {
+      "category": "iso8601_positive_duration",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/common/iso8601-positive-duration-fixture.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/common/iso8601-positive-duration"
     }
   ],
   "digest_schemas": [
@@ -96,6 +106,7 @@
   "projections": {
     "openapi": "projections/openapi.v3.1.yaml",
     "csharp_dto_root": "src/BuildingBlocks/FlexAgent.Contracts/",
-    "typescript_root": "web/src/contracts/"
+    "typescript_root": "web/src/contracts/",
+    "typescript_internal_runtime_root": "web/src/contracts/internal-runtime.v1.ts"
   }
 }

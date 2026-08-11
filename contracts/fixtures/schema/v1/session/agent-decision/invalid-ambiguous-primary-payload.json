@@ -1,0 +1,15 @@
+{
+  "schema_version": "v1",
+  "agent_decision_id": "adec.synthetic.bad3",
+  "agent_invocation_id": "ainv.synthetic.0002",
+  "decision_type": "no_action",
+  "produced_at": "2026-08-11T00:00:06Z",
+  "no_action": {
+    "reason_category": "intentional_silence"
+  },
+  "emit_message": {
+    "communication_purpose": "participant_turn_reply",
+    "turn_id": "turn.synthetic.0001",
+    "response_slot_id": "slot.synthetic.0001"
+  }
+}

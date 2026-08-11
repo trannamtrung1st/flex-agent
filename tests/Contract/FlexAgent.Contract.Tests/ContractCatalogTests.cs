@@ -17,7 +17,7 @@ public sealed class ContractCatalogTests
     public void Catalog_declares_draft_2020_12_and_complete_representative_set()
     {
         Assert.Equal("https://json-schema.org/draft/2020-12/schema", _catalog.SchemaDialect);
-        Assert.Equal(13, _catalog.RepresentativeSchemas.Count);
+        Assert.Equal(15, _catalog.RepresentativeSchemas.Count);
         Assert.Equal(4, _catalog.DigestSchemas.Count);
         Assert.All(_catalog.RepresentativeSchemas, entry =>
             Assert.StartsWith(_catalog.IdNamespace, entry.SchemaId, StringComparison.Ordinal));
@@ -28,7 +28,7 @@ public sealed class ContractCatalogTests
     {
         ContractSchemaRegistry.AssertReferenceClosure(ContractsRoot, _catalog);
         var schemas = ContractSchemaRegistry.BuildCatalogSchemas(ContractsRoot, _catalog, AllowedKeywords);
-        Assert.Equal(18, schemas.Count);
+        Assert.Equal(20, schemas.Count);
     }
 
     [Theory]
@@ -103,6 +103,8 @@ public sealed class ContractCatalogTests
             "agent-decision" => "https://flex-agent.local/contracts/schemas/v1/session/agent-decision.v1.schema.json",
             "decision-validation-effect" => "https://flex-agent.local/contracts/schemas/v1/session/decision-validation-effect.v1.schema.json",
             "timer-schedule-revision" => "https://flex-agent.local/contracts/schemas/v1/session/timer-schedule-revision.v1.schema.json",
+            "agent-invocation-execution-outcome" => "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation-execution-outcome.v1.schema.json",
+            "iso8601-positive-duration" => "https://flex-agent.local/contracts/schemas/v1/common/iso8601-positive-duration-fixture.v1.schema.json",
             _ => throw new InvalidOperationException($"Unknown fixture category: {category}"),
         };
     }

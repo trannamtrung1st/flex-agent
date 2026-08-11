@@ -290,7 +290,7 @@ and test reviews have no unresolved blocking findings.
   STRIDE and privacy misuse cases, lifecycle/retention/export treatment,
   preventive/detective/recovery controls, and residual risks. Promote any newly
   discovered product/architecture ambiguity before continuing.
-- [>] Define and test the canonical contract tranche first. Add red schema,
+- [x] Define and test the canonical contract tranche first. Add red schema,
   catalog, fixture, OpenAPI, C#, TypeScript, and compatibility tests for trusted
   triggers, Invocation, attempt/outcome, Decision, validation/effect,
   response-slot resolution, participant-visible work/message events, and timer
@@ -459,15 +459,14 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-Planning and baseline inventory are complete. Implementation has started with
-the executable traceability/threat-model matrix
-(`.work/active/structured-agent-runtime-traceability.md`) and the first
-canonical contract tranche: six runtime-boundary JSON Schemas, fixtures,
-catalog entries, C#/TypeScript DTOs, SSE drift correction
-(`session.agent.complete.v1`, `session.agent.work.v1`), ISO 8601 duration
-encoding for timer delays, and observed contract parity tests (68 .NET, 8 Node).
-Sessions domain, PostgreSQL runtime schema, worker processing, synthetic
-adapter scenarios, UI states, and end-to-end proof remain pending.
+Planning and baseline inventory are complete. The first canonical contract
+tranche is in place with post-review fixes (commit after `235424b`): discriminated
+`AgentDecisionV1` branches, scope-free `TrustedTriggerProvenanceV1` on
+Invocation, `AgentInvocationExecutionOutcomeV1`, corrected ISO 8601 duration
+wire/semantic bounds, honest synthetic completion digests, and protected
+runtime TypeScript separated to `internal-runtime.v1.ts`. Contract parity:
+90 .NET, 8 Node. Sessions domain, PostgreSQL runtime schema, worker processing,
+synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
 
 # Decisions
 
@@ -506,14 +505,18 @@ adapter scenarios, UI states, and end-to-end proof remain pending.
 
 # Findings / deviations
 
+- Post-review contract fixes (2026-08-11): corrected ISO 8601 duration wire and
+  semantic bounds; discriminated `AgentDecisionV1` branches; added
+  `AgentInvocationExecutionOutcomeV1`; replaced dual ownership with scope-free
+  `TrustedTriggerProvenanceV1` on Invocation; honest synthetic completion
+  digests; separated protected runtime TypeScript to `internal-runtime.v1.ts`.
 - Existing implementation is intentionally synthetic and lacks a production
   Session module. Achieving full conformance for the approved change therefore
   requires a new durable vertical slice, not just editing current DTOs or
   `SessionPage.tsx`.
-- Synthetic SSE currently emits `session.agent.complete.v1` although the
-  canonical SSE schema does not allow it, and synthetic Agent work is initiated
-  by reading SSE rather than a trusted admitted trigger. Both are correctness
-  gaps included in this plan.
+- Synthetic SSE previously emitted `session.agent.complete.v1` outside the SSE
+  schema enum; that drift is corrected. Synthetic Agent work is still initiated
+  by reading SSE rather than a trusted admitted trigger — a remaining adapter gap.
 - Complete production OIDC, live provider qualification, and the surrounding
   Campaign/Attempt product journeys remain separate gates. Their absence must
   continue to be reported accurately, but it does not justify leaving the new
@@ -535,7 +538,7 @@ adapter scenarios, UI states, and end-to-end proof remain pending.
 | Cross-cutting plan review | passed | Backend, frontend, security/privacy, and tester checklists applied to requirements, ADR-011–ADR-013, runtime contract, UI decisions, and current implementation boundary; omissions recorded above were incorporated into scope, mapping, steps, and completion gates |
 | Plan formatting and documentation validation | passed | `git diff --no-index --check /dev/null .work/active/structured-agent-runtime-sync.md` produced no whitespace diagnostics (exit `1` denotes the expected new-file difference); `python3 scripts/check_docs.py` passed |
 | Executable traceability/threat-model review | passed | `.work/active/structured-agent-runtime-traceability.md` — requirement matrix, STRIDE controls, module ownership, duration encoding |
-| Contract/catalog/C#/TypeScript/OpenAPI compatibility | partial | `dotnet test --project tests/Contract/FlexAgent.Contract.Tests` 69/69 passed; `pnpm --filter @flex-agent/contracts test` 8/8 passed; `SyntheticSseConformanceTests` locks synthetic adapter SSE shapes; runtime schemas + SSE extension; OpenAPI SSE parity updated |
+| Contract/catalog/C#/TypeScript/OpenAPI compatibility | partial | `dotnet test --project tests/Contract/FlexAgent.Contract.Tests` 90/90 passed; `pnpm --filter @flex-agent/contracts test` 8/8 passed; post-review fixes for duration bounds, discriminated decisions, invocation ownership, execution outcomes, synthetic digest integrity; protected runtime TS in `internal-runtime.v1.ts` |
 | Sessions domain/application focused tests | pending | |
 | PostgreSQL 18 migration/isolation/concurrency/fault tests | pending | |
 | API/worker/provider/scheduler runtime tests | pending | |

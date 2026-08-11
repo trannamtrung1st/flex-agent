@@ -14,13 +14,24 @@ public sealed record TrustedTriggerV1(
     string? ResponseSlotId = null,
     ProtectedPayloadRefV1? ProvenanceRef = null);
 
+public sealed record TrustedTriggerProvenanceV1(
+    string SchemaVersion,
+    string TriggerFamily,
+    string TriggerType,
+    string TriggerId,
+    string IdempotencyKey,
+    string Purpose,
+    string? TurnId = null,
+    string? ResponseSlotId = null,
+    ProtectedPayloadRefV1? ProvenanceRef = null);
+
 public sealed record AgentInvocationV1(
     string SchemaVersion,
     string AgentInvocationId,
     string InvocationContractVersion,
     string Purpose,
     SessionOwnershipRefV1 Ownership,
-    TrustedTriggerV1 Trigger,
+    TrustedTriggerProvenanceV1 Trigger,
     string SessionSequence,
     string Status,
     string? PolicyDigest = null,
@@ -38,6 +49,15 @@ public sealed record AgentInvocationExecutionAttemptV1(
     string CompletedAt,
     ProtectedPayloadRefV1? ProviderRequestRef = null,
     string? AgentDecisionId = null);
+
+public sealed record AgentInvocationExecutionOutcomeV1(
+    string SchemaVersion,
+    string ExecutionOutcomeId,
+    string AgentInvocationId,
+    string OutcomeCategory,
+    string ReasonCategory,
+    string TerminalAt,
+    string? LastExecutionAttemptId = null);
 
 public sealed record EmitMessageDecisionPayloadV1(
     string CommunicationPurpose,

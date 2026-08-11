@@ -17,10 +17,10 @@ exists in this task's verification table.
 ## Duration encoding (interim default, documented)
 
 Relative timer delays use **ISO 8601 duration** strings restricted to positive
-`PnDTnHnMnS` forms without negative components, year/month/week components, or
-fractional seconds. Examples: `PT30S`, `PT5M`, `PT1H`. Wire bound: 1 second
-through 24 hours (`PT1S` … `PT24H`). Overflow, negative, and ambiguous numeric
-encodings are rejected at schema validation.
+`PnDTnHnMnS` forms without year/month/week components or fractional seconds.
+Examples: `PT30S`, `PT5M`, `PT1H`, `PT24H`. Wire shape is validated by
+`iso8601_positive_duration`; semantic bounds (`PT1S`..`PT24H`) are enforced by
+`DurationBoundarySemanticsTests` and duration boundary fixtures.
 
 ## Protected assets
 
@@ -79,12 +79,18 @@ encodings are rejected at schema validation.
 | Schema | Category | Browser-safe |
 | --- | --- | --- |
 | `trusted-trigger.v1` | Admission input | No |
-| `agent-invocation.v1` | Runtime record | No |
+| `trusted-trigger-provenance.v1` | Invocation-embedded trigger facts (scope-free) | No |
+| `agent-invocation.v1` | Runtime record (single authoritative `ownership`) | No |
+| `agent-invocation-execution-outcome.v1` | Invocation terminal outcome | No |
 | `agent-invocation-execution-attempt.v1` | Runtime record | No |
 | `agent-decision.v1` | Structured control | No |
 | `decision-validation-effect.v1` | Runtime record | No |
 | `timer-schedule-revision.v1` | Scheduler record | No |
 | `sse-event.v1` (extended) | Transport | Yes — adds `complete`, `work` |
+
+Protected runtime TypeScript mirrors live in
+`web/src/contracts/internal-runtime.v1.ts` only. Participant-safe browser
+projections remain in `web/src/contracts/v1.ts`.
 
 ## Residual risks (tracked)
 

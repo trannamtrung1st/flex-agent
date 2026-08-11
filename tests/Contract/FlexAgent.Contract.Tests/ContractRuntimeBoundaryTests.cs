@@ -30,9 +30,11 @@ public sealed class ContractRuntimeBoundaryTests
             "https://flex-agent.local/contracts/schemas/v1/session/trusted-trigger.v1.schema.json",
             "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation.v1.schema.json",
             "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation-execution-attempt.v1.schema.json",
+            "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation-execution-outcome.v1.schema.json",
             "https://flex-agent.local/contracts/schemas/v1/session/agent-decision.v1.schema.json",
             "https://flex-agent.local/contracts/schemas/v1/session/decision-validation-effect.v1.schema.json",
             "https://flex-agent.local/contracts/schemas/v1/session/timer-schedule-revision.v1.schema.json",
+            "https://flex-agent.local/contracts/schemas/v1/common/iso8601-positive-duration-fixture.v1.schema.json",
         };
 
         foreach (var schemaId in runtimeSchemaIds)
@@ -80,13 +82,23 @@ public sealed class ContractRuntimeBoundaryTests
             "https://flex-agent.local/contracts/schemas/v1/session/trusted-trigger.v1.schema.json",
             trigger);
 
+        var triggerProvenance = new TrustedTriggerProvenanceV1(
+            "v1",
+            "participant_input",
+            "participant_input.message",
+            "trig.synthetic.0001",
+            "idem-trigger-0001",
+            "participant_turn_response",
+            "turn.synthetic.0001",
+            "slot.synthetic.0001");
+
         var invocation = new AgentInvocationV1(
             "v1",
             "ainv.synthetic.0001",
             "v1",
             "participant_turn_response",
             ownership,
-            trigger,
+            triggerProvenance,
             "42",
             "admitted",
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
@@ -111,6 +123,20 @@ public sealed class ContractRuntimeBoundaryTests
             schemas,
             "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation-execution-attempt.v1.schema.json",
             attempt);
+
+        var executionOutcome = new AgentInvocationExecutionOutcomeV1(
+            "v1",
+            "eout.synthetic.0001",
+            "ainv.synthetic.0001",
+            "execution_failed",
+            "provider_timeout",
+            "2026-08-11T00:00:05Z",
+            "eatt.synthetic.0001");
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation-execution-outcome.v1.schema.json",
+            executionOutcome);
 
         var noActionDecision = new AgentDecisionV1(
             "v1",
