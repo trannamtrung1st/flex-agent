@@ -4,6 +4,8 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0.100-noble@sha256:c7445f141c04f1a6b454181b
 WORKDIR /src
 
 COPY FlexAgent.slnx global.json Directory.Build.props Directory.Build.targets Directory.Packages.props nuget.config ./
+COPY src/BuildingBlocks/FlexAgent.Contracts/ src/BuildingBlocks/FlexAgent.Contracts/
+COPY src/Modules/SyntheticBrowser/FlexAgent.SyntheticBrowser/ src/Modules/SyntheticBrowser/FlexAgent.SyntheticBrowser/
 COPY src/Hosts/FlexAgent.Api/ src/Hosts/FlexAgent.Api/
 COPY build/toolchain.json build/toolchain.json
 
