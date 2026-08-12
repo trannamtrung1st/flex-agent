@@ -168,7 +168,7 @@ public sealed class ContractRuntimeBoundaryTests
             "adec.synthetic.0002",
             "ainv.synthetic.0002",
             "2026-08-11T00:00:06Z",
-            new NoActionDecisionPayloadV1("intentional_silence"));
+            new NoActionDecisionPayloadV1(NoActionReasonCategoryV1.IntentionalSilence));
 
         ValidateDto(
             schemas,
@@ -182,7 +182,7 @@ public sealed class ContractRuntimeBoundaryTests
             AcceptedEffectOutcomeV1.NoDomainEffect,
             "2026-08-11T00:00:07Z",
             "44",
-            "omitted");
+            TimerValidationOutcomeV1.Omitted);
 
         ValidateDto(
             schemas,
@@ -193,7 +193,7 @@ public sealed class ContractRuntimeBoundaryTests
             "v1",
             "veff.synthetic.0003",
             "adec.synthetic.0003",
-            "visibility_bounded",
+            SuppressionReasonCategoryV1.VisibilityBounded,
             "2026-08-11T00:00:08Z");
 
         ValidateDto(

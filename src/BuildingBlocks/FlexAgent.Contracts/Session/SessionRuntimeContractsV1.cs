@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FlexAgent.Contracts.Manifest;
 
 namespace FlexAgent.Contracts.Session;
@@ -25,6 +26,7 @@ public sealed record TrustedTriggerProvenanceV1(
     string? ResponseSlotId = null,
     ProtectedPayloadRefV1? ProvenanceRef = null);
 
+[JsonConverter(typeof(SessionRuntimeUnionJsonConverter<IAgentInvocationV1>))]
 public interface IAgentInvocationV1
 {
     string SchemaVersion { get; }
@@ -121,6 +123,7 @@ public sealed record CancelledAgentInvocationV1(
     public string Status => "cancelled";
 }
 
+[JsonConverter(typeof(SessionRuntimeUnionJsonConverter<IAgentInvocationExecutionAttemptV1>))]
 public interface IAgentInvocationExecutionAttemptV1
 {
     string SchemaVersion { get; }
@@ -175,6 +178,7 @@ public sealed record FailedExecutionAttemptV1(
     };
 }
 
+[JsonConverter(typeof(SessionRuntimeUnionJsonConverter<IAgentInvocationExecutionOutcomeV1>))]
 public interface IAgentInvocationExecutionOutcomeV1
 {
     string SchemaVersion { get; }
@@ -249,12 +253,13 @@ public sealed record EmitMessageDecisionPayloadV1(
     string? TurnId = null,
     string? ResponseSlotId = null);
 
-public sealed record NoActionDecisionPayloadV1(string ReasonCategory);
+public sealed record NoActionDecisionPayloadV1(NoActionReasonCategoryV1 ReasonCategory);
 
 public sealed record NextTimerRequestV1(
     string RelativeDelay,
     string ExpectedScheduleRevision);
 
+[JsonConverter(typeof(SessionRuntimeUnionJsonConverter<IAgentDecisionV1>))]
 public interface IAgentDecisionV1
 {
     string SchemaVersion { get; }
@@ -329,6 +334,7 @@ public sealed record EscalateAgentDecisionV1(
     public string DecisionType => "escalate";
 }
 
+[JsonConverter(typeof(SessionRuntimeUnionJsonConverter<IDecisionValidationEffectV1>))]
 public interface IDecisionValidationEffectV1
 {
     string SchemaVersion { get; }
@@ -357,7 +363,7 @@ public sealed record AcceptedDecisionValidationEffectV1(
     AcceptedEffectOutcomeV1 EffectOutcome,
     string ValidatedAt,
     string? SessionSequence = null,
-    string? TimerValidationOutcome = null,
+    TimerValidationOutcomeV1? TimerValidationOutcome = null,
     string? ScheduleRevisionId = null) : IDecisionValidationEffectV1
 {
     public string ValidationOutcome => "accepted";
@@ -369,36 +375,66 @@ public sealed record AcceptedDecisionValidationEffectV1(
         AcceptedEffectOutcomeV1.EffectFailed => "effect_failed",
         _ => throw new InvalidOperationException("Unknown accepted effect outcome."),
     };
+
+    string? IDecisionValidationEffectV1.TimerValidationOutcome => TimerValidationOutcome switch
+    {
+        null => null,
+        TimerValidationOutcomeV1.Accepted => "accepted",
+        TimerValidationOutcomeV1.Rejected => "rejected",
+        TimerValidationOutcomeV1.Omitted => "omitted",
+        TimerValidationOutcomeV1.NotPresent => "not_present",
+        _ => throw new InvalidOperationException("Unknown timer validation outcome."),
+    };
 }
 
 public sealed record RejectedDecisionValidationEffectV1(
     string SchemaVersion,
     string ValidationEffectId,
     string AgentDecisionId,
-    string RejectionReasonCategory,
+    RejectionReasonCategoryV1 RejectionReasonCategory,
     string ValidatedAt,
     string? SessionSequence = null,
-    string? TimerValidationOutcome = null,
+    TimerValidationOutcomeV1? TimerValidationOutcome = null,
     string? ScheduleRevisionId = null) : IDecisionValidationEffectV1
 {
     public string ValidationOutcome => "rejected";
 
     public string EffectOutcome => "not_attempted";
+
+    string? IDecisionValidationEffectV1.TimerValidationOutcome => TimerValidationOutcome switch
+    {
+        null => null,
+        TimerValidationOutcomeV1.Accepted => "accepted",
+        TimerValidationOutcomeV1.Rejected => "rejected",
+        TimerValidationOutcomeV1.Omitted => "omitted",
+        TimerValidationOutcomeV1.NotPresent => "not_present",
+        _ => throw new InvalidOperationException("Unknown timer validation outcome."),
+    };
 }
 
 public sealed record SuppressedDecisionValidationEffectV1(
     string SchemaVersion,
     string ValidationEffectId,
     string AgentDecisionId,
-    string SuppressionReasonCategory,
+    SuppressionReasonCategoryV1 SuppressionReasonCategory,
     string ValidatedAt,
     string? SessionSequence = null,
-    string? TimerValidationOutcome = null,
+    TimerValidationOutcomeV1? TimerValidationOutcome = null,
     string? ScheduleRevisionId = null) : IDecisionValidationEffectV1
 {
     public string ValidationOutcome => "suppressed";
 
     public string EffectOutcome => "not_attempted";
+
+    string? IDecisionValidationEffectV1.TimerValidationOutcome => TimerValidationOutcome switch
+    {
+        null => null,
+        TimerValidationOutcomeV1.Accepted => "accepted",
+        TimerValidationOutcomeV1.Rejected => "rejected",
+        TimerValidationOutcomeV1.Omitted => "omitted",
+        TimerValidationOutcomeV1.NotPresent => "not_present",
+        _ => throw new InvalidOperationException("Unknown timer validation outcome."),
+    };
 }
 
 public sealed record TimerScheduleRevisionV1(

@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using FlexAgent.Contracts.Manifest;
 using FlexAgent.Contracts.Session;
 using FlexAgent.Contract.Tests.Harness;
@@ -26,12 +25,6 @@ public sealed class ContractRuntimeDiscriminatorParityTests
 
     private static readonly string ContractsRoot = Path.Combine(AppContext.BaseDirectory, "contracts");
 
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
-
     private static readonly IReadOnlySet<string> AllowedKeywords =
         SchemaKeywordProfile.LoadAllowedKeywords(Path.Combine(ContractsRoot, "compatibility", "draft202012-keywords.profile.json"));
 
@@ -48,7 +41,7 @@ public sealed class ContractRuntimeDiscriminatorParityTests
     [InlineData(
         """{"schema_version":"v1","execution_outcome_id":"eout.synthetic.0096","agent_invocation_id":"ainv.synthetic.0001","outcome_category":"late_result","reason_category":"late_provider_result","terminal_at":"2026-08-11T00:00:12Z"}""")]
     [InlineData(
-        """{"schema_version":"v1","agent_invocation_id":"ainv.synthetic.0095","invocation_contract_version":"v1","purpose":"participant_turn_response","ownership":{"organization_id":"org.synthetic.0001","activity_id":"act.synthetic.0001","participant_id":"part.synthetic.0001","attribution_id":"att.synthetic.0001","session_id":"sess.synthetic.0001"},"trigger":{"schema_version":"v1","trigger_family":"participant_input","trigger_type":"participant_input.message","trigger_id":"trig.synthetic.0001","idempotency_key":"idem-trigger-0001","purpose":"participant_turn_response"},"session_sequence":"42","status":"decided"}""")]
+        """{"schema_version":"v1","agent_invocation_id":"ainv.synthetic.0095","invocation_contract_version":"v1","purpose":"participant_turn_response","ownership":{"organization_id":"org.synthetic.0001","activity_id":"act.synthetic.0001","participant_id":"part.synthetic.0001","attempt_id":"att.synthetic.0001","session_id":"sess.synthetic.0001"},"trigger":{"schema_version":"v1","trigger_family":"participant_input","trigger_type":"participant_input.message","trigger_id":"trig.synthetic.0001","idempotency_key":"idem-trigger-0001","purpose":"participant_turn_response"},"session_sequence":"42","status":"decided"}""")]
     [InlineData(
         """{"schema_version":"v1","execution_attempt_id":"eatt.synthetic.0094","agent_invocation_id":"ainv.synthetic.0001","attempt_ordinal":1,"outcome_category":"decision_produced","started_at":"2026-08-11T00:00:00Z","completed_at":"2026-08-11T00:00:05Z"}""")]
     [InlineData(
@@ -69,6 +62,66 @@ public sealed class ContractRuntimeDiscriminatorParityTests
 
         var result = _harness.ValidateInstance(schemas[schemaId], Encoding.UTF8.GetBytes(json));
         Assert.False(result.IsValid, JsonSerializer.Serialize(result));
+    }
+
+    [Fact]
+    public void Runtime_union_interfaces_serialize_branch_fields_through_declared_interface_type()
+    {
+        var schemas = ContractSchemaRegistry.BuildCatalogSchemas(ContractsRoot, _catalog, AllowedKeywords);
+        var ownership = CreateOwnership();
+        var trigger = CreateTrigger();
+
+        IAgentInvocationV1 invocation = new DecidedAgentInvocationV1(
+            "v1",
+            "ainv.synthetic.0201",
+            "v1",
+            "participant_turn_response",
+            ownership,
+            trigger,
+            "44",
+            "adec.synthetic.0201");
+
+        IAgentInvocationExecutionAttemptV1 attempt = new DecisionProducedExecutionAttemptV1(
+            "v1",
+            "eatt.synthetic.0201",
+            "ainv.synthetic.0201",
+            1,
+            "2026-08-11T00:00:00Z",
+            "2026-08-11T00:00:05Z",
+            "adec.synthetic.0201");
+
+        IAgentInvocationExecutionOutcomeV1 outcome = new ExecutionFailedOutcomeV1(
+            "v1",
+            "eout.synthetic.0201",
+            "ainv.synthetic.0201",
+            ExecutionFailedReasonCategoryV1.ProviderTimeout,
+            "2026-08-11T00:00:05Z",
+            "eatt.synthetic.0201");
+
+        IAgentDecisionV1 decision = new EmitMessageAgentDecisionV1(
+            "v1",
+            "adec.synthetic.0201",
+            "ainv.synthetic.0201",
+            "2026-08-11T00:00:05Z",
+            new EmitMessageDecisionPayloadV1(
+                "participant_turn_reply",
+                "turn.synthetic.0001",
+                "slot.synthetic.0001"));
+
+        IDecisionValidationEffectV1 validation = new AcceptedDecisionValidationEffectV1(
+            "v1",
+            "veff.synthetic.0201",
+            "adec.synthetic.0201",
+            AcceptedEffectOutcomeV1.NoDomainEffect,
+            "2026-08-11T00:00:07Z",
+            "44",
+            TimerValidationOutcomeV1.Omitted);
+
+        AssertInterfaceSerializesToValidSchema(schemas, InvocationSchemaId, invocation, "agent_decision_id");
+        AssertInterfaceSerializesToValidSchema(schemas, ExecutionAttemptSchemaId, attempt, "agent_decision_id");
+        AssertInterfaceSerializesToValidSchema(schemas, ExecutionOutcomeSchemaId, outcome, "last_execution_attempt_id");
+        AssertInterfaceSerializesToValidSchema(schemas, DecisionSchemaId, decision, "emit_message");
+        AssertInterfaceSerializesToValidSchema(schemas, ValidationEffectSchemaId, validation, "effect_outcome");
     }
 
     [Fact]
@@ -114,7 +167,7 @@ public sealed class ContractRuntimeDiscriminatorParityTests
 
         foreach (var outcome in outcomes)
         {
-            var json = JsonSerializer.SerializeToUtf8Bytes(outcome, outcome.GetType(), SerializerOptions);
+            var json = SessionRuntimeContractJson.SerializeToUtf8Bytes(outcome, outcome.GetType());
             var result = _harness.ValidateInstance(schema, json);
             Assert.True(result.IsValid, $"{outcome.GetType().Name}: {JsonSerializer.Serialize(result)}");
         }
@@ -125,19 +178,8 @@ public sealed class ContractRuntimeDiscriminatorParityTests
     {
         var schemas = ContractSchemaRegistry.BuildCatalogSchemas(ContractsRoot, _catalog, AllowedKeywords);
         var schema = schemas[InvocationSchemaId];
-        var ownership = new SessionOwnershipRefV1(
-            "org.synthetic.0001",
-            "act.synthetic.0001",
-            "part.synthetic.0001",
-            "att.synthetic.0001",
-            "sess.synthetic.0001");
-        var trigger = new TrustedTriggerProvenanceV1(
-            "v1",
-            "participant_input",
-            "participant_input.message",
-            "trig.synthetic.0001",
-            "idem-trigger-0001",
-            "participant_turn_response");
+        var ownership = CreateOwnership();
+        var trigger = CreateTrigger();
 
         IAgentInvocationV1[] invocations =
         [
@@ -161,9 +203,40 @@ public sealed class ContractRuntimeDiscriminatorParityTests
 
         foreach (var invocation in invocations)
         {
-            var json = JsonSerializer.SerializeToUtf8Bytes(invocation, invocation.GetType(), SerializerOptions);
+            var json = SessionRuntimeContractJson.SerializeToUtf8Bytes(invocation, invocation.GetType());
             var result = _harness.ValidateInstance(schema, json);
             Assert.True(result.IsValid, $"{invocation.GetType().Name}: {JsonSerializer.Serialize(result)}");
         }
     }
+
+    private void AssertInterfaceSerializesToValidSchema<T>(
+        IReadOnlyDictionary<string, Json.Schema.JsonSchema> schemas,
+        string schemaId,
+        T value,
+        string requiredBranchField)
+    {
+        var json = SessionRuntimeContractJson.SerializeToUtf8Bytes(value);
+        var jsonText = Encoding.UTF8.GetString(json);
+        Assert.Contains(requiredBranchField, jsonText, StringComparison.Ordinal);
+
+        var result = _harness.ValidateInstance(schemas[schemaId], json);
+        Assert.True(result.IsValid, $"{typeof(T).Name}: {JsonSerializer.Serialize(result)}");
+    }
+
+    private static SessionOwnershipRefV1 CreateOwnership() =>
+        new(
+            "org.synthetic.0001",
+            "act.synthetic.0001",
+            "part.synthetic.0001",
+            "att.synthetic.0001",
+            "sess.synthetic.0001");
+
+    private static TrustedTriggerProvenanceV1 CreateTrigger() =>
+        new(
+            "v1",
+            "participant_input",
+            "participant_input.message",
+            "trig.synthetic.0001",
+            "idem-trigger-0001",
+            "participant_turn_response");
 }
