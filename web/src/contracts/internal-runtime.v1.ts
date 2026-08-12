@@ -132,22 +132,24 @@ interface ExecutionOutcomeCoreV1 {
   execution_outcome_id: string;
   agent_invocation_id: string;
   terminal_at: string;
-  last_execution_attempt_id?: string;
 }
 
 export interface ExecutionFailedOutcomeV1 extends ExecutionOutcomeCoreV1 {
   outcome_category: 'execution_failed';
   reason_category: ExecutionFailedReasonCategoryV1;
+  last_execution_attempt_id: string;
 }
 
 export interface CancelledOutcomeV1 extends ExecutionOutcomeCoreV1 {
   outcome_category: 'cancelled';
   reason_category: CancelledReasonCategoryV1;
+  last_execution_attempt_id?: string;
 }
 
 export interface LateResultOutcomeV1 extends ExecutionOutcomeCoreV1 {
   outcome_category: 'late_result';
   reason_category: 'late_provider_result';
+  last_execution_attempt_id: string;
 }
 
 export interface PreExecutionRejectedOutcomeV1 extends ExecutionOutcomeCoreV1 {
@@ -158,6 +160,7 @@ export interface PreExecutionRejectedOutcomeV1 extends ExecutionOutcomeCoreV1 {
 export interface AttemptsExhaustedOutcomeV1 extends ExecutionOutcomeCoreV1 {
   outcome_category: 'attempts_exhausted';
   reason_category: 'retry_budget_exhausted';
+  last_execution_attempt_id: string;
 }
 
 export type AgentInvocationExecutionOutcomeV1 =

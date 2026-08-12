@@ -20,7 +20,8 @@
         "agent_invocation_id",
         "outcome_category",
         "reason_category",
-        "terminal_at"
+        "terminal_at",
+        "last_execution_attempt_id"
       ],
       "properties": {
         "schema_version": {
@@ -93,7 +94,8 @@
         "agent_invocation_id",
         "outcome_category",
         "reason_category",
-        "terminal_at"
+        "terminal_at",
+        "last_execution_attempt_id"
       ],
       "properties": {
         "schema_version": {
@@ -148,9 +150,6 @@
         },
         "terminal_at": {
           "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
-        },
-        "last_execution_attempt_id": {
-          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
         }
       }
     },
@@ -163,7 +162,8 @@
         "agent_invocation_id",
         "outcome_category",
         "reason_category",
-        "terminal_at"
+        "terminal_at",
+        "last_execution_attempt_id"
       ],
       "properties": {
         "schema_version": {

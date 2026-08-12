@@ -92,7 +92,7 @@ public sealed class ContractRuntimeBoundaryTests
             "turn.synthetic.0001",
             "slot.synthetic.0001");
 
-        var invocation = new InProgressAgentInvocationV1(
+        var invocation = new AdmittedAgentInvocationV1(
             "v1",
             "ainv.synthetic.0001",
             "v1",
@@ -100,7 +100,6 @@ public sealed class ContractRuntimeBoundaryTests
             ownership,
             triggerProvenance,
             "42",
-            "admitted",
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
         ValidateDto(
@@ -142,7 +141,7 @@ public sealed class ContractRuntimeBoundaryTests
             "eatt.synthetic.0002",
             "ainv.synthetic.0001",
             2,
-            "provider_timeout",
+            FailedExecutionAttemptOutcomeCategoryV1.ProviderTimeout,
             "2026-08-11T00:00:05Z",
             "2026-08-11T00:00:10Z");
 
@@ -151,12 +150,11 @@ public sealed class ContractRuntimeBoundaryTests
             "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation-execution-attempt.v1.schema.json",
             failedAttempt);
 
-        var executionOutcome = new AgentInvocationExecutionOutcomeV1(
+        var executionOutcome = new ExecutionFailedOutcomeV1(
             "v1",
             "eout.synthetic.0001",
             "ainv.synthetic.0001",
-            "execution_failed",
-            "provider_timeout",
+            ExecutionFailedReasonCategoryV1.ProviderTimeout,
             "2026-08-11T00:00:05Z",
             "eatt.synthetic.0001");
 
@@ -181,7 +179,7 @@ public sealed class ContractRuntimeBoundaryTests
             "v1",
             "veff.synthetic.0002",
             "adec.synthetic.0002",
-            "no_domain_effect",
+            AcceptedEffectOutcomeV1.NoDomainEffect,
             "2026-08-11T00:00:07Z",
             "44",
             "omitted");

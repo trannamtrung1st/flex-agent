@@ -1,0 +1,8 @@
+{
+  "schema_version": "v1",
+  "execution_outcome_id": "eout.synthetic.0004",
+  "agent_invocation_id": "ainv.synthetic.0001",
+  "outcome_category": "attempts_exhausted",
+  "reason_category": "retry_budget_exhausted",
+  "terminal_at": "2026-08-11T00:00:10Z"
+}

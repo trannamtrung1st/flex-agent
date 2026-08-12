@@ -48,7 +48,7 @@ public interface IAgentInvocationV1
     ProtectedPayloadRefV1? ContextRef { get; }
 }
 
-public sealed record InProgressAgentInvocationV1(
+public sealed record AdmittedAgentInvocationV1(
     string SchemaVersion,
     string AgentInvocationId,
     string InvocationContractVersion,
@@ -56,9 +56,25 @@ public sealed record InProgressAgentInvocationV1(
     SessionOwnershipRefV1 Ownership,
     TrustedTriggerProvenanceV1 Trigger,
     string SessionSequence,
-    string Status,
     string? PolicyDigest = null,
-    ProtectedPayloadRefV1? ContextRef = null) : IAgentInvocationV1;
+    ProtectedPayloadRefV1? ContextRef = null) : IAgentInvocationV1
+{
+    public string Status => "admitted";
+}
+
+public sealed record ExecutingAgentInvocationV1(
+    string SchemaVersion,
+    string AgentInvocationId,
+    string InvocationContractVersion,
+    string Purpose,
+    SessionOwnershipRefV1 Ownership,
+    TrustedTriggerProvenanceV1 Trigger,
+    string SessionSequence,
+    string? PolicyDigest = null,
+    ProtectedPayloadRefV1? ContextRef = null) : IAgentInvocationV1
+{
+    public string Status => "executing";
+}
 
 public sealed record DecidedAgentInvocationV1(
     string SchemaVersion,
@@ -142,19 +158,91 @@ public sealed record FailedExecutionAttemptV1(
     string ExecutionAttemptId,
     string AgentInvocationId,
     int AttemptOrdinal,
-    string OutcomeCategory,
+    FailedExecutionAttemptOutcomeCategoryV1 OutcomeCategory,
     string StartedAt,
     string CompletedAt,
-    ProtectedPayloadRefV1? ProviderRequestRef = null) : IAgentInvocationExecutionAttemptV1;
+    ProtectedPayloadRefV1? ProviderRequestRef = null) : IAgentInvocationExecutionAttemptV1
+{
+    string IAgentInvocationExecutionAttemptV1.OutcomeCategory => OutcomeCategory switch
+    {
+        FailedExecutionAttemptOutcomeCategoryV1.ProviderTimeout => "provider_timeout",
+        FailedExecutionAttemptOutcomeCategoryV1.ProviderUnavailable => "provider_unavailable",
+        FailedExecutionAttemptOutcomeCategoryV1.MalformedControl => "malformed_control",
+        FailedExecutionAttemptOutcomeCategoryV1.IncompleteControl => "incomplete_control",
+        FailedExecutionAttemptOutcomeCategoryV1.Cancelled => "cancelled",
+        FailedExecutionAttemptOutcomeCategoryV1.LateResult => "late_result",
+        _ => throw new InvalidOperationException("Unknown failed execution attempt outcome category."),
+    };
+}
 
-public sealed record AgentInvocationExecutionOutcomeV1(
+public interface IAgentInvocationExecutionOutcomeV1
+{
+    string SchemaVersion { get; }
+
+    string ExecutionOutcomeId { get; }
+
+    string AgentInvocationId { get; }
+
+    string OutcomeCategory { get; }
+
+    string TerminalAt { get; }
+}
+
+public sealed record ExecutionFailedOutcomeV1(
     string SchemaVersion,
     string ExecutionOutcomeId,
     string AgentInvocationId,
-    string OutcomeCategory,
-    string ReasonCategory,
+    ExecutionFailedReasonCategoryV1 ReasonCategory,
     string TerminalAt,
-    string? LastExecutionAttemptId = null);
+    string LastExecutionAttemptId) : IAgentInvocationExecutionOutcomeV1
+{
+    public string OutcomeCategory => "execution_failed";
+}
+
+public sealed record CancelledOutcomeV1(
+    string SchemaVersion,
+    string ExecutionOutcomeId,
+    string AgentInvocationId,
+    CancelledReasonCategoryV1 ReasonCategory,
+    string TerminalAt,
+    string? LastExecutionAttemptId = null) : IAgentInvocationExecutionOutcomeV1
+{
+    public string OutcomeCategory => "cancelled";
+}
+
+public sealed record LateResultOutcomeV1(
+    string SchemaVersion,
+    string ExecutionOutcomeId,
+    string AgentInvocationId,
+    string TerminalAt,
+    string LastExecutionAttemptId) : IAgentInvocationExecutionOutcomeV1
+{
+    public string OutcomeCategory => "late_result";
+
+    public string ReasonCategory => "late_provider_result";
+}
+
+public sealed record PreExecutionRejectedOutcomeV1(
+    string SchemaVersion,
+    string ExecutionOutcomeId,
+    string AgentInvocationId,
+    PreExecutionRejectedReasonCategoryV1 ReasonCategory,
+    string TerminalAt) : IAgentInvocationExecutionOutcomeV1
+{
+    public string OutcomeCategory => "pre_execution_rejected";
+}
+
+public sealed record AttemptsExhaustedOutcomeV1(
+    string SchemaVersion,
+    string ExecutionOutcomeId,
+    string AgentInvocationId,
+    string TerminalAt,
+    string LastExecutionAttemptId) : IAgentInvocationExecutionOutcomeV1
+{
+    public string OutcomeCategory => "attempts_exhausted";
+
+    public string ReasonCategory => "retry_budget_exhausted";
+}
 
 public sealed record EmitMessageDecisionPayloadV1(
     string CommunicationPurpose,
@@ -208,14 +296,38 @@ public sealed record NoActionAgentDecisionV1(
     public string DecisionType => "no_action";
 }
 
-public sealed record DeferredAgentDecisionV1(
+public sealed record RequestToolAgentDecisionV1(
     string SchemaVersion,
     string AgentDecisionId,
     string AgentInvocationId,
-    string DecisionType,
     string ProducedAt,
     NextTimerRequestV1? NextTimerRequest = null,
-    ProtectedPayloadRefV1? PayloadRef = null) : IAgentDecisionV1;
+    ProtectedPayloadRefV1? PayloadRef = null) : IAgentDecisionV1
+{
+    public string DecisionType => "request_tool";
+}
+
+public sealed record ProposeTransitionAgentDecisionV1(
+    string SchemaVersion,
+    string AgentDecisionId,
+    string AgentInvocationId,
+    string ProducedAt,
+    NextTimerRequestV1? NextTimerRequest = null,
+    ProtectedPayloadRefV1? PayloadRef = null) : IAgentDecisionV1
+{
+    public string DecisionType => "propose_transition";
+}
+
+public sealed record EscalateAgentDecisionV1(
+    string SchemaVersion,
+    string AgentDecisionId,
+    string AgentInvocationId,
+    string ProducedAt,
+    NextTimerRequestV1? NextTimerRequest = null,
+    ProtectedPayloadRefV1? PayloadRef = null) : IAgentDecisionV1
+{
+    public string DecisionType => "escalate";
+}
 
 public interface IDecisionValidationEffectV1
 {
@@ -242,13 +354,21 @@ public sealed record AcceptedDecisionValidationEffectV1(
     string SchemaVersion,
     string ValidationEffectId,
     string AgentDecisionId,
-    string EffectOutcome,
+    AcceptedEffectOutcomeV1 EffectOutcome,
     string ValidatedAt,
     string? SessionSequence = null,
     string? TimerValidationOutcome = null,
     string? ScheduleRevisionId = null) : IDecisionValidationEffectV1
 {
     public string ValidationOutcome => "accepted";
+
+    string IDecisionValidationEffectV1.EffectOutcome => EffectOutcome switch
+    {
+        AcceptedEffectOutcomeV1.Applied => "applied",
+        AcceptedEffectOutcomeV1.NoDomainEffect => "no_domain_effect",
+        AcceptedEffectOutcomeV1.EffectFailed => "effect_failed",
+        _ => throw new InvalidOperationException("Unknown accepted effect outcome."),
+    };
 }
 
 public sealed record RejectedDecisionValidationEffectV1(

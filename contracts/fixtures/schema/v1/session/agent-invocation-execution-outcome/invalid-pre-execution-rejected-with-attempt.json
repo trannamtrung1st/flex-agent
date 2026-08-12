@@ -1,0 +1,9 @@
+{
+  "schema_version": "v1",
+  "execution_outcome_id": "eout.synthetic.0003",
+  "agent_invocation_id": "ainv.synthetic.0001",
+  "outcome_category": "pre_execution_rejected",
+  "reason_category": "state_ineligible",
+  "terminal_at": "2026-08-11T00:00:01Z",
+  "last_execution_attempt_id": "eatt.synthetic.0001"
+}
