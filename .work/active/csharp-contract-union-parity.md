@@ -1,6 +1,8 @@
 ---
 id: csharp-contract-union-parity
 status: completed
+review: approved (d05db26)
+frozen: 2026-08-12
 created: 2026-08-12
 updated: 2026-08-12
 ---
