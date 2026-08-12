@@ -372,8 +372,9 @@ and test reviews have no unresolved blocking findings.
     `python3 scripts/check_docs.py`. Record exact counts/results and recheck
     `GATE-STACK-MODULES`, `AR-DEC-1`, `AR-DEC-7`, `AR-DEC-12`, `AR-DEC-23`,
     `AR-DEC-24`, and `STACK-DEC-17` before marking this tranche complete.
-- [>] Implement full frozen runtime-policy resolution using TDD, building on
-  the P0 capability kernel above. Resolve immutable Invocation/Decision/timer
+- [x] Implement full frozen runtime-policy resolution using TDD, building on
+  the P0 capability kernel above (domain-layer subset complete; Session/manifest
+  bind commit deferred to persistence tranche). Resolve immutable Invocation/Decision/timer
   policy and protected provenance from approved source versions, enforce
   required positive bounds and disabled capabilities, prove
   lower-scope non-widening and cohort stability, and bind the resolved snapshot
@@ -382,7 +383,21 @@ and test reviews have no unresolved blocking findings.
   missing/revoked/mismatched, and keep credential material out of the module.
   Fail closed when required production policy values are absent; keep explicit
   fixture timing values test-only.
-- [ ] Implement the framework-independent Sessions domain/application tranche
+  - [x] Red — add focused tests for `Iso8601PositiveDuration`,
+    `FrozenRuntimePolicyResolver`, and `ModelDeploymentCredentialBindingResolver`
+    before production types exist; record compile failures for missing domain
+    types (2026-08-12).
+  - [x] Green — implement immutable `FrozenTextSessionRuntimePolicy`,
+    `TimerLanePolicy`, `InvocationBounds`, source-layer merge with
+    non-widening enforcement, stable `policy_digest` via `rsc-jcs-sha256-v1`
+    canonical JSON, and opaque credential-binding resolution without fallback
+    (`REQ-RSC-46`–`53`, `AC-RSC-25`–`27` at domain layer).
+  - [x] Verify — `FlexAgent.Sessions.Tests` 73/73; architecture suite 21/21;
+    aggregate .NET verification 304/304; `git diff --check` and
+    `python3 scripts/check_docs.py` passed (2026-08-12). Session/manifest bind
+    commit, PostgreSQL persistence, and application-command ownership tests
+    remain in the next tranche.
+- [>] Implement the framework-independent Sessions domain/application tranche
   with red-green-refactor tests: lifecycle eligibility, trusted trigger
   admission, stable Invocation identity, semantic decision opportunity versus
   provider attempts, exactly-one successful Decision or execution outcome,
@@ -541,9 +556,10 @@ with dependency-direction negative controls (architecture suite 21/21), and
 aggregate .NET verification at 270/270. External review recorded no blocking
 findings; operational timer enablement and numeric bounds remain explicitly
 deferred to frozen runtime-policy resolution.
-The current tranche is **frozen runtime-policy resolution**. PostgreSQL runtime
-schema, domain admission/effects, worker processing, synthetic adapter
-scenarios, UI states, and end-to-end proof remain pending.
+The frozen runtime-policy domain tranche is **complete**. The current tranche is
+**Sessions domain/application** (trigger admission, Invocation/Decision/effects).
+PostgreSQL runtime schema, Session/manifest bind commit, worker processing,
+synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
 
 # Decisions
 
@@ -653,6 +669,19 @@ scenarios, UI states, and end-to-end proof remain pending.
   separation accepted; no blocking findings. Optional follow-up: negative
   controls could invoke the exact production `ShouldNot().HaveDependencyOn(...)`
   rule for stronger symmetry (non-blocking).
+- Frozen runtime-policy domain tranche (2026-08-12): added
+  `FrozenTextSessionRuntimePolicy`, `FrozenRuntimePolicyResolver`,
+  `ModelDeploymentCredentialBindingResolver`, and `Iso8601PositiveDuration` in
+  `FlexAgent.Sessions.Domain`. Lower-scope narrowing, baseline digest drift,
+  P0-ceiling enforcement, stable policy digest, and credential no-fallback are
+  covered at the pure-domain layer; Session/manifest bind and persistence are
+  explicitly deferred to the next tranche.
+- Review remediation (2026-08-12): deployment-default credential path now rejects
+  provider mismatch (`REQ-RSC-46`); timer-lane permitted decision types are
+  validated against the P0 kernel; `policy_digest` payload includes
+  `domain_key: agent_invocation_policy`; added tests for min-delay widening,
+  timer-lane deferred decisions, digest format, and deployment-default provider
+  mismatch.
 
 # Verification
 
@@ -666,6 +695,7 @@ scenarios, UI states, and end-to-end proof remain pending.
 | Executable traceability/threat-model review | passed | `.work/active/structured-agent-runtime-traceability.md` — requirement matrix, STRIDE controls, module ownership, duration encoding |
 | Contract/catalog/C#/TypeScript/OpenAPI compatibility | passed for frozen contract tranche | Retained `csharp-contract-union-parity` evidence: contract tests 118/118 and full .NET 220/220; earlier web verification passed; runtime-policy and domain behavior remain outside this completed contract evidence |
 | Sessions capability-policy red/green and ownership guards | passed; approved | Red: `dotnet build tests/Sessions/FlexAgent.Sessions.Tests/...` failed with 14 compile errors for missing `FlexAgent.Sessions.Domain` policy types (2026-08-12). Green after review remediation at `c3827d7`: `FlexAgent.Sessions.Tests` 39/39; `FlexAgent.Architecture.Tests` 21/21 including Domain→Application/Infrastructure dependency rules with bounded negative controls; aggregate verification 270/270; `git diff --check` and `python3 scripts/check_docs.py` passed. External review: approve, no blocking findings (2026-08-12). Tranche frozen at `c3827d7`. |
+| Frozen runtime-policy domain resolution (`REQ-RSC-46`–`53`) | passed; domain layer | Red: `dotnet build tests/Sessions/FlexAgent.Sessions.Tests/...` failed with 5 compile errors for missing resolver/policy types (2026-08-12). Green: `FlexAgent.Sessions.Tests` 77/77 after review remediation covering duration bounds, baseline resolution, timer enable/disable, lower-scope narrowing (min/max delay, invocation bounds), widening/drift/P0-ceiling rejection, timer-lane decision P0 checks, stable lowercase `policy_digest` with `domain_key`, and credential no-fallback including deployment-default provider mismatch; `FlexAgent.Architecture.Tests` 21/21; aggregate .NET 308/308; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-12). Session/manifest bind commit and PostgreSQL persistence remain next tranche. |
 | Sessions domain/application focused tests | pending | |
 | PostgreSQL 18 migration/isolation/concurrency/fault tests | pending | |
 | API/worker/provider/scheduler runtime tests | pending | |

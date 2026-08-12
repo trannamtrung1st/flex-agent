@@ -176,7 +176,10 @@
         }
       },
       "flexagent.sessions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.CanonicalJson": "[1.0.0, )"
+        }
       },
       "flexagent.syntheticbrowser": {
         "type": "Project",

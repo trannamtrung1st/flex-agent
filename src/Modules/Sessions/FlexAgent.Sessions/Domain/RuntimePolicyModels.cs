@@ -1,0 +1,163 @@
+namespace FlexAgent.Sessions.Domain;
+
+public static class RuntimeContractVersions
+{
+    public const string InvocationV1 = "v1";
+    public const string DecisionV1 = "v1";
+}
+
+public static class RuntimePolicyDomainKeys
+{
+    public const string AgentInvocationPolicy = "agent_invocation_policy";
+}
+
+public static class RuntimePolicyScopeKinds
+{
+    public const string Harness = "harness";
+    public const string Activity = "activity";
+    public const string Session = "session";
+}
+
+public static class TimerLaneClockBasis
+{
+    public const string ActiveSessionTime = "active_session_time";
+}
+
+public static class RuntimePolicyResolutionOutcomeCodes
+{
+    public const string Succeeded = "runtime_policy_resolution.succeeded";
+    public const string BaselineDigestMismatch = "runtime_policy_resolution.baseline_digest_mismatch";
+    public const string WideningRejected = "runtime_policy_resolution.widening_rejected";
+    public const string InvalidPolicyValues = "runtime_policy_resolution.invalid_policy_values";
+    public const string P0CapabilityExceeded = "runtime_policy_resolution.p0_capability_exceeded";
+}
+
+public sealed record RuntimeTriggerDescriptor(string TriggerFamily, string TriggerType);
+
+public sealed record InvocationBounds(
+    int MaxAttemptsPerInvocation,
+    int MaxChainedInvocationsPerSession,
+    int MaxToolIterations,
+    int CooldownSeconds,
+    int DuplicateSuppressionWindowSeconds);
+
+public sealed record TimerLaneBudgets(
+    int MaxAcceptedReplacementsPerSession,
+    int MaxTimerTriggeredInvocationsPerSession,
+    int CooldownSeconds,
+    int MaxConcurrentReplacements,
+    int DuplicateSuppressionWindowSeconds);
+
+public sealed class TimerLanePolicy
+{
+    public TimerLanePolicy(
+        Iso8601PositiveDuration defaultDelay,
+        Iso8601PositiveDuration minRequestedDelay,
+        Iso8601PositiveDuration maxRequestedDelay,
+        string clockBasis,
+        IReadOnlyList<string> permittedStages,
+        IReadOnlyList<string> permittedDecisionTypes,
+        TimerLaneBudgets budgets)
+    {
+        DefaultDelay = defaultDelay;
+        MinRequestedDelay = minRequestedDelay;
+        MaxRequestedDelay = maxRequestedDelay;
+        ClockBasis = clockBasis;
+        PermittedStages = permittedStages;
+        PermittedDecisionTypes = permittedDecisionTypes;
+        Budgets = budgets;
+        IsEnabled = true;
+    }
+
+    public bool IsEnabled { get; }
+
+    public Iso8601PositiveDuration DefaultDelay { get; }
+
+    public Iso8601PositiveDuration MinRequestedDelay { get; }
+
+    public Iso8601PositiveDuration MaxRequestedDelay { get; }
+
+    public string ClockBasis { get; }
+
+    public IReadOnlyList<string> PermittedStages { get; }
+
+    public IReadOnlyList<string> PermittedDecisionTypes { get; }
+
+    public TimerLaneBudgets Budgets { get; }
+}
+
+public sealed record TimerLanePolicyValues
+{
+    public bool Enabled { get; init; }
+
+    public string? DefaultDelay { get; init; }
+
+    public string? MinRequestedDelay { get; init; }
+
+    public string? MaxRequestedDelay { get; init; }
+
+    public string? ClockBasis { get; init; }
+
+    public IReadOnlyList<string>? PermittedStages { get; init; }
+
+    public IReadOnlyList<string>? PermittedDecisionTypes { get; init; }
+
+    public TimerLaneBudgets? Budgets { get; init; }
+}
+
+public sealed record RuntimePolicyEffectiveValues
+{
+    public string? InvocationContractVersion { get; init; }
+
+    public string? DecisionContractVersion { get; init; }
+
+    public IReadOnlyList<RuntimeTriggerDescriptor>? PermittedNonTimerTriggers { get; init; }
+
+    public IReadOnlyList<string>? PermittedDecisionTypes { get; init; }
+
+    public bool? AgentInitiatedOpeningPermitted { get; init; }
+
+    public bool? AgentInitiatedClosingPermitted { get; init; }
+
+    public bool? NoActionPermitted { get; init; }
+
+    public InvocationBounds? InvocationBounds { get; init; }
+
+    public TimerLanePolicyValues? TimerLane { get; init; }
+
+    public IReadOnlyList<string>? ExplicitlyDisabledCapabilities { get; init; }
+}
+
+public sealed record RuntimePolicyNarrowingValues
+{
+    public bool? TimerLaneEnabled { get; init; }
+
+    public string? DefaultDelay { get; init; }
+
+    public string? MinRequestedDelay { get; init; }
+
+    public string? MaxRequestedDelay { get; init; }
+
+    public int? MaxAttemptsPerInvocation { get; init; }
+
+    public int? MaxChainedInvocationsPerSession { get; init; }
+}
+
+public sealed record RuntimePolicyBaselineSource(
+    string BaselineId,
+    string BaselineDigest,
+    RuntimePolicyEffectiveValues EffectiveValues);
+
+public sealed record RuntimePolicyNarrowingOverride(
+    string ScopeKind,
+    RuntimePolicyNarrowingValues Narrowing);
+
+public sealed record RuntimePolicyResolutionRequest(
+    string ExpectedBaselineDigest,
+    RuntimePolicyBaselineSource Baseline,
+    IReadOnlyList<RuntimePolicyNarrowingOverride> NarrowingOverrides);
+
+public sealed record RuntimePolicyResolutionResult(
+    bool Succeeded,
+    string OutcomeCode,
+    FrozenTextSessionRuntimePolicy? Policy);
