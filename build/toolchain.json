@@ -26,6 +26,7 @@
     "grate": "2.1.6",
     "testcontainers": "4.11.0",
     "testcontainersPostgreSql": "4.11.0",
+    "sshNet": "2026.0.0",
     "postgresImage": "postgres:18"
   },
   "supplyChain": {
