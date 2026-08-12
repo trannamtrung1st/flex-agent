@@ -2,7 +2,7 @@
 id: structured-agent-runtime-sync
 status: in_progress
 created: 2026-08-11
-updated: 2026-08-12
+updated: 2026-08-13
 ---
 
 # Goal
@@ -397,7 +397,7 @@ and test reviews have no unresolved blocking findings.
     `python3 scripts/check_docs.py` passed (2026-08-13). Session/manifest bind
     commit, PostgreSQL persistence, and application-command ownership tests
     remain in the next tranche.
-- [>] Implement the framework-independent Sessions domain/application tranche
+- [x] Implement the framework-independent Sessions domain/application tranche
   with red-green-refactor tests: lifecycle eligibility, trusted trigger
   admission, stable Invocation identity, semantic decision opportunity versus
   provider attempts, exactly-one successful Decision or execution outcome,
@@ -413,7 +413,21 @@ and test reviews have no unresolved blocking findings.
   ownership comes from trusted application context rather than browser/HTTP
   DTOs and that client-supplied timestamps or sequence values cannot choose
   authoritative order.
-- [ ] Design the minimum additive PostgreSQL schema and run migration tests red
+  - [x] Red — add focused domain and application tests for `SessionRuntime`,
+    `InvocationContextAssembler`, and `AdmitTrustedTriggerCommand` before
+    production types exist. Record compile failures for missing domain/
+    application types (2026-08-13).
+  - [x] Green — implement the in-memory Session aggregate, decision/effect
+    classification, trusted context assembly, and `AdmitTrustedTriggerHandler`
+    that loads ownership from application context and authoritative UTC outside
+    the command.
+  - [x] Verify — `FlexAgent.Sessions.Tests` 156/156; architecture suite 21/21;
+    aggregate .NET verification 387/387; `git diff --check` and
+    `python3 scripts/check_docs.py` passed (2026-08-13). Durable PostgreSQL
+    persistence, Session/manifest bind commit, and timer-lane schedule rows
+    remain the next tranche. Consistency review (2026-08-13) added regression
+    coverage and remediations; `FlexAgent.Sessions.Tests` 160/160.
+- [>] Design the minimum additive PostgreSQL schema and run migration tests red
   before implementation. Add immutable/scoped Session runtime, event,
   Invocation, attempt/outcome, Decision, validation/effect, response-slot,
   message/fragment, timer-lane/revision, lower-level provider provenance where
@@ -556,10 +570,13 @@ with dependency-direction negative controls (architecture suite 21/21), and
 aggregate .NET verification at 270/270. External review recorded no blocking
 findings; operational timer enablement and numeric bounds remain explicitly
 deferred to frozen runtime-policy resolution.
-The frozen runtime-policy domain tranche is **complete**. The current tranche is
-**Sessions domain/application** (trigger admission, Invocation/Decision/effects).
-PostgreSQL runtime schema, Session/manifest bind commit, worker processing,
-synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
+The frozen runtime-policy domain tranche is **complete**. The Sessions
+domain/application tranche is **complete** at the in-memory aggregate layer:
+trusted trigger admission, Invocation/Decision/effect classification, context
+assembly, and `AdmitTrustedTriggerCommand` ownership signatures. The current
+tranche is **PostgreSQL runtime schema**. Session/manifest bind commit, worker
+processing, synthetic adapter scenarios, UI states, and end-to-end proof remain
+pending.
 
 # Decisions
 
@@ -698,6 +715,26 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
   closed with `InvalidPolicyValues` instead of coercing to `false`. Shorter
   timer `DefaultDelay` is treated as widening (increased cadence) per
   `REQ-RSC-52`; lengthening within inherited min/max remains permitted.
+- Sessions domain/application tranche (2026-08-13): in-memory `SessionRuntime`
+  admits trusted Participant/opening/closing/timer triggers, classifies
+  malformed control as an Invocation execution outcome, records well-formed
+  prohibited Decisions as independent rejections, and treats accepted-effect
+  slot-claim failure as distinct from execution failure. `no_action`
+  terminalizes a Participant slot without an Agent Message; Agent-initiated
+  `emit_message` creates an opening/closing/timer Turn. Invocation context
+  accepts only the trusted binding plus visible transcript refs.
+  `AdmitTrustedTriggerCommand` carries actor and complete ownership, omits
+  client timestamps/sequences, and requires server-loaded `SessionRuntime` plus
+  authoritative UTC. Timer *schedule revision rows* remain the later scheduler
+  tranche; this tranche only independently validates an optional
+  `next_timer_request`.
+- Consistency review (2026-08-13): failed participant admission no longer
+  leaves an orphaned Turn; Agent-initiated `emit_message` allocates runtime
+  Turn/slot IDs and ignores model-supplied identities; Decision
+  `InvocationId` must match the target Invocation; offered transcript facts
+  must already exist on the Session; pause rejection uses `state_ineligible`
+  rather than `cutoff_exceeded`; protected message refs use a SHA-256 digest of
+  the reference identity instead of a constant placeholder.
 
 # Verification
 
@@ -712,7 +749,7 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
 | Contract/catalog/C#/TypeScript/OpenAPI compatibility | passed for frozen contract tranche | Retained `csharp-contract-union-parity` evidence: contract tests 118/118 and full .NET 220/220; earlier web verification passed; runtime-policy and domain behavior remain outside this completed contract evidence |
 | Sessions capability-policy red/green and ownership guards | passed; approved | Red: `dotnet build tests/Sessions/FlexAgent.Sessions.Tests/...` failed with 14 compile errors for missing `FlexAgent.Sessions.Domain` policy types (2026-08-12). Green after review remediation at `c3827d7`: `FlexAgent.Sessions.Tests` 39/39; `FlexAgent.Architecture.Tests` 21/21 including Domain→Application/Infrastructure dependency rules with bounded negative controls; aggregate verification 270/270; `git diff --check` and `python3 scripts/check_docs.py` passed. External review: approve, no blocking findings (2026-08-12). Tranche frozen at `c3827d7`. |
 | Frozen runtime-policy domain resolution (`REQ-RSC-46`–`53`) | passed; domain layer | Red: compile failures for missing resolver/policy types (2026-08-12). Green after fourth review remediation: required communication/no-action policy fail-closed (no `null`→`false` coercion), baseline digest requires explicit flags, shorter `DefaultDelay` widening rejected; `FlexAgent.Sessions.Tests` 101/101; aggregate .NET 332/332 (2026-08-13). Session/manifest bind commit and PostgreSQL persistence remain next tranche. |
-| Sessions domain/application focused tests | pending | |
+| Sessions domain/application focused tests | passed; in-memory aggregate | Red: compile failures for missing `SessionRuntime`, `AdmitTrustedTriggerCommand`, and related domain types (2026-08-13). Green: admission, exactly-one Decision vs execution outcome, no-action/emit-message effects, context isolation, and command-signature tests. Consistency review remediations (orphaned-turn rollback, model-supplied turn IDs ignored, invocation identity match, transcript-fact allowlist): `FlexAgent.Sessions.Tests` 160/160; architecture suite 21/21 (2026-08-13). Persistence, worker, and scheduler remain next. |
 | PostgreSQL 18 migration/isolation/concurrency/fault tests | pending | |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |

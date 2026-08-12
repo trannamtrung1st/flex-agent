@@ -1,0 +1,332 @@
+namespace FlexAgent.Sessions.Domain;
+
+public enum SessionLifecycleState
+{
+    Ready,
+    Active,
+    Paused,
+    Completing,
+    Completed,
+    Terminated,
+    Aborted,
+}
+
+public static class InvocationPurposes
+{
+    public const string ParticipantTurnRespond = "participant_turn.respond";
+    public const string AgentOpening = "workflow.agent_opening";
+    public const string AgentClosing = "workflow.agent_closing";
+    public const string TimerLaneCheck = "timer.lane_check";
+}
+
+public static class AgentInvocationStatuses
+{
+    public const string Admitted = "admitted";
+    public const string Executing = "executing";
+    public const string Decided = "decided";
+    public const string ExecutionFailed = "execution_failed";
+    public const string Cancelled = "cancelled";
+}
+
+public static class TurnKinds
+{
+    public const string Participant = "participant";
+    public const string AgentOpening = "agent_opening";
+    public const string AgentClosing = "agent_closing";
+    public const string AgentTimer = "agent_timer";
+}
+
+public static class TurnStates
+{
+    public const string Accepted = "accepted";
+    public const string WorkQueued = "work_queued";
+    public const string Complete = "complete";
+    public const string Cancelled = "cancelled";
+}
+
+public static class ResponseSlotStates
+{
+    public const string Open = "open";
+    public const string ClaimedForPublication = "claimed_for_publication";
+    public const string IntentionalNoAction = "intentional_no_action";
+    public const string Cancelled = "cancelled";
+}
+
+public static class TranscriptAuthorTypes
+{
+    public const string Participant = "participant";
+    public const string Agent = "agent";
+}
+
+public static class TriggerAdmissionOutcomeCodes
+{
+    public const string Succeeded = "trigger_admission.succeeded";
+    public const string Reconciled = "trigger_admission.reconciled";
+    public const string UnknownTrigger = "trigger_admission.unknown_trigger";
+    public const string ProhibitedTrigger = "trigger_admission.prohibited_trigger";
+    public const string LifecycleIneligible = "trigger_admission.lifecycle_ineligible";
+    public const string BudgetExhausted = "trigger_admission.budget_exhausted";
+    public const string CooldownActive = "trigger_admission.cooldown_active";
+    public const string IdempotencyConflict = "trigger_admission.idempotency_conflict";
+    public const string OwnershipMismatch = "trigger_admission.ownership_mismatch";
+    public const string StaleVersion = "trigger_admission.stale_version";
+    public const string NonUtcClock = "trigger_admission.non_utc_clock";
+    public const string MissingTurn = "trigger_admission.missing_turn";
+    public const string Denied = "trigger_admission.denied";
+}
+
+public static class InvocationCompletionOutcomeCodes
+{
+    public const string Decided = "invocation_completion.decided";
+    public const string ExecutionFailed = "invocation_completion.execution_failed";
+    public const string AttemptsExhausted = "invocation_completion.attempts_exhausted";
+    public const string LateResult = "invocation_completion.late_result";
+    public const string AlreadyTerminal = "invocation_completion.already_terminal";
+    public const string EffectFailed = "invocation_completion.effect_failed";
+    public const string AttemptRecorded = "invocation_completion.attempt_recorded";
+    public const string IdentityMismatch = "invocation_completion.identity_mismatch";
+}
+
+public static class ExecutionFailureReasons
+{
+    public const string MalformedControl = "malformed_control";
+    public const string IncompleteControl = "incomplete_control";
+    public const string ProviderTimeout = "provider_timeout";
+    public const string ProviderUnavailable = "provider_unavailable";
+}
+
+public static class ExecutionAttemptOutcomeCategories
+{
+    public const string DecisionProduced = "decision_produced";
+    public const string ProviderTimeout = "provider_timeout";
+    public const string ProviderUnavailable = "provider_unavailable";
+    public const string MalformedControl = "malformed_control";
+    public const string IncompleteControl = "incomplete_control";
+    public const string Cancelled = "cancelled";
+    public const string LateResult = "late_result";
+}
+
+public static class ExecutionOutcomeCategories
+{
+    public const string ExecutionFailed = "execution_failed";
+    public const string Cancelled = "cancelled";
+    public const string LateResult = "late_result";
+    public const string AttemptsExhausted = "attempts_exhausted";
+}
+
+public static class NoActionReasonCategories
+{
+    public const string IntentionalSilence = "intentional_silence";
+    public const string WorkflowComplete = "workflow_complete";
+    public const string AwaitingInput = "awaiting_input";
+}
+
+public static class DecisionValidationOutcomes
+{
+    public const string Accepted = "accepted";
+    public const string Rejected = "rejected";
+    public const string Suppressed = "suppressed";
+}
+
+public static class DecisionEffectOutcomes
+{
+    public const string Applied = "applied";
+    public const string NoDomainEffect = "no_domain_effect";
+    public const string EffectFailed = "effect_failed";
+    public const string NotAttempted = "not_attempted";
+}
+
+public static class RejectionReasonCategories
+{
+    public const string PolicyProhibited = "policy_prohibited";
+    public const string CapabilityDisabled = "capability_disabled";
+    public const string PayloadInvalid = "payload_invalid";
+    public const string StateIneligible = "state_ineligible";
+    public const string BudgetExhausted = "budget_exhausted";
+    public const string CutoffExceeded = "cutoff_exceeded";
+}
+
+public static class TimerValidationOutcomes
+{
+    public const string Accepted = "accepted";
+    public const string Rejected = "rejected";
+    public const string Omitted = "omitted";
+    public const string NotPresent = "not_present";
+}
+
+public static class InvocationContextFactCategories
+{
+    public const string SubmissionRef = "submission_ref";
+    public const string KnowledgeRef = "knowledge_ref";
+    public const string MemoryReadRef = "memory_read_ref";
+    public const string TranscriptItem = "transcript_item";
+    public const string ModelControl = "model_control";
+    public const string Credential = "credential";
+}
+
+public static class InvocationContextOutcomeCodes
+{
+    public const string Succeeded = "invocation_context.succeeded";
+    public const string DisallowedFact = "invocation_context.disallowed_fact";
+    public const string OwnershipMismatch = "invocation_context.ownership_mismatch";
+    public const string UnpermittedReference = "invocation_context.unpermitted_reference";
+}
+
+public sealed record SessionOwnership(
+    Guid OrganizationId,
+    Guid ActivityId,
+    Guid ParticipantId,
+    Guid AttemptId,
+    Guid SessionId);
+
+public sealed record TrustedRuntimeActor(Guid ActorId, string ActorType);
+
+public sealed record ProtectedContentRef(string ProtectedRef, string ContentDigest)
+{
+    public static string DigestForReference(string protectedRef)
+    {
+        var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(protectedRef));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+}
+
+public sealed record VisibleTranscriptItemRef(
+    string MessageId,
+    string AuthorType,
+    string? TurnId,
+    ProtectedContentRef ContentRef);
+
+public sealed record TrustedSessionBinding(
+    SessionOwnership Ownership,
+    string ConfigurationId,
+    string ConfigurationDigest,
+    string ManifestId,
+    FrozenTextSessionRuntimePolicy Policy,
+    IReadOnlyList<ProtectedContentRef> PermittedSubmissionRefs,
+    IReadOnlyList<ProtectedContentRef> PermittedKnowledgeRefs,
+    IReadOnlyList<ProtectedContentRef> PermittedMemoryReadRefs);
+
+public sealed record TrustedTrigger(
+    string TriggerFamily,
+    string TriggerType,
+    string TriggerId,
+    string Purpose,
+    string? TurnId,
+    string? ResponseSlotId);
+
+public sealed record NextTimerRecommendation(string RelativeDelay, string ExpectedScheduleRevision);
+
+public abstract record DecisionRecommendation(
+    string DecisionId,
+    string InvocationId,
+    DateTimeOffset ProducedAt,
+    NextTimerRecommendation? NextTimer,
+    string DecisionType);
+
+public sealed record NoActionRecommendation(
+    string DecisionId,
+    string InvocationId,
+    DateTimeOffset ProducedAt,
+    string ReasonCategory,
+    NextTimerRecommendation? NextTimer)
+    : DecisionRecommendation(DecisionId, InvocationId, ProducedAt, NextTimer, RuntimeDecisionTypes.NoAction);
+
+public sealed record EmitMessageRecommendation(
+    string DecisionId,
+    string InvocationId,
+    DateTimeOffset ProducedAt,
+    string CommunicationPurpose,
+    string? TurnId,
+    string? ResponseSlotId,
+    NextTimerRecommendation? NextTimer)
+    : DecisionRecommendation(DecisionId, InvocationId, ProducedAt, NextTimer, RuntimeDecisionTypes.EmitMessage);
+
+public sealed record ProhibitedDecisionRecommendation(
+    string DecisionId,
+    string InvocationId,
+    DateTimeOffset ProducedAt,
+    string DecisionType,
+    NextTimerRecommendation? NextTimer)
+    : DecisionRecommendation(DecisionId, InvocationId, ProducedAt, NextTimer, DecisionType);
+
+public sealed record ExecutionFailureCompletion(string ReasonCategory);
+
+public sealed record InvocationContextFact(
+    string Category,
+    SessionOwnership? Ownership,
+    string? Value);
+
+public sealed record TriggerAdmissionResult(
+    bool Succeeded,
+    string OutcomeCode,
+    AgentInvocation? Invocation,
+    long? SessionSequence,
+    long? SessionVersion = null);
+
+public sealed record InvocationCompletionResult(
+    bool Succeeded,
+    string OutcomeCode,
+    AgentInvocation? Invocation,
+    AgentDecisionRecord? Decision = null,
+    ExecutionOutcomeRecord? ExecutionOutcome = null,
+    DecisionValidationEffectRecord? ValidationEffect = null,
+    bool PublicationPathClaimed = false,
+    bool AgentMessagePublished = false);
+
+public sealed record DecisionValidationResult(
+    bool Succeeded,
+    string OutcomeCode,
+    string ValidationOutcome,
+    string? RejectionReasonCategory,
+    string TimerValidationOutcome);
+
+public sealed record DecisionEffectResult(
+    bool Succeeded,
+    string OutcomeCode,
+    string EffectOutcome,
+    bool PublicationPathClaimed = false,
+    bool AgentMessagePublished = false);
+
+public sealed record InvocationContextAssembleResult(
+    bool Succeeded,
+    string OutcomeCode,
+    InvocationContext? Context);
+
+public sealed class InvocationContext
+{
+    public InvocationContext(
+        SessionOwnership ownership,
+        string configurationDigest,
+        string policyDigest,
+        IReadOnlyList<ProtectedContentRef> submissionRefs,
+        IReadOnlyList<ProtectedContentRef> knowledgeRefs,
+        IReadOnlyList<ProtectedContentRef> memoryReadRefs,
+        IReadOnlyList<VisibleTranscriptItemRef> visibleTranscript,
+        IReadOnlyList<string> factCategories)
+    {
+        Ownership = ownership;
+        ConfigurationDigest = configurationDigest;
+        PolicyDigest = policyDigest;
+        SubmissionRefs = submissionRefs;
+        KnowledgeRefs = knowledgeRefs;
+        MemoryReadRefs = memoryReadRefs;
+        VisibleTranscript = visibleTranscript;
+        FactCategories = factCategories;
+    }
+
+    public SessionOwnership Ownership { get; }
+
+    public string ConfigurationDigest { get; }
+
+    public string PolicyDigest { get; }
+
+    public IReadOnlyList<ProtectedContentRef> SubmissionRefs { get; }
+
+    public IReadOnlyList<ProtectedContentRef> KnowledgeRefs { get; }
+
+    public IReadOnlyList<ProtectedContentRef> MemoryReadRefs { get; }
+
+    public IReadOnlyList<VisibleTranscriptItemRef> VisibleTranscript { get; }
+
+    public IReadOnlyList<string> FactCategories { get; }
+}

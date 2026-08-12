@@ -99,4 +99,17 @@ internal static class RuntimePolicyTestFixtures
         RuntimePolicyBaselineSource baseline,
         params RuntimePolicyNarrowingOverride[] overrides) =>
         new(baseline.BaselineDigest, baseline, overrides);
+
+    internal static FrozenTextSessionRuntimePolicy ResolvePolicy(RuntimePolicyBaselineSource baseline) =>
+        FrozenRuntimePolicyResolver.Resolve(CreateResolutionRequest(baseline)).Policy
+        ?? throw new InvalidOperationException("Test fixture policy resolution failed.");
+
+    internal static FrozenTextSessionRuntimePolicy ResolveEnabledTimerPolicy() =>
+        ResolvePolicy(CreateEnabledTimerBaseline());
+
+    internal static FrozenTextSessionRuntimePolicy ResolveDisabledTimerPolicy() =>
+        ResolvePolicy(CreateDisabledTimerBaseline());
+
+    internal static FrozenTextSessionRuntimePolicy ResolvePolicy(RuntimePolicyEffectiveValues values) =>
+        ResolvePolicy(CreateBaseline(values));
 }
