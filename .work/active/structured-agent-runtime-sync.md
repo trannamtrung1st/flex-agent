@@ -534,12 +534,14 @@ Planning and baseline inventory are complete. The canonical contract tranche
 and follow-up C# discriminated-union/wire-enum hardening are approved and frozen
 at `8f0c046` (`d05db26` implementation review reference): 118 contract tests and
 220 full .NET tests were recorded green by the retained parity task. The Sessions
-P0 runtime-capability policy kernel tranche is complete: `FlexAgent.Sessions`
-introduces `P0TextSessionRuntimeCapabilityPolicy` with focused allow/deny tests
-(39/39), Sessions architecture ownership guards with dependency-direction
-negative controls (architecture suite 21/21), and aggregate .NET verification
-at 270/270.
-The current tranche is frozen runtime-policy resolution. PostgreSQL runtime
+P0 runtime-capability policy kernel tranche is **approved and frozen** at
+`c3827d7` (remediation over `68ce3bd`): `P0TextSessionRuntimeCapabilityPolicy`
+with focused allow/deny tests (39/39), Sessions architecture ownership guards
+with dependency-direction negative controls (architecture suite 21/21), and
+aggregate .NET verification at 270/270. External review recorded no blocking
+findings; operational timer enablement and numeric bounds remain explicitly
+deferred to frozen runtime-policy resolution.
+The current tranche is **frozen runtime-policy resolution**. PostgreSQL runtime
 schema, domain admission/effects, worker processing, synthetic adapter
 scenarios, UI states, and end-to-end proof remain pending.
 
@@ -645,6 +647,12 @@ scenarios, UI states, and end-to-end proof remain pending.
   `SupportedByP0`/`SupportsOptionalTimerLane`/`IsTimerTriggerSupportedByP0`,
   separating P0 capability ceiling from frozen timer enablement under
   `REQ-RSC-51`–`53`.
+- External review approval (2026-08-12, `c3827d7`): P1 Domain→Application/
+  Infrastructure dependency-direction guards and bounded negative controls
+  accepted; P2 `SupportedByP0`/`SupportsOptionalTimerLane`/`IsTimerTriggerSupportedByP0`
+  separation accepted; no blocking findings. Optional follow-up: negative
+  controls could invoke the exact production `ShouldNot().HaveDependencyOn(...)`
+  rule for stronger symmetry (non-blocking).
 
 # Verification
 
@@ -657,7 +665,7 @@ scenarios, UI states, and end-to-end proof remain pending.
 | Plan formatting and documentation validation | passed | `git diff --no-index --check /dev/null .work/active/structured-agent-runtime-sync.md` produced no whitespace diagnostics (exit `1` denotes the expected new-file difference); `python3 scripts/check_docs.py` passed |
 | Executable traceability/threat-model review | passed | `.work/active/structured-agent-runtime-traceability.md` — requirement matrix, STRIDE controls, module ownership, duration encoding |
 | Contract/catalog/C#/TypeScript/OpenAPI compatibility | passed for frozen contract tranche | Retained `csharp-contract-union-parity` evidence: contract tests 118/118 and full .NET 220/220; earlier web verification passed; runtime-policy and domain behavior remain outside this completed contract evidence |
-| Sessions capability-policy red/green and ownership guards | passed | Red: `dotnet build tests/Sessions/FlexAgent.Sessions.Tests/...` failed with 14 compile errors for missing `FlexAgent.Sessions.Domain` policy types (2026-08-12). Green after review remediation: `FlexAgent.Sessions.Tests` 39/39; `FlexAgent.Architecture.Tests` 21/21 including Domain→Application/Infrastructure dependency rules with bounded negative controls; aggregate verification 270/270; `git diff --check` and `python3 scripts/check_docs.py` passed. `GATE-STACK-MODULES`/`STACK-DEC-17`: one-assembly `FlexAgent.Sessions` with domain-only P0 capability ceiling; no host/API/Worker/Contracts references. `AR-DEC-1`/`AR-DEC-7`: module owns domain rules; provider-neutral boundary preserved. `AR-DEC-12`/`AR-DEC-23`/`AR-DEC-24`: Sessions assembly has no browser/host/persistence authority imports. |
+| Sessions capability-policy red/green and ownership guards | passed; approved | Red: `dotnet build tests/Sessions/FlexAgent.Sessions.Tests/...` failed with 14 compile errors for missing `FlexAgent.Sessions.Domain` policy types (2026-08-12). Green after review remediation at `c3827d7`: `FlexAgent.Sessions.Tests` 39/39; `FlexAgent.Architecture.Tests` 21/21 including Domain→Application/Infrastructure dependency rules with bounded negative controls; aggregate verification 270/270; `git diff --check` and `python3 scripts/check_docs.py` passed. External review: approve, no blocking findings (2026-08-12). Tranche frozen at `c3827d7`. |
 | Sessions domain/application focused tests | pending | |
 | PostgreSQL 18 migration/isolation/concurrency/fault tests | pending | |
 | API/worker/provider/scheduler runtime tests | pending | |
