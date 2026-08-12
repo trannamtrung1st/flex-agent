@@ -7,6 +7,7 @@
     <Project Path="src/Infrastructure/FlexAgent.Postgres/FlexAgent.Postgres.csproj" />
     <Project Path="src/Modules/Configuration/FlexAgent.Configuration/FlexAgent.Configuration.csproj" />
     <Project Path="src/Modules/IdentityAccess/FlexAgent.IdentityAccess/FlexAgent.IdentityAccess.csproj" />
+    <Project Path="src/Modules/Sessions/FlexAgent.Sessions/FlexAgent.Sessions.csproj" />
     <Project Path="src/Modules/SyntheticBrowser/FlexAgent.SyntheticBrowser/FlexAgent.SyntheticBrowser.csproj" />
   </Folder>
   <Folder Name="/tests/">
@@ -15,5 +16,6 @@
     <Project Path="tests/Contract/FlexAgent.Contract.Tests/FlexAgent.Contract.Tests.csproj" />
     <Project Path="tests/Integration/FlexAgent.Postgres.Integration.Tests/FlexAgent.Postgres.Integration.Tests.csproj" />
     <Project Path="tests/Runtime/FlexAgent.Runtime.Tests/FlexAgent.Runtime.Tests.csproj" />
+    <Project Path="tests/Sessions/FlexAgent.Sessions.Tests/FlexAgent.Sessions.Tests.csproj" />
   </Folder>
 </Solution>

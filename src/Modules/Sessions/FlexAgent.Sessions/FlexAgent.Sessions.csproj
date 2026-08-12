@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FlexAgent.Sessions</RootNamespace>
+    <AssemblyName>FlexAgent.Sessions</AssemblyName>
+  </PropertyGroup>
+
+</Project>

@@ -2,7 +2,7 @@
 id: structured-agent-runtime-sync
 status: in_progress
 created: 2026-08-11
-updated: 2026-08-11
+updated: 2026-08-12
 ---
 
 # Goal
@@ -303,17 +303,79 @@ and test reviews have no unresolved blocking findings.
   TypeScript, and OpenAPI. Preserve existing v1 meanings and fixtures; use the
   repository compatibility policy to choose a compatible addition or new
   version rather than silently redefining a shipped event.
-- [ ] Add architecture red tests for the new Sessions ownership boundary,
-  forbidden provider/persistence imports in domain/application code, prohibited
-  cross-module table writes, unscoped repositories, host-owned policy, client-
-  supplied authority/timing, and direct provider types in public contracts.
-  Keep future Interaction Controller mechanics outside the Sessions/Agent
-  semantic boundary and prove voice/tool/workflow/memory/release effects remain
-  disabled. Create the minimum Sessions project/module and composition seams to
-  pass these rules.
-- [ ] Implement frozen runtime-policy resolution using TDD. Resolve immutable
-  Invocation/Decision/timer policy and protected provenance from approved source
-  versions, enforce required positive bounds and disabled capabilities, prove
+- [x] Establish the new Sessions ownership boundary together with its first
+  governed behavior: an immutable P0 runtime-capability policy kernel. This
+  bounded tranche implements only the approved allow/deny boundary from
+  `REQ-RSC-49`, `AC-RSC-24`, `AC-RSC-26`, `REQ-SESS-62`, `REQ-SESS-64`, and
+  `REQ-SESS-69`. Full source-layer resolution/freezing, positive numeric bounds,
+  Session lifecycle behavior, persistence, provider execution, scheduling,
+  HTTP endpoints, worker handling, and UI behavior remain in later steps.
+  - [x] Red — add the production and focused-test project shells at
+    `src/Modules/Sessions/FlexAgent.Sessions/FlexAgent.Sessions.csproj` and
+    `tests/Sessions/FlexAgent.Sessions.Tests/FlexAgent.Sessions.Tests.csproj`,
+    include both in `FlexAgent.slnx`, generate their tracked lock files, and add
+    focused policy tests before the production policy type exists. Run the
+    focused project and record the expected missing-policy-type compile failure,
+    not a missing-project/restore failure. The tests must prove
+    that the P0 kernel permits only the approved text-Session trigger/Decision
+    subset, treats the single system timer lane as optional, and explicitly
+    denies voice/Interaction Controller, silence, tool-result/Participant-tool,
+    arbitrary/parallel-timer, richer configurable-workflow, Dynamic-memory
+    write/learning, and model-authorized Evaluation/Result/Release effects.
+    Unknown or deferred capability identifiers must fail closed without adding
+    speculative executable domain behavior for future features.
+    Do not select timer durations, retry counts, or other unresolved numeric
+    policy defaults in this tranche.
+  - [x] Green — implement only the minimum strongly typed immutable domain
+    policy needed to pass the red tests. Keep canonical deferred Decision
+    branches representable at the wire boundary so current policy can reject
+    them explicitly. Do not add placeholder markers, persistence/provider
+    adapters, endpoints, worker handlers, or empty service registration.
+  - [x] Guard 1 — add non-vacuous architecture rules for the real policy types:
+    Sessions Domain must not depend on Application or Infrastructure; Sessions
+    Domain/Application must not depend on ASP.NET Core, Npgsql, Dapper, shared
+    PostgreSQL infrastructure, provider/telemetry SDKs, host assemblies,
+    browser DTOs, or another feature module's `Infrastructure` namespace.
+    Application-owned ports may depend on Domain, but no inverse dependency is
+    permitted.
+  - [x] Guard 2 — prove the architecture rules themselves detect violations by
+    using bounded test-only negative-control fixtures for dependency direction,
+    forbidden infrastructure/provider references, and browser/host authority.
+    Assert the controls fail on those fixtures and pass on the production
+    Sessions assembly; do not call a passing absence guard an observed red TDD
+    phase.
+  - [x] Guard 3 — preserve composition and contract boundaries: Sessions must
+    not reference API or Worker; hosts may compose Sessions later but must not
+    define reusable Session policy; exported canonical contracts retain no
+    concrete provider-SDK types. This tranche does not ban the later governed
+    terminal Evaluation-handoff seam or ordinary Session lifecycle transitions;
+    it bans only model-authored or otherwise unapproved capability authority.
+  - [x] Defer honestly — assign command-signature tests for server-derived
+    ownership and rejection of browser/HTTP authority to the first real Session
+    application-command tranche below. Assign concrete cross-module table-write,
+    protected-repository scoping, and database-authoritative UTC/order checks to
+    the PostgreSQL/repository tranches, where repositories, SQL, transaction
+    coordinators, and time/order inputs make them non-vacuous. Do not claim
+    those behaviors from this policy-only tranche.
+  - [x] Refactor — centralize architecture-test assembly loading, forbidden
+    dependency prefixes, negative-control helpers, and non-vacuity assertions
+    without weakening existing IdentityAccess, Configuration, Contracts,
+    CanonicalJson, API, or Worker guards. Keep each failure actionable and name
+    the violated owner or dependency direction. Keep the one-assembly module
+    shape approved by `STACK-DEC-17`; split it only after executable evidence
+    shows namespace-level enforcement is insufficient.
+  - [x] Verify — record red and green results with
+    `dotnet test --project tests/Sessions/FlexAgent.Sessions.Tests/FlexAgent.Sessions.Tests.csproj -c Release`;
+    run the architecture suite with
+    `dotnet test --project tests/Architecture/FlexAgent.Architecture.Tests/FlexAgent.Architecture.Tests.csproj -c Release`;
+    then run `bash build/scripts/verify-dotnet.sh`, `git diff --check`, and
+    `python3 scripts/check_docs.py`. Record exact counts/results and recheck
+    `GATE-STACK-MODULES`, `AR-DEC-1`, `AR-DEC-7`, `AR-DEC-12`, `AR-DEC-23`,
+    `AR-DEC-24`, and `STACK-DEC-17` before marking this tranche complete.
+- [>] Implement full frozen runtime-policy resolution using TDD, building on
+  the P0 capability kernel above. Resolve immutable Invocation/Decision/timer
+  policy and protected provenance from approved source versions, enforce
+  required positive bounds and disabled capabilities, prove
   lower-scope non-widening and cohort stability, and bind the resolved snapshot
   to the Session/manifest. Resolve model deployment and opaque credential-
   binding identity from trusted scope, fail closed without fallback when it is
@@ -332,6 +394,10 @@ and test reviews have no unresolved blocking findings.
   trusted Session binding, frozen configuration, permitted Submission/knowledge/
   memory-read references, and authoritative visible transcript; prove unrelated
   and model-authored control facts cannot enter the context/provenance channel.
+  With the first application command, add signature/negative tests proving
+  ownership comes from trusted application context rather than browser/HTTP
+  DTOs and that client-supplied timestamps or sequence values cannot choose
+  authoritative order.
 - [ ] Design the minimum additive PostgreSQL schema and run migration tests red
   before implementation. Add immutable/scoped Session runtime, event,
   Invocation, attempt/outcome, Decision, validation/effect, response-slot,
@@ -342,7 +408,9 @@ and test reviews have no unresolved blocking findings.
   versions,
   constraints enforcing at most one current pending/claimed lane event and one
   effect, append-only protection, and audit/outbox correlation. Prove empty/
-  repeat/upgrade/changed-script/transactional/concurrent migration safety.
+  repeat/upgrade/changed-script/transactional/concurrent migration safety. Add
+  executable ownership guards for module-owned migration/table prefixes and
+  prove Sessions code cannot write another module's tables directly.
 - [ ] Implement scoped PostgreSQL repositories and transaction coordinators
   against real PostgreSQL 18 tests. Cover wrong Organization/Activity/
   Participant/Attempt/Session, forged ownership, guessed IDs, list/count leaks,
@@ -350,7 +418,10 @@ and test reviews have no unresolved blocking findings.
   admission/effect/replacement, injected audit/outbox failure, and immutable
   history. Cover lifecycle disposition, authorized reconstruction, generic-
   export exclusion, backup/restore reconstruction, and lawful unavailability.
-  No general repository or unscoped lookup is permitted.
+  No general repository or unscoped lookup is permitted. Add non-vacuous
+  reflection/signature tests requiring trusted Organization plus complete
+  Activity/Participant/Attempt/Session ownership on every protected repository
+  entry point, and reject client/host time or order as mutation authority.
 - [ ] Add the model-execution port and deterministic fake provider through
   observed red-green-refactor. Prove structured control/content phase
   separation, bounded provider requests within one Invocation, cancellation,
@@ -459,14 +530,17 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-Planning and baseline inventory are complete. The first canonical contract
-tranche is in place with post-review fixes (commit after `235424b`): discriminated
-`AgentDecisionV1` branches, scope-free `TrustedTriggerProvenanceV1` on
-Invocation, `AgentInvocationExecutionOutcomeV1`, corrected ISO 8601 duration
-wire/semantic bounds, honest synthetic completion digests, and protected
-runtime TypeScript separated to `internal-runtime.v1.ts`. Contract parity:
-90 .NET, 8 Node. Sessions domain, PostgreSQL runtime schema, worker processing,
-synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
+Planning and baseline inventory are complete. The canonical contract tranche
+and follow-up C# discriminated-union/wire-enum hardening are approved and frozen
+at `8f0c046` (`d05db26` implementation review reference): 118 contract tests and
+220 full .NET tests were recorded green by the retained parity task. The Sessions
+P0 runtime-capability policy kernel tranche is complete: `FlexAgent.Sessions`
+introduces `P0TextSessionRuntimeCapabilityPolicy` with focused allow/deny tests
+(40/40), Sessions architecture ownership guards with negative controls (6 new
+tests; architecture suite 18/18), and aggregate .NET verification at 268/268.
+The current tranche is frozen runtime-policy resolution. PostgreSQL runtime
+schema, domain admission/effects, worker processing, synthetic adapter
+scenarios, UI states, and end-to-end proof remain pending.
 
 # Decisions
 
@@ -474,6 +548,23 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
   ordered contract, domain, persistence, worker/scheduler, adapter/UI, and
   review tranches. This keeps one end-to-end completion gate while allowing
   each tranche to remain small enough for observed TDD and independent review.
+- Start Sessions as one module assembly when the first governed behavior—the
+  immutable P0 runtime-capability policy kernel—is implemented, matching
+  ADR-010's minimum-useful-project rule. Do not introduce public assembly/
+  namespace markers or empty composition abstractions solely for architecture
+  tests. API and Worker wiring waits for a real application handler.
+- Treat the focused policy tests, compile-time ownership guards, and later
+  resolver/domain/persistence tests as complementary gates. This tranche proves
+  the narrow P0 capability allow/deny kernel; the following frozen-policy and
+  domain tranches must still prove source resolution, non-widening, fail-closed
+  behavior, lifecycle validation, and effect enforcement. Test-only negative
+  controls validate guard mechanics; passing absence checks alone do not claim
+  behavioral acceptance.
+- No new ADR is planned for this tranche. ADR-010, ADR-012, ADR-013, and the
+  approved MVP architecture already decide module direction, provider
+  neutrality, client/host authority limits, and deferred capability boundaries.
+  Any implementation pressure that contradicts those decisions stops this
+  tranche for architecture review rather than being recorded only in `.work/`.
 - Do not treat the existing synthetic browser journey as proof of production
   Session behavior. It remains a presentation/e2e adapter; the Sessions module,
   PostgreSQL records, and worker own runtime authority.
@@ -533,18 +624,32 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
   triggers, database-authoritative time, manifest append/seal and Evaluation
   handoff, lifecycle/export controls, crash-boundary recovery, and bounded
   operational/performance evidence.
+- Readiness review (2026-08-12) replaced the marker-only Sessions scaffold with
+  a real P0 capability-policy behavior, limited the observed red claim to the
+  missing policy type, added test-only negative controls for architecture-rule
+  mechanics, preserved the governed Evaluation-handoff seam, and moved
+  repository/cross-table/database-time assertions to the persistence tranche
+  where they can be non-vacuous.
+- Consistency review (2026-08-12): aligned deferred-capability coverage with
+  `AC-RSC-24` by adding `shared_session`; added positive `text_interaction`
+  and unknown-decision fail-closed tests; tightened Guard 1 with a Domain-
+  scoped dependency rule alongside the assembly-wide rule; standardized policy
+  tests on shared trigger/decision identifier constants. Agent opening/closing
+  trigger types (`workflow_event.agent_opening/closing`) remain kernel-level
+  identifiers pending canonical fixture addition in the frozen-policy tranche.
 
 # Verification
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Baseline branch/worktree inspection | passed | `git status --short --branch`; clean `main...origin/main` at `e8bb83a` |
+| Baseline/current branch inspection | passed | Work began from clean `main...origin/main` at `e8bb83a`; reviewed current implementation baseline is synchronized `main...origin/main` at `8f0c046`, with only this tracked task-plan update pending |
 | Approved requirement/ADR/UI ID discovery | passed | `rg` across `docs/` confirms `REQ-RSC-47`–`53`, `REQ-SESS-61`–`77`, `SESS-DEC-14`–`28`, and `UI-SESS-DEC-13`–`14` are authoritative and currently marked implementation TBD/Gap where applicable |
 | Current contract/module/migration/test/UI inventory | passed | Repository inventory confirms representative Session contracts plus synthetic adapter/UI, with no production Sessions module, runtime persistence, provider port, or scheduler |
 | Cross-cutting plan review | passed | Backend, frontend, security/privacy, and tester checklists applied to requirements, ADR-011–ADR-013, runtime contract, UI decisions, and current implementation boundary; omissions recorded above were incorporated into scope, mapping, steps, and completion gates |
 | Plan formatting and documentation validation | passed | `git diff --no-index --check /dev/null .work/active/structured-agent-runtime-sync.md` produced no whitespace diagnostics (exit `1` denotes the expected new-file difference); `python3 scripts/check_docs.py` passed |
 | Executable traceability/threat-model review | passed | `.work/active/structured-agent-runtime-traceability.md` — requirement matrix, STRIDE controls, module ownership, duration encoding |
-| Contract/catalog/C#/TypeScript/OpenAPI compatibility | partial | `bash build/scripts/verify-dotnet.sh` 206/206; `bash build/scripts/verify-web.sh` pass; contract hardening tranche: discriminated Invocation, attempts, outcomes, validation/effect; C#/TS union parity; 13 new schema fixtures |
+| Contract/catalog/C#/TypeScript/OpenAPI compatibility | passed for frozen contract tranche | Retained `csharp-contract-union-parity` evidence: contract tests 118/118 and full .NET 220/220; earlier web verification passed; runtime-policy and domain behavior remain outside this completed contract evidence |
+| Sessions capability-policy red/green and ownership guards | passed | Red: `dotnet build tests/Sessions/FlexAgent.Sessions.Tests/...` failed with 14 compile errors for missing `FlexAgent.Sessions.Domain` policy types (2026-08-12). Green: `FlexAgent.Sessions.Tests` 40/40; `FlexAgent.Architecture.Tests` 18/18 including Domain-scoped and assembly-wide Sessions boundary rules plus negative-control fixtures; aggregate verification 268/268; `git diff --check` and `python3 scripts/check_docs.py` passed. `GATE-STACK-MODULES`/`STACK-DEC-17`: one-assembly `FlexAgent.Sessions` with domain-only policy kernel; no host/API/Worker/Contracts references. `AR-DEC-1`/`AR-DEC-7`: module owns domain rules; provider-neutral boundary preserved. `AR-DEC-12`/`AR-DEC-23`/`AR-DEC-24`: Sessions assembly has no browser/host/persistence authority imports. |
 | Sessions domain/application focused tests | pending | |
 | PostgreSQL 18 migration/isolation/concurrency/fault tests | pending | |
 | API/worker/provider/scheduler runtime tests | pending | |

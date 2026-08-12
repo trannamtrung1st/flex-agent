@@ -1,0 +1,110 @@
+using System.Reflection;
+using FlexAgent.Contracts.Session;
+using FlexAgent.Sessions.Domain;
+using Npgsql;
+
+namespace FlexAgent.Architecture.Tests;
+
+public sealed class SessionsBoundaryTests
+{
+    private static readonly Assembly SessionsAssembly = typeof(P0TextSessionRuntimeCapabilityPolicy).Assembly;
+
+    [Fact]
+    public void Sessions_domain_does_not_depend_on_application_or_infrastructure_layers()
+    {
+        var forbiddenLayerTypes = SessionsAssembly
+            .GetTypes()
+            .Where(type => type.Namespace is not null
+                && (type.Namespace.Contains(".Application", StringComparison.Ordinal)
+                    || type.Namespace.Contains(".Infrastructure", StringComparison.Ordinal)))
+            .Select(type => type.FullName!)
+            .ToArray();
+
+        Assert.Empty(forbiddenLayerTypes);
+    }
+
+    [Fact]
+    public void Sessions_domain_does_not_reference_forbidden_infrastructure_or_host_dependencies()
+    {
+        var result = NetArchTest.Rules.Types.InAssembly(SessionsAssembly)
+            .That()
+            .ResideInNamespaceContaining(".Domain")
+            .ShouldNot()
+            .HaveDependencyOnAny(ArchitectureTestSupport.ForbiddenSessionsInfrastructurePrefixes)
+            .GetResult();
+
+        Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));
+    }
+
+    [Fact]
+    public void Sessions_assembly_does_not_reference_forbidden_infrastructure_or_host_dependencies()
+    {
+        ArchitectureTestSupport.AssertNoForbiddenDependencies(
+            SessionsAssembly,
+            ArchitectureTestSupport.ForbiddenSessionsInfrastructurePrefixes,
+            SessionsAssembly.GetName().Name);
+    }
+
+    [Fact]
+    public void Sessions_assembly_does_not_reference_other_module_infrastructure_namespaces()
+    {
+        foreach (var forbiddenNamespace in ArchitectureTestSupport.ForbiddenModuleInfrastructureNamespaces)
+        {
+            var result = NetArchTest.Rules.Types.InAssembly(SessionsAssembly)
+                .ShouldNot()
+                .HaveDependencyOn(forbiddenNamespace)
+                .GetResult();
+
+            Assert.True(
+                result.IsSuccessful,
+                $"{forbiddenNamespace}: {string.Join(Environment.NewLine, result.FailingTypeNames ?? [])}");
+        }
+    }
+
+    [Fact]
+    public void Negative_control_detects_domain_type_that_references_npgsql()
+    {
+        ArchitectureTestSupport.AssertNegativeControlDetectsForbiddenDependency<SessionsNegativeControlFixtures.ViolatingDomainType>(
+            "Npgsql");
+    }
+
+    [Fact]
+    public void Negative_control_detects_type_that_references_aspnetcore()
+    {
+        ArchitectureTestSupport.AssertNegativeControlDetectsForbiddenDependency<SessionsNegativeControlFixtures.ViolatingHostAuthorityType>(
+            "Microsoft.AspNetCore");
+    }
+
+    [Fact]
+    public void Negative_control_detects_type_that_references_contracts()
+    {
+        ArchitectureTestSupport.AssertNegativeControlDetectsForbiddenDependency<SessionsNegativeControlFixtures.ViolatingBrowserContractType>(
+            "FlexAgent.Contracts");
+    }
+}
+
+internal static class SessionsNegativeControlFixtures
+{
+    internal sealed class ViolatingDomainType
+    {
+        public object CreateClient() => new NpgsqlConnection();
+    }
+
+    internal sealed class ViolatingHostAuthorityType
+    {
+        public object CreateContext() => new Microsoft.AspNetCore.Http.DefaultHttpContext();
+    }
+
+    internal sealed class ViolatingBrowserContractType
+    {
+        public object CreateEnvelope() => new SessionMessageSendCommandV1(
+            "v1",
+            "session.message.send",
+            "cmd.negative-control",
+            "idem.negative-control",
+            new SessionLocatorV1("sess.negative"),
+            1,
+            null,
+            new MessageSendPayloadV1("negative control"));
+    }
+}

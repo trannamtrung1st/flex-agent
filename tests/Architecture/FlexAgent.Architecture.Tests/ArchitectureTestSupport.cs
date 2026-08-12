@@ -1,0 +1,62 @@
+using System.Reflection;
+using NetArchTest.Rules;
+
+namespace FlexAgent.Architecture.Tests;
+
+internal static class ArchitectureTestSupport
+{
+    internal static readonly string[] ForbiddenPersistencePrefixes =
+    [
+        "Npgsql",
+        "Dapper",
+    ];
+
+    internal static readonly string[] ForbiddenSessionsInfrastructurePrefixes =
+    [
+        "Microsoft.AspNetCore",
+        "Npgsql",
+        "Dapper",
+        "FlexAgent.Postgres",
+        "OpenAI",
+        "AWSSDK",
+        "FlexAgent.Api",
+        "FlexAgent.Worker",
+        "FlexAgent.Contracts",
+        "FlexAgent.SyntheticBrowser",
+    ];
+
+    internal static readonly string[] ForbiddenModuleInfrastructureNamespaces =
+    [
+        "FlexAgent.IdentityAccess.Infrastructure",
+        "FlexAgent.Configuration.Infrastructure",
+    ];
+
+    internal static void AssertNoForbiddenDependencies(
+        Assembly assembly,
+        IReadOnlyList<string> forbiddenPrefixes,
+        string? owner = null)
+    {
+        var result = Types.InAssembly(assembly)
+            .ShouldNot()
+            .HaveDependencyOnAny(forbiddenPrefixes.ToArray())
+            .GetResult();
+
+        var prefix = owner is null ? string.Empty : $"{owner}: ";
+        Assert.True(result.IsSuccessful, prefix + string.Join(Environment.NewLine, result.FailingTypeNames ?? []));
+    }
+
+    internal static void AssertNegativeControlDetectsForbiddenDependency<TControl>(
+        string forbiddenPrefix,
+        string? controlName = null)
+        where TControl : class
+    {
+        var result = Types.InAssembly(typeof(TControl).Assembly)
+            .That()
+            .HaveName(controlName ?? typeof(TControl).Name)
+            .ShouldNot()
+            .HaveDependencyOnAny(forbiddenPrefix)
+            .GetResult();
+
+        Assert.False(result.IsSuccessful);
+    }
+}

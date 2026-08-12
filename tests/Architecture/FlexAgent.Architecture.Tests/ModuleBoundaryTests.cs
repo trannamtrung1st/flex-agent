@@ -10,12 +10,6 @@ public sealed class ModuleBoundaryTests
   private static readonly Assembly IdentityAccessAssembly = typeof(IAuthorizationKernel).Assembly;
   private static readonly Assembly ConfigurationAssembly = typeof(IRegisterConfigurationSourceVersionHandler).Assembly;
 
-  private static readonly string[] ForbiddenPersistencePrefixes =
-  [
-      "Npgsql",
-      "Dapper",
-  ];
-
   [Fact]
   public void Domain_and_application_layers_do_not_reference_persistence_packages()
   {
@@ -27,7 +21,7 @@ public sealed class ModuleBoundaryTests
               .Or()
               .ResideInNamespaceContaining(".Application")
               .ShouldNot()
-              .HaveDependencyOnAny(ForbiddenPersistencePrefixes)
+              .HaveDependencyOnAny(ArchitectureTestSupport.ForbiddenPersistencePrefixes)
               .GetResult();
 
           Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));

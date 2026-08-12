@@ -2,15 +2,6 @@
   "version": 2,
   "dependencies": {
     "net10.0": {
-      "NetArchTest.Rules": {
-        "type": "Direct",
-        "requested": "[1.3.2, )",
-        "resolved": "1.3.2",
-        "contentHash": "puPyNXkwJq8/UwXhHV8NrzNzkQl4IxEbcP+3PU0xLRiOedsVpaSdpwHhvOZfI0VwTcRvawCNxYQcSRbD4RUg4w==",
-        "dependencies": {
-          "Mono.Cecil": "0.11.3"
-        }
-      },
       "xunit.v3.mtp-v2": {
         "type": "Direct",
         "requested": "[3.2.2, )",
@@ -31,19 +22,6 @@
         "type": "Transitive",
         "resolved": "6.0.0",
         "contentHash": "UcSjPsst+DfAdJGVDsu346FX0ci0ah+lw3WRtn18NUwEqRt70HaOQ7lI72vy3+1LxtqI3T5GWwV39rQSrCzAeg=="
-      },
-      "Microsoft.Extensions.DependencyInjection.Abstractions": {
-        "type": "Transitive",
-        "resolved": "10.0.0",
-        "contentHash": "L3AdmZ1WOK4XXT5YFPEwyt0ep6l8lGIPs7F5OOBZc77Zqeo01Of7XXICy47628sdVl0v/owxYJTe86DTgFwKCA=="
-      },
-      "Microsoft.Extensions.Logging.Abstractions": {
-        "type": "Transitive",
-        "resolved": "10.0.0",
-        "contentHash": "FU/IfjDfwaMuKr414SSQNTIti/69bHEMb+QKrskRb26oVqpx3lNFXMjs/RC9ZUuhBhcwDM2BwOgoMw+PZ+beqQ==",
-        "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
-        }
       },
       "Microsoft.Testing.Extensions.Telemetry": {
         "type": "Transitive",
@@ -79,11 +57,6 @@
         "type": "Transitive",
         "resolved": "5.0.0",
         "contentHash": "dDoKi0PnDz31yAyETfRntsLArTlVAVzUzCIvvEDsDsucrl33Dl8pIJG06ePTJTI3tGpeyHS9Cq7Foc/s4EeKcg=="
-      },
-      "Mono.Cecil": {
-        "type": "Transitive",
-        "resolved": "0.11.3",
-        "contentHash": "DNYE+io5XfEE8+E+5padThTPHJARJHbz1mhbhMPNrrWGKVKKqj/KEeLvbawAmbIcT73NuxLV7itHZaYCZcVWGg=="
       },
       "xunit.analyzers": {
         "type": "Transitive",
@@ -142,65 +115,8 @@
           "xunit.v3.runner.common": "[3.2.2]"
         }
       },
-      "flexagent.api": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.SyntheticBrowser": "[1.0.0, )"
-        }
-      },
-      "flexagent.canonicaljson": {
-        "type": "Project"
-      },
-      "flexagent.configuration": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.CanonicalJson": "[1.0.0, )",
-          "FlexAgent.IdentityAccess": "[1.0.0, )",
-          "FlexAgent.Postgres": "[1.0.0, )"
-        }
-      },
-      "flexagent.contracts": {
-        "type": "Project"
-      },
-      "flexagent.identityaccess": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.Postgres": "[1.0.0, )"
-        }
-      },
-      "flexagent.postgres": {
-        "type": "Project",
-        "dependencies": {
-          "Dapper": "[2.1.79, )",
-          "Npgsql": "[10.0.3, )"
-        }
-      },
       "flexagent.sessions": {
         "type": "Project"
-      },
-      "flexagent.syntheticbrowser": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.Contracts": "[1.0.0, )"
-        }
-      },
-      "flexagent.worker": {
-        "type": "Project"
-      },
-      "Dapper": {
-        "type": "CentralTransitive",
-        "requested": "[2.1.79, )",
-        "resolved": "2.1.79",
-        "contentHash": "8YijbzgTfmqmQOnVNorYM6K++pxqnW3nJ4aC1sRHzxUA2CcuoJ9gsTem3kgBnPRMc38zZHl4Esb6hAezXIEEuw=="
-      },
-      "Npgsql": {
-        "type": "CentralTransitive",
-        "requested": "[10.0.3, )",
-        "resolved": "10.0.3",
-        "contentHash": "7nb5YzXuvWWJxB0J8DiyL3we+X4FOctZrt0fIBnucOIaIevFEEwGQVZKtiu9olXdlNAK1eNgqSral6r/jlhI4w==",
-        "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "10.0.0"
-        }
       }
     }
   }
