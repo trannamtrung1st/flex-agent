@@ -1,11 +1,5 @@
 namespace FlexAgent.Sessions.Domain;
 
-public enum TimerLaneAvailability
-{
-    Disabled,
-    Enabled,
-}
-
 public static class RuntimeCapabilityIdentifiers
 {
     public const string TextInteraction = "text_interaction";
@@ -47,69 +41,63 @@ public static class RuntimeDecisionTypes
     public const string Escalate = "escalate";
 }
 
+/// <summary>
+/// Immutable P0 capability ceiling. This type expresses which trigger, decision, and
+/// capability identifiers may appear in a later frozen runtime policy; it does not
+/// model operational Session admission, timer enablement, or numeric bounds.
+/// </summary>
 public sealed class P0TextSessionRuntimeCapabilityPolicy
 {
-    private static readonly HashSet<string> EnabledCapabilities =
+    private static readonly HashSet<string> SupportedCapabilities =
     [
         RuntimeCapabilityIdentifiers.TextInteraction,
     ];
 
-    private static readonly HashSet<string> PermittedDecisionTypes =
+    private static readonly HashSet<string> SupportedDecisionTypes =
     [
         RuntimeDecisionTypes.EmitMessage,
         RuntimeDecisionTypes.NoAction,
     ];
 
-    private static readonly HashSet<(string Family, string Type)> PermittedTriggersWithoutTimer =
+    private static readonly HashSet<(string Family, string Type)> SupportedNonTimerTriggers =
     [
         (RuntimeTriggerIdentifiers.ParticipantInputFamily, RuntimeTriggerIdentifiers.ParticipantMessageType),
         (RuntimeTriggerIdentifiers.WorkflowEventFamily, RuntimeTriggerIdentifiers.AgentOpeningType),
         (RuntimeTriggerIdentifiers.WorkflowEventFamily, RuntimeTriggerIdentifiers.AgentClosingType),
     ];
 
-    private static readonly HashSet<(string Family, string Type)> TimerTriggers =
-    [
-        (RuntimeTriggerIdentifiers.TimerEventFamily, RuntimeTriggerIdentifiers.TimerLaneDefaultType),
-    ];
-
-    private P0TextSessionRuntimeCapabilityPolicy(TimerLaneAvailability timerLaneAvailability)
+    private P0TextSessionRuntimeCapabilityPolicy()
     {
-        TimerLaneAvailability = timerLaneAvailability;
     }
 
-    public TimerLaneAvailability TimerLaneAvailability { get; }
+    /// <summary>
+    /// P0 text Session profiles may include one optional system timer lane once fully
+    /// resolved under REQ-RSC-51 through REQ-RSC-53. This kernel does not represent an
+    /// operationally enabled lane or any timer timing values.
+    /// </summary>
+    public bool SupportsOptionalTimerLane => true;
 
-    public bool IsTimerLaneOptional => true;
+    public static P0TextSessionRuntimeCapabilityPolicy Create() => new();
 
-    public static P0TextSessionRuntimeCapabilityPolicy Create(
-        TimerLaneAvailability timerLaneAvailability = TimerLaneAvailability.Disabled) =>
-        new(timerLaneAvailability);
-
-    public bool IsTriggerPermitted(string triggerFamily, string triggerType)
+    public bool IsTriggerSupportedByP0(string triggerFamily, string triggerType)
     {
         if (string.IsNullOrWhiteSpace(triggerFamily) || string.IsNullOrWhiteSpace(triggerType))
         {
             return false;
         }
 
-        var trigger = (triggerFamily, triggerType);
-        if (PermittedTriggersWithoutTimer.Contains(trigger))
-        {
-            return true;
-        }
-
-        if (TimerLaneAvailability == TimerLaneAvailability.Enabled && TimerTriggers.Contains(trigger))
-        {
-            return true;
-        }
-
-        return false;
+        return SupportedNonTimerTriggers.Contains((triggerFamily, triggerType));
     }
 
-    public bool IsDecisionTypePermitted(string decisionType) =>
-        !string.IsNullOrWhiteSpace(decisionType) && PermittedDecisionTypes.Contains(decisionType);
+    public bool IsTimerTriggerSupportedByP0(string triggerFamily, string triggerType) =>
+        SupportsOptionalTimerLane
+        && triggerFamily == RuntimeTriggerIdentifiers.TimerEventFamily
+        && triggerType == RuntimeTriggerIdentifiers.TimerLaneDefaultType;
 
-    public bool IsCapabilityEnabled(string capabilityIdentifier) =>
+    public bool IsDecisionTypeSupportedByP0(string decisionType) =>
+        !string.IsNullOrWhiteSpace(decisionType) && SupportedDecisionTypes.Contains(decisionType);
+
+    public bool IsCapabilitySupportedByP0(string capabilityIdentifier) =>
         !string.IsNullOrWhiteSpace(capabilityIdentifier)
-        && EnabledCapabilities.Contains(capabilityIdentifier);
+        && SupportedCapabilities.Contains(capabilityIdentifier);
 }

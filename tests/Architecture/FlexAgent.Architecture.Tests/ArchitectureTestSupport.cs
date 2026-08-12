@@ -45,6 +45,18 @@ internal static class ArchitectureTestSupport
         Assert.True(result.IsSuccessful, prefix + string.Join(Environment.NewLine, result.FailingTypeNames ?? []));
     }
 
+    internal static void AssertDomainDoesNotDependOnLayer(Assembly assembly, string layerNamespace)
+    {
+        var result = Types.InAssembly(assembly)
+            .That()
+            .ResideInNamespaceContaining(".Domain")
+            .ShouldNot()
+            .HaveDependencyOn(layerNamespace)
+            .GetResult();
+
+        Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));
+    }
+
     internal static void AssertNegativeControlDetectsForbiddenDependency<TControl>(
         string forbiddenPrefix,
         string? controlName = null)
@@ -58,5 +70,22 @@ internal static class ArchitectureTestSupport
             .GetResult();
 
         Assert.False(result.IsSuccessful);
+    }
+
+    internal static void AssertNegativeControlDetectsDomainLayerDependency<TControl>(
+        string layerNamespace,
+        string? controlName = null)
+        where TControl : class
+    {
+        var result = Types.InAssembly(typeof(TControl).Assembly)
+            .That()
+            .HaveName(controlName ?? typeof(TControl).Name)
+            .Should()
+            .ResideInNamespaceContaining(".Domain")
+            .And()
+            .HaveDependencyOn(layerNamespace)
+            .GetResult();
+
+        Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));
     }
 }

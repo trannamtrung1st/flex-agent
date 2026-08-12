@@ -1,6 +1,7 @@
 using System.Reflection;
 using FlexAgent.Contracts.Session;
 using FlexAgent.Sessions.Domain;
+using NetArchTest.Rules;
 using Npgsql;
 
 namespace FlexAgent.Architecture.Tests;
@@ -10,23 +11,25 @@ public sealed class SessionsBoundaryTests
     private static readonly Assembly SessionsAssembly = typeof(P0TextSessionRuntimeCapabilityPolicy).Assembly;
 
     [Fact]
-    public void Sessions_domain_does_not_depend_on_application_or_infrastructure_layers()
+    public void Sessions_domain_does_not_depend_on_application_layer()
     {
-        var forbiddenLayerTypes = SessionsAssembly
-            .GetTypes()
-            .Where(type => type.Namespace is not null
-                && (type.Namespace.Contains(".Application", StringComparison.Ordinal)
-                    || type.Namespace.Contains(".Infrastructure", StringComparison.Ordinal)))
-            .Select(type => type.FullName!)
-            .ToArray();
+        ArchitectureTestSupport.AssertDomainDoesNotDependOnLayer(
+            SessionsAssembly,
+            "FlexAgent.Sessions.Application");
+    }
 
-        Assert.Empty(forbiddenLayerTypes);
+    [Fact]
+    public void Sessions_domain_does_not_depend_on_infrastructure_layer()
+    {
+        ArchitectureTestSupport.AssertDomainDoesNotDependOnLayer(
+            SessionsAssembly,
+            "FlexAgent.Sessions.Infrastructure");
     }
 
     [Fact]
     public void Sessions_domain_does_not_reference_forbidden_infrastructure_or_host_dependencies()
     {
-        var result = NetArchTest.Rules.Types.InAssembly(SessionsAssembly)
+        var result = Types.InAssembly(SessionsAssembly)
             .That()
             .ResideInNamespaceContaining(".Domain")
             .ShouldNot()
@@ -50,7 +53,7 @@ public sealed class SessionsBoundaryTests
     {
         foreach (var forbiddenNamespace in ArchitectureTestSupport.ForbiddenModuleInfrastructureNamespaces)
         {
-            var result = NetArchTest.Rules.Types.InAssembly(SessionsAssembly)
+            var result = Types.InAssembly(SessionsAssembly)
                 .ShouldNot()
                 .HaveDependencyOn(forbiddenNamespace)
                 .GetResult();
@@ -59,6 +62,20 @@ public sealed class SessionsBoundaryTests
                 result.IsSuccessful,
                 $"{forbiddenNamespace}: {string.Join(Environment.NewLine, result.FailingTypeNames ?? [])}");
         }
+    }
+
+    [Fact]
+    public void Negative_control_detects_domain_dependency_on_application_layer()
+    {
+        ArchitectureTestSupport.AssertNegativeControlDetectsDomainLayerDependency<ViolatingDomainDependsOnApplication>(
+            "FlexAgent.Sessions.Application");
+    }
+
+    [Fact]
+    public void Negative_control_detects_domain_dependency_on_infrastructure_layer()
+    {
+        ArchitectureTestSupport.AssertNegativeControlDetectsDomainLayerDependency<ViolatingDomainDependsOnInfrastructure>(
+            "FlexAgent.Sessions.Infrastructure");
     }
 
     [Fact]

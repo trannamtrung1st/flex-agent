@@ -5,53 +5,36 @@ namespace FlexAgent.Sessions.Tests.Domain;
 public sealed class P0TextSessionRuntimeCapabilityPolicyTests
 {
     [Fact]
-    public void P0_kernel_supports_optional_single_timer_lane_without_selecting_durations()
+    public void P0_kernel_supports_optional_single_timer_lane_without_modeling_operational_enablement()
     {
-        var policy = P0TextSessionRuntimeCapabilityPolicy.Create(
-            timerLaneAvailability: TimerLaneAvailability.Disabled);
+        var policy = P0TextSessionRuntimeCapabilityPolicy.Create();
 
-        Assert.True(policy.IsTimerLaneOptional);
-        Assert.Equal(TimerLaneAvailability.Disabled, policy.TimerLaneAvailability);
-        Assert.False(policy.IsTriggerPermitted(
+        Assert.True(policy.SupportsOptionalTimerLane);
+        Assert.True(policy.IsTimerTriggerSupportedByP0(
+            RuntimeTriggerIdentifiers.TimerEventFamily,
+            RuntimeTriggerIdentifiers.TimerLaneDefaultType));
+        Assert.False(policy.IsTriggerSupportedByP0(
             RuntimeTriggerIdentifiers.TimerEventFamily,
             RuntimeTriggerIdentifiers.TimerLaneDefaultType));
     }
 
     [Fact]
-    public void P0_kernel_enables_text_interaction_capability()
+    public void P0_kernel_supports_text_interaction_capability()
     {
         var policy = P0TextSessionRuntimeCapabilityPolicy.Create();
 
-        Assert.True(policy.IsCapabilityEnabled(RuntimeCapabilityIdentifiers.TextInteraction));
+        Assert.True(policy.IsCapabilitySupportedByP0(RuntimeCapabilityIdentifiers.TextInteraction));
     }
 
     [Theory]
     [InlineData(RuntimeTriggerIdentifiers.ParticipantInputFamily, RuntimeTriggerIdentifiers.ParticipantMessageType)]
     [InlineData(RuntimeTriggerIdentifiers.WorkflowEventFamily, RuntimeTriggerIdentifiers.AgentOpeningType)]
     [InlineData(RuntimeTriggerIdentifiers.WorkflowEventFamily, RuntimeTriggerIdentifiers.AgentClosingType)]
-    public void P0_kernel_permits_approved_text_session_triggers(
-        string triggerFamily,
-        string triggerType)
+    public void P0_kernel_supports_approved_non_timer_triggers(string triggerFamily, string triggerType)
     {
         var policy = P0TextSessionRuntimeCapabilityPolicy.Create();
 
-        Assert.True(policy.IsTriggerPermitted(triggerFamily, triggerType));
-    }
-
-    [Fact]
-    public void P0_kernel_permits_timer_trigger_only_when_lane_is_enabled()
-    {
-        var disabled = P0TextSessionRuntimeCapabilityPolicy.Create(
-            timerLaneAvailability: TimerLaneAvailability.Disabled);
-        var enabled = P0TextSessionRuntimeCapabilityPolicy.Create(
-            timerLaneAvailability: TimerLaneAvailability.Enabled);
-
-        Assert.False(disabled.IsTriggerPermitted(
-            RuntimeTriggerIdentifiers.TimerEventFamily,
-            RuntimeTriggerIdentifiers.TimerLaneDefaultType));
-        Assert.True(enabled.IsTriggerPermitted(
-            RuntimeTriggerIdentifiers.TimerEventFamily,
-            RuntimeTriggerIdentifiers.TimerLaneDefaultType));
+        Assert.True(policy.IsTriggerSupportedByP0(triggerFamily, triggerType));
     }
 
     [Theory]
@@ -62,35 +45,35 @@ public sealed class P0TextSessionRuntimeCapabilityPolicyTests
     [InlineData("timer_event", "timer_event.parallel_lane")]
     [InlineData("system_event", "system_event.evaluation_ready")]
     [InlineData("participant_input", "participant_input.voice_utterance")]
-    public void P0_kernel_denies_deferred_or_prohibited_triggers(
+    public void P0_kernel_does_not_support_deferred_or_prohibited_triggers(
         string triggerFamily,
         string triggerType)
     {
-        var policy = P0TextSessionRuntimeCapabilityPolicy.Create(
-            timerLaneAvailability: TimerLaneAvailability.Enabled);
+        var policy = P0TextSessionRuntimeCapabilityPolicy.Create();
 
-        Assert.False(policy.IsTriggerPermitted(triggerFamily, triggerType));
+        Assert.False(policy.IsTriggerSupportedByP0(triggerFamily, triggerType));
+        Assert.False(policy.IsTimerTriggerSupportedByP0(triggerFamily, triggerType));
     }
 
     [Theory]
     [InlineData(RuntimeDecisionTypes.EmitMessage)]
     [InlineData(RuntimeDecisionTypes.NoAction)]
-    public void P0_kernel_permits_approved_decision_types(string decisionType)
+    public void P0_kernel_supports_approved_decision_types(string decisionType)
     {
         var policy = P0TextSessionRuntimeCapabilityPolicy.Create();
 
-        Assert.True(policy.IsDecisionTypePermitted(decisionType));
+        Assert.True(policy.IsDecisionTypeSupportedByP0(decisionType));
     }
 
     [Theory]
     [InlineData(RuntimeDecisionTypes.RequestTool)]
     [InlineData(RuntimeDecisionTypes.ProposeTransition)]
     [InlineData(RuntimeDecisionTypes.Escalate)]
-    public void P0_kernel_denies_deferred_decision_types(string decisionType)
+    public void P0_kernel_does_not_support_deferred_decision_types(string decisionType)
     {
         var policy = P0TextSessionRuntimeCapabilityPolicy.Create();
 
-        Assert.False(policy.IsDecisionTypePermitted(decisionType));
+        Assert.False(policy.IsDecisionTypeSupportedByP0(decisionType));
     }
 
     [Theory]
@@ -108,11 +91,11 @@ public sealed class P0TextSessionRuntimeCapabilityPolicyTests
     [InlineData(RuntimeCapabilityIdentifiers.SharedSession)]
     [InlineData(RuntimeCapabilityIdentifiers.ModelAuthorizedEvaluation)]
     [InlineData(RuntimeCapabilityIdentifiers.ModelAuthorizedResultRelease)]
-    public void P0_kernel_explicitly_denies_deferred_capabilities(string capabilityIdentifier)
+    public void P0_kernel_does_not_support_deferred_capabilities(string capabilityIdentifier)
     {
         var policy = P0TextSessionRuntimeCapabilityPolicy.Create();
 
-        Assert.False(policy.IsCapabilityEnabled(capabilityIdentifier));
+        Assert.False(policy.IsCapabilitySupportedByP0(capabilityIdentifier));
     }
 
     [Theory]
@@ -123,7 +106,7 @@ public sealed class P0TextSessionRuntimeCapabilityPolicyTests
     {
         var policy = P0TextSessionRuntimeCapabilityPolicy.Create();
 
-        Assert.False(policy.IsDecisionTypePermitted(decisionType));
+        Assert.False(policy.IsDecisionTypeSupportedByP0(decisionType));
     }
 
     [Theory]
@@ -134,7 +117,7 @@ public sealed class P0TextSessionRuntimeCapabilityPolicyTests
     {
         var policy = P0TextSessionRuntimeCapabilityPolicy.Create();
 
-        Assert.False(policy.IsCapabilityEnabled(capabilityIdentifier));
+        Assert.False(policy.IsCapabilitySupportedByP0(capabilityIdentifier));
     }
 
     [Theory]
@@ -144,9 +127,9 @@ public sealed class P0TextSessionRuntimeCapabilityPolicyTests
         string triggerFamily,
         string triggerType)
     {
-        var policy = P0TextSessionRuntimeCapabilityPolicy.Create(
-            timerLaneAvailability: TimerLaneAvailability.Enabled);
+        var policy = P0TextSessionRuntimeCapabilityPolicy.Create();
 
-        Assert.False(policy.IsTriggerPermitted(triggerFamily, triggerType));
+        Assert.False(policy.IsTriggerSupportedByP0(triggerFamily, triggerType));
+        Assert.False(policy.IsTimerTriggerSupportedByP0(triggerFamily, triggerType));
     }
 }
