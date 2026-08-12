@@ -5,6 +5,17 @@ namespace FlexAgent.Sessions.Tests.Domain;
 public sealed class P0TextSessionRuntimeCapabilityPolicyTests
 {
     [Fact]
+    public void P0_kernel_exposes_required_explicitly_disabled_capabilities_for_mvp_profile()
+    {
+        var required = P0TextSessionRuntimeCapabilityPolicy.RequiredExplicitlyDisabledCapabilities;
+
+        Assert.Contains(RuntimeCapabilityIdentifiers.VoiceInteraction, required);
+        Assert.Contains(RuntimeCapabilityIdentifiers.SharedSession, required);
+        Assert.DoesNotContain(RuntimeCapabilityIdentifiers.TextInteraction, required);
+        Assert.True(P0TextSessionRuntimeCapabilityPolicy.Create().ContainsRequiredExplicitlyDisabledCapabilities(required));
+    }
+
+    [Fact]
     public void P0_kernel_supports_optional_single_timer_lane_without_modeling_operational_enablement()
     {
         var policy = P0TextSessionRuntimeCapabilityPolicy.Create();

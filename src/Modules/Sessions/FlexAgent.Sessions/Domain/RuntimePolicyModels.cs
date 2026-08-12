@@ -4,6 +4,20 @@ public static class RuntimeContractVersions
 {
     public const string InvocationV1 = "v1";
     public const string DecisionV1 = "v1";
+    public const string DecisionValidationPolicyV1 = "v1";
+    public const string AgentDecisionSchemaV1 = "v1";
+
+    public static bool IsSupportedInvocationContractVersion(string? version) =>
+        string.Equals(version, InvocationV1, StringComparison.Ordinal);
+
+    public static bool IsSupportedDecisionContractVersion(string? version) =>
+        string.Equals(version, DecisionV1, StringComparison.Ordinal);
+
+    public static bool IsSupportedDecisionValidationPolicyVersion(string? version) =>
+        string.Equals(version, DecisionValidationPolicyV1, StringComparison.Ordinal);
+
+    public static bool IsSupportedAgentDecisionSchemaVersion(string? version) =>
+        string.Equals(version, AgentDecisionSchemaV1, StringComparison.Ordinal);
 }
 
 public static class RuntimePolicyDomainKeys
@@ -27,10 +41,14 @@ public static class RuntimePolicyResolutionOutcomeCodes
 {
     public const string Succeeded = "runtime_policy_resolution.succeeded";
     public const string BaselineDigestMismatch = "runtime_policy_resolution.baseline_digest_mismatch";
+    public const string BaselineContentDigestMismatch = "runtime_policy_resolution.baseline_content_digest_mismatch";
     public const string WideningRejected = "runtime_policy_resolution.widening_rejected";
     public const string InvalidPolicyValues = "runtime_policy_resolution.invalid_policy_values";
     public const string P0CapabilityExceeded = "runtime_policy_resolution.p0_capability_exceeded";
+    public const string UnknownScopeKind = "runtime_policy_resolution.unknown_scope_kind";
 }
+
+public sealed record DecisionTypeSchemaBinding(string DecisionType, string SchemaVersion);
 
 public sealed record RuntimeTriggerDescriptor(string TriggerFamily, string TriggerType);
 
@@ -63,8 +81,8 @@ public sealed class TimerLanePolicy
         MinRequestedDelay = minRequestedDelay;
         MaxRequestedDelay = maxRequestedDelay;
         ClockBasis = clockBasis;
-        PermittedStages = permittedStages;
-        PermittedDecisionTypes = permittedDecisionTypes;
+        PermittedStages = RuntimePolicySnapshots.CopyStrings(permittedStages);
+        PermittedDecisionTypes = RuntimePolicySnapshots.CopyStrings(permittedDecisionTypes);
         Budgets = budgets;
         IsEnabled = true;
     }
@@ -110,6 +128,10 @@ public sealed record RuntimePolicyEffectiveValues
     public string? InvocationContractVersion { get; init; }
 
     public string? DecisionContractVersion { get; init; }
+
+    public string? DecisionValidationPolicyVersion { get; init; }
+
+    public IReadOnlyList<DecisionTypeSchemaBinding>? DecisionSchemaBindings { get; init; }
 
     public IReadOnlyList<RuntimeTriggerDescriptor>? PermittedNonTimerTriggers { get; init; }
 
@@ -161,3 +183,12 @@ public sealed record RuntimePolicyResolutionResult(
     bool Succeeded,
     string OutcomeCode,
     FrozenTextSessionRuntimePolicy? Policy);
+
+/// <summary>
+/// Computes the canonical baseline-content digest verified by <see cref="FrozenRuntimePolicyResolver"/>.
+/// </summary>
+public static class RuntimePolicyBaselineContentDigest
+{
+    public static string Compute(RuntimePolicyEffectiveValues values) =>
+        RuntimePolicyEffectiveValuesDigestComputer.Compute(values);
+}

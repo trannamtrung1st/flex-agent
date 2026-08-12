@@ -26,7 +26,21 @@ internal static class RuntimePolicyDigestComputer
             writer.WriteStartObject();
             writer.WriteString("domain_key", RuntimePolicyDomainKeys.AgentInvocationPolicy);
             writer.WriteString("decision_contract_version", policy.DecisionContractVersion);
+            writer.WriteString("decision_validation_policy_version", policy.DecisionValidationPolicyVersion);
             writer.WriteString("invocation_contract_version", policy.InvocationContractVersion);
+
+            writer.WritePropertyName("decision_schema_bindings");
+            writer.WriteStartArray();
+            foreach (var binding in policy.DecisionSchemaBindings
+                         .OrderBy(static binding => binding.DecisionType, StringComparer.Ordinal))
+            {
+                writer.WriteStartObject();
+                writer.WriteString("decision_type", binding.DecisionType);
+                writer.WriteString("schema_version", binding.SchemaVersion);
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
 
             writer.WritePropertyName("explicitly_disabled_capabilities");
             writer.WriteStartArray();

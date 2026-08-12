@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace FlexAgent.Sessions.Domain;
@@ -34,20 +35,23 @@ public sealed partial class Iso8601PositiveDuration : IComparable<Iso8601Positiv
             return false;
         }
 
-        var totalSeconds = 0;
-        if (match.Groups[1].Success)
+        long totalSeconds = 0;
+        if (match.Groups[1].Success
+            && !TryAddComponent(match.Groups[1].Value, 3600, ref totalSeconds))
         {
-            totalSeconds += int.Parse(match.Groups[1].Value) * 3600;
+            return false;
         }
 
-        if (match.Groups[2].Success)
+        if (match.Groups[2].Success
+            && !TryAddComponent(match.Groups[2].Value, 60, ref totalSeconds))
         {
-            totalSeconds += int.Parse(match.Groups[2].Value) * 60;
+            return false;
         }
 
-        if (match.Groups[3].Success)
+        if (match.Groups[3].Success
+            && !TryAddComponent(match.Groups[3].Value, 1, ref totalSeconds))
         {
-            totalSeconds += int.Parse(match.Groups[3].Value);
+            return false;
         }
 
         if (totalSeconds is < MinimumSeconds or > MaximumSeconds)
@@ -55,7 +59,7 @@ public sealed partial class Iso8601PositiveDuration : IComparable<Iso8601Positiv
             return false;
         }
 
-        parsed = new Iso8601PositiveDuration(duration, totalSeconds);
+        parsed = new Iso8601PositiveDuration(duration, (int)totalSeconds);
         return true;
     }
 
@@ -67,5 +71,27 @@ public sealed partial class Iso8601PositiveDuration : IComparable<Iso8601Positiv
         }
 
         return TotalSeconds.CompareTo(other.TotalSeconds);
+    }
+
+    private static bool TryAddComponent(string digits, int multiplier, ref long totalSeconds)
+    {
+        if (!long.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out var component))
+        {
+            return false;
+        }
+
+        try
+        {
+            checked
+            {
+                totalSeconds += component * multiplier;
+            }
+        }
+        catch (OverflowException)
+        {
+            return false;
+        }
+
+        return true;
     }
 }

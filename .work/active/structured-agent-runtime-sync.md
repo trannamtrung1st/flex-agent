@@ -392,8 +392,8 @@ and test reviews have no unresolved blocking findings.
     non-widening enforcement, stable `policy_digest` via `rsc-jcs-sha256-v1`
     canonical JSON, and opaque credential-binding resolution without fallback
     (`REQ-RSC-46`–`53`, `AC-RSC-25`–`27` at domain layer).
-  - [x] Verify — `FlexAgent.Sessions.Tests` 73/73; architecture suite 21/21;
-    aggregate .NET verification 304/304; `git diff --check` and
+  - [x] Verify — `FlexAgent.Sessions.Tests` 86/86; architecture suite 21/21;
+    aggregate .NET verification 317/317; `git diff --check` and
     `python3 scripts/check_docs.py` passed (2026-08-12). Session/manifest bind
     commit, PostgreSQL persistence, and application-command ownership tests
     remain in the next tranche.
@@ -682,6 +682,12 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
   `domain_key: agent_invocation_policy`; added tests for min-delay widening,
   timer-lane deferred decisions, digest format, and deployment-default provider
   mismatch.
+- Second review remediation (2026-08-12): frozen policy snapshots now copy
+  collections via `ImmutableArray`; resolver verifies canonical baseline-content
+  digest; P0 kernel owns required explicitly-disabled capability set; supported
+  contract versions, active-time clock basis, and decision validation schema
+  bindings are enforced; unknown scope kinds fail closed; duration parsing is
+  overflow-safe.
 
 # Verification
 
@@ -695,7 +701,7 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
 | Executable traceability/threat-model review | passed | `.work/active/structured-agent-runtime-traceability.md` — requirement matrix, STRIDE controls, module ownership, duration encoding |
 | Contract/catalog/C#/TypeScript/OpenAPI compatibility | passed for frozen contract tranche | Retained `csharp-contract-union-parity` evidence: contract tests 118/118 and full .NET 220/220; earlier web verification passed; runtime-policy and domain behavior remain outside this completed contract evidence |
 | Sessions capability-policy red/green and ownership guards | passed; approved | Red: `dotnet build tests/Sessions/FlexAgent.Sessions.Tests/...` failed with 14 compile errors for missing `FlexAgent.Sessions.Domain` policy types (2026-08-12). Green after review remediation at `c3827d7`: `FlexAgent.Sessions.Tests` 39/39; `FlexAgent.Architecture.Tests` 21/21 including Domain→Application/Infrastructure dependency rules with bounded negative controls; aggregate verification 270/270; `git diff --check` and `python3 scripts/check_docs.py` passed. External review: approve, no blocking findings (2026-08-12). Tranche frozen at `c3827d7`. |
-| Frozen runtime-policy domain resolution (`REQ-RSC-46`–`53`) | passed; domain layer | Red: `dotnet build tests/Sessions/FlexAgent.Sessions.Tests/...` failed with 5 compile errors for missing resolver/policy types (2026-08-12). Green: `FlexAgent.Sessions.Tests` 77/77 after review remediation covering duration bounds, baseline resolution, timer enable/disable, lower-scope narrowing (min/max delay, invocation bounds), widening/drift/P0-ceiling rejection, timer-lane decision P0 checks, stable lowercase `policy_digest` with `domain_key`, and credential no-fallback including deployment-default provider mismatch; `FlexAgent.Architecture.Tests` 21/21; aggregate .NET 308/308; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-12). Session/manifest bind commit and PostgreSQL persistence remain next tranche. |
+| Frozen runtime-policy domain resolution (`REQ-RSC-46`–`53`) | passed; domain layer | Red: compile failures for missing resolver/policy types (2026-08-12). Green after review remediation: immutable snapshot copies, baseline content-digest verification, required P0-disabled capability set, supported contract/clock/validation-policy enforcement, unknown-scope fail-closed, overflow-safe duration parsing; `FlexAgent.Sessions.Tests` 86/86; `FlexAgent.Architecture.Tests` 21/21; aggregate .NET 317/317 (2026-08-12). Session/manifest bind commit and PostgreSQL persistence remain next tranche. |
 | Sessions domain/application focused tests | pending | |
 | PostgreSQL 18 migration/isolation/concurrency/fault tests | pending | |
 | API/worker/provider/scheduler runtime tests | pending | |

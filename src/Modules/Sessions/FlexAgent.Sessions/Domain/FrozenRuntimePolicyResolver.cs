@@ -21,6 +21,21 @@ public static partial class FrozenRuntimePolicyResolver
             return Failure(RuntimePolicyResolutionOutcomeCodes.BaselineDigestMismatch);
         }
 
+        var computedBaselineDigest =
+            RuntimePolicyEffectiveValuesDigestComputer.Compute(request.Baseline.EffectiveValues);
+        if (!string.Equals(
+                computedBaselineDigest,
+                request.ExpectedBaselineDigest,
+                StringComparison.Ordinal))
+        {
+            return Failure(RuntimePolicyResolutionOutcomeCodes.BaselineContentDigestMismatch);
+        }
+
+        if (!TryValidateScopeKinds(request.NarrowingOverrides, out var failureCode))
+        {
+            return Failure(failureCode);
+        }
+
         if (HasWidening(request.Baseline.EffectiveValues, request.NarrowingOverrides))
         {
             return Failure(RuntimePolicyResolutionOutcomeCodes.WideningRejected);
@@ -30,7 +45,7 @@ public static partial class FrozenRuntimePolicyResolver
             request.Baseline.EffectiveValues,
             request.NarrowingOverrides);
 
-        if (!TryValidateMergedValues(merged, out var failureCode))
+        if (!TryValidateMergedValues(merged, out failureCode))
         {
             return Failure(failureCode);
         }
@@ -51,6 +66,28 @@ public static partial class FrozenRuntimePolicyResolver
             policy);
     }
 
+    private static bool TryValidateScopeKinds(
+        IReadOnlyList<RuntimePolicyNarrowingOverride> overrides,
+        out string failureCode)
+    {
+        failureCode = RuntimePolicyResolutionOutcomeCodes.UnknownScopeKind;
+        foreach (var scopeOverride in overrides)
+        {
+            if (!IsKnownScopeKind(scopeOverride.ScopeKind))
+            {
+                return false;
+            }
+        }
+
+        failureCode = string.Empty;
+        return true;
+    }
+
+    private static bool IsKnownScopeKind(string scopeKind) =>
+        scopeKind is RuntimePolicyScopeKinds.Harness
+            or RuntimePolicyScopeKinds.Activity
+            or RuntimePolicyScopeKinds.Session;
+
     private static RuntimePolicyEffectiveValues MergeEffectiveValues(
         RuntimePolicyEffectiveValues baseline,
         IReadOnlyList<RuntimePolicyNarrowingOverride> overrides)
@@ -70,7 +107,7 @@ public static partial class FrozenRuntimePolicyResolver
             RuntimePolicyScopeKinds.Harness => 0,
             RuntimePolicyScopeKinds.Activity => 1,
             RuntimePolicyScopeKinds.Session => 2,
-            _ => 99,
+            _ => throw new InvalidOperationException("unknown scope"),
         };
 
     private static RuntimePolicyEffectiveValues ApplyNarrowing(
@@ -126,12 +163,20 @@ public static partial class FrozenRuntimePolicyResolver
     {
         failureCode = RuntimePolicyResolutionOutcomeCodes.InvalidPolicyValues;
 
-        if (string.IsNullOrWhiteSpace(merged.InvocationContractVersion)
-            || string.IsNullOrWhiteSpace(merged.DecisionContractVersion)
+        if (!RuntimeContractVersions.IsSupportedInvocationContractVersion(merged.InvocationContractVersion)
+            || !RuntimeContractVersions.IsSupportedDecisionContractVersion(merged.DecisionContractVersion)
+            || !RuntimeContractVersions.IsSupportedDecisionValidationPolicyVersion(
+                merged.DecisionValidationPolicyVersion)
             || merged.PermittedNonTimerTriggers is null
             || merged.PermittedDecisionTypes is null
+            || merged.DecisionSchemaBindings is null
             || merged.InvocationBounds is null
             || merged.ExplicitlyDisabledCapabilities is null)
+        {
+            return false;
+        }
+
+        if (!ValidateDecisionSchemaBindings(merged.PermittedDecisionTypes, merged.DecisionSchemaBindings))
         {
             return false;
         }
@@ -153,6 +198,30 @@ public static partial class FrozenRuntimePolicyResolver
         return true;
     }
 
+    private static bool ValidateDecisionSchemaBindings(
+        IReadOnlyList<string> permittedDecisionTypes,
+        IReadOnlyList<DecisionTypeSchemaBinding> schemaBindings)
+    {
+        if (schemaBindings.Count != permittedDecisionTypes.Count)
+        {
+            return false;
+        }
+
+        var permitted = permittedDecisionTypes.ToHashSet(StringComparer.Ordinal);
+        var bound = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var binding in schemaBindings)
+        {
+            if (!permitted.Contains(binding.DecisionType)
+                || !RuntimeContractVersions.IsSupportedAgentDecisionSchemaVersion(binding.SchemaVersion)
+                || !bound.Add(binding.DecisionType))
+            {
+                return false;
+            }
+        }
+
+        return bound.Count == permitted.Count;
+    }
+
     private static bool ValidateInvocationBounds(InvocationBounds bounds) =>
         bounds.MaxAttemptsPerInvocation > 0
         && bounds.MaxChainedInvocationsPerSession > 0
@@ -170,7 +239,10 @@ public static partial class FrozenRuntimePolicyResolver
             || timerLane.PermittedDecisionTypes is null
             || timerLane.PermittedStages.Count == 0
             || timerLane.PermittedDecisionTypes.Count == 0
-            || string.IsNullOrWhiteSpace(timerLane.ClockBasis))
+            || !string.Equals(
+                timerLane.ClockBasis,
+                TimerLaneClockBasis.ActiveSessionTime,
+                StringComparison.Ordinal))
         {
             return false;
         }
@@ -195,6 +267,11 @@ public static partial class FrozenRuntimePolicyResolver
         out string failureCode)
     {
         failureCode = RuntimePolicyResolutionOutcomeCodes.P0CapabilityExceeded;
+
+        if (!P0Kernel.ContainsRequiredExplicitlyDisabledCapabilities(merged.ExplicitlyDisabledCapabilities!))
+        {
+            return false;
+        }
 
         foreach (var trigger in merged.PermittedNonTimerTriggers!)
         {
@@ -274,6 +351,8 @@ public static partial class FrozenRuntimePolicyResolver
         var withoutDigest = new FrozenTextSessionRuntimePolicy(
             merged.InvocationContractVersion!,
             merged.DecisionContractVersion!,
+            merged.DecisionValidationPolicyVersion!,
+            merged.DecisionSchemaBindings!,
             merged.PermittedNonTimerTriggers!,
             merged.PermittedDecisionTypes!,
             merged.AgentInitiatedOpeningPermitted ?? false,
@@ -288,6 +367,8 @@ public static partial class FrozenRuntimePolicyResolver
         policy = new FrozenTextSessionRuntimePolicy(
             withoutDigest.InvocationContractVersion,
             withoutDigest.DecisionContractVersion,
+            withoutDigest.DecisionValidationPolicyVersion,
+            withoutDigest.DecisionSchemaBindings,
             withoutDigest.PermittedNonTimerTriggers,
             withoutDigest.PermittedDecisionTypes,
             withoutDigest.AgentInitiatedOpeningPermitted,

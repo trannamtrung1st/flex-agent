@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace FlexAgent.Sessions.Domain;
 
 /// <summary>
@@ -10,6 +12,8 @@ public sealed class FrozenTextSessionRuntimePolicy
     internal FrozenTextSessionRuntimePolicy(
         string invocationContractVersion,
         string decisionContractVersion,
+        string decisionValidationPolicyVersion,
+        IReadOnlyList<DecisionTypeSchemaBinding> decisionSchemaBindings,
         IReadOnlyList<RuntimeTriggerDescriptor> permittedNonTimerTriggers,
         IReadOnlyList<string> permittedDecisionTypes,
         bool agentInitiatedOpeningPermitted,
@@ -22,14 +26,16 @@ public sealed class FrozenTextSessionRuntimePolicy
     {
         InvocationContractVersion = invocationContractVersion;
         DecisionContractVersion = decisionContractVersion;
-        PermittedNonTimerTriggers = permittedNonTimerTriggers;
-        PermittedDecisionTypes = permittedDecisionTypes;
+        DecisionValidationPolicyVersion = decisionValidationPolicyVersion;
+        DecisionSchemaBindings = RuntimePolicySnapshots.CopySchemaBindings(decisionSchemaBindings);
+        PermittedNonTimerTriggers = RuntimePolicySnapshots.CopyTriggers(permittedNonTimerTriggers);
+        PermittedDecisionTypes = RuntimePolicySnapshots.CopyStrings(permittedDecisionTypes);
         AgentInitiatedOpeningPermitted = agentInitiatedOpeningPermitted;
         AgentInitiatedClosingPermitted = agentInitiatedClosingPermitted;
         NoActionPermitted = noActionPermitted;
         InvocationBounds = invocationBounds;
         TimerLane = timerLane;
-        ExplicitlyDisabledCapabilities = explicitlyDisabledCapabilities;
+        ExplicitlyDisabledCapabilities = RuntimePolicySnapshots.CopyStrings(explicitlyDisabledCapabilities);
         PolicyDigest = policyDigest;
         IsTimerTriggerPermitted = timerLane is { IsEnabled: true };
     }
@@ -37,6 +43,10 @@ public sealed class FrozenTextSessionRuntimePolicy
     public string InvocationContractVersion { get; }
 
     public string DecisionContractVersion { get; }
+
+    public string DecisionValidationPolicyVersion { get; }
+
+    public IReadOnlyList<DecisionTypeSchemaBinding> DecisionSchemaBindings { get; }
 
     public IReadOnlyList<RuntimeTriggerDescriptor> PermittedNonTimerTriggers { get; }
 

@@ -51,7 +51,29 @@ public sealed class FrozenRuntimePolicyResolverTests
     }
 
     [Fact]
-    public void Resolve_rejects_baseline_digest_drift()
+    public void Resolve_rejects_baseline_content_digest_when_effective_values_tampered()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var tampered = baseline with
+        {
+            EffectiveValues = baseline.EffectiveValues with
+            {
+                InvocationBounds = baseline.EffectiveValues.InvocationBounds! with
+                {
+                    MaxAttemptsPerInvocation = 99,
+                },
+            },
+        };
+
+        var result = FrozenRuntimePolicyResolver.Resolve(
+            RuntimePolicyTestFixtures.CreateResolutionRequest(tampered));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.BaselineContentDigestMismatch, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Resolve_rejects_baseline_digest_metadata_mismatch()
     {
         var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
         var request = new RuntimePolicyResolutionRequest(
@@ -187,17 +209,14 @@ public sealed class FrozenRuntimePolicyResolverTests
     [Fact]
     public void Resolve_fails_closed_when_required_positive_bounds_are_missing()
     {
-        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
-        var invalid = baseline with
+        var invalidValues = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with
         {
-            EffectiveValues = baseline.EffectiveValues with
+            InvocationBounds = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues().InvocationBounds! with
             {
-                InvocationBounds = baseline.EffectiveValues.InvocationBounds! with
-                {
-                    MaxAttemptsPerInvocation = 0,
-                },
+                MaxAttemptsPerInvocation = 0,
             },
         };
+        var invalid = RuntimePolicyTestFixtures.CreateBaseline(invalidValues);
 
         var result = FrozenRuntimePolicyResolver.Resolve(
             RuntimePolicyTestFixtures.CreateResolutionRequest(invalid));
@@ -209,18 +228,15 @@ public sealed class FrozenRuntimePolicyResolverTests
     [Fact]
     public void Resolve_fails_closed_for_deferred_trigger_not_supported_by_p0_kernel()
     {
-        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
-        var invalid = baseline with
+        var invalidValues = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with
         {
-            EffectiveValues = baseline.EffectiveValues with
-            {
-                PermittedNonTimerTriggers =
-                [
-                    ..baseline.EffectiveValues.PermittedNonTimerTriggers!,
-                    new RuntimeTriggerDescriptor("tool_result", "tool_result.participant_tool"),
-                ],
-            },
+            PermittedNonTimerTriggers =
+            [
+                ..RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues().PermittedNonTimerTriggers!,
+                new RuntimeTriggerDescriptor("tool_result", "tool_result.participant_tool"),
+            ],
         };
+        var invalid = RuntimePolicyTestFixtures.CreateBaseline(invalidValues);
 
         var result = FrozenRuntimePolicyResolver.Resolve(
             RuntimePolicyTestFixtures.CreateResolutionRequest(invalid));
@@ -232,18 +248,20 @@ public sealed class FrozenRuntimePolicyResolverTests
     [Fact]
     public void Resolve_fails_closed_for_deferred_decision_type()
     {
-        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
-        var invalid = baseline with
+        var invalidValues = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with
         {
-            EffectiveValues = baseline.EffectiveValues with
-            {
-                PermittedDecisionTypes =
-                [
-                    RuntimeDecisionTypes.EmitMessage,
-                    RuntimeDecisionTypes.RequestTool,
-                ],
-            },
+            PermittedDecisionTypes =
+            [
+                RuntimeDecisionTypes.EmitMessage,
+                RuntimeDecisionTypes.RequestTool,
+            ],
+            DecisionSchemaBindings =
+            [
+                new DecisionTypeSchemaBinding(RuntimeDecisionTypes.EmitMessage, RuntimeContractVersions.AgentDecisionSchemaV1),
+                new DecisionTypeSchemaBinding(RuntimeDecisionTypes.RequestTool, RuntimeContractVersions.AgentDecisionSchemaV1),
+            ],
         };
+        var invalid = RuntimePolicyTestFixtures.CreateBaseline(invalidValues);
 
         var result = FrozenRuntimePolicyResolver.Resolve(
             RuntimePolicyTestFixtures.CreateResolutionRequest(invalid));
@@ -255,23 +273,122 @@ public sealed class FrozenRuntimePolicyResolverTests
     [Fact]
     public void Resolve_fails_closed_for_deferred_timer_lane_decision_type()
     {
-        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
-        var invalid = baseline with
+        var enabledValues = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues();
+        var invalidValues = enabledValues with
         {
-            EffectiveValues = baseline.EffectiveValues with
+            TimerLane = enabledValues.TimerLane! with
             {
-                TimerLane = baseline.EffectiveValues.TimerLane! with
-                {
-                    PermittedDecisionTypes = [RuntimeDecisionTypes.EmitMessage, RuntimeDecisionTypes.RequestTool],
-                },
+                PermittedDecisionTypes = [RuntimeDecisionTypes.EmitMessage, RuntimeDecisionTypes.RequestTool],
             },
         };
+        var invalid = RuntimePolicyTestFixtures.CreateBaseline(invalidValues);
 
         var result = FrozenRuntimePolicyResolver.Resolve(
             RuntimePolicyTestFixtures.CreateResolutionRequest(invalid));
 
         Assert.False(result.Succeeded);
         Assert.Equal(RuntimePolicyResolutionOutcomeCodes.P0CapabilityExceeded, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Resolve_fails_closed_when_required_p0_disabled_capabilities_are_missing()
+    {
+        var invalidValues = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with
+        {
+            ExplicitlyDisabledCapabilities = [],
+        };
+        var invalid = RuntimePolicyTestFixtures.CreateBaseline(invalidValues);
+
+        var result = FrozenRuntimePolicyResolver.Resolve(
+            RuntimePolicyTestFixtures.CreateResolutionRequest(invalid));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.P0CapabilityExceeded, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Resolve_fails_closed_for_unsupported_contract_version()
+    {
+        var invalidValues = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with
+        {
+            InvocationContractVersion = "future-v99",
+        };
+        var invalid = RuntimePolicyTestFixtures.CreateBaseline(invalidValues);
+
+        var result = FrozenRuntimePolicyResolver.Resolve(
+            RuntimePolicyTestFixtures.CreateResolutionRequest(invalid));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.InvalidPolicyValues, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Resolve_fails_closed_for_unsupported_timer_clock_basis()
+    {
+        var enabledValues = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues();
+        var invalidValues = enabledValues with
+        {
+            TimerLane = enabledValues.TimerLane! with { ClockBasis = "wall_clock" },
+        };
+        var invalid = RuntimePolicyTestFixtures.CreateBaseline(invalidValues);
+
+        var result = FrozenRuntimePolicyResolver.Resolve(
+            RuntimePolicyTestFixtures.CreateResolutionRequest(invalid));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.InvalidPolicyValues, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Resolve_fails_closed_for_unknown_scope_kind()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var request = RuntimePolicyTestFixtures.CreateResolutionRequest(
+            baseline,
+            new RuntimePolicyNarrowingOverride(
+                "campaign",
+                new RuntimePolicyNarrowingValues { MaxAttemptsPerInvocation = 2 }));
+
+        var result = FrozenRuntimePolicyResolver.Resolve(request);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.UnknownScopeKind, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Resolved_policy_is_immutable_after_source_collection_mutation()
+    {
+        var triggers = new List<RuntimeTriggerDescriptor>(
+            RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues().PermittedNonTimerTriggers!);
+        var decisions = new List<string> { RuntimeDecisionTypes.EmitMessage, RuntimeDecisionTypes.NoAction };
+        var disabled = P0TextSessionRuntimeCapabilityPolicy.RequiredExplicitlyDisabledCapabilities.ToList();
+        var schemaBindings = RuntimePolicyTestFixtures.CreateP0DecisionSchemaBindings().ToList();
+
+        var values = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with
+        {
+            PermittedNonTimerTriggers = triggers,
+            PermittedDecisionTypes = decisions,
+            ExplicitlyDisabledCapabilities = disabled,
+            DecisionSchemaBindings = schemaBindings,
+        };
+        var baseline = RuntimePolicyTestFixtures.CreateBaseline(values);
+        var result = FrozenRuntimePolicyResolver.Resolve(
+            RuntimePolicyTestFixtures.CreateResolutionRequest(baseline));
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        var digestBefore = result.Policy!.PolicyDigest;
+        var decisionCountBefore = result.Policy.PermittedDecisionTypes.Count;
+
+        triggers.Add(new RuntimeTriggerDescriptor("tool_result", "tool_result.participant_tool"));
+        decisions.Add(RuntimeDecisionTypes.RequestTool);
+        disabled.Clear();
+        schemaBindings.Add(new DecisionTypeSchemaBinding(RuntimeDecisionTypes.RequestTool, "v99"));
+
+        Assert.Equal(decisionCountBefore, result.Policy.PermittedDecisionTypes.Count);
+        Assert.DoesNotContain(
+            result.Policy.PermittedDecisionTypes,
+            decisionType => decisionType == RuntimeDecisionTypes.RequestTool);
+        Assert.Equal(digestBefore, result.Policy.PolicyDigest);
     }
 
     [Fact]

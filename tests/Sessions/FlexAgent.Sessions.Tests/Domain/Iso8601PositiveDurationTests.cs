@@ -28,6 +28,16 @@ public sealed class Iso8601PositiveDurationTests
         Assert.False(Iso8601PositiveDuration.TryParse(duration, out _));
     }
 
+    [Theory]
+    [InlineData("PT999999999999H")]
+    [InlineData("PT2147483647H")]
+    public void Overflow_durations_are_rejected_without_throwing(string duration)
+    {
+        var ex = Record.Exception(() => Iso8601PositiveDuration.TryParse(duration, out _));
+        Assert.Null(ex);
+        Assert.False(Iso8601PositiveDuration.TryParse(duration, out _));
+    }
+
     [Fact]
     public void Parsed_durations_compare_by_total_seconds()
     {

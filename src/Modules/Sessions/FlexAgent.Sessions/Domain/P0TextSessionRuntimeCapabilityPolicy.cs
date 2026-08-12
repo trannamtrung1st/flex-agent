@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace FlexAgent.Sessions.Domain;
 
 public static class RuntimeCapabilityIdentifiers
@@ -66,6 +68,24 @@ public sealed class P0TextSessionRuntimeCapabilityPolicy
         (RuntimeTriggerIdentifiers.WorkflowEventFamily, RuntimeTriggerIdentifiers.AgentClosingType),
     ];
 
+    private static readonly ImmutableArray<string> RequiredExplicitlyDisabledCapabilityList =
+    [
+        RuntimeCapabilityIdentifiers.VoiceInteraction,
+        RuntimeCapabilityIdentifiers.InteractionController,
+        RuntimeCapabilityIdentifiers.SilenceDrivenTrigger,
+        RuntimeCapabilityIdentifiers.ParticipantSessionTools,
+        RuntimeCapabilityIdentifiers.ToolResultTrigger,
+        RuntimeCapabilityIdentifiers.ToolExecution,
+        RuntimeCapabilityIdentifiers.ParallelTimerLane,
+        RuntimeCapabilityIdentifiers.ArbitraryTimerLane,
+        RuntimeCapabilityIdentifiers.ConfigurableWorkflowTriggers,
+        RuntimeCapabilityIdentifiers.DynamicMemoryWrite,
+        RuntimeCapabilityIdentifiers.DynamicMemoryLearning,
+        RuntimeCapabilityIdentifiers.SharedSession,
+        RuntimeCapabilityIdentifiers.ModelAuthorizedEvaluation,
+        RuntimeCapabilityIdentifiers.ModelAuthorizedResultRelease,
+    ];
+
     private P0TextSessionRuntimeCapabilityPolicy()
     {
     }
@@ -78,6 +98,28 @@ public sealed class P0TextSessionRuntimeCapabilityPolicy
     public bool SupportsOptionalTimerLane => true;
 
     public static P0TextSessionRuntimeCapabilityPolicy Create() => new();
+
+    public static ImmutableArray<string> RequiredExplicitlyDisabledCapabilities =>
+        RequiredExplicitlyDisabledCapabilityList;
+
+    public bool ContainsRequiredExplicitlyDisabledCapabilities(IReadOnlyList<string> disabledCapabilities)
+    {
+        if (disabledCapabilities is null || disabledCapabilities.Count == 0)
+        {
+            return false;
+        }
+
+        var disabled = disabledCapabilities.ToHashSet(StringComparer.Ordinal);
+        foreach (var required in RequiredExplicitlyDisabledCapabilityList)
+        {
+            if (!disabled.Contains(required))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     public bool IsTriggerSupportedByP0(string triggerFamily, string triggerType)
     {
