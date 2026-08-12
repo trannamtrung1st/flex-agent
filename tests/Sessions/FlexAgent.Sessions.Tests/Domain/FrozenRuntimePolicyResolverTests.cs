@@ -207,6 +207,158 @@ public sealed class FrozenRuntimePolicyResolverTests
     }
 
     [Fact]
+    public void Lower_scope_may_narrow_timer_permitted_decision_types_to_subset()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var request = RuntimePolicyTestFixtures.CreateResolutionRequest(
+            baseline,
+            new RuntimePolicyNarrowingOverride(
+                RuntimePolicyScopeKinds.Session,
+                new RuntimePolicyNarrowingValues
+                {
+                    TimerPermittedDecisionTypes = [RuntimeDecisionTypes.NoAction],
+                }));
+
+        var result = FrozenRuntimePolicyResolver.Resolve(request);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(
+            [RuntimeDecisionTypes.NoAction],
+            result.Policy!.TimerLane!.PermittedDecisionTypes);
+    }
+
+    [Fact]
+    public void Lower_scope_cannot_widen_timer_permitted_decision_types()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var request = RuntimePolicyTestFixtures.CreateResolutionRequest(
+            baseline,
+            new RuntimePolicyNarrowingOverride(
+                RuntimePolicyScopeKinds.Session,
+                new RuntimePolicyNarrowingValues
+                {
+                    TimerPermittedDecisionTypes =
+                    [
+                        RuntimeDecisionTypes.EmitMessage,
+                        RuntimeDecisionTypes.NoAction,
+                        RuntimeDecisionTypes.RequestTool,
+                    ],
+                }));
+
+        var result = FrozenRuntimePolicyResolver.Resolve(request);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.WideningRejected, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Lower_scope_may_narrow_timer_permitted_stages_to_subset()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateMultiStageTimerBaseline();
+        var request = RuntimePolicyTestFixtures.CreateResolutionRequest(
+            baseline,
+            new RuntimePolicyNarrowingOverride(
+                RuntimePolicyScopeKinds.Activity,
+                new RuntimePolicyNarrowingValues
+                {
+                    TimerPermittedStages = ["active"],
+                }));
+
+        var result = FrozenRuntimePolicyResolver.Resolve(request);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(["active"], result.Policy!.TimerLane!.PermittedStages);
+    }
+
+    [Fact]
+    public void Lower_scope_cannot_widen_timer_permitted_stages()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var request = RuntimePolicyTestFixtures.CreateResolutionRequest(
+            baseline,
+            new RuntimePolicyNarrowingOverride(
+                RuntimePolicyScopeKinds.Session,
+                new RuntimePolicyNarrowingValues
+                {
+                    TimerPermittedStages = ["active", "paused"],
+                }));
+
+        var result = FrozenRuntimePolicyResolver.Resolve(request);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.WideningRejected, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Lower_scope_may_tighten_timer_replacement_budget()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var request = RuntimePolicyTestFixtures.CreateResolutionRequest(
+            baseline,
+            new RuntimePolicyNarrowingOverride(
+                RuntimePolicyScopeKinds.Session,
+                new RuntimePolicyNarrowingValues
+                {
+                    TimerBudgets = new TimerLaneBudgetsNarrowing
+                    {
+                        MaxAcceptedReplacementsPerSession = 3,
+                        MaxTimerTriggeredInvocationsPerSession = 5,
+                        CooldownSeconds = 20,
+                        DuplicateSuppressionWindowSeconds = 45,
+                    },
+                }));
+
+        var result = FrozenRuntimePolicyResolver.Resolve(request);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(3, result.Policy!.TimerLane!.Budgets.MaxAcceptedReplacementsPerSession);
+        Assert.Equal(5, result.Policy.TimerLane.Budgets.MaxTimerTriggeredInvocationsPerSession);
+        Assert.Equal(20, result.Policy.TimerLane.Budgets.CooldownSeconds);
+        Assert.Equal(45, result.Policy.TimerLane.Budgets.DuplicateSuppressionWindowSeconds);
+    }
+
+    [Fact]
+    public void Lower_scope_cannot_widen_timer_replacement_budget()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var request = RuntimePolicyTestFixtures.CreateResolutionRequest(
+            baseline,
+            new RuntimePolicyNarrowingOverride(
+                RuntimePolicyScopeKinds.Harness,
+                new RuntimePolicyNarrowingValues
+                {
+                    TimerBudgets = new TimerLaneBudgetsNarrowing
+                    {
+                        MaxAcceptedReplacementsPerSession = 8,
+                    },
+                }));
+
+        var result = FrozenRuntimePolicyResolver.Resolve(request);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.WideningRejected, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Lower_scope_cannot_loosen_timer_cooldown_budget()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var request = RuntimePolicyTestFixtures.CreateResolutionRequest(
+            baseline,
+            new RuntimePolicyNarrowingOverride(
+                RuntimePolicyScopeKinds.Session,
+                new RuntimePolicyNarrowingValues
+                {
+                    TimerBudgets = new TimerLaneBudgetsNarrowing { CooldownSeconds = 5 },
+                }));
+
+        var result = FrozenRuntimePolicyResolver.Resolve(request);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.WideningRejected, result.OutcomeCode);
+    }
+
+    [Fact]
     public void Resolve_fails_closed_when_required_positive_bounds_are_missing()
     {
         var invalidValues = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with

@@ -128,11 +128,32 @@ public static partial class FrozenRuntimePolicyResolver
 
         if (timerLane is not null)
         {
+            var budgets = timerLane.Budgets;
+            if (narrowing.TimerBudgets is not null && budgets is not null)
+            {
+                budgets = budgets with
+                {
+                    MaxAcceptedReplacementsPerSession = narrowing.TimerBudgets.MaxAcceptedReplacementsPerSession
+                        ?? budgets.MaxAcceptedReplacementsPerSession,
+                    MaxTimerTriggeredInvocationsPerSession = narrowing.TimerBudgets.MaxTimerTriggeredInvocationsPerSession
+                        ?? budgets.MaxTimerTriggeredInvocationsPerSession,
+                    CooldownSeconds = narrowing.TimerBudgets.CooldownSeconds
+                        ?? budgets.CooldownSeconds,
+                    MaxConcurrentReplacements = narrowing.TimerBudgets.MaxConcurrentReplacements
+                        ?? budgets.MaxConcurrentReplacements,
+                    DuplicateSuppressionWindowSeconds = narrowing.TimerBudgets.DuplicateSuppressionWindowSeconds
+                        ?? budgets.DuplicateSuppressionWindowSeconds,
+                };
+            }
+
             timerLane = timerLane with
             {
                 DefaultDelay = narrowing.DefaultDelay ?? timerLane.DefaultDelay,
                 MinRequestedDelay = narrowing.MinRequestedDelay ?? timerLane.MinRequestedDelay,
                 MaxRequestedDelay = narrowing.MaxRequestedDelay ?? timerLane.MaxRequestedDelay,
+                PermittedStages = narrowing.TimerPermittedStages ?? timerLane.PermittedStages,
+                PermittedDecisionTypes = narrowing.TimerPermittedDecisionTypes ?? timerLane.PermittedDecisionTypes,
+                Budgets = budgets,
             };
         }
 
@@ -429,6 +450,30 @@ public static partial class FrozenRuntimePolicyResolver
             {
                 return true;
             }
+
+            if (narrowing.TimerPermittedStages is not null
+                && baselineTimer.PermittedStages is not null
+                && IsCapabilityWidening(baselineTimer.PermittedStages, narrowing.TimerPermittedStages))
+            {
+                return true;
+            }
+
+            if (narrowing.TimerPermittedDecisionTypes is not null
+                && baselineTimer.PermittedDecisionTypes is not null
+                && IsCapabilityWidening(
+                    baselineTimer.PermittedDecisionTypes,
+                    narrowing.TimerPermittedDecisionTypes))
+            {
+                return true;
+            }
+
+            if (narrowing.TimerBudgets is not null && baselineTimer.Budgets is not null)
+            {
+                if (IsTimerBudgetWidening(baselineTimer.Budgets, narrowing.TimerBudgets))
+                {
+                    return true;
+                }
+            }
         }
 
         if (baseline.InvocationBounds is not null)
@@ -445,6 +490,59 @@ public static partial class FrozenRuntimePolicyResolver
             {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    private static bool IsCapabilityWidening(
+        IReadOnlyList<string> baselineValues,
+        IReadOnlyList<string> narrowedValues)
+    {
+        if (narrowedValues.Count == 0)
+        {
+            return false;
+        }
+
+        var baselineSet = baselineValues.ToHashSet(StringComparer.Ordinal);
+        return narrowedValues.Any(value => !baselineSet.Contains(value));
+    }
+
+    private static bool IsTimerBudgetWidening(
+        TimerLaneBudgets baselineBudgets,
+        TimerLaneBudgetsNarrowing narrowing)
+    {
+        if (narrowing.MaxAcceptedReplacementsPerSession is not null
+            && narrowing.MaxAcceptedReplacementsPerSession.Value
+                > baselineBudgets.MaxAcceptedReplacementsPerSession)
+        {
+            return true;
+        }
+
+        if (narrowing.MaxTimerTriggeredInvocationsPerSession is not null
+            && narrowing.MaxTimerTriggeredInvocationsPerSession.Value
+                > baselineBudgets.MaxTimerTriggeredInvocationsPerSession)
+        {
+            return true;
+        }
+
+        if (narrowing.CooldownSeconds is not null
+            && narrowing.CooldownSeconds.Value < baselineBudgets.CooldownSeconds)
+        {
+            return true;
+        }
+
+        if (narrowing.MaxConcurrentReplacements is not null
+            && narrowing.MaxConcurrentReplacements.Value > baselineBudgets.MaxConcurrentReplacements)
+        {
+            return true;
+        }
+
+        if (narrowing.DuplicateSuppressionWindowSeconds is not null
+            && narrowing.DuplicateSuppressionWindowSeconds.Value
+                < baselineBudgets.DuplicateSuppressionWindowSeconds)
+        {
+            return true;
         }
 
         return false;

@@ -150,6 +150,46 @@ public sealed class ModelDeploymentCredentialBindingResolverTests
     }
 
     [Fact]
+    public void Resolve_fails_closed_when_organization_binding_reference_is_present_without_version()
+    {
+        var request = new ModelDeploymentCredentialBindingRequest(
+            OrganizationId,
+            "openai",
+            OrganizationBindingReference: "binding.org.0001",
+            OrganizationBindingVersion: null,
+            DeploymentDefaultBindingReference: "binding.deploy.0001",
+            DeploymentDefaultBindingVersion: "v1",
+            OrganizationBindingRevoked: false,
+            OrganizationBindingProviderMismatch: false,
+            OrganizationBindingWrongOrganization: false);
+
+        var result = ModelDeploymentCredentialBindingResolver.Resolve(request);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ModelDeploymentCredentialBindingOutcomeCodes.BindingIncomplete, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Resolve_fails_closed_when_deployment_default_binding_version_is_present_without_reference()
+    {
+        var request = new ModelDeploymentCredentialBindingRequest(
+            OrganizationId,
+            "openai",
+            OrganizationBindingReference: null,
+            OrganizationBindingVersion: null,
+            DeploymentDefaultBindingReference: null,
+            DeploymentDefaultBindingVersion: "v1",
+            OrganizationBindingRevoked: false,
+            OrganizationBindingProviderMismatch: false,
+            OrganizationBindingWrongOrganization: false);
+
+        var result = ModelDeploymentCredentialBindingResolver.Resolve(request);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ModelDeploymentCredentialBindingOutcomeCodes.BindingIncomplete, result.OutcomeCode);
+    }
+
+    [Fact]
     public void Resolve_fails_closed_when_deployment_default_binding_provider_mismatches()
     {
         var request = new ModelDeploymentCredentialBindingRequest(

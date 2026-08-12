@@ -71,6 +71,21 @@ internal static class RuntimePolicyTestFixtures
     internal static RuntimePolicyBaselineSource CreateEnabledTimerBaseline() =>
         CreateBaseline(CreateEnabledTimerEffectiveValues());
 
+    internal static RuntimePolicyEffectiveValues CreateMultiStageTimerEffectiveValues()
+    {
+        var values = CreateEnabledTimerEffectiveValues();
+        return values with
+        {
+            TimerLane = values.TimerLane! with
+            {
+                PermittedStages = ["active", "paused"],
+            },
+        };
+    }
+
+    internal static RuntimePolicyBaselineSource CreateMultiStageTimerBaseline() =>
+        CreateBaseline(CreateMultiStageTimerEffectiveValues());
+
     internal static RuntimePolicyBaselineSource CreateDisabledTimerBaseline()
     {
         var values = CreateEnabledTimerEffectiveValues() with

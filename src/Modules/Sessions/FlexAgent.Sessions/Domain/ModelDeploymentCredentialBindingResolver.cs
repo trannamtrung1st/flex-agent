@@ -4,6 +4,7 @@ public static class ModelDeploymentCredentialBindingOutcomeCodes
 {
     public const string Succeeded = "model_deployment_credential_binding.succeeded";
     public const string BindingMissing = "model_deployment_credential_binding.missing";
+    public const string BindingIncomplete = "model_deployment_credential_binding.incomplete";
     public const string BindingRevoked = "model_deployment_credential_binding.revoked";
     public const string BindingWrongOrganization = "model_deployment_credential_binding.wrong_organization";
     public const string BindingProviderMismatch = "model_deployment_credential_binding.provider_mismatch";
@@ -39,12 +40,38 @@ public sealed record ModelDeploymentCredentialBindingResult(
     string OutcomeCode,
     ModelDeploymentCredentialBinding? Binding);
 
+internal readonly record struct CredentialBindingCandidate(string? Reference, string? Version)
+{
+    internal bool IsAbsent =>
+        string.IsNullOrWhiteSpace(Reference) && string.IsNullOrWhiteSpace(Version);
+
+    internal bool IsComplete =>
+        !string.IsNullOrWhiteSpace(Reference) && !string.IsNullOrWhiteSpace(Version);
+
+    internal bool IsIncomplete => !IsAbsent && !IsComplete;
+
+    internal static CredentialBindingCandidate From(string? reference, string? version) =>
+        new(reference, version);
+}
+
 public static class ModelDeploymentCredentialBindingResolver
 {
     public static ModelDeploymentCredentialBindingResult Resolve(
         ModelDeploymentCredentialBindingRequest request)
     {
-        if (HasOrganizationBinding(request))
+        var organizationCandidate = CredentialBindingCandidate.From(
+            request.OrganizationBindingReference,
+            request.OrganizationBindingVersion);
+        var deploymentDefaultCandidate = CredentialBindingCandidate.From(
+            request.DeploymentDefaultBindingReference,
+            request.DeploymentDefaultBindingVersion);
+
+        if (organizationCandidate.IsIncomplete || deploymentDefaultCandidate.IsIncomplete)
+        {
+            return Failure(ModelDeploymentCredentialBindingOutcomeCodes.BindingIncomplete);
+        }
+
+        if (organizationCandidate.IsComplete)
         {
             if (request.OrganizationBindingWrongOrganization)
             {
@@ -68,7 +95,7 @@ public static class ModelDeploymentCredentialBindingResolver
                 ModelDeploymentCredentialBindingSource.Organization);
         }
 
-        if (HasDeploymentDefaultBinding(request))
+        if (deploymentDefaultCandidate.IsComplete)
         {
             if (request.DeploymentDefaultBindingProviderMismatch)
             {
@@ -84,14 +111,6 @@ public static class ModelDeploymentCredentialBindingResolver
 
         return Failure(ModelDeploymentCredentialBindingOutcomeCodes.BindingMissing);
     }
-
-    private static bool HasOrganizationBinding(ModelDeploymentCredentialBindingRequest request) =>
-        !string.IsNullOrWhiteSpace(request.OrganizationBindingReference)
-        && !string.IsNullOrWhiteSpace(request.OrganizationBindingVersion);
-
-    private static bool HasDeploymentDefaultBinding(ModelDeploymentCredentialBindingRequest request) =>
-        !string.IsNullOrWhiteSpace(request.DeploymentDefaultBindingReference)
-        && !string.IsNullOrWhiteSpace(request.DeploymentDefaultBindingVersion);
 
     private static ModelDeploymentCredentialBindingResult Success(
         ModelDeploymentCredentialBindingRequest request,

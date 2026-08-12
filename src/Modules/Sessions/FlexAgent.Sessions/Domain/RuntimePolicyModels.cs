@@ -160,9 +160,28 @@ public sealed record RuntimePolicyNarrowingValues
 
     public string? MaxRequestedDelay { get; init; }
 
+    public IReadOnlyList<string>? TimerPermittedStages { get; init; }
+
+    public IReadOnlyList<string>? TimerPermittedDecisionTypes { get; init; }
+
+    public TimerLaneBudgetsNarrowing? TimerBudgets { get; init; }
+
     public int? MaxAttemptsPerInvocation { get; init; }
 
     public int? MaxChainedInvocationsPerSession { get; init; }
+}
+
+public sealed record TimerLaneBudgetsNarrowing
+{
+    public int? MaxAcceptedReplacementsPerSession { get; init; }
+
+    public int? MaxTimerTriggeredInvocationsPerSession { get; init; }
+
+    public int? CooldownSeconds { get; init; }
+
+    public int? MaxConcurrentReplacements { get; init; }
+
+    public int? DuplicateSuppressionWindowSeconds { get; init; }
 }
 
 public sealed record RuntimePolicyBaselineSource(
