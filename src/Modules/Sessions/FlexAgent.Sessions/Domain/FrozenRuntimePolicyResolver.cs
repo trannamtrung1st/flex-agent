@@ -21,6 +21,12 @@ public static partial class FrozenRuntimePolicyResolver
             return Failure(RuntimePolicyResolutionOutcomeCodes.BaselineDigestMismatch);
         }
 
+        if (!RuntimePolicyEffectiveValuesValidator.HasRequiredCommunicationPolicy(
+                request.Baseline.EffectiveValues))
+        {
+            return Failure(RuntimePolicyResolutionOutcomeCodes.InvalidPolicyValues);
+        }
+
         var computedBaselineDigest =
             RuntimePolicyEffectiveValuesDigestComputer.Compute(request.Baseline.EffectiveValues);
         if (!string.Equals(
@@ -192,7 +198,8 @@ public static partial class FrozenRuntimePolicyResolver
             || merged.PermittedDecisionTypes is null
             || merged.DecisionSchemaBindings is null
             || merged.InvocationBounds is null
-            || merged.ExplicitlyDisabledCapabilities is null)
+            || merged.ExplicitlyDisabledCapabilities is null
+            || !RuntimePolicyEffectiveValuesValidator.HasRequiredCommunicationPolicy(merged))
         {
             return false;
         }
@@ -376,9 +383,9 @@ public static partial class FrozenRuntimePolicyResolver
             merged.DecisionSchemaBindings!,
             merged.PermittedNonTimerTriggers!,
             merged.PermittedDecisionTypes!,
-            merged.AgentInitiatedOpeningPermitted ?? false,
-            merged.AgentInitiatedClosingPermitted ?? false,
-            merged.NoActionPermitted ?? false,
+            merged.AgentInitiatedOpeningPermitted!.Value,
+            merged.AgentInitiatedClosingPermitted!.Value,
+            merged.NoActionPermitted!.Value,
             merged.InvocationBounds!,
             timerLane,
             merged.ExplicitlyDisabledCapabilities!,
@@ -447,6 +454,15 @@ public static partial class FrozenRuntimePolicyResolver
                 && Iso8601PositiveDuration.TryParse(baselineTimer.MinRequestedDelay, out var baselineMin)
                 && Iso8601PositiveDuration.TryParse(narrowing.MinRequestedDelay, out var narrowedMin)
                 && narrowedMin.CompareTo(baselineMin) < 0)
+            {
+                return true;
+            }
+
+            // Shorter default delay increases timer cadence; only lengthening the default is narrowing.
+            if (narrowing.DefaultDelay is not null
+                && Iso8601PositiveDuration.TryParse(baselineTimer.DefaultDelay, out var baselineDefault)
+                && Iso8601PositiveDuration.TryParse(narrowing.DefaultDelay, out var narrowedDefault)
+                && narrowedDefault.CompareTo(baselineDefault) < 0)
             {
                 return true;
             }

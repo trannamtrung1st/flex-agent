@@ -208,6 +208,15 @@ public sealed record RuntimePolicyResolutionResult(
 /// </summary>
 public static class RuntimePolicyBaselineContentDigest
 {
-    public static string Compute(RuntimePolicyEffectiveValues values) =>
-        RuntimePolicyEffectiveValuesDigestComputer.Compute(values);
+    public static string Compute(RuntimePolicyEffectiveValues values)
+    {
+        if (!RuntimePolicyEffectiveValuesValidator.HasRequiredCommunicationPolicy(values))
+        {
+            throw new ArgumentException(
+                "Agent-initiated communication and no-action policy flags must be explicit.",
+                nameof(values));
+        }
+
+        return RuntimePolicyEffectiveValuesDigestComputer.Compute(values);
+    }
 }

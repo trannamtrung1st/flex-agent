@@ -68,13 +68,13 @@ internal static class RuntimePolicyEffectiveValuesDigestComputer
                 writer.WriteEndObject();
             }
 
-            writer.WriteBoolean("no_action_permitted", values.NoActionPermitted ?? false);
+            writer.WriteBoolean("no_action_permitted", values.NoActionPermitted!.Value);
             writer.WriteBoolean(
                 "agent_initiated_opening_permitted",
-                values.AgentInitiatedOpeningPermitted ?? false);
+                values.AgentInitiatedOpeningPermitted!.Value);
             writer.WriteBoolean(
                 "agent_initiated_closing_permitted",
-                values.AgentInitiatedClosingPermitted ?? false);
+                values.AgentInitiatedClosingPermitted!.Value);
 
             writer.WritePropertyName("permitted_decision_types");
             writer.WriteStartArray();

@@ -175,6 +175,38 @@ public sealed class FrozenRuntimePolicyResolverTests
     }
 
     [Fact]
+    public void Lower_scope_cannot_shorten_timer_default_delay()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var request = RuntimePolicyTestFixtures.CreateResolutionRequest(
+            baseline,
+            new RuntimePolicyNarrowingOverride(
+                RuntimePolicyScopeKinds.Session,
+                new RuntimePolicyNarrowingValues { DefaultDelay = "PT1M" }));
+
+        var result = FrozenRuntimePolicyResolver.Resolve(request);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.WideningRejected, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Lower_scope_may_lengthen_timer_default_delay_within_bounds()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var request = RuntimePolicyTestFixtures.CreateResolutionRequest(
+            baseline,
+            new RuntimePolicyNarrowingOverride(
+                RuntimePolicyScopeKinds.Activity,
+                new RuntimePolicyNarrowingValues { DefaultDelay = "PT10M" }));
+
+        var result = FrozenRuntimePolicyResolver.Resolve(request);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal("PT10M", result.Policy!.TimerLane!.DefaultDelay.WireValue);
+    }
+
+    [Fact]
     public void Lower_scope_cannot_loosen_invocation_attempt_bound()
     {
         var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
@@ -375,6 +407,48 @@ public sealed class FrozenRuntimePolicyResolverTests
 
         Assert.False(result.Succeeded);
         Assert.Equal(RuntimePolicyResolutionOutcomeCodes.InvalidPolicyValues, result.OutcomeCode);
+    }
+
+    public static TheoryData<Func<RuntimePolicyEffectiveValues, RuntimePolicyEffectiveValues>>
+        MissingCommunicationPolicyCases =>
+        new()
+        {
+            values => values with { AgentInitiatedOpeningPermitted = null },
+            values => values with { AgentInitiatedClosingPermitted = null },
+            values => values with { NoActionPermitted = null },
+        };
+
+    [Theory]
+    [MemberData(nameof(MissingCommunicationPolicyCases))]
+    public void Resolve_fails_closed_when_required_communication_policy_flag_is_missing(
+        Func<RuntimePolicyEffectiveValues, RuntimePolicyEffectiveValues> clearFlag)
+    {
+        var values = clearFlag(RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues());
+        var referenceBaseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var baseline = new RuntimePolicyBaselineSource(
+            RuntimePolicyTestFixtures.BaselineId,
+            referenceBaseline.BaselineDigest,
+            values);
+
+        var result = FrozenRuntimePolicyResolver.Resolve(
+            RuntimePolicyTestFixtures.CreateResolutionRequest(baseline));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.InvalidPolicyValues, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Baseline_content_digest_compute_fails_when_communication_policy_is_incomplete()
+    {
+        var values = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with
+        {
+            NoActionPermitted = null,
+        };
+
+        var exception = Assert.Throws<ArgumentException>(
+            () => RuntimePolicyBaselineContentDigest.Compute(values));
+
+        Assert.Contains("no-action", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

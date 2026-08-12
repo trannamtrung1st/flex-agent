@@ -392,9 +392,9 @@ and test reviews have no unresolved blocking findings.
     non-widening enforcement, stable `policy_digest` via `rsc-jcs-sha256-v1`
     canonical JSON, and opaque credential-binding resolution without fallback
     (`REQ-RSC-46`–`53`, `AC-RSC-25`–`27` at domain layer).
-  - [x] Verify — `FlexAgent.Sessions.Tests` 95/95; architecture suite 21/21;
-    aggregate .NET verification 326/326; `git diff --check` and
-    `python3 scripts/check_docs.py` passed (2026-08-12). Session/manifest bind
+  - [x] Verify — `FlexAgent.Sessions.Tests` 101/101; architecture suite 21/21;
+    aggregate .NET verification 332/332; `git diff --check` and
+    `python3 scripts/check_docs.py` passed (2026-08-13). Session/manifest bind
     commit, PostgreSQL persistence, and application-command ownership tests
     remain in the next tranche.
 - [>] Implement the framework-independent Sessions domain/application tranche
@@ -692,6 +692,12 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
   permitted stages/decisions and timer budgets; partial Organization or
   deployment-default credential bindings fail closed with `BindingIncomplete`
   instead of silently falling back.
+- Fourth review remediation (2026-08-13): agent-initiated communication and
+  no-action policy flags are required during baseline validation, merged-value
+  validation, and baseline-content digest computation; missing values fail
+  closed with `InvalidPolicyValues` instead of coercing to `false`. Shorter
+  timer `DefaultDelay` is treated as widening (increased cadence) per
+  `REQ-RSC-52`; lengthening within inherited min/max remains permitted.
 
 # Verification
 
@@ -705,7 +711,7 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
 | Executable traceability/threat-model review | passed | `.work/active/structured-agent-runtime-traceability.md` — requirement matrix, STRIDE controls, module ownership, duration encoding |
 | Contract/catalog/C#/TypeScript/OpenAPI compatibility | passed for frozen contract tranche | Retained `csharp-contract-union-parity` evidence: contract tests 118/118 and full .NET 220/220; earlier web verification passed; runtime-policy and domain behavior remain outside this completed contract evidence |
 | Sessions capability-policy red/green and ownership guards | passed; approved | Red: `dotnet build tests/Sessions/FlexAgent.Sessions.Tests/...` failed with 14 compile errors for missing `FlexAgent.Sessions.Domain` policy types (2026-08-12). Green after review remediation at `c3827d7`: `FlexAgent.Sessions.Tests` 39/39; `FlexAgent.Architecture.Tests` 21/21 including Domain→Application/Infrastructure dependency rules with bounded negative controls; aggregate verification 270/270; `git diff --check` and `python3 scripts/check_docs.py` passed. External review: approve, no blocking findings (2026-08-12). Tranche frozen at `c3827d7`. |
-| Frozen runtime-policy domain resolution (`REQ-RSC-46`–`53`) | passed; domain layer | Red: compile failures for missing resolver/policy types (2026-08-12). Green after third review remediation: immutable snapshots, baseline content-digest verification, required P0-disabled set, contract/clock/validation enforcement, full `REQ-RSC-52` timer narrowing (stages, decisions, budgets), partial credential `BindingIncomplete` fail-closed; `FlexAgent.Sessions.Tests` 95/95; aggregate .NET 326/326 (2026-08-12). Session/manifest bind commit and PostgreSQL persistence remain next tranche. |
+| Frozen runtime-policy domain resolution (`REQ-RSC-46`–`53`) | passed; domain layer | Red: compile failures for missing resolver/policy types (2026-08-12). Green after fourth review remediation: required communication/no-action policy fail-closed (no `null`→`false` coercion), baseline digest requires explicit flags, shorter `DefaultDelay` widening rejected; `FlexAgent.Sessions.Tests` 101/101; aggregate .NET 332/332 (2026-08-13). Session/manifest bind commit and PostgreSQL persistence remain next tranche. |
 | Sessions domain/application focused tests | pending | |
 | PostgreSQL 18 migration/isolation/concurrency/fault tests | pending | |
 | API/worker/provider/scheduler runtime tests | pending | |
