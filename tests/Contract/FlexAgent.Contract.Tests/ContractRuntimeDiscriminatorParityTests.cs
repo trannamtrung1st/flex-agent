@@ -65,6 +65,19 @@ public sealed class ContractRuntimeDiscriminatorParityTests
     }
 
     [Fact]
+    public void Undefined_wire_enum_values_fail_closed_on_serialization()
+    {
+        var decision = new NoActionAgentDecisionV1(
+            "v1",
+            "adec.synthetic.9999",
+            "ainv.synthetic.0001",
+            "2026-08-11T00:00:06Z",
+            new NoActionDecisionPayloadV1((NoActionReasonCategoryV1)999));
+
+        Assert.Throws<JsonException>(() => SessionRuntimeContractJson.SerializeToUtf8Bytes(decision));
+    }
+
+    [Fact]
     public void Runtime_union_interfaces_serialize_branch_fields_through_declared_interface_type()
     {
         var schemas = ContractSchemaRegistry.BuildCatalogSchemas(ContractsRoot, _catalog, AllowedKeywords);

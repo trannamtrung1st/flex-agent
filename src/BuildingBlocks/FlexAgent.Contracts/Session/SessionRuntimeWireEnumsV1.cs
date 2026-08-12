@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace FlexAgent.Contracts.Session;
 
-[JsonConverter(typeof(JsonStringEnumConverter<FailedExecutionAttemptOutcomeCategoryV1>))]
+[JsonConverter(typeof(SessionRuntimeWireEnumConverter<FailedExecutionAttemptOutcomeCategoryV1>))]
 public enum FailedExecutionAttemptOutcomeCategoryV1
 {
     [JsonStringEnumMemberName("provider_timeout")]
@@ -24,7 +24,7 @@ public enum FailedExecutionAttemptOutcomeCategoryV1
     LateResult,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<AcceptedEffectOutcomeV1>))]
+[JsonConverter(typeof(SessionRuntimeWireEnumConverter<AcceptedEffectOutcomeV1>))]
 public enum AcceptedEffectOutcomeV1
 {
     [JsonStringEnumMemberName("applied")]
@@ -37,7 +37,7 @@ public enum AcceptedEffectOutcomeV1
     EffectFailed,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<ExecutionFailedReasonCategoryV1>))]
+[JsonConverter(typeof(SessionRuntimeWireEnumConverter<ExecutionFailedReasonCategoryV1>))]
 public enum ExecutionFailedReasonCategoryV1
 {
     [JsonStringEnumMemberName("provider_timeout")]
@@ -53,7 +53,7 @@ public enum ExecutionFailedReasonCategoryV1
     IncompleteControl,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<CancelledReasonCategoryV1>))]
+[JsonConverter(typeof(SessionRuntimeWireEnumConverter<CancelledReasonCategoryV1>))]
 public enum CancelledReasonCategoryV1
 {
     [JsonStringEnumMemberName("lifecycle_cancelled")]
@@ -63,7 +63,7 @@ public enum CancelledReasonCategoryV1
     CutoffExceeded,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<PreExecutionRejectedReasonCategoryV1>))]
+[JsonConverter(typeof(SessionRuntimeWireEnumConverter<PreExecutionRejectedReasonCategoryV1>))]
 public enum PreExecutionRejectedReasonCategoryV1
 {
     [JsonStringEnumMemberName("state_ineligible")]
@@ -79,7 +79,7 @@ public enum PreExecutionRejectedReasonCategoryV1
     BudgetExhausted,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<NoActionReasonCategoryV1>))]
+[JsonConverter(typeof(SessionRuntimeWireEnumConverter<NoActionReasonCategoryV1>))]
 public enum NoActionReasonCategoryV1
 {
     [JsonStringEnumMemberName("intentional_silence")]
@@ -92,7 +92,7 @@ public enum NoActionReasonCategoryV1
     AwaitingInput,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<RejectionReasonCategoryV1>))]
+[JsonConverter(typeof(SessionRuntimeWireEnumConverter<RejectionReasonCategoryV1>))]
 public enum RejectionReasonCategoryV1
 {
     [JsonStringEnumMemberName("policy_prohibited")]
@@ -114,7 +114,7 @@ public enum RejectionReasonCategoryV1
     CutoffExceeded,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<SuppressionReasonCategoryV1>))]
+[JsonConverter(typeof(SessionRuntimeWireEnumConverter<SuppressionReasonCategoryV1>))]
 public enum SuppressionReasonCategoryV1
 {
     [JsonStringEnumMemberName("visibility_bounded")]
@@ -130,7 +130,7 @@ public enum SuppressionReasonCategoryV1
     PolicyProhibited,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<TimerValidationOutcomeV1>))]
+[JsonConverter(typeof(SessionRuntimeWireEnumConverter<TimerValidationOutcomeV1>))]
 public enum TimerValidationOutcomeV1
 {
     [JsonStringEnumMemberName("accepted")]
