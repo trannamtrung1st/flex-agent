@@ -537,36 +537,15 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                 cancellationToken: CancellationToken));
         Assert.Equal(2, lastSequence);
 
+        var outcomeRuntime = seeded with { InvocationId = "inv-2", DecisionId = "dec-2" };
+        await InsertInvocationAsync(connection, outcomeRuntime, outcomeRuntime.InvocationId, "idem-2", "trigger-2");
+
         var missingOutcomeSequence = await Assert.ThrowsAsync<PostgresException>(async () =>
-            await connection.ExecuteAsync(
-                new CommandDefinition(
-                    """
-                    INSERT INTO session_execution_outcomes (
-                        organization_id, activity_id, participant_id, attempt_id, session_id,
-                        agent_invocation_id, execution_outcome_id, outcome_category, reason_category)
-                    VALUES (
-                        @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
-                        @InvocationId, 'out-1', 'provider_unavailable', 'timeout');
-                    """,
-                    seeded,
-                    cancellationToken: CancellationToken)));
+            await InsertExecutionOutcomeAsync(connection, outcomeRuntime, committedSessionSequence: null));
         Assert.Equal(PostgresErrorCodes.NotNullViolation, missingOutcomeSequence.SqlState);
 
-        await connection.ExecuteAsync(
-            new CommandDefinition(
-                """
-                INSERT INTO session_execution_outcomes (
-                    organization_id, activity_id, participant_id, attempt_id, session_id,
-                    agent_invocation_id, execution_outcome_id, outcome_category, reason_category,
-                    committed_session_version, committed_session_sequence)
-                VALUES (
-                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
-                    @InvocationId, 'out-1', 'provider_unavailable', 'timeout',
-                    1, 3);
-                """,
-                seeded,
-                cancellationToken: CancellationToken));
-        lastSequence = await connection.ExecuteScalarAsync<long>(
+        await InsertExecutionOutcomeAsync(connection, outcomeRuntime, committedSessionSequence: 2);
+        var outcomeLastSequence = await connection.ExecuteScalarAsync<long>(
             new CommandDefinition(
                 """
                 SELECT last_session_sequence
@@ -574,9 +553,43 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                 WHERE session_id = @SessionId
                   AND agent_invocation_id = @InvocationId;
                 """,
-                seeded,
+                outcomeRuntime,
                 cancellationToken: CancellationToken));
-        Assert.Equal(3, lastSequence);
+        Assert.Equal(2, outcomeLastSequence);
+    }
+
+    [Fact]
+    public async Task Invocation_rejects_both_a_decision_and_an_execution_outcome()
+    {
+        var seeded = await SeedRuntimeWithInvocationAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await InsertDecisionAsync(connection, seeded);
+
+        var outcomeAfterDecision = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await InsertExecutionOutcomeAsync(connection, seeded, committedSessionSequence: 3));
+        Assert.Contains("ExecutionOutcome", outcomeAfterDecision.MessageText, StringComparison.OrdinalIgnoreCase);
+
+        var outcomeOnly = seeded with { InvocationId = "inv-2", DecisionId = "dec-2" };
+        await InsertInvocationAsync(connection, outcomeOnly, outcomeOnly.InvocationId, "idem-2", "trigger-2");
+        await InsertExecutionOutcomeAsync(connection, outcomeOnly, committedSessionSequence: 2);
+
+        var decisionAfterOutcome = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await InsertDecisionAsync(connection, outcomeOnly, committedSessionSequence: 3));
+        Assert.Contains("Decision", decisionAfterOutcome.MessageText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Validation_revisions_require_the_invocation_decision()
+    {
+        var seeded = await SeedRuntimeWithInvocationAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+
+        var missingDecision = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await InsertValidationRevisionAsync(connection, seeded, revisionOrdinal: 1, validationOutcome: "accepted"));
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, missingDecision.SqlState);
+
+        await InsertDecisionAsync(connection, seeded);
+        await InsertValidationRevisionAsync(connection, seeded, revisionOrdinal: 1, validationOutcome: "accepted");
     }
 
     [Fact]
@@ -749,6 +762,45 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                     runtime.DecisionId,
                     PayloadDigest = LowercaseDigest('d'),
                     DigestVersion = DecisionPayloadDigest.FormatVersionV1,
+                    CommittedSessionSequence = committedSessionSequence,
+                },
+                cancellationToken: CancellationToken));
+    }
+
+    private async Task InsertExecutionOutcomeAsync(
+        NpgsqlConnection connection,
+        SeededRuntime runtime,
+        long? committedSessionSequence)
+    {
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                committedSessionSequence is null
+                    ? """
+                      INSERT INTO session_execution_outcomes (
+                          organization_id, activity_id, participant_id, attempt_id, session_id,
+                          agent_invocation_id, execution_outcome_id, outcome_category, reason_category)
+                      VALUES (
+                          @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                          @InvocationId, 'out-1', 'provider_unavailable', 'timeout');
+                      """
+                    : """
+                      INSERT INTO session_execution_outcomes (
+                          organization_id, activity_id, participant_id, attempt_id, session_id,
+                          agent_invocation_id, execution_outcome_id, outcome_category, reason_category,
+                          committed_session_version, committed_session_sequence)
+                      VALUES (
+                          @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                          @InvocationId, 'out-1', 'provider_unavailable', 'timeout',
+                          1, @CommittedSessionSequence);
+                      """,
+                new
+                {
+                    runtime.OrganizationId,
+                    runtime.ActivityId,
+                    runtime.ParticipantId,
+                    runtime.AttemptId,
+                    runtime.SessionId,
+                    runtime.InvocationId,
                     CommittedSessionSequence = committedSessionSequence,
                 },
                 cancellationToken: CancellationToken));

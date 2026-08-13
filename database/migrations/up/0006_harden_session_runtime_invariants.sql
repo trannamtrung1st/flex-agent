@@ -126,6 +126,19 @@ ALTER TABLE session_decisions
             agent_invocation_id);
 
 ALTER TABLE session_decisions
+    DROP CONSTRAINT IF EXISTS uq_session_decisions_ownership_invocation;
+
+ALTER TABLE session_decisions
+    ADD CONSTRAINT uq_session_decisions_ownership_invocation
+        UNIQUE (
+            organization_id,
+            activity_id,
+            participant_id,
+            attempt_id,
+            session_id,
+            agent_invocation_id);
+
+ALTER TABLE session_decisions
     ADD COLUMN IF NOT EXISTS committed_session_sequence BIGINT;
 
 ALTER TABLE session_decisions
@@ -142,7 +155,10 @@ ALTER TABLE session_decision_validations
     DROP CONSTRAINT IF EXISTS fk_session_decision_validations_invocation;
 
 ALTER TABLE session_decision_validations
-    ADD CONSTRAINT fk_session_decision_validations_invocation
+    DROP CONSTRAINT IF EXISTS fk_session_decision_validations_decision;
+
+ALTER TABLE session_decision_validations
+    ADD CONSTRAINT fk_session_decision_validations_decision
         FOREIGN KEY (
             organization_id,
             activity_id,
@@ -150,7 +166,7 @@ ALTER TABLE session_decision_validations
             attempt_id,
             session_id,
             agent_invocation_id)
-        REFERENCES session_invocations (
+        REFERENCES session_decisions (
             organization_id,
             activity_id,
             participant_id,
@@ -255,6 +271,28 @@ BEGIN
         NEW.organization_id,
         NEW.session_id,
         NEW.agent_invocation_id);
+
+    IF TG_TABLE_NAME = 'session_decisions' THEN
+        IF EXISTS (
+            SELECT 1
+            FROM session_execution_outcomes
+            WHERE organization_id = NEW.organization_id
+              AND session_id = NEW.session_id
+              AND agent_invocation_id = NEW.agent_invocation_id)
+        THEN
+            RAISE EXCEPTION 'session invocation cannot record a Decision after an ExecutionOutcome';
+        END IF;
+    ELSIF TG_TABLE_NAME = 'session_execution_outcomes' THEN
+        IF EXISTS (
+            SELECT 1
+            FROM session_decisions
+            WHERE organization_id = NEW.organization_id
+              AND session_id = NEW.session_id
+              AND agent_invocation_id = NEW.agent_invocation_id)
+        THEN
+            RAISE EXCEPTION 'session invocation cannot record an ExecutionOutcome after a Decision';
+        END IF;
+    END IF;
 
     SELECT last_session_sequence
     INTO current_last
