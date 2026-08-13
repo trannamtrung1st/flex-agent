@@ -56,6 +56,7 @@ public sealed class PostgresSessionRuntimeRepository
             admitted_session_sequence,
             last_session_sequence,
             status,
+            admitted_at,
             last_committed_at
         FROM session_invocations
         WHERE organization_id = @OrganizationId
@@ -184,7 +185,7 @@ public sealed class PostgresSessionRuntimeRepository
             .GroupBy(item => item.trigger_family, StringComparer.Ordinal)
             .ToDictionary(
                 group => group.Key,
-                group => ToUtc(group.Max(item => item.last_committed_at)),
+                group => ToUtc(group.Max(item => item.admitted_at)),
                 StringComparer.Ordinal);
 
         return SessionRuntime.Rehydrate(
@@ -355,5 +356,6 @@ public sealed class PostgresSessionRuntimeRepository
         long admitted_session_sequence,
         long last_session_sequence,
         string status,
+        DateTime admitted_at,
         DateTime last_committed_at);
 }

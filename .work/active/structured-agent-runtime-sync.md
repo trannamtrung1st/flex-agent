@@ -633,12 +633,13 @@ clock invariants, a resumable Decision pipeline, append-only validation
 revisions, and canonical Decision payload identity. The PostgreSQL **schema**
 tranche is **approved and frozen** at `d7c2daf`. Additive `0006` is the
 pre-repository invariant repair. Do not add speculative schema constraints.
-The current tranche is **scoped PostgreSQL repositories**: lock/read/reconcile
-retries (no blind Decision/outcome `INSERT ... ON CONFLICT`), full ownership
-on every protected entry point, database `clock_timestamp()` as mutation
-authority, and isolation/optimistic-version/admission-idempotency tests.
-Session/manifest bind commit, worker processing, synthetic adapter scenarios,
-UI states, and end-to-end proof remain pending.
+The current tranche is **scoped PostgreSQL repositories**, remediating review
+of `126efbd`: acquire the session `FOR UPDATE` **before** sampling
+`clock_timestamp()`, and persist immutable invocation `admitted_at` (additive
+`0007`) for cooldown rehydration instead of mutable `last_committed_at`.
+Do not rewrite frozen `0005`/`0006`. Session/manifest bind commit, worker
+processing, synthetic adapter scenarios, UI states, and end-to-end proof
+remain pending.
 
 # Decisions
 
@@ -734,8 +735,10 @@ UI states, and end-to-end proof remain pending.
   sequence can fail `last_session_sequence must advance` before `ON CONFLICT`.
 - Sessions persistence lives in `FlexAgent.Sessions.Infrastructure` so the
   Sessions domain assembly stays Npgsql-free. Admission retries load the
-  invocation `FOR UPDATE`, run domain reconcile, and insert only on a new
-  admission. Authoritative time is `clock_timestamp()` inside the transaction.
+  session head `FOR UPDATE`, then sample `clock_timestamp()`, then admit and
+  persist so the snapshot and the clock describe the same serialized point.
+  Cooldown rehydration uses immutable `session_invocations.admitted_at`
+  (stamped once on INSERT); `last_committed_at` remains the last mutation.
 
 # Findings / deviations
 
@@ -881,6 +884,12 @@ UI states, and end-to-end proof remain pending.
   positive, and effect commit state cannot precede validation commit state.
   Decision XOR ExecutionOutcome is enforced after the invocation lock;
   validations FK the Decision row rather than only the Invocation.
+- Repository review remediation (2026-08-13, `126efbd`): admission now locks
+  the session row before sampling `clock_timestamp()`, so a waiter cannot
+  evaluate T1's new `last_committed_at` with a pre-wait clock (`StaleClock`).
+  Additive `0007` introduces immutable `session_invocations.admitted_at`
+  (INSERT-only stamp; preserved on UPDATE). Cooldown rehydration uses
+  `MAX(admitted_at)` per trigger family. Frozen `0005`/`0006` were not edited.
 
 # Verification
 
@@ -901,7 +910,7 @@ UI states, and end-to-end proof remain pending.
 | Decision validation idempotency and payload digest | passed; in-memory aggregate | Red: unchanged-state `ValidateDecision` retried bumped version; lifecycle-change overwrite left one validation row; same Decision IDs with `EmitMessage` payload reconciled as NoAction. Green: `FlexAgent.Sessions.Tests` 174/174; architecture suite 21/21; `git diff --check` clean (2026-08-13). |
 | PostgreSQL Session runtime schema (`0005`) | passed; schema/migration | Red: `SessionsPersistenceOwnershipTests` failed with missing `*_session_runtime*.sql`. Green: `FlexAgent.Postgres.Integration.Tests` 43/43 including 10 schema constraint tests (ownership FK, delete reject, fragment `session_sequence`); `FlexAgent.Architecture.Tests` 24/24; `FlexAgent.Sessions.Tests` 174/174; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-13). Repositories remain next. |
 | PostgreSQL Session runtime invariant patch (`0006`) | passed; schema/migration | Includes Decision XOR ExecutionOutcome (`SESS-DEC-16`) and validation→Decision FK. Red: both child rows and validation-without-Decision succeeded. Green: sequential XOR; concurrent exactly-one winner; schema/upgrade/concurrency 26/26; architecture 24/24; Sessions 174/174 (2026-08-13). Repositories remain next. |
-| PostgreSQL 18 repository isolation/concurrency/fault tests | in progress; admission slice | First slice: `PostgresSessionRuntimeRepository` + `PostgresAdmitTrustedTriggerCoordinator`. Isolation (wrong org/activity/guessed session), opening-trigger persist + lock/read reconcile, stale `ExpectedSessionVersion`. Architecture ownership signatures 26/26; Sessions 175/175 including `Rehydrate`; repository tests 3/3 (2026-08-13). Remaining: participant no-action pipeline, Decision/outcome XOR persist, validation observed-vs-commit hydrate, concurrent worker races, audit/outbox, list/count leak tests. |
+| PostgreSQL 18 repository isolation/concurrency/fault tests | in progress; admission slice | First slice plus review remediation: lock-then-clock (waiting admission is not `StaleClock`); `0007` `admitted_at` cooldown rehydration after invocation UPDATE. Red: waiting admission `StaleClock`; post-update same-family admit `CooldownActive` (2026-08-13). Green: admission concurrency + repository + schema 26/26; `MigrationUpgradeTests`+`GrateToolMigrationTests` 16/16 including empty `0006→0007`; architecture 26/26; Sessions 175/175. Remaining: participant no-action pipeline, Decision/outcome XOR persist, validation observed-vs-commit hydrate, concurrent worker races, audit/outbox, list/count leak tests. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |

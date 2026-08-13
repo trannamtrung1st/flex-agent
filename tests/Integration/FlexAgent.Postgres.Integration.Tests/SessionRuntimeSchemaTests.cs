@@ -488,6 +488,54 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         Assert.Contains("committed_session_version", outcomeColumns);
         Assert.Contains("committed_session_sequence", outcomeColumns);
         Assert.Contains("last_session_sequence", invocationColumns);
+        Assert.Contains("admitted_at", invocationColumns);
+        Assert.Contains("last_committed_at", invocationColumns);
+    }
+
+    [Fact]
+    public async Task Invocation_admitted_at_is_immutable_across_lifecycle_updates()
+    {
+        var seeded = await SeedRuntimeWithInvocationAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var before = await connection.QuerySingleAsync<(DateTime AdmittedAt, DateTime LastCommittedAt)>(
+            new CommandDefinition(
+                """
+                SELECT admitted_at, last_committed_at
+                FROM session_invocations
+                WHERE session_id = @SessionId
+                  AND agent_invocation_id = @InvocationId;
+                """,
+                seeded,
+                cancellationToken: CancellationToken));
+
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                "SELECT pg_sleep(0.05);",
+                cancellationToken: CancellationToken));
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE session_invocations
+                SET status = 'executing'
+                WHERE session_id = @SessionId
+                  AND agent_invocation_id = @InvocationId;
+                """,
+                seeded,
+                cancellationToken: CancellationToken));
+
+        var after = await connection.QuerySingleAsync<(DateTime AdmittedAt, DateTime LastCommittedAt)>(
+            new CommandDefinition(
+                """
+                SELECT admitted_at, last_committed_at
+                FROM session_invocations
+                WHERE session_id = @SessionId
+                  AND agent_invocation_id = @InvocationId;
+                """,
+                seeded,
+                cancellationToken: CancellationToken));
+
+        Assert.Equal(before.AdmittedAt, after.AdmittedAt);
+        Assert.True(after.LastCommittedAt > before.LastCommittedAt);
     }
 
     [Fact]

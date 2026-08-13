@@ -4,7 +4,7 @@ namespace FlexAgent.Postgres.Integration.Tests.Support;
 
 internal static class SessionPersistenceFixtures
 {
-    internal static FrozenTextSessionRuntimePolicy ResolveEnabledTimerPolicy()
+    internal static FrozenTextSessionRuntimePolicy ResolveEnabledTimerPolicy(int cooldownSeconds = 5)
     {
         var values = new RuntimePolicyEffectiveValues
         {
@@ -32,7 +32,7 @@ internal static class SessionPersistenceFixtures
             AgentInitiatedOpeningPermitted = true,
             AgentInitiatedClosingPermitted = true,
             NoActionPermitted = true,
-            InvocationBounds = new InvocationBounds(3, 10, 0, 5, 30),
+            InvocationBounds = new InvocationBounds(3, 10, 0, cooldownSeconds, 30),
             TimerLane = new TimerLanePolicyValues
             {
                 Enabled = true,
@@ -57,9 +57,9 @@ internal static class SessionPersistenceFixtures
             ?? throw new InvalidOperationException("Test fixture policy resolution failed.");
     }
 
-    internal static TrustedSessionBinding CreateBinding(Guid organizationId)
+    internal static TrustedSessionBinding CreateBinding(Guid organizationId, int cooldownSeconds = 5)
     {
-        var policy = ResolveEnabledTimerPolicy();
+        var policy = ResolveEnabledTimerPolicy(cooldownSeconds);
         return new TrustedSessionBinding(
             new SessionOwnership(
                 organizationId,

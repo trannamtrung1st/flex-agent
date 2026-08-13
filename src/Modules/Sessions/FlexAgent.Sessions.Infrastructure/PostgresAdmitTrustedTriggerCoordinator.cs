@@ -29,9 +29,6 @@ public sealed class PostgresAdmitTrustedTriggerCoordinator(
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
         try
         {
-            var authoritativeUtc = await runtimeRepository.ReadAuthoritativeUtcAsync(
-                scope.Transaction,
-                cancellationToken);
             var session = await runtimeRepository.LoadForUpdateAsync(
                 command.Ownership,
                 binding,
@@ -43,6 +40,9 @@ public sealed class PostgresAdmitTrustedTriggerCoordinator(
                 return new TriggerAdmissionResult(false, TriggerAdmissionOutcomeCodes.Denied, null, null);
             }
 
+            var authoritativeUtc = await runtimeRepository.ReadAuthoritativeUtcAsync(
+                scope.Transaction,
+                cancellationToken);
             var result = admissionHandler.Handle(command, session, authoritativeUtc);
             if (!result.Succeeded || result.Invocation is null)
             {
