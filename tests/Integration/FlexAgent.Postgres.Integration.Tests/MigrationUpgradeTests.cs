@@ -18,6 +18,7 @@ public sealed class MigrationUpgradeTests
     private const string Historical0003ScriptName = "0003_repair_idempotency_backfill_and_source_version_fk.sql";
     private const string Current0004ScriptName = "0004_harden_constraint_scope_checks.sql";
     private const string Current0005ScriptName = "0005_session_runtime_schema.sql";
+    private const string Current0006ScriptName = "0006_harden_session_runtime_invariants.sql";
 
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
@@ -45,7 +46,8 @@ public sealed class MigrationUpgradeTests
             Historical0002ScriptName,
             Historical0003ScriptName,
             Current0004ScriptName,
-            Current0005ScriptName);
+            Current0005ScriptName,
+            Current0006ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -92,7 +94,8 @@ public sealed class MigrationUpgradeTests
             Historical0002ScriptName,
             Historical0003ScriptName,
             Current0004ScriptName,
-            Current0005ScriptName);
+            Current0005ScriptName,
+            Current0006ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -146,7 +149,8 @@ public sealed class MigrationUpgradeTests
             Historical0002ScriptName,
             Historical0003ScriptName,
             Current0004ScriptName,
-            Current0005ScriptName);
+            Current0005ScriptName,
+            Current0006ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }

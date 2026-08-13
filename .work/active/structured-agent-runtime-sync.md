@@ -469,6 +469,14 @@ and test reviews have no unresolved blocking findings.
   Red: architecture ownership test failed for missing `0005_session_runtime_schema.sql`
   (2026-08-13). Green: migration `0005` plus schema/constraint tests;
   `FlexAgent.Postgres.Integration.Tests` 43/43; architecture suite 24/24.
+- [x] Patch Session runtime persistence invariants before repositories
+  (`SESS-DEC-17`, `SESS-DEC-18`, participant isolation). Allow recorded
+  Decisions that validation later rejects; bind invocation descendants to the
+  full ownership+invocation tuple; make terminal effects one-way on the latest
+  accepted revision; persist Decision/outcome commit sequence for hydration.
+  Red: 5 schema tests failed against `0005` (request_tool CHECK, descendant
+  ownership, stale/rejected/terminal effect updates, missing commit sequence).
+  Green: additive `0006_harden_session_runtime_invariants.sql`; Postgres 48/48.
 - [>] Implement scoped PostgreSQL repositories and transaction coordinators
   against real PostgreSQL 18 tests. Cover wrong Organization/Activity/
   Participant/Attempt/Session, forged ownership, guessed IDs, list/count leaks,
@@ -823,8 +831,14 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
   bytes are not stored in PostgreSQL; fragments require `session_sequence`
   plus optional turn/slot/generation-attempt identity. Dedicated
   `session_reconciliations` and generation-attempt provenance tables remain
-  deferred. Hydrate in-memory `ValidatedAtSessionVersion` from
+  deferred.   Hydrate in-memory `ValidatedAtSessionVersion` from
   `validation_commit_*`. Mutable Session tables reject DELETE.
+- PostgreSQL invariant patch (2026-08-13): additive `0006` (does not edit
+  `0005`). Drops the P0 `decision_type` CHECK so `request_tool` and other
+  recorded-then-rejected Decisions persist; invocation descendants FK the
+  full ownership+invocation unique key; terminal effects are one-way on the
+  latest accepted revision; Decision/outcome commit sequence and invocation
+  `last_session_sequence` exist for hydration.
 
 # Verification
 
@@ -844,6 +858,7 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
 | Decision pipeline crash/recovery contract | passed; in-memory aggregate | Red: resume-after-`RecordDecision` and identical-`CompleteInvocation` retry failed (`decision_recorded` vs `decided`, `AlreadyTerminal`). Green: `FlexAgent.Sessions.Tests` 171/171; architecture suite 21/21; `git diff --check` clean (2026-08-13). Confirmation pass also rejects execution-failure completion once a Decision is recorded. |
 | Decision validation idempotency and payload digest | passed; in-memory aggregate | Red: unchanged-state `ValidateDecision` retried bumped version; lifecycle-change overwrite left one validation row; same Decision IDs with `EmitMessage` payload reconciled as NoAction. Green: `FlexAgent.Sessions.Tests` 174/174; architecture suite 21/21; `git diff --check` clean (2026-08-13). |
 | PostgreSQL Session runtime schema (`0005`) | passed; schema/migration | Red: `SessionsPersistenceOwnershipTests` failed with missing `*_session_runtime*.sql`. Green: `FlexAgent.Postgres.Integration.Tests` 43/43 including 10 schema constraint tests (ownership FK, delete reject, fragment `session_sequence`); `FlexAgent.Architecture.Tests` 24/24; `FlexAgent.Sessions.Tests` 174/174; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-13). Repositories remain next. |
+| PostgreSQL Session runtime invariant patch (`0006`) | passed; schema/migration | Red: 5 schema tests failed on `9457adc` (P0 `decision_type` CHECK, descendant ownership FK, stale/rejected/terminal effects, missing commit sequence). Green: `0006`; Postgres 48/48 schema+upgrade; architecture ownership scan of `0005`+`0006`; Sessions 174/174 (2026-08-13). Repositories remain next. |
 | PostgreSQL 18 repository isolation/concurrency/fault tests | pending | |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |

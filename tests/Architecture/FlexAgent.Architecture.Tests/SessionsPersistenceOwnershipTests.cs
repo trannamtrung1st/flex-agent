@@ -20,9 +20,9 @@ public sealed class SessionsPersistenceOwnershipTests
     [Fact]
     public void Session_runtime_migration_creates_only_session_prefixed_tables()
     {
-        var sql = File.ReadAllText(FindSessionRuntimeMigrationPath());
-        var tables = Regex.Matches(sql, @"CREATE TABLE\s+([a-z0-9_]+)", RegexOptions.IgnoreCase)
-            .Select(match => match.Groups[1].Value)
+        var tables = FindSessionRuntimeMigrationPaths()
+            .SelectMany(path => Regex.Matches(File.ReadAllText(path), @"CREATE TABLE\s+([a-z0-9_]+)", RegexOptions.IgnoreCase)
+                .Select(match => match.Groups[1].Value))
             .ToArray();
 
         Assert.NotEmpty(tables);
@@ -53,15 +53,15 @@ public sealed class SessionsPersistenceOwnershipTests
         Assert.Equal("v1", DecisionPayloadDigest.FormatVersionV1);
     }
 
-    private static string FindSessionRuntimeMigrationPath()
+    private static IReadOnlyList<string> FindSessionRuntimeMigrationPaths()
     {
         var upDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations", "up");
-        var match = Directory.GetFiles(upDirectory, "*_session_runtime*.sql")
+        var matches = Directory.GetFiles(upDirectory, "*session_runtime*.sql")
             .OrderBy(path => path, StringComparer.Ordinal)
-            .LastOrDefault();
+            .ToArray();
 
-        Assert.True(match is not null, "Expected a Sessions runtime Grate one-time script under database/migrations/up.");
-        return match!;
+        Assert.True(matches.Length > 0, "Expected Sessions runtime Grate one-time scripts under database/migrations/up.");
+        return matches;
     }
 
     private static string FindRepositoryRoot()
