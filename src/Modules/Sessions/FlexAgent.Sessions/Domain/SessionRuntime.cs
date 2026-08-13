@@ -323,7 +323,7 @@ public sealed class SessionRuntime
 
         if (invocation.IsTerminal)
         {
-            return CompletionFailure(InvocationCompletionOutcomeCodes.AlreadyTerminal, invocation);
+            return ReconcileTerminalDecision(invocation, recommendation);
         }
 
         if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: false))
@@ -336,19 +336,29 @@ public sealed class SessionRuntime
             return CompletionFailure(InvocationCompletionOutcomeCodes.IdentityMismatch, invocation);
         }
 
-        if (HasCutoff())
+        if (invocation.Decision is not null
+            && !string.Equals(invocation.Decision.DecisionId, recommendation.DecisionId, StringComparison.Ordinal))
+        {
+            return CompletionFailure(InvocationCompletionOutcomeCodes.IdentityMismatch, invocation);
+        }
+
+        if (HasCutoff() && invocation.Decision is null)
         {
             return RecordLateResult(invocation, authoritativeUtc);
         }
 
-        var recorded = RecordDecision(agentInvocationId, recommendation, authoritativeUtc);
-        if (!recorded.Succeeded)
+        if (invocation.Decision is null)
         {
-            return recorded;
+            var recorded = RecordDecision(agentInvocationId, recommendation, authoritativeUtc);
+            if (!recorded.Succeeded)
+            {
+                return recorded;
+            }
         }
 
         ValidateDecision(agentInvocationId, authoritativeUtc);
         var applied = ApplyDecisionEffect(agentInvocationId, authoritativeUtc);
+        invocation.MarkPipelineComplete();
         if (applied.OutcomeCode == InvocationCompletionOutcomeCodes.EffectFailed)
         {
             return new InvocationCompletionResult(
@@ -380,7 +390,7 @@ public sealed class SessionRuntime
     {
         ArgumentNullException.ThrowIfNull(failure);
         var invocation = FindInvocation(agentInvocationId);
-        if (invocation is null || invocation.IsTerminal)
+        if (invocation is null || invocation.IsTerminal || invocation.Decision is not null)
         {
             return CompletionFailure(InvocationCompletionOutcomeCodes.AlreadyTerminal, invocation);
         }
@@ -415,7 +425,7 @@ public sealed class SessionRuntime
         DateTimeOffset authoritativeUtc)
     {
         var invocation = FindInvocation(agentInvocationId);
-        if (invocation is null || invocation.IsTerminal)
+        if (invocation is null || invocation.IsTerminal || invocation.Decision is not null)
         {
             return CompletionFailure(InvocationCompletionOutcomeCodes.AlreadyTerminal, invocation);
         }
@@ -460,7 +470,28 @@ public sealed class SessionRuntime
     {
         ArgumentNullException.ThrowIfNull(recommendation);
         var invocation = FindInvocation(agentInvocationId);
-        if (invocation is null || invocation.IsTerminal)
+        if (invocation is null)
+        {
+            return CompletionFailure(InvocationCompletionOutcomeCodes.AlreadyTerminal, null);
+        }
+
+        if (invocation.Decision is not null)
+        {
+            if (IsSameRecordedDecision(invocation, recommendation))
+            {
+                return new InvocationCompletionResult(
+                    true,
+                    InvocationCompletionOutcomeCodes.Decided,
+                    invocation,
+                    invocation.Decision,
+                    invocation.ExecutionOutcome,
+                    invocation.ValidationEffect);
+            }
+
+            return CompletionFailure(InvocationCompletionOutcomeCodes.IdentityMismatch, invocation);
+        }
+
+        if (invocation.IsTerminal)
         {
             return CompletionFailure(InvocationCompletionOutcomeCodes.AlreadyTerminal, invocation);
         }
@@ -535,7 +566,8 @@ public sealed class SessionRuntime
                 invocation,
                 DecisionValidationOutcomes.Rejected,
                 RejectionReasonCategories.CapabilityDisabled,
-                timerOutcome);
+                timerOutcome,
+                authoritativeUtc);
         }
 
         if (recommendation is NoActionRecommendation && !Policy.NoActionPermitted)
@@ -544,7 +576,8 @@ public sealed class SessionRuntime
                 invocation,
                 DecisionValidationOutcomes.Rejected,
                 RejectionReasonCategories.PolicyProhibited,
-                timerOutcome);
+                timerOutcome,
+                authoritativeUtc);
         }
 
         if (recommendation is EmitMessageRecommendation emitMessage
@@ -554,7 +587,8 @@ public sealed class SessionRuntime
                 invocation,
                 DecisionValidationOutcomes.Rejected,
                 RejectionReasonCategories.PayloadInvalid,
-                timerOutcome);
+                timerOutcome,
+                authoritativeUtc);
         }
 
         if (HasCutoff())
@@ -563,7 +597,8 @@ public sealed class SessionRuntime
                 invocation,
                 DecisionValidationOutcomes.Rejected,
                 RejectionReasonCategories.CutoffExceeded,
-                timerOutcome);
+                timerOutcome,
+                authoritativeUtc);
         }
 
         if (LifecycleState != SessionLifecycleState.Active)
@@ -572,14 +607,16 @@ public sealed class SessionRuntime
                 invocation,
                 DecisionValidationOutcomes.Rejected,
                 RejectionReasonCategories.StateIneligible,
-                timerOutcome);
+                timerOutcome,
+                authoritativeUtc);
         }
 
         return StoreValidation(
             invocation,
             DecisionValidationOutcomes.Accepted,
             null,
-            timerOutcome);
+            timerOutcome,
+            authoritativeUtc);
     }
 
     public DecisionEffectResult ApplyDecisionEffect(string agentInvocationId, DateTimeOffset authoritativeUtc)
@@ -629,7 +666,7 @@ public sealed class SessionRuntime
                 turn = FindTurn(invocation.Trigger.TurnId!);
                 if (turn is null || turn.ResponseSlot.State != ResponseSlotStates.Open)
                 {
-                    return FailEffect(invocation);
+                    return FailEffect(invocation, authoritativeUtc);
                 }
 
                 turn.ResponseSlot.MarkIntentionalNoAction();
@@ -641,6 +678,7 @@ public sealed class SessionRuntime
                 turn?.TurnId,
                 turn?.ResponseSlot.ResponseSlotId);
             Touch(authoritativeUtc);
+            invocation.MarkPipelineComplete();
             return new DecisionEffectResult(
                 true,
                 InvocationCompletionOutcomeCodes.Decided,
@@ -651,7 +689,7 @@ public sealed class SessionRuntime
         {
             if (LifecycleState != SessionLifecycleState.Active)
             {
-                return FailEffect(invocation);
+                return FailEffect(invocation, authoritativeUtc);
             }
 
             Turn turn;
@@ -660,7 +698,7 @@ public sealed class SessionRuntime
                 var existing = FindTurn(invocation.Trigger.TurnId!);
                 if (existing is null)
                 {
-                    return FailEffect(invocation);
+                    return FailEffect(invocation, authoritativeUtc);
                 }
 
                 if (existing.ResponseSlot.State == ResponseSlotStates.ClaimedForPublication
@@ -678,7 +716,7 @@ public sealed class SessionRuntime
 
                 if (existing.ResponseSlot.State != ResponseSlotStates.Open)
                 {
-                    return FailEffect(invocation);
+                    return FailEffect(invocation, authoritativeUtc);
                 }
 
                 turn = existing;
@@ -709,6 +747,7 @@ public sealed class SessionRuntime
                 turn.TurnId,
                 turn.ResponseSlot.ResponseSlotId);
             Touch(authoritativeUtc);
+            invocation.MarkPipelineComplete();
             return new DecisionEffectResult(
                 true,
                 InvocationCompletionOutcomeCodes.Decided,
@@ -725,6 +764,7 @@ public sealed class SessionRuntime
 
     private DecisionEffectResult ReconcileAppliedEffect(AgentInvocation invocation)
     {
+        invocation.MarkPipelineComplete();
         var applied = invocation.ValidationEffect!.EffectOutcome == DecisionEffectOutcomes.Applied;
         return new DecisionEffectResult(
             true,
@@ -733,9 +773,11 @@ public sealed class SessionRuntime
             PublicationPathClaimed: applied);
     }
 
-    private DecisionEffectResult FailEffect(AgentInvocation invocation)
+    private DecisionEffectResult FailEffect(AgentInvocation invocation, DateTimeOffset authoritativeUtc)
     {
         invocation.ValidationEffect!.SetEffectOutcome(DecisionEffectOutcomes.EffectFailed);
+        Touch(authoritativeUtc);
+        invocation.MarkPipelineComplete();
         return new DecisionEffectResult(
             false,
             InvocationCompletionOutcomeCodes.EffectFailed,
@@ -746,7 +788,8 @@ public sealed class SessionRuntime
         AgentInvocation invocation,
         string validationOutcome,
         string? rejectionReason,
-        string timerOutcome)
+        string timerOutcome,
+        DateTimeOffset authoritativeUtc)
     {
         var record = new DecisionValidationEffectRecord(
             validationOutcome,
@@ -754,6 +797,12 @@ public sealed class SessionRuntime
             timerOutcome,
             rejectionReason);
         invocation.SetValidationEffect(record);
+        Touch(authoritativeUtc);
+        if (validationOutcome != DecisionValidationOutcomes.Accepted)
+        {
+            invocation.MarkPipelineComplete();
+        }
+
         return new DecisionValidationResult(
             validationOutcome == DecisionValidationOutcomes.Accepted,
             InvocationCompletionOutcomeCodes.Decided,
@@ -928,6 +977,8 @@ public sealed class SessionRuntime
         SessionVersion++;
     }
 
+    // In-memory stand-in for persistence: PostgreSQL must supply commit time/order
+    // from the transaction (database_now / clock_timestamp), not worker UtcNow.
     private bool TryAuthorizeClock(DateTimeOffset timestamp, out string failureCode, bool admission)
     {
         if (!IsUtc(timestamp))
@@ -969,4 +1020,39 @@ public sealed class SessionRuntime
 
     private static InvocationCompletionResult CompletionFailure(string outcomeCode, AgentInvocation? invocation) =>
         new(false, outcomeCode, invocation);
+
+    private static bool IsSameRecordedDecision(AgentInvocation invocation, DecisionRecommendation recommendation) =>
+        invocation.Decision is not null
+        && string.Equals(invocation.Decision.DecisionId, recommendation.DecisionId, StringComparison.Ordinal)
+        && string.Equals(recommendation.InvocationId, invocation.AgentInvocationId, StringComparison.Ordinal);
+
+    private static InvocationCompletionResult ReconcileTerminalDecision(
+        AgentInvocation invocation,
+        DecisionRecommendation recommendation)
+    {
+        if (!IsSameRecordedDecision(invocation, recommendation))
+        {
+            return CompletionFailure(InvocationCompletionOutcomeCodes.AlreadyTerminal, invocation);
+        }
+
+        if (invocation.ValidationEffect?.EffectOutcome == DecisionEffectOutcomes.EffectFailed)
+        {
+            return new InvocationCompletionResult(
+                false,
+                InvocationCompletionOutcomeCodes.EffectFailed,
+                invocation,
+                invocation.Decision,
+                invocation.ExecutionOutcome,
+                invocation.ValidationEffect);
+        }
+
+        return new InvocationCompletionResult(
+            true,
+            InvocationCompletionOutcomeCodes.Decided,
+            invocation,
+            invocation.Decision,
+            invocation.ExecutionOutcome,
+            invocation.ValidationEffect,
+            PublicationPathClaimed: invocation.ValidationEffect?.EffectOutcome == DecisionEffectOutcomes.Applied);
+    }
 }

@@ -50,6 +50,57 @@ public sealed class InvocationExecutionTests
         Assert.Null(session.Invocations[0].ExecutionOutcome);
     }
 
+    [Fact]
+    public void Complete_invocation_resumes_after_decision_recorded_instead_of_returning_already_terminal()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var recommendation = SessionRuntimeTestFixtures.NoAction(invocationId);
+
+        var recorded = session.RecordDecision(
+            invocationId, recommendation, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        Assert.True(recorded.Succeeded, recorded.OutcomeCode);
+        Assert.Equal(AgentInvocationStatuses.DecisionRecorded, recorded.Invocation!.Status);
+        Assert.False(recorded.Invocation.IsTerminal);
+
+        var resumed = session.CompleteInvocation(
+            invocationId, recommendation, SessionRuntimeTestFixtures.T0.AddSeconds(3));
+        Assert.True(resumed.Succeeded, resumed.OutcomeCode);
+        Assert.Equal(InvocationCompletionOutcomeCodes.Decided, resumed.OutcomeCode);
+        Assert.Equal(AgentInvocationStatuses.Decided, resumed.Invocation!.Status);
+        Assert.True(resumed.Invocation.IsTerminal);
+        Assert.Equal(recommendation.DecisionId, resumed.Decision!.DecisionId);
+        Assert.Equal(DecisionEffectOutcomes.NoDomainEffect, resumed.ValidationEffect!.EffectOutcome);
+        Assert.Single(session.Invocations);
+        Assert.Equal(1, session.Invocations[0].Attempts.Count(attempt =>
+            attempt.OutcomeCategory == ExecutionAttemptOutcomeCategories.DecisionProduced));
+    }
+
+    [Fact]
+    public void Complete_invocation_retry_of_the_same_decision_reconciles_after_the_pipeline_completes()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var recommendation = SessionRuntimeTestFixtures.NoAction(invocationId);
+
+        var first = session.CompleteInvocation(
+            invocationId, recommendation, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        var retry = session.CompleteInvocation(
+            invocationId, recommendation, SessionRuntimeTestFixtures.T0.AddSeconds(3));
+
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        Assert.True(retry.Succeeded, retry.OutcomeCode);
+        Assert.Equal(InvocationCompletionOutcomeCodes.Decided, retry.OutcomeCode);
+        Assert.Equal(first.Decision!.DecisionId, retry.Decision!.DecisionId);
+        Assert.Equal(DecisionEffectOutcomes.NoDomainEffect, retry.ValidationEffect!.EffectOutcome);
+        Assert.Equal(ResponseSlotStates.IntentionalNoAction, session.Turns[0].ResponseSlot.State);
+        Assert.Single(session.Invocations);
+    }
+
     [Theory]
     [InlineData(ExecutionFailureReasons.MalformedControl)]
     [InlineData(ExecutionFailureReasons.IncompleteControl)]
@@ -113,6 +164,29 @@ public sealed class InvocationExecutionTests
         Assert.Equal(ExecutionOutcomeCategories.AttemptsExhausted, second.ExecutionOutcome!.OutcomeCategory);
         Assert.Null(second.Decision);
         Assert.Equal(2, session.Invocations[0].Attempts.Count);
+    }
+
+    [Fact]
+    public void Execution_failure_after_decision_recorded_does_not_replace_the_decision()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var recommendation = SessionRuntimeTestFixtures.NoAction(invocationId);
+        session.RecordDecision(invocationId, recommendation, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        var failed = session.CompleteInvocation(
+            invocationId,
+            new ExecutionFailureCompletion(ExecutionFailureReasons.ProviderTimeout),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3));
+
+        Assert.False(failed.Succeeded);
+        Assert.Equal(InvocationCompletionOutcomeCodes.AlreadyTerminal, failed.OutcomeCode);
+        Assert.Equal(AgentInvocationStatuses.DecisionRecorded, session.Invocations[0].Status);
+        Assert.NotNull(session.Invocations[0].Decision);
+        Assert.Null(session.Invocations[0].ExecutionOutcome);
+        Assert.Equal(recommendation.DecisionId, session.Invocations[0].Decision!.DecisionId);
     }
 
     [Fact]

@@ -23,6 +23,7 @@ public static class AgentInvocationStatuses
 {
     public const string Admitted = "admitted";
     public const string Executing = "executing";
+    public const string DecisionRecorded = "decision_recorded";
     public const string Decided = "decided";
     public const string ExecutionFailed = "execution_failed";
     public const string Cancelled = "cancelled";

@@ -225,11 +225,19 @@ public sealed class AgentInvocation
         Decision = decision;
         AgentDecisionId = decision.DecisionId;
         SessionSequence = sessionSequence;
-        Status = AgentInvocationStatuses.Decided;
+        Status = AgentInvocationStatuses.DecisionRecorded;
         _attempts.Add(new InvocationExecutionAttempt(
             _attempts.Count + 1,
             ExecutionAttemptOutcomeCategories.DecisionProduced,
             decision.DecisionId));
+    }
+
+    internal void MarkPipelineComplete()
+    {
+        if (Status == AgentInvocationStatuses.DecisionRecorded)
+        {
+            Status = AgentInvocationStatuses.Decided;
+        }
     }
 
     internal void AttachExecutionOutcome(ExecutionOutcomeRecord outcome, long sessionSequence, string status)

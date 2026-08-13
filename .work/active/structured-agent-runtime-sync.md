@@ -436,6 +436,13 @@ and test reviews have no unresolved blocking findings.
   invocation context must emit `memory_read_ref` when permitted memory refs exist.
   Do not design invocation/effect unique constraints until these semantics are
   explicit in the aggregate.
+- [x] Make the Decision pipeline crash/recovery contract explicit before
+  PostgreSQL (`REQ-SESS-64`, `REQ-SESS-67`, `SESS-DEC-17`, `SESS-DEC-18`,
+  `SESS-DEC-20`). `CompleteInvocation` must resume `decision_recorded →
+  validated → effect_applied|effect_failed|rejected` instead of treating
+  `RecordDecision` as terminal. Version every durable stage mutation. Record
+  that PostgreSQL commit time/order comes from the transaction, not worker
+  `UtcNow`.
 - [ ] Design the minimum additive PostgreSQL schema and run migration tests red
   before implementation. Add immutable/scoped Session runtime, event,
   Invocation, attempt/outcome, Decision, validation/effect, response-slot,
@@ -580,11 +587,13 @@ aggregate .NET verification at 270/270. External review recorded no blocking
 findings; operational timer enablement and numeric bounds remain explicitly
 deferred to frozen runtime-policy resolution.
 The frozen runtime-policy domain tranche is **complete**. The Sessions
-domain/application tranche is **remediated** for retry/idempotency and clock
-invariants (external review 2026-08-13). The next tranche is **PostgreSQL
-runtime schema**, now driven by the corrected duplicate-admission and
-duplicate-effect semantics. Session/manifest bind commit, worker processing,
-synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
+domain/application tranche is **remediated** for retry/idempotency, clock
+invariants, and a resumable Decision pipeline (`decision_recorded` is not
+completion-terminal; `CompleteInvocation` resumes remaining stages). The next
+tranche is **PostgreSQL runtime schema**, using database-authoritative commit
+time/order rather than worker `UtcNow`. Session/manifest bind commit, worker
+processing, synthetic adapter scenarios, UI states, and end-to-end proof remain
+pending.
 
 # Decisions
 
@@ -644,6 +653,16 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
   `EffectFailed` as terminal effect outcomes; derive Agent-initiated Turn/slot
   ids from the Invocation id. Authoritative clocks must be UTC and not precede
   `LastCommittedAt`.
+- Decision recovery model (chosen over one opaque atomic-only API): durable
+  stages are `decision_recorded` → validated → effect applied/failed or
+  rejected-with-no-effect. `RecordDecision` stops re-reasoning but is not
+  `CompleteInvocation`-terminal. `CompleteInvocation` resumes remaining stages
+  and reconciles an identical completed Decision. `StoreValidation` and
+  `FailEffect` increment Session version/`LastCommittedAt`. Happy-path
+  `CompleteInvocation` remains one call (SESS-DEC-18 atomically-or-equivalently).
+- PostgreSQL must take commit timestamps and Session order from the transaction
+  (`clock_timestamp()` / `now()`), not from worker host `UtcNow`. The in-memory
+  monotonic UTC guard is a stand-in until that persistence design lands.
 
 # Findings / deviations
 
@@ -757,6 +776,12 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
   and conflicts without creating an orphan Turn; completion/lifecycle mutations
   reject non-UTC and clocks older than `LastCommittedAt`; `memory_read_ref` is
   emitted when permitted memory refs are bound.
+- Decision pipeline recovery (2026-08-13): `RecordDecision` sets
+  `decision_recorded` (not terminal). `CompleteInvocation` resumes validation
+  and effect, and an identical completed Decision reconciles instead of
+  `AlreadyTerminal`. Validation and effect-failure mutations now version the
+  Session. PostgreSQL clock/order authority is recorded as a persistence
+  constraint, not implemented in this in-memory tranche.
 
 # Verification
 
@@ -773,6 +798,7 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
 | Frozen runtime-policy domain resolution (`REQ-RSC-46`–`53`) | passed; domain layer | Red: compile failures for missing resolver/policy types (2026-08-12). Green after fourth review remediation: required communication/no-action policy fail-closed (no `null`→`false` coercion), baseline digest requires explicit flags, shorter `DefaultDelay` widening rejected; `FlexAgent.Sessions.Tests` 101/101; aggregate .NET 332/332 (2026-08-13). Session/manifest bind commit and PostgreSQL persistence remain next tranche. |
 | Sessions domain/application focused tests | passed; in-memory aggregate | Red: compile failures for missing `SessionRuntime`, `AdmitTrustedTriggerCommand`, and related domain types (2026-08-13). Green: admission, exactly-one Decision vs execution outcome, no-action/emit-message effects, context isolation, and command-signature tests. Consistency review remediations (orphaned-turn rollback, model-supplied turn IDs ignored, invocation identity match, transcript-fact allowlist): `FlexAgent.Sessions.Tests` 160/160; architecture suite 21/21 (2026-08-13). Persistence, worker, and scheduler remain next. |
 | Sessions retry/idempotency/clock remediations | passed; in-memory aggregate | Red (2026-08-13): focused tests failed for stale-version retry, duplicate effect, mismatched participant tuple, non-UTC/stale completion clock, missing `memory_read_ref`, and revalidation resetting a terminal effect. Green: `FlexAgent.Sessions.Tests` 168/168; architecture suite 21/21; `git diff --check` clean. PostgreSQL schema remains next and must encode these reconcile/conflict/effect identities. |
+| Decision pipeline crash/recovery contract | passed; in-memory aggregate | Red: resume-after-`RecordDecision` and identical-`CompleteInvocation` retry failed (`decision_recorded` vs `decided`, `AlreadyTerminal`). Green: `FlexAgent.Sessions.Tests` 171/171; architecture suite 21/21; `git diff --check` clean (2026-08-13). Confirmation pass also rejects execution-failure completion once a Decision is recorded. |
 | PostgreSQL 18 migration/isolation/concurrency/fault tests | pending | |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
