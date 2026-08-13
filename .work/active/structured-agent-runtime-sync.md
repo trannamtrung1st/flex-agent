@@ -443,6 +443,11 @@ and test reviews have no unresolved blocking findings.
   `RecordDecision` as terminal. Version every durable stage mutation. Record
   that PostgreSQL commit time/order comes from the transaction, not worker
   `UtcNow`.
+- [x] Harden Decision validation idempotency and payload identity before
+  PostgreSQL (`SESS-DEC-8`, `SESS-DEC-17`, `SESS-DEC-20`). Accepted validation
+  retries at unchanged Session state must reconcile without mutation; lifecycle
+  change before effect appends a new validation revision and preserves history;
+  same Decision IDs with a different canonical payload digest conflict.
 - [ ] Design the minimum additive PostgreSQL schema and run migration tests red
   before implementation. Add immutable/scoped Session runtime, event,
   Invocation, attempt/outcome, Decision, validation/effect, response-slot,
@@ -588,12 +593,11 @@ findings; operational timer enablement and numeric bounds remain explicitly
 deferred to frozen runtime-policy resolution.
 The frozen runtime-policy domain tranche is **complete**. The Sessions
 domain/application tranche is **remediated** for retry/idempotency, clock
-invariants, and a resumable Decision pipeline (`decision_recorded` is not
-completion-terminal; `CompleteInvocation` resumes remaining stages). The next
-tranche is **PostgreSQL runtime schema**, using database-authoritative commit
-time/order rather than worker `UtcNow`. Session/manifest bind commit, worker
-processing, synthetic adapter scenarios, UI states, and end-to-end proof remain
-pending.
+invariants, a resumable Decision pipeline, append-only validation revisions,
+and canonical Decision payload identity. The next tranche is **PostgreSQL
+runtime schema**, using database-authoritative commit time/order rather than
+worker `UtcNow`. Session/manifest bind commit, worker processing, synthetic
+adapter scenarios, UI states, and end-to-end proof remain pending.
 
 # Decisions
 
@@ -663,6 +667,13 @@ pending.
 - PostgreSQL must take commit timestamps and Session order from the transaction
   (`clock_timestamp()` / `now()`), not from worker host `UtcNow`. The in-memory
   monotonic UTC guard is a stand-in until that persistence design lands.
+- Validation is append-only and bound to the Session version/sequence it
+  observed. An identical retry at that same authoritative state reconciles
+  without mutation (SESS-DEC-20). If version/lifecycle changed before effect,
+  a new validation revision is recorded against current state (SESS-DEC-17)
+  and prior rows remain inspectable. Decision equivalence is `DecisionId +
+  InvocationId + canonical payload digest`; same IDs with a different digest
+  are `IdentityMismatch`.
 
 # Findings / deviations
 
@@ -782,6 +793,10 @@ pending.
   `AlreadyTerminal`. Validation and effect-failure mutations now version the
   Session. PostgreSQL clock/order authority is recorded as a persistence
   constraint, not implemented in this in-memory tranche.
+- Validation/payload hardening (2026-08-13): accepted `NotAttempted`
+  validation retries at unchanged Session version/sequence do not mutate;
+  lifecycle change before effect appends a rejected revision and keeps the
+  accepted row; Decision payload digest is required for equivalent retry.
 
 # Verification
 
@@ -799,6 +814,7 @@ pending.
 | Sessions domain/application focused tests | passed; in-memory aggregate | Red: compile failures for missing `SessionRuntime`, `AdmitTrustedTriggerCommand`, and related domain types (2026-08-13). Green: admission, exactly-one Decision vs execution outcome, no-action/emit-message effects, context isolation, and command-signature tests. Consistency review remediations (orphaned-turn rollback, model-supplied turn IDs ignored, invocation identity match, transcript-fact allowlist): `FlexAgent.Sessions.Tests` 160/160; architecture suite 21/21 (2026-08-13). Persistence, worker, and scheduler remain next. |
 | Sessions retry/idempotency/clock remediations | passed; in-memory aggregate | Red (2026-08-13): focused tests failed for stale-version retry, duplicate effect, mismatched participant tuple, non-UTC/stale completion clock, missing `memory_read_ref`, and revalidation resetting a terminal effect. Green: `FlexAgent.Sessions.Tests` 168/168; architecture suite 21/21; `git diff --check` clean. PostgreSQL schema remains next and must encode these reconcile/conflict/effect identities. |
 | Decision pipeline crash/recovery contract | passed; in-memory aggregate | Red: resume-after-`RecordDecision` and identical-`CompleteInvocation` retry failed (`decision_recorded` vs `decided`, `AlreadyTerminal`). Green: `FlexAgent.Sessions.Tests` 171/171; architecture suite 21/21; `git diff --check` clean (2026-08-13). Confirmation pass also rejects execution-failure completion once a Decision is recorded. |
+| Decision validation idempotency and payload digest | passed; in-memory aggregate | Red: unchanged-state `ValidateDecision` retried bumped version; lifecycle-change overwrite left one validation row; same Decision IDs with `EmitMessage` payload reconciled as NoAction. Green: `FlexAgent.Sessions.Tests` 174/174; architecture suite 21/21; `git diff --check` clean (2026-08-13). |
 | PostgreSQL 18 migration/isolation/concurrency/fault tests | pending | |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |

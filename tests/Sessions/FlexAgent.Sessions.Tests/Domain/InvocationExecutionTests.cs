@@ -101,6 +101,31 @@ public sealed class InvocationExecutionTests
         Assert.Single(session.Invocations);
     }
 
+    [Fact]
+    public void Same_decision_ids_with_a_different_payload_are_rejected()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var noAction = SessionRuntimeTestFixtures.NoAction(invocationId);
+        session.RecordDecision(invocationId, noAction, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        var mismatched = SessionRuntimeTestFixtures.EmitMessage(invocationId) with
+        {
+            DecisionId = noAction.DecisionId,
+        };
+
+        var retry = session.CompleteInvocation(
+            invocationId, mismatched, SessionRuntimeTestFixtures.T0.AddSeconds(3));
+
+        Assert.False(retry.Succeeded);
+        Assert.Equal(InvocationCompletionOutcomeCodes.IdentityMismatch, retry.OutcomeCode);
+        Assert.Equal(RuntimeDecisionTypes.NoAction, session.Invocations[0].Decision!.DecisionType);
+        Assert.Equal(noAction.DecisionId, session.Invocations[0].Decision!.DecisionId);
+        Assert.Equal(AgentInvocationStatuses.DecisionRecorded, session.Invocations[0].Status);
+        Assert.Null(session.Invocations[0].ValidationEffect);
+    }
+
     [Theory]
     [InlineData(ExecutionFailureReasons.MalformedControl)]
     [InlineData(ExecutionFailureReasons.IncompleteControl)]

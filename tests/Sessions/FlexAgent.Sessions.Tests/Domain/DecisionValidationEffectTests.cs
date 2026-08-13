@@ -29,6 +29,57 @@ public sealed class DecisionValidationEffectTests
     }
 
     [Fact]
+    public void Validate_decision_retry_at_unchanged_session_state_does_not_mutate()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var recommendation = SessionRuntimeTestFixtures.NoAction(invocationId);
+        session.RecordDecision(invocationId, recommendation, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        var first = session.ValidateDecision(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(3));
+        var version = session.SessionVersion;
+        var sequence = session.SessionSequence;
+        var committed = session.LastCommittedAt;
+
+        var retry = session.ValidateDecision(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(4));
+
+        Assert.Equal(DecisionValidationOutcomes.Accepted, first.ValidationOutcome);
+        Assert.Equal(DecisionValidationOutcomes.Accepted, retry.ValidationOutcome);
+        Assert.Equal(version, session.SessionVersion);
+        Assert.Equal(sequence, session.SessionSequence);
+        Assert.Equal(committed, session.LastCommittedAt);
+        Assert.Single(session.Invocations[0].ValidationHistory);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, session.Invocations[0].ValidationEffect!.EffectOutcome);
+    }
+
+    [Fact]
+    public void Revalidation_after_lifecycle_change_appends_a_revision_and_preserves_accepted_history()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var recommendation = SessionRuntimeTestFixtures.NoAction(invocationId);
+        session.RecordDecision(invocationId, recommendation, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        session.ValidateDecision(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(3));
+        session.Pause(SessionRuntimeTestFixtures.T0.AddSeconds(4));
+
+        var resumed = session.CompleteInvocation(
+            invocationId, recommendation, SessionRuntimeTestFixtures.T0.AddSeconds(5));
+
+        Assert.True(resumed.Succeeded, resumed.OutcomeCode);
+        Assert.Equal(2, session.Invocations[0].ValidationHistory.Count);
+        Assert.Equal(DecisionValidationOutcomes.Accepted, session.Invocations[0].ValidationHistory[0].ValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, session.Invocations[0].ValidationHistory[0].EffectOutcome);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, session.Invocations[0].ValidationHistory[1].ValidationOutcome);
+        Assert.Equal(RejectionReasonCategories.StateIneligible, session.Invocations[0].ValidationHistory[1].RejectionReasonCategory);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, resumed.ValidationEffect!.ValidationOutcome);
+        Assert.Equal(ResponseSlotStates.Open, session.Turns[0].ResponseSlot.State);
+        Assert.Equal(AgentInvocationStatuses.Decided, session.Invocations[0].Status);
+    }
+
+    [Fact]
     public void Reconcile_after_no_action_does_not_restart_the_invocation()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();

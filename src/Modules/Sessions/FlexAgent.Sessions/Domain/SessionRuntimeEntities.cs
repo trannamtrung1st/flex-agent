@@ -95,6 +95,7 @@ public sealed class AgentDecisionRecord
         ProducedAt = recommendation.ProducedAt;
         NextTimer = recommendation.NextTimer;
         Recommendation = recommendation;
+        PayloadDigest = DecisionRecommendationDigestComputer.Compute(recommendation);
     }
 
     public string DecisionId { get; }
@@ -104,6 +105,8 @@ public sealed class AgentDecisionRecord
     public DateTimeOffset ProducedAt { get; }
 
     public NextTimerRecommendation? NextTimer { get; }
+
+    public string PayloadDigest { get; }
 
     internal DecisionRecommendation Recommendation { get; }
 }
@@ -138,6 +141,12 @@ public sealed class DecisionValidationEffectRecord
         RejectionReasonCategory = rejectionReasonCategory;
     }
 
+    public int RevisionOrdinal { get; private set; }
+
+    public long ValidatedAtSessionVersion { get; private set; }
+
+    public long ValidatedAtSessionSequence { get; private set; }
+
     public string ValidationOutcome { get; private set; }
 
     public string EffectOutcome { get; private set; }
@@ -160,6 +169,13 @@ public sealed class DecisionValidationEffectRecord
         }
     }
 
+    internal void BindAuthoritativeState(int revisionOrdinal, long sessionVersion, long sessionSequence)
+    {
+        RevisionOrdinal = revisionOrdinal;
+        ValidatedAtSessionVersion = sessionVersion;
+        ValidatedAtSessionSequence = sessionSequence;
+    }
+
     public string? AppliedTurnId { get; private set; }
 
     public string? AppliedResponseSlotId { get; private set; }
@@ -168,6 +184,7 @@ public sealed class DecisionValidationEffectRecord
 public sealed class AgentInvocation
 {
     private readonly List<InvocationExecutionAttempt> _attempts = [];
+    private readonly List<DecisionValidationEffectRecord> _validations = [];
 
     internal AgentInvocation(
         string agentInvocationId,
@@ -208,7 +225,10 @@ public sealed class AgentInvocation
 
     public ExecutionOutcomeRecord? ExecutionOutcome { get; private set; }
 
-    public DecisionValidationEffectRecord? ValidationEffect { get; private set; }
+    public DecisionValidationEffectRecord? ValidationEffect =>
+        _validations.Count == 0 ? null : _validations[^1];
+
+    public IReadOnlyList<DecisionValidationEffectRecord> ValidationHistory => _validations;
 
     public IReadOnlyList<InvocationExecutionAttempt> Attempts => _attempts;
 
@@ -253,6 +273,6 @@ public sealed class AgentInvocation
         _attempts.Add(new InvocationExecutionAttempt(_attempts.Count + 1, outcomeCategory, null));
     }
 
-    internal void SetValidationEffect(DecisionValidationEffectRecord validationEffect) =>
-        ValidationEffect = validationEffect;
+    internal void AppendValidation(DecisionValidationEffectRecord validationEffect) =>
+        _validations.Add(validationEffect);
 }

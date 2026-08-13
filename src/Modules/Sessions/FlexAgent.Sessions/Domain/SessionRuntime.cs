@@ -336,8 +336,7 @@ public sealed class SessionRuntime
             return CompletionFailure(InvocationCompletionOutcomeCodes.IdentityMismatch, invocation);
         }
 
-        if (invocation.Decision is not null
-            && !string.Equals(invocation.Decision.DecisionId, recommendation.DecisionId, StringComparison.Ordinal))
+        if (invocation.Decision is not null && !IsEquivalentRecordedDecision(invocation, recommendation))
         {
             return CompletionFailure(InvocationCompletionOutcomeCodes.IdentityMismatch, invocation);
         }
@@ -477,7 +476,7 @@ public sealed class SessionRuntime
 
         if (invocation.Decision is not null)
         {
-            if (IsSameRecordedDecision(invocation, recommendation))
+            if (IsEquivalentRecordedDecision(invocation, recommendation))
             {
                 return new InvocationCompletionResult(
                     true,
@@ -538,6 +537,19 @@ public sealed class SessionRuntime
             && invocation.ValidationEffect.EffectOutcome is DecisionEffectOutcomes.Applied
                 or DecisionEffectOutcomes.NoDomainEffect
                 or DecisionEffectOutcomes.EffectFailed)
+        {
+            return new DecisionValidationResult(
+                invocation.ValidationEffect.ValidationOutcome == DecisionValidationOutcomes.Accepted,
+                InvocationCompletionOutcomeCodes.Decided,
+                invocation.ValidationEffect.ValidationOutcome,
+                invocation.ValidationEffect.RejectionReasonCategory,
+                invocation.ValidationEffect.TimerValidationOutcome);
+        }
+
+        if (invocation.ValidationEffect is not null
+            && invocation.ValidationEffect.EffectOutcome == DecisionEffectOutcomes.NotAttempted
+            && invocation.ValidationEffect.ValidatedAtSessionVersion == SessionVersion
+            && invocation.ValidationEffect.ValidatedAtSessionSequence == SessionSequence)
         {
             return new DecisionValidationResult(
                 invocation.ValidationEffect.ValidationOutcome == DecisionValidationOutcomes.Accepted,
@@ -796,8 +808,12 @@ public sealed class SessionRuntime
             DecisionEffectOutcomes.NotAttempted,
             timerOutcome,
             rejectionReason);
-        invocation.SetValidationEffect(record);
+        invocation.AppendValidation(record);
         Touch(authoritativeUtc);
+        record.BindAuthoritativeState(
+            invocation.ValidationHistory.Count,
+            SessionVersion,
+            SessionSequence);
         if (validationOutcome != DecisionValidationOutcomes.Accepted)
         {
             invocation.MarkPipelineComplete();
@@ -1021,18 +1037,31 @@ public sealed class SessionRuntime
     private static InvocationCompletionResult CompletionFailure(string outcomeCode, AgentInvocation? invocation) =>
         new(false, outcomeCode, invocation);
 
-    private static bool IsSameRecordedDecision(AgentInvocation invocation, DecisionRecommendation recommendation) =>
+    private static bool HasSameDecisionIdentity(AgentInvocation invocation, DecisionRecommendation recommendation) =>
         invocation.Decision is not null
         && string.Equals(invocation.Decision.DecisionId, recommendation.DecisionId, StringComparison.Ordinal)
         && string.Equals(recommendation.InvocationId, invocation.AgentInvocationId, StringComparison.Ordinal);
+
+    private static bool IsEquivalentRecordedDecision(
+        AgentInvocation invocation,
+        DecisionRecommendation recommendation) =>
+        HasSameDecisionIdentity(invocation, recommendation)
+        && string.Equals(
+            invocation.Decision!.PayloadDigest,
+            DecisionRecommendationDigestComputer.Compute(recommendation),
+            StringComparison.Ordinal);
 
     private static InvocationCompletionResult ReconcileTerminalDecision(
         AgentInvocation invocation,
         DecisionRecommendation recommendation)
     {
-        if (!IsSameRecordedDecision(invocation, recommendation))
+        if (!IsEquivalentRecordedDecision(invocation, recommendation))
         {
-            return CompletionFailure(InvocationCompletionOutcomeCodes.AlreadyTerminal, invocation);
+            return CompletionFailure(
+                HasSameDecisionIdentity(invocation, recommendation)
+                    ? InvocationCompletionOutcomeCodes.IdentityMismatch
+                    : InvocationCompletionOutcomeCodes.AlreadyTerminal,
+                invocation);
         }
 
         if (invocation.ValidationEffect?.EffectOutcome == DecisionEffectOutcomes.EffectFailed)
