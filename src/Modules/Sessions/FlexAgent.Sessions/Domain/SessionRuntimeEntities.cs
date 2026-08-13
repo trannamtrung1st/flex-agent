@@ -45,13 +45,15 @@ public sealed class ResponseSlot
 
 public sealed class Turn
 {
-    internal Turn(string turnId, string kind, string? triggerInvocationId, ResponseSlot responseSlot)
+    internal Turn(string turnId, string kind, string? triggerInvocationId, ResponseSlot responseSlot, long createdSessionSequence)
     {
         TurnId = turnId;
         Kind = kind;
         TriggerInvocationId = triggerInvocationId;
         State = kind == TurnKinds.Participant ? TurnStates.Accepted : TurnStates.WorkQueued;
         ResponseSlot = responseSlot;
+        CreatedSessionSequence = createdSessionSequence;
+        IsDirty = true;
     }
 
     public string TurnId { get; }
@@ -62,11 +64,27 @@ public sealed class Turn
 
     public string State { get; private set; }
 
+    public long CreatedSessionSequence { get; }
+
     public ResponseSlot ResponseSlot { get; }
 
-    internal void MarkWorkQueued() => State = TurnStates.WorkQueued;
+    internal bool IsDirty { get; private set; }
 
-    internal void MarkComplete() => State = TurnStates.Complete;
+    internal void MarkWorkQueued()
+    {
+        State = TurnStates.WorkQueued;
+        IsDirty = true;
+    }
+
+    internal void MarkComplete()
+    {
+        State = TurnStates.Complete;
+        IsDirty = true;
+    }
+
+    internal void MarkDirty() => IsDirty = true;
+
+    internal void MarkClean() => IsDirty = false;
 
     internal void Cancel()
     {
@@ -74,6 +92,7 @@ public sealed class Turn
         {
             State = TurnStates.Cancelled;
             ResponseSlot.Cancel();
+            IsDirty = true;
         }
     }
 
@@ -82,10 +101,12 @@ public sealed class Turn
         string kind,
         string state,
         string? triggerInvocationId,
-        ResponseSlot responseSlot)
+        ResponseSlot responseSlot,
+        long createdSessionSequence)
     {
-        var turn = new Turn(turnId, kind, triggerInvocationId, responseSlot);
+        var turn = new Turn(turnId, kind, triggerInvocationId, responseSlot, createdSessionSequence);
         turn.State = state;
+        turn.IsDirty = false;
         return turn;
     }
 }

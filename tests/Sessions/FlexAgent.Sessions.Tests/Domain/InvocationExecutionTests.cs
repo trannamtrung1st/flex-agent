@@ -157,6 +157,32 @@ public sealed class InvocationExecutionTests
     }
 
     [Fact]
+    public void Execution_failure_retry_returns_already_terminal_without_mutating()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var first = session.CompleteInvocation(
+            invocationId,
+            new ExecutionFailureCompletion(ExecutionFailureReasons.MalformedControl),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        var version = session.SessionVersion;
+        var outcomeId = first.ExecutionOutcome!.ExecutionOutcomeId;
+
+        var retry = session.CompleteInvocation(
+            invocationId,
+            new ExecutionFailureCompletion(ExecutionFailureReasons.MalformedControl),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3));
+
+        Assert.False(retry.Succeeded);
+        Assert.Equal(InvocationCompletionOutcomeCodes.AlreadyTerminal, retry.OutcomeCode);
+        Assert.Equal(version, session.SessionVersion);
+        Assert.Equal(outcomeId, session.Invocations[0].ExecutionOutcome!.ExecutionOutcomeId);
+        Assert.Single(session.Invocations);
+    }
+
+    [Fact]
     public void Bounded_failed_attempts_exhaust_without_fabricating_a_decision()
     {
         var values = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with

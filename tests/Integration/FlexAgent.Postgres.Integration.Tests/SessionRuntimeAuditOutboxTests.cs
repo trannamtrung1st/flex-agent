@@ -121,6 +121,140 @@ public sealed class SessionRuntimeAuditOutboxTests(PostgresIntegrationFixture fi
         Assert.Equal(0, outboxCount);
     }
 
+    [Fact]
+    public async Task Audit_failure_rolls_back_completion_decision_effect_and_outbox()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
+        var repository = new PostgresSessionRuntimeRepository();
+        var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
+        var acceptCoordinator = new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler());
+        var completeCorrelationId = Guid.NewGuid();
+        var completeCoordinator = new PostgresCompleteInvocationCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new CompleteInvocationHandler(),
+            new FaultInjectingAuditEventWriter(),
+            new PostgresOutboxItemWriter());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var admitted = await acceptCoordinator.AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                actor,
+                binding.Ownership,
+                0,
+                "msg.p.1",
+                "turn.1",
+                "slot.1",
+                "trig.p.1",
+                "idem.p.1",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            completeCoordinator.CompleteAsync(
+                new CompleteInvocationCommand(
+                    actor,
+                    binding.Ownership,
+                    admitted.SessionVersion!.Value,
+                    admitted.Invocation!.AgentInvocationId,
+                    new NoActionRecommendation(
+                        Guid.NewGuid().ToString("N"),
+                        admitted.Invocation.AgentInvocationId,
+                        new DateTimeOffset(2026, 8, 13, 0, 0, 2, TimeSpan.Zero),
+                        NoActionReasonCategories.IntentionalSilence,
+                        null),
+                    null,
+                    completeCorrelationId,
+                    "integration.test"),
+                binding,
+                CancellationToken));
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var decisionCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM session_decisions
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId;
+            """,
+            binding.Ownership);
+        var validationCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM session_decision_validations
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId;
+            """,
+            binding.Ownership);
+        var slotState = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT response_slot_state
+            FROM session_turns
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+              AND turn_id = 'turn.1';
+            """,
+            binding.Ownership);
+        var invocationStatus = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT status
+            FROM session_invocations
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+              AND agent_invocation_id = @InvocationId;
+            """,
+            new
+            {
+                binding.Ownership.OrganizationId,
+                binding.Ownership.SessionId,
+                InvocationId = admitted.Invocation!.AgentInvocationId,
+            });
+        var attemptCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM session_invocation_attempts
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId;
+            """,
+            binding.Ownership);
+        var sessionVersion = await connection.ExecuteScalarAsync<long>(
+            """
+            SELECT session_version
+            FROM session_runtimes
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId;
+            """,
+            binding.Ownership);
+        var auditCount = await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*)::int FROM audit_events WHERE correlation_id = @CorrelationId;",
+            new { CorrelationId = completeCorrelationId });
+        var outboxCount = await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*)::int FROM outbox_items WHERE correlation_id = @CorrelationId;",
+            new { CorrelationId = completeCorrelationId });
+
+        Assert.Equal(0, decisionCount);
+        Assert.Equal(0, validationCount);
+        Assert.Equal(0, attemptCount);
+        Assert.Equal(ResponseSlotStates.Open, slotState);
+        Assert.Equal(AgentInvocationStatuses.Admitted, invocationStatus);
+        Assert.Equal(admitted.SessionVersion, sessionVersion);
+        Assert.Equal(0, auditCount);
+        Assert.Equal(0, outboxCount);
+    }
+
     private sealed class FaultInjectingAuditEventWriter : IAuditEventWriter
     {
         public Task InsertAsync(

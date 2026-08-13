@@ -508,6 +508,13 @@ and test reviews have no unresolved blocking findings.
   reflection/signature tests requiring trusted Organization plus complete
   Activity/Participant/Attempt/Session ownership on every protected repository
   entry point, and reject client/host time or order as mutation authority.
+  Follow-up from `6c89609` review is implemented: dirty-only Turn UPSERT
+  with conditional `DO UPDATE`; immutable `created_session_sequence`
+  (`0008`); completion audit/outbox rollback; execution-failure
+  `AlreadyTerminal` documented as a safe worker ack. Remaining this step:
+  commit-time revocation, timer replacement races, and
+  export/backup/restore/lawful unavailability (deferred until those surfaces
+  exist). External review of the follow-up is still outstanding.
 - [ ] Add the model-execution port and deterministic fake provider through
   observed red-green-refactor. Prove structured control/content phase
   separation, bounded provider requests within one Invocation, cancellation,
@@ -639,13 +646,15 @@ now waits on `pg_locks` until T2 is blocked by T1 before advancing
 implemented: participant no-action persist/hydrate, Decision/outcome XOR
 after persist, validation hydrate from `validation_commit_*`, concurrent
 completion serialization, audit/outbox fault rollback, and scoped list/count
-leak tests. Session/manifest bind commit, worker processing, synthetic
-adapter scenarios, UI states, and end-to-end proof remain pending. Remaining
-in this persistence step: commit-time revocation (no Session grant surface
-yet), timer replacement races (scheduler tranche), and
-export/backup/restore/lawful-unavailability reconstruction. Confirmation
-pass (2026-08-13) re-ran Sessions 180/180, architecture 27/27, and
-PostgreSQL integration 72/72 green after the digest and outcome-code fixes.
+  leak tests. Follow-up from the `6c89609` review persists only dirty Turns
+  (conditional UPSERT so historical `last_committed_at` is not restamped),
+  stamps immutable `created_session_sequence` (`0008`) and reloads Turns in
+  that order, and covers completion audit/outbox rollback. Session/manifest
+  bind commit, worker processing, synthetic adapter scenarios, UI states, and
+  end-to-end proof remain pending. Remaining in this persistence step:
+  commit-time revocation (no Session grant surface yet), timer replacement
+  races (scheduler tranche), and export/backup/restore/lawful-unavailability
+  reconstruction. External review of the follow-up is outstanding.
 
 # Decisions
 
@@ -745,6 +754,17 @@ PostgreSQL integration 72/72 green after the digest and outcome-code fixes.
   persist so the snapshot and the clock describe the same serialized point.
   Cooldown rehydration uses immutable `session_invocations.admitted_at`
   (stamped once on INSERT); `last_committed_at` remains the last mutation.
+- Persist only dirty Turns. UPSERT conflict updates run only when `state`,
+  `response_slot_state`, or `claimed_by_invocation_id` actually change, so
+  historical `last_committed_at` is not restamped. Additive `0008` stores
+  immutable `created_session_sequence` (stamped at Turn creation from Session
+  sequence; preserved on UPDATE) and loads `ORDER BY created_session_sequence`.
+- Execution-failure completion after a terminal Invocation returns
+  `AlreadyTerminal` with `Succeeded=false`. That is a **safe acknowledgement**
+  for at-least-once workers (do not retry). Exact Decision retries instead
+  reconcile as `Succeeded=true` when Decision identity and payload digest
+  match. Worker claim/ack mapping must treat this code as terminal success
+  from a delivery perspective, not as a retryable failure.
 
 # Findings / deviations
 
@@ -917,6 +937,13 @@ PostgreSQL integration 72/72 green after the digest and outcome-code fixes.
   and command/binding ownership failures use `invocation_completion.denied`
   / `ownership_mismatch` instead of `already_terminal` / `identity_mismatch`,
   matching admission. Added persist-then-retry and handler negative tests.
+- Persistence-fidelity follow-up (2026-08-13, `6c89609` review): unconditional
+  historical Turn UPSERTs restamped `last_committed_at`; load ordered by
+  `turn_id` reversed non-lexicographic creation order. Fixed with dirty-only
+  persist, conditional `DO UPDATE`, and `created_session_sequence`. Completion
+  audit-fault rollback now covers Decision/validation/attempts/slot/head/
+  outbox. `AlreadyTerminal` on execution-failure retry is documented as a
+  safe worker ack rather than Decision-style payload reconciliation.
 
 # Verification
 
@@ -937,7 +964,7 @@ PostgreSQL integration 72/72 green after the digest and outcome-code fixes.
 | Decision validation idempotency and payload digest | passed; in-memory aggregate | Red: unchanged-state `ValidateDecision` retried bumped version; lifecycle-change overwrite left one validation row; same Decision IDs with `EmitMessage` payload reconciled as NoAction. Green: `FlexAgent.Sessions.Tests` 174/174; architecture suite 21/21; `git diff --check` clean (2026-08-13). |
 | PostgreSQL Session runtime schema (`0005`) | passed; schema/migration | Red: `SessionsPersistenceOwnershipTests` failed with missing `*_session_runtime*.sql`. Green: `FlexAgent.Postgres.Integration.Tests` 43/43 including 10 schema constraint tests (ownership FK, delete reject, fragment `session_sequence`); `FlexAgent.Architecture.Tests` 24/24; `FlexAgent.Sessions.Tests` 174/174; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-13). Repositories remain next. |
 | PostgreSQL Session runtime invariant patch (`0006`) | passed; schema/migration | Includes Decision XOR ExecutionOutcome (`SESS-DEC-16`) and validation→Decision FK. Red: both child rows and validation-without-Decision succeeded. Green: sequential XOR; concurrent exactly-one winner; schema/upgrade/concurrency 26/26; architecture 24/24; Sessions 174/174 (2026-08-13). Repositories remain next. |
-| PostgreSQL 18 repository isolation/concurrency/fault tests | in progress; admission **approved** `5430f4e`; completion/isolation slice green after consistency review | Participant no-action persist/hydrate; Decision XOR outcome; validation hydrate from commit state; concurrent completion one Decision; audit/outbox fault rollback; scoped list/count leaks; Decision payload-digest round-trip retry. `FlexAgent.Sessions.Tests` 180/180; architecture 27/27; `FlexAgent.Postgres.Integration.Tests` 72/72; `git diff --check` passed (2026-08-13). Remaining this step: commit-time revocation, timer replacement races, export/backup/restore/lawful unavailability. |
+| PostgreSQL 18 repository isolation/concurrency/fault tests | in progress; admission **approved** `5430f4e`; completion/isolation follow-up pending external review | Dirty-only Turn persist; `0008` `created_session_sequence` round-trip (`turn.z` then `turn.a`); historical `last_committed_at` not restamped; completion audit-fault rolls back Decision/validation/attempts/slot/head/outbox. `AlreadyTerminal` documented as safe worker ack. Confirmation (2026-08-13): `FlexAgent.Sessions.Tests` 182/182; architecture 27/27; `FlexAgent.Postgres.Integration.Tests` 75/75 (`git diff --check` clean). One concurrent empty-DB Grate run hit a `pg_type` duplicate-key race and passed on retry; unrelated to `0008`. Remaining this step: commit-time revocation, timer replacement races, export/backup/restore/lawful unavailability. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |

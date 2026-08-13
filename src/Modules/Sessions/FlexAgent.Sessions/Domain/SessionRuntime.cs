@@ -184,7 +184,7 @@ public sealed class SessionRuntime
             return AdmissionFailure(TriggerAdmissionOutcomeCodes.LifecycleIneligible);
         }
 
-        _turns.Add(new Turn(turnId, TurnKinds.Participant, triggerId, new ResponseSlot(responseSlotId)));
+        _turns.Add(new Turn(turnId, TurnKinds.Participant, triggerId, new ResponseSlot(responseSlotId), SessionSequence));
         _visibleTranscript.Add(new VisibleTranscriptItemRef(
             participantMessageId,
             TranscriptAuthorTypes.Participant,
@@ -457,6 +457,10 @@ public sealed class SessionRuntime
         ExecutionFailureCompletion failure,
         DateTimeOffset authoritativeUtc)
     {
+        // Execution-failure retries after a terminal Invocation return AlreadyTerminal
+        // with Succeeded=false. That is a safe acknowledgement for at-least-once
+        // workers, not a retryable error. Decision retries instead reconcile as
+        // Succeeded=true when identity and payload digest match.
         ArgumentNullException.ThrowIfNull(failure);
         var invocation = FindInvocation(agentInvocationId);
         if (invocation is null || invocation.IsTerminal || invocation.Decision is not null)
@@ -756,6 +760,7 @@ public sealed class SessionRuntime
 
                 turn.ResponseSlot.MarkIntentionalNoAction();
                 turn.MarkComplete();
+                turn.MarkDirty();
             }
 
             invocation.ValidationEffect.SetEffectOutcome(
@@ -821,13 +826,15 @@ public sealed class SessionRuntime
                         turnId,
                         AgentTurnKind(invocation.Trigger),
                         invocation.AgentInvocationId,
-                        new ResponseSlot(AgentInitiatedSlotId(invocation)));
+                        new ResponseSlot(AgentInitiatedSlotId(invocation)),
+                        SessionSequence);
                     _turns.Add(turn);
                 }
             }
 
             turn.ResponseSlot.ClaimForPublication(invocation.AgentInvocationId);
             turn.MarkWorkQueued();
+            turn.MarkDirty();
             invocation.ValidationEffect.SetEffectOutcome(
                 DecisionEffectOutcomes.Applied,
                 turn.TurnId,

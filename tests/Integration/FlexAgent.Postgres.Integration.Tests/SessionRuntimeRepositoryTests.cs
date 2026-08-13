@@ -14,7 +14,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     public async Task Load_requires_the_complete_ownership_tuple()
     {
         var organization = await Fixture.SeedOrganizationAsync();
-        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var repository = new PostgresSessionRuntimeRepository();
         var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
 
@@ -79,7 +79,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     public async Task Admit_opening_trigger_persists_and_reconciles_without_duplicate_insert()
     {
         var organization = await Fixture.SeedOrganizationAsync();
-        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var repository = new PostgresSessionRuntimeRepository();
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
@@ -133,7 +133,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     public async Task Admit_rejects_stale_session_version()
     {
         var organization = await Fixture.SeedOrganizationAsync();
-        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var repository = new PostgresSessionRuntimeRepository();
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
@@ -165,7 +165,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     public async Task Admit_rejects_command_binding_ownership_mismatch()
     {
         var organization = await Fixture.SeedOrganizationAsync();
-        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
             new PostgresSessionRuntimeRepository(),
@@ -263,7 +263,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     public async Task Participant_no_action_persists_turn_resolution_without_an_agent_message()
     {
         var organization = await Fixture.SeedOrganizationAsync();
-        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var repository = new PostgresSessionRuntimeRepository();
         var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
         var acceptCoordinator = new PostgresAcceptParticipantMessageCoordinator(
@@ -342,7 +342,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     public async Task Decision_and_execution_outcome_remain_mutually_exclusive_after_persist()
     {
         var organization = await Fixture.SeedOrganizationAsync();
-        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var repository = new PostgresSessionRuntimeRepository();
         var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
         var admitCoordinator = new PostgresAdmitTrustedTriggerCoordinator(
@@ -446,7 +446,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     public async Task Complete_retry_after_reload_reconciles_the_same_decision_payload()
     {
         var organization = await Fixture.SeedOrganizationAsync();
-        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var repository = new PostgresSessionRuntimeRepository();
         var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
         var admitCoordinator = new PostgresAdmitTrustedTriggerCoordinator(
@@ -531,7 +531,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     public async Task Validation_hydrate_uses_commit_state_so_unchanged_retry_does_not_mutate()
     {
         var organization = await Fixture.SeedOrganizationAsync();
-        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var repository = new PostgresSessionRuntimeRepository();
         var admitCoordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
@@ -616,7 +616,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     public async Task Invocation_list_and_count_do_not_leak_across_ownership()
     {
         var organization = await Fixture.SeedOrganizationAsync();
-        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var other = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
         var repository = new PostgresSessionRuntimeRepository();
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
@@ -673,5 +673,180 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
             0,
             await repository.CountInvocationsAsync(guessedSession, listScope.Transaction, CancellationToken));
         await listScope.CommitAsync(CancellationToken);
+    }
+
+    [Fact]
+    public async Task Later_turn_admission_does_not_restamp_an_unchanged_historical_turn()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
+        var acceptCoordinator = new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler());
+        var completeCoordinator = new PostgresCompleteInvocationCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new CompleteInvocationHandler());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var first = await acceptCoordinator.AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                actor,
+                binding.Ownership,
+                0,
+                "msg.z",
+                "turn.z",
+                "slot.z",
+                "trig.z",
+                "idem.z",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        var completed = await completeCoordinator.CompleteAsync(
+            new CompleteInvocationCommand(
+                actor,
+                binding.Ownership,
+                first.SessionVersion!.Value,
+                first.Invocation!.AgentInvocationId,
+                new NoActionRecommendation(
+                    Guid.NewGuid().ToString("N"),
+                    first.Invocation.AgentInvocationId,
+                    new DateTimeOffset(2026, 8, 13, 0, 0, 2, TimeSpan.Zero),
+                    NoActionReasonCategories.IntentionalSilence,
+                    null),
+                null,
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+
+        await using (var versionScope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            var afterComplete = await repository.LoadForUpdateAsync(
+                binding.Ownership,
+                binding,
+                versionScope.Transaction,
+                CancellationToken);
+            await versionScope.CommitAsync(CancellationToken);
+            Assert.NotNull(afterComplete);
+            var originalStamp = await ReadTurnCommittedAtAsync(binding.Ownership, "turn.z");
+            await Task.Delay(TimeSpan.FromMilliseconds(20), CancellationToken);
+
+            var second = await acceptCoordinator.AcceptAsync(
+                new AcceptParticipantMessageCommand(
+                    actor,
+                    binding.Ownership,
+                    afterComplete!.SessionVersion,
+                    "msg.a",
+                    "turn.a",
+                    "slot.a",
+                    "trig.a",
+                    "idem.a",
+                    Guid.NewGuid(),
+                    "integration.test"),
+                binding,
+                CancellationToken);
+            Assert.True(second.Succeeded, second.OutcomeCode);
+
+            var laterStamp = await ReadTurnCommittedAtAsync(binding.Ownership, "turn.z");
+            Assert.Equal(originalStamp, laterStamp);
+        }
+    }
+
+    [Fact]
+    public async Task Turns_reload_in_creation_order_even_when_ids_sort_lexicographically_differently()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
+        var acceptCoordinator = new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var first = await acceptCoordinator.AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                actor,
+                binding.Ownership,
+                0,
+                "msg.z",
+                "turn.z",
+                "slot.z",
+                "trig.z",
+                "idem.z",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        var second = await acceptCoordinator.AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                actor,
+                binding.Ownership,
+                first.SessionVersion!.Value,
+                "msg.a",
+                "turn.a",
+                "slot.a",
+                "trig.a",
+                "idem.a",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(second.Succeeded, second.OutcomeCode);
+
+        await using var loadScope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken);
+        var loaded = await repository.LoadForUpdateAsync(
+            binding.Ownership,
+            binding,
+            loadScope.Transaction,
+            CancellationToken);
+        await loadScope.CommitAsync(CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(["turn.z", "turn.a"], loaded!.Turns.Select(turn => turn.TurnId));
+        Assert.Equal(0, loaded.Turns[0].CreatedSessionSequence);
+        Assert.Equal(1, loaded.Turns[1].CreatedSessionSequence);
+    }
+
+    private async Task<DateTime> ReadTurnCommittedAtAsync(SessionOwnership ownership, string turnId)
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        return await connection.ExecuteScalarAsync<DateTime>(
+            new CommandDefinition(
+                """
+                SELECT last_committed_at
+                FROM session_turns
+                WHERE organization_id = @OrganizationId
+                  AND session_id = @SessionId
+                  AND turn_id = @TurnId;
+                """,
+                new
+                {
+                    ownership.OrganizationId,
+                    ownership.SessionId,
+                    TurnId = turnId,
+                },
+                cancellationToken: CancellationToken));
     }
 }

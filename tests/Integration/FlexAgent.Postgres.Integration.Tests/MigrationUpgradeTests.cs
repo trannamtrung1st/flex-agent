@@ -20,6 +20,7 @@ public sealed class MigrationUpgradeTests
     private const string Current0005ScriptName = "0005_session_runtime_schema.sql";
     private const string Current0006ScriptName = "0006_harden_session_runtime_invariants.sql";
     private const string Current0007ScriptName = "0007_session_invocation_admitted_at.sql";
+    private const string Current0008ScriptName = "0008_session_turn_created_sequence.sql";
 
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
@@ -49,7 +50,8 @@ public sealed class MigrationUpgradeTests
             Current0004ScriptName,
             Current0005ScriptName,
             Current0006ScriptName,
-            Current0007ScriptName);
+            Current0007ScriptName,
+            Current0008ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -80,7 +82,8 @@ public sealed class MigrationUpgradeTests
             Current0004ScriptName,
             Current0005ScriptName,
             Current0006ScriptName,
-            Current0007ScriptName);
+            Current0007ScriptName,
+            Current0008ScriptName);
     }
 
     [Fact]
@@ -109,7 +112,8 @@ public sealed class MigrationUpgradeTests
             Current0004ScriptName,
             Current0005ScriptName,
             Current0006ScriptName,
-            Current0007ScriptName);
+            Current0007ScriptName,
+            Current0008ScriptName);
     }
 
     [Fact]
@@ -180,7 +184,8 @@ public sealed class MigrationUpgradeTests
             Current0004ScriptName,
             Current0005ScriptName,
             Current0006ScriptName,
-            Current0007ScriptName);
+            Current0007ScriptName,
+            Current0008ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -236,7 +241,8 @@ public sealed class MigrationUpgradeTests
             Current0004ScriptName,
             Current0005ScriptName,
             Current0006ScriptName,
-            Current0007ScriptName);
+            Current0007ScriptName,
+            Current0008ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }

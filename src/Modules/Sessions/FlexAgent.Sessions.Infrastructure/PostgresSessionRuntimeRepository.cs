@@ -69,14 +69,14 @@ public sealed class PostgresSessionRuntimeRepository
 
     private const string LoadTurnsSql = """
         SELECT turn_id, kind, state, trigger_invocation_id, response_slot_id,
-               response_slot_state, claimed_by_invocation_id
+               response_slot_state, claimed_by_invocation_id, created_session_sequence
         FROM session_turns
         WHERE organization_id = @OrganizationId
           AND activity_id = @ActivityId
           AND participant_id = @ParticipantId
           AND attempt_id = @AttemptId
           AND session_id = @SessionId
-        ORDER BY turn_id;
+        ORDER BY created_session_sequence, turn_id;
         """;
 
     private const string LoadTranscriptSql = """
@@ -174,16 +174,19 @@ public sealed class PostgresSessionRuntimeRepository
         INSERT INTO session_turns (
             organization_id, activity_id, participant_id, attempt_id, session_id,
             turn_id, kind, state, trigger_invocation_id, response_slot_id,
-            response_slot_state, claimed_by_invocation_id)
+            response_slot_state, claimed_by_invocation_id, created_session_sequence)
         VALUES (
             @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
             @TurnId, @Kind, @State, @TriggerInvocationId, @ResponseSlotId,
-            @ResponseSlotState, @ClaimedByInvocationId)
+            @ResponseSlotState, @ClaimedByInvocationId, @CreatedSessionSequence)
         ON CONFLICT (organization_id, session_id, turn_id) DO UPDATE
         SET
             state = EXCLUDED.state,
             response_slot_state = EXCLUDED.response_slot_state,
-            claimed_by_invocation_id = EXCLUDED.claimed_by_invocation_id;
+            claimed_by_invocation_id = EXCLUDED.claimed_by_invocation_id
+        WHERE session_turns.state IS DISTINCT FROM EXCLUDED.state
+           OR session_turns.response_slot_state IS DISTINCT FROM EXCLUDED.response_slot_state
+           OR session_turns.claimed_by_invocation_id IS DISTINCT FROM EXCLUDED.claimed_by_invocation_id;
         """;
 
     private const string InsertTranscriptSql = """
@@ -428,7 +431,8 @@ public sealed class PostgresSessionRuntimeRepository
                 item.kind,
                 item.state,
                 item.trigger_invocation_id,
-                ResponseSlot.Rehydrate(item.response_slot_id, item.response_slot_state, item.claimed_by_invocation_id)))
+                ResponseSlot.Rehydrate(item.response_slot_id, item.response_slot_state, item.claimed_by_invocation_id),
+                item.created_session_sequence))
             .ToArray();
 
         var transcript = transcriptRows
@@ -728,7 +732,7 @@ public sealed class PostgresSessionRuntimeRepository
         CancellationToken cancellationToken)
     {
         var connection = RequireConnection(transaction);
-        foreach (var turn in session.Turns)
+        foreach (var turn in session.Turns.Where(item => item.IsDirty))
         {
             await connection.ExecuteAsync(
                 new CommandDefinition(
@@ -747,9 +751,11 @@ public sealed class PostgresSessionRuntimeRepository
                         turn.ResponseSlot.ResponseSlotId,
                         ResponseSlotState = turn.ResponseSlot.State,
                         turn.ResponseSlot.ClaimedByInvocationId,
+                        turn.CreatedSessionSequence,
                     },
                     transaction,
                     cancellationToken: cancellationToken));
+            turn.MarkClean();
         }
 
         foreach (var item in session.VisibleTranscript)
@@ -967,7 +973,8 @@ public sealed class PostgresSessionRuntimeRepository
         string? trigger_invocation_id,
         string response_slot_id,
         string response_slot_state,
-        string? claimed_by_invocation_id);
+        string? claimed_by_invocation_id,
+        long created_session_sequence);
 
     private sealed record SessionTranscriptRow(
         string message_id,
