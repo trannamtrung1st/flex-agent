@@ -6,18 +6,18 @@ using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.Infrastructure;
 
-public sealed class PostgresAdmitTrustedTriggerCoordinator(
+public sealed class PostgresCompleteInvocationCoordinator(
     PostgresConnectionAccessor connectionAccessor,
     PostgresSessionRuntimeRepository runtimeRepository,
-    IAdmitTrustedTriggerHandler admissionHandler,
+    ICompleteInvocationHandler completionHandler,
     IAuditEventWriter? auditEventWriter = null,
     IOutboxItemWriter? outboxItemWriter = null)
 {
     private readonly IAuditEventWriter _auditEventWriter = auditEventWriter ?? new PostgresAuditEventWriter();
     private readonly IOutboxItemWriter _outboxItemWriter = outboxItemWriter ?? new PostgresOutboxItemWriter();
 
-    public async Task<TriggerAdmissionResult> AdmitAsync(
-        AdmitTrustedTriggerCommand command,
+    public async Task<InvocationCompletionResult> CompleteAsync(
+        CompleteInvocationCommand command,
         TrustedSessionBinding binding,
         CancellationToken cancellationToken = default)
     {
@@ -26,11 +26,7 @@ public sealed class PostgresAdmitTrustedTriggerCoordinator(
 
         if (command.Ownership != binding.Ownership)
         {
-            return new TriggerAdmissionResult(
-                false,
-                TriggerAdmissionOutcomeCodes.OwnershipMismatch,
-                null,
-                null);
+            return new InvocationCompletionResult(false, InvocationCompletionOutcomeCodes.OwnershipMismatch, null);
         }
 
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
@@ -44,26 +40,36 @@ public sealed class PostgresAdmitTrustedTriggerCoordinator(
             if (session is null)
             {
                 await scope.RollbackAsync(cancellationToken);
-                return new TriggerAdmissionResult(false, TriggerAdmissionOutcomeCodes.Denied, null, null);
+                return new InvocationCompletionResult(false, InvocationCompletionOutcomeCodes.Denied, null);
             }
 
+            var existing = session.Invocations.FirstOrDefault(item =>
+                string.Equals(item.AgentInvocationId, command.AgentInvocationId, StringComparison.Ordinal));
+            var wasTerminal = existing?.IsTerminal == true;
             var authoritativeUtc = await runtimeRepository.ReadAuthoritativeUtcAsync(
                 scope.Transaction,
                 cancellationToken);
-            var result = admissionHandler.Handle(command, session, authoritativeUtc);
-            if (!result.Succeeded || result.Invocation is null)
-            {
-                await scope.RollbackAsync(cancellationToken);
-                return result;
-            }
-
-            if (result.OutcomeCode == TriggerAdmissionOutcomeCodes.Reconciled)
+            var result = completionHandler.Handle(command, session, authoritativeUtc);
+            if (wasTerminal)
             {
                 await scope.CommitAsync(cancellationToken);
                 return result;
             }
 
-            var saved = await runtimeRepository.TrySaveAdmissionAsync(
+            if (!result.Succeeded
+                && result.OutcomeCode != InvocationCompletionOutcomeCodes.EffectFailed)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return result;
+            }
+
+            if (result.Invocation is null)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return result;
+            }
+
+            var saved = await runtimeRepository.TrySaveCompletionAsync(
                 command.Ownership,
                 command.ExpectedSessionVersion,
                 session,
@@ -73,7 +79,10 @@ public sealed class PostgresAdmitTrustedTriggerCoordinator(
             if (!saved)
             {
                 await scope.RollbackAsync(cancellationToken);
-                return new TriggerAdmissionResult(false, TriggerAdmissionOutcomeCodes.StaleVersion, null, null);
+                return new InvocationCompletionResult(
+                    false,
+                    InvocationCompletionOutcomeCodes.StaleVersion,
+                    result.Invocation);
             }
 
             await SessionRuntimePersistenceAudit.WriteAsync(
@@ -83,8 +92,8 @@ public sealed class PostgresAdmitTrustedTriggerCoordinator(
                 command.Ownership,
                 command.CorrelationId,
                 command.SourceChannel,
-                SessionRuntimeAuditActions.AdmitTrustedTrigger,
-                SessionRuntimeOutboxEventTypes.TrustedTriggerAdmitted,
+                SessionRuntimeAuditActions.CompleteInvocation,
+                SessionRuntimeOutboxEventTypes.InvocationCompleted,
                 result.Invocation.AgentInvocationId,
                 authoritativeUtc,
                 scope.Transaction,

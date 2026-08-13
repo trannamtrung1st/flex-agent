@@ -16,6 +16,9 @@ public sealed class SessionsRepositoryOwnershipTests
             "InsertActiveAsync",
             "LoadForUpdateAsync",
             "TrySaveAdmissionAsync",
+            "TrySaveCompletionAsync",
+            "CountInvocationsAsync",
+            "ListInvocationIdsAsync",
         };
 
         foreach (var methodName in scopedMethods)
@@ -35,9 +38,19 @@ public sealed class SessionsRepositoryOwnershipTests
     [Fact]
     public void Admit_coordinator_requires_command_ownership_and_does_not_accept_client_clocks()
     {
-        var method = typeof(PostgresAdmitTrustedTriggerCoordinator).GetMethod(
-            "AdmitAsync",
-            BindingFlags.Instance | BindingFlags.Public);
+        AssertCoordinatorRejectsClientClocks(typeof(PostgresAdmitTrustedTriggerCoordinator), "AdmitAsync");
+    }
+
+    [Fact]
+    public void Participant_and_completion_coordinators_require_command_ownership_and_do_not_accept_client_clocks()
+    {
+        AssertCoordinatorRejectsClientClocks(typeof(PostgresAcceptParticipantMessageCoordinator), "AcceptAsync");
+        AssertCoordinatorRejectsClientClocks(typeof(PostgresCompleteInvocationCoordinator), "CompleteAsync");
+    }
+
+    private static void AssertCoordinatorRejectsClientClocks(Type coordinatorType, string methodName)
+    {
+        var method = coordinatorType.GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public);
         Assert.NotNull(method);
 
         var parameters = method!.GetParameters();

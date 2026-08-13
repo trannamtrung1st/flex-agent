@@ -89,6 +89,28 @@ public static class InvocationCompletionOutcomeCodes
     public const string IdentityMismatch = "invocation_completion.identity_mismatch";
     public const string NonUtcClock = "invocation_completion.non_utc_clock";
     public const string StaleClock = "invocation_completion.stale_clock";
+    public const string StaleVersion = "invocation_completion.stale_version";
+    public const string Denied = "invocation_completion.denied";
+    public const string OwnershipMismatch = "invocation_completion.ownership_mismatch";
+}
+
+public static class SessionRuntimeAuditActions
+{
+    public const string AdmitTrustedTrigger = "session.trusted_trigger.admit";
+    public const string AcceptParticipantMessage = "session.participant_message.accept";
+    public const string CompleteInvocation = "session.invocation.complete";
+}
+
+public static class SessionRuntimeResourceTypes
+{
+    public const string Session = "session";
+}
+
+public static class SessionRuntimeOutboxEventTypes
+{
+    public const string TrustedTriggerAdmitted = "session.trusted_trigger.admitted";
+    public const string ParticipantMessageAccepted = "session.participant_message.accepted";
+    public const string InvocationCompleted = "session.invocation.completed";
 }
 
 public static class ExecutionFailureReasons

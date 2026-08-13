@@ -635,10 +635,17 @@ tranche is **approved and frozen** at `d7c2daf`. Additive `0006` is the
 pre-repository invariant repair. Do not add speculative schema constraints.
 Admission persistence is **approved** at `5430f4e`. The P3 concurrency test
 now waits on `pg_locks` until T2 is blocked by T1 before advancing
-`last_committed_at`. Remaining repository coverage: participant no-action,
-Decision/outcome XOR persist, validation hydrate, worker races, audit/outbox,
-list/count leaks. Session/manifest bind commit, worker processing, synthetic
-adapter scenarios, UI states, and end-to-end proof remain pending.
+`last_committed_at`. The repository **completion/isolation** slice is
+implemented: participant no-action persist/hydrate, Decision/outcome XOR
+after persist, validation hydrate from `validation_commit_*`, concurrent
+completion serialization, audit/outbox fault rollback, and scoped list/count
+leak tests. Session/manifest bind commit, worker processing, synthetic
+adapter scenarios, UI states, and end-to-end proof remain pending. Remaining
+in this persistence step: commit-time revocation (no Session grant surface
+yet), timer replacement races (scheduler tranche), and
+export/backup/restore/lawful-unavailability reconstruction. Confirmation
+pass (2026-08-13) re-ran Sessions 180/180, architecture 27/27, and
+PostgreSQL integration 72/72 green after the digest and outcome-code fixes.
 
 # Decisions
 
@@ -891,6 +898,25 @@ adapter scenarios, UI states, and end-to-end proof remain pending.
   `MAX(admitted_at)` per trigger family. Frozen `0005`/`0006` were not edited.
   External review **approved** `5430f4e` with no blocking findings (P3:
   wait on `pg_locks` rather than a fixed delay before T1's timestamp bump).
+- Repository completion/isolation slice (2026-08-13): participant admission
+  persists Turn/transcript with the Invocation; `no_action` terminalizes the
+  slot without an Agent transcript item. Completion persist writes Decision
+  XOR ExecutionOutcome, attempts, validation revisions, and effect columns.
+  Hydration binds in-memory `ValidatedAtSessionVersion` from
+  `validation_commit_*` so unchanged-state validation retries do not mutate.
+  Concurrent completions serialize on `LoadForUpdate`; the waiter reconciles
+  or returns `AlreadyTerminal`. Admission and completion write audit+outbox
+  in the same transaction; injected writer failures roll back runtime rows.
+  `CountInvocationsAsync`/`ListInvocationIdsAsync` require the complete
+  ownership tuple and return empty/zero for the wrong Participant or guessed
+  Session. Commit-time revocation, timer replacement races, and
+  export/backup/restore remain deferred until those surfaces exist.
+- Consistency review (2026-08-13, completion/isolation slice): hydrate now
+  restores the stored Decision `payload_digest` so sub-microsecond
+  `produced_at` round-trips still reconcile (`SESS-DEC-20`). Missing actor
+  and command/binding ownership failures use `invocation_completion.denied`
+  / `ownership_mismatch` instead of `already_terminal` / `identity_mismatch`,
+  matching admission. Added persist-then-retry and handler negative tests.
 
 # Verification
 
@@ -911,7 +937,7 @@ adapter scenarios, UI states, and end-to-end proof remain pending.
 | Decision validation idempotency and payload digest | passed; in-memory aggregate | Red: unchanged-state `ValidateDecision` retried bumped version; lifecycle-change overwrite left one validation row; same Decision IDs with `EmitMessage` payload reconciled as NoAction. Green: `FlexAgent.Sessions.Tests` 174/174; architecture suite 21/21; `git diff --check` clean (2026-08-13). |
 | PostgreSQL Session runtime schema (`0005`) | passed; schema/migration | Red: `SessionsPersistenceOwnershipTests` failed with missing `*_session_runtime*.sql`. Green: `FlexAgent.Postgres.Integration.Tests` 43/43 including 10 schema constraint tests (ownership FK, delete reject, fragment `session_sequence`); `FlexAgent.Architecture.Tests` 24/24; `FlexAgent.Sessions.Tests` 174/174; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-13). Repositories remain next. |
 | PostgreSQL Session runtime invariant patch (`0006`) | passed; schema/migration | Includes Decision XOR ExecutionOutcome (`SESS-DEC-16`) and validation→Decision FK. Red: both child rows and validation-without-Decision succeeded. Green: sequential XOR; concurrent exactly-one winner; schema/upgrade/concurrency 26/26; architecture 24/24; Sessions 174/174 (2026-08-13). Repositories remain next. |
-| PostgreSQL 18 repository isolation/concurrency/fault tests | in progress; admission slice **approved** `5430f4e` | External review: approve, no blocking production findings. P3 hardening: wait until `pg_locks` shows T2 blocked by T1 before advancing `last_committed_at`. Remaining: participant no-action pipeline, Decision/outcome XOR persist, validation observed-vs-commit hydrate, concurrent worker races, audit/outbox, list/count leak tests. |
+| PostgreSQL 18 repository isolation/concurrency/fault tests | in progress; admission **approved** `5430f4e`; completion/isolation slice green after consistency review | Participant no-action persist/hydrate; Decision XOR outcome; validation hydrate from commit state; concurrent completion one Decision; audit/outbox fault rollback; scoped list/count leaks; Decision payload-digest round-trip retry. `FlexAgent.Sessions.Tests` 180/180; architecture 27/27; `FlexAgent.Postgres.Integration.Tests` 72/72; `git diff --check` passed (2026-08-13). Remaining this step: commit-time revocation, timer replacement races, export/backup/restore/lawful unavailability. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |

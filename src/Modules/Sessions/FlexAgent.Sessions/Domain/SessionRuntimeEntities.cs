@@ -33,6 +33,14 @@ public sealed class ResponseSlot
             State = ResponseSlotStates.Cancelled;
         }
     }
+
+    internal static ResponseSlot Rehydrate(string responseSlotId, string state, string? claimedByInvocationId)
+    {
+        var slot = new ResponseSlot(responseSlotId);
+        slot.State = state;
+        slot.ClaimedByInvocationId = claimedByInvocationId;
+        return slot;
+    }
 }
 
 public sealed class Turn
@@ -68,6 +76,18 @@ public sealed class Turn
             ResponseSlot.Cancel();
         }
     }
+
+    internal static Turn Rehydrate(
+        string turnId,
+        string kind,
+        string state,
+        string? triggerInvocationId,
+        ResponseSlot responseSlot)
+    {
+        var turn = new Turn(turnId, kind, triggerInvocationId, responseSlot);
+        turn.State = state;
+        return turn;
+    }
 }
 
 public sealed class InvocationExecutionAttempt
@@ -88,14 +108,14 @@ public sealed class InvocationExecutionAttempt
 
 public sealed class AgentDecisionRecord
 {
-    internal AgentDecisionRecord(DecisionRecommendation recommendation)
+    internal AgentDecisionRecord(DecisionRecommendation recommendation, string? payloadDigest = null)
     {
         DecisionId = recommendation.DecisionId;
         DecisionType = recommendation.DecisionType;
         ProducedAt = recommendation.ProducedAt;
         NextTimer = recommendation.NextTimer;
         Recommendation = recommendation;
-        PayloadDigest = DecisionRecommendationDigestComputer.Compute(recommendation);
+        PayloadDigest = payloadDigest ?? DecisionRecommendationDigestComputer.Compute(recommendation);
     }
 
     public string DecisionId { get; }
@@ -108,7 +128,17 @@ public sealed class AgentDecisionRecord
 
     public string PayloadDigest { get; }
 
+    public long CommittedSessionVersion { get; private set; }
+
+    public long CommittedSessionSequence { get; private set; }
+
     internal DecisionRecommendation Recommendation { get; }
+
+    internal void BindCommitState(long sessionVersion, long sessionSequence)
+    {
+        CommittedSessionVersion = sessionVersion;
+        CommittedSessionSequence = sessionSequence;
+    }
 }
 
 public sealed class ExecutionOutcomeRecord
@@ -125,6 +155,16 @@ public sealed class ExecutionOutcomeRecord
     public string OutcomeCategory { get; }
 
     public string ReasonCategory { get; }
+
+    public long CommittedSessionVersion { get; private set; }
+
+    public long CommittedSessionSequence { get; private set; }
+
+    internal void BindCommitState(long sessionVersion, long sessionSequence)
+    {
+        CommittedSessionVersion = sessionVersion;
+        CommittedSessionSequence = sessionSequence;
+    }
 }
 
 public sealed class DecisionValidationEffectRecord
@@ -176,9 +216,19 @@ public sealed class DecisionValidationEffectRecord
         ValidatedAtSessionSequence = sessionSequence;
     }
 
+    internal void BindEffectCommitState(long sessionVersion, long sessionSequence)
+    {
+        EffectCommitSessionVersion = sessionVersion;
+        EffectCommitSessionSequence = sessionSequence;
+    }
+
     public string? AppliedTurnId { get; private set; }
 
     public string? AppliedResponseSlotId { get; private set; }
+
+    public long? EffectCommitSessionVersion { get; private set; }
+
+    public long? EffectCommitSessionSequence { get; private set; }
 }
 
 public sealed class AgentInvocation
@@ -210,7 +260,11 @@ public sealed class AgentInvocation
         string idempotencyKey,
         string policyDigest,
         long sessionSequence,
-        string status)
+        string status,
+        AgentDecisionRecord? decision = null,
+        ExecutionOutcomeRecord? executionOutcome = null,
+        IReadOnlyList<InvocationExecutionAttempt>? attempts = null,
+        IReadOnlyList<DecisionValidationEffectRecord>? validations = null)
     {
         var invocation = new AgentInvocation(
             agentInvocationId,
@@ -221,6 +275,28 @@ public sealed class AgentInvocation
             sessionSequence);
         invocation.Status = status;
         invocation.SessionSequence = sessionSequence;
+        if (decision is not null)
+        {
+            invocation.Decision = decision;
+            invocation.AgentDecisionId = decision.DecisionId;
+        }
+
+        if (executionOutcome is not null)
+        {
+            invocation.ExecutionOutcome = executionOutcome;
+            invocation.ExecutionOutcomeId = executionOutcome.ExecutionOutcomeId;
+        }
+
+        if (attempts is not null)
+        {
+            invocation._attempts.AddRange(attempts);
+        }
+
+        if (validations is not null)
+        {
+            invocation._validations.AddRange(validations);
+        }
+
         return invocation;
     }
 

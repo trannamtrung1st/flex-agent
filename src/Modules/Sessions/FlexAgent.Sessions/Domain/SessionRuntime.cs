@@ -136,7 +136,8 @@ public sealed class SessionRuntime
         string responseSlotId,
         string triggerId,
         string idempotencyKey,
-        DateTimeOffset authoritativeUtc)
+        DateTimeOffset authoritativeUtc,
+        long? expectedSessionVersion = null)
     {
         var trigger = new TrustedTrigger(
             RuntimeTriggerIdentifiers.ParticipantInputFamily,
@@ -192,7 +193,7 @@ public sealed class SessionRuntime
                 $"msg:{participantMessageId}",
                 ProtectedContentRef.DigestForReference($"msg:{participantMessageId}"))));
 
-        var result = AdmitTrustedTrigger(trigger, idempotencyKey, authoritativeUtc);
+        var result = AdmitTrustedTrigger(trigger, idempotencyKey, authoritativeUtc, expectedSessionVersion);
         if (!result.Succeeded)
         {
             _turns.RemoveAll(turn => string.Equals(turn.TurnId, turnId, StringComparison.Ordinal));
@@ -480,6 +481,7 @@ public sealed class SessionRuntime
             failure.ReasonCategory);
         invocation.AttachExecutionOutcome(outcome, NextSequence(authoritativeUtc), AgentInvocationStatuses.ExecutionFailed);
         SessionVersion++;
+        outcome.BindCommitState(SessionVersion, invocation.SessionSequence);
         return new InvocationCompletionResult(
             true,
             InvocationCompletionOutcomeCodes.ExecutionFailed,
@@ -524,6 +526,7 @@ public sealed class SessionRuntime
             "retry_budget_exhausted");
         invocation.AttachExecutionOutcome(outcome, NextSequence(authoritativeUtc), AgentInvocationStatuses.ExecutionFailed);
         SessionVersion++;
+        outcome.BindCommitState(SessionVersion, invocation.SessionSequence);
         return new InvocationCompletionResult(
             true,
             InvocationCompletionOutcomeCodes.AttemptsExhausted,
@@ -582,6 +585,7 @@ public sealed class SessionRuntime
         var decision = new AgentDecisionRecord(recommendation);
         invocation.AttachDecision(decision, NextSequence(authoritativeUtc));
         SessionVersion++;
+        decision.BindCommitState(SessionVersion, invocation.SessionSequence);
         return new InvocationCompletionResult(
             true,
             InvocationCompletionOutcomeCodes.Decided,
@@ -759,6 +763,7 @@ public sealed class SessionRuntime
                 turn?.TurnId,
                 turn?.ResponseSlot.ResponseSlotId);
             Touch(authoritativeUtc);
+            invocation.ValidationEffect.BindEffectCommitState(SessionVersion, SessionSequence);
             invocation.MarkPipelineComplete();
             return new DecisionEffectResult(
                 true,
@@ -828,6 +833,7 @@ public sealed class SessionRuntime
                 turn.TurnId,
                 turn.ResponseSlot.ResponseSlotId);
             Touch(authoritativeUtc);
+            invocation.ValidationEffect.BindEffectCommitState(SessionVersion, SessionSequence);
             invocation.MarkPipelineComplete();
             return new DecisionEffectResult(
                 true,
@@ -858,6 +864,7 @@ public sealed class SessionRuntime
     {
         invocation.ValidationEffect!.SetEffectOutcome(DecisionEffectOutcomes.EffectFailed);
         Touch(authoritativeUtc);
+        invocation.ValidationEffect.BindEffectCommitState(SessionVersion, SessionSequence);
         invocation.MarkPipelineComplete();
         return new DecisionEffectResult(
             false,
@@ -924,6 +931,7 @@ public sealed class SessionRuntime
         invocation.AddFailedAttempt(ExecutionAttemptOutcomeCategories.LateResult);
         invocation.AttachExecutionOutcome(outcome, NextSequence(authoritativeUtc), AgentInvocationStatuses.Cancelled);
         SessionVersion++;
+        outcome.BindCommitState(SessionVersion, invocation.SessionSequence);
         return new InvocationCompletionResult(
             true,
             InvocationCompletionOutcomeCodes.LateResult,

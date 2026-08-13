@@ -6,18 +6,18 @@ using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.Infrastructure;
 
-public sealed class PostgresAdmitTrustedTriggerCoordinator(
+public sealed class PostgresAcceptParticipantMessageCoordinator(
     PostgresConnectionAccessor connectionAccessor,
     PostgresSessionRuntimeRepository runtimeRepository,
-    IAdmitTrustedTriggerHandler admissionHandler,
+    IAcceptParticipantMessageHandler acceptHandler,
     IAuditEventWriter? auditEventWriter = null,
     IOutboxItemWriter? outboxItemWriter = null)
 {
     private readonly IAuditEventWriter _auditEventWriter = auditEventWriter ?? new PostgresAuditEventWriter();
     private readonly IOutboxItemWriter _outboxItemWriter = outboxItemWriter ?? new PostgresOutboxItemWriter();
 
-    public async Task<TriggerAdmissionResult> AdmitAsync(
-        AdmitTrustedTriggerCommand command,
+    public async Task<TriggerAdmissionResult> AcceptAsync(
+        AcceptParticipantMessageCommand command,
         TrustedSessionBinding binding,
         CancellationToken cancellationToken = default)
     {
@@ -50,7 +50,7 @@ public sealed class PostgresAdmitTrustedTriggerCoordinator(
             var authoritativeUtc = await runtimeRepository.ReadAuthoritativeUtcAsync(
                 scope.Transaction,
                 cancellationToken);
-            var result = admissionHandler.Handle(command, session, authoritativeUtc);
+            var result = acceptHandler.Handle(command, session, authoritativeUtc);
             if (!result.Succeeded || result.Invocation is null)
             {
                 await scope.RollbackAsync(cancellationToken);
@@ -83,9 +83,9 @@ public sealed class PostgresAdmitTrustedTriggerCoordinator(
                 command.Ownership,
                 command.CorrelationId,
                 command.SourceChannel,
-                SessionRuntimeAuditActions.AdmitTrustedTrigger,
-                SessionRuntimeOutboxEventTypes.TrustedTriggerAdmitted,
-                result.Invocation.AgentInvocationId,
+                SessionRuntimeAuditActions.AcceptParticipantMessage,
+                SessionRuntimeOutboxEventTypes.ParticipantMessageAccepted,
+                command.ParticipantMessageId,
                 authoritativeUtc,
                 scope.Transaction,
                 cancellationToken);

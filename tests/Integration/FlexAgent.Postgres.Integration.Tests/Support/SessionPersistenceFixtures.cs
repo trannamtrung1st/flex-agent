@@ -84,4 +84,7 @@ internal static class SessionPersistenceFixtures
             InvocationPurposes.AgentOpening,
             null,
             null);
+
+    internal static TrustedRuntimeActor Actor(Guid actorId) =>
+        new(actorId, "synthetic.test_actor");
 }
