@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FlexAgent.Sessions.Infrastructure</RootNamespace>
+    <AssemblyName>FlexAgent.Sessions.Infrastructure</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
+    <ProjectReference Include="..\..\..\Infrastructure\FlexAgent.Postgres\FlexAgent.Postgres.csproj" />
+  </ItemGroup>
+
+</Project>

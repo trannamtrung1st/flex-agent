@@ -496,7 +496,8 @@ and test reviews have no unresolved blocking findings.
   concurrent Decision-vs-outcome allowed both rows (2026-08-13). Green:
   sequential XOR; validation FK 23503; two-connection exactly-one winner;
   schema/upgrade/concurrency 26/26; architecture 24/24; Sessions 174/174.
-- [ ] Implement scoped PostgreSQL repositories and transaction coordinators
+  External review approved `d7c2daf` and froze the Session runtime schema.
+- [>] Implement scoped PostgreSQL repositories and transaction coordinators
   against real PostgreSQL 18 tests. Cover wrong Organization/Activity/
   Participant/Attempt/Session, forged ownership, guessed IDs, list/count leaks,
   duplicate/mismatched idempotency, commit-time revocation, concurrent
@@ -630,18 +631,14 @@ The frozen runtime-policy domain tranche is **complete**. The Sessions
 domain/application tranche is **approved** (`cd50439`) for retry/idempotency,
 clock invariants, a resumable Decision pipeline, append-only validation
 revisions, and canonical Decision payload identity. The PostgreSQL **schema**
-tranche is **implemented** in `database/migrations/up/0005_session_runtime_schema.sql`
-(P2 against-vs-commit columns, P3 digest version `v1`, composite ownership,
-append-only validations, unique Decision/invocation/timer-lane identities,
-database `clock_timestamp()` commit stamps). Additive `0006` is the
-pre-repository invariant repair: empty-upgrade fail-closed, invocation-row
-serialization for validation/effect, mandatory positive commit sequences,
-Decision XOR ExecutionOutcome, and validation rows that require a Decision.
-The next tranche is **scoped PostgreSQL repositories** that must persist
-observed vs commit versions correctly (the in-memory `ValidatedAtSessionVersion`
-field remains the post-commit stand-in). Session/manifest bind commit, worker
-processing, synthetic adapter scenarios, UI states, and end-to-end proof remain
-pending.
+tranche is **approved and frozen** at `d7c2daf`. Additive `0006` is the
+pre-repository invariant repair. Do not add speculative schema constraints.
+The current tranche is **scoped PostgreSQL repositories**: lock/read/reconcile
+retries (no blind Decision/outcome `INSERT ... ON CONFLICT`), full ownership
+on every protected entry point, database `clock_timestamp()` as mutation
+authority, and isolation/optimistic-version/admission-idempotency tests.
+Session/manifest bind commit, worker processing, synthetic adapter scenarios,
+UI states, and end-to-end proof remain pending.
 
 # Decisions
 
@@ -735,6 +732,10 @@ pending.
   ownership+invocation unique key. Repository retries should lock/read the
   existing Invocation artifact first: a duplicate INSERT with the original
   sequence can fail `last_session_sequence must advance` before `ON CONFLICT`.
+- Sessions persistence lives in `FlexAgent.Sessions.Infrastructure` so the
+  Sessions domain assembly stays Npgsql-free. Admission retries load the
+  invocation `FOR UPDATE`, run domain reconcile, and insert only on a new
+  admission. Authoritative time is `clock_timestamp()` inside the transaction.
 
 # Findings / deviations
 
@@ -900,7 +901,7 @@ pending.
 | Decision validation idempotency and payload digest | passed; in-memory aggregate | Red: unchanged-state `ValidateDecision` retried bumped version; lifecycle-change overwrite left one validation row; same Decision IDs with `EmitMessage` payload reconciled as NoAction. Green: `FlexAgent.Sessions.Tests` 174/174; architecture suite 21/21; `git diff --check` clean (2026-08-13). |
 | PostgreSQL Session runtime schema (`0005`) | passed; schema/migration | Red: `SessionsPersistenceOwnershipTests` failed with missing `*_session_runtime*.sql`. Green: `FlexAgent.Postgres.Integration.Tests` 43/43 including 10 schema constraint tests (ownership FK, delete reject, fragment `session_sequence`); `FlexAgent.Architecture.Tests` 24/24; `FlexAgent.Sessions.Tests` 174/174; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-13). Repositories remain next. |
 | PostgreSQL Session runtime invariant patch (`0006`) | passed; schema/migration | Includes Decision XOR ExecutionOutcome (`SESS-DEC-16`) and validation→Decision FK. Red: both child rows and validation-without-Decision succeeded. Green: sequential XOR; concurrent exactly-one winner; schema/upgrade/concurrency 26/26; architecture 24/24; Sessions 174/174 (2026-08-13). Repositories remain next. |
-| PostgreSQL 18 repository isolation/concurrency/fault tests | pending | |
+| PostgreSQL 18 repository isolation/concurrency/fault tests | in progress; admission slice | First slice: `PostgresSessionRuntimeRepository` + `PostgresAdmitTrustedTriggerCoordinator`. Isolation (wrong org/activity/guessed session), opening-trigger persist + lock/read reconcile, stale `ExpectedSessionVersion`. Architecture ownership signatures 26/26; Sessions 175/175 including `Rehydrate`; repository tests 3/3 (2026-08-13). Remaining: participant no-action pipeline, Decision/outcome XOR persist, validation observed-vs-commit hydrate, concurrent worker races, audit/outbox, list/count leak tests. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |

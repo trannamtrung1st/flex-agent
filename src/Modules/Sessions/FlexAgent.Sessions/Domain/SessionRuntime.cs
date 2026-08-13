@@ -28,6 +28,34 @@ public sealed class SessionRuntime
         LastCommittedAt = startedAt;
     }
 
+    private SessionRuntime(
+        TrustedSessionBinding binding,
+        SessionLifecycleState lifecycleState,
+        long sessionVersion,
+        long sessionSequence,
+        long? cutoffSequence,
+        DateTimeOffset lastCommittedAt,
+        IReadOnlyList<AgentInvocation> invocations,
+        IReadOnlyList<Turn> turns,
+        IReadOnlyList<VisibleTranscriptItemRef> transcript,
+        IReadOnlyDictionary<string, DateTimeOffset> lastAdmittedAtByFamily)
+    {
+        Binding = binding;
+        Ownership = binding.Ownership;
+        LifecycleState = lifecycleState;
+        SessionVersion = sessionVersion;
+        SessionSequence = sessionSequence;
+        CutoffSequence = cutoffSequence;
+        LastCommittedAt = lastCommittedAt;
+        _invocations.AddRange(invocations);
+        _turns.AddRange(turns);
+        _visibleTranscript.AddRange(transcript);
+        foreach (var pair in lastAdmittedAtByFamily)
+        {
+            _lastAdmittedAtByFamily[pair.Key] = pair.Value;
+        }
+    }
+
     public TrustedSessionBinding Binding { get; }
 
     public SessionOwnership Ownership { get; }
@@ -59,6 +87,47 @@ public sealed class SessionRuntime
         }
 
         return new SessionRuntime(binding, startedAt);
+    }
+
+    public static SessionRuntime Rehydrate(
+        TrustedSessionBinding binding,
+        SessionLifecycleState lifecycleState,
+        long sessionVersion,
+        long sessionSequence,
+        long? cutoffSequence,
+        DateTimeOffset lastCommittedAt,
+        IReadOnlyList<AgentInvocation>? invocations = null,
+        IReadOnlyList<Turn>? turns = null,
+        IReadOnlyList<VisibleTranscriptItemRef>? transcript = null,
+        IReadOnlyDictionary<string, DateTimeOffset>? lastAdmittedAtByFamily = null)
+    {
+        ArgumentNullException.ThrowIfNull(binding);
+        if (!IsUtc(lastCommittedAt))
+        {
+            throw new ArgumentException("Authoritative Session time must be UTC.", nameof(lastCommittedAt));
+        }
+
+        return new SessionRuntime(
+            binding,
+            lifecycleState,
+            sessionVersion,
+            sessionSequence,
+            cutoffSequence,
+            lastCommittedAt,
+            invocations ?? [],
+            turns ?? [],
+            transcript ?? [],
+            lastAdmittedAtByFamily ?? new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal));
+    }
+
+    internal void ReplaceLastCommittedAtFromDatabase(DateTimeOffset lastCommittedAt)
+    {
+        if (!IsUtc(lastCommittedAt))
+        {
+            throw new ArgumentException("Authoritative Session time must be UTC.", nameof(lastCommittedAt));
+        }
+
+        LastCommittedAt = lastCommittedAt;
     }
 
     public TriggerAdmissionResult AcceptParticipantMessage(

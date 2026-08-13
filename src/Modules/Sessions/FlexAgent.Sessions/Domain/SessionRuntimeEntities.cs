@@ -203,6 +203,27 @@ public sealed class AgentInvocation
         Status = AgentInvocationStatuses.Admitted;
     }
 
+    internal static AgentInvocation Rehydrate(
+        string agentInvocationId,
+        SessionOwnership ownership,
+        TrustedTrigger trigger,
+        string idempotencyKey,
+        string policyDigest,
+        long sessionSequence,
+        string status)
+    {
+        var invocation = new AgentInvocation(
+            agentInvocationId,
+            ownership,
+            trigger,
+            idempotencyKey,
+            policyDigest,
+            sessionSequence);
+        invocation.Status = status;
+        invocation.SessionSequence = sessionSequence;
+        return invocation;
+    }
+
     public string AgentInvocationId { get; }
 
     public SessionOwnership Ownership { get; }

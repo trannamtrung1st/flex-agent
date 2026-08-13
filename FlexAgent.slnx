@@ -8,6 +8,7 @@
     <Project Path="src/Modules/Configuration/FlexAgent.Configuration/FlexAgent.Configuration.csproj" />
     <Project Path="src/Modules/IdentityAccess/FlexAgent.IdentityAccess/FlexAgent.IdentityAccess.csproj" />
     <Project Path="src/Modules/Sessions/FlexAgent.Sessions/FlexAgent.Sessions.csproj" />
+    <Project Path="src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/FlexAgent.Sessions.Infrastructure.csproj" />
     <Project Path="src/Modules/SyntheticBrowser/FlexAgent.SyntheticBrowser/FlexAgent.SyntheticBrowser.csproj" />
   </Folder>
   <Folder Name="/tests/">

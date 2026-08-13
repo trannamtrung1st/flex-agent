@@ -181,6 +181,13 @@
           "FlexAgent.CanonicalJson": "[1.0.0, )"
         }
       },
+      "flexagent.sessions.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.Postgres": "[1.0.0, )",
+          "FlexAgent.Sessions": "[1.0.0, )"
+        }
+      },
       "flexagent.syntheticbrowser": {
         "type": "Project",
         "dependencies": {

@@ -9,4 +9,10 @@
     <ProjectReference Include="..\..\..\BuildingBlocks\FlexAgent.CanonicalJson\FlexAgent.CanonicalJson.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="FlexAgent.Sessions.Infrastructure" />
+    <InternalsVisibleTo Include="FlexAgent.Sessions.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Postgres.Integration.Tests" />
+  </ItemGroup>
+
 </Project>
