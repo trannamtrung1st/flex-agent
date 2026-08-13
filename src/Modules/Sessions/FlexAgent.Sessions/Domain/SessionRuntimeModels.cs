@@ -158,6 +158,11 @@ public static class TimerValidationOutcomes
     public const string NotPresent = "not_present";
 }
 
+public static class DecisionPayloadDigest
+{
+    public const string FormatVersionV1 = "v1";
+}
+
 public static class InvocationContextFactCategories
 {
     public const string SubmissionRef = "submission_ref";

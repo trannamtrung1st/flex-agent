@@ -187,6 +187,12 @@
           "Npgsql": "[10.0.3, )"
         }
       },
+      "flexagent.sessions": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.CanonicalJson": "[1.0.0, )"
+        }
+      },
       "Dapper": {
         "type": "CentralTransitive",
         "requested": "[2.1.79, )",

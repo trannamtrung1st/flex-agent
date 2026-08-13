@@ -448,7 +448,7 @@ and test reviews have no unresolved blocking findings.
   retries at unchanged Session state must reconcile without mutation; lifecycle
   change before effect appends a new validation revision and preserves history;
   same Decision IDs with a different canonical payload digest conflict.
-- [ ] Design the minimum additive PostgreSQL schema and run migration tests red
+- [x] Design the minimum additive PostgreSQL schema and run migration tests red
   before implementation. Add immutable/scoped Session runtime, event,
   Invocation, attempt/outcome, Decision, validation/effect, response-slot,
   message/fragment, timer-lane/revision, lower-level provider provenance where
@@ -461,7 +461,15 @@ and test reviews have no unresolved blocking findings.
   repeat/upgrade/changed-script/transactional/concurrent migration safety. Add
   executable ownership guards for module-owned migration/table prefixes and
   prove Sessions code cannot write another module's tables directly.
-- [ ] Implement scoped PostgreSQL repositories and transaction coordinators
+  Persistence design constraints from approved in-memory review (`cd50439`):
+  store `validated_against_session_version/sequence` separately from
+  `validation_commit_session_version/sequence` (P2); store
+  `decision_payload_digest_version` alongside `payload_digest` (P3, current
+  format `v1`). Do not redesign the Decision pipeline.
+  Red: architecture ownership test failed for missing `0005_session_runtime_schema.sql`
+  (2026-08-13). Green: migration `0005` plus schema/constraint tests;
+  `FlexAgent.Postgres.Integration.Tests` 43/43; architecture suite 24/24.
+- [>] Implement scoped PostgreSQL repositories and transaction coordinators
   against real PostgreSQL 18 tests. Cover wrong Organization/Activity/
   Participant/Attempt/Session, forged ownership, guessed IDs, list/count leaks,
   duplicate/mismatched idempotency, commit-time revocation, concurrent
@@ -592,12 +600,17 @@ aggregate .NET verification at 270/270. External review recorded no blocking
 findings; operational timer enablement and numeric bounds remain explicitly
 deferred to frozen runtime-policy resolution.
 The frozen runtime-policy domain tranche is **complete**. The Sessions
-domain/application tranche is **remediated** for retry/idempotency, clock
-invariants, a resumable Decision pipeline, append-only validation revisions,
-and canonical Decision payload identity. The next tranche is **PostgreSQL
-runtime schema**, using database-authoritative commit time/order rather than
-worker `UtcNow`. Session/manifest bind commit, worker processing, synthetic
-adapter scenarios, UI states, and end-to-end proof remain pending.
+domain/application tranche is **approved** (`cd50439`) for retry/idempotency,
+clock invariants, a resumable Decision pipeline, append-only validation
+revisions, and canonical Decision payload identity. The PostgreSQL **schema**
+tranche is **implemented** in `database/migrations/up/0005_session_runtime_schema.sql`
+(P2 against-vs-commit columns, P3 digest version `v1`, composite ownership,
+append-only validations, unique Decision/invocation/timer-lane identities,
+database `clock_timestamp()` commit stamps). The next tranche is **scoped
+PostgreSQL repositories** that must persist observed vs commit versions
+correctly (the in-memory `ValidatedAtSessionVersion` field remains the
+post-commit stand-in). Session/manifest bind commit, worker processing,
+synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
 
 # Decisions
 
@@ -673,7 +686,11 @@ adapter scenarios, UI states, and end-to-end proof remain pending.
   a new validation revision is recorded against current state (SESS-DEC-17)
   and prior rows remain inspectable. Decision equivalence is `DecisionId +
   InvocationId + canonical payload digest`; same IDs with a different digest
-  are `IdentityMismatch`.
+  are `IdentityMismatch`. PostgreSQL stores `validated_against_session_version`
+  / `sequence` separately from `validation_commit_session_version` / `sequence`
+  plus `validation_committed_at`. Effect application may update only effect
+  columns on the latest revision (`effect_commit_*`). Canonical digest format
+  is persisted as `decision_payload_digest_version = v1`.
 
 # Findings / deviations
 
@@ -797,6 +814,17 @@ adapter scenarios, UI states, and end-to-end proof remain pending.
   validation retries at unchanged Session version/sequence do not mutate;
   lifecycle change before effect appends a rejected revision and keeps the
   accepted row; Decision payload digest is required for equivalent retry.
+  External review approved `cd50439` and directed PostgreSQL to distinguish
+  observed vs commit versions and to version the digest format.
+- PostgreSQL schema (2026-08-13): `0005_session_runtime_schema.sql` adds
+  `session_*` tables only. Child rows FK the full ownership tuple to
+  `uq_session_runtimes_ownership`. Activity/Participant/Attempt identifiers
+  still have no module parent FKs until those tables exist. Message/fragment
+  bytes are not stored in PostgreSQL; fragments require `session_sequence`
+  plus optional turn/slot/generation-attempt identity. Dedicated
+  `session_reconciliations` and generation-attempt provenance tables remain
+  deferred. Hydrate in-memory `ValidatedAtSessionVersion` from
+  `validation_commit_*`. Mutable Session tables reject DELETE.
 
 # Verification
 
@@ -815,7 +843,8 @@ adapter scenarios, UI states, and end-to-end proof remain pending.
 | Sessions retry/idempotency/clock remediations | passed; in-memory aggregate | Red (2026-08-13): focused tests failed for stale-version retry, duplicate effect, mismatched participant tuple, non-UTC/stale completion clock, missing `memory_read_ref`, and revalidation resetting a terminal effect. Green: `FlexAgent.Sessions.Tests` 168/168; architecture suite 21/21; `git diff --check` clean. PostgreSQL schema remains next and must encode these reconcile/conflict/effect identities. |
 | Decision pipeline crash/recovery contract | passed; in-memory aggregate | Red: resume-after-`RecordDecision` and identical-`CompleteInvocation` retry failed (`decision_recorded` vs `decided`, `AlreadyTerminal`). Green: `FlexAgent.Sessions.Tests` 171/171; architecture suite 21/21; `git diff --check` clean (2026-08-13). Confirmation pass also rejects execution-failure completion once a Decision is recorded. |
 | Decision validation idempotency and payload digest | passed; in-memory aggregate | Red: unchanged-state `ValidateDecision` retried bumped version; lifecycle-change overwrite left one validation row; same Decision IDs with `EmitMessage` payload reconciled as NoAction. Green: `FlexAgent.Sessions.Tests` 174/174; architecture suite 21/21; `git diff --check` clean (2026-08-13). |
-| PostgreSQL 18 migration/isolation/concurrency/fault tests | pending | |
+| PostgreSQL Session runtime schema (`0005`) | passed; schema/migration | Red: `SessionsPersistenceOwnershipTests` failed with missing `*_session_runtime*.sql`. Green: `FlexAgent.Postgres.Integration.Tests` 43/43 including 10 schema constraint tests (ownership FK, delete reject, fragment `session_sequence`); `FlexAgent.Architecture.Tests` 24/24; `FlexAgent.Sessions.Tests` 174/174; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-13). Repositories remain next. |
+| PostgreSQL 18 repository isolation/concurrency/fault tests | pending | |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |
