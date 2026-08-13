@@ -24,6 +24,21 @@ public sealed class InvocationContextAssemblerTests
         Assert.Equal("msg.p.1", context.VisibleTranscript[0].MessageId);
         Assert.DoesNotContain(context.FactCategories, category => category == InvocationContextFactCategories.ModelControl);
         Assert.DoesNotContain(context.FactCategories, category => category == InvocationContextFactCategories.Credential);
+        Assert.DoesNotContain(context.FactCategories, category => category == InvocationContextFactCategories.MemoryReadRef);
+    }
+
+    [Fact]
+    public void Assembled_context_includes_memory_read_ref_when_binding_permits_memory()
+    {
+        var memoryRef = new ProtectedContentRef(
+            "mem:bound-v1",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+        var session = SessionRuntimeTestFixtures.CreateActiveSession(memoryReadRefs: [memoryRef]);
+
+        var context = InvocationContextAssembler.Assemble(session);
+
+        Assert.Equal([memoryRef], context.MemoryReadRefs);
+        Assert.Contains(context.FactCategories, category => category == InvocationContextFactCategories.MemoryReadRef);
     }
 
     [Fact]

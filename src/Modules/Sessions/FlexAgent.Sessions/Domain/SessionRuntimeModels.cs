@@ -71,6 +71,7 @@ public static class TriggerAdmissionOutcomeCodes
     public const string OwnershipMismatch = "trigger_admission.ownership_mismatch";
     public const string StaleVersion = "trigger_admission.stale_version";
     public const string NonUtcClock = "trigger_admission.non_utc_clock";
+    public const string StaleClock = "trigger_admission.stale_clock";
     public const string MissingTurn = "trigger_admission.missing_turn";
     public const string Denied = "trigger_admission.denied";
 }
@@ -85,6 +86,8 @@ public static class InvocationCompletionOutcomeCodes
     public const string EffectFailed = "invocation_completion.effect_failed";
     public const string AttemptRecorded = "invocation_completion.attempt_recorded";
     public const string IdentityMismatch = "invocation_completion.identity_mismatch";
+    public const string NonUtcClock = "invocation_completion.non_utc_clock";
+    public const string StaleClock = "invocation_completion.stale_clock";
 }
 
 public static class ExecutionFailureReasons

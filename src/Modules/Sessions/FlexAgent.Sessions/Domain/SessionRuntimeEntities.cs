@@ -146,7 +146,23 @@ public sealed class DecisionValidationEffectRecord
 
     public string? RejectionReasonCategory { get; }
 
-    internal void SetEffectOutcome(string effectOutcome) => EffectOutcome = effectOutcome;
+    internal void SetEffectOutcome(string effectOutcome, string? appliedTurnId = null, string? appliedResponseSlotId = null)
+    {
+        EffectOutcome = effectOutcome;
+        if (appliedTurnId is not null)
+        {
+            AppliedTurnId = appliedTurnId;
+        }
+
+        if (appliedResponseSlotId is not null)
+        {
+            AppliedResponseSlotId = appliedResponseSlotId;
+        }
+    }
+
+    public string? AppliedTurnId { get; private set; }
+
+    public string? AppliedResponseSlotId { get; private set; }
 }
 
 public sealed class AgentInvocation

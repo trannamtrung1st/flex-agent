@@ -19,7 +19,8 @@ internal static class SessionRuntimeTestFixtures
 
     internal static TrustedSessionBinding CreateBinding(
         FrozenTextSessionRuntimePolicy? policy = null,
-        SessionOwnership? ownership = null)
+        SessionOwnership? ownership = null,
+        IReadOnlyList<ProtectedContentRef>? memoryReadRefs = null)
     {
         ownership ??= CreateOwnership();
         policy ??= RuntimePolicyTestFixtures.ResolveEnabledTimerPolicy();
@@ -37,15 +38,16 @@ internal static class SessionRuntimeTestFixtures
             [
                 new ProtectedContentRef("know:bound-v1", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
             ],
-            PermittedMemoryReadRefs: []);
+            PermittedMemoryReadRefs: memoryReadRefs ?? []);
     }
 
     internal static SessionRuntime CreateActiveSession(
         FrozenTextSessionRuntimePolicy? policy = null,
         SessionOwnership? ownership = null,
-        DateTimeOffset? startedAt = null)
+        DateTimeOffset? startedAt = null,
+        IReadOnlyList<ProtectedContentRef>? memoryReadRefs = null)
     {
-        var binding = CreateBinding(policy, ownership);
+        var binding = CreateBinding(policy, ownership, memoryReadRefs);
         return SessionRuntime.CreateActive(binding, startedAt ?? T0);
     }
 

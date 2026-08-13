@@ -90,6 +90,32 @@ public sealed class AdmitTrustedTriggerCommandTests
     }
 
     [Fact]
+    public void Handler_retries_of_the_same_command_reconcile_to_the_same_invocation_after_the_version_bump()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var command = CreateOpeningCommand(session, session.SessionVersion);
+        var handler = new AdmitTrustedTriggerHandler();
+
+        var first = handler.Handle(command, session, SessionRuntimeTestFixtures.T0);
+        var retry = handler.Handle(command, session, SessionRuntimeTestFixtures.T0.AddSeconds(1));
+
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        Assert.Equal(TriggerAdmissionOutcomeCodes.Succeeded, first.OutcomeCode);
+        Assert.True(retry.Succeeded, retry.OutcomeCode);
+        Assert.Equal(TriggerAdmissionOutcomeCodes.Reconciled, retry.OutcomeCode);
+        Assert.Equal(first.Invocation!.AgentInvocationId, retry.Invocation!.AgentInvocationId);
+        Assert.Single(session.Invocations);
+        Assert.Equal(TriggerAdmissionOutcomeCodes.StaleVersion, new AdmitTrustedTriggerHandler().Handle(
+            CreateOpeningCommand(session, expectedVersion: 0) with
+            {
+                Trigger = SessionRuntimeTestFixtures.OpeningTrigger("trig.opening.other"),
+                IdempotencyKey = "idem.open.other",
+            },
+            session,
+            SessionRuntimeTestFixtures.T0.AddMinutes(1)).OutcomeCode);
+    }
+
+    [Fact]
     public void Handler_admits_from_trusted_application_context_using_authoritative_utc()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();

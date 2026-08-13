@@ -69,9 +69,44 @@ public sealed class SessionRuntime
         string idempotencyKey,
         DateTimeOffset authoritativeUtc)
     {
-        if (!IsUtc(authoritativeUtc))
+        var trigger = new TrustedTrigger(
+            RuntimeTriggerIdentifiers.ParticipantInputFamily,
+            RuntimeTriggerIdentifiers.ParticipantMessageType,
+            triggerId,
+            InvocationPurposes.ParticipantTurnRespond,
+            turnId,
+            responseSlotId);
+        var identityKey = InvocationIdentityKey(trigger);
+        var existingByIdentity = FindInvocationByIdentity(identityKey);
+        var existingByKey = FindInvocationByIdempotencyKey(idempotencyKey);
+        var existingTurn = FindTurn(turnId);
+        var existingMessage = _visibleTranscript.FirstOrDefault(item =>
+            string.Equals(item.MessageId, participantMessageId, StringComparison.Ordinal));
+
+        if (existingByIdentity is not null
+            || existingByKey is not null
+            || existingTurn is not null
+            || existingMessage is not null)
         {
-            return AdmissionFailure(TriggerAdmissionOutcomeCodes.NonUtcClock);
+            if (IsExactParticipantAdmission(
+                    participantMessageId,
+                    turnId,
+                    responseSlotId,
+                    idempotencyKey,
+                    identityKey,
+                    existingByIdentity ?? existingByKey,
+                    existingTurn,
+                    existingMessage))
+            {
+                return AdmitTrustedTrigger(trigger, idempotencyKey, authoritativeUtc);
+            }
+
+            return AdmissionFailure(TriggerAdmissionOutcomeCodes.IdempotencyConflict);
+        }
+
+        if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: true))
+        {
+            return AdmissionFailure(clockFailure);
         }
 
         if (LifecycleState != SessionLifecycleState.Active)
@@ -79,36 +114,17 @@ public sealed class SessionRuntime
             return AdmissionFailure(TriggerAdmissionOutcomeCodes.LifecycleIneligible);
         }
 
-        var existingTurn = FindTurn(turnId);
-        if (existingTurn is null)
-        {
-            _turns.Add(new Turn(turnId, TurnKinds.Participant, triggerId, new ResponseSlot(responseSlotId)));
-            _visibleTranscript.Add(new VisibleTranscriptItemRef(
-                participantMessageId,
-                TranscriptAuthorTypes.Participant,
-                turnId,
-                new ProtectedContentRef(
-                    $"msg:{participantMessageId}",
-                    ProtectedContentRef.DigestForReference($"msg:{participantMessageId}"))));
-        }
-        else if (!string.Equals(existingTurn.ResponseSlot.ResponseSlotId, responseSlotId, StringComparison.Ordinal))
-        {
-            return AdmissionFailure(TriggerAdmissionOutcomeCodes.IdempotencyConflict);
-        }
+        _turns.Add(new Turn(turnId, TurnKinds.Participant, triggerId, new ResponseSlot(responseSlotId)));
+        _visibleTranscript.Add(new VisibleTranscriptItemRef(
+            participantMessageId,
+            TranscriptAuthorTypes.Participant,
+            turnId,
+            new ProtectedContentRef(
+                $"msg:{participantMessageId}",
+                ProtectedContentRef.DigestForReference($"msg:{participantMessageId}"))));
 
-        var createdTurn = existingTurn is null;
-        var result = AdmitTrustedTrigger(
-            new TrustedTrigger(
-                RuntimeTriggerIdentifiers.ParticipantInputFamily,
-                RuntimeTriggerIdentifiers.ParticipantMessageType,
-                triggerId,
-                InvocationPurposes.ParticipantTurnRespond,
-                turnId,
-                responseSlotId),
-            idempotencyKey,
-            authoritativeUtc);
-
-        if (!result.Succeeded && createdTurn)
+        var result = AdmitTrustedTrigger(trigger, idempotencyKey, authoritativeUtc);
+        if (!result.Succeeded)
         {
             _turns.RemoveAll(turn => string.Equals(turn.TurnId, turnId, StringComparison.Ordinal));
             _visibleTranscript.RemoveAll(item =>
@@ -121,13 +137,36 @@ public sealed class SessionRuntime
     public TriggerAdmissionResult AdmitTrustedTrigger(
         TrustedTrigger trigger,
         string idempotencyKey,
-        DateTimeOffset authoritativeUtc)
+        DateTimeOffset authoritativeUtc,
+        long? expectedSessionVersion = null)
     {
         ArgumentNullException.ThrowIfNull(trigger);
 
-        if (!IsUtc(authoritativeUtc))
+        var identityKey = InvocationIdentityKey(trigger);
+        var existingByIdentity = FindInvocationByIdentity(identityKey);
+        var existingByKey = FindInvocationByIdempotencyKey(idempotencyKey);
+        var existing = existingByIdentity ?? existingByKey;
+        if (existing is not null)
         {
-            return AdmissionFailure(TriggerAdmissionOutcomeCodes.NonUtcClock);
+            if (existing.IdentityKey == identityKey
+                && string.Equals(existing.IdempotencyKey, idempotencyKey, StringComparison.Ordinal)
+                && string.Equals(existing.Trigger.TurnId, trigger.TurnId, StringComparison.Ordinal)
+                && string.Equals(existing.Trigger.ResponseSlotId, trigger.ResponseSlotId, StringComparison.Ordinal))
+            {
+                return new TriggerAdmissionResult(
+                    true,
+                    TriggerAdmissionOutcomeCodes.Reconciled,
+                    existing,
+                    existing.SessionSequence,
+                    SessionVersion);
+            }
+
+            return AdmissionFailure(TriggerAdmissionOutcomeCodes.IdempotencyConflict);
+        }
+
+        if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: true))
+        {
+            return AdmissionFailure(clockFailure);
         }
 
         if (LifecycleState != SessionLifecycleState.Active)
@@ -151,21 +190,9 @@ public sealed class SessionRuntime
             }
         }
 
-        var identityKey = $"{trigger.TriggerFamily}|{trigger.TriggerType}|{trigger.TriggerId}|{trigger.Purpose}|{Policy.PolicyDigest}";
-        var existing = _invocations.FirstOrDefault(invocation => invocation.IdentityKey == identityKey);
-        if (existing is not null)
+        if (expectedSessionVersion is not null && expectedSessionVersion.Value != SessionVersion)
         {
-            if (!string.Equals(existing.IdempotencyKey, idempotencyKey, StringComparison.Ordinal))
-            {
-                return AdmissionFailure(TriggerAdmissionOutcomeCodes.IdempotencyConflict);
-            }
-
-            return new TriggerAdmissionResult(
-                true,
-                TriggerAdmissionOutcomeCodes.Reconciled,
-                existing,
-                existing.SessionSequence,
-                SessionVersion);
+            return AdmissionFailure(TriggerAdmissionOutcomeCodes.StaleVersion);
         }
 
         if (_invocations.Count >= Policy.InvocationBounds.MaxChainedInvocationsPerSession)
@@ -208,7 +235,7 @@ public sealed class SessionRuntime
 
     public void Pause(DateTimeOffset authoritativeUtc)
     {
-        EnsureUtc(authoritativeUtc);
+        EnsureAuthoritativeClock(authoritativeUtc);
         if (LifecycleState != SessionLifecycleState.Active)
         {
             return;
@@ -220,7 +247,7 @@ public sealed class SessionRuntime
 
     public void BeginCompleting(DateTimeOffset authoritativeUtc)
     {
-        EnsureUtc(authoritativeUtc);
+        EnsureAuthoritativeClock(authoritativeUtc);
         if (LifecycleState is SessionLifecycleState.Completed
             or SessionLifecycleState.Terminated
             or SessionLifecycleState.Aborted)
@@ -240,7 +267,7 @@ public sealed class SessionRuntime
 
     public void Complete(DateTimeOffset authoritativeUtc)
     {
-        EnsureUtc(authoritativeUtc);
+        EnsureAuthoritativeClock(authoritativeUtc);
         if (LifecycleState != SessionLifecycleState.Completing)
         {
             return;
@@ -252,7 +279,7 @@ public sealed class SessionRuntime
 
     public void Terminate(DateTimeOffset authoritativeUtc)
     {
-        EnsureUtc(authoritativeUtc);
+        EnsureAuthoritativeClock(authoritativeUtc);
         if (LifecycleState != SessionLifecycleState.Completing)
         {
             return;
@@ -264,7 +291,7 @@ public sealed class SessionRuntime
 
     public void Abort(DateTimeOffset authoritativeUtc)
     {
-        EnsureUtc(authoritativeUtc);
+        EnsureAuthoritativeClock(authoritativeUtc);
         if (LifecycleState is SessionLifecycleState.Completed
             or SessionLifecycleState.Terminated
             or SessionLifecycleState.Aborted)
@@ -297,6 +324,11 @@ public sealed class SessionRuntime
         if (invocation.IsTerminal)
         {
             return CompletionFailure(InvocationCompletionOutcomeCodes.AlreadyTerminal, invocation);
+        }
+
+        if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: false))
+        {
+            return CompletionFailure(clockFailure, invocation);
         }
 
         if (!string.Equals(recommendation.InvocationId, agentInvocationId, StringComparison.Ordinal))
@@ -353,6 +385,11 @@ public sealed class SessionRuntime
             return CompletionFailure(InvocationCompletionOutcomeCodes.AlreadyTerminal, invocation);
         }
 
+        if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: false))
+        {
+            return CompletionFailure(clockFailure, invocation);
+        }
+
         if (HasCutoff())
         {
             return RecordLateResult(invocation, authoritativeUtc);
@@ -381,6 +418,11 @@ public sealed class SessionRuntime
         if (invocation is null || invocation.IsTerminal)
         {
             return CompletionFailure(InvocationCompletionOutcomeCodes.AlreadyTerminal, invocation);
+        }
+
+        if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: false))
+        {
+            return CompletionFailure(clockFailure, invocation);
         }
 
         if (HasCutoff())
@@ -423,6 +465,11 @@ public sealed class SessionRuntime
             return CompletionFailure(InvocationCompletionOutcomeCodes.AlreadyTerminal, invocation);
         }
 
+        if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: false))
+        {
+            return CompletionFailure(clockFailure, invocation);
+        }
+
         if (!string.Equals(recommendation.InvocationId, agentInvocationId, StringComparison.Ordinal))
         {
             return CompletionFailure(InvocationCompletionOutcomeCodes.IdentityMismatch, invocation);
@@ -456,10 +503,24 @@ public sealed class SessionRuntime
                 TimerValidationOutcomes.NotPresent);
         }
 
-        if (!IsUtc(authoritativeUtc))
+        if (invocation.ValidationEffect is not null
+            && invocation.ValidationEffect.EffectOutcome is DecisionEffectOutcomes.Applied
+                or DecisionEffectOutcomes.NoDomainEffect
+                or DecisionEffectOutcomes.EffectFailed)
         {
-            return StoreValidation(
-                invocation,
+            return new DecisionValidationResult(
+                invocation.ValidationEffect.ValidationOutcome == DecisionValidationOutcomes.Accepted,
+                InvocationCompletionOutcomeCodes.Decided,
+                invocation.ValidationEffect.ValidationOutcome,
+                invocation.ValidationEffect.RejectionReasonCategory,
+                invocation.ValidationEffect.TimerValidationOutcome);
+        }
+
+        if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: false))
+        {
+            return new DecisionValidationResult(
+                false,
+                clockFailure,
                 DecisionValidationOutcomes.Rejected,
                 RejectionReasonCategories.StateIneligible,
                 TimerValidationOutcomes.NotPresent);
@@ -532,6 +593,20 @@ public sealed class SessionRuntime
                 DecisionEffectOutcomes.NotAttempted);
         }
 
+        if (invocation.ValidationEffect.EffectOutcome is DecisionEffectOutcomes.Applied
+            or DecisionEffectOutcomes.NoDomainEffect)
+        {
+            return ReconcileAppliedEffect(invocation);
+        }
+
+        if (invocation.ValidationEffect.EffectOutcome == DecisionEffectOutcomes.EffectFailed)
+        {
+            return new DecisionEffectResult(
+                false,
+                InvocationCompletionOutcomeCodes.EffectFailed,
+                DecisionEffectOutcomes.EffectFailed);
+        }
+
         if (invocation.ValidationEffect.ValidationOutcome != DecisionValidationOutcomes.Accepted)
         {
             return new DecisionEffectResult(
@@ -540,12 +615,18 @@ public sealed class SessionRuntime
                 DecisionEffectOutcomes.NotAttempted);
         }
 
+        if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: false))
+        {
+            return new DecisionEffectResult(false, clockFailure, DecisionEffectOutcomes.NotAttempted);
+        }
+
         var recommendation = invocation.Decision.Recommendation;
         if (recommendation is NoActionRecommendation)
         {
+            Turn? turn = null;
             if (IsParticipantTrigger(invocation.Trigger))
             {
-                var turn = FindTurn(invocation.Trigger.TurnId!);
+                turn = FindTurn(invocation.Trigger.TurnId!);
                 if (turn is null || turn.ResponseSlot.State != ResponseSlotStates.Open)
                 {
                     return FailEffect(invocation);
@@ -555,7 +636,10 @@ public sealed class SessionRuntime
                 turn.MarkComplete();
             }
 
-            invocation.ValidationEffect.SetEffectOutcome(DecisionEffectOutcomes.NoDomainEffect);
+            invocation.ValidationEffect.SetEffectOutcome(
+                DecisionEffectOutcomes.NoDomainEffect,
+                turn?.TurnId,
+                turn?.ResponseSlot.ResponseSlotId);
             Touch(authoritativeUtc);
             return new DecisionEffectResult(
                 true,
@@ -574,7 +658,25 @@ public sealed class SessionRuntime
             if (IsParticipantTrigger(invocation.Trigger))
             {
                 var existing = FindTurn(invocation.Trigger.TurnId!);
-                if (existing is null || existing.ResponseSlot.State != ResponseSlotStates.Open)
+                if (existing is null)
+                {
+                    return FailEffect(invocation);
+                }
+
+                if (existing.ResponseSlot.State == ResponseSlotStates.ClaimedForPublication
+                    && string.Equals(
+                        existing.ResponseSlot.ClaimedByInvocationId,
+                        invocation.AgentInvocationId,
+                        StringComparison.Ordinal))
+                {
+                    invocation.ValidationEffect.SetEffectOutcome(
+                        DecisionEffectOutcomes.Applied,
+                        existing.TurnId,
+                        existing.ResponseSlot.ResponseSlotId);
+                    return ReconcileAppliedEffect(invocation);
+                }
+
+                if (existing.ResponseSlot.State != ResponseSlotStates.Open)
                 {
                     return FailEffect(invocation);
                 }
@@ -583,17 +685,29 @@ public sealed class SessionRuntime
             }
             else
             {
-                turn = new Turn(
-                    Guid.NewGuid().ToString("N"),
-                    AgentTurnKind(invocation.Trigger),
-                    invocation.AgentInvocationId,
-                    new ResponseSlot(Guid.NewGuid().ToString("N")));
-                _turns.Add(turn);
+                var turnId = AgentInitiatedTurnId(invocation);
+                var existing = FindTurn(turnId);
+                if (existing is not null)
+                {
+                    turn = existing;
+                }
+                else
+                {
+                    turn = new Turn(
+                        turnId,
+                        AgentTurnKind(invocation.Trigger),
+                        invocation.AgentInvocationId,
+                        new ResponseSlot(AgentInitiatedSlotId(invocation)));
+                    _turns.Add(turn);
+                }
             }
 
             turn.ResponseSlot.ClaimForPublication(invocation.AgentInvocationId);
             turn.MarkWorkQueued();
-            invocation.ValidationEffect.SetEffectOutcome(DecisionEffectOutcomes.Applied);
+            invocation.ValidationEffect.SetEffectOutcome(
+                DecisionEffectOutcomes.Applied,
+                turn.TurnId,
+                turn.ResponseSlot.ResponseSlotId);
             Touch(authoritativeUtc);
             return new DecisionEffectResult(
                 true,
@@ -607,6 +721,16 @@ public sealed class SessionRuntime
             true,
             InvocationCompletionOutcomeCodes.Decided,
             DecisionEffectOutcomes.NotAttempted);
+    }
+
+    private DecisionEffectResult ReconcileAppliedEffect(AgentInvocation invocation)
+    {
+        var applied = invocation.ValidationEffect!.EffectOutcome == DecisionEffectOutcomes.Applied;
+        return new DecisionEffectResult(
+            true,
+            InvocationCompletionOutcomeCodes.Decided,
+            invocation.ValidationEffect.EffectOutcome,
+            PublicationPathClaimed: applied);
     }
 
     private DecisionEffectResult FailEffect(AgentInvocation invocation)
@@ -746,6 +870,42 @@ public sealed class SessionRuntime
         _invocations.FirstOrDefault(invocation =>
             string.Equals(invocation.AgentInvocationId, agentInvocationId, StringComparison.Ordinal));
 
+    private AgentInvocation? FindInvocationByIdentity(string identityKey) =>
+        _invocations.FirstOrDefault(invocation => invocation.IdentityKey == identityKey);
+
+    private AgentInvocation? FindInvocationByIdempotencyKey(string idempotencyKey) =>
+        _invocations.FirstOrDefault(invocation =>
+            string.Equals(invocation.IdempotencyKey, idempotencyKey, StringComparison.Ordinal));
+
+    private string InvocationIdentityKey(TrustedTrigger trigger) =>
+        $"{trigger.TriggerFamily}|{trigger.TriggerType}|{trigger.TriggerId}|{trigger.Purpose}|{Policy.PolicyDigest}";
+
+    private static string AgentInitiatedTurnId(AgentInvocation invocation) =>
+        $"turn.agent.{invocation.AgentInvocationId}";
+
+    private static string AgentInitiatedSlotId(AgentInvocation invocation) =>
+        $"slot.agent.{invocation.AgentInvocationId}";
+
+    private static bool IsExactParticipantAdmission(
+        string participantMessageId,
+        string turnId,
+        string responseSlotId,
+        string idempotencyKey,
+        string identityKey,
+        AgentInvocation? existingInvocation,
+        Turn? existingTurn,
+        VisibleTranscriptItemRef? existingMessage) =>
+        existingInvocation is not null
+        && existingTurn is not null
+        && existingMessage is not null
+        && existingInvocation.IdentityKey == identityKey
+        && string.Equals(existingInvocation.IdempotencyKey, idempotencyKey, StringComparison.Ordinal)
+        && string.Equals(existingInvocation.Trigger.TurnId, turnId, StringComparison.Ordinal)
+        && string.Equals(existingInvocation.Trigger.ResponseSlotId, responseSlotId, StringComparison.Ordinal)
+        && string.Equals(existingTurn.ResponseSlot.ResponseSlotId, responseSlotId, StringComparison.Ordinal)
+        && string.Equals(existingMessage.TurnId, turnId, StringComparison.Ordinal)
+        && string.Equals(existingMessage.MessageId, participantMessageId, StringComparison.Ordinal);
+
     private bool HasCutoff() =>
         CutoffSequence is not null
         || LifecycleState is SessionLifecycleState.Completing
@@ -755,6 +915,7 @@ public sealed class SessionRuntime
 
     private long NextSequence(DateTimeOffset authoritativeUtc)
     {
+        EnsureAuthoritativeClock(authoritativeUtc);
         SessionSequence++;
         LastCommittedAt = authoritativeUtc;
         return SessionSequence;
@@ -762,17 +923,44 @@ public sealed class SessionRuntime
 
     private void Touch(DateTimeOffset authoritativeUtc)
     {
+        EnsureAuthoritativeClock(authoritativeUtc);
         LastCommittedAt = authoritativeUtc;
         SessionVersion++;
     }
 
-    private static bool IsUtc(DateTimeOffset timestamp) => timestamp.Offset == TimeSpan.Zero;
-
-    private static void EnsureUtc(DateTimeOffset timestamp)
+    private bool TryAuthorizeClock(DateTimeOffset timestamp, out string failureCode, bool admission)
     {
         if (!IsUtc(timestamp))
         {
-            throw new ArgumentException("Authoritative Session time must be UTC.", nameof(timestamp));
+            failureCode = admission
+                ? TriggerAdmissionOutcomeCodes.NonUtcClock
+                : InvocationCompletionOutcomeCodes.NonUtcClock;
+            return false;
+        }
+
+        if (timestamp < LastCommittedAt)
+        {
+            failureCode = admission
+                ? TriggerAdmissionOutcomeCodes.StaleClock
+                : InvocationCompletionOutcomeCodes.StaleClock;
+            return false;
+        }
+
+        failureCode = string.Empty;
+        return true;
+    }
+
+    private static bool IsUtc(DateTimeOffset timestamp) => timestamp.Offset == TimeSpan.Zero;
+
+    private void EnsureAuthoritativeClock(DateTimeOffset timestamp)
+    {
+        if (!TryAuthorizeClock(timestamp, out var failureCode, admission: true))
+        {
+            throw new ArgumentException(
+                failureCode == TriggerAdmissionOutcomeCodes.StaleClock
+                    ? "Authoritative Session time must not precede LastCommittedAt."
+                    : "Authoritative Session time must be UTC.",
+                nameof(timestamp));
         }
     }
 

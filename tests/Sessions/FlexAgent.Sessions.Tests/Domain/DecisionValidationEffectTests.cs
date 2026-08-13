@@ -215,6 +215,79 @@ public sealed class DecisionValidationEffectTests
     }
 
     [Fact]
+    public void Duplicate_apply_decision_effect_reconciles_agent_initiated_emit_without_a_second_turn()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AdmitTrustedTrigger(
+            SessionRuntimeTestFixtures.OpeningTrigger(), "idem.open", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var decision = SessionRuntimeTestFixtures.EmitMessage(
+            invocationId,
+            communicationPurpose: "agent_opening",
+            turnId: null,
+            responseSlotId: null);
+        session.RecordDecision(invocationId, decision, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        session.ValidateDecision(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        var first = session.ApplyDecisionEffect(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(3));
+        var firstTurnId = session.Turns[0].TurnId;
+        var firstSlotId = session.Turns[0].ResponseSlot.ResponseSlotId;
+        var duplicate = session.ApplyDecisionEffect(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(4));
+
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        Assert.True(duplicate.Succeeded, duplicate.OutcomeCode);
+        Assert.Equal(DecisionEffectOutcomes.Applied, first.EffectOutcome);
+        Assert.Equal(DecisionEffectOutcomes.Applied, duplicate.EffectOutcome);
+        Assert.Single(session.Turns);
+        Assert.Equal(firstTurnId, session.Turns[0].TurnId);
+        Assert.Equal(firstSlotId, session.Turns[0].ResponseSlot.ResponseSlotId);
+        Assert.Equal(ResponseSlotStates.ClaimedForPublication, session.Turns[0].ResponseSlot.State);
+    }
+
+    [Fact]
+    public void Duplicate_apply_decision_effect_does_not_rewrite_a_successful_participant_effect_to_failed()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.NoAction(invocationId),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        var duplicate = session.ApplyDecisionEffect(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(3));
+
+        Assert.True(duplicate.Succeeded, duplicate.OutcomeCode);
+        Assert.Equal(DecisionEffectOutcomes.NoDomainEffect, duplicate.EffectOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NoDomainEffect, session.Invocations[0].ValidationEffect!.EffectOutcome);
+        Assert.Equal(ResponseSlotStates.IntentionalNoAction, session.Turns[0].ResponseSlot.State);
+        Assert.Single(session.Turns);
+    }
+
+    [Fact]
+    public void Revalidating_after_a_terminal_effect_does_not_reset_the_effect_outcome()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.NoAction(invocationId),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        var revalidated = session.ValidateDecision(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(3));
+        var duplicate = session.ApplyDecisionEffect(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(4));
+
+        Assert.Equal(DecisionValidationOutcomes.Accepted, revalidated.ValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NoDomainEffect, session.Invocations[0].ValidationEffect!.EffectOutcome);
+        Assert.True(duplicate.Succeeded, duplicate.OutcomeCode);
+        Assert.Equal(DecisionEffectOutcomes.NoDomainEffect, duplicate.EffectOutcome);
+        Assert.Equal(ResponseSlotStates.IntentionalNoAction, session.Turns[0].ResponseSlot.State);
+    }
+
+    [Fact]
     public void Decision_for_a_different_invocation_cannot_be_attached()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();

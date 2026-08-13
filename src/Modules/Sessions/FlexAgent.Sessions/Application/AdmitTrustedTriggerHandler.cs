@@ -26,15 +26,10 @@ public sealed class AdmitTrustedTriggerHandler : IAdmitTrustedTriggerHandler
                 null);
         }
 
-        if (command.ExpectedSessionVersion != session.SessionVersion)
-        {
-            return new TriggerAdmissionResult(
-                false,
-                TriggerAdmissionOutcomeCodes.StaleVersion,
-                null,
-                null);
-        }
-
-        return session.AdmitTrustedTrigger(command.Trigger, command.IdempotencyKey, authoritativeUtc);
+        return session.AdmitTrustedTrigger(
+            command.Trigger,
+            command.IdempotencyKey,
+            authoritativeUtc,
+            command.ExpectedSessionVersion);
     }
 }

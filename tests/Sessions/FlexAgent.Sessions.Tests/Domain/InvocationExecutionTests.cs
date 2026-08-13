@@ -159,4 +159,49 @@ public sealed class InvocationExecutionTests
         Assert.NotEqual(futureProducedAt, session.LastCommittedAt);
         Assert.Equal(SessionRuntimeTestFixtures.T0.AddSeconds(2), session.LastCommittedAt);
     }
+
+    [Fact]
+    public void Non_utc_completion_clock_cannot_mutate_authoritative_state()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var offsetTime = new DateTimeOffset(2026, 8, 13, 7, 0, 2, TimeSpan.FromHours(7));
+        var sequenceBefore = session.SessionSequence;
+        var committedBefore = session.LastCommittedAt;
+
+        var result = session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.NoAction(invocationId),
+            offsetTime);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(InvocationCompletionOutcomeCodes.NonUtcClock, result.OutcomeCode);
+        Assert.Null(session.Invocations[0].Decision);
+        Assert.Equal(AgentInvocationStatuses.Admitted, session.Invocations[0].Status);
+        Assert.Equal(sequenceBefore, session.SessionSequence);
+        Assert.Equal(committedBefore, session.LastCommittedAt);
+        Assert.Equal(ResponseSlotStates.Open, session.Turns[0].ResponseSlot.State);
+    }
+
+    [Fact]
+    public void Authoritative_clock_older_than_last_committed_at_cannot_mutate()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+
+        var result = session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.NoAction(invocationId),
+            SessionRuntimeTestFixtures.T0.AddSeconds(-1));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(InvocationCompletionOutcomeCodes.StaleClock, result.OutcomeCode);
+        Assert.Null(session.Invocations[0].Decision);
+        Assert.Equal(AgentInvocationStatuses.Admitted, session.Invocations[0].Status);
+        Assert.Equal(SessionRuntimeTestFixtures.T0, session.LastCommittedAt);
+    }
 }

@@ -52,6 +52,26 @@ public sealed class TrustedTriggerAdmissionTests
     }
 
     [Fact]
+    public void Participant_admission_with_the_same_trigger_and_idempotency_but_different_bound_identities_conflicts()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var first = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+
+        var conflict = session.AcceptParticipantMessage(
+            "msg.p.2", "turn.2", "slot.2", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0.AddSeconds(1));
+
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        Assert.False(conflict.Succeeded);
+        Assert.Equal(TriggerAdmissionOutcomeCodes.IdempotencyConflict, conflict.OutcomeCode);
+        Assert.Single(session.Invocations);
+        Assert.Single(session.Turns);
+        Assert.Equal("turn.1", session.Turns[0].TurnId);
+        Assert.Equal("msg.p.1", session.VisibleTranscript[0].MessageId);
+        Assert.Equal("turn.1", first.Invocation!.Trigger.TurnId);
+    }
+
+    [Fact]
     public void Mismatched_idempotency_reuse_conflicts_without_creating_another_invocation()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();

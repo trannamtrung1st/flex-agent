@@ -99,6 +99,11 @@ public static class InvocationContextAssembler
             categories.Add(InvocationContextFactCategories.KnowledgeRef);
         }
 
+        if (session.Binding.PermittedMemoryReadRefs.Count > 0)
+        {
+            categories.Add(InvocationContextFactCategories.MemoryReadRef);
+        }
+
         if (session.VisibleTranscript.Count > 0)
         {
             categories.Add(InvocationContextFactCategories.TranscriptItem);

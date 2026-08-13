@@ -427,7 +427,16 @@ and test reviews have no unresolved blocking findings.
     persistence, Session/manifest bind commit, and timer-lane schedule rows
     remain the next tranche. Consistency review (2026-08-13) added regression
     coverage and remediations; `FlexAgent.Sessions.Tests` 160/160.
-- [>] Design the minimum additive PostgreSQL schema and run migration tests red
+- [x] Fix Sessions-domain retry/idempotency and clock invariants before
+  PostgreSQL schema design (`REQ-SESS-11`, `REQ-SESS-62`, `REQ-SESS-67`,
+  `REQ-SESS-68`, `AC-SESS-36`, `SESS-DEC-8`, `SESS-DEC-20`). Equivalent command
+  retries must reconcile after a version bump; effect application must be
+  duplicate-safe; participant admission must fingerprint the full bound tuple;
+  every mutation must guard UTC (and reject clocks older than `LastCommittedAt`);
+  invocation context must emit `memory_read_ref` when permitted memory refs exist.
+  Do not design invocation/effect unique constraints until these semantics are
+  explicit in the aggregate.
+- [ ] Design the minimum additive PostgreSQL schema and run migration tests red
   before implementation. Add immutable/scoped Session runtime, event,
   Invocation, attempt/outcome, Decision, validation/effect, response-slot,
   message/fragment, timer-lane/revision, lower-level provider provenance where
@@ -571,12 +580,11 @@ aggregate .NET verification at 270/270. External review recorded no blocking
 findings; operational timer enablement and numeric bounds remain explicitly
 deferred to frozen runtime-policy resolution.
 The frozen runtime-policy domain tranche is **complete**. The Sessions
-domain/application tranche is **complete** at the in-memory aggregate layer:
-trusted trigger admission, Invocation/Decision/effect classification, context
-assembly, and `AdmitTrustedTriggerCommand` ownership signatures. The current
-tranche is **PostgreSQL runtime schema**. Session/manifest bind commit, worker
-processing, synthetic adapter scenarios, UI states, and end-to-end proof remain
-pending.
+domain/application tranche is **remediated** for retry/idempotency and clock
+invariants (external review 2026-08-13). The next tranche is **PostgreSQL
+runtime schema**, now driven by the corrected duplicate-admission and
+duplicate-effect semantics. Session/manifest bind commit, worker processing,
+synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
 
 # Decisions
 
@@ -629,6 +637,13 @@ pending.
 - Keep raw Invocation/Decision/timer records protected. Participant-visible
   projections expose only honest Agent working/resolved/message state required
   by the UI contract, never hidden reasoning or internal schedule details.
+- Retry/idempotency semantics that PostgreSQL unique constraints must preserve:
+  reconcile identical trigger identity + idempotency key + bound Turn/slot
+  (and Participant message id) without requiring a matching expected version;
+  conflict when any bound identity differs; treat `Applied`/`NoDomainEffect`/
+  `EffectFailed` as terminal effect outcomes; derive Agent-initiated Turn/slot
+  ids from the Invocation id. Authoritative clocks must be UTC and not precede
+  `LastCommittedAt`.
 
 # Findings / deviations
 
@@ -735,6 +750,13 @@ pending.
   must already exist on the Session; pause rejection uses `state_ineligible`
   rather than `cutoff_exceeded`; protected message refs use a SHA-256 digest of
   the reference identity instead of a constant placeholder.
+- Retry/idempotency review (2026-08-13): identical `AdmitTrustedTriggerCommand`
+  retries reconcile after the version bump; `ApplyDecisionEffect` reconciles
+  terminal effect outcomes and uses deterministic Agent-initiated Turn/slot
+  ids; Participant admission fingerprints message/turn/slot/trigger/idempotency
+  and conflicts without creating an orphan Turn; completion/lifecycle mutations
+  reject non-UTC and clocks older than `LastCommittedAt`; `memory_read_ref` is
+  emitted when permitted memory refs are bound.
 
 # Verification
 
@@ -750,6 +772,7 @@ pending.
 | Sessions capability-policy red/green and ownership guards | passed; approved | Red: `dotnet build tests/Sessions/FlexAgent.Sessions.Tests/...` failed with 14 compile errors for missing `FlexAgent.Sessions.Domain` policy types (2026-08-12). Green after review remediation at `c3827d7`: `FlexAgent.Sessions.Tests` 39/39; `FlexAgent.Architecture.Tests` 21/21 including Domain→Application/Infrastructure dependency rules with bounded negative controls; aggregate verification 270/270; `git diff --check` and `python3 scripts/check_docs.py` passed. External review: approve, no blocking findings (2026-08-12). Tranche frozen at `c3827d7`. |
 | Frozen runtime-policy domain resolution (`REQ-RSC-46`–`53`) | passed; domain layer | Red: compile failures for missing resolver/policy types (2026-08-12). Green after fourth review remediation: required communication/no-action policy fail-closed (no `null`→`false` coercion), baseline digest requires explicit flags, shorter `DefaultDelay` widening rejected; `FlexAgent.Sessions.Tests` 101/101; aggregate .NET 332/332 (2026-08-13). Session/manifest bind commit and PostgreSQL persistence remain next tranche. |
 | Sessions domain/application focused tests | passed; in-memory aggregate | Red: compile failures for missing `SessionRuntime`, `AdmitTrustedTriggerCommand`, and related domain types (2026-08-13). Green: admission, exactly-one Decision vs execution outcome, no-action/emit-message effects, context isolation, and command-signature tests. Consistency review remediations (orphaned-turn rollback, model-supplied turn IDs ignored, invocation identity match, transcript-fact allowlist): `FlexAgent.Sessions.Tests` 160/160; architecture suite 21/21 (2026-08-13). Persistence, worker, and scheduler remain next. |
+| Sessions retry/idempotency/clock remediations | passed; in-memory aggregate | Red (2026-08-13): focused tests failed for stale-version retry, duplicate effect, mismatched participant tuple, non-UTC/stale completion clock, missing `memory_read_ref`, and revalidation resetting a terminal effect. Green: `FlexAgent.Sessions.Tests` 168/168; architecture suite 21/21; `git diff --check` clean. PostgreSQL schema remains next and must encode these reconcile/conflict/effect identities. |
 | PostgreSQL 18 migration/isolation/concurrency/fault tests | pending | |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
