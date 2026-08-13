@@ -53,6 +53,58 @@ public sealed class MigrationUpgradeTests
     }
 
     [Fact]
+    public async Task Upgrade_from_empty_0005_applies_0006()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0005ScriptName);
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
+
+        await AssertAppliedScriptsAsync(
+            connectionString,
+            "0001_initial_authorization_configuration_schema.sql",
+            Historical0002ScriptName,
+            Historical0003ScriptName,
+            Current0004ScriptName,
+            Current0005ScriptName,
+            Current0006ScriptName);
+    }
+
+    [Fact]
+    public async Task Upgrade_from_populated_0005_runtime_fails_closed()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0005ScriptName);
+
+        await SeedPopulated0005RuntimeAsync(connectionString);
+
+        var exception = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+                connectionString,
+                migrationsDirectory,
+                TestContext.Current.CancellationToken));
+
+        Assert.Contains("empty Session runtime tables", exception.MessageText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Upgrade_from_recorded_historical_0002_repairs_via_0003_without_checksum_failure()
     {
         await using var container = await StartContainerAsync();
@@ -203,6 +255,64 @@ public sealed class MigrationUpgradeTests
                 "migrations",
                 fileName),
             TestContext.Current.CancellationToken);
+
+    private static async Task SeedPopulated0005RuntimeAsync(string connectionString)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var organizationId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        var digest = new string('a', 64);
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO organizations (id, created_at) VALUES (@OrganizationId, @CreatedAt);
+            INSERT INTO session_runtimes (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                configuration_id, configuration_digest, manifest_id, lifecycle_state)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'cfg-1', @Digest, 'man-1', 'active');
+            INSERT INTO session_invocations (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                agent_invocation_id, trigger_family, trigger_type, trigger_id, purpose,
+                idempotency_key, policy_digest, admitted_session_sequence, status)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'inv-1', 'participant_input', 'participant_message', 'trig-1',
+                'participant_turn.respond', 'idem-1', @Digest, 1, 'admitted');
+            INSERT INTO session_decisions (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                agent_invocation_id, decision_id, decision_type, produced_at, payload_digest)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'inv-1', 'dec-1', 'no_action', @CreatedAt, @Digest);
+            INSERT INTO session_decision_validations (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                agent_invocation_id, revision_ordinal,
+                validated_against_session_version, validated_against_session_sequence,
+                validation_commit_session_version, validation_commit_session_sequence,
+                validation_outcome, effect_outcome, timer_validation_outcome)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'inv-1', 1, 0, 1, 1, 2, 'accepted', 'not_attempted', 'not_present');
+            UPDATE session_decision_validations
+            SET effect_outcome = 'applied',
+                applied_turn_id = 'turn.1',
+                applied_response_slot_id = 'slot.1'
+            WHERE agent_invocation_id = 'inv-1';
+            """,
+            new
+            {
+                OrganizationId = organizationId,
+                ActivityId = Guid.NewGuid(),
+                ParticipantId = Guid.NewGuid(),
+                AttemptId = Guid.NewGuid(),
+                SessionId = Guid.NewGuid(),
+                Digest = digest,
+                CreatedAt = now,
+            });
+    }
 
     private static async Task<LegacyVersionSeed> SeedLegacyVersionAsync(string connectionString)
     {

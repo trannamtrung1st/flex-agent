@@ -477,7 +477,18 @@ and test reviews have no unresolved blocking findings.
   Red: 5 schema tests failed against `0005` (request_tool CHECK, descendant
   ownership, stale/rejected/terminal effect updates, missing commit sequence).
   Green: additive `0006_harden_session_runtime_invariants.sql`; Postgres 48/48.
-- [>] Implement scoped PostgreSQL repositories and transaction coordinators
+- [x] Harden 0006 empty-upgrade, validation/effect serialization, and
+  mandatory commit sequences before repositories. Assert Session runtime
+  tables are empty before 0006 repair (0005 was pre-production; do not
+  fabricate history). Lock the invocation row for validation append and
+  effect terminalization. Require positive commit sequences and
+  effect-commit state that does not precede validation-commit state.
+  Red: populated `0005` upgrade and missing Decision sequence failed until
+  empty-table assertion and NOT NULL commit sequences landed. Green: empty
+  `0005→0006` upgrade; populated `0005` fails closed; two-connection
+  validation/effect lock; Postgres 52/53 with known concurrent-Grate flake
+  passing on retry; architecture 24/24; Sessions 174/174.
+- [ ] Implement scoped PostgreSQL repositories and transaction coordinators
   against real PostgreSQL 18 tests. Cover wrong Organization/Activity/
   Participant/Attempt/Session, forged ownership, guessed IDs, list/count leaks,
   duplicate/mismatched idempotency, commit-time revocation, concurrent
@@ -614,11 +625,14 @@ revisions, and canonical Decision payload identity. The PostgreSQL **schema**
 tranche is **implemented** in `database/migrations/up/0005_session_runtime_schema.sql`
 (P2 against-vs-commit columns, P3 digest version `v1`, composite ownership,
 append-only validations, unique Decision/invocation/timer-lane identities,
-database `clock_timestamp()` commit stamps). The next tranche is **scoped
-PostgreSQL repositories** that must persist observed vs commit versions
-correctly (the in-memory `ValidatedAtSessionVersion` field remains the
-post-commit stand-in). Session/manifest bind commit, worker processing,
-synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
+database `clock_timestamp()` commit stamps). Additive `0006` is the
+pre-repository invariant repair: empty-upgrade fail-closed, invocation-row
+serialization for validation/effect, and mandatory positive commit sequences.
+The next tranche is **scoped PostgreSQL repositories** that must persist
+observed vs commit versions correctly (the in-memory `ValidatedAtSessionVersion`
+field remains the post-commit stand-in). Session/manifest bind commit, worker
+processing, synthetic adapter scenarios, UI states, and end-to-end proof remain
+pending.
 
 # Decisions
 
@@ -699,6 +713,14 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
   plus `validation_committed_at`. Effect application may update only effect
   columns on the latest revision (`effect_commit_*`). Canonical digest format
   is persisted as `decision_payload_digest_version = v1`.
+- `0005` is pre-production (no repositories, no real Session rows). `0006`
+  refuses populated Session runtime tables rather than fabricating commit
+  sequences. Empty `0005` databases upgrade; a database with any `session_*`
+  row fails with a clear exception. Rewriting `0006` in place changes its
+  Grate checksum: a database that already applied the previous `0006` must be
+  recreated. Validation INSERT and effect UPDATE lock the invocation row
+  `FOR UPDATE` before rechecking invariants. Decision/outcome commit sequences
+  are required, positive, and must advance `last_session_sequence` atomically.
 
 # Findings / deviations
 
@@ -838,7 +860,10 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
   recorded-then-rejected Decisions persist; invocation descendants FK the
   full ownership+invocation unique key; terminal effects are one-way on the
   latest accepted revision; Decision/outcome commit sequence and invocation
-  `last_session_sequence` exist for hydration.
+  `last_session_sequence` exist for hydration. Empty-upgrade fail-closed
+  (no fabricated sequences); invocation `FOR UPDATE` serializes validation
+  append vs effect terminalization; commit sequences are mandatory and
+  positive, and effect commit state cannot precede validation commit state.
 
 # Verification
 
@@ -858,7 +883,7 @@ synthetic adapter scenarios, UI states, and end-to-end proof remain pending.
 | Decision pipeline crash/recovery contract | passed; in-memory aggregate | Red: resume-after-`RecordDecision` and identical-`CompleteInvocation` retry failed (`decision_recorded` vs `decided`, `AlreadyTerminal`). Green: `FlexAgent.Sessions.Tests` 171/171; architecture suite 21/21; `git diff --check` clean (2026-08-13). Confirmation pass also rejects execution-failure completion once a Decision is recorded. |
 | Decision validation idempotency and payload digest | passed; in-memory aggregate | Red: unchanged-state `ValidateDecision` retried bumped version; lifecycle-change overwrite left one validation row; same Decision IDs with `EmitMessage` payload reconciled as NoAction. Green: `FlexAgent.Sessions.Tests` 174/174; architecture suite 21/21; `git diff --check` clean (2026-08-13). |
 | PostgreSQL Session runtime schema (`0005`) | passed; schema/migration | Red: `SessionsPersistenceOwnershipTests` failed with missing `*_session_runtime*.sql`. Green: `FlexAgent.Postgres.Integration.Tests` 43/43 including 10 schema constraint tests (ownership FK, delete reject, fragment `session_sequence`); `FlexAgent.Architecture.Tests` 24/24; `FlexAgent.Sessions.Tests` 174/174; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-13). Repositories remain next. |
-| PostgreSQL Session runtime invariant patch (`0006`) | passed; schema/migration | Red: 5 schema tests failed on `9457adc` (P0 `decision_type` CHECK, descendant ownership FK, stale/rejected/terminal effects, missing commit sequence). Green: `0006`; Postgres 48/48 schema+upgrade; architecture ownership scan of `0005`+`0006`; Sessions 174/174 (2026-08-13). Repositories remain next. |
+| PostgreSQL Session runtime invariant patch (`0006`) | passed; schema/migration | Red: 5 schema tests failed on `9457adc`. Review requested empty `0005→0006` contract, validation/effect race serialization, and mandatory sequences. Green: empty upgrade; populated `0005` fails closed; two-connection lock test; Postgres 52/53 (known concurrent-Grate flake on `0001` `pg_type_typname_nsp_index`, passed on retry); architecture 24/24; Sessions 174/174 (2026-08-13). Repositories remain next. |
 | PostgreSQL 18 repository isolation/concurrency/fault tests | pending | |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |

@@ -190,7 +190,7 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         await InsertDecisionAsync(connection, seeded);
 
         var duplicateDecision = await Assert.ThrowsAsync<PostgresException>(async () =>
-            await InsertDecisionAsync(connection, seeded with { DecisionId = "dec-other" }));
+            await InsertDecisionAsync(connection, seeded with { DecisionId = "dec-other" }, committedSessionSequence: 3));
         Assert.Equal(PostgresErrorCodes.UniqueViolation, duplicateDecision.SqlState);
 
         await connection.ExecuteAsync(
@@ -317,11 +317,13 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                     INSERT INTO session_decisions (
                         organization_id, activity_id, participant_id, attempt_id, session_id,
                         agent_invocation_id, decision_id, decision_type, produced_at,
-                        payload_digest, decision_payload_digest_version)
+                        payload_digest, decision_payload_digest_version,
+                        committed_session_version, committed_session_sequence)
                     VALUES (
                         @OrganizationId, @ActivityId, @ForgedParticipantId, @AttemptId, @SessionId,
                         @InvocationId, @DecisionId, 'no_action', TIMESTAMPTZ '2026-08-13T00:00:00Z',
-                        @PayloadDigest, @DigestVersion);
+                        @PayloadDigest, @DigestVersion,
+                        1, 2);
                     """,
                     new
                     {
@@ -444,6 +446,10 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                     seeded,
                     cancellationToken: CancellationToken)));
         Assert.Contains("immutable", rewrite.MessageText, StringComparison.OrdinalIgnoreCase);
+
+        var afterTerminal = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await InsertValidationRevisionAsync(connection, seeded, revisionOrdinal: 2, validationOutcome: "rejected"));
+        Assert.Contains("terminal effect", afterTerminal.MessageText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -482,6 +488,120 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         Assert.Contains("committed_session_version", outcomeColumns);
         Assert.Contains("committed_session_sequence", outcomeColumns);
         Assert.Contains("last_session_sequence", invocationColumns);
+    }
+
+    [Fact]
+    public async Task Decision_commit_sequence_is_required_and_bumps_invocation_sequence()
+    {
+        var seeded = await SeedRuntimeWithInvocationAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+
+        var missingSequence = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO session_decisions (
+                        organization_id, activity_id, participant_id, attempt_id, session_id,
+                        agent_invocation_id, decision_id, decision_type, produced_at,
+                        payload_digest, decision_payload_digest_version)
+                    VALUES (
+                        @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                        @InvocationId, @DecisionId, 'no_action', TIMESTAMPTZ '2026-08-13T00:00:00Z',
+                        @PayloadDigest, @DigestVersion);
+                    """,
+                    new
+                    {
+                        seeded.OrganizationId,
+                        seeded.ActivityId,
+                        seeded.ParticipantId,
+                        seeded.AttemptId,
+                        seeded.SessionId,
+                        seeded.InvocationId,
+                        seeded.DecisionId,
+                        PayloadDigest = LowercaseDigest('d'),
+                        DigestVersion = DecisionPayloadDigest.FormatVersionV1,
+                    },
+                    cancellationToken: CancellationToken)));
+        Assert.Equal(PostgresErrorCodes.NotNullViolation, missingSequence.SqlState);
+
+        await InsertDecisionAsync(connection, seeded);
+        var lastSequence = await connection.ExecuteScalarAsync<long>(
+            new CommandDefinition(
+                """
+                SELECT last_session_sequence
+                FROM session_invocations
+                WHERE session_id = @SessionId
+                  AND agent_invocation_id = @InvocationId;
+                """,
+                seeded,
+                cancellationToken: CancellationToken));
+        Assert.Equal(2, lastSequence);
+
+        var missingOutcomeSequence = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO session_execution_outcomes (
+                        organization_id, activity_id, participant_id, attempt_id, session_id,
+                        agent_invocation_id, execution_outcome_id, outcome_category, reason_category)
+                    VALUES (
+                        @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                        @InvocationId, 'out-1', 'provider_unavailable', 'timeout');
+                    """,
+                    seeded,
+                    cancellationToken: CancellationToken)));
+        Assert.Equal(PostgresErrorCodes.NotNullViolation, missingOutcomeSequence.SqlState);
+
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO session_execution_outcomes (
+                    organization_id, activity_id, participant_id, attempt_id, session_id,
+                    agent_invocation_id, execution_outcome_id, outcome_category, reason_category,
+                    committed_session_version, committed_session_sequence)
+                VALUES (
+                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                    @InvocationId, 'out-1', 'provider_unavailable', 'timeout',
+                    1, 3);
+                """,
+                seeded,
+                cancellationToken: CancellationToken));
+        lastSequence = await connection.ExecuteScalarAsync<long>(
+            new CommandDefinition(
+                """
+                SELECT last_session_sequence
+                FROM session_invocations
+                WHERE session_id = @SessionId
+                  AND agent_invocation_id = @InvocationId;
+                """,
+                seeded,
+                cancellationToken: CancellationToken));
+        Assert.Equal(3, lastSequence);
+    }
+
+    [Fact]
+    public async Task Effect_commit_state_cannot_precede_validation_commit_state()
+    {
+        var seeded = await SeedRuntimeWithInvocationAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await InsertDecisionAsync(connection, seeded);
+        await InsertValidationRevisionAsync(connection, seeded, revisionOrdinal: 1, validationOutcome: "accepted");
+
+        var olderCommit = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE session_decision_validations
+                    SET effect_outcome = 'applied',
+                        effect_commit_session_version = 0,
+                        effect_commit_session_sequence = 1
+                    WHERE session_id = @SessionId
+                      AND agent_invocation_id = @InvocationId
+                      AND revision_ordinal = 1;
+                    """,
+                    seeded,
+                    cancellationToken: CancellationToken)));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, olderCommit.SqlState);
     }
 
     [Fact]
@@ -599,7 +719,10 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                 cancellationToken: CancellationToken));
     }
 
-    private async Task InsertDecisionAsync(NpgsqlConnection connection, SeededRuntime runtime)
+    private async Task InsertDecisionAsync(
+        NpgsqlConnection connection,
+        SeededRuntime runtime,
+        long committedSessionSequence = 2)
     {
         await connection.ExecuteAsync(
             new CommandDefinition(
@@ -607,11 +730,13 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                 INSERT INTO session_decisions (
                     organization_id, activity_id, participant_id, attempt_id, session_id,
                     agent_invocation_id, decision_id, decision_type, produced_at,
-                    payload_digest, decision_payload_digest_version)
+                    payload_digest, decision_payload_digest_version,
+                    committed_session_version, committed_session_sequence)
                 VALUES (
                     @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
                     @InvocationId, @DecisionId, 'no_action', TIMESTAMPTZ '2026-08-13T00:00:00Z',
-                    @PayloadDigest, @DigestVersion);
+                    @PayloadDigest, @DigestVersion,
+                    1, @CommittedSessionSequence);
                 """,
                 new
                 {
@@ -624,6 +749,7 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                     runtime.DecisionId,
                     PayloadDigest = LowercaseDigest('d'),
                     DigestVersion = DecisionPayloadDigest.FormatVersionV1,
+                    CommittedSessionSequence = committedSessionSequence,
                 },
                 cancellationToken: CancellationToken));
     }

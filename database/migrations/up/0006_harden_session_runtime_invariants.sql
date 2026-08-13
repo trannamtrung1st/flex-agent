@@ -1,17 +1,39 @@
 -- Harden Session runtime invariants after 0005.
--- Do not edit 0005; this additive script is the repair path for already-applied
--- 0005 databases. Capability/policy acceptance stays on validation rows.
+-- 0005 was pre-production and had no repositories. This repair refuses
+-- populated Session runtime tables rather than fabricating commit sequences.
+-- Capability/policy acceptance stays on validation rows.
 -- UTC-ordered; do not edit after merge.
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM session_runtimes)
+        OR EXISTS (SELECT 1 FROM session_events)
+        OR EXISTS (SELECT 1 FROM session_turns)
+        OR EXISTS (SELECT 1 FROM session_visible_transcript_items)
+        OR EXISTS (SELECT 1 FROM session_invocations)
+        OR EXISTS (SELECT 1 FROM session_invocation_attempts)
+        OR EXISTS (SELECT 1 FROM session_decisions)
+        OR EXISTS (SELECT 1 FROM session_decision_validations)
+        OR EXISTS (SELECT 1 FROM session_execution_outcomes)
+        OR EXISTS (SELECT 1 FROM session_messages)
+        OR EXISTS (SELECT 1 FROM session_message_fragments)
+        OR EXISTS (SELECT 1 FROM session_timer_schedules)
+        OR EXISTS (SELECT 1 FROM session_pause_intervals)
+        OR EXISTS (SELECT 1 FROM session_terminal_intents)
+        OR EXISTS (SELECT 1 FROM session_terminal_records)
+        OR EXISTS (SELECT 1 FROM session_durable_work)
+        OR EXISTS (SELECT 1 FROM session_manifest_refs)
+    THEN
+        RAISE EXCEPTION '0006 requires empty Session runtime tables because 0005 was pre-production; refusing fabricated sequence backfill';
+    END IF;
+END;
+$$;
 
 ALTER TABLE session_decisions
     DROP CONSTRAINT IF EXISTS chk_session_decisions_type;
 
 ALTER TABLE session_invocations
     ADD COLUMN IF NOT EXISTS last_session_sequence BIGINT;
-
-UPDATE session_invocations
-SET last_session_sequence = admitted_session_sequence
-WHERE last_session_sequence IS NULL;
 
 ALTER TABLE session_invocations
     ALTER COLUMN last_session_sequence SET NOT NULL;
@@ -21,7 +43,14 @@ ALTER TABLE session_invocations
 
 ALTER TABLE session_invocations
     ADD CONSTRAINT chk_session_invocations_last_sequence
-        CHECK (last_session_sequence >= admitted_session_sequence);
+        CHECK (last_session_sequence > 0 AND last_session_sequence >= admitted_session_sequence);
+
+ALTER TABLE session_invocations
+    DROP CONSTRAINT IF EXISTS chk_session_invocations_admitted_sequence;
+
+ALTER TABLE session_invocations
+    ADD CONSTRAINT chk_session_invocations_admitted_sequence
+        CHECK (admitted_session_sequence > 0);
 
 CREATE OR REPLACE FUNCTION stamp_session_invocation_last_sequence()
 RETURNS TRIGGER
@@ -97,7 +126,17 @@ ALTER TABLE session_decisions
             agent_invocation_id);
 
 ALTER TABLE session_decisions
-    ADD COLUMN IF NOT EXISTS committed_session_sequence BIGINT NOT NULL DEFAULT 0;
+    ADD COLUMN IF NOT EXISTS committed_session_sequence BIGINT;
+
+ALTER TABLE session_decisions
+    ALTER COLUMN committed_session_sequence SET NOT NULL;
+
+ALTER TABLE session_decisions
+    DROP CONSTRAINT IF EXISTS chk_session_decisions_commit_sequence;
+
+ALTER TABLE session_decisions
+    ADD CONSTRAINT chk_session_decisions_commit_sequence
+        CHECK (committed_session_sequence > 0);
 
 ALTER TABLE session_decision_validations
     DROP CONSTRAINT IF EXISTS fk_session_decision_validations_invocation;
@@ -140,10 +179,23 @@ ALTER TABLE session_execution_outcomes
             agent_invocation_id);
 
 ALTER TABLE session_execution_outcomes
-    ADD COLUMN IF NOT EXISTS committed_session_version BIGINT NOT NULL DEFAULT 0;
+    ADD COLUMN IF NOT EXISTS committed_session_version BIGINT;
 
 ALTER TABLE session_execution_outcomes
-    ADD COLUMN IF NOT EXISTS committed_session_sequence BIGINT NOT NULL DEFAULT 0;
+    ADD COLUMN IF NOT EXISTS committed_session_sequence BIGINT;
+
+ALTER TABLE session_execution_outcomes
+    ALTER COLUMN committed_session_version SET NOT NULL;
+
+ALTER TABLE session_execution_outcomes
+    ALTER COLUMN committed_session_sequence SET NOT NULL;
+
+ALTER TABLE session_execution_outcomes
+    DROP CONSTRAINT IF EXISTS chk_session_execution_outcomes_commit_sequence;
+
+ALTER TABLE session_execution_outcomes
+    ADD CONSTRAINT chk_session_execution_outcomes_commit_sequence
+        CHECK (committed_session_sequence > 0 AND committed_session_version >= 0);
 
 ALTER TABLE session_decision_validations
     DROP CONSTRAINT IF EXISTS chk_session_decision_validations_effect_commit_state;
@@ -164,13 +216,93 @@ ALTER TABLE session_decision_validations
                 AND effect_commit_session_version IS NOT NULL
                 AND effect_commit_session_sequence IS NOT NULL
                 AND effect_committed_at IS NOT NULL
+                AND effect_commit_session_version >= validation_commit_session_version
+                AND effect_commit_session_sequence >= validation_commit_session_sequence
             ));
+
+CREATE OR REPLACE FUNCTION lock_session_invocation_for_mutation(
+    p_organization_id UUID,
+    p_session_id UUID,
+    p_agent_invocation_id TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    locked_id TEXT;
+BEGIN
+    SELECT agent_invocation_id
+    INTO locked_id
+    FROM session_invocations
+    WHERE organization_id = p_organization_id
+      AND session_id = p_session_id
+      AND agent_invocation_id = p_agent_invocation_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'session invocation not found for mutation lock';
+    END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION bump_session_invocation_last_sequence()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    current_last BIGINT;
+BEGIN
+    PERFORM lock_session_invocation_for_mutation(
+        NEW.organization_id,
+        NEW.session_id,
+        NEW.agent_invocation_id);
+
+    SELECT last_session_sequence
+    INTO current_last
+    FROM session_invocations
+    WHERE organization_id = NEW.organization_id
+      AND session_id = NEW.session_id
+      AND agent_invocation_id = NEW.agent_invocation_id;
+
+    IF NEW.committed_session_sequence <= current_last THEN
+        RAISE EXCEPTION 'session invocation last_session_sequence must advance';
+    END IF;
+
+    UPDATE session_invocations
+    SET last_session_sequence = NEW.committed_session_sequence
+    WHERE organization_id = NEW.organization_id
+      AND session_id = NEW.session_id
+      AND agent_invocation_id = NEW.agent_invocation_id;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_session_decisions_bump_last_sequence ON session_decisions;
+
+CREATE TRIGGER trg_session_decisions_bump_last_sequence
+    BEFORE INSERT ON session_decisions
+    FOR EACH ROW
+    EXECUTE FUNCTION bump_session_invocation_last_sequence();
+
+DROP TRIGGER IF EXISTS trg_session_execution_outcomes_bump_last_sequence ON session_execution_outcomes;
+
+CREATE TRIGGER trg_session_execution_outcomes_bump_last_sequence
+    BEFORE INSERT ON session_execution_outcomes
+    FOR EACH ROW
+    EXECUTE FUNCTION bump_session_invocation_last_sequence();
 
 CREATE OR REPLACE FUNCTION reject_session_decision_validation_terminal_insert()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    latest_effect TEXT;
 BEGIN
+    PERFORM lock_session_invocation_for_mutation(
+        NEW.organization_id,
+        NEW.session_id,
+        NEW.agent_invocation_id);
+
     IF NEW.effect_outcome IS DISTINCT FROM 'not_attempted'
         OR NEW.effect_commit_session_version IS NOT NULL
         OR NEW.effect_commit_session_sequence IS NOT NULL
@@ -179,6 +311,19 @@ BEGIN
         OR NEW.applied_response_slot_id IS NOT NULL
     THEN
         RAISE EXCEPTION 'session_decision_validations insert must start as not_attempted';
+    END IF;
+
+    SELECT effect_outcome
+    INTO latest_effect
+    FROM session_decision_validations
+    WHERE organization_id = NEW.organization_id
+      AND session_id = NEW.session_id
+      AND agent_invocation_id = NEW.agent_invocation_id
+    ORDER BY revision_ordinal DESC
+    LIMIT 1;
+
+    IF latest_effect IN ('applied', 'no_domain_effect', 'effect_failed') THEN
+        RAISE EXCEPTION 'session_decision_validations cannot append after a terminal effect';
     END IF;
 
     RETURN NEW;
@@ -200,6 +345,11 @@ AS $$
 DECLARE
     latest_ordinal INT;
 BEGIN
+    PERFORM lock_session_invocation_for_mutation(
+        NEW.organization_id,
+        NEW.session_id,
+        NEW.agent_invocation_id);
+
     IF NEW.organization_id IS DISTINCT FROM OLD.organization_id
         OR NEW.activity_id IS DISTINCT FROM OLD.activity_id
         OR NEW.participant_id IS DISTINCT FROM OLD.participant_id
