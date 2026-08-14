@@ -1512,8 +1512,9 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 new AgentResponseFragmentCommit(admitted.Invocation.AgentInvocationId, 2, "lo", "agen.incremental.1"),
                 clock).Succeeded);
             PostgresSessionRuntimeRepository.FragmentInsertAttempts = 0;
-            PostgresSessionRuntimeRepository.FragmentPendingScans = 0;
             PostgresSessionRuntimeRepository.PublicationMessagesTouched = 0;
+            PostgresSessionRuntimeRepository.TranscriptInsertAttempts = 0;
+            PostgresSessionRuntimeRepository.TurnUpsertAttempts = 0;
             Assert.True(
                 await repository.TrySaveAgentResponsePublicationAsync(
                     binding.Ownership,
@@ -1523,9 +1524,137 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                     CancellationToken));
             await scope.CommitAsync(CancellationToken);
             Assert.Equal(1, PostgresSessionRuntimeRepository.FragmentInsertAttempts);
-            Assert.Equal(0, PostgresSessionRuntimeRepository.FragmentPendingScans);
             Assert.Equal(1, PostgresSessionRuntimeRepository.PublicationMessagesTouched);
+            Assert.Equal(0, PostgresSessionRuntimeRepository.TranscriptInsertAttempts);
+            Assert.Equal(0, PostgresSessionRuntimeRepository.TurnUpsertAttempts);
             Assert.Equal("Hello", Assert.Single(loaded.AgentMessages).AssembleExactText());
+        }
+    }
+
+    [Fact]
+    public async Task Rolled_back_publication_save_discards_the_aggregate_and_retries_from_postgres()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
+        var acceptCoordinator = new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler());
+        var completeCoordinator = new PostgresCompleteInvocationCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new CompleteInvocationHandler());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var admitted = await acceptCoordinator.AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                actor,
+                binding.Ownership,
+                ExpectedSessionVersion: 0,
+                "msg.p.rollback",
+                "turn.rollback",
+                "slot.rollback",
+                "trig.participant.rollback",
+                "idem.p.rollback",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+
+        var completed = await completeCoordinator.CompleteAsync(
+            new CompleteInvocationCommand(
+                actor,
+                binding.Ownership,
+                admitted.SessionVersion!.Value,
+                admitted.Invocation!.AgentInvocationId,
+                new EnvelopeRecommendation(
+                    "adec.rollback.0001",
+                    admitted.Invocation.AgentInvocationId,
+                    new DateTimeOffset(2026, 8, 13, 0, 0, 2, TimeSpan.Zero),
+                    DecisionDispositions.Respond,
+                    [
+                        new OutputRecommendation(
+                            AgentOutputKinds.Message,
+                            "out.message.primary",
+                            "participant_reply",
+                            "turn.rollback",
+                            "slot.rollback"),
+                    ],
+                    []),
+                null,
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+
+        long versionBeforeSave;
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            var loaded = await repository.LoadForUpdateAsync(
+                binding.Ownership,
+                binding,
+                scope.Transaction,
+                CancellationToken);
+            Assert.NotNull(loaded);
+            versionBeforeSave = loaded!.SessionVersion;
+            var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
+            Assert.True(loaded.CommitAgentResponseFragment(
+                new AgentResponseFragmentCommit(admitted.Invocation.AgentInvocationId, 1, "Hel", "agen.rollback.1"),
+                clock).Succeeded);
+            Assert.True(
+                await repository.TrySaveAgentResponsePublicationAsync(
+                    binding.Ownership,
+                    versionBeforeSave,
+                    loaded,
+                    scope.Transaction,
+                    CancellationToken));
+            await scope.RollbackAsync(CancellationToken);
+        }
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            var reloaded = await repository.LoadForUpdateAsync(
+                binding.Ownership,
+                binding,
+                scope.Transaction,
+                CancellationToken);
+            Assert.NotNull(reloaded);
+            Assert.Equal(versionBeforeSave, reloaded!.SessionVersion);
+            Assert.Empty(reloaded.AgentMessages);
+            var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
+            Assert.True(reloaded.CommitAgentResponseFragment(
+                new AgentResponseFragmentCommit(admitted.Invocation.AgentInvocationId, 1, "Hel", "agen.rollback.1"),
+                clock).Succeeded);
+            Assert.True(
+                await repository.TrySaveAgentResponsePublicationAsync(
+                    binding.Ownership,
+                    versionBeforeSave,
+                    reloaded,
+                    scope.Transaction,
+                    CancellationToken));
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            var committed = await repository.LoadForUpdateAsync(
+                binding.Ownership,
+                binding,
+                scope.Transaction,
+                CancellationToken);
+            Assert.NotNull(committed);
+            Assert.True(committed!.SessionVersion > versionBeforeSave);
+            Assert.Equal("Hel", Assert.Single(committed.AgentMessages).AssembleExactText());
         }
     }
 

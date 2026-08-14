@@ -20,6 +20,8 @@ public sealed class SessionRuntime
     private readonly List<VisibleTranscriptItemRef> _visibleTranscript = [];
     private readonly List<AgentResponseMessage> _agentMessages = [];
     private readonly HashSet<AgentResponseMessage> _pendingPublicationWork = new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<Turn> _dirtyTurns = new(ReferenceEqualityComparer.Instance);
+    private readonly Queue<VisibleTranscriptItemRef> _pendingTranscript = new();
     private readonly Dictionary<string, DateTimeOffset> _lastAdmittedAtByFamily = new(StringComparer.Ordinal);
 
     private SessionRuntime(TrustedSessionBinding binding, DateTimeOffset startedAt)
@@ -85,6 +87,10 @@ public sealed class SessionRuntime
     public IReadOnlyList<AgentResponseMessage> AgentMessages => _agentMessages;
 
     internal IReadOnlyCollection<AgentResponseMessage> PendingPublicationWork => _pendingPublicationWork;
+
+    internal IReadOnlyCollection<Turn> DirtyTurns => _dirtyTurns;
+
+    internal IReadOnlyCollection<VisibleTranscriptItemRef> PendingTranscript => _pendingTranscript;
 
     public static SessionRuntime CreateActive(TrustedSessionBinding binding, DateTimeOffset startedAt)
     {
@@ -195,13 +201,14 @@ public sealed class SessionRuntime
         }
 
         _turns.Add(new Turn(turnId, TurnKinds.Participant, triggerId, new ResponseSlot(responseSlotId), NextAdmissionSequence()));
-        _visibleTranscript.Add(new VisibleTranscriptItemRef(
+        var participantTranscript = new VisibleTranscriptItemRef(
             participantMessageId,
             TranscriptAuthorTypes.Participant,
             turnId,
             new ProtectedContentRef(
                 $"msg:{participantMessageId}",
-                ProtectedContentRef.DigestForReference($"msg:{participantMessageId}"))));
+                ProtectedContentRef.DigestForReference($"msg:{participantMessageId}")));
+        _visibleTranscript.Add(participantTranscript);
 
         var result = AdmitTrustedTrigger(trigger, idempotencyKey, authoritativeUtc, expectedSessionVersion);
         if (!result.Succeeded)
@@ -209,6 +216,11 @@ public sealed class SessionRuntime
             _turns.RemoveAll(turn => string.Equals(turn.TurnId, turnId, StringComparison.Ordinal));
             _visibleTranscript.RemoveAll(item =>
                 string.Equals(item.MessageId, participantMessageId, StringComparison.Ordinal));
+        }
+        else
+        {
+            TrackTurn(_turns.First(turn => string.Equals(turn.TurnId, turnId, StringComparison.Ordinal)));
+            TrackTranscript(participantTranscript);
         }
 
         return result;
@@ -341,6 +353,7 @@ public sealed class SessionRuntime
         foreach (var turn in _turns)
         {
             turn.Cancel();
+            TrackTurn(turn);
         }
 
         Touch(authoritativeUtc);
@@ -386,6 +399,7 @@ public sealed class SessionRuntime
         foreach (var turn in _turns)
         {
             turn.Cancel();
+            TrackTurn(turn);
         }
 
         Touch(authoritativeUtc);
@@ -770,6 +784,7 @@ public sealed class SessionRuntime
                 turn.ResponseSlot.MarkIntentionalNoAction();
                 turn.MarkComplete();
                 turn.MarkDirty();
+                TrackTurn(turn);
             }
 
             invocation.ValidationEffect.SetEffectOutcome(
@@ -844,6 +859,7 @@ public sealed class SessionRuntime
             turn.ResponseSlot.ClaimForPublication(invocation.AgentInvocationId);
             turn.MarkWorkQueued();
             turn.MarkDirty();
+            TrackTurn(turn);
             invocation.ValidationEffect.SetEffectOutcome(
                 DecisionEffectOutcomes.Applied,
                 turn.TurnId,
@@ -959,23 +975,30 @@ public sealed class SessionRuntime
         }
 
         var turn = FindPublicationTurn(invocation)!;
+        var messageId = AllocateOrReuseOutputId(invocation);
+        var acceptedOutputId = invocation.ValidationEffect?.OutputValidations.FirstOrDefault(item =>
+            string.Equals(item.AgentOutputId, messageId, StringComparison.Ordinal))
+            ?.AgentOutputId;
         var message = new AgentResponseMessage(
-            AllocateOrReuseOutputId(invocation),
+            messageId,
             commit.GenerationAttemptId,
             invocation.AgentInvocationId,
             invocation.Decision!.DecisionId,
             turn.TurnId,
-            turn.ResponseSlot.ResponseSlotId);
+            turn.ResponseSlot.ResponseSlotId,
+            acceptedOutputId);
         var fragment = message.AppendFragment(1, NextSequence(authoritativeUtc), commit.ExactUtf8Text);
         _agentMessages.Add(message);
         TrackPublication(message);
-        _visibleTranscript.Add(new VisibleTranscriptItemRef(
+        var agentTranscript = new VisibleTranscriptItemRef(
             message.MessageId,
             TranscriptAuthorTypes.Agent,
             turn.TurnId,
             new ProtectedContentRef(
                 $"msg:{message.MessageId}",
-                ProtectedContentRef.DigestForReference($"msg:{message.MessageId}"))));
+                ProtectedContentRef.DigestForReference($"msg:{message.MessageId}")));
+        _visibleTranscript.Add(agentTranscript);
+        TrackTranscript(agentTranscript);
         Touch(authoritativeUtc);
         return new AgentResponseFragmentCommitResult(
             true,
@@ -1340,6 +1363,7 @@ public sealed class SessionRuntime
         if (turn is { State: TurnStates.WorkQueued })
         {
             turn.MarkComplete();
+            TrackTurn(turn);
         }
 
         NextSequence(authoritativeUtc);
@@ -1367,6 +1391,14 @@ public sealed class SessionRuntime
 
     internal void RemoveCleanPublicationWork() =>
         _pendingPublicationWork.RemoveWhere(message => !message.HasPendingPublicationWork);
+
+    internal void TrackTurn(Turn turn) => _dirtyTurns.Add(turn);
+
+    internal void RemoveCleanTurns() => _dirtyTurns.RemoveWhere(turn => !turn.IsDirty);
+
+    internal void TrackTranscript(VisibleTranscriptItemRef item) => _pendingTranscript.Enqueue(item);
+
+    internal void ClearPendingTranscript() => _pendingTranscript.Clear();
 
     private AgentInvocation? FindInvocation(string agentInvocationId) =>
         _invocations.FirstOrDefault(invocation =>

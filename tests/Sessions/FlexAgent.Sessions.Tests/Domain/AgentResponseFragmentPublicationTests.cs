@@ -437,12 +437,15 @@ public sealed class AgentResponseFragmentPublicationTests
             SessionRuntimeTestFixtures.T0.AddSeconds(3)).Succeeded);
         var message = Assert.Single(session.PendingPublicationWork);
         Assert.Equal(1, message.PendingInsertCount);
+        Assert.Contains(session.PendingTranscript, item => item.MessageId == message.MessageId);
 
         message.Fragments[0].MarkPersisted();
         message.MarkMessagePersisted();
         message.ClearPersistedPendingInserts();
         session.RemoveCleanPublicationWork();
+        session.ClearPendingTranscript();
         Assert.Empty(session.PendingPublicationWork);
+        Assert.Empty(session.PendingTranscript);
 
         Assert.True(session.CommitAgentResponseFragment(
             new AgentResponseFragmentCommit(invocationId, 2, "lo", "agen.test.1"),
@@ -451,6 +454,7 @@ public sealed class AgentResponseFragmentPublicationTests
         Assert.Equal(1, message.PendingInsertCount);
         Assert.Equal("lo", Assert.Single(message.PendingInserts).ExactUtf8Text);
         Assert.Equal(2, message.Fragments.Count);
+        Assert.Empty(session.PendingTranscript);
     }
 
     private static string ClaimParticipantPublication(SessionRuntime session)

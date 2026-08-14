@@ -481,7 +481,8 @@ public sealed class AgentResponseMessage
         string drivingInvocationId,
         string drivingDecisionId,
         string turnId,
-        string responseSlotId)
+        string responseSlotId,
+        string? acceptedAgentOutputId)
     {
         MessageId = messageId;
         GenerationAttemptId = generationAttemptId;
@@ -489,6 +490,7 @@ public sealed class AgentResponseMessage
         DrivingDecisionId = drivingDecisionId;
         TurnId = turnId;
         ResponseSlotId = responseSlotId;
+        AcceptedAgentOutputId = acceptedAgentOutputId;
         CompletionState = AgentMessageCompletionStates.Open;
         PendingInsert = true;
     }
@@ -502,7 +504,8 @@ public sealed class AgentResponseMessage
         string responseSlotId,
         string completionState,
         string? assembledContentDigest,
-        IReadOnlyList<AgentResponseFragment> fragments)
+        IReadOnlyList<AgentResponseFragment> fragments,
+        string? acceptedAgentOutputId = null)
     {
         var message = new AgentResponseMessage(
             messageId,
@@ -510,7 +513,8 @@ public sealed class AgentResponseMessage
             drivingInvocationId,
             drivingDecisionId,
             turnId,
-            responseSlotId);
+            responseSlotId,
+            acceptedAgentOutputId);
         message.CompletionState = completionState;
         message.AssembledContentDigest = assembledContentDigest;
         message.PendingInsert = false;
@@ -534,6 +538,8 @@ public sealed class AgentResponseMessage
     public string TurnId { get; }
 
     public string ResponseSlotId { get; }
+
+    public string? AcceptedAgentOutputId { get; }
 
     public string CompletionState { get; private set; }
 

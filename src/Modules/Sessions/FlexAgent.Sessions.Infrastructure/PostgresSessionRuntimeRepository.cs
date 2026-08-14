@@ -10,9 +10,11 @@ public sealed class PostgresSessionRuntimeRepository
     internal static Func<NpgsqlTransaction, Task>? AfterHeadLoadedAsync { get; set; }
     internal static int FragmentInsertAttempts { get; set; }
 
-    internal static int FragmentPendingScans { get; set; }
-
     internal static int PublicationMessagesTouched { get; set; }
+
+    internal static int TranscriptInsertAttempts { get; set; }
+
+    internal static int TurnUpsertAttempts { get; set; }
     private const string InsertActiveSql = """
         INSERT INTO session_runtimes (
             organization_id, activity_id, participant_id, attempt_id, session_id,
@@ -98,7 +100,8 @@ public sealed class PostgresSessionRuntimeRepository
 
     private const string LoadAgentMessagesSql = """
         SELECT message_id, generation_attempt_id, driving_invocation_id, driving_decision_id,
-               turn_id, response_slot_id, completion_state, assembled_content_digest
+               turn_id, response_slot_id, completion_state, assembled_content_digest,
+               accepted_agent_output_id
         FROM session_messages
         WHERE organization_id = @OrganizationId
           AND activity_id = @ActivityId
@@ -728,7 +731,8 @@ public sealed class PostgresSessionRuntimeRepository
                     item.response_slot_id,
                     item.completion_state,
                     item.assembled_content_digest,
-                    fragments);
+                    fragments,
+                    item.accepted_agent_output_id);
             })
             .ToArray();
 
@@ -1135,6 +1139,9 @@ public sealed class PostgresSessionRuntimeRepository
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(transaction);
         EnsureOwnership(ownership, session.Ownership);
+        // Callers must discard this SessionRuntime if the surrounding transaction
+        // rolls back; retry by reloading PostgreSQL. Dirty flags are cleared here
+        // before commit.
 
         var connection = RequireConnection(transaction);
         var updated = await connection.ExecuteAsync(
@@ -1191,8 +1198,14 @@ public sealed class PostgresSessionRuntimeRepository
         CancellationToken cancellationToken)
     {
         var connection = RequireConnection(transaction);
-        foreach (var turn in session.Turns.Where(item => item.IsDirty))
+        foreach (var turn in session.DirtyTurns)
         {
+            if (!turn.IsDirty)
+            {
+                continue;
+            }
+
+            TurnUpsertAttempts++;
             await connection.ExecuteAsync(
                 new CommandDefinition(
                     UpsertTurnSql,
@@ -1217,8 +1230,11 @@ public sealed class PostgresSessionRuntimeRepository
             turn.MarkClean();
         }
 
-        foreach (var item in session.VisibleTranscript)
+        session.RemoveCleanTurns();
+
+        foreach (var item in session.PendingTranscript)
         {
+            TranscriptInsertAttempts++;
             await connection.ExecuteAsync(
                 new CommandDefinition(
                     InsertTranscriptSql,
@@ -1238,6 +1254,8 @@ public sealed class PostgresSessionRuntimeRepository
                     transaction,
                     cancellationToken: cancellationToken));
         }
+
+        session.ClearPendingTranscript();
     }
 
     private async Task PersistAgentMessagesAsync(
@@ -1250,7 +1268,6 @@ public sealed class PostgresSessionRuntimeRepository
         foreach (var message in session.PendingPublicationWork)
         {
             PublicationMessagesTouched++;
-            var acceptedOutputId = ResolveAcceptedOutputId(session, message);
             var protectedRef = $"msg:{message.MessageId}";
             if (message.PendingInsert)
             {
@@ -1272,7 +1289,7 @@ public sealed class PostgresSessionRuntimeRepository
                             message.GenerationAttemptId,
                             DrivingInvocationId = message.DrivingInvocationId,
                             DrivingDecisionId = message.DrivingDecisionId,
-                            AcceptedAgentOutputId = acceptedOutputId,
+                            AcceptedAgentOutputId = message.AcceptedAgentOutputId,
                             message.AssembledContentDigest,
                             message.ResponseSlotId,
                         },
@@ -1357,15 +1374,6 @@ public sealed class PostgresSessionRuntimeRepository
         }
 
         session.RemoveCleanPublicationWork();
-    }
-
-    private static string? ResolveAcceptedOutputId(SessionRuntime session, AgentResponseMessage message)
-    {
-        var invocation = session.Invocations.FirstOrDefault(item =>
-            string.Equals(item.AgentInvocationId, message.DrivingInvocationId, StringComparison.Ordinal));
-        return invocation?.ValidationEffect?.OutputValidations.FirstOrDefault(item =>
-            string.Equals(item.AgentOutputId, message.MessageId, StringComparison.Ordinal))
-            ?.AgentOutputId;
     }
 
     private static AgentDecisionRecord? ToDecision(SessionDecisionRow? row)
@@ -1632,7 +1640,8 @@ public sealed class PostgresSessionRuntimeRepository
         string turn_id,
         string response_slot_id,
         string completion_state,
-        string? assembled_content_digest);
+        string? assembled_content_digest,
+        string? accepted_agent_output_id);
 
     private sealed record SessionAgentFragmentRow(
         string message_id,
