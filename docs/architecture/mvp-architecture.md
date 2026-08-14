@@ -10,12 +10,12 @@ Approved technical realization baseline for the P0 assessment vertical slice.
 | **Owner** | Architecture Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, UI/UX, documentation |
-| **Version** | 0.9 |
-| **Approved date** | Version 0.7 approved 2026-08-09; versions 0.8 and 0.9 approved 2026-08-11 |
-| **Approval reference** | Version 0.9 is approved through ADR-006–ADR-013; [ADR-013](decisions/ADR-013-agent-requested-next-timer-replacement.md) supplies optional one-lane next-timer replacement |
+| **Version** | 0.10 |
+| **Approved date** | Version 0.7 approved 2026-08-09; versions 0.8 and 0.9 approved 2026-08-11; version 0.10 approved 2026-08-14 |
+| **Approval reference** | Version 0.10 is approved through ADR-006–ADR-014; [ADR-014](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) supplies the P0-compatible Decision-output envelope |
 | **Governs** | MVP system boundaries, logical ownership, runtime flows, consistency boundaries, trust boundaries, deployment shape, recovery baseline, and architecture verification |
 
-Version 0.9 is **approved** and supersedes version 0.8. This architecture does
+Version 0.10 is **approved** and supersedes version 0.9. This architecture does
 not override approved product documents or
 feature specifications. Approved requirements govern observable behavior;
 approved ADRs govern technical realization. The approved
@@ -144,7 +144,7 @@ The following are not new proposals; they follow from approved sources:
 
 ## Approved MVP realization decisions
 
-`AR-DEC-1`–`AR-DEC-24` are approved for MVP realization.
+`AR-DEC-1`–`AR-DEC-25` are approved for MVP realization.
 
 | ID | Decision | Rationale |
 | --- | --- | --- |
@@ -170,8 +170,9 @@ The following are not new proposals; they follow from approved sources:
 | `AR-DEC-20` | Apply the approved OIDC flow, application-session, revocation, and MFA defaults in the [MVP operational defaults](../requirements/mvp-operational-defaults.md#oidc-and-application-session-defaults). | Resolves the authentication-session security posture while retaining a provider-neutral identity boundary. |
 | `AR-DEC-21` | Apply the approved record-class lifecycle matrix and same-jurisdiction secondary recovery placement in the [MVP operational defaults](../requirements/mvp-operational-defaults.md#protected-data-lifecycle-defaults). | Replaces unspecified retention and recovery placement with explicit, testable defaults that deployments may only narrow through approved policy. |
 | `AR-DEC-22` | Stream Agent responses incrementally to Participants through the durable-before-display fragment, first-fragment publication claim, replay, cutoff, and backpressure contract approved in ADR-011. | Makes streaming an MVP and future foundation without trusting provider transport, SSE, the browser, or an external broker for transcript authority. |
-| `AR-DEC-23` | Use the provider-neutral Agent Invocation → Agent Decision → independent validation → authoritative domain-effect/no-domain-effect boundary in ADR-012. Persist admitted minimized Invocations, keep trigger provenance trusted, represent no-action explicitly, link rather than nest Invocation identity into the Turn/publication hierarchy, and preserve ADR-011 for every visible delta. | Supports non-message decision opportunities and future voice/tools/workflows without making model output authoritative or expanding P0 scope. |
+| `AR-DEC-23` | Use the provider-neutral Agent Invocation → Agent Decision envelope → independent validation → authoritative domain-effect/no-domain-effect boundary in ADR-012 as specialized by ADR-014. Persist admitted minimized Invocations, keep trigger provenance trusted, represent no-action explicitly, link rather than nest Invocation identity into the Turn/publication hierarchy, and preserve ADR-011 for every visible delta. | Supports non-message decision opportunities and future voice/tools/workflows without making model output authoritative or expanding P0 scope. |
 | `AR-DEC-24` | When frozen Session policy enables it, use one primary-store-owned Agent timer lane with a default active-time cadence. Permit one optional next-timer recommendation on a successful Decision; independently validate it and replace the lane's next schedule revision under ADR-013. | Adapts the next check without parallel timers, provider-native scheduling authority, or uncontrolled self-waking. |
+| `AR-DEC-25` | Realize a successful Agent Decision as the ADR-014 envelope with a P0 compatibility profile: at most one Participant message output, no voice or extra audiences/actions except the optional next-timer request, runtime-owned output identity, and immutable historical v1 reconstruction. | Prepares coordinated later channels without changing text-only P0 or rewriting frozen contracts. |
 
 ## System context and trust boundaries
 
@@ -564,7 +565,8 @@ Activity, Session, provider outage, or oversized artifact from starving others.
 
 ### 3. Text Session turn and recovery
 
-The following flow is approved for version 0.8 through ADR-012.
+The following flow is approved for version 0.10 through ADR-012, ADR-013, and
+ADR-014. Historical v1 `emit_message` maps to an accepted P0 `message` output.
 
 ```mermaid
 sequenceDiagram
@@ -590,7 +592,7 @@ sequenceDiagram
     B->>D: Terminalize response slot/Turn; publish no Agent Message
     D-->>W: Reconnectable resolved turn outcome
     W-->>P: Clear working state; no error or synthetic message
-  else Decision is permitted emit_message
+  else Decision includes a permitted P0 message output
   M-->>B: Ordered untrusted content deltas through qualified adapter
   loop Each participant-visible delta within bounds
     B->>B: Rolling validation
@@ -611,7 +613,9 @@ sequenceDiagram
 The diagram shows logical contract order, not a required provider wire protocol.
 A qualified adapter may receive control and content in one interleaved provider
 interaction, but it must buffer or otherwise withhold content from publication
-until the `emit_message` Decision is structurally valid and currently accepted.
+until the communication Decision and its P0 `message` output are structurally
+valid and currently accepted. Historical v1 `emit_message` is that same P0
+profile.
 No provider delta becomes participant-visible before its own ADR-011 validation
 and durable commit.
 
@@ -802,7 +806,7 @@ requirement implemented.
 | Resolved session configuration | Session-resolution component, versioned source registry, canonicalizer/digest, immutable configuration, manifest append/seal, reconstruction verifier | Precedence/property tests, conformance fixtures, drift/substitution tests, append concurrency, seal/tamper and degraded-source reconstruction |
 | Assessment setup | Assessment configuration, readiness validator, Activity revision, Cohort, activation coordinator, lifecycle and policy resolver | Draft concurrency, source/fairness validation, ADR-004 atomic fault injection, idempotent reconciliation and cross-scope tests |
 | Submission and Attempts | Participation/Submission, artifact adapter, accommodation and entitlement model, exact binding and start coordinator | Quarantine/validation matrix, immutable versions, timing and entitlement races, ADR-005 fault injection, capability and object-access tests |
-| Text Session lifecycle | Session execution, ordered command/event protocol, approved Invocation/Decision validation/effect boundary, one-lane Agent timer scheduler, model adapter, server timer, terminal/seal coordinator, reconnect | Trusted/fake/duplicate/late triggers, no-action, Decision rejection, default/accepted/rejected next timer, single-lane replacement, ordering/idempotency, multiple-device, pause/resume/expiry, provider late callback, revocation, recovery, manifest/audit failure and load tests |
+| Text Session lifecycle | Session execution, ordered command/event protocol, approved Invocation/Decision envelope validation/effect boundary, P0 output profile, one-lane Agent timer scheduler, model adapter, server timer, terminal/seal coordinator, reconnect | Trusted/fake/duplicate/late triggers, envelope cardinality, empty-output inference rejection, voice/audience rejection, no-action, Decision rejection, default/accepted/rejected next timer, single-lane replacement, v1 dual-read, ordering/idempotency, multiple-device, pause/resume/expiry, provider late callback, revocation, recovery, manifest/audit failure and load tests |
 | Evidence and Evaluation | Evaluation request/invocation, Evidence locator/verifier, evaluator-mode runner, model adapter, immutable completion/lineage | Exact-source and locator tests, injection, deterministic conflict, sandbox/egress limits, provider retry, replacement and completion atomicity tests |
 | Human review and Result Release | Review case/assignment, candidate selector, revision/decision state machines, Result validator, atomic Release/current-visible resolver | Wrong-scope queue/case, stale/concurrent decision, content allowlist, pre-release denial, Release/audit/visibility fault injection, correction and lifecycle tests |
 
@@ -830,7 +834,7 @@ requirement implemented.
 
 | Timing | Work still required | Status and interim direction |
 | --- | --- | --- |
-| Text Session implementation | Implement approved version 0.4 streaming, Invocation/Decision, and next-timer replacement behavior through specification-driven TDD. | Approved architecture is complete through ADR-009 and ADR-011–ADR-013. Preserve `AR-DEC-3`, `AR-DEC-4`, `AR-DEC-14`, `AR-DEC-22`–`AR-DEC-24`, and ADR-001/002/003/005/011/012/013. |
+| Text Session implementation | Implement approved version 0.5 streaming, Invocation/Decision envelope, next-timer replacement, and P0 output-profile behavior through specification-driven TDD. | Approved architecture is complete through ADR-009 and ADR-011–ADR-014. Preserve `AR-DEC-3`, `AR-DEC-4`, `AR-DEC-14`, `AR-DEC-22`–`AR-DEC-25`, and ADR-001/002/003/005/011/012/013/014. |
 | Evaluation implementation | Implement against the approved [Evidence and Evaluation execution contract](evaluation-execution-contract.md), covering Evidence locator/set-seal, evaluator provenance, deterministic isolation, invocation retry/completion, model trust, and replacement lineage. | Detailed architecture complete through ADR-009; implementation and verification remain. Preserve `AR-DEC-7` and `AR-DEC-8`. |
 | Review/Release implementation | Implement against the approved [Human review, Result, and Release contract](review-result-release-contract.md), covering Review case/candidate, Human revision, Review decision, Result/current-visible lineage, correction, atomic Release, and availability-only MVP notifications. | Detailed architecture complete through ADR-009; implementation and verification remain. Preserve `AR-DEC-10` and `AR-DEC-11`. |
 | Before Submission intake implementation | Pass ADR-008's SeaweedFS and artifact-safety adapter gates; encode the approved limits, policy-controlled scanner mode, timeouts, cleanup, and failure behavior. | Component and adapter direction is approved; compatibility evidence remains blocking for the affected implementation. Policy is governed by `AR-DEC-19`, `REQ-OPS-1` through `REQ-OPS-8`, and the Submission specification. |
@@ -847,8 +851,9 @@ requirement implemented.
 ## Open architecture questions
 
 No open question is left without an interim default. The approved product and
-requirement revisions plus ADR-012 and ADR-013 govern Invocation/Decision and
-next-timer implementation; the verification gates below remain mandatory.
+requirement revisions plus ADR-012, ADR-013, and ADR-014 govern
+Invocation/Decision, next-timer, and P0 output-envelope implementation; the
+verification gates below remain mandatory.
 `Q-ARCH-14`, `Q-ARCH-15`, `Q-OSS-1`, and `Q-OSS-2` are resolved by ADR-008.
 `Q-OSS-1` is resolved by certifying concrete provider deployment profiles
 instead of selecting a normative model; exact profile qualification remains
@@ -874,11 +879,12 @@ Their schema and canonicalization evidence gates remain mandatory.
 
 ## Implementation readiness
 
-The MVP architecture version 0.9 baseline is approved. Implementation readiness
+The MVP architecture version 0.10 baseline is approved. Implementation readiness
 is staged, not all-or-nothing:
 
-1. Foundation, structured Agent Invocation/Decision, and next-timer work may
-   proceed against ADR-001 through ADR-013 and `AR-DEC-1` through `AR-DEC-24`,
+1. Foundation, structured Agent Invocation/Decision, next-timer, and P0
+   output-envelope work may proceed against ADR-001 through ADR-014 and
+   `AR-DEC-1` through `AR-DEC-25`,
    subject to the stated schema, migration, security, and verification gates.
 2. Text Session, Evaluation, and Review/Release implementations must conform to
    the approved detailed contracts adopted by ADR-009 and, for Session

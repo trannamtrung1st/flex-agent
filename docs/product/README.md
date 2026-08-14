@@ -4,9 +4,9 @@ Stable product strategy, domain concepts, and MVP boundaries for Flex Agent.
 
 ## Status
 
-**Version 0.3 approved.** The approved revisions add structured Agent
-Invocation/Decision semantics and one optional bounded next-timer replacement
-lane without otherwise expanding the MVP. Product documents govern product
+**Version 0.4 approved.** The approved revisions add the P0-compatible Agent
+Decision output envelope without expanding text-only MVP examination or enabling
+voice. Product documents govern product
 meaning and scope. They inform
 requirements, UI/UX, and architecture but do not replace approved feature
 specifications, UI/UX specifications, or ADRs within those areas of authority.
@@ -15,9 +15,9 @@ specifications, UI/UX specifications, or ADRs within those areas of authority.
 
 | Document | Status | Version | Owner | Approvers | Last reviewed | Approval reference |
 | --- | --- | --- | --- | --- | --- | --- |
-| [Concept model](concept-model.md) | Approved | 0.3 | Product Lead | Product Lead, Architecture Lead | 2026-08-11 | Agent-requested next-timer replacement |
-| [MVP scope](mvp-scope.md) | Approved | 0.3 | Product Lead | Product Lead, Architecture Lead | 2026-08-11 | Optional one-lane P0 timer exception; deferred tiers preserved |
-| [Product overview](overview.md) | Approved | 0.3 | Product Lead | Product Lead, Architecture Lead | 2026-08-11 | Bounded next-timer summary |
+| [Concept model](concept-model.md) | Approved | 0.4 | Product Lead | Product Lead, Architecture Lead | 2026-08-14 | P0-compatible Agent Decision output envelope |
+| [MVP scope](mvp-scope.md) | Approved | 0.4 | Product Lead | Product Lead, Architecture Lead | 2026-08-14 | Text-only P0 preserved; voice remains next release |
+| [Product overview](overview.md) | Approved | 0.4 | Product Lead | Product Lead, Architecture Lead | 2026-08-14 | Envelope and P0 profile summary |
 
 ## Purpose
 
@@ -58,12 +58,12 @@ Illustrative examples in product documents are **not** MVP commitments until cap
 
 ## Next actions
 
-Product documentation v0.3 and all seven P0 feature specifications are the
-approved baseline, including structured Agent Invocation/Decision and optional
-next-timer replacement.
+Product documentation v0.4 and all seven P0 feature specifications are the
+approved baseline, including structured Agent Invocation/Decision, optional
+next-timer replacement, and the P0-compatible Decision-output envelope.
 
 1. Preserve all seven approved P0 contracts — see [P0 authoring order](../requirements/README.md#p0-authoring-order) and [`requirements/features/`](../requirements/features/README.md)
-2. Implement structured Agent Invocation/Decision and next-timer behavior against the approved v0.3 product and requirement specifications, [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), MVP architecture v0.9, and Session runtime contract v0.4; update machine-readable contracts and complete required verification before enabling it
+2. Implement structured Agent Invocation/Decision, next-timer, and P0 output-envelope behavior against the approved v0.4 product and requirement specifications, [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md), MVP architecture v0.10, and Session runtime contract v0.5; update machine-readable contracts and complete required verification before enabling it
 3. Apply the approved [P0 Activity journey](../ui-ux/activity-campaign-journey.md), [assessment Campaign setup interaction specification](../ui-ux/assessment-campaign-setup.md), [Submission and Attempt interaction specification](../ui-ux/submission-attempt.md), [Text Session interaction specification](../ui-ux/text-session.md), [Evidence, Evaluation, and Human Review interaction specification](../ui-ux/evidence-evaluation-human-review.md), [Result and Release interaction specification](../ui-ux/result-release.md), and shared [design system](../ui-ux/design-system/README.md); complete frontend implementation and verification before implementation is considered complete
 4. Keep agent and harness **selection and assessment-required parameters** inside assessment setup — not general agent or harness management (P1)
 5. Record new or changed technical choices as ADRs when implementation evidence surfaces a consequential decision

@@ -7,15 +7,15 @@
 | **Status** | Approved |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, UI/UX reviewer, Architecture Lead, Security/Privacy reviewer |
-| **Version** | 0.4 |
-| **Prepared date** | 2026-08-11 |
-| **Approved date** | Version 0.2 approved 2026-08-09; versions 0.3 and 0.4 approved 2026-08-11 |
-| **Approval reference** | `UI-SESS-DEC-1`–`UI-SESS-DEC-12` carried forward from v0.2; `UI-SESS-DEC-13` approved in v0.3; `UI-SESS-DEC-14` approved in v0.4 for next-timer presentation |
+| **Version** | 0.5 |
+| **Prepared date** | 2026-08-14 |
+| **Approved date** | Version 0.2 approved 2026-08-09; versions 0.3 and 0.4 approved 2026-08-11; version 0.5 approved 2026-08-14 |
+| **Approval reference** | `UI-SESS-DEC-1`–`UI-SESS-DEC-12` carried forward from v0.2; `UI-SESS-DEC-13` approved in v0.3; `UI-SESS-DEC-14` approved in v0.4 for next-timer presentation; `UI-SESS-DEC-15` approved in v0.5 for output-envelope internals |
 | **Audience** | Product, design, frontend, backend, security/privacy, QA, and implementation reviewers |
 | **Governs** | Participant text Session entry, live interaction, timing, recovery, pause, completion, terminal transcript access, and authorized administrative Session control for the P0 assessment Campaign |
 | **Journey** | [`JRN-MVP-4`](activity-campaign-journey.md#jrn-mvp-4-conduct-text-session) |
 
-Version 0.4 is **approved** and supersedes version 0.3 while preserving its
+Version 0.5 is **approved** and supersedes version 0.4 while preserving its
 previously approved interaction behavior.
 
 ## Purpose and intended outcome
@@ -66,7 +66,7 @@ Observable Session behavior remains governed by the approved
 | Platform journey, IA, content, accessibility, and responsive baseline | [Activity journey and Campaign information architecture](activity-campaign-journey.md) |
 | Shared Agent presence, status semantics, interaction-state completeness, and accessibility behavior | [Agent presence](design-system/product/agent-presence.md), [Status and feedback](design-system/foundation/status.md), [Interaction states](design-system/foundation/interaction-states.md), and [Accessibility](design-system/foundation/accessibility.md) |
 | Browser/server authority, request/response plus SSE, and protected-content boundaries | [MVP architecture](../architecture/mvp-architecture.md) |
-| Ordering, durable incremental publication, timing, reconnect, terminalization, and recovery realization | Approved version 0.4 of the [Text Session runtime contract](../architecture/session-runtime-contract.md), [ADR-009](../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md), superseding [ADR-011](../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md), [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), and [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) |
+| Ordering, durable incremental publication, timing, reconnect, terminalization, and recovery realization | Approved version 0.5 of the [Text Session runtime contract](../architecture/session-runtime-contract.md), [ADR-009](../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md), superseding [ADR-011](../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md), [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
 
 ## Scope and boundaries
 
@@ -152,6 +152,7 @@ for traceability and future supersession.
 | `UI-SESS-DEC-12` | Preserve a read-only participant-visible terminal transcript through the Assignment while current authorization, relationship, Session visibility, and lifecycle policy permit it. Show unavailable items honestly and never substitute later content. | Implements scoped historical access without leaking Evaluation, review, or unreleased Result content. |
 | `UI-SESS-DEC-13` | When authoritative state reports intentional no-action, stop the working indicator, keep the accepted Participant message, publish no synthetic Agent Message, show no error, announce the resolved turn outcome once without moving focus, and expose a neutral persistent turn status only when the workflow says the Participant needs one. Never expose `no_action`, raw Agent Decision data, or hidden reasoning as participant copy. | Resolves pending state accessibly and honestly without turning internal control semantics into transcript content or a false failure. |
 | `UI-SESS-DEC-14` | Keep the pending timer, Agent-requested delay, schedule revision, and scheduling rejection out of the Participant transcript and UI by default. When a trusted timer trigger admits visible Agent work, use the existing Agent queued/working and Agent-initiated message states without creating a synthetic Participant message; apply `UI-SESS-DEC-13` if it resolves as no-action. | Preserves a calm Session and avoids exposing internal orchestration while keeping participant-visible Agent activity honest and accessible. |
+| `UI-SESS-DEC-15` | Keep Decision-envelope internals, output identifiers, requested-action collections, audience derivation, and deferred voice or rich-content channels out of Participant UI. Continue to render only the existing message-streaming and intentional-no-action states. Do not invent voice, shared-workspace, or reviewer-output surfaces in P0. | Prevents the successor contract from leaking control semantics or enabling deferred interaction. |
 
 ## Information architecture
 
@@ -954,7 +955,7 @@ journey.
 | --- | --- | --- | --- |
 | Instructions, notices, acknowledgments, and committed entry | `AC-SESS-1`, `AC-SESS-2`; `AC-RSC-10`–`AC-RSC-14` | Assignment pre-start section, acknowledgment controls, Session resolver | Current/stale/declined/cross-scope acknowledgment, duplicate start, pre-commit failure, committed handoff, protected-loading tests; keyboard and narrow evidence |
 | Local draft, message admission, idempotency, and ordering | `AC-SESS-3`, `AC-SESS-4`, `AC-SESS-8`; `AC-AUTH-19` | Composer, pending message, admission outcome, reconciliation | Equivalent/mismatched keys, lost response, concurrent tab/device, wrong Session, size/rate, pre-commit failure, focus tests |
-| Agent work, intentional no-action, decision rejection, next-timer replacement, incremental publication, failure, and partial visibility | `AC-SESS-5`–`AC-SESS-7`, `AC-SESS-31`–`AC-SESS-41` | Turn region, Agent activity, intentional-no-response outcome, timer-triggered Agent activity, growing Agent message, complete/incomplete outcome, retry/continuation, explanation disclosure | No-action versus failure/rejection, hidden pending timer, default/accepted/rejected timer request, duplicate trigger, late decision, governed timer-triggered Agent publication, durable-before-display fragments, first-fragment slot claim, order/digest/duplicate/gap, timeout before/after visibility, reconnect replay, pause/cutoff race, prohibited streamed/work-trace content, announcement-rate tests |
+| Agent work, intentional no-action, decision rejection, next-timer replacement, incremental publication, failure, and partial visibility | `AC-SESS-5`–`AC-SESS-7`, `AC-SESS-31`–`AC-SESS-47` | Turn region, Agent activity, intentional-no-response outcome, timer-triggered Agent activity, growing Agent message, complete/incomplete outcome, retry/continuation, explanation disclosure | No-action versus failure/rejection, hidden envelope/output-id/audience internals, hidden pending timer, default/accepted/rejected timer request, duplicate trigger, late decision, governed timer-triggered Agent publication, durable-before-display fragments, first-fragment slot claim, order/digest/duplicate/gap, timeout before/after visibility, reconnect replay, pause/cutoff race, prohibited streamed/work-trace content, announcement-rate tests |
 | Reconnect, disconnection timing, warnings, pause, resume, and authorization loss | `AC-SESS-9`–`AC-SESS-14`; `AC-AUTH-11`, `AC-AUTH-12`, `AC-AUTH-20` | Status region, timer, warning notice, reconnect controls, paused state | SSE gap, offline, restart, stale cursor, client clock, configured warning, missed warning, pause interval, revocation within 60 seconds; desktop/narrow/focus evidence |
 | Participant completion, expiry, termination, abort, and post-terminal safety | `AC-SESS-15`–`AC-SESS-20`, `AC-SESS-28` | Completion dialog, checking/finalizing state, terminal views, administrator controls | Idempotent completion, message/expiry/control races, Attempt mapping, audit/seal failure, late callback, stale post-terminal action; dialog/announcement evidence |
 | Exact history, frozen sources, disabled capabilities, and scoped terminal access | `AC-SESS-21`–`AC-SESS-23`, `AC-SESS-30`; `AC-AUTH-6`, `AC-AUTH-8`, `AC-AUTH-23`; `AC-RSC-12`–`AC-RSC-17`, `AC-RSC-24`, `AC-RSC-25` | Transcript, Session details, bound Submission summary, assigned-review link | Immutable order/cutoff, changed source, exact binding, unavailable content, current relationship, wrong assignment, disabled voice/tools/memory/shared behavior, credential-failure tests |
@@ -1012,6 +1013,11 @@ Approved `UI-SESS-DEC-14` introduces no participant timer control or copy. The
 timer remains internal unless its trusted trigger produces participant-relevant
 Agent work or a permitted Agent Message.
 
+Approved `UI-SESS-DEC-15` introduces no voice, shared-workspace, or reviewer
+output surface. Envelope, output-id, audience, and requested-action internals
+remain hidden; Participant-visible states stay the existing message and
+no-action journeys.
+
 ## Downstream gaps and review needed
 
 - Frontend implementation, backend/UI state contracts, automated tests, and
@@ -1036,6 +1042,7 @@ Agent work or a permitted Agent Message.
 - The listed Product, UI/UX, Architecture, and Security/Privacy approvers made
   `UI-SESS-DEC-13` authoritative on 2026-08-11.
 - The same listed approvers made `UI-SESS-DEC-14` authoritative on 2026-08-11.
+- The same listed approvers made `UI-SESS-DEC-15` authoritative on 2026-08-14.
 
 - Business-analysis review bounded the Participant, administrator, assigned-
   Reviewer, and service responsibilities; mapped happy, alternate, failure,

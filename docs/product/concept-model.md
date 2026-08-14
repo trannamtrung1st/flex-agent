@@ -6,19 +6,20 @@ Canonical product concepts, relationships, lifecycles, and invariants for Flex A
 
 | Field | Value |
 | --- | --- |
-| **Status** | Approved v0.3 |
+| **Status** | Approved v0.4 |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead |
-| **Version** | 0.3 |
-| **Effective date** | 2026-08-11 |
-| **Last reviewed** | 2026-08-11 |
-| **Approval reference** | v0.3 Agent-requested next-timer replacement approved 2026-08-11; supersedes v0.2 |
-| **Related decisions** | Approved [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) and [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) |
+| **Version** | 0.4 |
+| **Effective date** | 2026-08-14 |
+| **Last reviewed** | 2026-08-14 |
+| **Approval reference** | v0.4 P0-compatible Agent Decision output envelope approved 2026-08-14; supersedes v0.3 |
+| **Related decisions** | Approved [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
 
-Version 0.3 is **approved** and supersedes v0.2. It preserves canonical Agent
-Invocation, Invocation Trigger, and Agent Decision semantics and adds bounded
-Agent recommendation of one replacement next-timer event. Normative system
-behavior remains governed by approved feature specifications.
+Version 0.4 is **approved** and supersedes v0.3. It preserves canonical Agent
+Invocation, Invocation Trigger, Agent Decision, and next-timer semantics and
+adds Agent Output, requested action, and presentation-versus-visibility meaning
+without enabling voice or additional P0 effects. Normative system behavior
+remains governed by approved feature specifications.
 
 ## Purpose
 
@@ -43,6 +44,8 @@ Flex Agent separates **who the AI is**, **how it operates**, **what activity is 
 | **Agent Invocation** | Structured, versioned execution input supplied to the resolved Agent when reasoning is required; identifies a trusted trigger and authorized, purpose-bound context |
 | **Invocation Trigger** | Typed, versioned reason an Agent Invocation was admitted, established from trusted platform state or a trusted adapter rather than model-authored content |
 | **Agent Decision** | Structured recommendation produced by a successful Agent Invocation; becomes an effect only after governing Harness, workflow, authorization, and runtime validation |
+| **Agent Output** | Typed presentation recommendation inside an Agent Decision, such as a Participant message; identity, order, and effective audience are runtime-owned |
+| **Requested action** | Typed control or effect the Agent asks the Harness/runtime to consider, independently of presentation outputs |
 | **Participant** | Person taking part in a session under activity or authorization rules |
 | **Reviewer** | Authorized human who inspects evidence, evaluations, and outcomes |
 | **Submission** | Versioned participant-provided material linked to an activity or session |
@@ -185,10 +188,33 @@ subset required by approved text Session behavior; voice, tools, richer
 workflow triggers, and general proactive behavior remain deferred.
 
 An **Agent Decision** is one structured semantic recommendation produced by a
-successful invocation. A small extensible decision vocabulary may include
-participant-visible communication, intentional no action, a tool request, a
-workflow-transition proposal, or escalation. Exact trigger and decision enums
-and wire schemas are architecture concerns.
+successful invocation. It is an envelope: one explicit disposition, zero or more
+typed **Agent Outputs**, and zero or more typed **requested actions**. Empty
+output or action collections are never inferred as intentional no-action. Exact
+wire schemas are architecture concerns.
+
+Current P0 text execution uses a restricted compatibility profile: zero or one
+Participant `message` output, no `voice` output, no reviewer or runtime-only
+presentation output, and only the already-approved optional next-timer
+requested action. Voice-only, coordinated voice plus message, richer message
+kinds, and additional actions remain later-release capabilities.
+
+Presentation kind and authorized visibility are independent. Effective audience
+is derived from trusted Harness, workflow, and runtime context. Model-authored
+audience, identity, or scope labels cannot establish who may see an output.
+Evidence, Evaluation, reviewer notes, scores, concise audit explanations, and
+hidden chain-of-thought are not ordinary Participant messages.
+
+Voice and message are different semantic presentations, not duplicate text and
+audio encodings of the same content. Message is persistent and inspectable.
+Voice, when later approved, is conversational, interruptible, and
+TTS-independent in intent. Only playback-confirmed spoken content counts as
+heard. This meaning does not enable voice in the current release.
+
+A small extensible decision vocabulary may include participant-visible
+communication, intentional no action, a tool request, a workflow-transition
+proposal, or escalation. Those later actions remain disabled until an owning
+approved requirement permits them.
 
 A successful Agent Decision may also include one optional **next-timer
 recommendation**: a requested positive relative delay for the next event on an
@@ -202,7 +228,8 @@ The governing relationship is:
 ```text
 trusted trigger + authorized resolved context
   -> Agent Invocation
-  -> Agent Decision
+  -> Agent Decision envelope
+  -> independently validated outputs and requested actions
   -> Harness/workflow/authorization/runtime validation
   -> permitted authoritative effect, rejected/suppressed request, or no
      participant-visible/workflow/tool effect
@@ -215,12 +242,16 @@ configuration, override timing, enable memory, execute a tool, transition the
 workflow, release a Result, or create another trusted system fact.
 
 An intentional **no-action** decision is a successful semantic outcome, not a
-provider failure, timeout, cancellation, policy rejection, or absence of work.
+provider failure, timeout, cancellation, policy rejection, absence of a
+Participant message, or an accepted control such as a next-timer replacement.
 When an existing Participant Turn owns an Agent response opportunity, the
 runtime must record an explicit terminal outcome even though no Agent Message is
 published. "No action" means no requested participant-visible, workflow, tool,
-or other domain effect; it does not omit the authoritative bookkeeping needed
-to record the Decision and terminalize the Invocation, response slot, and Turn.
+or other primary domain effect; it does not omit the authoritative bookkeeping
+needed to record the Decision and terminalize the Invocation, response slot, and
+Turn. An accepted requested action may coexist with `no_action` only when that
+action is independently validated and is not itself a participant-visible
+presentation.
 
 An Agent Invocation is not a Turn. A **Turn** is a conversational interaction
 unit; an invocation is a decision opportunity. A Participant Turn may end with
@@ -621,8 +652,11 @@ These invariants apply across concepts and must be preserved in requirements, UI
 - Agent Decisions remain untrusted recommendations until independently
   validated; trusted trigger provenance cannot originate solely from
   model-authored content
-- Distinguish Agent Invocation, Agent Decision, conversational Turn, Agent
-  Message, and authoritative effect; intentional no-action is explicit
+- Distinguish Agent Invocation, Agent Decision, Agent Output, requested action,
+  conversational Turn, Agent Message, and authoritative effect; intentional
+  no-action is explicit and is not inferred from missing presentation
+- Runtime-owned output identity, Session order, and derived audience cannot
+  originate solely from model-authored content
 - Govern Agent-initiated behavior through trusted platform triggers and bounded
   policy rather than uncontrolled self-waking execution
 - Treat an Agent next-timer request as a non-authoritative recommendation that

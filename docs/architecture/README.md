@@ -6,7 +6,7 @@ Product concepts and invariants live under [product documentation](../product/RE
 
 ## Status
 
-**Approved MVP version 0.9 baseline.** The
+**Approved MVP version 0.10 baseline.** The
 [MVP architecture](mvp-architecture.md) governs P0
 boundaries, logical ownership, runtime flows, trust boundaries, SPA/API/gateway
 topology, OIDC direction, resilience, quality attributes, OSS-first
@@ -68,6 +68,11 @@ extends that boundary with one optional runtime-owned Session timer lane. An
 Agent Decision may recommend a bounded replacement delay, but the runtime
 validates, schedules, fires, pauses, and cancels the event authoritatively.
 
+[ADR-014](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md)
+specializes the Decision as a versioned output/action envelope with a P0
+message-only compatibility profile. Historical v1 Decisions remain
+reconstructable; voice and additional actions remain disabled.
+
 ## Purpose
 
 This area governs how the system is structured: boundaries, data ownership, runtime flows, deployment topology, quality attributes, and integration contracts.
@@ -81,6 +86,7 @@ This area governs how the system is structured: boundaries, data ownership, runt
 | Review participant-visible Agent-response streaming | [ADR-011: participant-visible Agent-response streaming](decisions/ADR-011-participant-visible-agent-response-streaming.md) |
 | Review the approved structured Agent boundary | [ADR-012: structured Agent Invocation and Decision](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) |
 | Review the approved next-timer replacement boundary | [ADR-013: Agent-requested next-timer replacement](decisions/ADR-013-agent-requested-next-timer-replacement.md) |
+| Review the approved P0 Decision-output envelope | [ADR-014: Agent output envelope and P0 compatibility](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
 | Review the approved implementation stack and workspace | [ADR-010: .NET implementation stack](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) |
 | Review approved OSS component defaults and pending evidence gates | [ADR-008: bounded OSS component set](decisions/ADR-008-bounded-oss-component-set.md) |
 | Implement the approved text Session realization | [Text Session runtime contract](session-runtime-contract.md) |

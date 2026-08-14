@@ -15,6 +15,7 @@ Approved
 | **Governs** | Optional Agent recommendation to replace the next system timer event for an enabled Session timer lane |
 | **Upstream sources** | Approved [concept model v0.3](../../product/concept-model.md), [MVP scope v0.3](../../product/mvp-scope.md), [resolved Session configuration v0.3](../../requirements/features/resolved-session-configuration.md), and [text Session lifecycle v0.4](../../requirements/features/session-text-lifecycle.md) |
 | **Extends** | [ADR-012](ADR-012-structured-agent-invocation-and-decision-boundary.md) |
+| **Further extended by** | [ADR-014](ADR-014-agent-output-envelope-and-p0-compatibility.md) treats the next-timer request as the only P0 requested action on the Decision envelope |
 | **Preserves** | [ADR-002](ADR-002-authorization-enforcement-and-delegation.md), [ADR-003](ADR-003-authorization-audit-persistence.md), [ADR-005](ADR-005-atomic-attempt-start-and-submission-binding.md), [ADR-011](ADR-011-participant-visible-agent-response-streaming.md), and Session terminal-cutoff authority |
 
 ## Context
@@ -178,6 +179,7 @@ produces `no_action`, the existing intentional-no-action UI behavior applies.
 ## Related
 
 - [ADR-012: Structured Agent Invocation and Decision runtime boundary](ADR-012-structured-agent-invocation-and-decision-boundary.md)
+- [ADR-014: Agent Decision output envelope and P0 compatibility](ADR-014-agent-output-envelope-and-p0-compatibility.md)
 - [Text Session runtime contract](../session-runtime-contract.md)
 - [Resolved Session configuration](../../requirements/features/resolved-session-configuration.md)
 - [Text Session lifecycle](../../requirements/features/session-text-lifecycle.md)

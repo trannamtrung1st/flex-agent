@@ -1,6 +1,6 @@
 ---
 id: structured-agent-runtime-sync
-status: in_progress
+status: in-progress
 created: 2026-08-11
 updated: 2026-08-14
 ---
@@ -12,8 +12,9 @@ approved structured Agent Invocation/Decision and one-lane next-timer contracts
 before unrelated product work starts. Deliver a production-shaped, durable
 Session runtime slice plus matching canonical contracts, synthetic-browser
 behavior, Participant UI states, and repeatable evidence for trusted trigger
-admission, exactly-one successful Decision or execution outcome, explicit
-`no_action`, durable `emit_message`, and optional bounded timer replacement.
+admission, exactly-one successful Decision envelope or execution outcome, explicit
+`no_action`, durable P0 `message` output, historical v1 reconstruction, and
+optional bounded timer replacement.
 
 Completion is an implementation gate, not a contract-only milestone: DTOs,
 schemas, or synthetic UI changes alone do not satisfy this task. The task is
@@ -30,12 +31,19 @@ and test reviews have no unresolved blocking findings.
 - `docs/product/concept-model.md`, `docs/product/mvp-scope.md`, and
   `docs/product/overview.md` — Session meaning, frozen configuration, P0 scope,
   and provider-independent validation strategy
+- `temp/multi-channel-agent-output-proposal.md` and
+  `.work/active/multi-channel-agent-output-contract-adoption.md` — user-
+  prioritized proposal and the prerequisite cross-concern decision task that
+  must resolve the future output/action shape before provider and worker seams
+  are implemented; neither source enables voice in P0
 - `docs/requirements/features/resolved-session-configuration.md`
   - `REQ-RSC-46`, `AC-RSC-25`: trusted provider/credential binding and
     fail-closed no-fallback behavior required before any model work
   - `REQ-RSC-47`–`REQ-RSC-53`, `AC-RSC-26`, and `AC-RSC-27`: frozen
     Invocation/Decision policy, one-lane timer policy, disabled P0 capabilities,
     cohort consistency, and minimized manifest provenance
+  - `REQ-RSC-54`–`REQ-RSC-55`, `AC-RSC-28`: frozen P0 output and
+    requested-action kinds plus historical v1 reconstruction identity
 - `docs/requirements/features/session-text-lifecycle.md`
   - prerequisite Session invariants consumed by this slice: authoritative
     Participant message/Turn/response-slot identity, Session order and
@@ -44,15 +52,18 @@ and test reviews have no unresolved blocking findings.
     new runtime must not bypass or falsely claim completion of the wider
     lifecycle requirements.
   - `REQ-SESS-55`–`REQ-SESS-60`, `AC-SESS-32`: durable incremental message
-    publication required by `emit_message`
+    publication required by the P0 `message` output (historical `emit_message`)
   - `REQ-SESS-61`–`REQ-SESS-70`, `AC-SESS-33`–`AC-SESS-37`: trusted
     triggers, Invocation identity, attempts/outcomes, exactly-one Decision,
     validation/effect separation, no-action, ordering, and bounded loops
   - `REQ-SESS-71`–`REQ-SESS-77`, `AC-SESS-38`–`AC-SESS-41`: optional
     Agent timer recommendation, independent validation, replacement semantics,
     active-time delay, firing, default cadence, and provenance
+  - `REQ-SESS-78`–`REQ-SESS-85`, `AC-SESS-42`–`AC-SESS-47`: P0 Decision
+    envelope, output cardinality, runtime-owned output identity, audience
+    derivation, Evidence/Evaluation exclusion, and v1 reconstruction
 - `docs/ui-ux/text-session.md` — approved Participant-facing behavior,
-  especially `UI-SESS-DEC-13` and `UI-SESS-DEC-14`
+  especially `UI-SESS-DEC-13`, `UI-SESS-DEC-14`, and `UI-SESS-DEC-15`
 - `docs/ui-ux/design-system/README.md` and
   `docs/ui-ux/design-system/implementation-guide.md`, including the applicable
   accessibility, colors, typography, layout, density, interaction-states,
@@ -81,6 +92,9 @@ and test reviews have no unresolved blocking findings.
 - `docs/architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md`
   and `ADR-013-agent-requested-next-timer-replacement.md` — approved decisions
   being implemented
+- `docs/architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md`
+  — approved P0 Decision envelope, output identity, visibility derivation, and
+  historical v1 reconstruction; does not enable voice
 - `docs/requirements/mvp-operational-defaults.md` — applicable latency,
   revocation, durability, availability, observability, and load-test gates;
   exact timer cadence values remain resolved policy rather than universal
@@ -231,6 +245,12 @@ and test reviews have no unresolved blocking findings.
 - Treat this task as a repository work freeze: no unrelated feature or
   foundation item starts until this task is completed or the user explicitly
   changes the priority/scope.
+- Honor the 2026-08-14 multi-channel adoption result: consume the approved
+  ADR-014 P0 envelope before the model-execution port. Keep v1
+  `agent-decision.v1` immutable and reconstructable; introduce the successor
+  envelope schema/profile before provider and worker seams harden Decision
+  shape. Voice, playback, Interaction Controller, rich-content rendering, and
+  later-release audience experiences remain out of this implementation task.
 
 ## Out
 
@@ -262,14 +282,14 @@ and test reviews have no unresolved blocking findings.
 
 | Obligation | Implementation surface | Planned verification |
 | --- | --- | --- |
-| Frozen policy and provenance (`REQ-RSC-47`–`REQ-RSC-53`, `AC-RSC-26`, `AC-RSC-27`) | Configuration resolver, resolved Session configuration/manifest references, Sessions policy value object, activation/session binding | Exact version/digest/reference reconstruction; lower-scope narrowing; drift rejection; disabled-capability matrix; timer enabled/disabled and bounded-policy tests |
+| Frozen policy and provenance (`REQ-RSC-47`–`REQ-RSC-55`, `AC-RSC-26`–`AC-RSC-28`) | Configuration resolver, resolved Session configuration/manifest references, Sessions policy value object, activation/session binding | Exact version/digest/reference reconstruction; lower-scope narrowing; drift rejection; disabled-capability matrix including voice/extra outputs; timer enabled/disabled and bounded-policy tests |
 | Provider/model authority (`REQ-RSC-46`, `AC-RSC-25`) | Trusted deployment and opaque credential-binding resolver, provider request context, worker preflight | Missing/revoked/wrong-Organization/provider-mismatched binding; no fallback payer/provider; credential absence from storage, DTOs, logs, telemetry, errors, fixtures, and artifacts |
 | Trusted admission and identity (`REQ-SESS-61`, `REQ-SESS-62`, `REQ-SESS-67`, `REQ-SESS-68`, `SESS-DEC-14`, `SESS-DEC-15`, `SESS-DEC-20`) | Trusted trigger adapter, admission command, scoped repository, Session sequence/idempotency | Accepted Participant/opening/closing/timer trigger; unknown/fake/prohibited trigger; forged scope; duplicate/mismatch; stale/lifecycle/cutoff/budget; cross-Organization/Activity/Participant/Session isolation |
 | Invocation execution (`REQ-SESS-63`, `REQ-SESS-69`, `SESS-DEC-16`, `SESS-DEC-21`) | Durable work row, claim/lease, Invocation handler, provider port/adapter, attempt/outcome and provider-request provenance | Exactly one Decision on success; timeout/unavailable/malformed/incomplete structured output with no fabricated Decision; bounded retry; cancellation/late result; crash at each commit boundary; lost response/lease; duplicate claim; attempt/chain/cooldown/Session budget exhaustion |
-| Decision authority/effect (`REQ-SESS-64`–`REQ-SESS-67`, `REQ-SESS-70`, `SESS-DEC-17`–`SESS-DEC-19`, `SESS-DEC-23`) | Decision schema/parser, validator, response-slot/Agent-initiated outcome state machine, effect transaction, audit/outbox | Accepted versus schema-valid policy/payload/capability rejection; schema-invalid/parse-bound failure remains an Invocation outcome; Participant and non-Turn no-action terminalization; emit-message slot claim; accepted-effect failure distinct from execution failure; atomic failure injection; current-policy recheck; immutable recommendation/validation/effect history |
+| Decision authority/effect (`REQ-SESS-64`–`REQ-SESS-67`, `REQ-SESS-70`, `REQ-SESS-78`–`REQ-SESS-85`, `AC-SESS-42`–`AC-SESS-47`, `SESS-DEC-17`–`SESS-DEC-19`, `SESS-DEC-23`, `SESS-DEC-29`–`SESS-DEC-35`) | Successor Decision envelope schema/parser, validator, response-slot/Agent-initiated outcome state machine, effect transaction, audit/outbox, v1 dual-read | Exactly-one envelope; empty collections not inferred as `no_action`; 0–1 message / 0 voice; runtime-owned output ids; model audience/id fail-closed; Evidence/Evaluation not a message; accepted versus schema-valid policy/payload/capability rejection; Participant and non-Turn no-action terminalization; message output slot claim; accepted-effect failure distinct from execution failure; independent timer-action validation; v1 `emit_message`/`no_action` reconstruction; atomic failure injection; current-policy recheck; immutable recommendation/validation/effect history |
 | Durable message streaming (`REQ-SESS-55`–`REQ-SESS-60`, `AC-SESS-32`, ADR-011) | Message/fragment/completion persistence, outbox/SSE projection and replay | Fragment order, duplicate/gap/mismatch, commit-before-publish, disconnect/replay, completion digest/length, partial failure, late/extra delta, multiple nodes, terminal transcript reconstruction |
 | One-lane scheduling (`REQ-SESS-71`–`REQ-SESS-77`, `AC-SESS-38`–`AC-SESS-41`, `SESS-DEC-24`–`SESS-DEC-28`) | Timer request parser/validator, timer-lane aggregate, schedule revision rows, durable due-work scheduler | Default first arm; accepted/rejected/omitted request; primary-Decision independence; replace pending versus sole successor; expected-revision conflict; duplicate/concurrent response; one pending event/firing; restart; active-time pause/resume; cutoff/revocation/terminal cancellation; loop budgets |
-| Participant presentation (`UI-SESS-DEC-13`, `UI-SESS-DEC-14`) | Browser-safe Session projection/SSE, synthetic scenarios, `SessionPage` working/resolved states | No synthetic Agent Message for no-action; no synthetic Participant Message for timer; one accessible announcement; no focus movement; real timer-triggered work/message only; raw control/timing data absent from DOM, storage, URL, logs, and screenshots |
+| Participant presentation (`UI-SESS-DEC-13`, `UI-SESS-DEC-14`, `UI-SESS-DEC-15`) | Browser-safe Session projection/SSE, synthetic scenarios, `SessionPage` working/resolved states | No synthetic Agent Message for no-action; no synthetic Participant Message for timer; envelope/output-id/audience/requested-action internals absent; one accessible announcement; no focus movement; real timer-triggered work/message only; raw control/timing data absent from DOM, storage, URL, logs, and screenshots |
 | Runtime foundation and handoff (ADR-005, ADR-009, runtime-contract implementation gate) | Trusted readiness/Session fixture, lifecycle/order boundary, manifest appender/sealer, Evaluation-handoff eligibility projection | End-to-end readiness → Active → Participant and Agent-initiated work → pause/cutoff/terminal → sealed manifest → eligible handoff; manifest/audit/seal fault injection leaves honest recoverable state |
 | Security/privacy and operations | Composite scope constraints, server-derived context, minimized records/logs/metrics, authorization/audit, bounded worker/scheduler, lifecycle/export controls | Guessed-ID and cross-scope query/cache/event/work/replay matrix; prompt/content cannot establish authority/timing; service authorization and revocation; current authorization for SSE/replay and the approved 60-second access-narrowing target; retention/export/backup and sensitive-data/log snapshots; timer storm/backpressure; database-time/clock-skew/restart fault injection; bounded metric labels; append-only history |
 | Performance and observability | Metrics/traces/alerts, claim fairness, load and failure harnesses | Applicable admission/reconnect p95 objective; time-to-first durable fragment and commit-to-display latency; Organization/Activity fair claiming; backlog, scheduler drift, restart, provider slowness, and post-cutoff alerts without sensitive/high-cardinality labels |
@@ -517,17 +537,31 @@ and test reviews have no unresolved blocking findings.
   P3 nit: `0008` header still says "UTC-ordered"; the column is Session-
   sequence ordered. Left unchanged to avoid retouching an applied one-time
   Grate checksum; noted here only.
+- [x] Complete and review
+  `.work/active/multi-channel-agent-output-contract-adoption.md`, then amend
+  this task and its traceability matrix with the approved P0-compatible output
+  model before starting provider, worker, or Agent-message streaming code.
+  Preserve frozen historical contracts and applied migration checksums; if an
+  approved replacement contract or persistence shape is required, use explicit
+  versioning and additive migration. Voice, playback, Interaction Controller,
+  rich-content rendering, and later-release audience experiences remain out of
+  this implementation task.
 - [>] Add the model-execution port and deterministic fake provider through
-  observed red-green-refactor. Prove structured control/content phase
-  separation, bounded provider requests within one Invocation, cancellation,
-  transient/permanent failure classification, malformed/incomplete/oversized
-  control, cumulative-snapshot versus non-overlapping-delta normalization,
-  duplicate/late completion, one- and multi-interaction profiles, no message
-  content before accepted communication control, no partial JSON exposure, and
-  absence of hidden reasoning in records or logs. Do not add a live provider
-  or credential. Preflight the trusted deployment and opaque credential-binding
-  identity, service delegation, egress allowlist, timeout, and payload limits;
-  prove no missing/mismatched binding falls back to another provider or payer.
+  observed red-green-refactor. Consume the ADR-014 successor Decision envelope
+  and P0 profile (0–1 `message` output, 0 `voice`, explicit disposition,
+  runtime-owned output ids, independent requested-action validation). Dual-read
+  historical v1 `emit_message`/`no_action`. Prove structured control/content
+  phase separation, bounded provider requests within one Invocation,
+  cancellation, transient/permanent failure classification,
+  malformed/incomplete/oversized control, empty-output inference rejection,
+  prohibited voice/audience/id, cumulative-snapshot versus non-overlapping-delta
+  normalization, duplicate/late completion, one- and multi-interaction
+  profiles, no message content before accepted communication control, no
+  partial JSON exposure, and absence of hidden reasoning in records or logs. Do
+  not add a live provider or credential. Preflight the trusted deployment and
+  opaque credential-binding identity, service delegation, egress allowlist,
+  timeout, and payload limits; prove no missing/mismatched binding falls back to
+  another provider or payer.
 - [ ] Replace the worker heartbeat-only behavior with bounded durable-runtime
   processing while retaining health/readiness behavior. Claim Invocation work,
   reauthorize, execute attempts, record one Decision or execution outcome,
@@ -536,13 +570,15 @@ and test reviews have no unresolved blocking findings.
   Decision commit, effect/schedule commit, fragment commit, and before
   acknowledgement; prove lost-response reconciliation, backpressure, retry,
   shutdown, database-time/host-clock skew, and multi-worker contention.
-- [ ] Implement ADR-011 as the `emit_message` effect seam required by this
-  task: durable Agent Message/fragment/completion records, commit-before-publish,
+- [ ] Implement ADR-011 as the P0 `message` output effect seam required by this
+  runtime: durable Agent Message/fragment/completion records, commit-before-publish,
   exact order and integrity checks, safe SSE projection, replay/gap recovery,
   finest-provider-granularity publication without application-added batching,
   cumulative-provider-event normalization, bounded rolling validation and
-  backpressure, completion/terminalization, and no post-terminal content. Reuse
-  one path for Participant, opening/closing, and timer-triggered Agent work.
+  backpressure, completion/terminalization, and no post-terminal content. Link
+  fragments to the driving Decision and runtime-owned output id. Do not treat
+  the stream as voice playback. Reuse one path for Participant, opening/closing,
+  and timer-triggered Agent work.
 - [ ] Implement the one-lane scheduler with model-based/domain tests first,
   then PostgreSQL/worker integration: default arm on `Active`, independent
   recommendation validation, replacement/sole-successor atomicity, expected
@@ -625,6 +661,12 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
+The multi-channel output decision gate is **cleared**. Approved ADR-014 and
+the v0.4/v0.5 product/requirement/UI/runtime revisions define the P0 envelope.
+This task now resumes at the model-execution port. Consume the successor
+Decision envelope and P0 profile; dual-read historical v1; do not enable voice
+or rewrite applied migrations `0005`–`0008`.
+
 Planning and baseline inventory are complete. The canonical contract tranche
 and follow-up C# discriminated-union/wire-enum hardening are approved and frozen
 at `8f0c046` (`d05db26` implementation review reference): 118 contract tests and
@@ -649,16 +691,35 @@ now waits on `pg_locks` until T2 is blocked by T1 before advancing
 `created_session_sequence`, mixed agent-opening then participant uniqueness,
 completion audit/outbox rollback, and execution-failure `AlreadyTerminal` as
 a safe worker ack. `0008` backfill is best-effort; no production Session
-upgrade path. Next implementation work is the model-execution port and
-deterministic fake provider. Commit-time revocation, timer replacement
-races, and export/backup/restore wait on those later surfaces.
+upgrade path. The output-contract decision gate is cleared; the next
+implementation work is the amended model-execution port and deterministic fake
+provider. Commit-time revocation, timer replacement races, and export/backup/
+restore wait on those later surfaces.
 
 # Decisions
 
-- Use one tracked task for the full synchronization effort and deliver it in
-  ordered contract, domain, persistence, worker/scheduler, adapter/UI, and
-  review tranches. This keeps one end-to-end completion gate while allowing
-  each tranche to remain small enough for observed TDD and independent review.
+- The output-contract decision is resolved by ADR-014: one Decision envelope
+  with a P0 profile of zero or one `message` output, explicit `no_action`,
+  independent next-timer requested action, and reconstructable historical v1
+  `emit_message`/`no_action`. Provider, worker, and message-stream code must
+  consume that envelope rather than treating v1 `decision_type` as the future
+  shape.
+- Keep this task's release boundary unchanged:
+  text-only P0 remains the executable target, and tests must continue to reject
+  voice, playback/Interaction Controller signals, unapproved audiences, tools,
+  richer workflow effects, and other deferred capabilities. Architectural
+  preparation is not capability enablement.
+- Do not rewrite frozen or applied `0005`-`0008` migration scripts or silently
+  redefine `agent-decision.v1`. Any approved evolution uses a compatible
+  profile, an explicitly versioned successor, and additive migration with
+  historical reconstruction tests.
+- Use one tracked task for the full P0 runtime synchronization implementation
+  and deliver it in ordered contract, domain, persistence, worker/scheduler,
+  adapter/UI, and review tranches. The multi-channel adoption task is the
+  completed P0 envelope decision boundary, not a split implementation record
+  for this same runtime work. This keeps one P0
+  implementation completion gate while allowing each tranche to remain small
+  enough for observed TDD and independent review.
 - Start Sessions as one module assembly when the first governed behavior—the
   immutable P0 runtime-capability policy kernel—is implemented, matching
   ADR-010's minimum-useful-project rule. Do not introduce public assembly/
@@ -671,11 +732,13 @@ races, and export/backup/restore wait on those later surfaces.
   behavior, lifecycle validation, and effect enforcement. Test-only negative
   controls validate guard mechanics; passing absence checks alone do not claim
   behavioral acceptance.
-- No new ADR is planned for this tranche. ADR-010, ADR-012, ADR-013, and the
-  approved MVP architecture already decide module direction, provider
-  neutrality, client/host authority limits, and deferred capability boundaries.
-  Any implementation pressure that contradicts those decisions stops this
-  tranche for architecture review rather than being recorded only in `.work/`.
+- Before the multi-channel proposal, no new ADR was planned for this runtime
+  task: ADR-010, ADR-012, ADR-013, and the approved MVP architecture decide its
+  module direction, provider neutrality, client/host authority limits, and
+  deferred-capability boundaries. The prerequisite adoption task must now
+  determine whether an extending/superseding ADR is required. Any resulting
+  ADR must be approved before its P0 consequences enter this task; unresolved
+  architecture pressure remains a blocker rather than a `.work/`-only choice.
 - Do not treat the existing synthetic browser journey as proof of production
   Session behavior. It remains a presentation/e2e adapter; the Sessions module,
   PostgreSQL records, and worker own runtime authority.
@@ -771,6 +834,15 @@ races, and export/backup/restore wait on those later surfaces.
 
 # Findings / deviations
 
+- Multi-channel proposal impact (2026-08-14): the proposal aligns with the
+  existing Invocation/Decision authority boundary, control/content separation,
+  explicit non-message outcomes, future Interaction Controller ownership, and
+  playback-confirmed continuity. It is not merely a voice adapter: coordinated
+  output cardinality, output/action separation, independent visibility,
+  per-output delivery state, cross-output references, rich-message evolution,
+  and partial-channel failure may change the provider, effect, event, and
+  persistence seams. The dedicated adoption task now owns those unapproved
+  decisions and all proposal scenarios/questions before this task resumes.
 - Post-review contract fixes (2026-08-11): corrected ISO 8601 duration wire and
   semantic bounds; discriminated `AgentDecisionV1` branches; added
   `AgentInvocationExecutionOutcomeV1`; replaced dual ownership with scope-free
@@ -976,6 +1048,7 @@ races, and export/backup/restore wait on those later surfaces.
 | PostgreSQL Session runtime schema (`0005`) | passed; schema/migration | Red: `SessionsPersistenceOwnershipTests` failed with missing `*_session_runtime*.sql`. Green: `FlexAgent.Postgres.Integration.Tests` 43/43 including 10 schema constraint tests (ownership FK, delete reject, fragment `session_sequence`); `FlexAgent.Architecture.Tests` 24/24; `FlexAgent.Sessions.Tests` 174/174; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-13). Repositories remain next. |
 | PostgreSQL Session runtime invariant patch (`0006`) | passed; schema/migration | Includes Decision XOR ExecutionOutcome (`SESS-DEC-16`) and validation→Decision FK. Red: both child rows and validation-without-Decision succeeded. Green: sequential XOR; concurrent exactly-one winner; schema/upgrade/concurrency 26/26; architecture 24/24; Sessions 174/174 (2026-08-13). Repositories remain next. |
 | PostgreSQL 18 repository isolation/concurrency/fault tests | passed; **approved** `0a40324` | Dirty-only Turn persist; conditional UPSERT; `created_session_sequence` order; opening `emit_message` then participant reply unique (2, 3); completion audit-fault rollback; `AlreadyTerminal` documented as safe worker ack; `0008` backfill scoped as best-effort. `FlexAgent.Sessions.Tests` 183/183; architecture 27/27; Postgres 76/76 with known concurrent-empty Grate `pg_type` flake that passed on retry. Deferred until later surfaces: commit-time revocation, timer replacement races, export/backup/restore/lawful unavailability. |
+| Multi-channel output decision gate | passed | ADR-014 plus product v0.4, RSC v0.4, Session v0.5, UI Session v0.5, runtime contract v0.5, and MVP architecture v0.10 approve the P0 envelope; this plan and the companion matrix were amended 2026-08-14. Voice remains out of scope. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |
@@ -987,8 +1060,9 @@ races, and export/backup/restore wait on those later surfaces.
 
 # Blockers
 
-None at planning time. Exact production timer durations are intentionally
-policy inputs, not an unresolved implementation blocker.
+None for resuming the model-execution port. Exact production timer durations
+remain intentional policy inputs and are not an additional blocker. Voice and
+other deferred channels remain out of scope.
 
 # Completion
 

@@ -54,10 +54,10 @@ Illustrative examples in product documents are not MVP commitments unless captur
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Product | Approved v0.3 | [Product hub](product/README.md): structured Agent Invocation/Decision and bounded next-timer revisions preserve the approved assessment scope |
-| Requirements | Seven P0 specifications approved at current versions | [Feature catalog](requirements/README.md#feature-catalog-overview); resolved configuration v0.3 and text Session v0.4 add one-lane next-timer replacement without an eighth P0 feature; [MVP operational defaults](requirements/mvp-operational-defaults.md) remain approved |
-| UI/UX | All five P0 surfaces approved; Text Session v0.4 current | The approved [Text Session](ui-ux/text-session.md) keeps internal timer controls hidden while presenting any resulting Agent activity through existing accessible states; the journey and shared [design system](ui-ux/design-system/README.md) remain approved |
-| Architecture | Approved v0.9 baseline and thirteen ADRs | [MVP architecture](architecture/mvp-architecture.md) v0.9, [ADR-012](architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), and [ADR-013](architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) govern Invocation/Decision and next-timer behavior while preserving ADR-011 streaming |
+| Product | Approved v0.4 | [Product hub](product/README.md): P0-compatible Agent Decision output envelope preserves text-only assessment scope |
+| Requirements | Seven P0 specifications approved at current versions | [Feature catalog](requirements/README.md#feature-catalog-overview); resolved configuration v0.4 and text Session v0.5 add the P0 output profile without an eighth P0 feature; [MVP operational defaults](requirements/mvp-operational-defaults.md) remain approved |
+| UI/UX | All five P0 surfaces approved; Text Session v0.5 current | The approved [Text Session](ui-ux/text-session.md) keeps envelope, output-id, audience, and timer internals hidden while presenting existing accessible message and no-action states; the journey and shared [design system](ui-ux/design-system/README.md) remain approved |
+| Architecture | Approved v0.10 baseline and fourteen ADRs | [MVP architecture](architecture/mvp-architecture.md) v0.10, [ADR-012](architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) govern Invocation/Decision, next-timer, and the P0 output envelope while preserving ADR-011 streaming |
 | Feature specifications | Catalog complete; seven P0 specifications approved | 19 specs (7 P0, 2 P1, 5 P2, 5 P3); see [features/](requirements/features/README.md) |
 | Implementation | Foundation scaffold in progress | Executable API, worker, SPA, locked restores, architecture/runtime tests, OCI build inputs, and implementation CI are present. See [workspace development](contributing/workspace.md). Provider-independent foundation work may proceed while schema/JCS/HTTP/PostgreSQL and later gates are completed; overall scaffold acceptance and gated integrations remain blocked without their required evidence. |
 | Contributing | Active | Cursor rules, role skills, TDD policy, and Playwright MCP guidance |
@@ -97,6 +97,9 @@ Illustrative examples in product documents are not MVP commitments unless captur
 - [ADR-009: MVP detailed contracts](architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md) — approved Session, Evaluation, Review/Release, provider-streaming, broker, and notification boundaries
 - [ADR-010: .NET implementation stack](architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) — approved .NET/React runtime, schemas, persistence, Grate migrations, testing, workspace, and dependency policy
 - [ADR-011: participant-visible Agent-response streaming](architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md) — approved durable fragments, exact replay, incomplete-stream recovery, cutoff, validation, and backpressure
+- [ADR-012: structured Agent Invocation and Decision](architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) — approved provider-neutral Invocation/Decision boundary
+- [ADR-013: Agent-requested next-timer replacement](architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) — approved optional one-lane next-timer replacement
+- [ADR-014: Agent output envelope and P0 compatibility](architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) — approved P0 Decision-output envelope and historical v1 reconstruction
 - [Architecture decisions](architecture/decisions/README.md) — approved ADR catalog, status, and proposal template
 
 ### Contributor guidance

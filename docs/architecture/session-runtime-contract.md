@@ -1,8 +1,9 @@
 # Text Session runtime contract
 
 Approved detailed runtime contract for the MVP text Session lifecycle,
-including participant-visible incremental Agent-response streaming and the
-structured Agent Invocation/Decision plus next-timer replacement boundaries.
+including participant-visible incremental Agent-response streaming, the
+structured Agent Invocation/Decision plus next-timer replacement boundaries,
+and the P0-compatible Decision-output envelope.
 
 ## Document metadata
 
@@ -12,13 +13,14 @@ structured Agent Invocation/Decision plus next-timer replacement boundaries.
 | **Owner** | Architecture Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, UI/UX, security/privacy, documentation |
-| **Version** | 0.4 |
-| **Approved date** | Version 0.1 approved 2026-08-06; version 0.2 approved 2026-08-09; versions 0.3 and 0.4 approved 2026-08-11 |
-| **Approval reference** | [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md) approved `SESS-DEC-1`–`SESS-DEC-8`; [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md) approves `SESS-DEC-9`–`SESS-DEC-13`; [ADR-012](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) approves `SESS-DEC-14`–`SESS-DEC-23`; [ADR-013](decisions/ADR-013-agent-requested-next-timer-replacement.md) approves `SESS-DEC-24`–`SESS-DEC-28` |
+| **Version** | 0.5 |
+| **Approved date** | Version 0.1 approved 2026-08-06; version 0.2 approved 2026-08-09; versions 0.3 and 0.4 approved 2026-08-11; version 0.5 approved 2026-08-14 |
+| **Approval reference** | [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md) approved `SESS-DEC-1`–`SESS-DEC-8`; [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md) approves `SESS-DEC-9`–`SESS-DEC-13`; [ADR-012](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) approves `SESS-DEC-14`–`SESS-DEC-23`; [ADR-013](decisions/ADR-013-agent-requested-next-timer-replacement.md) approves `SESS-DEC-24`–`SESS-DEC-28`; [ADR-014](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) approves `SESS-DEC-29`–`SESS-DEC-35` |
 | **Governs** | Session command, Invocation/Decision, ordering, timing, publication, reconnect, terminalization, and recovery realization |
 
-Version 0.4 is **approved** and supersedes version 0.3 while preserving its
-ADR-011 streaming and ADR-012 Invocation/Decision decisions.
+Version 0.5 is **approved** and supersedes version 0.4 while preserving its
+ADR-011 streaming, ADR-012 Invocation/Decision, and ADR-013 next-timer
+decisions.
 
 ## Purpose and audience
 
@@ -133,6 +135,7 @@ product, model provider, or SSE library.
 `SESS-DEC-9`–`SESS-DEC-13` were approved on 2026-08-09 through ADR-011.
 `SESS-DEC-14`–`SESS-DEC-23` were approved on 2026-08-11 through ADR-012.
 `SESS-DEC-24`–`SESS-DEC-28` were approved on 2026-08-11 through ADR-013.
+`SESS-DEC-29`–`SESS-DEC-35` were approved on 2026-08-14 through ADR-014.
 
 | ID | Decision | Rationale |
 | --- | --- | --- |
@@ -154,7 +157,7 @@ product, model provider, or SSE library.
 | `SESS-DEC-16` | One Invocation is one semantic decision opportunity with bounded execution attempts and lower-level provider requests. One successful Invocation yields exactly one Agent Decision; infrastructure failure yields an Invocation execution outcome and no fabricated Decision. | Decouples domain identity from provider retries and failure classification. |
 | `SESS-DEC-17` | Validate every Agent Decision independently against current authorization, Session/cutoff, frozen Harness/workflow policy, decision schema, capability, payload, and resource bounds. Record recommendation, validation outcome, and authoritative domain effect or explicit no-domain-effect outcome separately. | Keeps model output outside platform authority and distinguishes Decision rejection from provider or effect failure. |
 | `SESS-DEC-18` | Treat `no_action` as a successful Decision. For a Participant Turn, atomically or equivalently record the Decision, accepted validation, explicit response-slot/Turn terminal outcome, and required provenance without creating an Agent Message. | Prevents absence of a message from remaining ambiguous or causing reconnect retries. |
-| `SESS-DEC-19` | Separate structured decision/control semantics from participant-visible content at the Flex Agent boundary. Accept `emit_message` before content publication, then apply ADR-011 to every delta; permit one or multiple provider phases without requiring complete-message buffering or partial structured-control exposure. | Preserves provider neutrality and exact durable streaming. |
+| `SESS-DEC-19` | Separate structured decision/control semantics from participant-visible content at the Flex Agent boundary. Accept P0 communication (`emit_message` or the equivalent accepted `message` output) before content publication, then apply ADR-011 to every delta; permit one or multiple provider phases without requiring complete-message buffering or partial structured-control exposure. | Preserves provider neutrality and exact durable streaming. |
 | `SESS-DEC-20` | Scope Invocation idempotency to trusted Session, trigger identity/version, purpose, and frozen policy. Order admitted Invocations, Decisions, and effects when material; reconcile equivalent duplicates and reject mismatches/stale or post-cutoff results. | Prevents duplicate Agent effects and resolves lifecycle races deterministically. |
 | `SESS-DEC-21` | Freeze behaviorally material trigger/decision policy and positive attempt/chain/cooldown/loop bounds. Keep P0 voice signals, Participant Session tools, silence-driven behavior, arbitrary/parallel timers, and richer configurable workflow triggers disabled; permit only the ADR-013 timer lane when explicitly frozen as enabled. | Preserves cohort fairness and release-tier containment. |
 | `SESS-DEC-22` | Keep future Interaction Controller mechanics separate from Agent semantic judgment; only minimized authoritative playback/interruption/floor facts may enter a permitted Invocation, and voice continuity uses playback-confirmed content. | Preserves the voice product contract without enabling voice in P0. |
@@ -164,6 +167,13 @@ product, model provider, or SSE library.
 | `SESS-DEC-26` | Use active Session time for P0 relative delay. Pause suspends the remaining delay; non-`Active`, revoked, completing, or terminal state prevents firing and rearming. | Aligns timer behavior with Session authority and fairness. |
 | `SESS-DEC-27` | When due, reauthorize and revalidate scope, state, policy, revision, budget, and cutoff before committing one trusted timer trigger and one idempotent Invocation. The Agent request remains provenance, not trigger authority. | Prevents stale, forged, cross-scope, or post-cutoff self-waking behavior. |
 | `SESS-DEC-28` | Arm the frozen default delay when an enabled lane's Session enters `Active`. After a timer-triggered Invocation terminalizes, arm that default again unless its successful Decision has an accepted replacement; omission or rejection does not disturb a still-valid pending event. Use positive delay, cooldown, replacement, Invocation, and Session budgets. | Establishes and restores predictable cadence while bounding feedback loops. |
+| `SESS-DEC-29` | Represent a successful Agent Decision as a versioned envelope: explicit disposition, zero or more typed output recommendations, and zero or more typed requested actions. Empty collections are never inferred as `no_action`. | Preserves exactly-one Decision while allowing later coordinated channels. |
+| `SESS-DEC-30` | Restrict the P0 profile to zero or one Participant `message` output, zero `voice` outputs, no reviewer/admin/runtime-only presentation outputs, and only the ADR-013 next-timer requested action. Reject excess kinds without fabricating `no_action`. | Prevents architecture preparation from enabling deferred capabilities. |
+| `SESS-DEC-31` | Keep `agent-decision.v1` immutable historical evidence. Introduce an explicit successor schema/profile before provider and worker seams consume Decision shape. Dual-read v1 as the mapped P0 profile; never rewrite applied migrations. | Preserves reconstruction and checksum immutability. |
+| `SESS-DEC-32` | Allocate authoritative `agent_output_id` and Session order in the runtime. Resolve only bounded same-Decision local references after validation. Use `agent_decision_id` as the coordination root; do not add a P0 response-group identity. | Prevents model-authored identity, order, or reference substitution. |
+| `SESS-DEC-33` | Derive effective audience from trusted policy. P0 `message` audience is the Session Participant. Ignore model-authored audience/visibility as authority and fail closed on prohibited audiences. | Keeps presentation kind independent from authorization. |
+| `SESS-DEC-34` | Keep Evidence, Evaluation, reviewer notes, scores, concise audit explanations, and hidden chain-of-thought out of generic presentation outputs. Track P0 message delivery under ADR-011 without treating publication as human perception. | Preserves outcome-chain and audit honesty. |
+| `SESS-DEC-35` | Validate outputs and requested actions independently. Record recommendation, per-item validation, and per-item effect or explicit absence separately. Preserve the Interaction Controller/TTS seam without enabling voice. | Supports partial rejection and later channel independence. |
 
 ## Logical ownership and records
 
@@ -278,16 +288,17 @@ version, idempotency, and required audit classification.
 ## Provider streaming and broker boundary
 
 The Agent is a reusable identity and frozen configuration, not an independent
-MVP service that writes platform state. Under the approved v0.3 boundary, a
-delegated worker executes one admitted Invocation and, for `emit_message`, the
-linked response slot/publication path. The data path is:
+MVP service that writes platform state. Under the approved v0.5 boundary, a
+delegated worker executes one admitted Invocation and, for an accepted P0
+`message` output (historical `emit_message`), the linked response
+slot/publication path. The data path is:
 
 ```text
 committed trusted trigger, Agent Invocation, and durable work
   -> worker claim and authorization
   -> bounded provider-neutral Agent execution
   -> valid Agent Decision and independent runtime validation
-  -> accepted emit_message publication path
+  -> accepted P0 message-output publication path
   -> provider-to-worker incremental response stream
   -> rolling validation of next exact delta
   -> authoritative fragment transaction
@@ -342,7 +353,8 @@ remain primary-store and application responsibilities.
 The decision/control discriminator and participant-visible content stream are
 separate at the Flex Agent contract level. A qualified provider adapter may
 obtain them through one interaction or multiple phases, but no content may
-publish before `emit_message` is structurally valid and currently accepted. A
+publish before the accepted P0 `message` output (historical `emit_message`) is
+structurally valid and currently accepted. A
 `no_action` Decision produces no content stream. Malformed or partial control
 syntax never becomes transcript content.
 
@@ -379,9 +391,10 @@ and cutoff.
 - A valid `no_action` commit records the Decision and accepted validation,
   terminalizes the response slot/Turn, appends required manifest/audit/outbox
   provenance, and creates no Agent Message.
-- A valid `emit_message` commit or equivalent claim records the Decision and
-  accepted communication validation, then allows the linked fragment path below
-  to compete for the response slot's visible publisher.
+- A valid `emit_message` commit, or the equivalent accepted P0 `message`
+  output, records the Decision and accepted communication validation, then
+  allows the linked fragment path below to compete for the response slot's
+  visible publisher.
 - An optional next-timer recommendation is validated as a separate scheduling
   effect. Acceptance replaces the one pending lane revision; rejection retains
   a valid existing/default schedule and does not by itself reject the primary
@@ -583,7 +596,7 @@ or another Participant in the MVP.
 | --- | --- | --- |
 | Entry and command authority | `REQ-SESS-1`–`REQ-SESS-7`; `AC-SESS-1`–`AC-SESS-2` | Committed-readiness, stale acknowledgment, wrong-scope, and pre-commit failure tests |
 | Messages, turns, fragments, work traces | `REQ-SESS-8`–`REQ-SESS-19`, `REQ-SESS-51`–`REQ-SESS-60`; `AC-SESS-3`–`AC-SESS-8`, `AC-SESS-31`, `AC-SESS-32` | Idempotency, concurrent publisher, provider delta/cumulative-snapshot normalization, first-fragment claim, contiguous order, digest conflict, duplicate/gap/divergence, retry/continuation, reconnect replay, cutoff, injection, unsafe rendering, and prohibited-disclosure tests |
-| Agent Invocation, Decision, validation, and effect | `REQ-SESS-61`–`REQ-SESS-70`; `AC-SESS-33`–`AC-SESS-37`; `REQ-RSC-47`–`REQ-RSC-50`; `AC-RSC-26` | Trusted/fake/prohibited trigger, exactly-one Decision, no-action, Decision rejection, duplicate/stale/late Invocation, context isolation, loop bounds, provider-neutral control/content separation, and P0-disabled capability tests |
+| Agent Invocation, Decision, validation, and effect | `REQ-SESS-61`–`REQ-SESS-70`, `REQ-SESS-78`–`REQ-SESS-85`; `AC-SESS-33`–`AC-SESS-37`, `AC-SESS-42`–`AC-SESS-47`; `REQ-RSC-47`–`REQ-RSC-50`, `REQ-RSC-54`–`REQ-RSC-55`; `AC-RSC-26`, `AC-RSC-28` | Trusted/fake/prohibited trigger, exactly-one Decision, envelope cardinality, empty-output inference rejection, voice/audience/id rejection, no-action, Decision rejection, duplicate/stale/late Invocation, context isolation, loop bounds, provider-neutral control/content separation, v1 dual-read, and P0-disabled capability tests |
 | Agent next-timer replacement | `REQ-SESS-71`–`REQ-SESS-77`; `AC-SESS-38`–`AC-SESS-41`; `REQ-RSC-51`–`REQ-RSC-53`; `AC-RSC-27` | Enabled/disabled policy, default cadence, accepted/rejected/omitted request, primary-Decision independence, min/max/cooldown/budget, one pending revision, duplicate/concurrent replacement, process restart, active-time pause/resume, trusted firing, and terminal-cutoff tests |
 | Timer, pause, warning, reconnect | `REQ-SESS-20`–`REQ-SESS-30`; `AC-SESS-9`–`AC-SESS-14` | Exact-boundary, disconnect, restart, revocation, warning uniqueness, and pause accounting tests |
 | Terminal and handoff | `REQ-SESS-31`–`REQ-SESS-41`; `AC-SESS-15`–`AC-SESS-20` | Message/expiry/termination races, seal/audit fault injection, mapping, post-cutoff callback, and handoff tests |
@@ -600,15 +613,16 @@ and is not satisfied by this architecture document.
 
 ## Open questions
 
-None. ADR-012 and ADR-013 approve the architectural decisions in this contract.
-Framework, physical schema, duration encoding, and provider-orchestration
-choices remain implementation details within those boundaries. ADR-008
-intentionally selects no normative model.
+None. ADR-012, ADR-013, and ADR-014 approve the architectural decisions in this
+contract. Framework, physical schema, duration encoding, and provider-
+orchestration choices remain implementation details within those boundaries.
+ADR-008 intentionally selects no normative model.
 
 ## Approval and downstream impact
 
-Version 0.4 is approved through ADR-013 and supersedes version 0.3.
-Invocation/Decision and next-timer implementation may proceed, and the following
+Version 0.5 is approved through ADR-014 and supersedes version 0.4.
+Invocation/Decision envelope, next-timer, and P0 output-profile implementation
+may proceed, and the following
 downstream artifacts must conform:
 
 - backend persistence schemas, Session domain modules, work records, APIs, SSE,
@@ -627,4 +641,4 @@ downstream artifacts must conform:
 - [ADR-011: Participant-visible Agent-response streaming](decisions/ADR-011-participant-visible-agent-response-streaming.md)
 - [ADR-012: Structured Agent Invocation and Decision boundary](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md)
 - [ADR-013: Agent-requested next-timer replacement](decisions/ADR-013-agent-requested-next-timer-replacement.md)
-- [ADR-012: Structured Agent Invocation and Decision boundary](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md)
+- [ADR-014: Agent Decision output envelope and P0 compatibility](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md)

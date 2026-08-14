@@ -8,8 +8,10 @@ Product meaning and scope boundaries live under [product documentation](../produ
 
 **The platform Activity IA, end-to-end P0 assessment Campaign journey, and all
 five P0 surface interaction specifications are approved at their current
-versions.** Text Session v0.4, `UI-SESS-DEC-13`, and `UI-SESS-DEC-14` govern
-intentional no-action and internal next-timer presentation. All seven
+versions.** Text Session v0.5, `UI-SESS-DEC-13`, `UI-SESS-DEC-14`, and
+`UI-SESS-DEC-15` govern
+intentional no-action, internal next-timer presentation, and hidden
+Decision-envelope internals. All seven
 P0 feature specifications, the
 [MVP operational defaults](../requirements/mvp-operational-defaults.md), and the
 [MVP architecture](../architecture/mvp-architecture.md) are approved, so entry

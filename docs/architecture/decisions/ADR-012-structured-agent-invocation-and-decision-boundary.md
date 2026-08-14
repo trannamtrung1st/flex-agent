@@ -15,10 +15,12 @@ Approved
 | **Governs** | Provider-neutral Agent Invocation, trusted triggers, Agent Decisions, validation/effect boundary, intentional no-action, ordering, retry, provenance, and streaming coexistence |
 | **Upstream sources** | Approved [concept model v0.2](../../product/concept-model.md), [MVP scope v0.2](../../product/mvp-scope.md), [resolved Session configuration v0.2](../../requirements/features/resolved-session-configuration.md), and [text Session lifecycle v0.3](../../requirements/features/session-text-lifecycle.md) |
 | **Preserves** | [ADR-001](ADR-001-resolved-configuration-representation-and-integrity.md), [ADR-002](ADR-002-authorization-enforcement-and-delegation.md), [ADR-003](ADR-003-authorization-audit-persistence.md), [ADR-005](ADR-005-atomic-attempt-start-and-submission-binding.md), [ADR-009](ADR-009-mvp-session-evaluation-review-contracts.md), and [ADR-011](ADR-011-participant-visible-agent-response-streaming.md) |
-| **Extended by** | [ADR-013](ADR-013-agent-requested-next-timer-replacement.md) permits one optional independently validated next-timer recommendation without making the Agent scheduler or trigger authority |
+| **Extended by** | [ADR-013](ADR-013-agent-requested-next-timer-replacement.md) permits one optional independently validated next-timer recommendation without making the Agent scheduler or trigger authority. [ADR-014](ADR-014-agent-output-envelope-and-p0-compatibility.md) specializes the P0 Decision as a compatibility profile of a typed output/action envelope without enabling voice or additional actions |
 
 This ADR and its approved upstream product and requirement revisions govern
-structured Agent Invocation/Decision implementation.
+structured Agent Invocation/Decision implementation as specialized by
+[ADR-014](ADR-014-agent-output-envelope-and-p0-compatibility.md) for the P0
+Decision-output envelope.
 
 ## Context
 
@@ -400,3 +402,4 @@ Required controls and verification include:
   [Text Session runtime contract](../session-runtime-contract.md)
 - Streaming: [ADR-011](ADR-011-participant-visible-agent-response-streaming.md)
 - Timer replacement: [ADR-013](ADR-013-agent-requested-next-timer-replacement.md)
+- Output envelope: [ADR-014](ADR-014-agent-output-envelope-and-p0-compatibility.md)

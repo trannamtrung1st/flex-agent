@@ -6,8 +6,8 @@ Home for Flex Agent feature specifications.
 
 **All seven P0 specifications are approved at their current versions.** Nineteen
 spec files exist. [`resolved-session-configuration.md`](resolved-session-configuration.md)
-v0.3 and [`session-text-lifecycle.md`](session-text-lifecycle.md) v0.4 include
-approved structured Agent Invocation/Decision and one-lane next-timer behavior.
+v0.4 and [`session-text-lifecycle.md`](session-text-lifecycle.md) v0.5 include
+the approved P0-compatible Agent Decision output envelope.
 All P1–P3 files remain placeholders. No eighth P0 feature is added.
 
 ## Purpose

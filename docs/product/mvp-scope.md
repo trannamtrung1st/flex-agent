@@ -6,18 +6,19 @@ First product experience, platform direction, explicit non-goals, and deferred c
 
 | Field | Value |
 | --- | --- |
-| **Status** | Approved v0.3 |
+| **Status** | Approved v0.4 |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead |
-| **Version** | 0.3 |
-| **Effective date** | 2026-08-11 |
-| **Last reviewed** | 2026-08-11 |
-| **Approval reference** | v0.3 optional Agent-requested next-timer replacement approved 2026-08-11; supersedes v0.2 |
-| **Related decisions** | Approved [Concept model v0.3](concept-model.md), [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), and [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) |
+| **Version** | 0.4 |
+| **Effective date** | 2026-08-14 |
+| **Last reviewed** | 2026-08-14 |
+| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; supersedes v0.3 |
+| **Related decisions** | Approved [Concept model v0.4](concept-model.md), [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
 
-Version 0.3 is **approved** and supersedes v0.2. It preserves the seven-step MVP
-slice and adds an optional bounded next-timer replacement to the reusable Agent
-Invocation/Decision foundation. Approved feature specifications govern
+Version 0.4 is **approved** and supersedes v0.3. It preserves the seven-step MVP
+slice, text-only examination, and optional bounded next-timer replacement. It
+records the P0-compatible Agent Decision output envelope without enabling voice
+or additional presentation channels. Approved feature specifications govern
 observable behavior.
 
 ## First product experience
@@ -56,11 +57,14 @@ The MVP establishes the provider-neutral
 contract as reusable foundation. Current P0 text execution uses trusted
 participant-input, already-permitted workflow triggers, and—only when frozen
 Session policy enables it—one system timer cadence. A successful Agent Decision
-may optionally recommend a bounded relative delay that replaces the next event
-on that timer lane. The runtime validates and schedules it; the Agent does not
-wake itself. This narrow capability does not enable silence-driven triggers,
-arbitrary or parallel timers, voice interaction signals, Participant Session
-tools, or richer configurable workflow behavior.
+is an envelope that may recommend zero or one Participant message output and,
+optionally, a bounded relative delay that replaces the next event on that timer
+lane. The runtime validates outputs and requested actions independently; the
+Agent does not wake itself, choose audience, or author output identity. This
+narrow capability does not enable silence-driven triggers, arbitrary or parallel
+timers, voice interaction, voice outputs, richer message kinds, Participant
+Session tools, reviewer-facing presentation outputs, or richer configurable
+workflow behavior.
 
 ### Next release (explicitly deferred from MVP)
 
@@ -195,12 +199,13 @@ including [Result and Release](../ui-ux/result-release.md), are also approved.
 Continue provider-independent scaffold work and the first
 authorization/configuration vertical slice defined by
 [ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#traceability-and-downstream-work).
-Structured Agent Invocation/Decision and next-timer implementation may now
-proceed against the approved v0.3 product revisions, current approved feature
-specifications,
+Structured Agent Invocation/Decision, next-timer, and P0-compatible output
+envelope implementation may now proceed against the approved v0.4 product
+revisions, current approved feature specifications,
 [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md),
-and
 [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md),
+and
+[ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md),
 subject to their machine-readable contract and verification gates.
 In parallel, complete ADR-008's applicable compatibility and
 provider-credential evidence, qualify at least one concrete provider deployment

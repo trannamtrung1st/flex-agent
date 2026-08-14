@@ -4,9 +4,10 @@ Architecture Decision Records (ADRs) for Flex Agent.
 
 ## Status
 
-**Thirteen approved decisions.** ADR-012 and ADR-013 plus their approved
+**Fourteen approved decisions.** ADR-012 through ADR-014 plus their approved
 upstream product/requirement revisions govern structured Agent
-Invocation/Decision and next-timer implementation.
+Invocation/Decision, next-timer replacement, and the P0 Decision-output
+envelope.
 
 | ADR | Status | Decision |
 | --- | --- | --- |
@@ -23,6 +24,7 @@ Invocation/Decision and next-timer implementation.
 | [ADR-011](ADR-011-participant-visible-agent-response-streaming.md) | Approved | Durable-before-display participant-visible incremental Agent-response fragments, ordering, replay, incomplete-stream recovery, cutoff, validation, and backpressure |
 | [ADR-012](ADR-012-structured-agent-invocation-and-decision-boundary.md) | Approved | Provider-neutral trusted Agent Invocation, structured Agent Decision, independent validation/effect, explicit no-action, ordering, streaming coexistence, and minimized provenance boundary |
 | [ADR-013](ADR-013-agent-requested-next-timer-replacement.md) | Approved | Optional Agent recommendation that replaces one runtime-owned next timer under frozen delay, lifecycle, idempotency, and loop bounds |
+| [ADR-014](ADR-014-agent-output-envelope-and-p0-compatibility.md) | Approved | Versioned Decision envelope with typed outputs and requested actions, P0 message-only compatibility profile, runtime-owned output identity, and historical v1 reconstruction |
 
 ## Purpose
 

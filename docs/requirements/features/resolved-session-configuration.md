@@ -3,17 +3,18 @@
 ## Status and source
 
 - Status: Approved
-- Version: 0.3
+- Version: 0.4
 - Owner: Product Lead
 - Approvers: Product Lead, Architecture Lead, Security/Privacy reviewer
-- Approved date: 2026-08-11
-- Approval history: Baseline approved 2026-08-06; v0.2 approved 2026-08-11 to freeze behaviorally material Agent Invocation/Decision policy; v0.3 approved 2026-08-11 to freeze optional Agent-requested next-timer replacement policy
+- Approved date: 2026-08-14
+- Approval history: Baseline approved 2026-08-06; v0.2 approved 2026-08-11 to freeze behaviorally material Agent Invocation/Decision policy; v0.3 approved 2026-08-11 to freeze optional Agent-requested next-timer replacement policy; v0.4 approved 2026-08-14 to freeze the P0-compatible Decision-output profile
 - Source: [Agent Invocation, Invocation Trigger, and Agent Decision](../../product/concept-model.md#agent-invocation-invocation-trigger-and-agent-decision), [Effective configuration resolution](../../product/concept-model.md#effective-configuration-resolution), [Configuration precedence stack](../../product/concept-model.md#configuration-precedence-stack), [Assessment fairness constraints](../../product/concept-model.md#assessment-fairness-constraints), [Resolved execution manifest](../../product/concept-model.md#resolved-execution-manifest), [Session state and events](../../product/concept-model.md#session-state-and-events), [Product invariants](../../product/concept-model.md#product-invariants), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice)
 - Catalog entry: P0 #2 — [P0 authoring order](../README.md#p0-authoring-order)
-- Related decisions: Consumes the approved authorization and isolation contract in [`auth-resource-isolation.md`](auth-resource-isolation.md). Open questions `Q-1`–`Q-7` and proposals `PROP-1`–`PROP-10` were approved on 2026-08-06 and incorporated into the normative sections identified in [Approved decision disposition](#approved-decision-disposition). Technical representation and integrity choices are governed by [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md); [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs the relational primary and modular runtime topology; [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md) governs selected infrastructure, provider defaults, and scoped credential/BYOK bindings; [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) governs the Agent Invocation/Decision fields and provenance; and [ADR-013](../../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) governs the optional next-timer replacement policy. Detailed schema, append, reconstruction, and transaction implementation remain architecture and implementation work.
+- Related decisions: Consumes the approved authorization and isolation contract in [`auth-resource-isolation.md`](auth-resource-isolation.md). Open questions `Q-1`–`Q-7` and proposals `PROP-1`–`PROP-10` were approved on 2026-08-06 and incorporated into the normative sections identified in [Approved decision disposition](#approved-decision-disposition). Technical representation and integrity choices are governed by [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md); [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs the relational primary and modular runtime topology; [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md) governs selected infrastructure, provider defaults, and scoped credential/BYOK bindings; [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) governs the Agent Invocation/Decision fields and provenance; and [ADR-013](../../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) governs the optional next-timer replacement policy; [ADR-014](../../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) governs the P0-compatible Decision-output envelope. Detailed schema, append, reconstruction, and transaction implementation remain architecture and implementation work.
 
-Version 0.3 is **approved** and supersedes version 0.2 while preserving its
-previously approved configuration, manifest, and Invocation/Decision behavior.
+Version 0.4 is **approved** and supersedes version 0.3 while preserving its
+previously approved configuration, manifest, Invocation/Decision, and next-timer
+behavior.
 
 ## Problem and measurable outcome
 
@@ -298,18 +299,21 @@ Resolving
 - `REQ-RSC-46` — Provider credential selection must derive from trusted deployment and Organization policy plus an authorized Organization-scoped or deployment-default `SecretSource` binding. Participant, Activity, request, and Session input must not select or widen credential ownership. A missing, revoked, wrong-Organization, or provider-mismatched binding must fail closed before model work and must not silently fall back to another credential, payer, or provider.
 - `REQ-RSC-47` — The resolved configuration must include or reference the
   versioned Agent Invocation contract, permitted typed trigger subset, permitted
-  Agent Decision types and validation schemas, Agent-initiated communication
+  Agent Decision types, output kinds, requested-action kinds, and validation
+  schemas, Agent-initiated communication
   policy, intentional no-action policy, and positive invocation retry/chaining
   bounds whenever those values can change Session behavior, fairness, permitted
   capability, or reconstruction.
 - `REQ-RSC-48` — For an activated assessment cohort, behaviorally material
   Invocation/Decision policy must be part of the frozen cohort baseline or an
   immutable referenced policy with verified digest. A mutable runtime setting
-  must not add a trigger, decision capability, Agent-initiated communication
+  must not add a trigger, decision capability, output kind, requested-action
+  kind, Agent-initiated communication
   path, or looser chain bound for an in-flight cohort or Session.
 - `REQ-RSC-49` — The P0 assessment profile must explicitly permit only the
-  Invocation Trigger and Agent Decision subset required by approved text Session
-  behavior. Voice/Interaction Controller signals, Participant Session tools,
+  Invocation Trigger, Agent Decision, output-kind, and requested-action subset
+  required by approved text Session behavior. Voice/Interaction Controller
+  signals, Participant Session tools,
   silence-driven triggers, arbitrary or parallel timer lanes, and richer
   configurable workflow triggers must remain disabled even when their types are
   representable by the contract. One optional system timer lane and bounded
@@ -340,6 +344,16 @@ Resolving
   outcomes, stable lane and schedule revision, due/fired/cancelled/expired
   state, driving Decision, resulting trusted timer trigger and Invocation, and
   bounded reason categories without copying model content or hidden reasoning.
+- `REQ-RSC-54` — The resolved configuration must include or reference the
+  supported Agent Decision envelope/schema version, the permitted P0 output
+  kinds, the permitted requested-action kinds, and the rule that lower scopes
+  may narrow but not widen those sets. Historical v1 reconstruction policy must
+  remain part of the frozen contract identity.
+- `REQ-RSC-55` — The P0 assessment profile must freeze at most one Participant
+  `message` output, zero `voice` outputs, no reviewer/administrator/runtime-only
+  presentation outputs, and no requested action other than the optional
+  next-timer replacement. Representable later kinds remain disabled for an
+  in-flight cohort or Session.
 
 ## Data, evidence, and audit
 
@@ -402,8 +416,10 @@ The effective configuration must be normalized into stable domains so consumers 
 - Fairness/adaptive-follow-up policy.
 - Output schema and completion requirements.
 - Agent Invocation/Decision contract versions, permitted trigger/decision
-  subset, Agent-initiated communication and no-action policy, validation policy,
-  and positive retry/chaining limits when behaviorally material.
+  subset, permitted P0 output and requested-action kinds, Agent-initiated
+  communication and no-action policy, validation policy, historical v1
+  reconstruction identity, and positive retry/chaining limits when
+  behaviorally material.
 
 Each domain records its effective value plus source/decision provenance where needed. Secrets are represented by approved secret references or capability bindings, never copied into the configuration.
 
@@ -727,13 +743,14 @@ A reconstruction operation should be able to answer:
 - **Given** an MVP text assessment Session resolves from an activated cohort
 - **When** the resolved configuration and initial manifest are inspected
 - **Then** they identify the supported Agent Invocation contract and the exact
-  permitted P0 trigger/decision subset, including Agent-initiated and no-action
-  policy where applicable
+  permitted P0 trigger, decision, output-kind, and requested-action subset,
+  including Agent-initiated and no-action policy where applicable
 - **And** behaviorally material values match the immutable cohort baseline or
   its verified referenced policy
 - **And** voice/Interaction Controller triggers, Participant Session tools,
-  silence-driven behavior, arbitrary or parallel timers, and richer
-  configurable workflow triggers remain explicitly disabled
+  silence-driven behavior, arbitrary or parallel timers, richer
+  configurable workflow triggers, and non-P0 output or requested-action kinds
+  remain explicitly disabled
 - **And** a later mutable policy change cannot alter the existing Session.
 
 ### `AC-RSC-27` — Optional timer replacement policy is frozen and bounded
@@ -749,15 +766,28 @@ A reconstruction operation should be able to answer:
 - **And** a profile that disables the lane schedules neither a default nor an
   Agent-requested timer event.
 
+### `AC-RSC-28` — P0 output and requested-action kinds are frozen
+
+- **Given** an MVP text assessment Session resolves from an activated cohort
+- **When** the resolved configuration and initial manifest are inspected
+- **Then** they identify the Decision envelope/schema version and permit at most
+  one Participant `message` output, zero `voice` outputs, no
+  reviewer/administrator/runtime-only presentation outputs, and no requested
+  action other than optional next-timer replacement
+- **And** lower scopes cannot add an output kind, audience, or action
+- **And** historical v1 reconstruction remains part of the frozen contract
+  identity.
+
 ## Dependencies and rollout
 
 ### Dependencies
 
-- The approved product semantics, this version 0.3 revision, text Session
-  lifecycle v0.4, [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md),
-  and [ADR-013](../../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md)
-  govern Invocation/Decision and next-timer configuration and manifest
-  implementation.
+- The approved product semantics, this version 0.4 revision, text Session
+  lifecycle v0.5, [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md),
+  [ADR-013](../../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md),
+  and [ADR-014](../../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md)
+  govern Invocation/Decision, next-timer, and P0 output-profile configuration
+  and manifest implementation.
 
 - Approved authorization and resource-isolation behavior from [`auth-resource-isolation.md`](auth-resource-isolation.md).
 - Versioned organization policy, agent, harness, activity, task, workflow, rubric, model, knowledge, and memory source records.
@@ -833,6 +863,6 @@ The following table preserves the proposal and question history while linking ea
 | `REQ-RSC-15`–`REQ-RSC-22`, `AC-RSC-3`, `AC-RSC-7`, `AC-RSC-11`, `AC-RSC-12` | Versioned source registry, canonicalization/digest contract, immutable storage, and idempotency — approved [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md), [ADR-004](../../architecture/decisions/ADR-004-assessment-activation-baseline-and-atomicity.md), and [MVP architecture](../../architecture/mvp-architecture.md); implementation TBD | Determinism/property tests; mutable-alias rejection; source-change and concurrency tests | Technical provenance and immutable-history inspection | Gap |
 | `REQ-RSC-23`–`REQ-RSC-28`, `AC-RSC-10`, `AC-RSC-11`, `AC-RSC-13`, `AC-RSC-16` | Atomic start transaction/workflow and failure recovery — approved [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md), [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), and [MVP architecture](../../architecture/mvp-architecture.md); implementation TBD | Fault injection across persistence/audit; duplicate start; stale authorization; aborted-after-freeze tests | Participant unavailable/retry states; admin diagnostics | Gap |
 | `REQ-RSC-29`–`REQ-RSC-37`, `REQ-RSC-46`, `AC-RSC-9`, `AC-RSC-14`, `AC-RSC-15`, `AC-RSC-17`, `AC-RSC-23`, `AC-RSC-25` | Manifest schema, runtime append protocol, provider credential resolver, and terminal seal — approved [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md), [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md), and [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation and machine-readable schema TBD | Required-field contracts; provider-version and credential-scope tests; revoked/wrong-scope/no-fallback tests; append concurrency/retry; tamper/seal tests | Reviewer manifest, credential-binding status, and terminal-verification views | Gap |
-| `REQ-RSC-47`–`REQ-RSC-53`, `AC-RSC-26`, `AC-RSC-27` | Invocation/Decision and one-lane next-timer policy resolution, cohort-baseline freezing, P0 disabled-capability profile, and minimized runtime provenance — approved by [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) and [ADR-013](../../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md); implementation TBD | Contract/policy version, timer enablement/default/bounds, baseline drift, lower-scope widening, duplicate/concurrent replacement, deferred-trigger enablement, protected-reference minimization, and historical reconstruction tests | Authorized technical summary only where an approved UI requires it; no raw Decision or schedule data in Participant UI | Gap |
+| `REQ-RSC-47`–`REQ-RSC-55`, `AC-RSC-26`–`AC-RSC-28` | Invocation/Decision envelope and one-lane next-timer policy resolution, P0 output/action profile, cohort-baseline freezing, P0 disabled-capability profile, historical v1 reconstruction identity, and minimized runtime provenance — approved by [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](../../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md); implementation TBD | Contract/policy version, output-kind freeze, timer enablement/default/bounds, baseline drift, lower-scope widening, duplicate/concurrent replacement, deferred-trigger/output enablement, protected-reference minimization, and historical reconstruction tests | Authorized technical summary only where an approved UI requires it; no raw Decision or schedule data in Participant UI | Gap |
 | `REQ-RSC-38`–`REQ-RSC-45`, `AC-RSC-18`–`AC-RSC-22` | Authorized inspection/export, reconstruction verifier, redaction, and audit — approved [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md), and [MVP architecture](../../architecture/mvp-architecture.md); implementation TBD | Cross-scope access matrix; redaction tests; reconstruction/degraded-source tests; audit assertions | Participant/admin/reviewer access states; keyboard, focus, responsive evidence | Gap |
 | Quality and observability requirements, `AC-RSC-22` | Telemetry and SLO boundaries approved by [MVP architecture](../../architecture/mvp-architecture.md), [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md), and [ADR-010](../../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md); UI status patterns and implementation TBD | Accessibility component tests; latency/load tests; bounded-label checks | Narrow viewport, keyboard, screen-reader status, failure screenshots | Gap |

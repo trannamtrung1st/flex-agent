@@ -4,24 +4,25 @@
 
 | Field | Value |
 | --- | --- |
-| **Status** | Approved v0.3 |
+| **Status** | Approved v0.4 |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead |
-| **Version** | 0.3 |
-| **Effective date** | 2026-08-11 |
-| **Last reviewed** | 2026-08-11 |
-| **Approval reference** | v0.3 optional Agent-requested next-timer replacement approved 2026-08-11; supersedes v0.2 |
+| **Version** | 0.4 |
+| **Effective date** | 2026-08-14 |
+| **Last reviewed** | 2026-08-14 |
+| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; supersedes v0.3 |
 
 Vision, positioning, and principles. Canonical concepts, scope boundaries, and requirements live in linked product and requirements documents.
 
-Version 0.3 is approved and supersedes v0.2. Structured Agent
-Invocation/Decision and bounded next-timer replacement implementation may
-proceed against the approved product, requirements, UI/UX, and architecture
-package, subject to its contract and verification gates.
+Version 0.4 is approved and supersedes v0.3. Structured Agent
+Invocation/Decision, bounded next-timer replacement, and the P0-compatible
+Decision-output envelope may proceed against the approved product,
+requirements, UI/UX, and architecture package, subject to its contract and
+verification gates. Voice remains a later release.
 
 ## What to do next
 
-Product baseline v0.3, all seven P0 feature specifications, the
+Product baseline v0.4, all seven P0 feature specifications, the
 [MVP operational defaults](../requirements/mvp-operational-defaults.md), and the
 OSS-first self-hostable
 [MVP architecture](../architecture/mvp-architecture.md) and the detailed
@@ -75,8 +76,9 @@ An agent should not need to be recreated for every assessment, interview, or sup
 Agents operate through structured decision opportunities, not only chatbot
 request/response exchanges. A trusted platform trigger and authorized resolved
 context form an [Agent Invocation](concept-model.md#agent-invocation-invocation-trigger-and-agent-decision);
-the Agent produces an Agent Decision that may recommend communication,
-intentional no action, or another permitted behavior. Harness, workflow,
+the Agent produces an Agent Decision envelope that may recommend zero or one
+Participant message output, intentional no action, and—when frozen policy
+permits—one bounded next-timer requested action. Harness, workflow,
 authorization, and runtime validation remain authoritative for any effect.
 Agent-initiated behavior therefore comes from governed events or signals rather
 than uncontrolled self-waking execution.
