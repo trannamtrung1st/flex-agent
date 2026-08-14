@@ -43,10 +43,11 @@ public sealed class SessionsRepositoryOwnershipTests
     }
 
     [Fact]
-    public void Participant_and_completion_coordinators_require_command_ownership_and_do_not_accept_client_clocks()
+    public void Participant_completion_and_publication_coordinators_require_command_ownership_and_do_not_accept_client_clocks()
     {
         AssertCoordinatorRejectsClientClocks(typeof(PostgresAcceptParticipantMessageCoordinator), "AcceptAsync");
         AssertCoordinatorRejectsClientClocks(typeof(PostgresCompleteInvocationCoordinator), "CompleteAsync");
+        AssertCoordinatorRejectsClientClocks(typeof(PostgresPublishAgentResponseCoordinator), "PublishFragmentAsync");
     }
 
     private static void AssertCoordinatorRejectsClientClocks(Type coordinatorType, string methodName)

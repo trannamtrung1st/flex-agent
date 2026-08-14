@@ -99,6 +99,7 @@ public static class SessionRuntimeAuditActions
     public const string AdmitTrustedTrigger = "session.trusted_trigger.admit";
     public const string AcceptParticipantMessage = "session.participant_message.accept";
     public const string CompleteInvocation = "session.invocation.complete";
+    public const string PublishAgentResponseFragment = "session.agent_response.publish";
 }
 
 public static class SessionRuntimeResourceTypes
@@ -111,6 +112,7 @@ public static class SessionRuntimeOutboxEventTypes
     public const string TrustedTriggerAdmitted = "session.trusted_trigger.admitted";
     public const string ParticipantMessageAccepted = "session.participant_message.accepted";
     public const string InvocationCompleted = "session.invocation.completed";
+    public const string AgentFragmentCommitted = "session.agent.fragment.committed";
 }
 
 public static class DurableSessionWorkTypes
@@ -157,6 +159,9 @@ public static class FragmentCommitOutcomeCodes
     public const string AlreadyTerminal = "fragment_commit.already_terminal";
     public const string NonUtcClock = "fragment_commit.non_utc_clock";
     public const string StaleClock = "fragment_commit.stale_clock";
+    public const string StaleVersion = "fragment_commit.stale_version";
+    public const string Denied = "fragment_commit.denied";
+    public const string OwnershipMismatch = "fragment_commit.ownership_mismatch";
 }
 
 public static class ExecutionFailureReasons

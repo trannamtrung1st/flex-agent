@@ -708,8 +708,18 @@ and test reviews have no unresolved blocking findings.
     discards the aggregate and reloads). Do not rewrite `0005`–`0014`.
     External review of `ea21ec3` (2026-08-14): **approved**, 0 P0 / 0 P1 /
     0 P2 / 0 P3. Persistence boundary is closed; outbox/SSE is next.
-  - [ ] Outbox/SSE commit-before-publish, replay, rolling validation,
+  - [>] Outbox/SSE commit-before-publish, replay, rolling validation,
     backpressure, and worker content-phase (cumulative vs delta).
+    - [>] Transactional outbox/audit on each publication persist
+      (`REQ-SESS-56`, `SESS-DEC-9`, `SESS-DEC-13`, `AC-SESS-32`): same
+      transaction as fragment/seal writes; outbox is a wake-up with digest
+      identity, not transcript text; rollback removes fragment and outbox.
+      SSE projector, reconnect replay, rolling validation, backpressure, and
+      worker content-phase remain later. Do not rewrite `0005`–`0014`.
+    - [ ] Authorized SSE projection and database-backed reconnect replay
+      after a trusted Session cursor (no client-held text/position).
+    - [ ] Rolling incremental validation, frozen-bound backpressure, and
+      worker content-phase (cumulative vs delta).
 - [ ] Implement the one-lane scheduler with model-based/domain tests first,
   then PostgreSQL/worker integration: default arm on `Active`, independent
   recommendation validation, replacement/sole-successor atomicity, expected
@@ -792,13 +802,12 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-External review of `ea21ec3` (2026-08-14) **approved: 0 P0 / 0 P1 / 0 P2 /
-0 P3.** Keep that SHA as the ADR-011 PostgreSQL publication-persist
-boundary. Publication persist writes only `DirtyTurns` and
-`PendingTranscript`; accepted output lives on `AgentResponseMessage`; a
-failed transaction discards the loaded aggregate and retries from
-PostgreSQL. Frozen `0005`–`0014` unchanged. Next ADR-011 work is
-outbox/SSE commit-before-publish. Voice stays disabled.
+ADR-011 publication persist is **approved** at `ea21ec3`. Current work is the
+commit-before-publish outbox/audit on that persist path: each newly stored
+fragment writes a Session-scoped outbox wake-up in the same transaction;
+outbox payload is a digest identity, not exact text. SSE delivery, replay,
+rolling validation, backpressure, and worker content-phase remain later.
+Frozen `0005`–`0014` unchanged. Voice stays disabled.
 
 External review of `cdd586d` (2026-08-14) **request changes: 0 P0 / 0 P1 /
 1 P2 / 2 P3.** Those findings are addressed in `ea21ec3`; that SHA is not
@@ -959,6 +968,15 @@ surfaces.
   stored on `AgentResponseMessage` at claim time. A failed surrounding
   transaction discards the loaded aggregate; retry reloads PostgreSQL.
   External review of `ea21ec3` approved this persist boundary.
+- ADR-011 commit-before-publish outbox (2026-08-14):
+  `PostgresPublishAgentResponseCoordinator` persists each new fragment and
+  writes one `session.agent.fragment.committed` outbox item plus audit in the
+  same transaction. Outbox `payload_digest` is
+  `DigestForReference(frag:{messageId}:{ordinal}:{contentDigest})`, not the
+  UTF-8 transcript. Duplicate ordinal+digest reconciles without a second
+  outbox or Session-version bump. Authorized SSE `text_delta` remains a later
+  projector that reads the primary store after this wake-up. Audit/outbox
+  failure rolls back the fragment. Frozen `0005`–`0014` unchanged.
 - Exact `agent-decision.v2` validation at the model-execution boundary uses
   JsonSchema.Net Draft 2020-12 against the embedded canonical schema. The
   handwritten Domain parser remains a typed mapper after schema success and
@@ -1557,6 +1575,7 @@ surfaces.
 | `a947759` P2/P3 remediations (publication coherence, incremental persist) | passed; schema+repository | Red: same-Session fragment→invocation B, generation-attempt mismatch, turn/slot mismatch, and participant parent inserted; Agent `turn_id` NULL inserted; second-fragment persist attempted 2 inserts (2026-08-14). Green: additive `0013` (frozen `0005`–`0012`); composite FK; dirty-only fragment insert; Agent turn/slot CHECK. Confirmation: focused schema/repository/upgrade 5/5; Sessions 266/266; architecture 29/29; Postgres 110/111 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 13; `0012→0013` empty upgrade. External review of `0956b22`: request changes (2 P2 / 1 P3); remediations in pending-work persist + `0014`. |
 | `0956b22` P2/P3 remediations (O(1) persist, accepted-output from parent) | passed; schema+repository | Red: second-fragment persist scanned 2 accumulated fragments; `session_message_fragments` still had `accepted_agent_output_id` (2026-08-14). Green: pending publication queue; additive `0014` drops fragment accepted-output; populated `0012` backfills `response_slot_id` from fragment 1. Confirmation: focused persist/schema/upgrade 6/6; Sessions 267/267; architecture 29/29; Postgres 112/113 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 14; `0013→0014` empty upgrade. External review of `cdd586d`: request changes (1 P2 / 2 P3). |
 | `cdd586d` P2/P3 remediations (dirty Turns, pending transcript, rollback reload) | passed; **approved** `ea21ec3` | Red: second-fragment persist attempted 2 transcript INSERTs (2026-08-14). Green: `DirtyTurns` + `PendingTranscript`; accepted output on the Agent Message; unused `FragmentPendingScans` removed; rollback discards aggregate and retry reloads PostgreSQL. Confirmation: focused persist/rollback/admission 6/6; Sessions 267/267; architecture 29/29; Postgres 113/114 with known concurrent-empty Grate `pg_type` flake. External review: 0 P0 / 0 P1 / 0 P2 / 0 P3. GitHub commit status for `ea21ec3` was not independently visible. Outbox/SSE remains next. |
+| ADR-011 publication outbox/audit (`REQ-SESS-56`, `SESS-DEC-9`, `SESS-DEC-13`) | passed; application+repository | Red: `PublishAgentResponseFragmentCommand` missing (2026-08-14). Green: coordinator writes one `session.agent.fragment.committed` wake-up per new fragment; digest is not UTF-8 text; audit/outbox failure rolls back fragment; duplicate ordinal+digest reconciles without a second outbox. Confirmation: handler 6/6; Sessions 273/273; architecture 29/29; persist+audit/outbox 27/27. SSE projector, replay, rolling validation, backpressure, and worker content-phase remain. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
@@ -1569,10 +1588,10 @@ surfaces.
 
 # Blockers
 
-None for the approved publication-persist boundary (`ea21ec3`). Next remaining
-ADR-011 work is outbox/SSE commit-before-publish, replay, rolling validation,
-backpressure, and worker content-phase. Live provider wiring and frozen-policy
-rehydration remain later gates. Worker host stays idle until those exist.
+None for starting publication outbox/audit. Next remaining ADR-011 work after
+this sub-slice is SSE projection/replay, rolling validation, backpressure, and
+worker content-phase. Live provider wiring and frozen-policy rehydration remain
+later gates. Worker host stays idle until those exist.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
