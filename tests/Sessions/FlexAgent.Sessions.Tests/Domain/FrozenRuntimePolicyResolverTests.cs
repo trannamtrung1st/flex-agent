@@ -495,18 +495,75 @@ public sealed class FrozenRuntimePolicyResolverTests
         Assert.Equal(1, bounds.MaxInFlightStreamsPerSession);
     }
 
-    [Fact]
-    public void Lower_scope_cannot_widen_streaming_publication_bounds()
+    public static TheoryData<string, StreamingPublicationBoundsNarrowing> StreamingWideningCases =>
+        new()
+        {
+            {
+                "max_fragment_utf8_bytes",
+                new StreamingPublicationBoundsNarrowing(1_024, null, null, null, null)
+            },
+            {
+                "max_fragments_per_second",
+                new StreamingPublicationBoundsNarrowing(null, 41, null, null, null)
+            },
+            {
+                "max_fragment_count_per_message",
+                new StreamingPublicationBoundsNarrowing(null, null, 65, null, null)
+            },
+            {
+                "max_assembled_response_utf8_bytes",
+                new StreamingPublicationBoundsNarrowing(null, null, null, 8_193, null)
+            },
+            {
+                "max_in_flight_streams_per_session",
+                new StreamingPublicationBoundsNarrowing(null, null, null, null, 3)
+            },
+        };
+
+    [Theory]
+    [MemberData(nameof(StreamingWideningCases))]
+    public void Lower_scope_cannot_widen_streaming_publication_bounds(
+        string boundName,
+        StreamingPublicationBoundsNarrowing widening)
     {
+        Assert.False(string.IsNullOrWhiteSpace(boundName));
         var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
         var request = RuntimePolicyTestFixtures.CreateResolutionRequest(
             baseline,
             new RuntimePolicyNarrowingOverride(
                 RuntimePolicyScopeKinds.Session,
+                new RuntimePolicyNarrowingValues { StreamingPublicationBounds = widening }));
+
+        var result = FrozenRuntimePolicyResolver.Resolve(request);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.WideningRejected, result.OutcomeCode);
+        Assert.Null(result.Policy);
+    }
+
+    [Fact]
+    public void Session_cannot_re_widen_a_streaming_bound_already_tightened_by_activity()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var request = RuntimePolicyTestFixtures.CreateResolutionRequest(
+            baseline,
+            new RuntimePolicyNarrowingOverride(
+                RuntimePolicyScopeKinds.Activity,
                 new RuntimePolicyNarrowingValues
                 {
                     StreamingPublicationBounds = new StreamingPublicationBoundsNarrowing(
-                        MaxFragmentUtf8Bytes: 1_024,
+                        MaxFragmentUtf8Bytes: 256,
+                        MaxFragmentsPerSecond: null,
+                        MaxFragmentCountPerMessage: null,
+                        MaxAssembledResponseUtf8Bytes: null,
+                        MaxInFlightStreamsPerSession: null),
+                }),
+            new RuntimePolicyNarrowingOverride(
+                RuntimePolicyScopeKinds.Session,
+                new RuntimePolicyNarrowingValues
+                {
+                    StreamingPublicationBounds = new StreamingPublicationBoundsNarrowing(
+                        MaxFragmentUtf8Bytes: 384,
                         MaxFragmentsPerSecond: null,
                         MaxFragmentCountPerMessage: null,
                         MaxAssembledResponseUtf8Bytes: null,
@@ -517,6 +574,7 @@ public sealed class FrozenRuntimePolicyResolverTests
 
         Assert.False(result.Succeeded);
         Assert.Equal(RuntimePolicyResolutionOutcomeCodes.WideningRejected, result.OutcomeCode);
+        Assert.Null(result.Policy);
     }
 
     [Fact]
