@@ -632,7 +632,8 @@ and test reviews have no unresolved blocking findings.
     is the next slice (host currently registers an idle processor when no
     claim store is wired). Post-claim release uses a bounded cleanup token so
     shutdown cannot leave work claimed because the worker token is already
-    cancelled.
+    cancelled. Worker OCI COPY includes Sessions, CanonicalJson, and the
+    embedded Decision schema files.
   - [ ] PostgreSQL claim with lease, `SKIP LOCKED`, expire/reclaim, and
     worker composition that processes admitted work end to end.
   - [ ] Inject crashes after claim, provider return, Decision commit,
@@ -1291,6 +1292,7 @@ surfaces.
 | `737cb69` P1 remediation (`SESS-DEC-35` effect ownership) | passed; **approved** `a6aba5e` | Red: `Item_effect_rows_must_match_the_validation_item_ownership_tuple` and `Item_effect_rows_cannot_reference_a_rejected_validation_item` inserted successfully under `0010` (2026-08-14). Green confirmation pass: those inserts are FK violations after `0011`; schema/repository/upgrade 49/49 including staged validate→effect reload and `0010→0011` upgrade; Grate empty/repeat 2/2 with one-time script count 11. Frozen `0005`–`0010` unchanged. External review of `a6aba5e`: 0 P0 / 0 P1. Push-triggered GitHub Actions: Documentation #123 passed (~19s); Implementation #92 passed (~6m 31s). Worker claim unblocked. |
 | Durable worker claim/execution first slice (`SESS-DEC-16`–`18`) | passed; application+admit+host | Red: admitted Invocation ids were `Guid`-N (not `ainv.*`); worker loop only heartbeated; `RetryLater` left work claimed; shutdown cancellation persisted `execution_failed`. Green confirmation pass: Sessions 230/230 including processor no-action Decision, malformed_control execution outcome, credential fail-closed, terminal redelivery, claim release on retry, and shutdown cancellation without terminalizing; architecture 28/28; runtime 35/35 including processor invocation and live/ready after a processing throw; Postgres repository 16/16 including pending `invocation.execute` enqueue. Live provider and ADR-011 remain out of this step. PostgreSQL claim/lease wiring is next. |
 | `38f1375` P1 cancelled-token release | passed; application | Red: `MemoryWorkStore.ReleaseToPendingAsync` honoring `ThrowIfCancellationRequested` made `Pre_cancelled_worker_releases_claimed_work_with_a_cleanup_token` throw `OperationCanceledException` (2026-08-14). Green: `ReleaseForRetryAsync` uses a bounded cleanup token (default 2s); store still honors cancellation; Sessions 230/230; architecture 28/28; runtime 35/35. Cancellation during load/execute still leaves the claim until lease recovery (next slice). |
+| Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |
