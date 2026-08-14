@@ -248,6 +248,52 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
     }
 
     [Fact]
+    public async Task Item_effect_rows_must_match_the_validation_item_ownership_tuple()
+    {
+        var seeded = await SeedRuntimeWithInvocationAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await InsertDecisionAsync(connection, seeded);
+        await InsertValidationRevisionAsync(connection, seeded, revisionOrdinal: 1, validationOutcome: "accepted");
+        await InsertOutputValidationAsync(connection, seeded, itemOrdinal: 0, validationOutcome: "accepted");
+        await InsertActionValidationAsync(connection, seeded, itemOrdinal: 0, validationOutcome: "accepted");
+
+        foreach (var mismatch in new[]
+                 {
+                     seeded with { ActivityId = Guid.NewGuid() },
+                     seeded with { ParticipantId = Guid.NewGuid() },
+                     seeded with { AttemptId = Guid.NewGuid() },
+                 })
+        {
+            var outputMismatch = await Assert.ThrowsAsync<PostgresException>(
+                async () => await InsertOutputEffectAsync(connection, mismatch, itemOrdinal: 0, effectOutcome: "applied"));
+            Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, outputMismatch.SqlState);
+
+            var actionMismatch = await Assert.ThrowsAsync<PostgresException>(
+                async () => await InsertActionEffectAsync(connection, mismatch, itemOrdinal: 0, effectOutcome: "applied"));
+            Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, actionMismatch.SqlState);
+        }
+    }
+
+    [Fact]
+    public async Task Item_effect_rows_cannot_reference_a_rejected_validation_item()
+    {
+        var seeded = await SeedRuntimeWithInvocationAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await InsertDecisionAsync(connection, seeded);
+        await InsertValidationRevisionAsync(connection, seeded, revisionOrdinal: 1, validationOutcome: "accepted");
+        await InsertOutputValidationAsync(connection, seeded, itemOrdinal: 0, validationOutcome: "rejected");
+        await InsertActionValidationAsync(connection, seeded, itemOrdinal: 0, validationOutcome: "rejected");
+
+        var rejectedOutput = await Assert.ThrowsAsync<PostgresException>(
+            async () => await InsertOutputEffectAsync(connection, seeded, itemOrdinal: 0, effectOutcome: "applied"));
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, rejectedOutput.SqlState);
+
+        var rejectedAction = await Assert.ThrowsAsync<PostgresException>(
+            async () => await InsertActionEffectAsync(connection, seeded, itemOrdinal: 0, effectOutcome: "applied"));
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, rejectedAction.SqlState);
+    }
+
+    [Fact]
     public async Task Database_stamps_commit_time_instead_of_client_supplied_timestamp()
     {
         var seeded = await SeedRuntimeAsync();
@@ -1048,6 +1094,135 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                     CommitVersion = revisionOrdinal,
                     CommitSequence = revisionOrdinal + 1,
                     ValidationOutcome = validationOutcome,
+                },
+                cancellationToken: CancellationToken));
+    }
+
+    private async Task InsertOutputValidationAsync(
+        NpgsqlConnection connection,
+        SeededRuntime runtime,
+        int itemOrdinal,
+        string validationOutcome)
+    {
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO session_decision_output_validations (
+                    organization_id, activity_id, participant_id, attempt_id, session_id,
+                    agent_invocation_id, revision_ordinal, item_ordinal, local_ref, kind,
+                    validation_outcome, rejection_reason_category, agent_output_id, effect_outcome)
+                VALUES (
+                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                    @InvocationId, 1, @ItemOrdinal, @LocalRef, @Kind,
+                    @ValidationOutcome, @RejectionReason, @AgentOutputId, 'not_attempted');
+                """,
+                new
+                {
+                    runtime.OrganizationId,
+                    runtime.ActivityId,
+                    runtime.ParticipantId,
+                    runtime.AttemptId,
+                    runtime.SessionId,
+                    runtime.InvocationId,
+                    ItemOrdinal = itemOrdinal,
+                    LocalRef = validationOutcome == "accepted" ? "out.message.primary" : "out.voice.primary",
+                    Kind = validationOutcome == "accepted" ? "message" : "voice",
+                    ValidationOutcome = validationOutcome,
+                    RejectionReason = validationOutcome == "accepted" ? null : "capability_disabled",
+                    AgentOutputId = validationOutcome == "accepted" ? "aout.roundtrip.0001" : null,
+                },
+                cancellationToken: CancellationToken));
+    }
+
+    private async Task InsertActionValidationAsync(
+        NpgsqlConnection connection,
+        SeededRuntime runtime,
+        int itemOrdinal,
+        string validationOutcome)
+    {
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO session_decision_requested_action_validations (
+                    organization_id, activity_id, participant_id, attempt_id, session_id,
+                    agent_invocation_id, revision_ordinal, item_ordinal, local_ref, kind,
+                    validation_outcome, rejection_reason_category, effect_outcome)
+                VALUES (
+                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                    @InvocationId, 1, @ItemOrdinal, 'act.timer.replace', 'replace_timer',
+                    @ValidationOutcome, @RejectionReason, 'not_attempted');
+                """,
+                new
+                {
+                    runtime.OrganizationId,
+                    runtime.ActivityId,
+                    runtime.ParticipantId,
+                    runtime.AttemptId,
+                    runtime.SessionId,
+                    runtime.InvocationId,
+                    ItemOrdinal = itemOrdinal,
+                    ValidationOutcome = validationOutcome,
+                    RejectionReason = validationOutcome == "accepted" ? null : "capability_disabled",
+                },
+                cancellationToken: CancellationToken));
+    }
+
+    private async Task InsertOutputEffectAsync(
+        NpgsqlConnection connection,
+        SeededRuntime runtime,
+        int itemOrdinal,
+        string effectOutcome)
+    {
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO session_decision_output_effects (
+                    organization_id, activity_id, participant_id, attempt_id, session_id,
+                    agent_invocation_id, revision_ordinal, item_ordinal, effect_outcome)
+                VALUES (
+                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                    @InvocationId, 1, @ItemOrdinal, @EffectOutcome);
+                """,
+                new
+                {
+                    runtime.OrganizationId,
+                    runtime.ActivityId,
+                    runtime.ParticipantId,
+                    runtime.AttemptId,
+                    runtime.SessionId,
+                    runtime.InvocationId,
+                    ItemOrdinal = itemOrdinal,
+                    EffectOutcome = effectOutcome,
+                },
+                cancellationToken: CancellationToken));
+    }
+
+    private async Task InsertActionEffectAsync(
+        NpgsqlConnection connection,
+        SeededRuntime runtime,
+        int itemOrdinal,
+        string effectOutcome)
+    {
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO session_decision_requested_action_effects (
+                    organization_id, activity_id, participant_id, attempt_id, session_id,
+                    agent_invocation_id, revision_ordinal, item_ordinal, effect_outcome)
+                VALUES (
+                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                    @InvocationId, 1, @ItemOrdinal, @EffectOutcome);
+                """,
+                new
+                {
+                    runtime.OrganizationId,
+                    runtime.ActivityId,
+                    runtime.ParticipantId,
+                    runtime.AttemptId,
+                    runtime.SessionId,
+                    runtime.InvocationId,
+                    ItemOrdinal = itemOrdinal,
+                    EffectOutcome = effectOutcome,
                 },
                 cancellationToken: CancellationToken));
     }

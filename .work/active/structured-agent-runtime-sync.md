@@ -610,6 +610,14 @@ and test reviews have no unresolved blocking findings.
     validation (`SESS-DEC-35`). Staged validate → persist → effect → persist
     → reload must reconstruct Decision `applied`, accepted message `applied`,
     and rejected voice `not_attempted`. Do not rewrite `0005`–`0009`.
+- [x] Remediate `737cb69` P1 before worker claim. Do not start worker claim,
+  live provider wiring, or ADR-011 until this integrity pass is green.
+  Do not rewrite applied migration `0010`.
+  - [x] Additive `0011`: bind output/action item-effect facts to the complete
+    ownership tuple and only `accepted` validation items (`SESS-DEC-35`).
+    Negative tests: wrong `activity_id` / `participant_id` / `attempt_id`;
+    `rejected` item plus `applied` effect. Retain staged validate → persist →
+    apply → persist → reload.
 - [!] Replace the worker heartbeat-only behavior with bounded durable-runtime
   processing while retaining health/readiness behavior. Claim Invocation work,
   reauthorize, execute attempts, record one Decision or execution outcome,
@@ -709,10 +717,18 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-External review of `d5b740c` (2026-08-14) **requested changes: 0 P0, 2 P1.**
-Both remediations are **implemented and evidenced**. Worker claim stays
-**blocked pending re-review** of this pass. Do not start worker, live provider
-wiring, or ADR-011 until that review is clear. `0005`–`0009` were not rewritten.
+External review of `737cb69` (2026-08-14) **requested changes: 0 P0, 1 P1.**
+The two `d5b740c` P1s remain closed. Additive `0011` is **implemented and
+evidenced**. Worker claim stays **blocked pending re-review** of this integrity
+pass. Do not rewrite `0010`. Do not start worker, live provider wiring, or
+ADR-011 until that review is clear.
+
+- P1: Effect FKs now bind the complete Organization → Activity → Participant →
+  Attempt → Session chain plus invocation/revision/item, and can reference only
+  an `accepted` validation item (`validation_outcome` column defaults to
+  `accepted` and is CHECK-constrained). Wrong ownership or `rejected + applied`
+  is a foreign-key violation. Staged validate → persist → apply → persist →
+  reload is retained.
 
 - P1 #1: `ModelExecutionStructuredControl` now requires a
   `ValidatedAgentDecisionEnvelope` that can only be admitted from UTF-8 through
@@ -942,6 +958,14 @@ surfaces.
 
 # Findings / deviations
 
+- External review of `737cb69` (2026-08-14): **request changes**, 0 P0 / 1 P1.
+  Push-triggered GitHub Actions on `main` were independently green
+  (Documentation #122, Implementation #91). The `d5b740c` schema-admission and
+  staged per-item persistence P1s are accepted. Remaining P1: `0010` effect FKs
+  omitted Activity/Participant/Attempt and allowed `rejected + applied`.
+  Remediation: additive `0011` (do not rewrite `0010`). Non-blocking P2:
+  admitted `EnvelopeRecommendation` collections are `IReadOnlyList`, not deeply
+  immutable.
 - External review of `d5b740c` (2026-08-14): **request changes**, 0 P0 / 2 P1.
   Push-triggered GitHub Actions on `main` were independently green
   (Documentation #121, Implementation #90). Remediation this pass: schema
@@ -1230,6 +1254,7 @@ surfaces.
 | `7e1bc83` first-invalid/second-valid cardinality (`SESS-DEC-30`) | passed; **approved** `39883c2` | Red: first missing-ref or voice-ref message left communication `rejected` so a later valid message stayed extra (2026-08-14). Green: Sessions 207/207; architecture 27/27. External review: 0 P0, 0 P1. Push-triggered GitHub Actions on `main` for `39883c2`: Documentation #120 passed (~12s); Implementation #89 passed (~6m 30s). Worker gates unchanged: exact v2 schema validation; additive v2/per-item persistence. |
 | Exact `agent-decision.v2` schema validation (`SESS-DEC-31` layer 1) | passed; application boundary | Red: `invalid-timer-duration.json` (`P1Y`) became `ModelExecutionStructuredControl` and `AgentDecisionEnvelopeReader` succeeded (2026-08-14). Green after consistency review: Sessions 221/221 including fixture-parity and duplicate-`local_ref` rejection; architecture 28/28 with Domain↛`Json.Schema` guard. Schema-invalid JSON is `malformed_control` with no envelope. |
 | `d5b740c` P1 remediations (`SESS-DEC-31` admission, `SESS-DEC-35` item effects) | passed; application+schema+repository | Red: `Typed_message_payload_ref_cannot_become_structured_control` returned `ModelExecutionStructuredControl` (2026-08-14). Green confirmation pass: Sessions 223/223 including constructor-type guard and serialize→admit fake path; architecture 28/28; Postgres schema/repository/upgrade 46/46 including `0010`, staged validate→effect reload (Decision `applied`, message `applied`, rejected voice `not_attempted`), and `0009→0010` upgrade. Grate one-time script count 10; known concurrent-empty Grate `pg_type` flake unchanged. Worker claim remains blocked pending re-review. |
+| `737cb69` P1 remediation (`SESS-DEC-35` effect ownership) | passed; schema | Red: `Item_effect_rows_must_match_the_validation_item_ownership_tuple` and `Item_effect_rows_cannot_reference_a_rejected_validation_item` inserted successfully under `0010` (2026-08-14). Green confirmation pass: those inserts are FK violations after `0011`; schema/repository/upgrade 49/49 including staged validate→effect reload and `0010→0011` upgrade; Grate empty/repeat 2/2 with one-time script count 11. Worker claim remains blocked pending re-review. Frozen `0005`–`0010` unchanged. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |
@@ -1242,9 +1267,9 @@ surfaces.
 # Blockers
 
 Worker claim against the model-execution port is **blocked pending re-review**
-of the `d5b740c` P1 remediations (unavoidable schema admission;
-staged per-item effect reconstruction). Do not start worker, live provider
-wiring, or ADR-011 until that review is clear.
+of the `737cb69` P1 remediation (additive `0011` full-scope ownership FK and
+accepted-item-only effect facts). Do not start worker, live provider wiring,
+or ADR-011 until that review is clear.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
