@@ -486,6 +486,30 @@ public sealed class AgentResponseMessage
         CompletionState = AgentMessageCompletionStates.Open;
     }
 
+    internal static AgentResponseMessage Rehydrate(
+        string messageId,
+        string generationAttemptId,
+        string drivingInvocationId,
+        string drivingDecisionId,
+        string turnId,
+        string responseSlotId,
+        string completionState,
+        string? assembledContentDigest,
+        IReadOnlyList<AgentResponseFragment> fragments)
+    {
+        var message = new AgentResponseMessage(
+            messageId,
+            generationAttemptId,
+            drivingInvocationId,
+            drivingDecisionId,
+            turnId,
+            responseSlotId);
+        message.CompletionState = completionState;
+        message.AssembledContentDigest = assembledContentDigest;
+        message._fragments.AddRange(fragments);
+        return message;
+    }
+
     public string MessageId { get; }
 
     public string GenerationAttemptId { get; }

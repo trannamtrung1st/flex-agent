@@ -17,6 +17,7 @@ public sealed class SessionsRepositoryOwnershipTests
             "LoadForUpdateAsync",
             "TrySaveAdmissionAsync",
             "TrySaveCompletionAsync",
+            "TrySaveAgentResponsePublicationAsync",
             "CountInvocationsAsync",
             "ListInvocationIdsAsync",
         };

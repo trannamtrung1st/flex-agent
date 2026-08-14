@@ -93,4 +93,43 @@ public sealed class SessionRuntimeRehydrateTests
         Assert.Equal(3, session.Turns[1].CreatedSessionSequence);
         Assert.Equal(3, session.Invocations[1].SessionSequence);
     }
+
+    [Fact]
+    public void Rehydrate_restores_agent_message_fragments_and_decision_linkage()
+    {
+        var binding = SessionRuntimeTestFixtures.CreateBinding();
+        var fragments = new[]
+        {
+            new AgentResponseFragment(1, 4, "Hel", ProtectedContentRef.DigestUtf8("Hel")),
+            new AgentResponseFragment(2, 5, "lo", ProtectedContentRef.DigestUtf8("lo")),
+        };
+        var message = AgentResponseMessage.Rehydrate(
+            "aout.rehydrate.0001",
+            "agen.1",
+            "ainv.1",
+            "adec.1",
+            "turn.1",
+            "slot.1",
+            AgentMessageCompletionStates.Complete,
+            ProtectedContentRef.DigestUtf8("Hello"),
+            fragments);
+
+        var session = SessionRuntime.Rehydrate(
+            binding,
+            SessionLifecycleState.Active,
+            sessionVersion: 3,
+            sessionSequence: 5,
+            cutoffSequence: null,
+            SessionRuntimeTestFixtures.T0,
+            agentMessages: [message]);
+
+        var loaded = Assert.Single(session.AgentMessages);
+        Assert.Equal("aout.rehydrate.0001", loaded.MessageId);
+        Assert.Equal("adec.1", loaded.DrivingDecisionId);
+        Assert.Equal("ainv.1", loaded.DrivingInvocationId);
+        Assert.Equal(AgentMessageCompletionStates.Complete, loaded.CompletionState);
+        Assert.Equal("Hello", loaded.AssembleExactText());
+        Assert.Equal(2, loaded.Fragments.Count);
+        Assert.Equal(4, loaded.Fragments[0].SessionSequence);
+    }
 }
