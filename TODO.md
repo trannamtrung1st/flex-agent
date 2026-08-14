@@ -1,0 +1,2 @@
+- [ ] Allow agents to propose/suggest improvements
+- [ ] Harness manager/assistant: help users to configure the harness
