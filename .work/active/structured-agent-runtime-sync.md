@@ -578,10 +578,12 @@ and test reviews have no unresolved blocking findings.
     rejects every presentation output independently and never publishes;
     runtime allocates `aout.*` only for accepted messages). Envelope
     `payload_ref` and output `references`/`payload_ref` are retained and
-    included in the recommendation digest. Same-Decision local references
-    resolve after item validation and before effect; missing refs and refs to
-    P0-rejected siblings (including voice) reject the referencing message
-    without publication or `aout.*` allocation.
+    included in the recommendation digest. P0 validates local references before
+    message cardinality: missing/ambiguous refs are `payload_invalid`, any
+    named sibling is `policy_prohibited` because P0 cannot accept a second
+    presentation output. The first runtime-ordered permitted message can still
+    be accepted after an earlier invalid sibling. `aout.*` is allocated only
+    for that accepted message.
   - [x] Application `IModelExecutionPort`, deterministic fake adapter, and
     credential-binding preflight that fails closed without fallback or a live
     provider.
@@ -697,14 +699,13 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-External review of `b83aaaa` (2026-08-14) is **improved but not approved for
-worker integration**: 0 P0, 1 remaining P1 in the remediation slice (local
-refs retained but not resolved before effect), plus the 2 tracked worker
-gates. Same-Decision local-reference resolution is now implemented: a message
-that names a missing `local_ref` or a P0-rejected voice sibling is rejected
-with no publication and no `aout.*`. Worker claim still must not start until
-exact `agent-decision.v2` schema validation and additive v2/per-item
-persistence are green.
+External review of `7e1bc83` (2026-08-14) found 0 P0 and 1 remaining P1: a
+reference-invalid first message provisionally consumed cardinality so a later
+valid message stayed rejected. That is fixed: references are validated before
+cardinality, so the first runtime-ordered permitted message is accepted. The
+local-reference remediation slice is cleared. Worker claim still must not
+start until exact `agent-decision.v2` schema validation and additive
+v2/per-item persistence are green.
 
 The multi-channel output decision gate is **cleared**. The successor Decision
 envelope (`agent-decision.v2`) and deterministic model-execution port exist:
@@ -768,13 +769,13 @@ timer replacement races, and export/backup/restore wait on later surfaces.
   recommendation identity, including envelope `payload_ref` and output
   `references`/`payload_ref`. Changing any of those fields must change
   `DecisionRecommendationDigestComputer` output.
-- P0 resolves output `references` only inside the current Decision after
-  independent item validation and before effect (`SESS-DEC-32`, `REQ-SESS-81`).
-  Unresolved/missing or ambiguous local refs are `payload_invalid`. A present
-  sibling that failed validation (including P0 `voice`) is `policy_prohibited`.
-  Neither case allocates `aout.*` or claims publication. Cross-Decision and
-  cross-Session refs remain impossible because the resolver never looks outside
-  the envelope.
+- P0 validates output `references` independently before message cardinality
+  (`SESS-DEC-30`, `SESS-DEC-32`, `REQ-SESS-81`). Unresolved/missing, self, or
+  ambiguous local refs are `payload_invalid`. Any named same-Decision sibling
+  is `policy_prohibited` in P0 because at most one presentation output can be
+  accepted; useful cross-output resolution waits for the later multi-channel
+  profile. A later valid message is still eligible after an earlier invalid
+  sibling. Neither rejected item allocates `aout.*`.
 - Keep this task's release boundary unchanged:
   text-only P0 remains the executable target, and tests must continue to reject
   voice, playback/Interaction Controller signals, unapproved audiences, tools,
@@ -905,10 +906,16 @@ timer replacement races, and export/backup/restore wait on later surfaces.
 
 # Findings / deviations
 
+- External review of `7e1bc83` (2026-08-14): 0 P0, 1 P1 — a reference-invalid
+  first message blocked a later valid message because cardinality ran before
+  refs. Fixed: refs validate first; first permitted message is accepted
+  (`SESS-DEC-30`). Local-reference remediation is cleared. The two worker gates
+  remain. GitHub combined status was not independently corroborated for that
+  SHA.
 - External review of `b83aaaa` (2026-08-14): improved, **not approved for
   worker integration**. Prior P1 #1/`no_action` publication and P1 #3 digest
   losslessness accepted. Remaining slice P1: local refs were retained but not
-  resolved before effect — fixed this follow-up (`SESS-DEC-32`, `REQ-SESS-81`,
+  resolved before effect — fixed in `7e1bc83` (`SESS-DEC-32`, `REQ-SESS-81`,
   missing `local_ref` and P0-rejected voice sibling). The two worker gates
   (exact v2 schema validation; additive v2/per-item persistence) remain. GitHub
   combined status was not independently corroborated for that SHA.
@@ -1136,6 +1143,9 @@ timer replacement races, and export/backup/restore wait on later surfaces.
   resolve after item validation. Missing/ambiguous refs reject the message as
   `payload_invalid`; refs to a P0-rejected voice sibling reject it as
   `policy_prohibited`. Neither allocates `aout.*` nor publishes.
+- Review remediation of `7e1bc83` (2026-08-14): reference validation now runs
+  before extra-message cardinality. A later valid message is accepted after a
+  missing-ref or voice-ref sibling; exactly one `aout.*` is allocated.
 
 # Verification
 
@@ -1161,6 +1171,7 @@ timer replacement races, and export/backup/restore wait on later surfaces.
 | Successor Decision envelope and dual-read (`SESS-DEC-31`, `REQ-SESS-80`, `AC-SESS-46`) | passed; contract+domain | Red: catalog/schema tests required `agent-decision.v2` before the schema existed. Green: contract tests 134/134 including v1 dual-read, schema-valid `voice`, opaque voice `payload_ref`, and rejected voice `communication_purpose`; Sessions 200/200 including mixed message+voice, extra message, empty `respond`, model-authored id/audience, hidden-reasoning parse, fake port, and no-fallback preflight; architecture 27/27; Postgres 75/76 with known concurrent-empty Grate `pg_type` flake that passed on retry; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-14). |
 | `bba3a20` P1 remediations (`SESS-DEC-18`, `SESS-DEC-30`, `SESS-DEC-35` identity) | passed; domain | Red: `No_action_with_a_valid_message_*` failed with effect `applied`; `Parser_retains_envelope_payload_ref_*` NRE; `Recommendation_digest_changes_*` equal digests (2026-08-14). Green: Sessions 203/203; architecture 27/27 (2026-08-14). Residual worker gates: exact v2 schema validation at the port; additive v2/per-item persistence. |
 | `b83aaaa` local-ref resolution (`SESS-DEC-32`, `REQ-SESS-81`) | passed; domain | Red: missing `local_ref` and P0-rejected voice sibling still accepted the message (2026-08-14). Green: Sessions 205/205; architecture 27/27 (2026-08-14). Worker gates unchanged. |
+| `7e1bc83` first-invalid/second-valid cardinality (`SESS-DEC-30`) | passed; domain | Red: first missing-ref or voice-ref message left communication `rejected` so a later valid message stayed extra (2026-08-14). Green: Sessions 207/207; architecture 27/27 (2026-08-14). Worker gates unchanged. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |

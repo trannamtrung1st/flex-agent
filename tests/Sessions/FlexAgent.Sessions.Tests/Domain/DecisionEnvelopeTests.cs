@@ -257,6 +257,75 @@ public sealed class DecisionEnvelopeTests
     }
 
     [Fact]
+    public void First_message_with_missing_local_ref_does_not_block_a_later_valid_message()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            invocationId,
+            outputs:
+            [
+                SessionRuntimeTestFixtures.MessageOutput(
+                    localRef: "out.message.one",
+                    references: [new OutputLocalReference("continues", "out.missing.primary")]),
+                SessionRuntimeTestFixtures.MessageOutput(localRef: "out.message.two"),
+            ]);
+
+        var result = session.CompleteInvocation(
+            invocationId, envelope, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(DecisionValidationOutcomes.Accepted, result.ValidationEffect!.ValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.Applied, result.ValidationEffect.EffectOutcome);
+        Assert.True(result.PublicationPathClaimed);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, result.ValidationEffect.OutputValidations[0].ValidationOutcome);
+        Assert.Equal(
+            RejectionReasonCategories.PayloadInvalid,
+            result.ValidationEffect.OutputValidations[0].RejectionReasonCategory);
+        Assert.Null(result.ValidationEffect.OutputValidations[0].AgentOutputId);
+        Assert.Equal(DecisionValidationOutcomes.Accepted, result.ValidationEffect.OutputValidations[1].ValidationOutcome);
+        Assert.StartsWith("aout.", result.ValidationEffect.OutputValidations[1].AgentOutputId);
+        Assert.Single(
+            result.ValidationEffect.OutputValidations,
+            item => !string.IsNullOrWhiteSpace(item.AgentOutputId));
+    }
+
+    [Fact]
+    public void First_message_referencing_rejected_voice_does_not_block_a_later_valid_message()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            invocationId,
+            outputs:
+            [
+                SessionRuntimeTestFixtures.MessageOutput(
+                    localRef: "out.message.one",
+                    references: [new OutputLocalReference("continues", "out.voice.primary")]),
+                SessionRuntimeTestFixtures.VoiceOutput(),
+                SessionRuntimeTestFixtures.MessageOutput(localRef: "out.message.two"),
+            ]);
+
+        var result = session.CompleteInvocation(
+            invocationId, envelope, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        Assert.Equal(DecisionValidationOutcomes.Accepted, result.ValidationEffect!.ValidationOutcome);
+        Assert.True(result.PublicationPathClaimed);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, result.ValidationEffect.OutputValidations[0].ValidationOutcome);
+        Assert.Equal(
+            RejectionReasonCategories.PolicyProhibited,
+            result.ValidationEffect.OutputValidations[0].RejectionReasonCategory);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, result.ValidationEffect.OutputValidations[1].ValidationOutcome);
+        Assert.Equal(DecisionValidationOutcomes.Accepted, result.ValidationEffect.OutputValidations[2].ValidationOutcome);
+        Assert.StartsWith("aout.", result.ValidationEffect.OutputValidations[2].AgentOutputId);
+        Assert.Null(result.ValidationEffect.OutputValidations[0].AgentOutputId);
+    }
+
+    [Fact]
     public void Parser_rejects_hidden_reasoning_as_malformed_control()
     {
         var json = """

@@ -13,44 +13,15 @@ internal static class P0DecisionProfileValidator
         var outputs = new List<OutputItemValidation>(envelope.Outputs.Count);
         var acceptedMessageCount = 0;
         var isNoAction = string.Equals(envelope.Disposition, DecisionDispositions.NoAction, StringComparison.Ordinal);
-        var pending = new List<(OutputRecommendation Output, OutputItemValidation Validation)>(envelope.Outputs.Count);
         foreach (var output in envelope.Outputs)
         {
             if (isNoAction)
             {
-                pending.Add((output, RejectOutput(output, RejectionReasonCategories.PolicyProhibited)));
+                outputs.Add(RejectOutput(output, RejectionReasonCategories.PolicyProhibited));
                 continue;
             }
 
-            pending.Add((output, ValidateOutput(output, ref acceptedMessageCount)));
-        }
-
-        var acceptedLocalRefs = pending
-            .Where(item => item.Validation.ValidationOutcome == DecisionValidationOutcomes.Accepted)
-            .Select(item => item.Output.LocalRef)
-            .ToHashSet(StringComparer.Ordinal);
-
-        foreach (var (output, validation) in pending)
-        {
-            if (validation.ValidationOutcome != DecisionValidationOutcomes.Accepted)
-            {
-                outputs.Add(validation);
-                continue;
-            }
-
-            var referenceRejection = ResolveLocalReferences(output, envelope.Outputs, acceptedLocalRefs);
-            if (referenceRejection is not null)
-            {
-                if (string.Equals(output.Kind, AgentOutputKinds.Message, StringComparison.Ordinal))
-                {
-                    acceptedMessageCount--;
-                }
-
-                outputs.Add(RejectOutput(output, referenceRejection));
-                continue;
-            }
-
-            outputs.Add(validation with { AgentOutputId = AllocateOutputId() });
+            outputs.Add(ValidateOutput(output, envelope.Outputs, ref acceptedMessageCount));
         }
 
         var actions = new List<RequestedActionItemValidation>(envelope.RequestedActions.Count);
@@ -95,7 +66,10 @@ internal static class P0DecisionProfileValidator
             timerOutcome);
     }
 
-    private static OutputItemValidation ValidateOutput(OutputRecommendation output, ref int acceptedMessageCount)
+    private static OutputItemValidation ValidateOutput(
+        OutputRecommendation output,
+        IReadOnlyList<OutputRecommendation> siblings,
+        ref int acceptedMessageCount)
     {
         if (string.Equals(output.Kind, AgentOutputKinds.Voice, StringComparison.Ordinal))
         {
@@ -123,6 +97,12 @@ internal static class P0DecisionProfileValidator
             return RejectOutput(output, RejectionReasonCategories.PayloadInvalid);
         }
 
+        var referenceRejection = ResolveLocalReferences(output, siblings);
+        if (referenceRejection is not null)
+        {
+            return RejectOutput(output, referenceRejection);
+        }
+
         if (acceptedMessageCount > 0)
         {
             return RejectOutput(output, RejectionReasonCategories.PolicyProhibited);
@@ -134,13 +114,12 @@ internal static class P0DecisionProfileValidator
             output.Kind,
             DecisionValidationOutcomes.Accepted,
             null,
-            null);
+            AllocateOutputId());
     }
 
     private static string? ResolveLocalReferences(
         OutputRecommendation output,
-        IReadOnlyList<OutputRecommendation> siblings,
-        IReadOnlySet<string> acceptedLocalRefs)
+        IReadOnlyList<OutputRecommendation> siblings)
     {
         if (output.References is null || output.References.Count == 0)
         {
@@ -167,14 +146,9 @@ internal static class P0DecisionProfileValidator
             {
                 return RejectionReasonCategories.PayloadInvalid;
             }
-
-            if (!acceptedLocalRefs.Contains(reference.LocalRef))
-            {
-                return RejectionReasonCategories.PolicyProhibited;
-            }
         }
 
-        return null;
+        return RejectionReasonCategories.PolicyProhibited;
     }
 
     private static RequestedActionItemValidation ValidateAction(
