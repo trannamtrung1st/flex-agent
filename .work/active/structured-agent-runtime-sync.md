@@ -643,7 +643,7 @@ and test reviews have no unresolved blocking findings.
     `REPEATABLE READ` so child-table reads cannot mix with a later Session
     version. Do not treat host `ConnectionStrings:Sessions` as an execution
     path.
-  - [ ] Inject crashes after claim, provider return, Decision commit,
+  - [>] Inject crashes after claim, provider return, Decision commit,
     effect/schedule commit, fragment commit, and before acknowledgement; prove
     lost-response reconciliation, backpressure, retry, shutdown,
     database-time/host-clock skew, and multi-worker contention.
@@ -743,15 +743,18 @@ Push-triggered GitHub Actions on `main`: Documentation #123 (~19s) and
 Implementation #92 (~6m 31s). The `d5b740c` / `737cb69` remediation chain is
 closed. **Worker claim against the model-execution port is unblocked.**
 
-Current work is remediating `c2fa693` P1s before crash/recovery. Do **not**
-fold live provider wiring or ADR-011 streaming publication into this step.
-Voice stays disabled. Frozen `0005`–`0011` stay frozen.
+Current work is the crash/recovery tranche of durable worker execution:
+inject after claim, provider return, Decision commit, and acknowledgement;
+prove lost-response reconciliation, backpressure, retry, shutdown, and
+queue monopolization on unprocessable oldest work. Do **not** fold live
+provider wiring or ADR-011 streaming publication into this step. Voice stays
+disabled. Frozen `0005`–`0011` stay frozen. Worker host stays idle until
+frozen-policy rehydration and an executable model port exist.
 
-- External review of `c2fa693`: 0 P0 / 2 P1 / 1 P2. Lease store is sound.
-  Host composition is an integration proof only; Worker stays idle until
-  binding rehydration and a real model port exist. Snapshot load must use
-  `REPEATABLE READ`. Queue monopolization on retry is deferred to
-  crash/recovery but must not be observable from an activated empty host.
+- External review of `4a483a7` (2026-08-14) **approved: 0 P0 / 0 P1 / 0 P2 /
+  1 P3 documentation cleanup.** Repeatable Read snapshot and idle host P1s
+  from `c2fa693` are closed. Queue monopolization on retry remains in this
+  crash/recovery tranche and is not an active host failure mode.
 
 - P1: Effect FKs now bind the complete Organization → Activity → Participant →
   Attempt → Session chain plus invocation/revision/item, and can reference only
@@ -1298,7 +1301,7 @@ surfaces.
 | `737cb69` P1 remediation (`SESS-DEC-35` effect ownership) | passed; **approved** `a6aba5e` | Red: `Item_effect_rows_must_match_the_validation_item_ownership_tuple` and `Item_effect_rows_cannot_reference_a_rejected_validation_item` inserted successfully under `0010` (2026-08-14). Green confirmation pass: those inserts are FK violations after `0011`; schema/repository/upgrade 49/49 including staged validate→effect reload and `0010→0011` upgrade; Grate empty/repeat 2/2 with one-time script count 11. Frozen `0005`–`0010` unchanged. External review of `a6aba5e`: 0 P0 / 0 P1. Push-triggered GitHub Actions: Documentation #123 passed (~19s); Implementation #92 passed (~6m 31s). Worker claim unblocked. |
 | Durable worker claim/execution first slice (`SESS-DEC-16`–`18`) | passed; application+admit+host | Red: admitted Invocation ids were `Guid`-N (not `ainv.*`); worker loop only heartbeated; `RetryLater` left work claimed; shutdown cancellation persisted `execution_failed`. Green confirmation pass: Sessions 230/230 including processor no-action Decision, malformed_control execution outcome, credential fail-closed, terminal redelivery, claim release on retry, and shutdown cancellation without terminalizing; architecture 28/28; runtime 35/35 including processor invocation and live/ready after a processing throw; Postgres repository 16/16 including pending `invocation.execute` enqueue. Live provider and ADR-011 remain out of this step. PostgreSQL claim/lease wiring is next. |
 | PostgreSQL claim/lease and worker composition (`SESS-DEC-16`, `SESS-DEC-21`) | passed after isolation fix; infrastructure+host | Red: `DurableInvocationWorkClaimTests` failed to compile (`PostgresDurableInvocationWorkStore` missing, 2026-08-14). Focused 6/6 passed in isolation; the full Postgres suite then failed those 6 because global `SKIP LOCKED` claimed leftover pending rows. Tests now lock other claimable work with `FOR UPDATE` while asserting the prepared Session. Confirmation pass (2026-08-14): claim 6/6; Sessions 230/230; architecture 30/30; runtime 36/36; `git diff --check` and `python3 scripts/check_docs.py` passed. Crash/fault injection remains next. Frozen-policy rehydration from configuration sources remains deferred. |
-| `c2fa693` P1 remediations (Repeatable Read snapshot, idle host) | passed; application+host | Red: snapshot load `SHOW transaction_isolation` was `read committed`; Worker with `ConnectionStrings:Sessions` registered `DurableInvocationWorkProcessor` (2026-08-14). Green: worker snapshot uses `REPEATABLE READ` and does not mix a later Decision into the earlier head; Worker stays idle even when a Sessions connection string is set. Confirmation pass: snapshot+claim 7/7; Sessions 230/230; architecture 29/29; runtime 37/37; `git diff --check` and `python3 scripts/check_docs.py` passed. Queue monopolization on retry remains the crash/recovery tranche. |
+| `c2fa693` P1 remediations (Repeatable Read snapshot, idle host) | passed; **approved** `4a483a7` | Red: snapshot load `SHOW transaction_isolation` was `read committed`; Worker with `ConnectionStrings:Sessions` registered `DurableInvocationWorkProcessor` (2026-08-14). Green: worker snapshot uses `REPEATABLE READ` and does not mix a later Decision into the earlier head; Worker stays idle even when a Sessions connection string is set. Confirmation pass: snapshot+claim 7/7; Sessions 230/230; architecture 29/29; runtime 37/37; `git diff --check` and `python3 scripts/check_docs.py` passed. External review: 0 P0 / 0 P1 / 0 P2 / 1 P3 work-file current-work sentence (fixed). Queue monopolization on retry remains this crash/recovery tranche. |
 | `38f1375` P1 cancelled-token release | passed; application | Red: `MemoryWorkStore.ReleaseToPendingAsync` honoring `ThrowIfCancellationRequested` made `Pre_cancelled_worker_releases_claimed_work_with_a_cleanup_token` throw `OperationCanceledException` (2026-08-14). Green: `ReleaseForRetryAsync` uses a bounded cleanup token (default 2s); store still honors cancellation; Sessions 230/230; architecture 28/28; runtime 35/35. Cancellation during load/execute still leaves the claim until lease recovery (next slice). |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
@@ -1312,10 +1315,9 @@ surfaces.
 
 # Blockers
 
-None for starting crash/recovery after `c2fa693` P1 remediations. Live provider
-wiring, ADR-011 streaming publication, and frozen-policy rehydration from
-configuration sources remain out of this worker step. Worker host stays idle
-until those exist so an empty binding source cannot monopolize the claim queue.
+None for the crash/recovery worker slice. Live provider wiring, ADR-011
+streaming publication, and frozen-policy rehydration from configuration
+sources remain out of this step. Worker host stays idle until those exist.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
