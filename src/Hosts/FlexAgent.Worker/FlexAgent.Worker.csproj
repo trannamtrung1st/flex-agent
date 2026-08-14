@@ -6,4 +6,7 @@
     <AssemblyName>FlexAgent.Worker</AssemblyName>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\Modules\Sessions\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
+  </ItemGroup>
 </Project>

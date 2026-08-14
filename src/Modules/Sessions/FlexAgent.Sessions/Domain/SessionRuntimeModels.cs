@@ -113,6 +113,29 @@ public static class SessionRuntimeOutboxEventTypes
     public const string InvocationCompleted = "session.invocation.completed";
 }
 
+public static class DurableSessionWorkTypes
+{
+    public const string ExecuteInvocation = "invocation.execute";
+}
+
+public static class DurableSessionWorkStates
+{
+    public const string Pending = "pending";
+    public const string Claimed = "claimed";
+    public const string Completed = "completed";
+    public const string Failed = "failed";
+    public const string Cancelled = "cancelled";
+}
+
+public static class DurableInvocationWorkOutcomes
+{
+    public const string Idle = "idle";
+    public const string Decided = "decided";
+    public const string ExecutionFailed = "execution_failed";
+    public const string Reconciled = "reconciled";
+    public const string RetryLater = "retry_later";
+}
+
 public static class ExecutionFailureReasons
 {
     public const string MalformedControl = "malformed_control";

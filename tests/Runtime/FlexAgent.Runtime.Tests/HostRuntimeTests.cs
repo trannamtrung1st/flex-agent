@@ -1,4 +1,5 @@
 using System.Net;
+using FlexAgent.Sessions.Application;
 using FlexAgent.Worker;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -103,5 +104,64 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         Assert.Equal(
             HttpStatusCode.ServiceUnavailable,
             (await client.GetAsync("/health/ready", cancellationToken)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Worker_loop_invokes_the_durable_invocation_processor_while_the_claim_gate_allows()
+    {
+        var processor = new CountingDurableInvocationWorkProcessor();
+        await using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IDurableInvocationWorkProcessor>(processor);
+            });
+        });
+        _ = factory.Services.GetRequiredService<WorkClaimGate>();
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/live", cancellationToken)).StatusCode);
+        await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
+
+        Assert.True(processor.Calls > 0);
+    }
+
+    [Fact]
+    public async Task Worker_stays_live_when_durable_invocation_processing_throws()
+    {
+        await using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IDurableInvocationWorkProcessor, ThrowingDurableInvocationWorkProcessor>();
+            });
+        });
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/live", cancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/ready", cancellationToken)).StatusCode);
+    }
+
+    private sealed class ThrowingDurableInvocationWorkProcessor : IDurableInvocationWorkProcessor
+    {
+        public Task<DurableInvocationWorkProcessResult> TryProcessNextAsync(CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("synthetic processing fault");
+    }
+
+    private sealed class CountingDurableInvocationWorkProcessor : IDurableInvocationWorkProcessor
+    {
+        private int _calls;
+
+        public int Calls => Volatile.Read(ref _calls);
+
+        public Task<DurableInvocationWorkProcessResult> TryProcessNextAsync(CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _calls);
+            return Task.FromResult(DurableInvocationWorkProcessResult.Idle);
+        }
     }
 }

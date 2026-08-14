@@ -130,6 +130,60 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     }
 
     [Fact]
+    public async Task Admit_enqueues_pending_invocation_execute_work()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AdmitTrustedTriggerHandler());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var admitted = await coordinator.AdmitAsync(
+            new AdmitTrustedTriggerCommand(
+                new TrustedRuntimeActor(organization.ActorId, "synthetic.test_actor"),
+                binding.Ownership,
+                ExpectedSessionVersion: 0,
+                SessionPersistenceFixtures.OpeningTrigger("trig.opening.work"),
+                "idem.opening.work",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var work = await connection.QuerySingleAsync<(string WorkType, string BusinessKey, string State)>(
+            new CommandDefinition(
+                """
+                SELECT work_type, business_key, state
+                FROM session_durable_work
+                WHERE organization_id = @OrganizationId
+                  AND session_id = @SessionId
+                  AND work_type = @WorkType;
+                """,
+                new
+                {
+                    binding.Ownership.OrganizationId,
+                    binding.Ownership.SessionId,
+                    WorkType = DurableSessionWorkTypes.ExecuteInvocation,
+                },
+                cancellationToken: CancellationToken));
+
+        Assert.Equal(admitted.Invocation!.AgentInvocationId, work.BusinessKey);
+        Assert.Equal(DurableSessionWorkStates.Pending, work.State);
+        Assert.StartsWith("ainv.", admitted.Invocation.AgentInvocationId, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Admit_rejects_stale_session_version()
     {
         var organization = await Fixture.SeedOrganizationAsync();

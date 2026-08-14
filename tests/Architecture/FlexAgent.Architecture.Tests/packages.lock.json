@@ -215,7 +215,10 @@
         }
       },
       "flexagent.worker": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.Sessions": "[1.0.0, )"
+        }
       },
       "Dapper": {
         "type": "CentralTransitive",

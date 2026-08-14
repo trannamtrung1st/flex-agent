@@ -285,7 +285,7 @@ public sealed class SessionRuntime
         }
 
         var invocation = new AgentInvocation(
-            Guid.NewGuid().ToString("N"),
+            $"ainv.{Guid.NewGuid():N}",
             Ownership,
             trigger,
             idempotencyKey,

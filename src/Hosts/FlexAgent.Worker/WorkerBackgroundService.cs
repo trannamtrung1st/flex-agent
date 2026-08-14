@@ -1,8 +1,12 @@
+using FlexAgent.Sessions.Application;
+using FlexAgent.Sessions.Domain;
+
 namespace FlexAgent.Worker;
 
 public sealed class WorkerBackgroundService(
     ILogger<WorkerBackgroundService> logger,
-    WorkClaimGate workClaimGate) : BackgroundService
+    WorkClaimGate workClaimGate,
+    IDurableInvocationWorkProcessor workProcessor) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -14,7 +18,22 @@ public sealed class WorkerBackgroundService(
             {
                 if (workClaimGate.TryClaimWork())
                 {
-                    logger.LogDebug("Worker idle heartbeat at {Timestamp}", DateTimeOffset.UtcNow);
+                    try
+                    {
+                        var processed = await workProcessor.TryProcessNextAsync(stoppingToken);
+                        if (processed.Outcome == DurableInvocationWorkOutcomes.Idle)
+                        {
+                            logger.LogDebug("Worker idle heartbeat at {Timestamp}", DateTimeOffset.UtcNow);
+                        }
+                    }
+                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception exception)
+                    {
+                        logger.LogError(exception, "Durable invocation work processing failed.");
+                    }
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);

@@ -28,6 +28,7 @@ public sealed class TrustedTriggerAdmissionTests
         Assert.Equal(session.Binding.Policy.PolicyDigest, result.Invocation.PolicyDigest);
         Assert.Equal(1, result.SessionSequence);
         Assert.Equal(session.Ownership, result.Invocation.Ownership);
+        Assert.StartsWith("ainv.", result.Invocation.AgentInvocationId, StringComparison.Ordinal);
         Assert.Single(session.Turns);
         Assert.Equal(TurnKinds.Participant, session.Turns[0].Kind);
         Assert.Equal(ResponseSlotStates.Open, session.Turns[0].ResponseSlot.State);

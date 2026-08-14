@@ -1,3 +1,4 @@
+using FlexAgent.Sessions.Application;
 using FlexAgent.Worker;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -5,6 +6,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<WorkClaimGate>();
+builder.Services.AddSingleton<IDurableInvocationWorkProcessor, IdleDurableInvocationWorkProcessor>();
 builder.Services.AddHostedService<WorkerBackgroundService>();
 builder.Services.AddHealthChecks()
     .AddCheck<WorkerReadinessCheck>("worker", tags: ["ready"])

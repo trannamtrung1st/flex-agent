@@ -257,6 +257,16 @@ public sealed class PostgresSessionRuntimeRepository
         ON CONFLICT (organization_id, session_id, agent_invocation_id, attempt_ordinal) DO NOTHING;
         """;
 
+    private const string InsertDurableWorkSql = """
+        INSERT INTO session_durable_work (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            work_id, work_type, business_key, state)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @WorkId, @WorkType, @BusinessKey, @State)
+        ON CONFLICT (organization_id, session_id, work_type, business_key) DO NOTHING;
+        """;
+
     private const string InsertDecisionSql = """
         INSERT INTO session_decisions (
             organization_id, activity_id, participant_id, attempt_id, session_id,
@@ -650,6 +660,23 @@ public sealed class PostgresSessionRuntimeRepository
                     PolicyDigest = invocation.PolicyDigest,
                     AdmittedSessionSequence = invocation.SessionSequence,
                     invocation.Status,
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                InsertDurableWorkSql,
+                new
+                {
+                    ownership.OrganizationId,
+                    ownership.ActivityId,
+                    ownership.ParticipantId,
+                    ownership.AttemptId,
+                    ownership.SessionId,
+                    WorkId = Guid.NewGuid(),
+                    WorkType = DurableSessionWorkTypes.ExecuteInvocation,
+                    BusinessKey = invocation.AgentInvocationId,
+                    State = DurableSessionWorkStates.Pending,
                 },
                 transaction,
                 cancellationToken: cancellationToken));

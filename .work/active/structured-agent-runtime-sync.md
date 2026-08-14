@@ -618,14 +618,25 @@ and test reviews have no unresolved blocking findings.
     Negative tests: wrong `activity_id` / `participant_id` / `attempt_id`;
     `rejected` item plus `applied` effect. Retain staged validate → persist →
     apply → persist → reload.
-- [!] Replace the worker heartbeat-only behavior with bounded durable-runtime
-  processing while retaining health/readiness behavior. Claim Invocation work,
-  reauthorize, execute attempts, record one Decision or execution outcome,
-  validate current policy, apply an idempotent effect, renew/expire claims, and
-  recover after process loss. Inject crashes after claim, provider return,
-  Decision commit, effect/schedule commit, fragment commit, and before
-  acknowledgement; prove lost-response reconciliation, backpressure, retry,
-  shutdown, database-time/host-clock skew, and multi-worker contention.
+- [>] Replace the worker heartbeat-only behavior with bounded durable-runtime
+  processing while retaining health/readiness behavior. Keep live provider
+  wiring and ADR-011 streaming publication as subsequent separate steps.
+  - [x] Application `DurableInvocationWorkProcessor`: claim → fake
+    `IModelExecutionPort` → exactly one Decision or execution outcome →
+    complete or reconcile redelivery. Schema-invalid control and missing
+    credential binding fail closed with no Decision. Admitted Invocation ids
+    are schema-stable `ainv.*`.
+  - [x] Admission persists pending `invocation.execute` durable work. The
+    worker loop invokes `IDurableInvocationWorkProcessor` while the claim gate
+    allows; health/readiness remain. Production claim/lease against PostgreSQL
+    is the next slice (host currently registers an idle processor when no
+    claim store is wired).
+  - [ ] PostgreSQL claim with lease, `SKIP LOCKED`, expire/reclaim, and
+    worker composition that processes admitted work end to end.
+  - [ ] Inject crashes after claim, provider return, Decision commit,
+    effect/schedule commit, fragment commit, and before acknowledgement; prove
+    lost-response reconciliation, backpressure, retry, shutdown,
+    database-time/host-clock skew, and multi-worker contention.
 - [ ] Implement ADR-011 as the P0 `message` output effect seam required by this
   runtime: durable Agent Message/fragment/completion records, commit-before-publish,
   exact order and integrity checks, safe SSE projection, replay/gap recovery,
@@ -717,11 +728,21 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-External review of `737cb69` (2026-08-14) **requested changes: 0 P0, 1 P1.**
-The two `d5b740c` P1s remain closed. Additive `0011` is **implemented and
-evidenced**. Worker claim stays **blocked pending re-review** of this integrity
-pass. Do not rewrite `0010`. Do not start worker, live provider wiring, or
-ADR-011 until that review is clear.
+External review of `a6aba5e` (2026-08-14) **approved: 0 P0 / 0 P1. CI green.**
+Push-triggered GitHub Actions on `main`: Documentation #123 (~19s) and
+Implementation #92 (~6m 31s). The `d5b740c` / `737cb69` remediation chain is
+closed. **Worker claim against the model-execution port is unblocked.**
+
+Current work is the durable worker claim/execution tranche. Do **not** fold
+live provider wiring or ADR-011 streaming publication into this step. Voice
+stays disabled. Frozen `0005`–`0011` stay frozen.
+
+- First worker slice is in: application processor (fake port, Decision XOR
+  execution outcome, credential/schema fail-closed, terminal redelivery
+  reconcile), `ainv.*` Invocation ids, pending `invocation.execute` work on
+  admit, and the worker loop calling the processor while remaining
+  live/ready. Next: PostgreSQL claim/lease and wiring that store into the
+  worker host.
 
 - P1: Effect FKs now bind the complete Organization → Activity → Participant →
   Attempt → Session chain plus invocation/revision/item, and can reference only
@@ -958,6 +979,11 @@ surfaces.
 
 # Findings / deviations
 
+- External review of `a6aba5e` (2026-08-14): **approved**, 0 P0 / 0 P1. CI green
+  (Documentation #123, Implementation #92). Worker claim unblocked. Live
+  provider wiring and ADR-011 remain subsequent separate steps. Non-blocking
+  P2 from `737cb69`: admitted `EnvelopeRecommendation` collections are
+  `IReadOnlyList`, not deeply immutable.
 - External review of `737cb69` (2026-08-14): **request changes**, 0 P0 / 1 P1.
   Push-triggered GitHub Actions on `main` were independently green
   (Documentation #122, Implementation #91). The `d5b740c` schema-admission and
@@ -1254,7 +1280,8 @@ surfaces.
 | `7e1bc83` first-invalid/second-valid cardinality (`SESS-DEC-30`) | passed; **approved** `39883c2` | Red: first missing-ref or voice-ref message left communication `rejected` so a later valid message stayed extra (2026-08-14). Green: Sessions 207/207; architecture 27/27. External review: 0 P0, 0 P1. Push-triggered GitHub Actions on `main` for `39883c2`: Documentation #120 passed (~12s); Implementation #89 passed (~6m 30s). Worker gates unchanged: exact v2 schema validation; additive v2/per-item persistence. |
 | Exact `agent-decision.v2` schema validation (`SESS-DEC-31` layer 1) | passed; application boundary | Red: `invalid-timer-duration.json` (`P1Y`) became `ModelExecutionStructuredControl` and `AgentDecisionEnvelopeReader` succeeded (2026-08-14). Green after consistency review: Sessions 221/221 including fixture-parity and duplicate-`local_ref` rejection; architecture 28/28 with Domain↛`Json.Schema` guard. Schema-invalid JSON is `malformed_control` with no envelope. |
 | `d5b740c` P1 remediations (`SESS-DEC-31` admission, `SESS-DEC-35` item effects) | passed; application+schema+repository | Red: `Typed_message_payload_ref_cannot_become_structured_control` returned `ModelExecutionStructuredControl` (2026-08-14). Green confirmation pass: Sessions 223/223 including constructor-type guard and serialize→admit fake path; architecture 28/28; Postgres schema/repository/upgrade 46/46 including `0010`, staged validate→effect reload (Decision `applied`, message `applied`, rejected voice `not_attempted`), and `0009→0010` upgrade. Grate one-time script count 10; known concurrent-empty Grate `pg_type` flake unchanged. Worker claim remains blocked pending re-review. |
-| `737cb69` P1 remediation (`SESS-DEC-35` effect ownership) | passed; schema | Red: `Item_effect_rows_must_match_the_validation_item_ownership_tuple` and `Item_effect_rows_cannot_reference_a_rejected_validation_item` inserted successfully under `0010` (2026-08-14). Green confirmation pass: those inserts are FK violations after `0011`; schema/repository/upgrade 49/49 including staged validate→effect reload and `0010→0011` upgrade; Grate empty/repeat 2/2 with one-time script count 11. Worker claim remains blocked pending re-review. Frozen `0005`–`0010` unchanged. |
+| `737cb69` P1 remediation (`SESS-DEC-35` effect ownership) | passed; **approved** `a6aba5e` | Red: `Item_effect_rows_must_match_the_validation_item_ownership_tuple` and `Item_effect_rows_cannot_reference_a_rejected_validation_item` inserted successfully under `0010` (2026-08-14). Green confirmation pass: those inserts are FK violations after `0011`; schema/repository/upgrade 49/49 including staged validate→effect reload and `0010→0011` upgrade; Grate empty/repeat 2/2 with one-time script count 11. Frozen `0005`–`0010` unchanged. External review of `a6aba5e`: 0 P0 / 0 P1. Push-triggered GitHub Actions: Documentation #123 passed (~19s); Implementation #92 passed (~6m 31s). Worker claim unblocked. |
+| Durable worker claim/execution first slice (`SESS-DEC-16`–`18`) | passed; application+admit+host | Red: admitted Invocation ids were `Guid`-N (not `ainv.*`); worker loop only heartbeated; `RetryLater` left work claimed; shutdown cancellation persisted `execution_failed`. Green confirmation pass: Sessions 230/230 including processor no-action Decision, malformed_control execution outcome, credential fail-closed, terminal redelivery, claim release on retry, and shutdown cancellation without terminalizing; architecture 28/28; runtime 35/35 including processor invocation and live/ready after a processing throw; Postgres repository 16/16 including pending `invocation.execute` enqueue. Live provider and ADR-011 remain out of this step. PostgreSQL claim/lease wiring is next. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |
@@ -1266,10 +1293,8 @@ surfaces.
 
 # Blockers
 
-Worker claim against the model-execution port is **blocked pending re-review**
-of the `737cb69` P1 remediation (additive `0011` full-scope ownership FK and
-accepted-item-only effect facts). Do not start worker, live provider wiring,
-or ADR-011 until that review is clear.
+None for starting durable worker claim/execution. Live provider wiring and
+ADR-011 streaming publication remain out of this worker step.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
