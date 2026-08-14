@@ -613,6 +613,120 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     }
 
     [Fact]
+    public async Task Staged_validation_then_effect_reloads_per_item_effect_facts()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var admitCoordinator = new PostgresAdmitTrustedTriggerCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AdmitTrustedTriggerHandler());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var admitted = await admitCoordinator.AdmitAsync(
+            new AdmitTrustedTriggerCommand(
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                binding.Ownership,
+                ExpectedSessionVersion: 0,
+                SessionPersistenceFixtures.OpeningTrigger("trig.opening.staged"),
+                "idem.opening.staged",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            var loaded = await repository.LoadForUpdateAsync(
+                binding.Ownership,
+                binding,
+                scope.Transaction,
+                CancellationToken);
+            Assert.NotNull(loaded);
+            var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
+            var invocationId = admitted.Invocation!.AgentInvocationId;
+            var recorded = loaded!.RecordDecision(
+                invocationId,
+                new EnvelopeRecommendation(
+                    "adec.staged.0001",
+                    invocationId,
+                    clock,
+                    DecisionDispositions.Respond,
+                    [
+                        new OutputRecommendation(
+                            AgentOutputKinds.Message,
+                            "out.message.primary",
+                            "agent_opening"),
+                        new OutputRecommendation(
+                            AgentOutputKinds.Voice,
+                            "out.voice.primary"),
+                    ],
+                    []),
+                clock);
+            Assert.True(recorded.Succeeded, recorded.OutcomeCode);
+            var validated = loaded.ValidateDecision(invocationId, clock);
+            Assert.Equal(DecisionValidationOutcomes.Accepted, validated.ValidationOutcome);
+            Assert.Equal(DecisionEffectOutcomes.NotAttempted, loaded.Invocations[0].ValidationEffect!.EffectOutcome);
+            Assert.True(
+                await repository.TrySaveCompletionAsync(
+                    binding.Ownership,
+                    admitted.SessionVersion!.Value,
+                    loaded,
+                    loaded.Invocations[0],
+                    scope.Transaction,
+                    CancellationToken));
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            var loaded = await repository.LoadForUpdateAsync(
+                binding.Ownership,
+                binding,
+                scope.Transaction,
+                CancellationToken);
+            Assert.NotNull(loaded);
+            var expectedVersion = loaded!.SessionVersion;
+            var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
+            var applied = loaded.ApplyDecisionEffect(admitted.Invocation.AgentInvocationId, clock);
+            Assert.Equal(DecisionEffectOutcomes.Applied, applied.EffectOutcome);
+            Assert.True(
+                await repository.TrySaveCompletionAsync(
+                    binding.Ownership,
+                    expectedVersion,
+                    loaded,
+                    loaded.Invocations[0],
+                    scope.Transaction,
+                    CancellationToken));
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        await using var loadScope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken);
+        var reloaded = await repository.LoadForUpdateAsync(
+            binding.Ownership,
+            binding,
+            loadScope.Transaction,
+            CancellationToken);
+        await loadScope.CommitAsync(CancellationToken);
+
+        Assert.NotNull(reloaded);
+        var effect = reloaded!.Invocations[0].ValidationEffect!;
+        Assert.Equal(DecisionEffectOutcomes.Applied, effect.EffectOutcome);
+        var message = Assert.Single(effect.OutputValidations, item => item.Kind == AgentOutputKinds.Message);
+        var voice = Assert.Single(effect.OutputValidations, item => item.Kind == AgentOutputKinds.Voice);
+        Assert.Equal(DecisionEffectOutcomes.Applied, message.EffectOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, voice.EffectOutcome);
+    }
+
+    [Fact]
     public async Task Invocation_list_and_count_do_not_leak_across_ownership()
     {
         var organization = await Fixture.SeedOrganizationAsync();

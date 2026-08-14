@@ -156,6 +156,28 @@ public sealed class PostgresSessionRuntimeRepository
         ORDER BY agent_invocation_id, revision_ordinal, item_ordinal;
         """;
 
+    private const string LoadOutputEffectsSql = """
+        SELECT agent_invocation_id, revision_ordinal, item_ordinal, effect_outcome
+        FROM session_decision_output_effects
+        WHERE organization_id = @OrganizationId
+          AND activity_id = @ActivityId
+          AND participant_id = @ParticipantId
+          AND attempt_id = @AttemptId
+          AND session_id = @SessionId
+        ORDER BY agent_invocation_id, revision_ordinal, item_ordinal;
+        """;
+
+    private const string LoadActionEffectsSql = """
+        SELECT agent_invocation_id, revision_ordinal, item_ordinal, effect_outcome
+        FROM session_decision_requested_action_effects
+        WHERE organization_id = @OrganizationId
+          AND activity_id = @ActivityId
+          AND participant_id = @ParticipantId
+          AND attempt_id = @AttemptId
+          AND session_id = @SessionId
+        ORDER BY agent_invocation_id, revision_ordinal, item_ordinal;
+        """;
+
     private const string LoadActionValidationsSql = """
         SELECT agent_invocation_id, revision_ordinal, item_ordinal, local_ref, kind,
                validation_outcome, rejection_reason_category, effect_outcome
@@ -244,17 +266,20 @@ public sealed class PostgresSessionRuntimeRepository
             payload_digest, decision_payload_digest_version,
             envelope_schema_version, envelope_json,
             committed_session_version, committed_session_sequence)
-        VALUES (
+        SELECT
             @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
             @AgentInvocationId, @DecisionId, @DecisionType, @ProducedAt,
             @NextTimerExpectedScheduleRevision, @NextTimerRelativeDelay,
             @ReasonCategory, @CommunicationPurpose, @TurnId, @ResponseSlotId,
             @PayloadDigest, @DecisionPayloadDigestVersion,
             @EnvelopeSchemaVersion, CAST(@EnvelopeJson AS jsonb),
-            @CommittedSessionVersion, @CommittedSessionSequence)
-        ON CONFLICT (
-            organization_id, activity_id, participant_id, attempt_id, session_id, agent_invocation_id)
-        DO NOTHING;
+            @CommittedSessionVersion, @CommittedSessionSequence
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM session_decisions
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+              AND agent_invocation_id = @AgentInvocationId);
         """;
 
     private const string InsertOutcomeSql = """
@@ -262,12 +287,16 @@ public sealed class PostgresSessionRuntimeRepository
             organization_id, activity_id, participant_id, attempt_id, session_id,
             agent_invocation_id, execution_outcome_id, outcome_category, reason_category,
             committed_session_version, committed_session_sequence)
-        VALUES (
+        SELECT
             @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
             @AgentInvocationId, @ExecutionOutcomeId, @OutcomeCategory, @ReasonCategory,
-            @CommittedSessionVersion, @CommittedSessionSequence)
-        ON CONFLICT (organization_id, session_id, agent_invocation_id)
-        DO NOTHING;
+            @CommittedSessionVersion, @CommittedSessionSequence
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM session_execution_outcomes
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+              AND agent_invocation_id = @AgentInvocationId);
         """;
 
     private const string InsertValidationSql = """
@@ -317,6 +346,30 @@ public sealed class PostgresSessionRuntimeRepository
             @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
             @AgentInvocationId, @RevisionOrdinal, @ItemOrdinal, @LocalRef, @Kind,
             @ValidationOutcome, @RejectionReasonCategory, @EffectOutcome)
+        ON CONFLICT (
+            organization_id, session_id, agent_invocation_id, revision_ordinal, item_ordinal)
+        DO NOTHING;
+        """;
+
+    private const string InsertOutputEffectSql = """
+        INSERT INTO session_decision_output_effects (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            agent_invocation_id, revision_ordinal, item_ordinal, effect_outcome)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @AgentInvocationId, @RevisionOrdinal, @ItemOrdinal, @EffectOutcome)
+        ON CONFLICT (
+            organization_id, session_id, agent_invocation_id, revision_ordinal, item_ordinal)
+        DO NOTHING;
+        """;
+
+    private const string InsertActionEffectSql = """
+        INSERT INTO session_decision_requested_action_effects (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            agent_invocation_id, revision_ordinal, item_ordinal, effect_outcome)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @AgentInvocationId, @RevisionOrdinal, @ItemOrdinal, @EffectOutcome)
         ON CONFLICT (
             organization_id, session_id, agent_invocation_id, revision_ordinal, item_ordinal)
         DO NOTHING;
@@ -452,6 +505,10 @@ public sealed class PostgresSessionRuntimeRepository
             new CommandDefinition(LoadOutputValidationsSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
         var actionValidationRows = (await connection.QueryAsync<SessionActionValidationRow>(
             new CommandDefinition(LoadActionValidationsSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
+        var outputEffectRows = (await connection.QueryAsync<SessionItemEffectRow>(
+            new CommandDefinition(LoadOutputEffectsSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
+        var actionEffectRows = (await connection.QueryAsync<SessionItemEffectRow>(
+            new CommandDefinition(LoadActionEffectsSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
 
         var invocations = invocationRows
             .Select(item => AgentInvocation.Rehydrate(
@@ -492,6 +549,16 @@ public sealed class PostgresSessionRuntimeRepository
                             .Where(action =>
                                 string.Equals(action.agent_invocation_id, item.agent_invocation_id, StringComparison.Ordinal)
                                 && action.revision_ordinal == validation.revision_ordinal)
+                            .ToArray(),
+                        outputEffectRows
+                            .Where(effect =>
+                                string.Equals(effect.agent_invocation_id, item.agent_invocation_id, StringComparison.Ordinal)
+                                && effect.revision_ordinal == validation.revision_ordinal)
+                            .ToArray(),
+                        actionEffectRows
+                            .Where(effect =>
+                                string.Equals(effect.agent_invocation_id, item.agent_invocation_id, StringComparison.Ordinal)
+                                && effect.revision_ordinal == validation.revision_ordinal)
                             .ToArray()))
                     .ToArray()))
             .ToArray();
@@ -641,6 +708,12 @@ public sealed class PostgresSessionRuntimeRepository
         if (invocation.Decision is not null)
         {
             var recommendation = invocation.Decision.Recommendation;
+            string? envelopeJson = null;
+            if (recommendation is EnvelopeRecommendation envelope)
+            {
+                envelopeJson = Encoding.UTF8.GetString(AgentDecisionEnvelopeSerializer.ToUtf8Json(envelope));
+            }
+
             await connection.ExecuteAsync(
                 new CommandDefinition(
                     InsertDecisionSql,
@@ -660,13 +733,13 @@ public sealed class PostgresSessionRuntimeRepository
                         ReasonCategory = recommendation switch
                         {
                             NoActionRecommendation noAction => noAction.ReasonCategory,
-                            EnvelopeRecommendation envelope => envelope.NoActionReasonCategory,
+                            EnvelopeRecommendation envelopeReason => envelopeReason.NoActionReasonCategory,
                             _ => null,
                         },
                         CommunicationPurpose = recommendation switch
                         {
                             EmitMessageRecommendation emit => emit.CommunicationPurpose,
-                            EnvelopeRecommendation envelope => envelope.Outputs
+                            EnvelopeRecommendation envelopeMessage => envelopeMessage.Outputs
                                 .FirstOrDefault(output =>
                                     string.Equals(output.Kind, AgentOutputKinds.Message, StringComparison.Ordinal))
                                 ?.CommunicationPurpose,
@@ -692,10 +765,8 @@ public sealed class PostgresSessionRuntimeRepository
                         },
                         PayloadDigest = invocation.Decision.PayloadDigest,
                         DecisionPayloadDigestVersion = DecisionPayloadDigest.FormatVersionV1,
-                        EnvelopeSchemaVersion = recommendation is EnvelopeRecommendation ? "v2" : "v1",
-                        EnvelopeJson = recommendation is EnvelopeRecommendation envelopeJson
-                            ? Encoding.UTF8.GetString(AgentDecisionEnvelopeSerializer.ToUtf8Json(envelopeJson))
-                            : null,
+                        EnvelopeSchemaVersion = envelopeJson is null ? "v1" : "v2",
+                        EnvelopeJson = envelopeJson,
                         CommittedSessionVersion = invocation.Decision.CommittedSessionVersion,
                         CommittedSessionSequence = invocation.Decision.CommittedSessionSequence,
                     },
@@ -798,10 +869,30 @@ public sealed class PostgresSessionRuntimeRepository
                             item.ValidationOutcome,
                             item.RejectionReasonCategory,
                             item.AgentOutputId,
-                            item.EffectOutcome,
+                            EffectOutcome = DecisionEffectOutcomes.NotAttempted,
                         },
                         transaction,
                         cancellationToken: cancellationToken));
+                if (IsTerminalItemEffect(item.EffectOutcome))
+                {
+                    await connection.ExecuteAsync(
+                        new CommandDefinition(
+                            InsertOutputEffectSql,
+                            new
+                            {
+                                ownership.OrganizationId,
+                                ownership.ActivityId,
+                                ownership.ParticipantId,
+                                ownership.AttemptId,
+                                ownership.SessionId,
+                                invocation.AgentInvocationId,
+                                RevisionOrdinal = validation.RevisionOrdinal,
+                                ItemOrdinal = index,
+                                item.EffectOutcome,
+                            },
+                            transaction,
+                            cancellationToken: cancellationToken));
+                }
             }
 
             for (var index = 0; index < validation.RequestedActionValidations.Count; index++)
@@ -824,10 +915,30 @@ public sealed class PostgresSessionRuntimeRepository
                             item.Kind,
                             item.ValidationOutcome,
                             item.RejectionReasonCategory,
-                            item.EffectOutcome,
+                            EffectOutcome = DecisionEffectOutcomes.NotAttempted,
                         },
                         transaction,
                         cancellationToken: cancellationToken));
+                if (IsTerminalItemEffect(item.EffectOutcome))
+                {
+                    await connection.ExecuteAsync(
+                        new CommandDefinition(
+                            InsertActionEffectSql,
+                            new
+                            {
+                                ownership.OrganizationId,
+                                ownership.ActivityId,
+                                ownership.ParticipantId,
+                                ownership.AttemptId,
+                                ownership.SessionId,
+                                invocation.AgentInvocationId,
+                                RevisionOrdinal = validation.RevisionOrdinal,
+                                ItemOrdinal = index,
+                                item.EffectOutcome,
+                            },
+                            transaction,
+                            cancellationToken: cancellationToken));
+                }
             }
         }
 
@@ -1009,7 +1120,9 @@ public sealed class PostgresSessionRuntimeRepository
     private static DecisionValidationEffectRecord ToValidation(
         SessionValidationRow row,
         IReadOnlyList<SessionOutputValidationRow> outputRows,
-        IReadOnlyList<SessionActionValidationRow> actionRows)
+        IReadOnlyList<SessionActionValidationRow> actionRows,
+        IReadOnlyList<SessionItemEffectRow> outputEffectRows,
+        IReadOnlyList<SessionItemEffectRow> actionEffectRows)
     {
         var record = new DecisionValidationEffectRecord(
             row.validation_outcome,
@@ -1023,7 +1136,7 @@ public sealed class PostgresSessionRuntimeRepository
                     item.validation_outcome,
                     item.rejection_reason_category,
                     item.agent_output_id,
-                    item.effect_outcome))
+                    ResolveItemEffect(item.effect_outcome, outputEffectRows, item.item_ordinal)))
                 .ToArray(),
             actionRows
                 .Select(item => new RequestedActionItemValidation(
@@ -1031,7 +1144,7 @@ public sealed class PostgresSessionRuntimeRepository
                     item.kind,
                     item.validation_outcome,
                     item.rejection_reason_category,
-                    item.effect_outcome))
+                    ResolveItemEffect(item.effect_outcome, actionEffectRows, item.item_ordinal)))
                 .ToArray());
         record.BindAuthoritativeState(
             row.revision_ordinal,
@@ -1041,7 +1154,7 @@ public sealed class PostgresSessionRuntimeRepository
             or DecisionEffectOutcomes.NoDomainEffect
             or DecisionEffectOutcomes.EffectFailed)
         {
-            record.SetEffectOutcome(row.effect_outcome, row.applied_turn_id, row.applied_response_slot_id);
+            record.RestorePersistedEffect(row.effect_outcome, row.applied_turn_id, row.applied_response_slot_id);
             if (row.effect_commit_session_version is not null && row.effect_commit_session_sequence is not null)
             {
                 record.BindEffectCommitState(
@@ -1052,6 +1165,22 @@ public sealed class PostgresSessionRuntimeRepository
 
         return record;
     }
+
+    private static string ResolveItemEffect(
+        string validationRowEffect,
+        IReadOnlyList<SessionItemEffectRow> effectRows,
+        int itemOrdinal)
+    {
+        var fact = effectRows.FirstOrDefault(row => row.item_ordinal == itemOrdinal);
+        return fact is not null && IsTerminalItemEffect(fact.effect_outcome)
+            ? fact.effect_outcome
+            : validationRowEffect;
+    }
+
+    private static bool IsTerminalItemEffect(string effectOutcome) =>
+        effectOutcome is DecisionEffectOutcomes.Applied
+            or DecisionEffectOutcomes.NoDomainEffect
+            or DecisionEffectOutcomes.EffectFailed;
 
     private static DateTimeOffset ToUtc(DateTime value)
     {
@@ -1243,5 +1372,11 @@ public sealed class PostgresSessionRuntimeRepository
         string kind,
         string validation_outcome,
         string? rejection_reason_category,
+        string effect_outcome);
+
+    private sealed record SessionItemEffectRow(
+        string agent_invocation_id,
+        int revision_ordinal,
+        int item_ordinal,
         string effect_outcome);
 }

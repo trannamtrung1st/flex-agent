@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
@@ -13,7 +14,13 @@ public sealed class ModelExecutionPortTests
         var adapter = new DeterministicFakeModelExecutionAdapter();
         var envelope = SessionRuntimeTestFixtures.Envelope(
             "ainv.00000001",
-            outputs: [SessionRuntimeTestFixtures.MessageOutput()]);
+            decisionId: "adec.port.00000001",
+            outputs:
+            [
+                SessionRuntimeTestFixtures.MessageOutput(
+                    turnId: "turn.00000001",
+                    responseSlotId: "slot.00000001"),
+            ]);
         adapter.EnqueueEnvelope(envelope);
 
         var result = await adapter.ExecuteAsync(CreateRequest("ainv.00000001"), CancellationToken.None);
@@ -23,6 +30,39 @@ public sealed class ModelExecutionPortTests
         Assert.All(
             control.Envelope.Outputs,
             output => Assert.True(string.IsNullOrWhiteSpace(output.ModelAgentOutputId)));
+    }
+
+    [Fact]
+    public async Task Typed_message_payload_ref_cannot_become_structured_control()
+    {
+        var adapter = new DeterministicFakeModelExecutionAdapter();
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            "ainv.00000001",
+            decisionId: "adec.port.00000001",
+            outputs:
+            [
+                SessionRuntimeTestFixtures.MessageOutput(
+                    turnId: "turn.00000001",
+                    responseSlotId: "slot.00000001",
+                    payloadRef: new ProtectedContentRef(
+                        "prot.message.invalid.0001",
+                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")),
+            ]);
+        adapter.EnqueueEnvelope(envelope);
+
+        var result = await adapter.ExecuteAsync(CreateRequest("ainv.00000001"), CancellationToken.None);
+
+        Assert.Equal(
+            ExecutionFailureReasons.MalformedControl,
+            Assert.IsType<ModelExecutionFailed>(result).ReasonCategory);
+        Assert.IsNotType<ModelExecutionStructuredControl>(result);
+    }
+
+    [Fact]
+    public void Structured_control_can_only_be_constructed_from_a_schema_admitted_envelope()
+    {
+        var parameter = Assert.Single(typeof(ModelExecutionStructuredControl).GetConstructors().Single().GetParameters());
+        Assert.Equal(typeof(ValidatedAgentDecisionEnvelope), parameter.ParameterType);
     }
 
     [Fact]

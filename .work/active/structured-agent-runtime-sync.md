@@ -600,7 +600,17 @@ and test reviews have no unresolved blocking findings.
   - [x] Additive PostgreSQL migration for the v2 envelope plus per-item
     output/action validation and effect/absence (`SESS-DEC-35`). Do not rewrite
     applied migrations `0005`–`0008`.
-- [>] Replace the worker heartbeat-only behavior with bounded durable-runtime
+- [x] Remediate `d5b740c` P1s before worker claim. Do not start worker claim,
+  live provider wiring, or ADR-011 until both are green.
+  - [x] Make `agent-decision.v2` schema admission structurally unavoidable on
+    `IModelExecutionPort`: structured control cannot be constructed from a
+    typed envelope that skipped the canonical schema boundary (`SESS-DEC-31`).
+    A `message` plus `payload_ref` must not become worker-consumable control.
+  - [x] Persist per-item effect as append-only facts separate from item
+    validation (`SESS-DEC-35`). Staged validate → persist → effect → persist
+    → reload must reconstruct Decision `applied`, accepted message `applied`,
+    and rejected voice `not_attempted`. Do not rewrite `0005`–`0009`.
+- [!] Replace the worker heartbeat-only behavior with bounded durable-runtime
   processing while retaining health/readiness behavior. Claim Invocation work,
   reauthorize, execute attempts, record one Decision or execution outcome,
   validate current policy, apply an idempotent effect, renew/expire claims, and
@@ -699,16 +709,23 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-The two worker-claim gates are **cleared**. Exact `agent-decision.v2` schema
-validation now sits on the model-execution JSON path: every invalid v2 catalog
-fixture is an execution failure with no Decision, including
-`invalid-timer-duration.json` (`P1Y`) that the handwritten mapper still accepts.
-Additive `0009` stores the v2 control envelope as JSONB plus append-only
-per-item output and requested-action validation/effect rows. Historical v1
-flattened Decision rows remain reconstructable (`envelope_schema_version = v1`,
-`envelope_json` null). Next executable work is worker claim against the
-model-execution port. ADR-011 fragment publication and the one-lane scheduler
-still wait after worker is in.
+External review of `d5b740c` (2026-08-14) **requested changes: 0 P0, 2 P1.**
+Both remediations are **implemented and evidenced**. Worker claim stays
+**blocked pending re-review** of this pass. Do not start worker, live provider
+wiring, or ADR-011 until that review is clear. `0005`–`0009` were not rewritten.
+
+- P1 #1: `ModelExecutionStructuredControl` now requires a
+  `ValidatedAgentDecisionEnvelope` that can only be admitted from UTF-8 through
+  the canonical schema reader. `EnqueueEnvelope` serializes then uses the same
+  JSON admission path. A typed `message` plus `payload_ref` is
+  `malformed_control`, not structured control.
+- P1 #2: Additive `0010` stores terminal per-item effects as append-only facts.
+  Validation child `effect_outcome` stays `not_attempted` on insert (0009
+  dual-read if no effect row). Hydrate restores parent effect without remapping
+  items. Duplicate Decision/outcome inserts use `WHERE NOT EXISTS` so a later
+  effect persist does not re-fire the last-sequence bump trigger. Staged
+  validate → persist → apply → persist → reload reconstructs Decision
+  `applied`, accepted message `applied`, and rejected voice `not_attempted`.
 
 External review of `39883c2` (2026-08-14) **approves the local-reference
 remediation slice: 0 P0, 0 P1.** Push-triggered GitHub Actions on `main`
@@ -718,11 +735,12 @@ visible through that tool, not that CI did not run.
 
 The multi-channel output decision gate is **cleared**. The successor Decision
 envelope (`agent-decision.v2`) and deterministic model-execution port exist:
-dual-read of historical v1, P0 independent item validation, and a scripted
-fake adapter with fail-closed credential preflight. Do not enable voice or
-rewrite applied migrations `0005`–`0008`. Next executable work is schema-parity
-validation at the port, then additive v2 persistence. ADR-011 fragment
-publication and the one-lane scheduler wait after worker is unblocked.
+dual-read of historical v1, P0 independent item validation, schema admission at
+the port, additive `0009`/`0010` persistence, and a scripted fake adapter with
+fail-closed credential preflight. Do not enable voice or rewrite applied
+migrations `0005`–`0009`. Next executable work is worker durable Invocation
+claim after re-review of this remediation pass. ADR-011 fragment publication
+and the one-lane scheduler wait after worker is unblocked.
 
 Planning and baseline inventory are complete. The canonical contract tranche
 and follow-up C# discriminated-union/wire-enum hardening are approved and frozen
@@ -924,6 +942,13 @@ surfaces.
 
 # Findings / deviations
 
+- External review of `d5b740c` (2026-08-14): **request changes**, 0 P0 / 2 P1.
+  Push-triggered GitHub Actions on `main` were independently green
+  (Documentation #121, Implementation #90). Remediation this pass: schema
+  admission is unavoidable on `IModelExecutionPort` via
+  `ValidatedAgentDecisionEnvelope`; additive `0010` append-only item-effect
+  facts plus `WHERE NOT EXISTS` Decision/outcome insert so staged effect
+  persist can reconstruct per-item outcomes. Frozen `0005`–`0009` unchanged.
 - Worker-claim gates (2026-08-14): exact `agent-decision.v2` schema validation
   at `AgentDecisionEnvelopeReader` (JsonSchema.Net Draft 2020-12, embedded
   canonical schema + primitives) plus additive `0009`. Domain parser remains a
@@ -1204,7 +1229,7 @@ surfaces.
 | `b83aaaa` local-ref resolution (`SESS-DEC-32`, `REQ-SESS-81`) | passed; domain | Red: missing `local_ref` and P0-rejected voice sibling still accepted the message (2026-08-14). Green: Sessions 205/205; architecture 27/27 (2026-08-14). Worker gates unchanged. |
 | `7e1bc83` first-invalid/second-valid cardinality (`SESS-DEC-30`) | passed; **approved** `39883c2` | Red: first missing-ref or voice-ref message left communication `rejected` so a later valid message stayed extra (2026-08-14). Green: Sessions 207/207; architecture 27/27. External review: 0 P0, 0 P1. Push-triggered GitHub Actions on `main` for `39883c2`: Documentation #120 passed (~12s); Implementation #89 passed (~6m 30s). Worker gates unchanged: exact v2 schema validation; additive v2/per-item persistence. |
 | Exact `agent-decision.v2` schema validation (`SESS-DEC-31` layer 1) | passed; application boundary | Red: `invalid-timer-duration.json` (`P1Y`) became `ModelExecutionStructuredControl` and `AgentDecisionEnvelopeReader` succeeded (2026-08-14). Green after consistency review: Sessions 221/221 including fixture-parity and duplicate-`local_ref` rejection; architecture 28/28 with Domain↛`Json.Schema` guard. Schema-invalid JSON is `malformed_control` with no envelope. |
-| Additive v2 envelope and per-item persistence (`SESS-DEC-35`) | passed; schema+repository | Additive `0009` (frozen `0005`–`0008` unchanged). Consistency review dropped `local_ref` UNIQUE (identity is `item_ordinal`; duplicates are P0 `payload_invalid`) and proved envelope digest survives serialize/parse/reload. Green: Postgres 80/80 including envelope CHECK, append-only item rows, mixed message+voice+timer reload, and `0008→0009` upgrade; Grate one-time script count 9; known concurrent-empty Grate `pg_type` flake passed on retry; `git diff --check` passed (2026-08-14). |
+| `d5b740c` P1 remediations (`SESS-DEC-31` admission, `SESS-DEC-35` item effects) | passed; application+schema+repository | Red: `Typed_message_payload_ref_cannot_become_structured_control` returned `ModelExecutionStructuredControl` (2026-08-14). Green confirmation pass: Sessions 223/223 including constructor-type guard and serialize→admit fake path; architecture 28/28; Postgres schema/repository/upgrade 46/46 including `0010`, staged validate→effect reload (Decision `applied`, message `applied`, rejected voice `not_attempted`), and `0009→0010` upgrade. Grate one-time script count 10; known concurrent-empty Grate `pg_type` flake unchanged. Worker claim remains blocked pending re-review. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |
@@ -1216,10 +1241,10 @@ surfaces.
 
 # Blockers
 
-Worker claim against the model-execution port is **unblocked**. Exact
-`agent-decision.v2` schema validation and additive v2/per-item persistence are
-implemented and evidenced. Worker implementation remains the next tranche and
-must not start live provider wiring.
+Worker claim against the model-execution port is **blocked pending re-review**
+of the `d5b740c` P1 remediations (unavoidable schema admission;
+staged per-item effect reconstruction). Do not start worker, live provider
+wiring, or ADR-011 until that review is clear.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.

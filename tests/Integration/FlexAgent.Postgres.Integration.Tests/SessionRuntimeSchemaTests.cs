@@ -17,7 +17,9 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         "session_invocation_attempts",
         "session_decisions",
         "session_decision_output_validations",
+        "session_decision_output_effects",
         "session_decision_requested_action_validations",
+        "session_decision_requested_action_effects",
         "session_decision_validations",
         "session_execution_outcomes",
         "session_messages",
@@ -173,6 +175,70 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                     """
                     UPDATE session_decision_output_validations
                     SET effect_outcome = 'not_attempted'
+                    WHERE session_id = @SessionId
+                      AND agent_invocation_id = @InvocationId;
+                    """,
+                    seeded,
+                    cancellationToken: CancellationToken)));
+        Assert.Contains("append-only", update.MessageText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Output_and_action_effect_rows_are_append_only_and_terminal()
+    {
+        var seeded = await SeedRuntimeWithInvocationAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await InsertDecisionAsync(connection, seeded);
+        await InsertValidationRevisionAsync(connection, seeded, revisionOrdinal: 1, validationOutcome: "accepted");
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO session_decision_output_validations (
+                    organization_id, activity_id, participant_id, attempt_id, session_id,
+                    agent_invocation_id, revision_ordinal, item_ordinal, local_ref, kind,
+                    validation_outcome, rejection_reason_category, agent_output_id, effect_outcome)
+                VALUES (
+                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                    @InvocationId, 1, 0, 'out.message.primary', 'message',
+                    'accepted', NULL, 'aout.roundtrip.0001', 'not_attempted');
+                """,
+                seeded,
+                cancellationToken: CancellationToken));
+
+        var notAttempted = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO session_decision_output_effects (
+                        organization_id, activity_id, participant_id, attempt_id, session_id,
+                        agent_invocation_id, revision_ordinal, item_ordinal, effect_outcome)
+                    VALUES (
+                        @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                        @InvocationId, 1, 0, 'not_attempted');
+                    """,
+                    seeded,
+                    cancellationToken: CancellationToken)));
+        Assert.Contains("chk_session_decision_output_effects_outcome", notAttempted.ConstraintName, StringComparison.OrdinalIgnoreCase);
+
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO session_decision_output_effects (
+                    organization_id, activity_id, participant_id, attempt_id, session_id,
+                    agent_invocation_id, revision_ordinal, item_ordinal, effect_outcome)
+                VALUES (
+                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                    @InvocationId, 1, 0, 'applied');
+                """,
+                seeded,
+                cancellationToken: CancellationToken));
+
+        var update = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE session_decision_output_effects
+                    SET effect_outcome = 'effect_failed'
                     WHERE session_id = @SessionId
                       AND agent_invocation_id = @InvocationId;
                     """,

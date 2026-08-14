@@ -125,7 +125,7 @@ internal static class SessionRuntimeTestFixtures
         string? decisionId = null,
         ProtectedContentRef? payloadRef = null) =>
         new(
-            DecisionId: decisionId ?? Guid.NewGuid().ToString("N"),
+            DecisionId: decisionId ?? "adec." + Guid.NewGuid().ToString("N"),
             InvocationId: invocationId,
             ProducedAt: T0.AddSeconds(2),
             Disposition: disposition,

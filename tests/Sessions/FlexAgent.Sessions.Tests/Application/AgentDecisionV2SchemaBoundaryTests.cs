@@ -54,6 +54,7 @@ public sealed class AgentDecisionV2SchemaBoundaryTests
 
         var control = Assert.IsType<ModelExecutionStructuredControl>(result);
         Assert.Equal(invocationId, control.Envelope.InvocationId);
+        Assert.Same(control.Envelope, control.Control.Envelope);
     }
 
     [Fact]

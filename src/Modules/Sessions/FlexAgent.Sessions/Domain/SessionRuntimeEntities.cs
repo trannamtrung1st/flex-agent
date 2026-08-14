@@ -245,6 +245,23 @@ public sealed class DecisionValidationEffectRecord
             .ToArray();
     }
 
+    internal void RestorePersistedEffect(
+        string effectOutcome,
+        string? appliedTurnId,
+        string? appliedResponseSlotId)
+    {
+        EffectOutcome = effectOutcome;
+        if (appliedTurnId is not null)
+        {
+            AppliedTurnId = appliedTurnId;
+        }
+
+        if (appliedResponseSlotId is not null)
+        {
+            AppliedResponseSlotId = appliedResponseSlotId;
+        }
+    }
+
     private static string DeriveOutputEffect(OutputItemValidation item, string decisionEffect)
     {
         if (!string.Equals(item.ValidationOutcome, DecisionValidationOutcomes.Accepted, StringComparison.Ordinal)

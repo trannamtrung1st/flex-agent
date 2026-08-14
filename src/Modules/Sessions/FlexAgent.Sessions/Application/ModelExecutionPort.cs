@@ -14,8 +14,11 @@ public sealed record ModelExecutionAttemptRequest(
 
 public abstract record ModelExecutionAttemptResult;
 
-public sealed record ModelExecutionStructuredControl(EnvelopeRecommendation Envelope)
-    : ModelExecutionAttemptResult;
+public sealed record ModelExecutionStructuredControl(ValidatedAgentDecisionEnvelope Control)
+    : ModelExecutionAttemptResult
+{
+    public EnvelopeRecommendation Envelope => Control.Envelope;
+}
 
 public sealed record ModelExecutionFailed(string ReasonCategory) : ModelExecutionAttemptResult;
 
@@ -47,7 +50,7 @@ public sealed class DeterministicFakeModelExecutionAdapter : IModelExecutionPort
         new();
 
     public void EnqueueEnvelope(EnvelopeRecommendation envelope) =>
-        _scripted.Enqueue((_, _) => new ModelExecutionStructuredControl(envelope));
+        _scripted.Enqueue((request, _) => CompleteFromJson(request, AgentDecisionEnvelopeSerializer.ToUtf8Json(envelope)));
 
     public void EnqueueControlJson(byte[] utf8Json) =>
         _scripted.Enqueue((request, _) => CompleteFromJson(request, utf8Json));
@@ -90,17 +93,17 @@ public sealed class DeterministicFakeModelExecutionAdapter : IModelExecutionPort
             return new ModelExecutionFailed(ExecutionFailureReasons.MalformedControl);
         }
 
-        var parsed = AgentDecisionEnvelopeReader.Read(utf8Json);
-        if (!parsed.Succeeded || parsed.Envelope is null)
+        if (!ValidatedAgentDecisionEnvelope.TryAdmit(utf8Json, out var admitted, out var failureReasonCategory)
+            || admitted is null)
         {
-            return new ModelExecutionFailed(parsed.FailureReasonCategory ?? ExecutionFailureReasons.MalformedControl);
+            return new ModelExecutionFailed(failureReasonCategory);
         }
 
-        if (!string.Equals(parsed.Envelope.InvocationId, request.AgentInvocationId, StringComparison.Ordinal))
+        if (!string.Equals(admitted.Envelope.InvocationId, request.AgentInvocationId, StringComparison.Ordinal))
         {
             return new ModelExecutionFailed(ExecutionFailureReasons.MalformedControl);
         }
 
-        return new ModelExecutionStructuredControl(parsed.Envelope);
+        return new ModelExecutionStructuredControl(admitted);
     }
 }
