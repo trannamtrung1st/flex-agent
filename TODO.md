@@ -1,2 +1,3 @@
 - [ ] Allow agents to propose/suggest improvements
 - [ ] Harness manager/assistant: help users to configure the harness
+- [ ] Voice specs: support one logical Agent turn with multiple governed, interruptible progress utterances followed by a clearly identified final response; define structured backend validation, rate limits, text equivalents, and generated/sent/played/interrupted/cancelled continuity without exposing hidden chain-of-thought.
