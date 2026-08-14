@@ -578,7 +578,10 @@ and test reviews have no unresolved blocking findings.
     rejects every presentation output independently and never publishes;
     runtime allocates `aout.*` only for accepted messages). Envelope
     `payload_ref` and output `references`/`payload_ref` are retained and
-    included in the recommendation digest.
+    included in the recommendation digest. Same-Decision local references
+    resolve after item validation and before effect; missing refs and refs to
+    P0-rejected siblings (including voice) reject the referencing message
+    without publication or `aout.*` allocation.
   - [x] Application `IModelExecutionPort`, deterministic fake adapter, and
     credential-binding preflight that fails closed without fallback or a live
     provider.
@@ -694,12 +697,14 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-External review of `bba3a20` (2026-08-14) is **not approved**: 0 P0, 4 P1.
-P1 #1 (`no_action` plus a valid message published) and P1 #3 (lossy envelope /
-digest) are fixed in this slice. P1 #2 (parser is not `agent-decision.v2`
-schema authority) and P1 #4 (PostgreSQL still flattens v2 to v1 columns and
-drops per-item validation on reload) remain **hard gates**. Worker claim must
-not start until those two are green.
+External review of `b83aaaa` (2026-08-14) is **improved but not approved for
+worker integration**: 0 P0, 1 remaining P1 in the remediation slice (local
+refs retained but not resolved before effect), plus the 2 tracked worker
+gates. Same-Decision local-reference resolution is now implemented: a message
+that names a missing `local_ref` or a P0-rejected voice sibling is rejected
+with no publication and no `aout.*`. Worker claim still must not start until
+exact `agent-decision.v2` schema validation and additive v2/per-item
+persistence are green.
 
 The multi-channel output decision gate is **cleared**. The successor Decision
 envelope (`agent-decision.v2`) and deterministic model-execution port exist:
@@ -763,6 +768,13 @@ timer replacement races, and export/backup/restore wait on later surfaces.
   recommendation identity, including envelope `payload_ref` and output
   `references`/`payload_ref`. Changing any of those fields must change
   `DecisionRecommendationDigestComputer` output.
+- P0 resolves output `references` only inside the current Decision after
+  independent item validation and before effect (`SESS-DEC-32`, `REQ-SESS-81`).
+  Unresolved/missing or ambiguous local refs are `payload_invalid`. A present
+  sibling that failed validation (including P0 `voice`) is `policy_prohibited`.
+  Neither case allocates `aout.*` or claims publication. Cross-Decision and
+  cross-Session refs remain impossible because the resolver never looks outside
+  the envelope.
 - Keep this task's release boundary unchanged:
   text-only P0 remains the executable target, and tests must continue to reject
   voice, playback/Interaction Controller signals, unapproved audiences, tools,
@@ -893,6 +905,13 @@ timer replacement races, and export/backup/restore wait on later surfaces.
 
 # Findings / deviations
 
+- External review of `b83aaaa` (2026-08-14): improved, **not approved for
+  worker integration**. Prior P1 #1/`no_action` publication and P1 #3 digest
+  losslessness accepted. Remaining slice P1: local refs were retained but not
+  resolved before effect — fixed this follow-up (`SESS-DEC-32`, `REQ-SESS-81`,
+  missing `local_ref` and P0-rejected voice sibling). The two worker gates
+  (exact v2 schema validation; additive v2/per-item persistence) remain. GitHub
+  combined status was not independently corroborated for that SHA.
 - External review of `bba3a20` (2026-08-14): **not approved**, 0 P0 / 4 P1.
   #1 `no_action` could accept and publish a Participant message — fixed this
   slice (`AC-SESS-42`/`SESS-DEC-18`/`SESS-DEC-30`). #3 parser/digest dropped
@@ -1113,6 +1132,10 @@ timer replacement races, and export/backup/restore wait on later surfaces.
   `no_action`, and does not claim publication. Parser retains envelope
   `payload_ref` and output `references`; digest covers those fields plus
   output `payload_ref`.
+- Review remediation of `b83aaaa` (2026-08-14): same-Decision local references
+  resolve after item validation. Missing/ambiguous refs reject the message as
+  `payload_invalid`; refs to a P0-rejected voice sibling reject it as
+  `policy_prohibited`. Neither allocates `aout.*` nor publishes.
 
 # Verification
 
@@ -1137,6 +1160,7 @@ timer replacement races, and export/backup/restore wait on later surfaces.
 | Multi-channel output decision gate | passed | ADR-014 plus product v0.4, RSC v0.4, Session v0.5, UI Session v0.5, runtime contract v0.5, and MVP architecture v0.10 approve the P0 envelope; this plan and the companion matrix were amended 2026-08-14. Voice remains out of scope. |
 | Successor Decision envelope and dual-read (`SESS-DEC-31`, `REQ-SESS-80`, `AC-SESS-46`) | passed; contract+domain | Red: catalog/schema tests required `agent-decision.v2` before the schema existed. Green: contract tests 134/134 including v1 dual-read, schema-valid `voice`, opaque voice `payload_ref`, and rejected voice `communication_purpose`; Sessions 200/200 including mixed message+voice, extra message, empty `respond`, model-authored id/audience, hidden-reasoning parse, fake port, and no-fallback preflight; architecture 27/27; Postgres 75/76 with known concurrent-empty Grate `pg_type` flake that passed on retry; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-14). |
 | `bba3a20` P1 remediations (`SESS-DEC-18`, `SESS-DEC-30`, `SESS-DEC-35` identity) | passed; domain | Red: `No_action_with_a_valid_message_*` failed with effect `applied`; `Parser_retains_envelope_payload_ref_*` NRE; `Recommendation_digest_changes_*` equal digests (2026-08-14). Green: Sessions 203/203; architecture 27/27 (2026-08-14). Residual worker gates: exact v2 schema validation at the port; additive v2/per-item persistence. |
+| `b83aaaa` local-ref resolution (`SESS-DEC-32`, `REQ-SESS-81`) | passed; domain | Red: missing `local_ref` and P0-rejected voice sibling still accepted the message (2026-08-14). Green: Sessions 205/205; architecture 27/27 (2026-08-14). Worker gates unchanged. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |

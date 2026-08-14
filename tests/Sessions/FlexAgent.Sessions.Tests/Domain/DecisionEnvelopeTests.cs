@@ -185,6 +185,78 @@ public sealed class DecisionEnvelopeTests
     }
 
     [Fact]
+    public void Message_referencing_a_nonexistent_local_ref_is_rejected_and_does_not_publish()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            invocationId,
+            outputs:
+            [
+                SessionRuntimeTestFixtures.MessageOutput(
+                    references: [new OutputLocalReference("continues", "out.missing.primary")]),
+            ]);
+
+        var result = session.CompleteInvocation(
+            invocationId, envelope, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.NotNull(result.Decision);
+        Assert.Null(result.ExecutionOutcome);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, result.ValidationEffect!.ValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, result.ValidationEffect.EffectOutcome);
+        Assert.False(result.PublicationPathClaimed);
+        var message = Assert.Single(result.ValidationEffect.OutputValidations);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, message.ValidationOutcome);
+        Assert.Equal(RejectionReasonCategories.PayloadInvalid, message.RejectionReasonCategory);
+        Assert.Null(message.AgentOutputId);
+        Assert.Equal(ResponseSlotStates.Open, session.Turns[0].ResponseSlot.State);
+        Assert.DoesNotContain(session.VisibleTranscript, item => item.AuthorType == TranscriptAuthorTypes.Agent);
+    }
+
+    [Fact]
+    public void Message_referencing_a_p0_rejected_voice_sibling_is_rejected_and_does_not_publish()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            invocationId,
+            outputs:
+            [
+                SessionRuntimeTestFixtures.MessageOutput(
+                    references: [new OutputLocalReference("continues", "out.voice.primary")]),
+                SessionRuntimeTestFixtures.VoiceOutput(),
+            ]);
+
+        var result = session.CompleteInvocation(
+            invocationId, envelope, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.NotNull(result.Decision);
+        Assert.Null(result.ExecutionOutcome);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, result.ValidationEffect!.ValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, result.ValidationEffect.EffectOutcome);
+        Assert.False(result.PublicationPathClaimed);
+        var message = Assert.Single(
+            result.ValidationEffect.OutputValidations,
+            item => item.Kind == AgentOutputKinds.Message);
+        var voice = Assert.Single(
+            result.ValidationEffect.OutputValidations,
+            item => item.Kind == AgentOutputKinds.Voice);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, message.ValidationOutcome);
+        Assert.Equal(RejectionReasonCategories.PolicyProhibited, message.RejectionReasonCategory);
+        Assert.Null(message.AgentOutputId);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, voice.ValidationOutcome);
+        Assert.Equal(RejectionReasonCategories.CapabilityDisabled, voice.RejectionReasonCategory);
+        Assert.Equal(ResponseSlotStates.Open, session.Turns[0].ResponseSlot.State);
+        Assert.DoesNotContain(session.VisibleTranscript, item => item.AuthorType == TranscriptAuthorTypes.Agent);
+    }
+
+    [Fact]
     public void Parser_rejects_hidden_reasoning_as_malformed_control()
     {
         var json = """

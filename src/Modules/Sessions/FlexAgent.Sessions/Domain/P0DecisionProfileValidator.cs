@@ -13,15 +13,44 @@ internal static class P0DecisionProfileValidator
         var outputs = new List<OutputItemValidation>(envelope.Outputs.Count);
         var acceptedMessageCount = 0;
         var isNoAction = string.Equals(envelope.Disposition, DecisionDispositions.NoAction, StringComparison.Ordinal);
+        var pending = new List<(OutputRecommendation Output, OutputItemValidation Validation)>(envelope.Outputs.Count);
         foreach (var output in envelope.Outputs)
         {
             if (isNoAction)
             {
-                outputs.Add(RejectOutput(output, RejectionReasonCategories.PolicyProhibited));
+                pending.Add((output, RejectOutput(output, RejectionReasonCategories.PolicyProhibited)));
                 continue;
             }
 
-            outputs.Add(ValidateOutput(output, ref acceptedMessageCount));
+            pending.Add((output, ValidateOutput(output, ref acceptedMessageCount)));
+        }
+
+        var acceptedLocalRefs = pending
+            .Where(item => item.Validation.ValidationOutcome == DecisionValidationOutcomes.Accepted)
+            .Select(item => item.Output.LocalRef)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var (output, validation) in pending)
+        {
+            if (validation.ValidationOutcome != DecisionValidationOutcomes.Accepted)
+            {
+                outputs.Add(validation);
+                continue;
+            }
+
+            var referenceRejection = ResolveLocalReferences(output, envelope.Outputs, acceptedLocalRefs);
+            if (referenceRejection is not null)
+            {
+                if (string.Equals(output.Kind, AgentOutputKinds.Message, StringComparison.Ordinal))
+                {
+                    acceptedMessageCount--;
+                }
+
+                outputs.Add(RejectOutput(output, referenceRejection));
+                continue;
+            }
+
+            outputs.Add(validation with { AgentOutputId = AllocateOutputId() });
         }
 
         var actions = new List<RequestedActionItemValidation>(envelope.RequestedActions.Count);
@@ -105,7 +134,47 @@ internal static class P0DecisionProfileValidator
             output.Kind,
             DecisionValidationOutcomes.Accepted,
             null,
-            AllocateOutputId());
+            null);
+    }
+
+    private static string? ResolveLocalReferences(
+        OutputRecommendation output,
+        IReadOnlyList<OutputRecommendation> siblings,
+        IReadOnlySet<string> acceptedLocalRefs)
+    {
+        if (output.References is null || output.References.Count == 0)
+        {
+            return null;
+        }
+
+        foreach (var reference in output.References)
+        {
+            if (string.Equals(reference.LocalRef, output.LocalRef, StringComparison.Ordinal))
+            {
+                return RejectionReasonCategories.PayloadInvalid;
+            }
+
+            var matches = 0;
+            foreach (var sibling in siblings)
+            {
+                if (string.Equals(sibling.LocalRef, reference.LocalRef, StringComparison.Ordinal))
+                {
+                    matches++;
+                }
+            }
+
+            if (matches != 1)
+            {
+                return RejectionReasonCategories.PayloadInvalid;
+            }
+
+            if (!acceptedLocalRefs.Contains(reference.LocalRef))
+            {
+                return RejectionReasonCategories.PolicyProhibited;
+            }
+        }
+
+        return null;
     }
 
     private static RequestedActionItemValidation ValidateAction(
