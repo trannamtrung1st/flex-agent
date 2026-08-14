@@ -153,7 +153,7 @@ public sealed class DurableInvocationWorkProcessorTests
     }
 
     [Fact]
-    public async Task Shutdown_cancellation_does_not_terminalize_a_claimed_invocation()
+    public async Task Pre_cancelled_worker_releases_claimed_work_with_a_cleanup_token()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
         var admitted = session.AdmitTrustedTrigger(
@@ -236,6 +236,7 @@ public sealed class DurableInvocationWorkProcessorTests
             TimeSpan lease,
             CancellationToken cancellationToken)
         {
+            // Simulate a claim that already committed before shutdown was observed.
             if (_item is null || _item.State != DurableSessionWorkStates.Pending)
             {
                 return Task.FromResult<DurableInvocationWorkItem?>(null);
@@ -248,12 +249,14 @@ public sealed class DurableInvocationWorkProcessorTests
 
         public Task ReleaseToPendingAsync(DurableInvocationWorkItem work, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             _item = work with { State = DurableSessionWorkStates.Pending };
             return Task.CompletedTask;
         }
 
         public Task MarkCompletedAsync(DurableInvocationWorkItem work, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             Completed = true;
             _item = work with { State = DurableSessionWorkStates.Completed };
             return Task.CompletedTask;

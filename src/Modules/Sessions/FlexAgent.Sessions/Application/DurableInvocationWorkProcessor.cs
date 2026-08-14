@@ -18,7 +18,12 @@ public sealed record DurableInvocationWorkSettings(
     string ProviderId,
     string SourceChannel,
     int MaxControlUtf8Bytes,
-    Func<SessionOwnership, ModelDeploymentCredentialBindingRequest> CreateBindingRequest);
+    Func<SessionOwnership, ModelDeploymentCredentialBindingRequest> CreateBindingRequest,
+    TimeSpan ClaimCleanupTimeout = default)
+{
+    public TimeSpan EffectiveClaimCleanupTimeout =>
+        ClaimCleanupTimeout > TimeSpan.Zero ? ClaimCleanupTimeout : TimeSpan.FromSeconds(2);
+}
 
 public sealed record DurableInvocationWorkProcessResult(
     string Outcome,
@@ -90,20 +95,20 @@ public sealed class DurableInvocationWorkProcessor(
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return await ReleaseForRetryAsync(claimed, cancellationToken);
+            return await ReleaseForRetryAsync(claimed);
         }
 
         var loaded = await sessionGateway.LoadAsync(claimed.Ownership, cancellationToken);
         if (loaded is null)
         {
-            return await ReleaseForRetryAsync(claimed, cancellationToken);
+            return await ReleaseForRetryAsync(claimed);
         }
 
         var invocation = loaded.Session.Invocations.FirstOrDefault(item =>
             string.Equals(item.AgentInvocationId, claimed.AgentInvocationId, StringComparison.Ordinal));
         if (invocation is null)
         {
-            return await ReleaseForRetryAsync(claimed, cancellationToken, claimed.AgentInvocationId);
+            return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
         }
 
         if (invocation.IsTerminal)
@@ -117,7 +122,7 @@ public sealed class DurableInvocationWorkProcessor(
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return await ReleaseForRetryAsync(claimed, cancellationToken, claimed.AgentInvocationId);
+            return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
         }
 
         var bindingRequest = settings.CreateBindingRequest(claimed.Ownership);
@@ -147,7 +152,7 @@ public sealed class DurableInvocationWorkProcessor(
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return await ReleaseForRetryAsync(claimed, cancellationToken, claimed.AgentInvocationId);
+            return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
         }
 
         var authoritativeUtc = await sessionGateway.ReadAuthoritativeUtcAsync(cancellationToken);
@@ -187,7 +192,6 @@ public sealed class DurableInvocationWorkProcessor(
         {
             return await ReleaseForRetryAsync(
                 claimed,
-                cancellationToken,
                 claimed.AgentInvocationId,
                 completion.OutcomeCode);
         }
@@ -196,7 +200,6 @@ public sealed class DurableInvocationWorkProcessor(
         {
             return await ReleaseForRetryAsync(
                 claimed,
-                cancellationToken,
                 claimed.AgentInvocationId,
                 completion.OutcomeCode);
         }
@@ -211,7 +214,6 @@ public sealed class DurableInvocationWorkProcessor(
         {
             return await ReleaseForRetryAsync(
                 claimed,
-                cancellationToken,
                 claimed.AgentInvocationId,
                 InvocationCompletionOutcomeCodes.StaleVersion);
         }
@@ -225,11 +227,11 @@ public sealed class DurableInvocationWorkProcessor(
 
     private async Task<DurableInvocationWorkProcessResult> ReleaseForRetryAsync(
         DurableInvocationWorkItem claimed,
-        CancellationToken cancellationToken,
         string? agentInvocationId = null,
         string? completionOutcomeCode = null)
     {
-        await workStore.ReleaseToPendingAsync(claimed, cancellationToken);
+        using var cleanup = new CancellationTokenSource(settings.EffectiveClaimCleanupTimeout);
+        await workStore.ReleaseToPendingAsync(claimed, cleanup.Token);
         return new DurableInvocationWorkProcessResult(
             DurableInvocationWorkOutcomes.RetryLater,
             agentInvocationId ?? claimed.AgentInvocationId,
