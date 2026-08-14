@@ -586,10 +586,39 @@ public sealed class PostgresSessionRuntimeRepository
                         ProducedAt = invocation.Decision.ProducedAt,
                         NextTimerExpectedScheduleRevision = recommendation.NextTimer?.ExpectedScheduleRevision,
                         NextTimerRelativeDelay = recommendation.NextTimer?.RelativeDelay,
-                        ReasonCategory = recommendation is NoActionRecommendation noAction ? noAction.ReasonCategory : null,
-                        CommunicationPurpose = recommendation is EmitMessageRecommendation emit ? emit.CommunicationPurpose : null,
-                        TurnId = recommendation is EmitMessageRecommendation emitTurn ? emitTurn.TurnId : null,
-                        ResponseSlotId = recommendation is EmitMessageRecommendation emitSlot ? emitSlot.ResponseSlotId : null,
+                        ReasonCategory = recommendation switch
+                        {
+                            NoActionRecommendation noAction => noAction.ReasonCategory,
+                            EnvelopeRecommendation envelope => envelope.NoActionReasonCategory,
+                            _ => null,
+                        },
+                        CommunicationPurpose = recommendation switch
+                        {
+                            EmitMessageRecommendation emit => emit.CommunicationPurpose,
+                            EnvelopeRecommendation envelope => envelope.Outputs
+                                .FirstOrDefault(output =>
+                                    string.Equals(output.Kind, AgentOutputKinds.Message, StringComparison.Ordinal))
+                                ?.CommunicationPurpose,
+                            _ => null,
+                        },
+                        TurnId = recommendation switch
+                        {
+                            EmitMessageRecommendation emitTurn => emitTurn.TurnId,
+                            EnvelopeRecommendation envelopeTurn => envelopeTurn.Outputs
+                                .FirstOrDefault(output =>
+                                    string.Equals(output.Kind, AgentOutputKinds.Message, StringComparison.Ordinal))
+                                ?.TurnId,
+                            _ => null,
+                        },
+                        ResponseSlotId = recommendation switch
+                        {
+                            EmitMessageRecommendation emitSlot => emitSlot.ResponseSlotId,
+                            EnvelopeRecommendation envelopeSlot => envelopeSlot.Outputs
+                                .FirstOrDefault(output =>
+                                    string.Equals(output.Kind, AgentOutputKinds.Message, StringComparison.Ordinal))
+                                ?.ResponseSlotId,
+                            _ => null,
+                        },
                         PayloadDigest = invocation.Decision.PayloadDigest,
                         DecisionPayloadDigestVersion = DecisionPayloadDigest.FormatVersionV1,
                         CommittedSessionVersion = invocation.Decision.CommittedSessionVersion,

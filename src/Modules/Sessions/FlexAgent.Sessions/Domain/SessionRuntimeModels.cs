@@ -119,6 +119,7 @@ public static class ExecutionFailureReasons
     public const string IncompleteControl = "incomplete_control";
     public const string ProviderTimeout = "provider_timeout";
     public const string ProviderUnavailable = "provider_unavailable";
+    public const string CredentialBindingFailed = "credential_binding_failed";
 }
 
 public static class ExecutionAttemptOutcomeCategories
@@ -309,7 +310,9 @@ public sealed record DecisionValidationResult(
     string OutcomeCode,
     string ValidationOutcome,
     string? RejectionReasonCategory,
-    string TimerValidationOutcome);
+    string TimerValidationOutcome,
+    IReadOnlyList<OutputItemValidation>? OutputValidations = null,
+    IReadOnlyList<RequestedActionItemValidation>? RequestedActionValidations = null);
 
 public sealed record DecisionEffectResult(
     bool Succeeded,

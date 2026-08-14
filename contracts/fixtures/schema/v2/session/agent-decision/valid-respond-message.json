@@ -1,0 +1,17 @@
+{
+  "schema_version": "v2",
+  "agent_decision_id": "adec.synthetic.0001",
+  "agent_invocation_id": "ainv.synthetic.0001",
+  "produced_at": "2026-08-14T00:00:05Z",
+  "disposition": "respond",
+  "outputs": [
+    {
+      "kind": "message",
+      "local_ref": "out.message.primary",
+      "communication_purpose": "participant_turn_reply",
+      "turn_id": "turn.synthetic.0001",
+      "response_slot_id": "slot.synthetic.0001"
+    }
+  ],
+  "requested_actions": []
+}

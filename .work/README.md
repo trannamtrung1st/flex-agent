@@ -92,7 +92,9 @@ All coding agents and humans use the same file under `.work/active/`. Before sub
 
 Keep `# Current state`, `# Findings / deviations`, `# Blockers`, and `# Verification` accurate enough that another agent can resume without re-deriving context.
 
-Record concise implementation summaries only. Because task files are Git-visible, never persist secrets, credentials, sensitive participant data, hidden chain-of-thought, or private reasoning.
+Record concise implementation summaries only. Because files under `.work/` are
+Git-visible, never persist secrets, credentials, sensitive participant data,
+hidden chain-of-thought, or private reasoning.
 
 ## What belongs elsewhere
 
@@ -116,7 +118,10 @@ Tracked for implementation collaboration and external review:
 - `.work/resources/`, non-authoritative source or proposal material (not
   product, requirements, UI/UX, or architecture authority)
 
-Nothing under `.work/` is intentionally ignored. Before adding or updating a task file, ensure it contains no secrets, credentials, sensitive participant data, or unnecessary raw output.
+Nothing under `.work/` is intentionally ignored. Before adding or updating any
+tracked file under `.work/`, ensure it contains no secrets, credentials,
+sensitive participant data, hidden chain-of-thought, private reasoning, or
+unnecessary raw output.
 
 Tracked plans remain non-authoritative execution records, not permanent product or architecture truth. Keep them after completion and external review for implementation tracking. Do not remove them as part of the implementation workflow; repository maintainers may clean them up when they choose. Promote durable decisions to their authoritative artifacts regardless of task-file retention.
 

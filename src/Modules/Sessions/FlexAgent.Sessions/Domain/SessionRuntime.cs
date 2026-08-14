@@ -647,7 +647,14 @@ public sealed class SessionRuntime
         }
 
         var recommendation = invocation.Decision.Recommendation;
-        var timerOutcome = ValidateTimerRecommendation(recommendation.NextTimer);
+        var envelope = HistoricalDecisionEnvelopeMapper.ToEnvelope(recommendation);
+        var profile = P0DecisionProfileValidator.Validate(
+            envelope,
+            Policy,
+            P0Kernel.IsDecisionTypeSupportedByP0);
+        var timerOutcome = CombineTimerOutcomes(
+            ValidateTimerRecommendation(envelope.NextTimer),
+            profile.TimerValidationOutcome);
         if (!Policy.PermittedDecisionTypes.Contains(recommendation.DecisionType, StringComparer.Ordinal)
             || !P0Kernel.IsDecisionTypeSupportedByP0(recommendation.DecisionType))
         {
@@ -656,28 +663,9 @@ public sealed class SessionRuntime
                 DecisionValidationOutcomes.Rejected,
                 RejectionReasonCategories.CapabilityDisabled,
                 timerOutcome,
-                authoritativeUtc);
-        }
-
-        if (recommendation is NoActionRecommendation && !Policy.NoActionPermitted)
-        {
-            return StoreValidation(
-                invocation,
-                DecisionValidationOutcomes.Rejected,
-                RejectionReasonCategories.PolicyProhibited,
-                timerOutcome,
-                authoritativeUtc);
-        }
-
-        if (recommendation is EmitMessageRecommendation emitMessage
-            && string.IsNullOrWhiteSpace(emitMessage.CommunicationPurpose))
-        {
-            return StoreValidation(
-                invocation,
-                DecisionValidationOutcomes.Rejected,
-                RejectionReasonCategories.PayloadInvalid,
-                timerOutcome,
-                authoritativeUtc);
+                authoritativeUtc,
+                profile.Outputs,
+                profile.RequestedActions);
         }
 
         if (HasCutoff())
@@ -687,7 +675,9 @@ public sealed class SessionRuntime
                 DecisionValidationOutcomes.Rejected,
                 RejectionReasonCategories.CutoffExceeded,
                 timerOutcome,
-                authoritativeUtc);
+                authoritativeUtc,
+                profile.Outputs,
+                profile.RequestedActions);
         }
 
         if (LifecycleState != SessionLifecycleState.Active)
@@ -697,15 +687,19 @@ public sealed class SessionRuntime
                 DecisionValidationOutcomes.Rejected,
                 RejectionReasonCategories.StateIneligible,
                 timerOutcome,
-                authoritativeUtc);
+                authoritativeUtc,
+                profile.Outputs,
+                profile.RequestedActions);
         }
 
         return StoreValidation(
             invocation,
-            DecisionValidationOutcomes.Accepted,
-            null,
+            profile.CommunicationOutcome,
+            profile.CommunicationRejectionReason,
             timerOutcome,
-            authoritativeUtc);
+            authoritativeUtc,
+            profile.Outputs,
+            profile.RequestedActions);
     }
 
     public DecisionEffectResult ApplyDecisionEffect(string agentInvocationId, DateTimeOffset authoritativeUtc)
@@ -747,7 +741,10 @@ public sealed class SessionRuntime
         }
 
         var recommendation = invocation.Decision.Recommendation;
-        if (recommendation is NoActionRecommendation)
+        if (recommendation is NoActionRecommendation
+            || recommendation is EnvelopeRecommendation envelope
+                && string.Equals(envelope.Disposition, DecisionDispositions.NoAction, StringComparison.Ordinal)
+                && !HasAcceptedMessage(invocation.ValidationEffect))
         {
             Turn? turn = null;
             if (IsParticipantTrigger(invocation.Trigger))
@@ -776,7 +773,7 @@ public sealed class SessionRuntime
                 DecisionEffectOutcomes.NoDomainEffect);
         }
 
-        if (recommendation is EmitMessageRecommendation)
+        if (recommendation is EmitMessageRecommendation || HasAcceptedMessage(invocation.ValidationEffect))
         {
             if (LifecycleState != SessionLifecycleState.Active)
             {
@@ -884,13 +881,17 @@ public sealed class SessionRuntime
         string validationOutcome,
         string? rejectionReason,
         string timerOutcome,
-        DateTimeOffset authoritativeUtc)
+        DateTimeOffset authoritativeUtc,
+        IReadOnlyList<OutputItemValidation>? outputValidations = null,
+        IReadOnlyList<RequestedActionItemValidation>? requestedActionValidations = null)
     {
         var record = new DecisionValidationEffectRecord(
             validationOutcome,
             DecisionEffectOutcomes.NotAttempted,
             timerOutcome,
-            rejectionReason);
+            rejectionReason,
+            outputValidations,
+            requestedActionValidations);
         invocation.AppendValidation(record);
         Touch(authoritativeUtc);
         record.BindAuthoritativeState(
@@ -907,8 +908,32 @@ public sealed class SessionRuntime
             InvocationCompletionOutcomeCodes.Decided,
             validationOutcome,
             rejectionReason,
-            timerOutcome);
+            timerOutcome,
+            record.OutputValidations,
+            record.RequestedActionValidations);
     }
+
+    private static string CombineTimerOutcomes(string laneOutcome, string profileOutcome)
+    {
+        if (laneOutcome == TimerValidationOutcomes.Rejected
+            || profileOutcome == TimerValidationOutcomes.Rejected)
+        {
+            return TimerValidationOutcomes.Rejected;
+        }
+
+        if (laneOutcome == TimerValidationOutcomes.Accepted
+            || profileOutcome == TimerValidationOutcomes.Accepted)
+        {
+            return TimerValidationOutcomes.Accepted;
+        }
+
+        return TimerValidationOutcomes.NotPresent;
+    }
+
+    private static bool HasAcceptedMessage(DecisionValidationEffectRecord validation) =>
+        validation.OutputValidations.Any(item =>
+            string.Equals(item.Kind, AgentOutputKinds.Message, StringComparison.Ordinal)
+            && string.Equals(item.ValidationOutcome, DecisionValidationOutcomes.Accepted, StringComparison.Ordinal));
 
     private string ValidateTimerRecommendation(NextTimerRecommendation? nextTimer)
     {

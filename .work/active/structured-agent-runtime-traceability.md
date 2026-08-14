@@ -97,13 +97,14 @@ Examples: `PT30S`, `PT5M`, `PT1H`, `PT24H`. Wire shape is validated by
 | `agent-invocation-execution-outcome.v1` | Invocation terminal outcome | No |
 | `agent-invocation-execution-attempt.v1` | Runtime record | No |
 | `agent-decision.v1` | Historical structured control (immutable) | No |
-| successor Decision envelope (to add before provider/worker) | P0 output/action envelope | No |
+| successor Decision envelope `agent-decision.v2` | P0 output/action envelope | No |
 | `decision-validation-effect.v1` | Runtime record | No |
 | `timer-schedule-revision.v1` | Scheduler record | No |
 | `sse-event.v1` (extended) | Transport | Yes — adds `complete`, `work` |
 
 Protected runtime TypeScript mirrors live in
-`web/src/contracts/internal-runtime.v1.ts` only. Participant-safe browser
+`web/src/contracts/internal-runtime.v1.ts` and
+`web/src/contracts/internal-runtime.v2.ts`. Participant-safe browser
 projections remain in `web/src/contracts/v1.ts`.
 
 ## Residual risks (tracked)
@@ -112,7 +113,9 @@ projections remain in `web/src/contracts/v1.ts`.
   fake adapter proves boundary only.
 - Numeric timer policy values come from frozen configuration fixtures in tests,
   not from code constants.
-- Successor Decision envelope schema, dual-read mapping, and additive
-  persistence (if required) must land before provider/worker consumption.
+- Successor `agent-decision.v2` schema, C#/TS DTOs, and v1 dual-read mapping
+  landed 2026-08-14. Per-item output/action validation rows are in-memory until
+  an additive persistence migration; hydrated PostgreSQL Decisions still
+  reconstruct the P0 v1 discriminator (`emit_message`/`no_action`).
 - Voice, Interaction Controller, TTS, and rich-content UI remain P2 authoring
   work after the MVP slice works end to end.

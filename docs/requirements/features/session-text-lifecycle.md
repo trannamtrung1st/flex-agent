@@ -7,7 +7,7 @@
 - Owner: Product Lead
 - Approvers: Product Lead, Architecture Lead, UI/UX reviewer, Security/Privacy reviewer
 - Approved date: 2026-08-14
-- Approval history: Baseline approved 2026-08-06; v0.2 approved 2026-08-09 with participant-visible incremental Agent-response streaming; v0.3 approved 2026-08-11 with the structured Agent Invocation/Decision boundary and explicit intentional no-action outcome; v0.4 approved 2026-08-11 with optional Agent-requested next-timer replacement; v0.5 approved 2026-08-14 with the P0-compatible Agent Decision output envelope; v0.5 amended 2026-08-14 to make output and requested-action validation independent and partial, and to keep schema-invalid output as an Invocation execution outcome
+- Approval history: Baseline approved 2026-08-06; v0.2 approved 2026-08-09 with participant-visible incremental Agent-response streaming; v0.3 approved 2026-08-11 with the structured Agent Invocation/Decision boundary and explicit intentional no-action outcome; v0.4 approved 2026-08-11 with optional Agent-requested next-timer replacement; v0.5 approved 2026-08-14 with the P0-compatible Agent Decision output envelope; v0.5 amended 2026-08-14 to make output and requested-action validation independent and partial, to keep schema-invalid output as an Invocation execution outcome, and to keep P0 `voice` representable without defining P2 speech/TTS/playback payload semantics
 - Source: [Session](../../product/concept-model.md#session), [Agent Invocation, Invocation Trigger, and Agent Decision](../../product/concept-model.md#agent-invocation-invocation-trigger-and-agent-decision), [Workflow model](../../product/concept-model.md#workflow-model), [Session state and events](../../product/concept-model.md#session-state-and-events), [Inspectable justification boundary](../../product/concept-model.md#evaluation-review-decision-result-and-release), [Product invariants](../../product/concept-model.md#product-invariants), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice), [MVP executable workflow](../../product/mvp-scope.md#mvp-executable-workflow), and [Participant capabilities](../../product/mvp-scope.md#participant-capabilities-mvp)
 - Catalog entry: P0 #5 — [P0 authoring order](../README.md#p0-authoring-order)
 - Related requirements: Consumes authorization and isolation from [`auth-resource-isolation.md`](auth-resource-isolation.md), the frozen configuration and manifest from [`resolved-session-configuration.md`](resolved-session-configuration.md), the activated text workflow from [`assessment-setup.md`](assessment-setup.md), and the active Attempt plus exact Submission binding from [`submission-attempts.md`](submission-attempts.md). Supplies a terminal, ordered transcript and lifecycle record to [`evidence-evaluation.md`](evidence-evaluation.md).
@@ -17,8 +17,9 @@
 Version 0.5 is **approved** and supersedes version 0.4 while preserving its
 Invocation/Decision, next-timer, and ADR-011 participant-visible streaming
 behavior. The 2026-08-14 amendment makes output and requested-action
-validation independent and partial and keeps schema-invalid output as an
-Invocation execution outcome.
+validation independent and partial, keeps schema-invalid output as an
+Invocation execution outcome, and keeps P0 `voice` representable without
+defining P2 speech, TTS, or playback payload semantics.
 
 ## Problem and measurable outcome
 
@@ -383,7 +384,9 @@ Connection states such as `Connecting`, `Connected`, `Reconnecting`, and `Offlin
   valid sibling output or requested action. Known typed output kinds that P0
   prohibits, including `voice`, must remain representable in a schema-valid
   Decision envelope; their P0 denial is frozen-profile and capability
-  validation of that item, not envelope or schema failure.
+  validation of that item, not envelope or schema failure. P0 representability
+  of `voice` does not define speech, TTS, playback, or Interaction Controller
+  payload semantics; those remain P2.
 - `REQ-SESS-80` — Historical v1 `emit_message` must remain reconstructable as
   disposition `respond` plus one `message` output. Historical v1 `no_action`
   must remain reconstructable as explicit `no_action` plus zero presentation

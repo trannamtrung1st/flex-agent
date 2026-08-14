@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v2/session/agent-decision.v2.schema.json",
+  "title": "Agent Decision envelope v2",
+  "description": "Successor Agent Decision envelope: explicit disposition, typed output recommendations, and typed requested actions. Historical v1 remains immutable. Known output kinds including voice stay schema-representable so P0 denial is profile validation, not parse failure. P0 voice is kind, local-reference metadata, and optional opaque payload only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "agent_decision_id",
+    "agent_invocation_id",
+    "produced_at",
+    "disposition",
+    "outputs",
+    "requested_actions"
+  ],
+  "properties": {
+    "schema_version": { "const": "v2" },
+    "agent_decision_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "agent_invocation_id": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "produced_at": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+    },
+    "disposition": {
+      "type": "string",
+      "enum": ["respond", "no_action"]
+    },
+    "outputs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/output_recommendation" }
+    },
+    "requested_actions": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/requested_action" }
+    },
+    "no_action": { "$ref": "#/$defs/no_action_payload" },
+    "payload_ref": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/protected_reference"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "disposition": { "const": "no_action" } },
+        "required": ["disposition"]
+      },
+      "then": { "required": ["no_action"] }
+    },
+    {
+      "if": {
+        "properties": { "disposition": { "const": "respond" } },
+        "required": ["disposition"]
+      },
+      "then": {
+        "not": { "required": ["no_action"] }
+      }
+    }
+  ],
+  "$defs": {
+    "no_action_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason_category"],
+      "properties": {
+        "reason_category": {
+          "type": "string",
+          "enum": ["intentional_silence", "workflow_complete", "awaiting_input"]
+        }
+      }
+    },
+    "local_ref": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+    },
+    "audience": {
+      "type": "string",
+      "enum": ["participant", "reviewer", "administrator", "runtime_only"]
+    },
+    "output_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation", "local_ref"],
+      "properties": {
+        "relation": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 64
+        },
+        "local_ref": { "$ref": "#/$defs/local_ref" }
+      }
+    },
+    "output_recommendation": {
+      "oneOf": [
+        { "$ref": "#/$defs/message_output" },
+        { "$ref": "#/$defs/voice_output" }
+      ]
+    },
+    "message_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "local_ref", "communication_purpose"],
+      "properties": {
+        "kind": { "const": "message" },
+        "local_ref": { "$ref": "#/$defs/local_ref" },
+        "communication_purpose": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 128
+        },
+        "turn_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "response_slot_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "agent_output_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "audience": { "$ref": "#/$defs/audience" },
+        "references": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/output_reference" }
+        }
+      }
+    },
+    "voice_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "local_ref"],
+      "properties": {
+        "kind": { "const": "voice" },
+        "local_ref": { "$ref": "#/$defs/local_ref" },
+        "agent_output_id": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/stable_id"
+        },
+        "audience": { "$ref": "#/$defs/audience" },
+        "references": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/output_reference" }
+        },
+        "payload_ref": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/protected_reference"
+        }
+      }
+    },
+    "requested_action": {
+      "oneOf": [
+        { "$ref": "#/$defs/next_timer_action" },
+        { "$ref": "#/$defs/deferred_action" }
+      ]
+    },
+    "next_timer_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "local_ref", "relative_delay", "expected_schedule_revision"],
+      "properties": {
+        "kind": { "const": "next_timer_request" },
+        "local_ref": { "$ref": "#/$defs/local_ref" },
+        "relative_delay": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/iso8601_positive_duration"
+        },
+        "expected_schedule_revision": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/positive_int64_wire_string"
+        }
+      }
+    },
+    "deferred_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "local_ref"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["request_tool", "propose_transition", "escalate"]
+        },
+        "local_ref": { "$ref": "#/$defs/local_ref" }
+      }
+    }
+  }
+}

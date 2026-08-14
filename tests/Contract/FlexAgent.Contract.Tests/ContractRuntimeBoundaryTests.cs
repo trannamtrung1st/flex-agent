@@ -275,6 +275,25 @@ public sealed class ContractRuntimeBoundaryTests
             schemas,
             "https://flex-agent.local/contracts/schemas/v1/session/agent-decision.v1.schema.json",
             emitMessageDecision);
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/session/agent-decision.v2.schema.json",
+            new AgentDecisionEnvelopeV2(
+                "v2",
+                "adec.synthetic.0001",
+                "ainv.synthetic.0001",
+                "2026-08-14T00:00:05Z",
+                DecisionDispositionV2.Respond,
+                [
+                    new AgentOutputRecommendationV2(
+                        AgentOutputKindV2.Message,
+                        "out.message.primary",
+                        "participant_turn_reply",
+                        "turn.synthetic.0001",
+                        "slot.synthetic.0001"),
+                ],
+                []));
     }
 
     private void ValidateDto(IReadOnlyDictionary<string, Json.Schema.JsonSchema> schemas, string schemaId, object dto)

@@ -1,0 +1,12 @@
+{
+  "schema_version": "v2",
+  "agent_decision_id": "adec.synthetic.0002",
+  "agent_invocation_id": "ainv.synthetic.0002",
+  "produced_at": "2026-08-14T00:00:06Z",
+  "disposition": "no_action",
+  "outputs": [],
+  "requested_actions": [],
+  "no_action": {
+    "reason_category": "intentional_silence"
+  }
+}

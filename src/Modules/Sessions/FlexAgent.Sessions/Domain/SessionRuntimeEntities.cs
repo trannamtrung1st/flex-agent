@@ -194,12 +194,16 @@ public sealed class DecisionValidationEffectRecord
         string validationOutcome,
         string effectOutcome,
         string timerValidationOutcome,
-        string? rejectionReasonCategory)
+        string? rejectionReasonCategory,
+        IReadOnlyList<OutputItemValidation>? outputValidations = null,
+        IReadOnlyList<RequestedActionItemValidation>? requestedActionValidations = null)
     {
         ValidationOutcome = validationOutcome;
         EffectOutcome = effectOutcome;
         TimerValidationOutcome = timerValidationOutcome;
         RejectionReasonCategory = rejectionReasonCategory;
+        OutputValidations = outputValidations ?? [];
+        RequestedActionValidations = requestedActionValidations ?? [];
     }
 
     public int RevisionOrdinal { get; private set; }
@@ -215,6 +219,10 @@ public sealed class DecisionValidationEffectRecord
     public string TimerValidationOutcome { get; }
 
     public string? RejectionReasonCategory { get; }
+
+    public IReadOnlyList<OutputItemValidation> OutputValidations { get; }
+
+    public IReadOnlyList<RequestedActionItemValidation> RequestedActionValidations { get; }
 
     internal void SetEffectOutcome(string effectOutcome, string? appliedTurnId = null, string? appliedResponseSlotId = null)
     {

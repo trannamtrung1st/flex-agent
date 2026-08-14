@@ -59,6 +59,9 @@ public sealed class ContractMappingParityTests
         Assert.Contains("RequestToolAgentDecisionV1", exported);
         Assert.Contains("ProposeTransitionAgentDecisionV1", exported);
         Assert.Contains("EscalateAgentDecisionV1", exported);
+        Assert.Contains("AgentDecisionEnvelopeV2", exported);
+        Assert.Contains("AgentOutputRecommendationV2", exported);
+        Assert.Contains("AgentRequestedActionV2", exported);
         Assert.Contains("AcceptedDecisionValidationEffectV1", exported);
         Assert.Contains("RejectedDecisionValidationEffectV1", exported);
         Assert.Contains("SuppressedDecisionValidationEffectV1", exported);

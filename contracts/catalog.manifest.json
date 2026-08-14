@@ -61,6 +61,11 @@
       "fixture_dir": "fixtures/schema/v1/session/agent-decision"
     },
     {
+      "category": "agent_decision_envelope",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/session/agent-decision.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/session/agent-decision"
+    },
+    {
       "category": "decision_validation_effect",
       "schema_id": "https://flex-agent.local/contracts/schemas/v1/session/decision-validation-effect.v1.schema.json",
       "fixture_dir": "fixtures/schema/v1/session/decision-validation-effect"

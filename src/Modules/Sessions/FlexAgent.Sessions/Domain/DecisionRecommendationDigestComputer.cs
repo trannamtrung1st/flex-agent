@@ -28,6 +28,11 @@ internal static class DecisionRecommendationDigestComputer
             writer.WriteString("decision_id", recommendation.DecisionId);
             writer.WriteString("decision_type", recommendation.DecisionType);
             writer.WriteString("invocation_id", recommendation.InvocationId);
+            if (recommendation is EnvelopeRecommendation envelope)
+            {
+                WriteEnvelope(writer, envelope);
+            }
+
             if (recommendation is EmitMessageRecommendation emit)
             {
                 writer.WriteString("communication_purpose", emit.CommunicationPurpose);
@@ -76,5 +81,60 @@ internal static class DecisionRecommendationDigestComputer
         }
 
         return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private static void WriteEnvelope(Utf8JsonWriter writer, EnvelopeRecommendation envelope)
+    {
+        writer.WriteString("disposition", envelope.Disposition);
+        if (envelope.NoActionReasonCategory is null)
+        {
+            writer.WriteNull("no_action_reason_category");
+        }
+        else
+        {
+            writer.WriteString("no_action_reason_category", envelope.NoActionReasonCategory);
+        }
+
+        writer.WritePropertyName("outputs");
+        writer.WriteStartArray();
+        foreach (var output in envelope.Outputs)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("kind", output.Kind);
+            writer.WriteString("local_ref", output.LocalRef);
+            WriteOptional(writer, "audience", output.ModelAudience);
+            WriteOptional(writer, "communication_purpose", output.CommunicationPurpose);
+            WriteOptional(writer, "model_agent_output_id", output.ModelAgentOutputId);
+            WriteOptional(writer, "response_slot_id", output.ResponseSlotId);
+            WriteOptional(writer, "turn_id", output.TurnId);
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
+        writer.WritePropertyName("requested_actions");
+        writer.WriteStartArray();
+        foreach (var action in envelope.RequestedActions)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("kind", action.Kind);
+            writer.WriteString("local_ref", action.LocalRef);
+            WriteOptional(writer, "expected_schedule_revision", action.ExpectedScheduleRevision);
+            WriteOptional(writer, "relative_delay", action.RelativeDelay);
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
+    }
+
+    private static void WriteOptional(Utf8JsonWriter writer, string name, string? value)
+    {
+        if (value is null)
+        {
+            writer.WriteNull(name);
+        }
+        else
+        {
+            writer.WriteString(name, value);
+        }
     }
 }

@@ -42,7 +42,7 @@ If the task is substantive, create or resume:
 
 Copy from `.work/templates/implementation-plan.md`. One task, one file. Do not create separate `PLAN.md`, `PROGRESS.md`, or similar for the same task.
 
-Task files are tracked for collaboration and external review. Never record secrets, sensitive participant data, credentials, or hidden chain-of-thought.
+Task files are tracked for collaboration and external review. Never record secrets, sensitive participant data, credentials, hidden chain-of-thought, or private reasoning in any tracked file under `.work/`, including `resources/`.
 
 ### 3. Plan before substantial implementation
 

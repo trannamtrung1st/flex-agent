@@ -1,0 +1,26 @@
+{
+  "schema_version": "v2",
+  "agent_decision_id": "adec.synthetic.0003",
+  "agent_invocation_id": "ainv.synthetic.0003",
+  "produced_at": "2026-08-14T00:00:07Z",
+  "disposition": "respond",
+  "outputs": [
+    {
+      "kind": "message",
+      "local_ref": "out.message.primary",
+      "communication_purpose": "participant_turn_reply"
+    },
+    {
+      "kind": "voice",
+      "local_ref": "out.voice.primary"
+    }
+  ],
+  "requested_actions": [
+    {
+      "kind": "next_timer_request",
+      "local_ref": "act.timer.primary",
+      "relative_delay": "PT30S",
+      "expected_schedule_revision": "1"
+    }
+  ]
+}

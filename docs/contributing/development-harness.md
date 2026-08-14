@@ -78,7 +78,7 @@ Shared live state lives in `.work/active/<task-slug>.md`. Copy `.work/templates/
 
 Executable workspace commands and gate coverage for the current scaffold live in [`workspace.md`](workspace.md).
 
-`.work/` is Git-tracked, non-authoritative execution state so external reviewers can inspect implementation plans and evidence and maintainers can retain completed task history. Governing specs, ADRs, code, and tests remain authoritative. The workflow composes role skills and specification-driven TDD; it does not replace them. Trivial one-step edits do not require a task file. Task files must not contain secrets, credentials, sensitive participant data, or hidden reasoning.
+`.work/` is Git-tracked, non-authoritative execution state so external reviewers can inspect implementation plans and evidence and maintainers can retain completed task history. Governing specs, ADRs, code, and tests remain authoritative. The workflow composes role skills and specification-driven TDD; it does not replace them. Trivial one-step edits do not require a task file. Any tracked file under `.work/`, including `active/`, `resources/`, and `templates/`, must not contain secrets, credentials, sensitive participant data, hidden chain-of-thought, private reasoning, or unnecessary raw output.
 
 All files under `.work/`, including live and retained completed task files, are Git-visible. Keep completed files after completion and external review for implementation tracking. Do not remove them as part of the implementation workflow; repository maintainers may clean them up when they choose.
 

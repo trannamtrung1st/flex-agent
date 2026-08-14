@@ -5,7 +5,10 @@
 Approved. Clarified 2026-08-14: outputs and requested actions are validated and
 effected independently (partial rejection). P0 does not impose Decision-wide
 output atomicity. Schema-invalid provider output remains an Invocation
-execution outcome and does not create an Agent Decision.
+execution outcome and does not create an Agent Decision. P0 `voice` is a
+recognized envelope kind with local-reference metadata and optional opaque
+payload only; speech, TTS, playback, and Interaction Controller semantics
+remain P2.
 
 ## Decision metadata
 
@@ -154,6 +157,11 @@ schema-valid Agent Decision when the envelope is otherwise complete; the
 `voice` item fails frozen P0 profile and capability validation and has no
 effect. Omitting `voice` from the envelope schema would collapse
 `AC-SESS-48` into whole-Decision parse failure and is prohibited.
+
+P0 represents `voice` only as a recognized output kind with local-reference
+metadata and an optional bounded opaque payload reference. It must not define
+speech text, TTS voice, audio format, playback mode, or Interaction Controller
+timing. Those remain P2 voice-contract work.
 
 Dual-read is required:
 

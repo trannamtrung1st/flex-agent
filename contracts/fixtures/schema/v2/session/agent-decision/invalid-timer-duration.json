@@ -1,0 +1,19 @@
+{
+  "schema_version": "v2",
+  "agent_decision_id": "adec.synthetic.0009",
+  "agent_invocation_id": "ainv.synthetic.0009",
+  "produced_at": "2026-08-14T00:00:13Z",
+  "disposition": "no_action",
+  "outputs": [],
+  "requested_actions": [
+    {
+      "kind": "next_timer_request",
+      "local_ref": "act.timer.primary",
+      "relative_delay": "P1Y",
+      "expected_schedule_revision": "1"
+    }
+  ],
+  "no_action": {
+    "reason_category": "awaiting_input"
+  }
+}

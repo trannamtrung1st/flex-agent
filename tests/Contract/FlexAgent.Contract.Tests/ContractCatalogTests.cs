@@ -17,7 +17,7 @@ public sealed class ContractCatalogTests
     public void Catalog_declares_draft_2020_12_and_complete_representative_set()
     {
         Assert.Equal("https://json-schema.org/draft/2020-12/schema", _catalog.SchemaDialect);
-        Assert.Equal(15, _catalog.RepresentativeSchemas.Count);
+        Assert.Equal(16, _catalog.RepresentativeSchemas.Count);
         Assert.Equal(4, _catalog.DigestSchemas.Count);
         Assert.All(_catalog.RepresentativeSchemas, entry =>
             Assert.StartsWith(_catalog.IdNamespace, entry.SchemaId, StringComparison.Ordinal));
@@ -28,7 +28,7 @@ public sealed class ContractCatalogTests
     {
         ContractSchemaRegistry.AssertReferenceClosure(ContractsRoot, _catalog);
         var schemas = ContractSchemaRegistry.BuildCatalogSchemas(ContractsRoot, _catalog, AllowedKeywords);
-        Assert.Equal(20, schemas.Count);
+        Assert.Equal(21, schemas.Count);
     }
 
     [Theory]
@@ -72,40 +72,18 @@ public sealed class ContractCatalogTests
 
     private static TheoryData<string, string> DiscoverFixtures(string prefix)
     {
-        var fixturesRoot = Path.Combine(ContractsRoot, "fixtures", "schema", "v1");
+        var catalog = ContractCatalogLoader.Load(ContractsRoot);
         var data = new TheoryData<string, string>();
-        foreach (var file in Directory.EnumerateFiles(fixturesRoot, $"{prefix}*.json", SearchOption.AllDirectories))
+        foreach (var entry in catalog.RepresentativeSchemas)
         {
-            var relative = Path.GetRelativePath(ContractsRoot, file).Replace('\\', '/');
-            var schemaId = ResolveSchemaId(relative);
-            data.Add(relative, schemaId);
+            var fixturesRoot = Path.Combine(ContractsRoot, entry.FixtureDir);
+            foreach (var file in Directory.EnumerateFiles(fixturesRoot, $"{prefix}*.json", SearchOption.AllDirectories))
+            {
+                var relative = Path.GetRelativePath(ContractsRoot, file).Replace('\\', '/');
+                data.Add(relative, entry.SchemaId);
+            }
         }
 
         return data;
-    }
-
-    private static string ResolveSchemaId(string relativeFixturePath)
-    {
-        var segments = relativeFixturePath.Split('/');
-        var category = segments[^2];
-        return category switch
-        {
-            "command-envelope" => "https://flex-agent.local/contracts/schemas/v1/session/command-envelope.v1.schema.json",
-            "state-event-envelope" => "https://flex-agent.local/contracts/schemas/v1/session/state-event-envelope.v1.schema.json",
-            "resolved-execution-manifest" => "https://flex-agent.local/contracts/schemas/v1/manifest/resolved-execution-manifest.v1.schema.json",
-            "evidence-locator" => "https://flex-agent.local/contracts/schemas/v1/evidence/evidence-locator.v1.schema.json",
-            "audit-event" => "https://flex-agent.local/contracts/schemas/v1/audit/audit-event.v1.schema.json",
-            "safe-error-response" => "https://flex-agent.local/contracts/schemas/v1/transport/safe-error-response.v1.schema.json",
-            "sse-event" => "https://flex-agent.local/contracts/schemas/v1/transport/sse-event.v1.schema.json",
-            "trusted-trigger" => "https://flex-agent.local/contracts/schemas/v1/session/trusted-trigger.v1.schema.json",
-            "agent-invocation" => "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation.v1.schema.json",
-            "agent-invocation-execution-attempt" => "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation-execution-attempt.v1.schema.json",
-            "agent-decision" => "https://flex-agent.local/contracts/schemas/v1/session/agent-decision.v1.schema.json",
-            "decision-validation-effect" => "https://flex-agent.local/contracts/schemas/v1/session/decision-validation-effect.v1.schema.json",
-            "timer-schedule-revision" => "https://flex-agent.local/contracts/schemas/v1/session/timer-schedule-revision.v1.schema.json",
-            "agent-invocation-execution-outcome" => "https://flex-agent.local/contracts/schemas/v1/session/agent-invocation-execution-outcome.v1.schema.json",
-            "iso8601-positive-duration" => "https://flex-agent.local/contracts/schemas/v1/common/iso8601-positive-duration-fixture.v1.schema.json",
-            _ => throw new InvalidOperationException($"Unknown fixture category: {category}"),
-        };
     }
 }

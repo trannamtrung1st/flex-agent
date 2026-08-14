@@ -1,0 +1,8 @@
+{
+  "schema_version": "v2",
+  "agent_decision_id": "adec.synthetic.0005",
+  "agent_invocation_id": "ainv.synthetic.0005",
+  "produced_at": "2026-08-14T00:00:09Z",
+  "outputs": [],
+  "requested_actions": []
+}

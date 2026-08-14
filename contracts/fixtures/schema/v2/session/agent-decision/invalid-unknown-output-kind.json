@@ -1,0 +1,14 @@
+{
+  "schema_version": "v2",
+  "agent_decision_id": "adec.synthetic.0006",
+  "agent_invocation_id": "ainv.synthetic.0006",
+  "produced_at": "2026-08-14T00:00:10Z",
+  "disposition": "respond",
+  "outputs": [
+    {
+      "kind": "evaluation",
+      "local_ref": "out.eval.primary"
+    }
+  ],
+  "requested_actions": []
+}

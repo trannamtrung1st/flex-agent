@@ -568,6 +568,20 @@ and test reviews have no unresolved blocking findings.
   opaque credential-binding identity, service delegation, egress allowlist,
   timeout, and payload limits; prove no missing/mismatched binding falls back to
   another provider or payer.
+  - [x] Successor `agent-decision.v2` schema, catalog, fixtures, C# DTOs,
+    TypeScript `internal-runtime.v2.ts`, and lossless v1 dual-read mapping.
+    Typed `voice` is schema-valid; unknown kinds and hidden-reasoning properties
+    fail envelope parse.
+  - [x] Domain `EnvelopeRecommendation`, parser, historical mapper, and P0
+    independent item validation (message accept + voice/extra/audience/id
+    reject; empty `respond` is Decision rejection not `no_action`; runtime
+    allocates `aout.*` only for accepted messages).
+  - [x] Application `IModelExecutionPort`, deterministic fake adapter, and
+    credential-binding preflight that fails closed without fallback or a live
+    provider.
+  - [ ] Worker-owned claim, egress allowlist, attempt timeout, and
+    cumulative-snapshot versus non-overlapping-delta content-phase remain for
+    the worker and ADR-011 steps; do not treat this slice as streaming complete.
 - [ ] Replace the worker heartbeat-only behavior with bounded durable-runtime
   processing while retaining health/readiness behavior. Claim Invocation work,
   reauthorize, execute attempts, record one Decision or execution outcome,
@@ -667,11 +681,13 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-The multi-channel output decision gate is **cleared**. Approved ADR-014 and
-the v0.4/v0.5 product/requirement/UI/runtime revisions define the P0 envelope.
-This task now resumes at the model-execution port. Consume the successor
-Decision envelope and P0 profile; dual-read historical v1; do not enable voice
-or rewrite applied migrations `0005`–`0008`.
+The multi-channel output decision gate is **cleared**. The successor Decision
+envelope (`agent-decision.v2`) and deterministic model-execution port slice
+landed 2026-08-14: dual-read of historical v1, P0 independent item validation,
+and a scripted fake adapter with fail-closed credential preflight. Worker claim,
+ADR-011 fragment publication, and the one-lane scheduler remain next. Do not
+enable voice or rewrite applied migrations `0005`–`0008`. Per-item validation
+rows are in-memory; PostgreSQL still reconstructs the P0 v1 discriminator.
 
 Planning and baseline inventory are complete. The canonical contract tranche
 and follow-up C# discriminated-union/wire-enum hardening are approved and frozen
@@ -697,10 +713,10 @@ now waits on `pg_locks` until T2 is blocked by T1 before advancing
 `created_session_sequence`, mixed agent-opening then participant uniqueness,
 completion audit/outbox rollback, and execution-failure `AlreadyTerminal` as
 a safe worker ack. `0008` backfill is best-effort; no production Session
-upgrade path. The output-contract decision gate is cleared; the next
-implementation work is the amended model-execution port and deterministic fake
-provider. Commit-time revocation, timer replacement races, and export/backup/
-restore wait on those later surfaces.
+upgrade path. The output-contract decision gate is cleared; the successor envelope and
+deterministic fake port are in. Next is bounded worker claim/execution against
+that port, then ADR-011 fragment publication. Commit-time revocation, timer
+replacement races, and export/backup/restore wait on those later surfaces.
 
 # Decisions
 
@@ -714,6 +730,10 @@ restore wait on those later surfaces.
   validation of that item (`AC-SESS-48`), not envelope parse. Provider, worker,
   and message-stream code must consume that envelope rather than treating v1
   `decision_type` as the future shape.
+- P0 `voice` is a recognized envelope kind with local-reference metadata and
+  an optional bounded opaque payload reference. Speech text, TTS, audio format,
+  playback, and Interaction Controller timing remain P2 and must not be
+  designed in this schema.
 - Keep this task's release boundary unchanged:
   text-only P0 remains the executable target, and tests must continue to reject
   voice, playback/Interaction Controller signals, unapproved audiences, tools,
@@ -1037,6 +1057,19 @@ restore wait on those later surfaces.
   External review **approved** `0a40324` with no remaining P0/P1/P2. P3:
   `0008` still says "UTC-ordered"; the column is Session-sequence ordered.
   Not edited in place (applied one-time Grate script).
+- External review of `38a20a0` (2026-08-14): approved with no runtime blocker.
+  P3 sensitive-data wording now covers every tracked `.work/` file, including
+  `resources/`. P0 `voice` representation is kind + local refs + optional opaque
+  payload; speech/TTS/playback remain P2.
+- Model-execution port slice (2026-08-14): added `agent-decision.v2` with
+  disposition/outputs/requested_actions; dual-read maps v1 `emit_message` to
+  `respond`+one message and v1 `no_action` to explicit `no_action`+zero outputs.
+  Domain validation accepts the first Participant message, rejects voice/extra
+  messages/prohibited audience/model-authored output ids per item, and does not
+  infer `no_action` from empty `respond`. The deterministic fake parses v2 JSON
+  or returns scripted envelopes; missing/mismatched credential bindings fail
+  closed as `credential_binding_failed` and never select another payer. No live
+  provider. Content streaming and worker claim remain later steps.
 
 # Verification
 
@@ -1059,6 +1092,7 @@ restore wait on those later surfaces.
 | PostgreSQL Session runtime invariant patch (`0006`) | passed; schema/migration | Includes Decision XOR ExecutionOutcome (`SESS-DEC-16`) and validation→Decision FK. Red: both child rows and validation-without-Decision succeeded. Green: sequential XOR; concurrent exactly-one winner; schema/upgrade/concurrency 26/26; architecture 24/24; Sessions 174/174 (2026-08-13). Repositories remain next. |
 | PostgreSQL 18 repository isolation/concurrency/fault tests | passed; **approved** `0a40324` | Dirty-only Turn persist; conditional UPSERT; `created_session_sequence` order; opening `emit_message` then participant reply unique (2, 3); completion audit-fault rollback; `AlreadyTerminal` documented as safe worker ack; `0008` backfill scoped as best-effort. `FlexAgent.Sessions.Tests` 183/183; architecture 27/27; Postgres 76/76 with known concurrent-empty Grate `pg_type` flake that passed on retry. Deferred until later surfaces: commit-time revocation, timer replacement races, export/backup/restore/lawful unavailability. |
 | Multi-channel output decision gate | passed | ADR-014 plus product v0.4, RSC v0.4, Session v0.5, UI Session v0.5, runtime contract v0.5, and MVP architecture v0.10 approve the P0 envelope; this plan and the companion matrix were amended 2026-08-14. Voice remains out of scope. |
+| Successor Decision envelope and dual-read (`SESS-DEC-31`, `REQ-SESS-80`, `AC-SESS-46`) | passed; contract+domain | Red: catalog/schema tests required `agent-decision.v2` before the schema existed. Green: contract tests 134/134 including v1 dual-read, schema-valid `voice`, opaque voice `payload_ref`, and rejected voice `communication_purpose`; Sessions 200/200 including mixed message+voice, extra message, empty `respond`, model-authored id/audience, hidden-reasoning parse, fake port, and no-fallback preflight; architecture 27/27; Postgres 75/76 with known concurrent-empty Grate `pg_type` flake that passed on retry; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-14). Residual: domain parser is a lenient subset of the v2 schema (e.g. `P1Y` timer duration); close before worker claim treats the parser as schema authority. Additive per-item validation persistence remains. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |
@@ -1070,9 +1104,9 @@ restore wait on those later surfaces.
 
 # Blockers
 
-None for resuming the model-execution port. Exact production timer durations
-remain intentional policy inputs and are not an additional blocker. Voice and
-other deferred channels remain out of scope.
+None for starting worker claim against the model-execution port. Exact production
+timer durations remain intentional policy inputs and are not an additional
+blocker. Voice and other deferred channels remain out of scope.
 
 # Completion
 

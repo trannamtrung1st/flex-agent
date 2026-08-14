@@ -115,4 +115,39 @@ internal static class SessionRuntimeTestFixtures
             TurnId: turnId,
             ResponseSlotId: responseSlotId,
             NextTimer: nextTimer);
+
+    internal static EnvelopeRecommendation Envelope(
+        string invocationId,
+        string disposition = DecisionDispositions.Respond,
+        IReadOnlyList<OutputRecommendation>? outputs = null,
+        IReadOnlyList<RequestedActionRecommendation>? requestedActions = null,
+        string? noActionReasonCategory = null,
+        string? decisionId = null) =>
+        new(
+            DecisionId: decisionId ?? Guid.NewGuid().ToString("N"),
+            InvocationId: invocationId,
+            ProducedAt: T0.AddSeconds(2),
+            Disposition: disposition,
+            Outputs: outputs ?? [],
+            RequestedActions: requestedActions ?? [],
+            NoActionReasonCategory: noActionReasonCategory);
+
+    internal static OutputRecommendation MessageOutput(
+        string localRef = "out.message.primary",
+        string communicationPurpose = "participant_reply",
+        string? turnId = "turn.1",
+        string? responseSlotId = "slot.1",
+        string? modelAgentOutputId = null,
+        string? audience = null) =>
+        new(
+            AgentOutputKinds.Message,
+            localRef,
+            communicationPurpose,
+            turnId,
+            responseSlotId,
+            modelAgentOutputId,
+            audience);
+
+    internal static OutputRecommendation VoiceOutput(string localRef = "out.voice.primary") =>
+        new(AgentOutputKinds.Voice, localRef);
 }
