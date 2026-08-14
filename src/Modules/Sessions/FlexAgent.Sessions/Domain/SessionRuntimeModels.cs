@@ -136,6 +136,29 @@ public static class DurableInvocationWorkOutcomes
     public const string RetryLater = "retry_later";
 }
 
+public static class AgentMessageCompletionStates
+{
+    public const string Open = "open";
+    public const string Complete = "complete";
+    public const string Incomplete = "incomplete";
+    public const string Cancelled = "cancelled";
+}
+
+public static class FragmentCommitOutcomeCodes
+{
+    public const string Succeeded = "fragment_commit.succeeded";
+    public const string Reconciled = "fragment_commit.reconciled";
+    public const string Gap = "fragment_commit.gap";
+    public const string DigestMismatch = "fragment_commit.digest_mismatch";
+    public const string CompetingAttempt = "fragment_commit.competing_attempt";
+    public const string Cutoff = "fragment_commit.cutoff";
+    public const string PublicationNotClaimed = "fragment_commit.publication_not_claimed";
+    public const string EmptyDelta = "fragment_commit.empty_delta";
+    public const string AlreadyTerminal = "fragment_commit.already_terminal";
+    public const string NonUtcClock = "fragment_commit.non_utc_clock";
+    public const string StaleClock = "fragment_commit.stale_clock";
+}
+
 public static class ExecutionFailureReasons
 {
     public const string MalformedControl = "malformed_control";
@@ -238,9 +261,11 @@ public sealed record TrustedRuntimeActor(Guid ActorId, string ActorType);
 
 public sealed record ProtectedContentRef(string ProtectedRef, string ContentDigest)
 {
-    public static string DigestForReference(string protectedRef)
+    public static string DigestForReference(string protectedRef) => DigestUtf8(protectedRef);
+
+    public static string DigestUtf8(string text)
     {
-        var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(protectedRef));
+        var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text));
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 }
@@ -342,6 +367,19 @@ public sealed record DecisionEffectResult(
     string OutcomeCode,
     string EffectOutcome,
     bool PublicationPathClaimed = false,
+    bool AgentMessagePublished = false);
+
+public sealed record AgentResponseFragmentCommit(
+    string AgentInvocationId,
+    int FragmentOrdinal,
+    string ExactUtf8Text,
+    string GenerationAttemptId);
+
+public sealed record AgentResponseFragmentCommitResult(
+    bool Succeeded,
+    string OutcomeCode,
+    AgentResponseMessage? Message = null,
+    AgentResponseFragment? Fragment = null,
     bool AgentMessagePublished = false);
 
 public sealed record InvocationContextAssembleResult(

@@ -441,3 +441,94 @@ public sealed class AgentInvocation
     internal void AppendValidation(DecisionValidationEffectRecord validationEffect) =>
         _validations.Add(validationEffect);
 }
+
+public sealed class AgentResponseFragment
+{
+    internal AgentResponseFragment(
+        int fragmentOrdinal,
+        long sessionSequence,
+        string exactUtf8Text,
+        string contentDigest)
+    {
+        FragmentOrdinal = fragmentOrdinal;
+        SessionSequence = sessionSequence;
+        ExactUtf8Text = exactUtf8Text;
+        ContentDigest = contentDigest;
+    }
+
+    public int FragmentOrdinal { get; }
+
+    public long SessionSequence { get; }
+
+    public string ExactUtf8Text { get; }
+
+    public string ContentDigest { get; }
+}
+
+public sealed class AgentResponseMessage
+{
+    private readonly List<AgentResponseFragment> _fragments = [];
+
+    internal AgentResponseMessage(
+        string messageId,
+        string generationAttemptId,
+        string drivingInvocationId,
+        string drivingDecisionId,
+        string turnId,
+        string responseSlotId)
+    {
+        MessageId = messageId;
+        GenerationAttemptId = generationAttemptId;
+        DrivingInvocationId = drivingInvocationId;
+        DrivingDecisionId = drivingDecisionId;
+        TurnId = turnId;
+        ResponseSlotId = responseSlotId;
+        CompletionState = AgentMessageCompletionStates.Open;
+    }
+
+    public string MessageId { get; }
+
+    public string GenerationAttemptId { get; }
+
+    public string DrivingInvocationId { get; }
+
+    public string DrivingDecisionId { get; }
+
+    public string TurnId { get; }
+
+    public string ResponseSlotId { get; }
+
+    public string CompletionState { get; private set; }
+
+    public string? AssembledContentDigest { get; private set; }
+
+    public int FirstFragmentOrdinal => _fragments.Count == 0 ? 0 : _fragments[0].FragmentOrdinal;
+
+    public int LastFragmentOrdinal => _fragments.Count == 0 ? 0 : _fragments[^1].FragmentOrdinal;
+
+    public IReadOnlyList<AgentResponseFragment> Fragments => _fragments;
+
+    public bool IsTerminal =>
+        CompletionState is AgentMessageCompletionStates.Complete
+            or AgentMessageCompletionStates.Incomplete
+            or AgentMessageCompletionStates.Cancelled;
+
+    public string AssembleExactText() => string.Concat(_fragments.Select(fragment => fragment.ExactUtf8Text));
+
+    internal AgentResponseFragment AppendFragment(int fragmentOrdinal, long sessionSequence, string exactUtf8Text)
+    {
+        var fragment = new AgentResponseFragment(
+            fragmentOrdinal,
+            sessionSequence,
+            exactUtf8Text,
+            ProtectedContentRef.DigestUtf8(exactUtf8Text));
+        _fragments.Add(fragment);
+        return fragment;
+    }
+
+    internal void Seal(string completionState)
+    {
+        CompletionState = completionState;
+        AssembledContentDigest = ProtectedContentRef.DigestUtf8(AssembleExactText());
+    }
+}

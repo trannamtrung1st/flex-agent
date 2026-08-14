@@ -18,6 +18,7 @@ public sealed class SessionRuntime
     private readonly List<AgentInvocation> _invocations = [];
     private readonly List<Turn> _turns = [];
     private readonly List<VisibleTranscriptItemRef> _visibleTranscript = [];
+    private readonly List<AgentResponseMessage> _agentMessages = [];
     private readonly Dictionary<string, DateTimeOffset> _lastAdmittedAtByFamily = new(StringComparer.Ordinal);
 
     private SessionRuntime(TrustedSessionBinding binding, DateTimeOffset startedAt)
@@ -38,7 +39,8 @@ public sealed class SessionRuntime
         IReadOnlyList<AgentInvocation> invocations,
         IReadOnlyList<Turn> turns,
         IReadOnlyList<VisibleTranscriptItemRef> transcript,
-        IReadOnlyDictionary<string, DateTimeOffset> lastAdmittedAtByFamily)
+        IReadOnlyDictionary<string, DateTimeOffset> lastAdmittedAtByFamily,
+        IReadOnlyList<AgentResponseMessage> agentMessages)
     {
         Binding = binding;
         Ownership = binding.Ownership;
@@ -50,6 +52,7 @@ public sealed class SessionRuntime
         _invocations.AddRange(invocations);
         _turns.AddRange(turns);
         _visibleTranscript.AddRange(transcript);
+        _agentMessages.AddRange(agentMessages);
         foreach (var pair in lastAdmittedAtByFamily)
         {
             _lastAdmittedAtByFamily[pair.Key] = pair.Value;
@@ -78,6 +81,8 @@ public sealed class SessionRuntime
 
     public IReadOnlyList<VisibleTranscriptItemRef> VisibleTranscript => _visibleTranscript;
 
+    public IReadOnlyList<AgentResponseMessage> AgentMessages => _agentMessages;
+
     public static SessionRuntime CreateActive(TrustedSessionBinding binding, DateTimeOffset startedAt)
     {
         ArgumentNullException.ThrowIfNull(binding);
@@ -99,7 +104,8 @@ public sealed class SessionRuntime
         IReadOnlyList<AgentInvocation>? invocations = null,
         IReadOnlyList<Turn>? turns = null,
         IReadOnlyList<VisibleTranscriptItemRef>? transcript = null,
-        IReadOnlyDictionary<string, DateTimeOffset>? lastAdmittedAtByFamily = null)
+        IReadOnlyDictionary<string, DateTimeOffset>? lastAdmittedAtByFamily = null,
+        IReadOnlyList<AgentResponseMessage>? agentMessages = null)
     {
         ArgumentNullException.ThrowIfNull(binding);
         if (!IsUtc(lastCommittedAt))
@@ -117,7 +123,8 @@ public sealed class SessionRuntime
             invocations ?? [],
             turns ?? [],
             transcript ?? [],
-            lastAdmittedAtByFamily ?? new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal));
+            lastAdmittedAtByFamily ?? new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal),
+            agentMessages ?? []);
     }
 
     internal void ReplaceLastCommittedAtFromDatabase(DateTimeOffset lastCommittedAt)
@@ -327,6 +334,7 @@ public sealed class SessionRuntime
 
         LifecycleState = SessionLifecycleState.Completing;
         CutoffSequence = SessionSequence;
+        SealOpenAgentMessagesIncomplete(authoritativeUtc);
         foreach (var turn in _turns)
         {
             turn.Cancel();
@@ -371,6 +379,7 @@ public sealed class SessionRuntime
 
         LifecycleState = SessionLifecycleState.Aborted;
         CutoffSequence ??= SessionSequence;
+        SealOpenAgentMessagesIncomplete(authoritativeUtc);
         foreach (var turn in _turns)
         {
             turn.Cancel();
@@ -852,6 +861,195 @@ public sealed class SessionRuntime
             DecisionEffectOutcomes.NotAttempted);
     }
 
+    public AgentResponseFragmentCommitResult CommitAgentResponseFragment(
+        AgentResponseFragmentCommit commit,
+        DateTimeOffset authoritativeUtc)
+    {
+        ArgumentNullException.ThrowIfNull(commit);
+        var invocation = FindInvocation(commit.AgentInvocationId);
+        var existing = FindAgentMessageByInvocation(commit.AgentInvocationId);
+        if (existing is { IsTerminal: true })
+        {
+            return ReconcileOrRejectTerminalFragment(existing, commit);
+        }
+
+        if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: false))
+        {
+            return FragmentFailure(MapFragmentClockFailure(clockFailure), existing);
+        }
+
+        if (string.IsNullOrEmpty(commit.ExactUtf8Text))
+        {
+            return FragmentFailure(FragmentCommitOutcomeCodes.EmptyDelta, existing);
+        }
+
+        if (string.IsNullOrWhiteSpace(commit.GenerationAttemptId))
+        {
+            return FragmentFailure(FragmentCommitOutcomeCodes.CompetingAttempt, existing);
+        }
+
+        if (existing is not null)
+        {
+            if (!string.Equals(existing.GenerationAttemptId, commit.GenerationAttemptId, StringComparison.Ordinal))
+            {
+                return FragmentFailure(FragmentCommitOutcomeCodes.CompetingAttempt, existing);
+            }
+
+            var duplicate = existing.Fragments.FirstOrDefault(fragment =>
+                fragment.FragmentOrdinal == commit.FragmentOrdinal);
+            if (duplicate is not null)
+            {
+                if (!string.Equals(
+                        duplicate.ContentDigest,
+                        ProtectedContentRef.DigestUtf8(commit.ExactUtf8Text),
+                        StringComparison.Ordinal))
+                {
+                    return FragmentFailure(FragmentCommitOutcomeCodes.DigestMismatch, existing, duplicate);
+                }
+
+                return new AgentResponseFragmentCommitResult(
+                    true,
+                    FragmentCommitOutcomeCodes.Reconciled,
+                    existing,
+                    duplicate,
+                    AgentMessagePublished: true);
+            }
+
+            if (commit.FragmentOrdinal != existing.LastFragmentOrdinal + 1)
+            {
+                return FragmentFailure(FragmentCommitOutcomeCodes.Gap, existing);
+            }
+
+            if (!CanPublishNewFragment())
+            {
+                return FragmentFailure(FragmentCommitOutcomeCodes.Cutoff, existing);
+            }
+
+            var appended = existing.AppendFragment(
+                commit.FragmentOrdinal,
+                NextSequence(authoritativeUtc),
+                commit.ExactUtf8Text);
+            Touch(authoritativeUtc);
+            return new AgentResponseFragmentCommitResult(
+                true,
+                FragmentCommitOutcomeCodes.Succeeded,
+                existing,
+                appended,
+                AgentMessagePublished: true);
+        }
+
+        if (commit.FragmentOrdinal != 1)
+        {
+            return FragmentFailure(FragmentCommitOutcomeCodes.Gap, null);
+        }
+
+        if (!CanPublishNewFragment())
+        {
+            return FragmentFailure(FragmentCommitOutcomeCodes.Cutoff, null);
+        }
+
+        if (invocation is null || !IsPublicationClaimed(invocation))
+        {
+            return FragmentFailure(FragmentCommitOutcomeCodes.PublicationNotClaimed, null);
+        }
+
+        var turn = FindPublicationTurn(invocation)!;
+        var message = new AgentResponseMessage(
+            AllocateOrReuseOutputId(invocation),
+            commit.GenerationAttemptId,
+            invocation.AgentInvocationId,
+            invocation.Decision!.DecisionId,
+            turn.TurnId,
+            turn.ResponseSlot.ResponseSlotId);
+        var fragment = message.AppendFragment(1, NextSequence(authoritativeUtc), commit.ExactUtf8Text);
+        _agentMessages.Add(message);
+        _visibleTranscript.Add(new VisibleTranscriptItemRef(
+            message.MessageId,
+            TranscriptAuthorTypes.Agent,
+            turn.TurnId,
+            new ProtectedContentRef(
+                $"msg:{message.MessageId}",
+                ProtectedContentRef.DigestForReference($"msg:{message.MessageId}"))));
+        Touch(authoritativeUtc);
+        return new AgentResponseFragmentCommitResult(
+            true,
+            FragmentCommitOutcomeCodes.Succeeded,
+            message,
+            fragment,
+            AgentMessagePublished: true);
+    }
+
+    public AgentResponseFragmentCommitResult CompleteAgentResponseMessage(
+        string agentInvocationId,
+        DateTimeOffset authoritativeUtc)
+    {
+        var message = FindAgentMessageByInvocation(agentInvocationId);
+        if (message is null || message.Fragments.Count == 0)
+        {
+            return FragmentFailure(FragmentCommitOutcomeCodes.PublicationNotClaimed, message);
+        }
+
+        if (message.IsTerminal)
+        {
+            if (message.CompletionState == AgentMessageCompletionStates.Complete)
+            {
+                return new AgentResponseFragmentCommitResult(
+                    true,
+                    FragmentCommitOutcomeCodes.Reconciled,
+                    message,
+                    message.Fragments[^1],
+                    AgentMessagePublished: true);
+            }
+
+            return FragmentFailure(FragmentCommitOutcomeCodes.AlreadyTerminal, message);
+        }
+
+        if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: false))
+        {
+            return FragmentFailure(MapFragmentClockFailure(clockFailure), message);
+        }
+
+        if (!CanPublishNewFragment())
+        {
+            return FragmentFailure(FragmentCommitOutcomeCodes.Cutoff, message);
+        }
+
+        return SealAgentMessage(message, AgentMessageCompletionStates.Complete, authoritativeUtc);
+    }
+
+    public AgentResponseFragmentCommitResult MarkAgentResponseIncomplete(
+        string agentInvocationId,
+        DateTimeOffset authoritativeUtc)
+    {
+        var message = FindAgentMessageByInvocation(agentInvocationId);
+        if (message is null || message.Fragments.Count == 0)
+        {
+            return FragmentFailure(FragmentCommitOutcomeCodes.PublicationNotClaimed, message);
+        }
+
+        if (message.IsTerminal)
+        {
+            if (message.CompletionState == AgentMessageCompletionStates.Incomplete)
+            {
+                return new AgentResponseFragmentCommitResult(
+                    true,
+                    FragmentCommitOutcomeCodes.Reconciled,
+                    message,
+                    message.Fragments[^1],
+                    AgentMessagePublished: true);
+            }
+
+            return FragmentFailure(FragmentCommitOutcomeCodes.AlreadyTerminal, message);
+        }
+
+        if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: false))
+        {
+            return FragmentFailure(MapFragmentClockFailure(clockFailure), message);
+        }
+
+        return SealAgentMessage(message, AgentMessageCompletionStates.Incomplete, authoritativeUtc);
+    }
+
     private DecisionEffectResult ReconcileAppliedEffect(AgentInvocation invocation)
     {
         invocation.MarkPipelineComplete();
@@ -860,7 +1058,8 @@ public sealed class SessionRuntime
             true,
             InvocationCompletionOutcomeCodes.Decided,
             invocation.ValidationEffect.EffectOutcome,
-            PublicationPathClaimed: applied);
+            PublicationPathClaimed: applied,
+            AgentMessagePublished: HasPublishedAgentMessage(invocation));
     }
 
     private DecisionEffectResult FailEffect(AgentInvocation invocation, DateTimeOffset authoritativeUtc)
@@ -1039,6 +1238,115 @@ public sealed class SessionRuntime
     private Turn? FindTurn(string turnId) =>
         _turns.FirstOrDefault(turn => string.Equals(turn.TurnId, turnId, StringComparison.Ordinal));
 
+    private AgentResponseMessage? FindAgentMessageByInvocation(string agentInvocationId) =>
+        _agentMessages.FirstOrDefault(message =>
+            string.Equals(message.DrivingInvocationId, agentInvocationId, StringComparison.Ordinal));
+
+    private Turn? FindPublicationTurn(AgentInvocation invocation)
+    {
+        var turnId = invocation.ValidationEffect?.AppliedTurnId ?? invocation.Trigger.TurnId;
+        return turnId is null ? null : FindTurn(turnId);
+    }
+
+    private bool IsPublicationClaimed(AgentInvocation invocation)
+    {
+        if (invocation.Decision is null
+            || invocation.ValidationEffect?.EffectOutcome != DecisionEffectOutcomes.Applied)
+        {
+            return false;
+        }
+
+        var turn = FindPublicationTurn(invocation);
+        return turn is not null
+            && turn.ResponseSlot.State == ResponseSlotStates.ClaimedForPublication
+            && string.Equals(
+                turn.ResponseSlot.ClaimedByInvocationId,
+                invocation.AgentInvocationId,
+                StringComparison.Ordinal);
+    }
+
+    private bool CanPublishNewFragment() =>
+        LifecycleState == SessionLifecycleState.Active && !HasCutoff();
+
+    private static string AllocateOrReuseOutputId(AgentInvocation invocation)
+    {
+        var allocated = invocation.ValidationEffect?.OutputValidations.FirstOrDefault(item =>
+            string.Equals(item.Kind, AgentOutputKinds.Message, StringComparison.Ordinal)
+            && string.Equals(item.ValidationOutcome, DecisionValidationOutcomes.Accepted, StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(item.AgentOutputId));
+        return allocated?.AgentOutputId ?? $"aout.{Guid.NewGuid():N}"[..21];
+    }
+
+    private bool HasPublishedAgentMessage(AgentInvocation invocation) =>
+        FindAgentMessageByInvocation(invocation.AgentInvocationId) is { Fragments.Count: > 0 };
+
+    private void SealOpenAgentMessagesIncomplete(DateTimeOffset authoritativeUtc)
+    {
+        foreach (var message in _agentMessages)
+        {
+            if (!message.IsTerminal && message.Fragments.Count > 0)
+            {
+                SealAgentMessage(message, AgentMessageCompletionStates.Incomplete, authoritativeUtc);
+            }
+        }
+    }
+
+    private static AgentResponseFragmentCommitResult ReconcileOrRejectTerminalFragment(
+        AgentResponseMessage message,
+        AgentResponseFragmentCommit commit)
+    {
+        var duplicate = message.Fragments.FirstOrDefault(fragment =>
+            fragment.FragmentOrdinal == commit.FragmentOrdinal);
+        if (duplicate is not null
+            && string.Equals(
+                duplicate.ContentDigest,
+                ProtectedContentRef.DigestUtf8(commit.ExactUtf8Text),
+                StringComparison.Ordinal))
+        {
+            return new AgentResponseFragmentCommitResult(
+                true,
+                FragmentCommitOutcomeCodes.Reconciled,
+                message,
+                duplicate,
+                AgentMessagePublished: true);
+        }
+
+        return FragmentFailure(FragmentCommitOutcomeCodes.AlreadyTerminal, message, duplicate);
+    }
+
+    private AgentResponseFragmentCommitResult SealAgentMessage(
+        AgentResponseMessage message,
+        string completionState,
+        DateTimeOffset authoritativeUtc)
+    {
+        message.Seal(completionState);
+        var turn = FindTurn(message.TurnId);
+        if (turn is { State: TurnStates.WorkQueued })
+        {
+            turn.MarkComplete();
+        }
+
+        NextSequence(authoritativeUtc);
+        Touch(authoritativeUtc);
+        return new AgentResponseFragmentCommitResult(
+            true,
+            FragmentCommitOutcomeCodes.Succeeded,
+            message,
+            message.Fragments[^1],
+            AgentMessagePublished: true);
+    }
+
+    private static AgentResponseFragmentCommitResult FragmentFailure(
+        string outcomeCode,
+        AgentResponseMessage? message,
+        AgentResponseFragment? fragment = null) =>
+        new(false, outcomeCode, message, fragment, AgentMessagePublished: message is { Fragments.Count: > 0 });
+
+    private static string MapFragmentClockFailure(string clockFailure) =>
+        clockFailure == InvocationCompletionOutcomeCodes.StaleClock
+            ? FragmentCommitOutcomeCodes.StaleClock
+            : FragmentCommitOutcomeCodes.NonUtcClock;
+
     private AgentInvocation? FindInvocation(string agentInvocationId) =>
         _invocations.FirstOrDefault(invocation =>
             string.Equals(invocation.AgentInvocationId, agentInvocationId, StringComparison.Ordinal));
@@ -1169,7 +1477,7 @@ public sealed class SessionRuntime
             DecisionRecommendationDigestComputer.Compute(recommendation),
             StringComparison.Ordinal);
 
-    private static InvocationCompletionResult ReconcileTerminalDecision(
+    private InvocationCompletionResult ReconcileTerminalDecision(
         AgentInvocation invocation,
         DecisionRecommendation recommendation)
     {
@@ -1200,6 +1508,7 @@ public sealed class SessionRuntime
             invocation.Decision,
             invocation.ExecutionOutcome,
             invocation.ValidationEffect,
-            PublicationPathClaimed: invocation.ValidationEffect?.EffectOutcome == DecisionEffectOutcomes.Applied);
+            PublicationPathClaimed: invocation.ValidationEffect?.EffectOutcome == DecisionEffectOutcomes.Applied,
+            AgentMessagePublished: HasPublishedAgentMessage(invocation));
     }
 }

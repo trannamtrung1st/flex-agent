@@ -652,7 +652,7 @@ and test reviews have no unresolved blocking findings.
     not Organization/Activity fair-claiming or sustained-contention
     scheduler fairness. Effect/schedule and fragment-commit injection remain
     with ADR-011 and the scheduler steps.
-- [ ] Implement ADR-011 as the P0 `message` output effect seam required by this
+- [>] Implement ADR-011 as the P0 `message` output effect seam required by this
   runtime: durable Agent Message/fragment/completion records, commit-before-publish,
   exact order and integrity checks, safe SSE projection, replay/gap recovery,
   finest-provider-granularity publication without application-added batching,
@@ -661,6 +661,24 @@ and test reviews have no unresolved blocking findings.
   fragments to the driving Decision and runtime-owned output id. Do not treat
   the stream as voice playback. Reuse one path for Participant, opening/closing,
   and timer-triggered Agent work.
+  - [x] Domain first (`REQ-SESS-55`–`REQ-SESS-60`, `SESS-DEC-9`–`SESS-DEC-12`,
+    `AC-SESS-32`): after publication-path claim, commit exact UTF-8 deltas as
+    ordered fragments; first fragment claims generation attempt + Agent message
+    (`aout.*` when the Decision allocated one); duplicate ordinal+digest
+    reconciles; gap, digest mismatch, competing attempt, empty delta, and
+    pause/cutoff reject without mutating; complete seals assembled digest;
+    incomplete preserves the visible prefix; one path for Participant, opening,
+    and timer. Frozen streaming numeric bounds, PostgreSQL fragment rows,
+    outbox/SSE, rolling validation, and worker content-phase remain later
+    sub-slices. Do not rewrite frozen `0005`–`0011`.
+  - [ ] Frozen streaming numeric bounds (`SESS-DEC-13`, `REQ-SESS-8`): require
+    positive fragment size, rate, count, assembled-response size, and
+    in-flight Session stream bounds on frozen policy; fail closed when absent;
+    fixtures use explicit test-only values with no product-default claim.
+  - [ ] Additive PostgreSQL fragment persist and repository hydration linked to
+    Decision/`aout.*` (do not rewrite `0005`–`0011`).
+  - [ ] Outbox/SSE commit-before-publish, replay, rolling validation,
+    backpressure, and worker content-phase (cumulative vs delta).
 - [ ] Implement the one-lane scheduler with model-based/domain tests first,
   then PostgreSQL/worker integration: default arm on `Active`, independent
   recommendation validation, replacement/sole-successor atomicity, expected
@@ -743,16 +761,20 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
+ADR-011 domain fragment publication (identity, order, claim, cutoff,
+complete/incomplete) is **green after consistency review** (2026-08-14). Next ADR-011 sub-slice is
+required frozen streaming numeric bounds on runtime policy, then additive
+PostgreSQL fragment persist (do not rewrite `0005`–`0011`), then outbox/SSE
+and worker content-phase. Live provider wiring and frozen-policy rehydration
+stay out unless the user reprioritizes. Voice stays disabled. Worker host
+stays idle until frozen-policy rehydration and an executable model port exist.
+
 External review of `f75ebb1` (2026-08-14) **approved: 0 P0 / 0 P1 / 0 P2 /
 1 optional P3 wording.** Push-triggered GitHub Actions on `main`:
 Documentation #132 and Implementation #101 green. Crash/recovery evidence
 precision is accepted. The optional P3 (`lost-response reconciliation`) is
 folded here as retry after an uncommitted provider return and reconciliation
-after a committed Decision. Next remaining `[ ]` item is ADR-011 streaming
-publication. Do **not** fold live provider wiring or frozen-policy
-rehydration into that step unless the user reprioritizes. Voice stays
-disabled. Frozen `0005`–`0011` stay frozen. Worker host stays idle until
-frozen-policy rehydration and an executable model port exist.
+after a committed Decision.
 
 - External review of `4a483a7` (2026-08-14) **approved: 0 P0 / 0 P1 / 0 P2 /
   1 P3 documentation cleanup.** Repeatable Read snapshot and idle host P1s
@@ -828,6 +850,22 @@ surfaces.
 
 # Decisions
 
+- ADR-011 domain publication (2026-08-14): the first committed fragment claims
+  the generation attempt and Agent message; envelope streams reuse the
+  accepted `aout.*` output id; v1 `emit_message` allocates `aout.*` at first
+  visibility. Duplicate ordinal+digest reconciles; gap, digest mismatch, and a
+  competing attempt fail without mutation. Pause and terminal cutoff reject new
+  fragments; `Incomplete` may still seal a visible prefix after pause.
+  `BeginCompleting`/`Abort` auto-seal any open visible stream as `Incomplete`
+  before cancelling remaining WorkQueued turns (`SESS-DEC-11`). Duplicate
+  ordinal+digest reconciles even after complete (`REQ-SESS-57`). Decision
+  completion retry reports `AgentMessagePublished` once a fragment exists.
+  Assembled-content digest is computed from concatenated exact UTF-8 deltas at
+  complete/incomplete. The visible transcript item uses a message-id
+  `protected_ref` digest so it does not need to mutate as fragments arrive
+  (`0005` `session_messages.content_digest` is insert-immutable). Frozen
+  streaming numeric bounds (`SESS-DEC-13`) remain a later fail-closed policy
+  sub-slice with explicit fixture values and no product-default claim.
 - Exact `agent-decision.v2` validation at the model-execution boundary uses
   JsonSchema.Net Draft 2020-12 against the embedded canonical schema. The
   handwritten Domain parser remains a typed mapper after schema success and
@@ -1006,6 +1044,14 @@ surfaces.
 
 # Findings / deviations
 
+- Consistency review of ADR-011 domain fragment publication (2026-08-14): three
+  defects fixed. `BeginCompleting`/`Abort` left visible streams `open`
+  (`SESS-DEC-11`); duplicate fragment after complete returned
+  `already_terminal` (`REQ-SESS-57`); `CompleteInvocation` retry after first
+  visibility kept `AgentMessagePublished=false`. Red: 3 new tests failed.
+  Green: Sessions 247/247; architecture 29/29. Residual: streaming bounds,
+  PostgreSQL persist/SSE, rolling validation, worker content-phase, and no
+  clock/ordinal-zero dedicated tests. Frontend N/A this slice.
 - External review of `38f1375` (2026-08-14): **request changes**, 1 P1.
   Post-claim `ReleaseToPendingAsync` must not use the already-cancelled worker
   token; use a bounded cleanup token. In-memory store now honors cancellation
@@ -1346,6 +1392,7 @@ surfaces.
 | `c2fa693` P1 remediations (Repeatable Read snapshot, idle host) | passed; **approved** `4a483a7` | Red: snapshot load `SHOW transaction_isolation` was `read committed`; Worker with `ConnectionStrings:Sessions` registered `DurableInvocationWorkProcessor` (2026-08-14). Green: worker snapshot uses `REPEATABLE READ` and does not mix a later Decision into the earlier head; Worker stays idle even when a Sessions connection string is set. Confirmation pass: snapshot+claim 7/7; Sessions 230/230; architecture 29/29; runtime 37/37; `git diff --check` and `python3 scripts/check_docs.py` passed. External review: 0 P0 / 0 P1 / 0 P2 / 1 P3 work-file current-work sentence (fixed). Head-of-line blocking on retry is covered by the crash/recovery tranche. |
 | `38f1375` P1 cancelled-token release | passed; application | Red: `MemoryWorkStore.ReleaseToPendingAsync` honoring `ThrowIfCancellationRequested` made `Pre_cancelled_worker_releases_claimed_work_with_a_cleanup_token` throw `OperationCanceledException` (2026-08-14). Green: `ReleaseForRetryAsync` uses a bounded cleanup token (default 2s); store still honors cancellation; Sessions 230/230; architecture 28/28; runtime 35/35. Cancellation during load/execute still leaves the claim until lease recovery (covered by crash/recovery tests). |
 | Durable worker crash/recovery fault injection (`SESS-DEC-16`, `SESS-DEC-21`) | passed; application+postgres | Confirmation pass (2026-08-14): Sessions 234/234 including crash-after-claim, crash-after-provider-return, failed durable-work acknowledgement, and unprocessable-oldest head-of-line progress; crash-recovery Postgres 8/8 including Decision-commit persist failure, database-time reclaim despite a still-valid host lease, stale-lease CAS, and two-worker contention. Leases are expired with `clock_timestamp()`, not wall-clock sleeps. External review of `fa95a1d`: keep; tighten claims (no scheduler fairness; acknowledgement is fail-before-`MarkCompleted`). External review of `f75ebb1`: **approved** 0 P0 / 0 P1 / 0 P2; optional P3 `lost-response` wording folded. ADR-011 fragment and scheduler effect-commit injection remain later. |
+| ADR-011 domain fragment publication (`REQ-SESS-55`–`60`, `SESS-DEC-9`–`12`, `AC-SESS-32`) | passed; in-memory aggregate after consistency review | Red: compile miss, then 3 consistency tests failed (cutoff left `open`; complete duplicate `already_terminal`; Decision retry unpublished). Green: 13/13 focused tests; `FlexAgent.Sessions.Tests` 247/247; architecture 29/29; `git diff --check` passed. Persistence, SSE/replay, streaming bounds, rolling validation, and worker content-phase remain. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
@@ -1358,10 +1405,10 @@ surfaces.
 
 # Blockers
 
-None for the completed crash/recovery worker slice. Live provider wiring,
-ADR-011 streaming publication, and frozen-policy rehydration from
-configuration sources remain the next out-of-slice gates. Worker host stays
-idle until those exist.
+None for the ADR-011 domain fragment slice. Next remaining work is frozen
+streaming numeric bounds, then additive PostgreSQL fragment persist, then
+outbox/SSE and worker content-phase. Live provider wiring and frozen-policy
+rehydration remain later gates. Worker host stays idle until those exist.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
