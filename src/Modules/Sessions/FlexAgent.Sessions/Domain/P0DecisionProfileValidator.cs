@@ -5,7 +5,8 @@ internal static class P0DecisionProfileValidator
     internal static P0ProfileValidation Validate(
         EnvelopeRecommendation envelope,
         FrozenTextSessionRuntimePolicy policy,
-        Func<string, bool> isDecisionTypeSupportedByP0)
+        Func<string, bool> isDecisionTypeSupportedByP0,
+        bool allocateRuntimeOutputIds = true)
     {
         ArgumentNullException.ThrowIfNull(envelope);
         ArgumentNullException.ThrowIfNull(policy);
@@ -28,7 +29,11 @@ internal static class P0DecisionProfileValidator
                 continue;
             }
 
-            outputs.Add(ValidateOutput(output, envelope.Outputs, ref acceptedMessageCount));
+            outputs.Add(ValidateOutput(
+                output,
+                envelope.Outputs,
+                allocateRuntimeOutputIds,
+                ref acceptedMessageCount));
         }
 
         var actions = new List<RequestedActionItemValidation>(envelope.RequestedActions.Count);
@@ -83,6 +88,7 @@ internal static class P0DecisionProfileValidator
     private static OutputItemValidation ValidateOutput(
         OutputRecommendation output,
         IReadOnlyList<OutputRecommendation> siblings,
+        bool allocateRuntimeOutputIds,
         ref int acceptedMessageCount)
     {
         if (string.Equals(output.Kind, AgentOutputKinds.Voice, StringComparison.Ordinal))
@@ -128,7 +134,7 @@ internal static class P0DecisionProfileValidator
             output.Kind,
             DecisionValidationOutcomes.Accepted,
             null,
-            AllocateOutputId());
+            allocateRuntimeOutputIds ? AllocateOutputId() : null);
     }
 
     private static string? ResolveLocalReferences(

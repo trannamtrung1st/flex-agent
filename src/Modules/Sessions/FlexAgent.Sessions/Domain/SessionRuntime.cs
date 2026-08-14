@@ -660,7 +660,8 @@ public sealed class SessionRuntime
         var profile = P0DecisionProfileValidator.Validate(
             envelope,
             Policy,
-            P0Kernel.IsDecisionTypeSupportedByP0);
+            P0Kernel.IsDecisionTypeSupportedByP0,
+            allocateRuntimeOutputIds: recommendation is EnvelopeRecommendation);
         var timerOutcome = CombineTimerOutcomes(
             ValidateTimerRecommendation(envelope.NextTimer),
             profile.TimerValidationOutcome);
@@ -1295,14 +1296,23 @@ public sealed class SessionRuntime
         AgentResponseMessage message,
         AgentResponseFragmentCommit commit)
     {
+        if (!string.Equals(message.GenerationAttemptId, commit.GenerationAttemptId, StringComparison.Ordinal))
+        {
+            return FragmentFailure(FragmentCommitOutcomeCodes.CompetingAttempt, message);
+        }
+
         var duplicate = message.Fragments.FirstOrDefault(fragment =>
             fragment.FragmentOrdinal == commit.FragmentOrdinal);
-        if (duplicate is not null
-            && string.Equals(
-                duplicate.ContentDigest,
-                ProtectedContentRef.DigestUtf8(commit.ExactUtf8Text),
-                StringComparison.Ordinal))
+        if (duplicate is not null)
         {
+            if (!string.Equals(
+                    duplicate.ContentDigest,
+                    ProtectedContentRef.DigestUtf8(commit.ExactUtf8Text),
+                    StringComparison.Ordinal))
+            {
+                return FragmentFailure(FragmentCommitOutcomeCodes.DigestMismatch, message, duplicate);
+            }
+
             return new AgentResponseFragmentCommitResult(
                 true,
                 FragmentCommitOutcomeCodes.Reconciled,
@@ -1311,7 +1321,7 @@ public sealed class SessionRuntime
                 AgentMessagePublished: true);
         }
 
-        return FragmentFailure(FragmentCommitOutcomeCodes.AlreadyTerminal, message, duplicate);
+        return FragmentFailure(FragmentCommitOutcomeCodes.AlreadyTerminal, message);
     }
 
     private AgentResponseFragmentCommitResult SealAgentMessage(

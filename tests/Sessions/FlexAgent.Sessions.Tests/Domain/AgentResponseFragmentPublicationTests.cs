@@ -11,6 +11,10 @@ public sealed class AgentResponseFragmentPublicationTests
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
         var invocationId = ClaimParticipantPublication(session);
+        Assert.All(
+            session.Invocations[0].ValidationEffect!.OutputValidations,
+            item => Assert.Null(item.AgentOutputId));
+        Assert.Empty(session.AgentMessages);
         var clock = SessionRuntimeTestFixtures.T0.AddSeconds(3);
 
         var result = session.CommitAgentResponseFragment(
@@ -35,6 +39,9 @@ public sealed class AgentResponseFragmentPublicationTests
             session.VisibleTranscript,
             item => item.AuthorType == TranscriptAuthorTypes.Agent && item.MessageId == message.MessageId);
         Assert.True(result.AgentMessagePublished);
+        Assert.All(
+            session.Invocations[0].ValidationEffect!.OutputValidations,
+            item => Assert.Null(item.AgentOutputId));
     }
 
     [Fact]
@@ -246,6 +253,66 @@ public sealed class AgentResponseFragmentPublicationTests
         Assert.False(extra.Succeeded);
         Assert.Equal(FragmentCommitOutcomeCodes.AlreadyTerminal, extra.OutcomeCode);
         Assert.Equal("Hi", session.AgentMessages[0].AssembleExactText());
+    }
+
+    [Fact]
+    public void Competing_attempt_after_complete_is_rejected()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var invocationId = ClaimParticipantPublication(session);
+        session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Hi", "agen.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3));
+        session.CompleteAgentResponseMessage(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(4));
+
+        var competing = session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Hi", "agen.2"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(5));
+
+        Assert.False(competing.Succeeded);
+        Assert.Equal(FragmentCommitOutcomeCodes.CompetingAttempt, competing.OutcomeCode);
+        Assert.Equal("agen.1", session.AgentMessages[0].GenerationAttemptId);
+        Assert.Single(session.AgentMessages[0].Fragments);
+    }
+
+    [Fact]
+    public void Digest_mismatch_after_complete_is_rejected_as_digest_mismatch()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var invocationId = ClaimParticipantPublication(session);
+        session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Hi", "agen.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3));
+        session.CompleteAgentResponseMessage(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(4));
+
+        var mismatch = session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Ho", "agen.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(5));
+
+        Assert.False(mismatch.Succeeded);
+        Assert.Equal(FragmentCommitOutcomeCodes.DigestMismatch, mismatch.OutcomeCode);
+        Assert.Equal("Hi", session.AgentMessages[0].AssembleExactText());
+    }
+
+    [Fact]
+    public void Competing_attempt_after_incomplete_is_rejected()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var invocationId = ClaimParticipantPublication(session);
+        session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Hi", "agen.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3));
+        session.Pause(SessionRuntimeTestFixtures.T0.AddSeconds(4));
+        session.MarkAgentResponseIncomplete(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(5));
+
+        var competing = session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Hi", "agen.2"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(6));
+
+        Assert.False(competing.Succeeded);
+        Assert.Equal(FragmentCommitOutcomeCodes.CompetingAttempt, competing.OutcomeCode);
+        Assert.Equal(AgentMessageCompletionStates.Incomplete, session.AgentMessages[0].CompletionState);
+        Assert.Equal("agen.1", session.AgentMessages[0].GenerationAttemptId);
     }
 
     [Fact]

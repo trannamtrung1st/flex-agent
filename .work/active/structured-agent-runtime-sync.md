@@ -671,6 +671,9 @@ and test reviews have no unresolved blocking findings.
     and timer. Frozen streaming numeric bounds, PostgreSQL fragment rows,
     outbox/SSE, rolling validation, and worker content-phase remain later
     sub-slices. Do not rewrite frozen `0005`–`0011`.
+    External review of `003f715`: **request changes**, 0 P0 / 1 P1 / 1 P2.
+    P1 terminal reconcile must honor generation-attempt ownership; P2 legacy
+    `emit_message` must allocate `aout.*` only at first visibility.
   - [ ] Frozen streaming numeric bounds (`SESS-DEC-13`, `REQ-SESS-8`): require
     positive fragment size, rate, count, assembled-response size, and
     in-flight Session stream bounds on frozen policy; fail closed when absent;
@@ -761,8 +764,8 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-ADR-011 domain fragment publication (identity, order, claim, cutoff,
-complete/incomplete) is **green after consistency review** (2026-08-14). Next ADR-011 sub-slice is
+ADR-011 domain fragment publication is **green after `003f715` P1/P2 remediation**
+(2026-08-14). Next ADR-011 sub-slice is
 required frozen streaming numeric bounds on runtime policy, then additive
 PostgreSQL fragment persist (do not rewrite `0005`–`0011`), then outbox/SSE
 and worker content-phase. Live provider wiring and frozen-policy rehydration
@@ -863,7 +866,10 @@ surfaces.
   Assembled-content digest is computed from concatenated exact UTF-8 deltas at
   complete/incomplete. The visible transcript item uses a message-id
   `protected_ref` digest so it does not need to mutate as fragments arrive
-  (`0005` `session_messages.content_digest` is insert-immutable). Frozen
+  (`0005` `session_messages.content_digest` is insert-immutable). Envelope
+  Decisions allocate `aout.*` at P0 validation; legacy `EmitMessageRecommendation`
+  keeps a null validation output id until first fragment commit (`SESS-DEC-10` /
+  ADR-011). Frozen
   streaming numeric bounds (`SESS-DEC-13`) remain a later fail-closed policy
   sub-slice with explicit fixture values and no product-default claim.
 - Exact `agent-decision.v2` validation at the model-execution boundary uses
@@ -1044,6 +1050,14 @@ surfaces.
 
 # Findings / deviations
 
+- External review of `003f715` (2026-08-14): **request changes**, 0 P0 / 1 P1 /
+  1 P2. P1: terminal fragment reconcile ignored generation-attempt ownership and
+  classified same-attempt digest conflict as `already_terminal`. P2: legacy
+  `emit_message` allocated `aout.*` at validation rather than first visibility.
+  Remediation: terminal order is competing → digest mismatch → reconcile →
+  already-terminal; P0 validator allocates runtime output ids only for native
+  `EnvelopeRecommendation`. Red: 4 focused tests failed. Green: Sessions 250/250;
+  architecture 29/29.
 - Consistency review of ADR-011 domain fragment publication (2026-08-14): three
   defects fixed. `BeginCompleting`/`Abort` left visible streams `open`
   (`SESS-DEC-11`); duplicate fragment after complete returned
@@ -1392,7 +1406,7 @@ surfaces.
 | `c2fa693` P1 remediations (Repeatable Read snapshot, idle host) | passed; **approved** `4a483a7` | Red: snapshot load `SHOW transaction_isolation` was `read committed`; Worker with `ConnectionStrings:Sessions` registered `DurableInvocationWorkProcessor` (2026-08-14). Green: worker snapshot uses `REPEATABLE READ` and does not mix a later Decision into the earlier head; Worker stays idle even when a Sessions connection string is set. Confirmation pass: snapshot+claim 7/7; Sessions 230/230; architecture 29/29; runtime 37/37; `git diff --check` and `python3 scripts/check_docs.py` passed. External review: 0 P0 / 0 P1 / 0 P2 / 1 P3 work-file current-work sentence (fixed). Head-of-line blocking on retry is covered by the crash/recovery tranche. |
 | `38f1375` P1 cancelled-token release | passed; application | Red: `MemoryWorkStore.ReleaseToPendingAsync` honoring `ThrowIfCancellationRequested` made `Pre_cancelled_worker_releases_claimed_work_with_a_cleanup_token` throw `OperationCanceledException` (2026-08-14). Green: `ReleaseForRetryAsync` uses a bounded cleanup token (default 2s); store still honors cancellation; Sessions 230/230; architecture 28/28; runtime 35/35. Cancellation during load/execute still leaves the claim until lease recovery (covered by crash/recovery tests). |
 | Durable worker crash/recovery fault injection (`SESS-DEC-16`, `SESS-DEC-21`) | passed; application+postgres | Confirmation pass (2026-08-14): Sessions 234/234 including crash-after-claim, crash-after-provider-return, failed durable-work acknowledgement, and unprocessable-oldest head-of-line progress; crash-recovery Postgres 8/8 including Decision-commit persist failure, database-time reclaim despite a still-valid host lease, stale-lease CAS, and two-worker contention. Leases are expired with `clock_timestamp()`, not wall-clock sleeps. External review of `fa95a1d`: keep; tighten claims (no scheduler fairness; acknowledgement is fail-before-`MarkCompleted`). External review of `f75ebb1`: **approved** 0 P0 / 0 P1 / 0 P2; optional P3 `lost-response` wording folded. ADR-011 fragment and scheduler effect-commit injection remain later. |
-| ADR-011 domain fragment publication (`REQ-SESS-55`–`60`, `SESS-DEC-9`–`12`, `AC-SESS-32`) | passed; in-memory aggregate after consistency review | Red: compile miss, then 3 consistency tests failed (cutoff left `open`; complete duplicate `already_terminal`; Decision retry unpublished). Green: 13/13 focused tests; `FlexAgent.Sessions.Tests` 247/247; architecture 29/29; `git diff --check` passed. Persistence, SSE/replay, streaming bounds, rolling validation, and worker content-phase remain. |
+| ADR-011 domain fragment publication (`REQ-SESS-55`–`60`, `SESS-DEC-9`–`12`, `AC-SESS-32`) | passed after `003f715` P1/P2 | Red: competing complete/incomplete reconciled; digest-after-complete was `already_terminal`; legacy emit had `aout.*` before first fragment. Green: 16/16 focused tests; `FlexAgent.Sessions.Tests` 250/250; architecture 29/29; `git diff --check` passed. Persistence, SSE/replay, streaming bounds, rolling validation, and worker content-phase remain. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
