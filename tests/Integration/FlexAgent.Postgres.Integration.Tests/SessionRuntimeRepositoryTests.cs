@@ -933,6 +933,139 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
         Assert.Equal(3, loaded.Turns[1].CreatedSessionSequence);
     }
 
+    [Fact]
+    public async Task Envelope_decision_round_trips_outputs_and_per_item_validation()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
+        var acceptCoordinator = new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler());
+        var completeCoordinator = new PostgresCompleteInvocationCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new CompleteInvocationHandler());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var admitted = await acceptCoordinator.AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                actor,
+                binding.Ownership,
+                ExpectedSessionVersion: 0,
+                "msg.p.1",
+                "turn.1",
+                "slot.1",
+                "trig.participant.1",
+                "idem.p.envelope",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+
+        var envelope = new EnvelopeRecommendation(
+            "adec.roundtrip.0001",
+            admitted.Invocation!.AgentInvocationId,
+            new DateTimeOffset(2026, 8, 13, 0, 0, 2, TimeSpan.Zero),
+            DecisionDispositions.Respond,
+            [
+                new OutputRecommendation(
+                    AgentOutputKinds.Message,
+                    "out.message.primary",
+                    "participant_reply",
+                    "turn.1",
+                    "slot.1"),
+                new OutputRecommendation(
+                    AgentOutputKinds.Voice,
+                    "out.voice.primary",
+                    PayloadRef: new ProtectedContentRef(
+                        "prot.voice.roundtrip.0001",
+                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")),
+            ],
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.primary",
+                    "PT5M",
+                    "1"),
+            ]);
+
+        var completed = await completeCoordinator.CompleteAsync(
+            new CompleteInvocationCommand(
+                actor,
+                binding.Ownership,
+                admitted.SessionVersion!.Value,
+                admitted.Invocation.AgentInvocationId,
+                envelope,
+                null,
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+
+        await using var loadScope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken);
+        var loaded = await repository.LoadForUpdateAsync(
+            binding.Ownership,
+            binding,
+            loadScope.Transaction,
+            CancellationToken);
+        await loadScope.CommitAsync(CancellationToken);
+
+        Assert.NotNull(loaded);
+        var loadedInvocation = Assert.Single(loaded!.Invocations);
+        var loadedEnvelope = Assert.IsType<EnvelopeRecommendation>(loadedInvocation.Decision!.Recommendation);
+        Assert.Equal(2, loadedEnvelope.Outputs.Count);
+        Assert.Equal(AgentOutputKinds.Voice, loadedEnvelope.Outputs[1].Kind);
+        Assert.Equal(
+            "prot.voice.roundtrip.0001",
+            loadedEnvelope.Outputs[1].PayloadRef!.ProtectedRef);
+        Assert.Equal("PT5M", Assert.Single(loadedEnvelope.RequestedActions).RelativeDelay);
+
+        var message = Assert.Single(
+            loadedInvocation.ValidationEffect!.OutputValidations,
+            item => item.Kind == AgentOutputKinds.Message);
+        var voice = Assert.Single(
+            loadedInvocation.ValidationEffect.OutputValidations,
+            item => item.Kind == AgentOutputKinds.Voice);
+        Assert.Equal(DecisionValidationOutcomes.Accepted, message.ValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.Applied, message.EffectOutcome);
+        Assert.StartsWith("aout.", message.AgentOutputId);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, voice.ValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, voice.EffectOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, Assert.Single(loadedInvocation.ValidationEffect.RequestedActionValidations).EffectOutcome);
+        Assert.Equal(completed.Decision!.PayloadDigest, loadedInvocation.Decision!.PayloadDigest);
+        Assert.Equal(
+            completed.Decision.PayloadDigest,
+            DecisionRecommendationDigestComputer.Compute(loadedEnvelope));
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var envelopeVersion = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT envelope_schema_version
+            FROM session_decisions
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+              AND agent_invocation_id = @InvocationId;
+            """,
+            new
+            {
+                binding.Ownership.OrganizationId,
+                binding.Ownership.SessionId,
+                InvocationId = admitted.Invocation.AgentInvocationId,
+            });
+        Assert.Equal("v2", envelopeVersion);
+    }
+
     private async Task<DateTime> ReadTurnCommittedAtAsync(SessionOwnership ownership, string turnId)
     {
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);

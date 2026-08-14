@@ -1,3 +1,4 @@
+using System.Text;
 using Dapper;
 using FlexAgent.Sessions.Domain;
 using Npgsql;
@@ -106,6 +107,7 @@ public sealed class PostgresSessionRuntimeRepository
                next_timer_expected_schedule_revision, next_timer_relative_delay,
                reason_category, communication_purpose, turn_id, response_slot_id,
                payload_digest, decision_payload_digest_version,
+               envelope_schema_version, envelope_json,
                committed_session_version, committed_session_sequence
         FROM session_decisions
         WHERE organization_id = @OrganizationId
@@ -140,6 +142,30 @@ public sealed class PostgresSessionRuntimeRepository
           AND attempt_id = @AttemptId
           AND session_id = @SessionId
         ORDER BY agent_invocation_id, revision_ordinal;
+        """;
+
+    private const string LoadOutputValidationsSql = """
+        SELECT agent_invocation_id, revision_ordinal, item_ordinal, local_ref, kind,
+               validation_outcome, rejection_reason_category, agent_output_id, effect_outcome
+        FROM session_decision_output_validations
+        WHERE organization_id = @OrganizationId
+          AND activity_id = @ActivityId
+          AND participant_id = @ParticipantId
+          AND attempt_id = @AttemptId
+          AND session_id = @SessionId
+        ORDER BY agent_invocation_id, revision_ordinal, item_ordinal;
+        """;
+
+    private const string LoadActionValidationsSql = """
+        SELECT agent_invocation_id, revision_ordinal, item_ordinal, local_ref, kind,
+               validation_outcome, rejection_reason_category, effect_outcome
+        FROM session_decision_requested_action_validations
+        WHERE organization_id = @OrganizationId
+          AND activity_id = @ActivityId
+          AND participant_id = @ParticipantId
+          AND attempt_id = @AttemptId
+          AND session_id = @SessionId
+        ORDER BY agent_invocation_id, revision_ordinal, item_ordinal;
         """;
 
     private const string UpdateHeadSql = """
@@ -216,6 +242,7 @@ public sealed class PostgresSessionRuntimeRepository
             next_timer_expected_schedule_revision, next_timer_relative_delay,
             reason_category, communication_purpose, turn_id, response_slot_id,
             payload_digest, decision_payload_digest_version,
+            envelope_schema_version, envelope_json,
             committed_session_version, committed_session_sequence)
         VALUES (
             @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
@@ -223,6 +250,7 @@ public sealed class PostgresSessionRuntimeRepository
             @NextTimerExpectedScheduleRevision, @NextTimerRelativeDelay,
             @ReasonCategory, @CommunicationPurpose, @TurnId, @ResponseSlotId,
             @PayloadDigest, @DecisionPayloadDigestVersion,
+            @EnvelopeSchemaVersion, CAST(@EnvelopeJson AS jsonb),
             @CommittedSessionVersion, @CommittedSessionSequence)
         ON CONFLICT (
             organization_id, activity_id, participant_id, attempt_id, session_id, agent_invocation_id)
@@ -264,6 +292,34 @@ public sealed class PostgresSessionRuntimeRepository
               AND session_id = @SessionId
               AND agent_invocation_id = @AgentInvocationId
               AND revision_ordinal = @RevisionOrdinal);
+        """;
+
+    private const string InsertOutputValidationSql = """
+        INSERT INTO session_decision_output_validations (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            agent_invocation_id, revision_ordinal, item_ordinal, local_ref, kind,
+            validation_outcome, rejection_reason_category, agent_output_id, effect_outcome)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @AgentInvocationId, @RevisionOrdinal, @ItemOrdinal, @LocalRef, @Kind,
+            @ValidationOutcome, @RejectionReasonCategory, @AgentOutputId, @EffectOutcome)
+        ON CONFLICT (
+            organization_id, session_id, agent_invocation_id, revision_ordinal, item_ordinal)
+        DO NOTHING;
+        """;
+
+    private const string InsertActionValidationSql = """
+        INSERT INTO session_decision_requested_action_validations (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            agent_invocation_id, revision_ordinal, item_ordinal, local_ref, kind,
+            validation_outcome, rejection_reason_category, effect_outcome)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @AgentInvocationId, @RevisionOrdinal, @ItemOrdinal, @LocalRef, @Kind,
+            @ValidationOutcome, @RejectionReasonCategory, @EffectOutcome)
+        ON CONFLICT (
+            organization_id, session_id, agent_invocation_id, revision_ordinal, item_ordinal)
+        DO NOTHING;
         """;
 
     private const string UpdateValidationEffectSql = """
@@ -392,6 +448,10 @@ public sealed class PostgresSessionRuntimeRepository
             new CommandDefinition(LoadOutcomesSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
         var validationRows = (await connection.QueryAsync<SessionValidationRow>(
             new CommandDefinition(LoadValidationsSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
+        var outputValidationRows = (await connection.QueryAsync<SessionOutputValidationRow>(
+            new CommandDefinition(LoadOutputValidationsSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
+        var actionValidationRows = (await connection.QueryAsync<SessionActionValidationRow>(
+            new CommandDefinition(LoadActionValidationsSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
 
         var invocations = invocationRows
             .Select(item => AgentInvocation.Rehydrate(
@@ -421,7 +481,18 @@ public sealed class PostgresSessionRuntimeRepository
                     .ToArray(),
                 validationRows
                     .Where(validation => string.Equals(validation.agent_invocation_id, item.agent_invocation_id, StringComparison.Ordinal))
-                    .Select(ToValidation)
+                    .Select(validation => ToValidation(
+                        validation,
+                        outputValidationRows
+                            .Where(output =>
+                                string.Equals(output.agent_invocation_id, item.agent_invocation_id, StringComparison.Ordinal)
+                                && output.revision_ordinal == validation.revision_ordinal)
+                            .ToArray(),
+                        actionValidationRows
+                            .Where(action =>
+                                string.Equals(action.agent_invocation_id, item.agent_invocation_id, StringComparison.Ordinal)
+                                && action.revision_ordinal == validation.revision_ordinal)
+                            .ToArray()))
                     .ToArray()))
             .ToArray();
 
@@ -621,6 +692,10 @@ public sealed class PostgresSessionRuntimeRepository
                         },
                         PayloadDigest = invocation.Decision.PayloadDigest,
                         DecisionPayloadDigestVersion = DecisionPayloadDigest.FormatVersionV1,
+                        EnvelopeSchemaVersion = recommendation is EnvelopeRecommendation ? "v2" : "v1",
+                        EnvelopeJson = recommendation is EnvelopeRecommendation envelopeJson
+                            ? Encoding.UTF8.GetString(AgentDecisionEnvelopeSerializer.ToUtf8Json(envelopeJson))
+                            : null,
                         CommittedSessionVersion = invocation.Decision.CommittedSessionVersion,
                         CommittedSessionSequence = invocation.Decision.CommittedSessionSequence,
                     },
@@ -697,6 +772,59 @@ public sealed class PostgresSessionRuntimeRepository
                             AppliedResponseSlotId = validation.AppliedResponseSlotId,
                             EffectCommitSessionVersion = validation.EffectCommitSessionVersion,
                             EffectCommitSessionSequence = validation.EffectCommitSessionSequence,
+                        },
+                        transaction,
+                        cancellationToken: cancellationToken));
+            }
+
+            for (var index = 0; index < validation.OutputValidations.Count; index++)
+            {
+                var item = validation.OutputValidations[index];
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        InsertOutputValidationSql,
+                        new
+                        {
+                            ownership.OrganizationId,
+                            ownership.ActivityId,
+                            ownership.ParticipantId,
+                            ownership.AttemptId,
+                            ownership.SessionId,
+                            invocation.AgentInvocationId,
+                            RevisionOrdinal = validation.RevisionOrdinal,
+                            ItemOrdinal = index,
+                            item.LocalRef,
+                            item.Kind,
+                            item.ValidationOutcome,
+                            item.RejectionReasonCategory,
+                            item.AgentOutputId,
+                            item.EffectOutcome,
+                        },
+                        transaction,
+                        cancellationToken: cancellationToken));
+            }
+
+            for (var index = 0; index < validation.RequestedActionValidations.Count; index++)
+            {
+                var item = validation.RequestedActionValidations[index];
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        InsertActionValidationSql,
+                        new
+                        {
+                            ownership.OrganizationId,
+                            ownership.ActivityId,
+                            ownership.ParticipantId,
+                            ownership.AttemptId,
+                            ownership.SessionId,
+                            invocation.AgentInvocationId,
+                            RevisionOrdinal = validation.RevisionOrdinal,
+                            ItemOrdinal = index,
+                            item.LocalRef,
+                            item.Kind,
+                            item.ValidationOutcome,
+                            item.RejectionReasonCategory,
+                            item.EffectOutcome,
                         },
                         transaction,
                         cancellationToken: cancellationToken));
@@ -817,34 +945,50 @@ public sealed class PostgresSessionRuntimeRepository
             return null;
         }
 
-        NextTimerRecommendation? nextTimer = row.next_timer_relative_delay is null
-            ? null
-            : new NextTimerRecommendation(
-                row.next_timer_relative_delay,
-                row.next_timer_expected_schedule_revision ?? string.Empty);
-        DecisionRecommendation recommendation = row.decision_type switch
+        DecisionRecommendation recommendation;
+        if (string.Equals(row.envelope_schema_version, "v2", StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(row.envelope_json))
         {
-            RuntimeDecisionTypes.NoAction => new NoActionRecommendation(
-                row.decision_id,
-                row.agent_invocation_id,
-                ToUtc(row.produced_at),
-                row.reason_category ?? NoActionReasonCategories.IntentionalSilence,
-                nextTimer),
-            RuntimeDecisionTypes.EmitMessage => new EmitMessageRecommendation(
-                row.decision_id,
-                row.agent_invocation_id,
-                ToUtc(row.produced_at),
-                row.communication_purpose ?? string.Empty,
-                row.turn_id,
-                row.response_slot_id,
-                nextTimer),
-            _ => new ProhibitedDecisionRecommendation(
-                row.decision_id,
-                row.agent_invocation_id,
-                ToUtc(row.produced_at),
-                row.decision_type,
-                nextTimer),
-        };
+            var parsed = AgentDecisionEnvelopeParser.Parse(Encoding.UTF8.GetBytes(row.envelope_json));
+            if (!parsed.Succeeded || parsed.Envelope is null)
+            {
+                throw new InvalidOperationException("Stored v2 Decision envelope could not be reconstructed.");
+            }
+
+            recommendation = parsed.Envelope;
+        }
+        else
+        {
+            NextTimerRecommendation? nextTimer = row.next_timer_relative_delay is null
+                ? null
+                : new NextTimerRecommendation(
+                    row.next_timer_relative_delay,
+                    row.next_timer_expected_schedule_revision ?? string.Empty);
+            recommendation = row.decision_type switch
+            {
+                RuntimeDecisionTypes.NoAction => new NoActionRecommendation(
+                    row.decision_id,
+                    row.agent_invocation_id,
+                    ToUtc(row.produced_at),
+                    row.reason_category ?? NoActionReasonCategories.IntentionalSilence,
+                    nextTimer),
+                RuntimeDecisionTypes.EmitMessage => new EmitMessageRecommendation(
+                    row.decision_id,
+                    row.agent_invocation_id,
+                    ToUtc(row.produced_at),
+                    row.communication_purpose ?? string.Empty,
+                    row.turn_id,
+                    row.response_slot_id,
+                    nextTimer),
+                _ => new ProhibitedDecisionRecommendation(
+                    row.decision_id,
+                    row.agent_invocation_id,
+                    ToUtc(row.produced_at),
+                    row.decision_type,
+                    nextTimer),
+            };
+        }
+
         var decision = new AgentDecisionRecord(recommendation, row.payload_digest);
         decision.BindCommitState(row.committed_session_version, row.committed_session_sequence);
         return decision;
@@ -862,13 +1006,33 @@ public sealed class PostgresSessionRuntimeRepository
         return outcome;
     }
 
-    private static DecisionValidationEffectRecord ToValidation(SessionValidationRow row)
+    private static DecisionValidationEffectRecord ToValidation(
+        SessionValidationRow row,
+        IReadOnlyList<SessionOutputValidationRow> outputRows,
+        IReadOnlyList<SessionActionValidationRow> actionRows)
     {
         var record = new DecisionValidationEffectRecord(
             row.validation_outcome,
             DecisionEffectOutcomes.NotAttempted,
             row.timer_validation_outcome,
-            row.rejection_reason_category);
+            row.rejection_reason_category,
+            outputRows
+                .Select(item => new OutputItemValidation(
+                    item.local_ref,
+                    item.kind,
+                    item.validation_outcome,
+                    item.rejection_reason_category,
+                    item.agent_output_id,
+                    item.effect_outcome))
+                .ToArray(),
+            actionRows
+                .Select(item => new RequestedActionItemValidation(
+                    item.local_ref,
+                    item.kind,
+                    item.validation_outcome,
+                    item.rejection_reason_category,
+                    item.effect_outcome))
+                .ToArray());
         record.BindAuthoritativeState(
             row.revision_ordinal,
             row.validation_commit_session_version,
@@ -1031,6 +1195,8 @@ public sealed class PostgresSessionRuntimeRepository
         string? response_slot_id,
         string payload_digest,
         string decision_payload_digest_version,
+        string envelope_schema_version,
+        string? envelope_json,
         long committed_session_version,
         long committed_session_sequence);
 
@@ -1057,4 +1223,25 @@ public sealed class PostgresSessionRuntimeRepository
         string? applied_response_slot_id,
         long? effect_commit_session_version,
         long? effect_commit_session_sequence);
+
+    private sealed record SessionOutputValidationRow(
+        string agent_invocation_id,
+        int revision_ordinal,
+        int item_ordinal,
+        string local_ref,
+        string kind,
+        string validation_outcome,
+        string? rejection_reason_category,
+        string? agent_output_id,
+        string effect_outcome);
+
+    private sealed record SessionActionValidationRow(
+        string agent_invocation_id,
+        int revision_ordinal,
+        int item_ordinal,
+        string local_ref,
+        string kind,
+        string validation_outcome,
+        string? rejection_reason_category,
+        string effect_outcome);
 }

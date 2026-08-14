@@ -40,6 +40,19 @@ public sealed class SessionsBoundaryTests
     }
 
     [Fact]
+    public void Sessions_domain_does_not_depend_on_json_schema_net()
+    {
+        var result = Types.InAssembly(SessionsAssembly)
+            .That()
+            .ResideInNamespaceContaining(".Domain")
+            .ShouldNot()
+            .HaveDependencyOn("Json.Schema")
+            .GetResult();
+
+        Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));
+    }
+
+    [Fact]
     public void Sessions_assembly_does_not_reference_forbidden_infrastructure_or_host_dependencies()
     {
         ArchitectureTestSupport.AssertNoForbiddenDependencies(

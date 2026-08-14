@@ -13,8 +13,15 @@ internal static class P0DecisionProfileValidator
         var outputs = new List<OutputItemValidation>(envelope.Outputs.Count);
         var acceptedMessageCount = 0;
         var isNoAction = string.Equals(envelope.Disposition, DecisionDispositions.NoAction, StringComparison.Ordinal);
+        var seenLocalRefs = new HashSet<string>(StringComparer.Ordinal);
         foreach (var output in envelope.Outputs)
         {
+            if (!seenLocalRefs.Add(output.LocalRef))
+            {
+                outputs.Add(RejectOutput(output, RejectionReasonCategories.PayloadInvalid));
+                continue;
+            }
+
             if (isNoAction)
             {
                 outputs.Add(RejectOutput(output, RejectionReasonCategories.PolicyProhibited));
@@ -26,8 +33,15 @@ internal static class P0DecisionProfileValidator
 
         var actions = new List<RequestedActionItemValidation>(envelope.RequestedActions.Count);
         var acceptedTimerCount = 0;
+        var seenActionRefs = new HashSet<string>(StringComparer.Ordinal);
         foreach (var action in envelope.RequestedActions)
         {
+            if (!seenActionRefs.Add(action.LocalRef))
+            {
+                actions.Add(RejectAction(action, RejectionReasonCategories.PayloadInvalid));
+                continue;
+            }
+
             actions.Add(ValidateAction(action, policy, isDecisionTypeSupportedByP0, ref acceptedTimerCount));
         }
 

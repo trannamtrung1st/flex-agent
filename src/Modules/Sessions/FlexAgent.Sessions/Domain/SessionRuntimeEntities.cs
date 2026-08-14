@@ -220,9 +220,9 @@ public sealed class DecisionValidationEffectRecord
 
     public string? RejectionReasonCategory { get; }
 
-    public IReadOnlyList<OutputItemValidation> OutputValidations { get; }
+    public IReadOnlyList<OutputItemValidation> OutputValidations { get; private set; }
 
-    public IReadOnlyList<RequestedActionItemValidation> RequestedActionValidations { get; }
+    public IReadOnlyList<RequestedActionItemValidation> RequestedActionValidations { get; private set; }
 
     internal void SetEffectOutcome(string effectOutcome, string? appliedTurnId = null, string? appliedResponseSlotId = null)
     {
@@ -236,6 +236,28 @@ public sealed class DecisionValidationEffectRecord
         {
             AppliedResponseSlotId = appliedResponseSlotId;
         }
+
+        OutputValidations = OutputValidations
+            .Select(item => item with { EffectOutcome = DeriveOutputEffect(item, effectOutcome) })
+            .ToArray();
+        RequestedActionValidations = RequestedActionValidations
+            .Select(item => item with { EffectOutcome = DecisionEffectOutcomes.NotAttempted })
+            .ToArray();
+    }
+
+    private static string DeriveOutputEffect(OutputItemValidation item, string decisionEffect)
+    {
+        if (!string.Equals(item.ValidationOutcome, DecisionValidationOutcomes.Accepted, StringComparison.Ordinal)
+            || !string.Equals(item.Kind, AgentOutputKinds.Message, StringComparison.Ordinal))
+        {
+            return DecisionEffectOutcomes.NotAttempted;
+        }
+
+        return decisionEffect is DecisionEffectOutcomes.Applied
+            or DecisionEffectOutcomes.NoDomainEffect
+            or DecisionEffectOutcomes.EffectFailed
+            ? decisionEffect
+            : DecisionEffectOutcomes.NotAttempted;
     }
 
     internal void BindAuthoritativeState(int revisionOrdinal, long sessionVersion, long sessionSequence)

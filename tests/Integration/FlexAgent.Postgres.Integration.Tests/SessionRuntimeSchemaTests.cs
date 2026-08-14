@@ -16,6 +16,8 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         "session_invocations",
         "session_invocation_attempts",
         "session_decisions",
+        "session_decision_output_validations",
+        "session_decision_requested_action_validations",
         "session_decision_validations",
         "session_execution_outcomes",
         "session_messages",
@@ -87,6 +89,96 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         Assert.Contains(columns, column => column.ColumnName == "payload_digest");
         var version = Assert.Single(columns, column => column.ColumnName == "decision_payload_digest_version");
         Assert.Contains(DecisionPayloadDigest.FormatVersionV1, version.ColumnDefault, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Decisions_store_v2_envelope_json_and_reject_v1_rows_with_json()
+    {
+        var seeded = await SeedRuntimeWithInvocationAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+
+        var columns = (await connection.QueryAsync<string>(
+            new CommandDefinition(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'session_decisions'
+                  AND column_name IN ('envelope_schema_version', 'envelope_json');
+                """,
+                cancellationToken: CancellationToken))).AsList();
+        Assert.Contains("envelope_schema_version", columns);
+        Assert.Contains("envelope_json", columns);
+
+        var v1Json = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO session_decisions (
+                        organization_id, activity_id, participant_id, attempt_id, session_id,
+                        agent_invocation_id, decision_id, decision_type, produced_at,
+                        payload_digest, decision_payload_digest_version,
+                        envelope_schema_version, envelope_json,
+                        committed_session_version, committed_session_sequence)
+                    VALUES (
+                        @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                        @InvocationId, @DecisionId, 'no_action',
+                        TIMESTAMPTZ '2026-08-13T00:00:02Z',
+                        @PayloadDigest, @DigestVersion,
+                        'v1', '{}'::jsonb,
+                        1, 2);
+                    """,
+                    new
+                    {
+                        seeded.OrganizationId,
+                        seeded.ActivityId,
+                        seeded.ParticipantId,
+                        seeded.AttemptId,
+                        seeded.SessionId,
+                        seeded.InvocationId,
+                        seeded.DecisionId,
+                        PayloadDigest = LowercaseDigest('e'),
+                        DigestVersion = DecisionPayloadDigest.FormatVersionV1,
+                    },
+                    cancellationToken: CancellationToken)));
+        Assert.Contains("envelope_presence", v1Json.ConstraintName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Output_and_action_validation_rows_are_append_only_and_bound_to_a_revision()
+    {
+        var seeded = await SeedRuntimeWithInvocationAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await InsertDecisionAsync(connection, seeded);
+        await InsertValidationRevisionAsync(connection, seeded, revisionOrdinal: 1, validationOutcome: "accepted");
+
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO session_decision_output_validations (
+                    organization_id, activity_id, participant_id, attempt_id, session_id,
+                    agent_invocation_id, revision_ordinal, item_ordinal, local_ref, kind,
+                    validation_outcome, rejection_reason_category, agent_output_id, effect_outcome)
+                VALUES (
+                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                    @InvocationId, 1, 0, 'out.message.primary', 'message',
+                    'accepted', NULL, 'aout.roundtrip.0001', 'applied');
+                """,
+                seeded,
+                cancellationToken: CancellationToken));
+
+        var update = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE session_decision_output_validations
+                    SET effect_outcome = 'not_attempted'
+                    WHERE session_id = @SessionId
+                      AND agent_invocation_id = @InvocationId;
+                    """,
+                    seeded,
+                    cancellationToken: CancellationToken)));
+        Assert.Contains("append-only", update.MessageText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

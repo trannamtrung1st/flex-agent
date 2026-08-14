@@ -590,17 +590,17 @@ and test reviews have no unresolved blocking findings.
   - [ ] Worker-owned claim, egress allowlist, attempt timeout, and
     cumulative-snapshot versus non-overlapping-delta content-phase remain for
     the worker and ADR-011 steps; do not treat this slice as streaming complete.
-- [>] Close the two hard worker-claim gates before any worker consumes the
+- [x] Close the two hard worker-claim gates before any worker consumes the
   model-execution port. Do not start worker claim, live provider wiring, or
   durable v2 Decision writes until both are green.
-  - [ ] Exact `agent-decision.v2` schema validation at the model-execution
+  - [x] Exact `agent-decision.v2` schema validation at the model-execution
     boundary (parser/port parity with every invalid v2 catalog fixture).
     Schema-invalid provider output must be an Invocation execution outcome and
     create no Agent Decision (`SESS-DEC-31` layer 1 / ADR-014).
-  - [ ] Additive PostgreSQL migration for the v2 envelope plus per-item
+  - [x] Additive PostgreSQL migration for the v2 envelope plus per-item
     output/action validation and effect/absence (`SESS-DEC-35`). Do not rewrite
     applied migrations `0005`–`0008`.
-- [!] Replace the worker heartbeat-only behavior with bounded durable-runtime
+- [>] Replace the worker heartbeat-only behavior with bounded durable-runtime
   processing while retaining health/readiness behavior. Claim Invocation work,
   reauthorize, execute attempts, record one Decision or execution outcome,
   validate current policy, apply an idempotent effect, renew/expire claims, and
@@ -699,13 +699,22 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-External review of `7e1bc83` (2026-08-14) found 0 P0 and 1 remaining P1: a
-reference-invalid first message provisionally consumed cardinality so a later
-valid message stayed rejected. That is fixed: references are validated before
-cardinality, so the first runtime-ordered permitted message is accepted. The
-local-reference remediation slice is cleared. Worker claim still must not
-start until exact `agent-decision.v2` schema validation and additive
-v2/per-item persistence are green.
+The two worker-claim gates are **cleared**. Exact `agent-decision.v2` schema
+validation now sits on the model-execution JSON path: every invalid v2 catalog
+fixture is an execution failure with no Decision, including
+`invalid-timer-duration.json` (`P1Y`) that the handwritten mapper still accepts.
+Additive `0009` stores the v2 control envelope as JSONB plus append-only
+per-item output and requested-action validation/effect rows. Historical v1
+flattened Decision rows remain reconstructable (`envelope_schema_version = v1`,
+`envelope_json` null). Next executable work is worker claim against the
+model-execution port. ADR-011 fragment publication and the one-lane scheduler
+still wait after worker is in.
+
+External review of `39883c2` (2026-08-14) **approves the local-reference
+remediation slice: 0 P0, 0 P1.** Push-triggered GitHub Actions on `main`
+passed for that SHA: Documentation #120 (~12s) and Implementation #89
+(~6m 30s). An empty PR-connector result means no PR-triggered runs were
+visible through that tool, not that CI did not run.
 
 The multi-channel output decision gate is **cleared**. The successor Decision
 envelope (`agent-decision.v2`) and deterministic model-execution port exist:
@@ -740,12 +749,21 @@ now waits on `pg_locks` until T2 is blocked by T1 before advancing
 completion audit/outbox rollback, and execution-failure `AlreadyTerminal` as
 a safe worker ack. `0008` backfill is best-effort; no production Session
 upgrade path. The output-contract decision gate is cleared; the successor
-envelope and deterministic fake port are in. Worker claim is blocked on
-schema-parity validation and additive v2 persistence. Commit-time revocation,
-timer replacement races, and export/backup/restore wait on later surfaces.
+envelope and deterministic fake port are in. Worker-claim gates (exact v2
+schema validation and additive v2/per-item persistence) are in. Commit-time
+revocation, timer replacement races, and export/backup/restore wait on later
+surfaces.
 
 # Decisions
 
+- Exact `agent-decision.v2` validation at the model-execution boundary uses
+  JsonSchema.Net Draft 2020-12 against the embedded canonical schema. The
+  handwritten Domain parser remains a typed mapper after schema success and
+  is not schema-complete. Schema-invalid provider JSON is an Invocation
+  execution outcome (`malformed_control`) and creates no Agent Decision.
+- Additive `0009` stores v2 `envelope_json` plus per-item output/action
+  validation and effect/absence. Applied `0005`–`0008` are not rewritten.
+  Historical v1 Decision rows keep flattened columns and null `envelope_json`.
 - The output-contract decision is resolved by ADR-014: one Decision envelope
   with a P0 profile of zero or one accepted `message` output, explicit
   `no_action`, independent next-timer requested action, and reconstructable
@@ -906,12 +924,23 @@ timer replacement races, and export/backup/restore wait on later surfaces.
 
 # Findings / deviations
 
+- Worker-claim gates (2026-08-14): exact `agent-decision.v2` schema validation
+  at `AgentDecisionEnvelopeReader` (JsonSchema.Net Draft 2020-12, embedded
+  canonical schema + primitives) plus additive `0009`. Domain parser remains a
+  typed mapper and is not schema authority. Domain types do not reference
+  `Json.Schema`. Per-item effect: accepted Participant `message` follows the
+  Decision effect; rejected items and requested actions record explicit
+  `not_attempted` until a later channel/scheduler seam exists. Duplicate
+  output/action `local_ref` values are `payload_invalid` and persist by
+  `item_ordinal`, not a UNIQUE `local_ref` constraint.
+- External review of `39883c2` (2026-08-14): **approved** for the
+  local-reference remediation slice (0 P0, 0 P1). Push-triggered GitHub
+  Actions on `main`: Documentation #120 passed; Implementation #89 passed.
+  Empty PR-connector results are not “no CI.”
 - External review of `7e1bc83` (2026-08-14): 0 P0, 1 P1 — a reference-invalid
   first message blocked a later valid message because cardinality ran before
-  refs. Fixed: refs validate first; first permitted message is accepted
-  (`SESS-DEC-30`). Local-reference remediation is cleared. The two worker gates
-  remain. GitHub combined status was not independently corroborated for that
-  SHA.
+  refs. Fixed in `39883c2`: refs validate first; first permitted message is
+  accepted (`SESS-DEC-30`).
 - External review of `b83aaaa` (2026-08-14): improved, **not approved for
   worker integration**. Prior P1 #1/`no_action` publication and P1 #3 digest
   losslessness accepted. Remaining slice P1: local refs were retained but not
@@ -1146,6 +1175,8 @@ timer replacement races, and export/backup/restore wait on later surfaces.
 - Review remediation of `7e1bc83` (2026-08-14): reference validation now runs
   before extra-message cardinality. A later valid message is accepted after a
   missing-ref or voice-ref sibling; exactly one `aout.*` is allocated.
+  External review **approved** that slice at `39883c2` (0 P0, 0 P1) with
+  push-triggered Documentation #120 and Implementation #89 green.
 
 # Verification
 
@@ -1171,7 +1202,9 @@ timer replacement races, and export/backup/restore wait on later surfaces.
 | Successor Decision envelope and dual-read (`SESS-DEC-31`, `REQ-SESS-80`, `AC-SESS-46`) | passed; contract+domain | Red: catalog/schema tests required `agent-decision.v2` before the schema existed. Green: contract tests 134/134 including v1 dual-read, schema-valid `voice`, opaque voice `payload_ref`, and rejected voice `communication_purpose`; Sessions 200/200 including mixed message+voice, extra message, empty `respond`, model-authored id/audience, hidden-reasoning parse, fake port, and no-fallback preflight; architecture 27/27; Postgres 75/76 with known concurrent-empty Grate `pg_type` flake that passed on retry; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-14). |
 | `bba3a20` P1 remediations (`SESS-DEC-18`, `SESS-DEC-30`, `SESS-DEC-35` identity) | passed; domain | Red: `No_action_with_a_valid_message_*` failed with effect `applied`; `Parser_retains_envelope_payload_ref_*` NRE; `Recommendation_digest_changes_*` equal digests (2026-08-14). Green: Sessions 203/203; architecture 27/27 (2026-08-14). Residual worker gates: exact v2 schema validation at the port; additive v2/per-item persistence. |
 | `b83aaaa` local-ref resolution (`SESS-DEC-32`, `REQ-SESS-81`) | passed; domain | Red: missing `local_ref` and P0-rejected voice sibling still accepted the message (2026-08-14). Green: Sessions 205/205; architecture 27/27 (2026-08-14). Worker gates unchanged. |
-| `7e1bc83` first-invalid/second-valid cardinality (`SESS-DEC-30`) | passed; domain | Red: first missing-ref or voice-ref message left communication `rejected` so a later valid message stayed extra (2026-08-14). Green: Sessions 207/207; architecture 27/27 (2026-08-14). Worker gates unchanged. |
+| `7e1bc83` first-invalid/second-valid cardinality (`SESS-DEC-30`) | passed; **approved** `39883c2` | Red: first missing-ref or voice-ref message left communication `rejected` so a later valid message stayed extra (2026-08-14). Green: Sessions 207/207; architecture 27/27. External review: 0 P0, 0 P1. Push-triggered GitHub Actions on `main` for `39883c2`: Documentation #120 passed (~12s); Implementation #89 passed (~6m 30s). Worker gates unchanged: exact v2 schema validation; additive v2/per-item persistence. |
+| Exact `agent-decision.v2` schema validation (`SESS-DEC-31` layer 1) | passed; application boundary | Red: `invalid-timer-duration.json` (`P1Y`) became `ModelExecutionStructuredControl` and `AgentDecisionEnvelopeReader` succeeded (2026-08-14). Green after consistency review: Sessions 221/221 including fixture-parity and duplicate-`local_ref` rejection; architecture 28/28 with Domain↛`Json.Schema` guard. Schema-invalid JSON is `malformed_control` with no envelope. |
+| Additive v2 envelope and per-item persistence (`SESS-DEC-35`) | passed; schema+repository | Additive `0009` (frozen `0005`–`0008` unchanged). Consistency review dropped `local_ref` UNIQUE (identity is `item_ordinal`; duplicates are P0 `payload_invalid`) and proved envelope digest survives serialize/parse/reload. Green: Postgres 80/80 including envelope CHECK, append-only item rows, mixed message+voice+timer reload, and `0008→0009` upgrade; Grate one-time script count 9; known concurrent-empty Grate `pg_type` flake passed on retry; `git diff --check` passed (2026-08-14). |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |
@@ -1183,16 +1216,10 @@ timer replacement races, and export/backup/restore wait on later surfaces.
 
 # Blockers
 
-Worker claim against the model-execution port is **blocked** until both of
-these are implemented and evidenced:
-
-1. Exact `agent-decision.v2` schema validation at the model-execution
-   boundary, with parser/port parity tests for every invalid v2 catalog
-   fixture. Schema-invalid output must be an Invocation execution outcome and
-   create no Agent Decision.
-2. Additive PostgreSQL persistence for the v2 envelope and per-item
-   output/action validation plus effect/absence (`SESS-DEC-35`). Do not rewrite
-   applied migrations `0005`–`0008`.
+Worker claim against the model-execution port is **unblocked**. Exact
+`agent-decision.v2` schema validation and additive v2/per-item persistence are
+implemented and evidenced. Worker implementation remains the next tranche and
+must not start live provider wiring.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.

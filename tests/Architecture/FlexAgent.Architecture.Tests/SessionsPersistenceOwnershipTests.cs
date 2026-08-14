@@ -56,7 +56,7 @@ public sealed class SessionsPersistenceOwnershipTests
     private static IReadOnlyList<string> FindSessionRuntimeMigrationPaths()
     {
         var upDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations", "up");
-        var matches = Directory.GetFiles(upDirectory, "*session_runtime*.sql")
+        var matches = Directory.GetFiles(upDirectory, "*session*.sql")
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
 

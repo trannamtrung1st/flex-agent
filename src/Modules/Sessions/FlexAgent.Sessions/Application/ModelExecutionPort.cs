@@ -90,7 +90,7 @@ public sealed class DeterministicFakeModelExecutionAdapter : IModelExecutionPort
             return new ModelExecutionFailed(ExecutionFailureReasons.MalformedControl);
         }
 
-        var parsed = AgentDecisionEnvelopeParser.Parse(utf8Json);
+        var parsed = AgentDecisionEnvelopeReader.Read(utf8Json);
         if (!parsed.Succeeded || parsed.Envelope is null)
         {
             return new ModelExecutionFailed(parsed.FailureReasonCategory ?? ExecutionFailureReasons.MalformedControl);

@@ -96,13 +96,15 @@ public sealed record OutputItemValidation(
     string Kind,
     string ValidationOutcome,
     string? RejectionReasonCategory,
-    string? AgentOutputId);
+    string? AgentOutputId,
+    string EffectOutcome = DecisionEffectOutcomes.NotAttempted);
 
 public sealed record RequestedActionItemValidation(
     string LocalRef,
     string Kind,
     string ValidationOutcome,
-    string? RejectionReasonCategory);
+    string? RejectionReasonCategory,
+    string EffectOutcome = DecisionEffectOutcomes.NotAttempted);
 
 public sealed record EnvelopeParseResult(
     bool Succeeded,

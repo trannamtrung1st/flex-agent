@@ -9,6 +9,9 @@
 
   <ItemGroup>
     <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\..\contracts\fixtures\schema\v2\session\agent-decision\**\*"
+             Link="contracts\fixtures\schema\v2\session\agent-decision\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

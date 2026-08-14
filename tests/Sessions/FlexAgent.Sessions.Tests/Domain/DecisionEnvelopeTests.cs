@@ -94,6 +94,8 @@ public sealed class DecisionEnvelopeTests
         Assert.Equal(DecisionValidationOutcomes.Rejected, voice.ValidationOutcome);
         Assert.Equal(RejectionReasonCategories.CapabilityDisabled, voice.RejectionReasonCategory);
         Assert.Null(voice.AgentOutputId);
+        Assert.Equal(DecisionEffectOutcomes.Applied, message.EffectOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, voice.EffectOutcome);
         Assert.Equal(RuntimeDecisionTypes.EmitMessage, result.Decision!.DecisionType);
     }
 
@@ -363,6 +365,64 @@ public sealed class DecisionEnvelopeTests
         Assert.Equal(2, parsed.Envelope!.Outputs.Count);
         Assert.Equal(AgentOutputKinds.Voice, parsed.Envelope.Outputs[1].Kind);
         Assert.Null(parsed.Envelope.Outputs[1].CommunicationPurpose);
+    }
+
+    [Fact]
+    public void Serializer_round_trips_envelope_recommendation_digest()
+    {
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            "ainv.00000001",
+            outputs:
+            [
+                SessionRuntimeTestFixtures.MessageOutput(
+                    references: [new OutputLocalReference("continues", "out.voice.primary")]),
+                SessionRuntimeTestFixtures.VoiceOutput(),
+            ],
+            requestedActions:
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.primary",
+                    "PT5M",
+                    "1"),
+            ],
+            payloadRef: new ProtectedContentRef(
+                "prot.envelope.0001",
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+            decisionId: "adec.00000001");
+
+        var parsed = AgentDecisionEnvelopeParser.Parse(AgentDecisionEnvelopeSerializer.ToUtf8Json(envelope));
+
+        Assert.True(parsed.Succeeded, parsed.OutcomeCode);
+        Assert.Equal(
+            DecisionRecommendationDigestComputer.Compute(envelope),
+            DecisionRecommendationDigestComputer.Compute(parsed.Envelope!));
+    }
+
+    [Fact]
+    public void Duplicate_output_local_ref_is_rejected_independently()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            invocationId,
+            outputs:
+            [
+                SessionRuntimeTestFixtures.MessageOutput(localRef: "out.shared.primary"),
+                SessionRuntimeTestFixtures.VoiceOutput(localRef: "out.shared.primary"),
+            ]);
+
+        var result = session.CompleteInvocation(
+            invocationId, envelope, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(DecisionValidationOutcomes.Accepted, result.ValidationEffect!.OutputValidations[0].ValidationOutcome);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, result.ValidationEffect.OutputValidations[1].ValidationOutcome);
+        Assert.Equal(
+            RejectionReasonCategories.PayloadInvalid,
+            result.ValidationEffect.OutputValidations[1].RejectionReasonCategory);
     }
 
     [Fact]

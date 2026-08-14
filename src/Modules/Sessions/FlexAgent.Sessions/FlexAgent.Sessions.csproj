@@ -7,6 +7,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\BuildingBlocks\FlexAgent.CanonicalJson\FlexAgent.CanonicalJson.csproj" />
+    <PackageReference Include="JsonSchema.Net" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\..\contracts\schemas\v2\session\agent-decision.v2.schema.json"
+                      LogicalName="FlexAgent.Sessions.Contracts.agent-decision.v2.schema.json" />
+    <EmbeddedResource Include="..\..\..\..\contracts\schemas\v1\common\primitives.v1.schema.json"
+                      LogicalName="FlexAgent.Sessions.Contracts.primitives.v1.schema.json" />
   </ItemGroup>
 
   <ItemGroup>
