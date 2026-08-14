@@ -26,7 +26,7 @@ public sealed class CompositionRootTests
     }
 
     [Fact]
-    public void Api_host_does_not_depend_on_persistence_or_provider_packages()
+    public void Host_assemblies_do_not_depend_on_persistence_or_provider_packages_yet()
     {
         var forbiddenPrefixes = new[]
         {
@@ -37,27 +37,20 @@ public sealed class CompositionRootTests
             "JsonSchema",
         };
 
-        var result = Types.InAssembly(typeof(FlexAgent.Api.Program).Assembly)
-            .ShouldNot()
-            .HaveDependencyOnAny(forbiddenPrefixes)
-            .GetResult();
+        var hostAssemblies = new[]
+        {
+            typeof(FlexAgent.Api.Program).Assembly,
+            typeof(FlexAgent.Worker.Program).Assembly,
+        };
 
-        Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));
-    }
+        foreach (var assembly in hostAssemblies)
+        {
+            var result = Types.InAssembly(assembly)
+                .ShouldNot()
+                .HaveDependencyOnAny(forbiddenPrefixes)
+                .GetResult();
 
-    [Fact]
-    public void Worker_host_may_compose_postgres_but_not_live_provider_packages()
-    {
-        var workerAssembly = typeof(FlexAgent.Worker.Program).Assembly;
-        var result = Types.InAssembly(workerAssembly)
-            .ShouldNot()
-            .HaveDependencyOnAny("OpenAI", "AWSSDK")
-            .GetResult();
-
-        Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));
-        Assert.Contains(
-            "FlexAgent.Sessions.Infrastructure",
-            workerAssembly.GetReferencedAssemblies().Select(assembly => assembly.Name),
-            StringComparer.Ordinal);
+            Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));
+        }
     }
 }

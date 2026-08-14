@@ -1,3 +1,4 @@
+using System.Data;
 using Npgsql;
 
 namespace FlexAgent.Postgres;
@@ -31,12 +32,20 @@ public sealed class PostgresTransactionScope : IAsyncDisposable
 
     public NpgsqlTransaction Transaction => _transaction;
 
+    public static Task<PostgresTransactionScope> BeginAsync(
+        PostgresConnectionAccessor accessor,
+        CancellationToken cancellationToken = default) =>
+        BeginAsync(accessor, IsolationLevel.Unspecified, cancellationToken);
+
     public static async Task<PostgresTransactionScope> BeginAsync(
         PostgresConnectionAccessor accessor,
+        IsolationLevel isolationLevel,
         CancellationToken cancellationToken = default)
     {
         var connection = await accessor.OpenConnectionAsync(cancellationToken);
-        var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var transaction = isolationLevel == IsolationLevel.Unspecified
+            ? await connection.BeginTransactionAsync(cancellationToken)
+            : await connection.BeginTransactionAsync(isolationLevel, cancellationToken);
         return new PostgresTransactionScope(connection, transaction);
     }
 

@@ -1,3 +1,4 @@
+using System.Data;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Audit;
 using FlexAgent.Postgres.Outbox;
@@ -28,7 +29,10 @@ public sealed class PostgresInvocationWorkSessionGateway(
             return null;
         }
 
-        await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
+        await using var scope = await PostgresTransactionScope.BeginAsync(
+            connectionAccessor,
+            IsolationLevel.RepeatableRead,
+            cancellationToken);
         try
         {
             var session = await runtimeRepository.LoadSnapshotAsync(

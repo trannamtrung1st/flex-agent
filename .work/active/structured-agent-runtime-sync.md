@@ -634,17 +634,15 @@ and test reviews have no unresolved blocking findings.
     shutdown cannot leave work claimed because the worker token is already
     cancelled. Worker OCI COPY includes Sessions, CanonicalJson, and the
     embedded Decision schema files.
-  - [x] PostgreSQL claim with lease, `SKIP LOCKED`, expire/reclaim, and
-    worker composition that processes admitted work end to end. Claim uses
-    `clock_timestamp()` for lease expiry; unexpired claims are skipped;
-    expired leases are reclaimed; release returns work to `pending`;
-    complete uses the claimed lease timestamp as a compare-and-set so a
-    later reclaim cannot be acknowledged by the previous worker. Worker
-    host wires the Postgres store, snapshot gateway, fake model port, and
-    real processor when `ConnectionStrings:Sessions` is set; otherwise it
-    stays idle. Frozen-policy rehydration from configuration sources is
-    still deferred: the end-to-end proof registers the same trusted binding
-    used at Session insert.
+  - [x] PostgreSQL claim/lease infrastructure proof: `SKIP LOCKED`, database
+    `clock_timestamp()` leases, expire/reclaim, release-to-pending, and CAS on
+    the returned lease timestamp. Integration tests prove admit → fake port →
+    one Decision → completed work using the insert-time trusted binding.
+    Worker host stays idle until frozen-policy rehydration and an executable
+    model port exist (`c2fa693` P1). Snapshot load uses PostgreSQL
+    `REPEATABLE READ` so child-table reads cannot mix with a later Session
+    version. Do not treat host `ConnectionStrings:Sessions` as an execution
+    path.
   - [ ] Inject crashes after claim, provider return, Decision commit,
     effect/schedule commit, fragment commit, and before acknowledgement; prove
     lost-response reconciliation, backpressure, retry, shutdown,
@@ -745,21 +743,15 @@ Push-triggered GitHub Actions on `main`: Documentation #123 (~19s) and
 Implementation #92 (~6m 31s). The `d5b740c` / `737cb69` remediation chain is
 closed. **Worker claim against the model-execution port is unblocked.**
 
-Current work is the remaining crash/recovery slice of durable worker
-execution (inject after claim, provider return, Decision commit, and
-acknowledgement). Do **not** fold live provider wiring or ADR-011 streaming
-publication into this step. Voice stays disabled. Frozen `0005`–`0011` stay
-frozen. Session/manifest frozen-policy rehydration from configuration sources
-remains deferred; worker end-to-end currently supplies the same trusted
-binding used at Session insert.
+Current work is remediating `c2fa693` P1s before crash/recovery. Do **not**
+fold live provider wiring or ADR-011 streaming publication into this step.
+Voice stays disabled. Frozen `0005`–`0011` stay frozen.
 
-- PostgreSQL claim/lease is in: `SKIP LOCKED` pending/expired claim, database
-  `clock_timestamp()` leases, exclusive unexpired claims, expire/reclaim,
-  release-to-pending, and processor admit → fake port → one Decision →
-  completed work. Worker host composes the Postgres processor when
-  `ConnectionStrings:Sessions` is set and remains idle without it. Next:
-  crash injection after claim/provider/Decision/ack plus lost-response
-  reconciliation.
+- External review of `c2fa693`: 0 P0 / 2 P1 / 1 P2. Lease store is sound.
+  Host composition is an integration proof only; Worker stays idle until
+  binding rehydration and a real model port exist. Snapshot load must use
+  `REPEATABLE READ`. Queue monopolization on retry is deferred to
+  crash/recovery but must not be observable from an activated empty host.
 
 - P1: Effect FKs now bind the complete Organization → Activity → Participant →
   Attempt → Session chain plus invocation/revision/item, and can reference only
@@ -1306,6 +1298,7 @@ surfaces.
 | `737cb69` P1 remediation (`SESS-DEC-35` effect ownership) | passed; **approved** `a6aba5e` | Red: `Item_effect_rows_must_match_the_validation_item_ownership_tuple` and `Item_effect_rows_cannot_reference_a_rejected_validation_item` inserted successfully under `0010` (2026-08-14). Green confirmation pass: those inserts are FK violations after `0011`; schema/repository/upgrade 49/49 including staged validate→effect reload and `0010→0011` upgrade; Grate empty/repeat 2/2 with one-time script count 11. Frozen `0005`–`0010` unchanged. External review of `a6aba5e`: 0 P0 / 0 P1. Push-triggered GitHub Actions: Documentation #123 passed (~19s); Implementation #92 passed (~6m 31s). Worker claim unblocked. |
 | Durable worker claim/execution first slice (`SESS-DEC-16`–`18`) | passed; application+admit+host | Red: admitted Invocation ids were `Guid`-N (not `ainv.*`); worker loop only heartbeated; `RetryLater` left work claimed; shutdown cancellation persisted `execution_failed`. Green confirmation pass: Sessions 230/230 including processor no-action Decision, malformed_control execution outcome, credential fail-closed, terminal redelivery, claim release on retry, and shutdown cancellation without terminalizing; architecture 28/28; runtime 35/35 including processor invocation and live/ready after a processing throw; Postgres repository 16/16 including pending `invocation.execute` enqueue. Live provider and ADR-011 remain out of this step. PostgreSQL claim/lease wiring is next. |
 | PostgreSQL claim/lease and worker composition (`SESS-DEC-16`, `SESS-DEC-21`) | passed after isolation fix; infrastructure+host | Red: `DurableInvocationWorkClaimTests` failed to compile (`PostgresDurableInvocationWorkStore` missing, 2026-08-14). Focused 6/6 passed in isolation; the full Postgres suite then failed those 6 because global `SKIP LOCKED` claimed leftover pending rows. Tests now lock other claimable work with `FOR UPDATE` while asserting the prepared Session. Confirmation pass (2026-08-14): claim 6/6; Sessions 230/230; architecture 30/30; runtime 36/36; `git diff --check` and `python3 scripts/check_docs.py` passed. Crash/fault injection remains next. Frozen-policy rehydration from configuration sources remains deferred. |
+| `c2fa693` P1 remediations (Repeatable Read snapshot, idle host) | passed; application+host | Red: snapshot load `SHOW transaction_isolation` was `read committed`; Worker with `ConnectionStrings:Sessions` registered `DurableInvocationWorkProcessor` (2026-08-14). Green: worker snapshot uses `REPEATABLE READ` and does not mix a later Decision into the earlier head; Worker stays idle even when a Sessions connection string is set. Confirmation pass: snapshot+claim 7/7; Sessions 230/230; architecture 29/29; runtime 37/37; `git diff --check` and `python3 scripts/check_docs.py` passed. Queue monopolization on retry remains the crash/recovery tranche. |
 | `38f1375` P1 cancelled-token release | passed; application | Red: `MemoryWorkStore.ReleaseToPendingAsync` honoring `ThrowIfCancellationRequested` made `Pre_cancelled_worker_releases_claimed_work_with_a_cleanup_token` throw `OperationCanceledException` (2026-08-14). Green: `ReleaseForRetryAsync` uses a bounded cleanup token (default 2s); store still honors cancellation; Sessions 230/230; architecture 28/28; runtime 35/35. Cancellation during load/execute still leaves the claim until lease recovery (next slice). |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
@@ -1319,9 +1312,10 @@ surfaces.
 
 # Blockers
 
-None for the next crash/recovery worker slice. Live provider wiring, ADR-011
-streaming publication, and frozen-policy rehydration from configuration
-sources remain out of this worker step.
+None for starting crash/recovery after `c2fa693` P1 remediations. Live provider
+wiring, ADR-011 streaming publication, and frozen-policy rehydration from
+configuration sources remain out of this worker step. Worker host stays idle
+until those exist so an empty binding source cannot monopolize the claim queue.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.

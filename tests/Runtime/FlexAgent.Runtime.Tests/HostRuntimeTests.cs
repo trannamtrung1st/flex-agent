@@ -115,6 +115,21 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
     }
 
     [Fact]
+    public void Worker_stays_idle_when_a_sessions_connection_string_is_set()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+        });
+
+        var processor = factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>();
+
+        Assert.IsType<IdleDurableInvocationWorkProcessor>(processor);
+    }
+
+    [Fact]
     public async Task Worker_loop_invokes_the_durable_invocation_processor_while_the_claim_gate_allows()
     {
         var processor = new CountingDurableInvocationWorkProcessor();

@@ -7,6 +7,7 @@ namespace FlexAgent.Sessions.Infrastructure;
 
 public sealed class PostgresSessionRuntimeRepository
 {
+    internal static Func<NpgsqlTransaction, Task>? AfterHeadLoadedAsync { get; set; }
     private const string InsertActiveSql = """
         INSERT INTO session_runtimes (
             organization_id, activity_id, participant_id, attempt_id, session_id,
@@ -513,6 +514,11 @@ public sealed class PostgresSessionRuntimeRepository
             || !string.Equals(row.manifest_id, binding.ManifestId, StringComparison.Ordinal))
         {
             return null;
+        }
+
+        if (!forUpdate && AfterHeadLoadedAsync is not null)
+        {
+            await AfterHeadLoadedAsync(transaction);
         }
 
         var invocationRows = (await connection.QueryAsync<SessionInvocationRow>(
