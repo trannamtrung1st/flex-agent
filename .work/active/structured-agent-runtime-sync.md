@@ -706,6 +706,8 @@ and test reviews have no unresolved blocking findings.
   - [x] Remediate `cdd586d` P2/P3 before outbox/SSE (dirty Turns + pending
     transcript only; store accepted output on the Agent Message; rollback
     discards the aggregate and reloads). Do not rewrite `0005`–`0014`.
+    External review of `ea21ec3` (2026-08-14): **approved**, 0 P0 / 0 P1 /
+    0 P2 / 0 P3. Persistence boundary is closed; outbox/SSE is next.
   - [ ] Outbox/SSE commit-before-publish, replay, rolling validation,
     backpressure, and worker content-phase (cumulative vs delta).
 - [ ] Implement the one-lane scheduler with model-based/domain tests first,
@@ -790,15 +792,17 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-`cdd586d` P2/P3 remediations are green. Publication persist writes only
-`DirtyTurns` and `PendingTranscript` (agent transcript on first fragment),
-stores accepted output on `AgentResponseMessage`, and documents that a
-failed transaction discards the loaded aggregate. Frozen `0005`–`0014`
-unchanged. Next ADR-011 work is outbox/SSE commit-before-publish. Voice
-stays disabled.
+External review of `ea21ec3` (2026-08-14) **approved: 0 P0 / 0 P1 / 0 P2 /
+0 P3.** Keep that SHA as the ADR-011 PostgreSQL publication-persist
+boundary. Publication persist writes only `DirtyTurns` and
+`PendingTranscript`; accepted output lives on `AgentResponseMessage`; a
+failed transaction discards the loaded aggregate and retries from
+PostgreSQL. Frozen `0005`–`0014` unchanged. Next ADR-011 work is
+outbox/SSE commit-before-publish. Voice stays disabled.
 
 External review of `cdd586d` (2026-08-14) **request changes: 0 P0 / 0 P1 /
-1 P2 / 2 P3.** Those findings are addressed here; that SHA is not rewritten.
+1 P2 / 2 P3.** Those findings are addressed in `ea21ec3`; that SHA is not
+rewritten.
 
 External review of `0956b22` (2026-08-14) **request changes: 0 P0 / 0 P1 /
 2 P2 / 1 P3.** Those findings are addressed here; that SHA is not rewritten.
@@ -954,6 +958,7 @@ surfaces.
   is enqueued when the Agent Message is first created. Accepted output is
   stored on `AgentResponseMessage` at claim time. A failed surrounding
   transaction discards the loaded aggregate; retry reloads PostgreSQL.
+  External review of `ea21ec3` approved this persist boundary.
 - Exact `agent-decision.v2` validation at the model-execution boundary uses
   JsonSchema.Net Draft 2020-12 against the embedded canonical schema. The
   handwritten Domain parser remains a typed mapper after schema success and
@@ -1132,6 +1137,13 @@ surfaces.
 
 # Findings / deviations
 
+- External review of `ea21ec3` (2026-08-14): **approved**, 0 P0 / 0 P1 / 0 P2 /
+  0 P3. Closes `cdd586d` remediations. Persist is proportional to dirty work;
+  later-fragment save is 1 fragment insert / 0 transcript inserts / 0 Turn
+  upserts; rollback/reload is the retry contract; TrackTurn covers current
+  Turn mutation sites. Residual (not blocking): Agent Message invocation /
+  Decision / accepted-output FKs remain independently valid. GitHub exposed
+  no combined status checks for this SHA. Next: outbox/SSE commit-before-publish.
 - External review of `cdd586d` (2026-08-14): **request changes**, 0 P0 / 0 P1 /
   1 P2 / 2 P3. P2: publication save still scanned all Turns and replayed
   `VisibleTranscript` (`N×V` transcript INSERT attempts). P3: unused
@@ -1544,7 +1556,7 @@ surfaces.
 | ADR-011 PostgreSQL fragment persist (`SESS-DEC-10`–`11`, `REQ-SESS-55`–`60`) | passed; schema+repository | Red: `session_messages` lacked `generation_attempt_id` / Decision/`aout.*` columns (2026-08-14). Green: additive `0012` (frozen `0005`–`0011` unchanged); envelope fragments hydrate with accepted `aout.*` and driving Decision; legacy `emit_message` persists `aout.*` without an accepted-output FK; duplicate ordinal+digest reconciles; empty/digest-mismatched text and ownership mismatch fail closed. Confirmation: Sessions 266/266; architecture 29/29; Postgres 106/107 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 12; `0011→0012` empty upgrade. External review of `a947759`: request changes (2 P2 / 1 P3); remediations in `0013`. |
 | `a947759` P2/P3 remediations (publication coherence, incremental persist) | passed; schema+repository | Red: same-Session fragment→invocation B, generation-attempt mismatch, turn/slot mismatch, and participant parent inserted; Agent `turn_id` NULL inserted; second-fragment persist attempted 2 inserts (2026-08-14). Green: additive `0013` (frozen `0005`–`0012`); composite FK; dirty-only fragment insert; Agent turn/slot CHECK. Confirmation: focused schema/repository/upgrade 5/5; Sessions 266/266; architecture 29/29; Postgres 110/111 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 13; `0012→0013` empty upgrade. External review of `0956b22`: request changes (2 P2 / 1 P3); remediations in pending-work persist + `0014`. |
 | `0956b22` P2/P3 remediations (O(1) persist, accepted-output from parent) | passed; schema+repository | Red: second-fragment persist scanned 2 accumulated fragments; `session_message_fragments` still had `accepted_agent_output_id` (2026-08-14). Green: pending publication queue; additive `0014` drops fragment accepted-output; populated `0012` backfills `response_slot_id` from fragment 1. Confirmation: focused persist/schema/upgrade 6/6; Sessions 267/267; architecture 29/29; Postgres 112/113 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 14; `0013→0014` empty upgrade. External review of `cdd586d`: request changes (1 P2 / 2 P3). |
-| `cdd586d` P2/P3 remediations (dirty Turns, pending transcript, rollback reload) | passed; repository | Red: second-fragment persist attempted 2 transcript INSERTs (2026-08-14). Green: `DirtyTurns` + `PendingTranscript`; accepted output on the Agent Message; unused `FragmentPendingScans` removed; rollback discards aggregate and retry reloads PostgreSQL. Confirmation: focused persist/rollback/admission 6/6; Sessions 267/267; architecture 29/29; Postgres 113/114 with known concurrent-empty Grate `pg_type` flake. Outbox/SSE remains next. |
+| `cdd586d` P2/P3 remediations (dirty Turns, pending transcript, rollback reload) | passed; **approved** `ea21ec3` | Red: second-fragment persist attempted 2 transcript INSERTs (2026-08-14). Green: `DirtyTurns` + `PendingTranscript`; accepted output on the Agent Message; unused `FragmentPendingScans` removed; rollback discards aggregate and retry reloads PostgreSQL. Confirmation: focused persist/rollback/admission 6/6; Sessions 267/267; architecture 29/29; Postgres 113/114 with known concurrent-empty Grate `pg_type` flake. External review: 0 P0 / 0 P1 / 0 P2 / 0 P3. GitHub commit status for `ea21ec3` was not independently visible. Outbox/SSE remains next. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
@@ -1557,11 +1569,10 @@ surfaces.
 
 # Blockers
 
-None for the `cdd586d` remediations (dirty Turns, pending transcript, rollback
-reload). Next remaining ADR-011 work is outbox/SSE commit-before-publish, replay,
-rolling validation, backpressure, and worker content-phase. Live provider
-wiring and frozen-policy rehydration remain later gates. Worker host stays
-idle until those exist.
+None for the approved publication-persist boundary (`ea21ec3`). Next remaining
+ADR-011 work is outbox/SSE commit-before-publish, replay, rolling validation,
+backpressure, and worker content-phase. Live provider wiring and frozen-policy
+rehydration remain later gates. Worker host stays idle until those exist.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
