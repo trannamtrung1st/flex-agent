@@ -644,14 +644,14 @@ and test reviews have no unresolved blocking findings.
     version. Do not treat host `ConnectionStrings:Sessions` as an execution
     path.
   - [x] Inject crashes after claim, provider return, Decision commit,
-    and before acknowledgement; prove lost-response reconciliation,
-    retry, claimed-work recovery after a processing throw, database-time
-    versus host-clock skew, multi-worker contention, and cross-item progress
-    so an unprocessable oldest pending row does not head-of-line-block the
-    next claim. This is not Organization/Activity fair-claiming or
-    sustained-contention scheduler fairness.
-    Effect/schedule and fragment-commit injection remain with ADR-011 and
-    the scheduler steps.
+    and before acknowledgement; prove retry after an uncommitted provider
+    return, reconciliation after a committed Decision, claimed-work recovery
+    after a processing throw, database-time versus host-clock skew,
+    multi-worker contention, and cross-item progress so an unprocessable
+    oldest pending row does not head-of-line-block the next claim. This is
+    not Organization/Activity fair-claiming or sustained-contention
+    scheduler fairness. Effect/schedule and fragment-commit injection remain
+    with ADR-011 and the scheduler steps.
 - [ ] Implement ADR-011 as the P0 `message` output effect seam required by this
   runtime: durable Agent Message/fragment/completion records, commit-before-publish,
   exact order and integrity checks, safe SSE projection, replay/gap recovery,
@@ -743,17 +743,16 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-External review of `a6aba5e` (2026-08-14) **approved: 0 P0 / 0 P1. CI green.**
-Push-triggered GitHub Actions on `main`: Documentation #123 (~19s) and
-Implementation #92 (~6m 31s). The `d5b740c` / `737cb69` remediation chain is
-closed. **Worker claim against the model-execution port is unblocked.**
-
-Current work is complete for the crash/recovery tranche of durable worker
-execution. Next remaining `[ ]` item is ADR-011 streaming publication. Do
-**not** fold live provider wiring or frozen-policy rehydration into that
-step unless the user reprioritizes. Voice stays disabled. Frozen `0005`–
-`0011` stay frozen. Worker host stays idle until frozen-policy rehydration
-and an executable model port exist.
+External review of `f75ebb1` (2026-08-14) **approved: 0 P0 / 0 P1 / 0 P2 /
+1 optional P3 wording.** Push-triggered GitHub Actions on `main`:
+Documentation #132 and Implementation #101 green. Crash/recovery evidence
+precision is accepted. The optional P3 (`lost-response reconciliation`) is
+folded here as retry after an uncommitted provider return and reconciliation
+after a committed Decision. Next remaining `[ ]` item is ADR-011 streaming
+publication. Do **not** fold live provider wiring or frozen-policy
+rehydration into that step unless the user reprioritizes. Voice stays
+disabled. Frozen `0005`–`0011` stay frozen. Worker host stays idle until
+frozen-policy rehydration and an executable model port exist.
 
 - External review of `4a483a7` (2026-08-14) **approved: 0 P0 / 0 P1 / 0 P2 /
   1 P3 documentation cleanup.** Repeatable Read snapshot and idle host P1s
@@ -1309,6 +1308,10 @@ surfaces.
   head-of-line blocking rather than scheduler fairness or Organization/Activity
   fair claiming. Failed durable-work acknowledgement is named as throw-before-
   `MarkCompleted`, not a lost successful-ack response.
+- External review of `f75ebb1` (2026-08-14): **approved**, 0 P0 / 0 P1 / 0 P2.
+  CI green (Documentation #132, Implementation #101). Optional P3
+  `lost-response reconciliation` wording folded into retry after an
+  uncommitted provider return and reconciliation after a committed Decision.
 
 # Verification
 
@@ -1342,7 +1345,7 @@ surfaces.
 | PostgreSQL claim/lease and worker composition (`SESS-DEC-16`, `SESS-DEC-21`) | passed after isolation fix; infrastructure+host | Red: `DurableInvocationWorkClaimTests` failed to compile (`PostgresDurableInvocationWorkStore` missing, 2026-08-14). Focused 6/6 passed in isolation; the full Postgres suite then failed those 6 because global `SKIP LOCKED` claimed leftover pending rows. Tests now lock other claimable work with `FOR UPDATE` while asserting the prepared Session. Confirmation pass (2026-08-14): claim 6/6; Sessions 230/230; architecture 30/30; runtime 36/36; `git diff --check` and `python3 scripts/check_docs.py` passed. Crash/fault injection remains next. Frozen-policy rehydration from configuration sources remains deferred. |
 | `c2fa693` P1 remediations (Repeatable Read snapshot, idle host) | passed; **approved** `4a483a7` | Red: snapshot load `SHOW transaction_isolation` was `read committed`; Worker with `ConnectionStrings:Sessions` registered `DurableInvocationWorkProcessor` (2026-08-14). Green: worker snapshot uses `REPEATABLE READ` and does not mix a later Decision into the earlier head; Worker stays idle even when a Sessions connection string is set. Confirmation pass: snapshot+claim 7/7; Sessions 230/230; architecture 29/29; runtime 37/37; `git diff --check` and `python3 scripts/check_docs.py` passed. External review: 0 P0 / 0 P1 / 0 P2 / 1 P3 work-file current-work sentence (fixed). Head-of-line blocking on retry is covered by the crash/recovery tranche. |
 | `38f1375` P1 cancelled-token release | passed; application | Red: `MemoryWorkStore.ReleaseToPendingAsync` honoring `ThrowIfCancellationRequested` made `Pre_cancelled_worker_releases_claimed_work_with_a_cleanup_token` throw `OperationCanceledException` (2026-08-14). Green: `ReleaseForRetryAsync` uses a bounded cleanup token (default 2s); store still honors cancellation; Sessions 230/230; architecture 28/28; runtime 35/35. Cancellation during load/execute still leaves the claim until lease recovery (covered by crash/recovery tests). |
-| Durable worker crash/recovery fault injection (`SESS-DEC-16`, `SESS-DEC-21`) | passed; application+postgres | Confirmation pass (2026-08-14): Sessions 234/234 including crash-after-claim, crash-after-provider-return, failed durable-work acknowledgement, and unprocessable-oldest head-of-line progress; crash-recovery Postgres 8/8 including Decision-commit persist failure, database-time reclaim despite a still-valid host lease, stale-lease CAS, and two-worker contention. Leases are expired with `clock_timestamp()`, not wall-clock sleeps. External review of `fa95a1d`: keep; tighten claims (no scheduler fairness; acknowledgement is fail-before-`MarkCompleted`). ADR-011 fragment and scheduler effect-commit injection remain later. |
+| Durable worker crash/recovery fault injection (`SESS-DEC-16`, `SESS-DEC-21`) | passed; application+postgres | Confirmation pass (2026-08-14): Sessions 234/234 including crash-after-claim, crash-after-provider-return, failed durable-work acknowledgement, and unprocessable-oldest head-of-line progress; crash-recovery Postgres 8/8 including Decision-commit persist failure, database-time reclaim despite a still-valid host lease, stale-lease CAS, and two-worker contention. Leases are expired with `clock_timestamp()`, not wall-clock sleeps. External review of `fa95a1d`: keep; tighten claims (no scheduler fairness; acknowledgement is fail-before-`MarkCompleted`). External review of `f75ebb1`: **approved** 0 P0 / 0 P1 / 0 P2; optional P3 `lost-response` wording folded. ADR-011 fragment and scheduler effect-commit injection remain later. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
