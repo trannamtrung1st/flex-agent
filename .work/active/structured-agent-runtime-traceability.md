@@ -114,8 +114,9 @@ projections remain in `web/src/contracts/v1.ts`.
 - Numeric timer policy values come from frozen configuration fixtures in tests,
   not from code constants.
 - Successor `agent-decision.v2` schema, C#/TS DTOs, and v1 dual-read mapping
-  landed 2026-08-14. Per-item output/action validation rows are in-memory until
-  an additive persistence migration; hydrated PostgreSQL Decisions still
-  reconstruct the P0 v1 discriminator (`emit_message`/`no_action`).
+  landed 2026-08-14. Additive migrations `0010`/`0011` persist per-item
+  output/action validation and accepted-item effect ownership; hydrated
+  PostgreSQL Decisions still reconstruct the P0 v1 discriminator
+  (`emit_message`/`no_action`) alongside v2 envelope JSON.
 - Voice, Interaction Controller, TTS, and rich-content UI remain P2 authoring
   work after the MVP slice works end to end.
