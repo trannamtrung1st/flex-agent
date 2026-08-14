@@ -281,6 +281,7 @@ public sealed class DurableInvocationWorkProcessorTests
             long expectedSessionVersion,
             SessionRuntime runtime,
             AgentInvocation invocation,
+            Guid correlationId,
             CancellationToken cancellationToken) =>
             Task.FromResult(true);
     }

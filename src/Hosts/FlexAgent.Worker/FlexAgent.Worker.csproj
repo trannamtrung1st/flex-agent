@@ -8,5 +8,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Modules\Sessions\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
+    <ProjectReference Include="..\..\Modules\Sessions\FlexAgent.Sessions.Infrastructure\FlexAgent.Sessions.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

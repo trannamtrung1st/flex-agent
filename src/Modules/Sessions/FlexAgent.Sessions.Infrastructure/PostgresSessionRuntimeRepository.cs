@@ -40,7 +40,6 @@ public sealed class PostgresSessionRuntimeRepository
           AND participant_id = @ParticipantId
           AND attempt_id = @AttemptId
           AND session_id = @SessionId
-        FOR UPDATE;
         """;
 
     private const string LoadInvocationsSql = """
@@ -470,11 +469,26 @@ public sealed class PostgresSessionRuntimeRepository
         session.ReplaceLastCommittedAtFromDatabase(lastCommittedAt);
     }
 
-    public async Task<SessionRuntime?> LoadForUpdateAsync(
+    public Task<SessionRuntime?> LoadForUpdateAsync(
         SessionOwnership ownership,
         TrustedSessionBinding binding,
         NpgsqlTransaction transaction,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        LoadAsync(ownership, binding, transaction, forUpdate: true, cancellationToken);
+
+    public Task<SessionRuntime?> LoadSnapshotAsync(
+        SessionOwnership ownership,
+        TrustedSessionBinding binding,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken = default) =>
+        LoadAsync(ownership, binding, transaction, forUpdate: false, cancellationToken);
+
+    private async Task<SessionRuntime?> LoadAsync(
+        SessionOwnership ownership,
+        TrustedSessionBinding binding,
+        NpgsqlTransaction transaction,
+        bool forUpdate,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ownership);
         ArgumentNullException.ThrowIfNull(binding);
@@ -484,7 +498,11 @@ public sealed class PostgresSessionRuntimeRepository
         var connection = RequireConnection(transaction);
         var commandArgs = OwnershipParameters(ownership);
         var row = await connection.QuerySingleOrDefaultAsync<SessionRuntimeRow>(
-            new CommandDefinition(LoadForUpdateSql, commandArgs, transaction, cancellationToken: cancellationToken));
+            new CommandDefinition(
+                forUpdate ? LoadForUpdateSql + " FOR UPDATE" : LoadForUpdateSql,
+                commandArgs,
+                transaction,
+                cancellationToken: cancellationToken));
         if (row is null)
         {
             return null;

@@ -6,7 +6,8 @@ public sealed record DurableInvocationWorkItem(
     Guid WorkId,
     SessionOwnership Ownership,
     string AgentInvocationId,
-    string State);
+    string State,
+    DateTimeOffset? ClaimLeaseUntil = null);
 
 public sealed record LoadedInvocationWorkSession(
     SessionRuntime Session,
@@ -61,12 +62,20 @@ public interface IInvocationWorkSessionGateway
         long expectedSessionVersion,
         SessionRuntime session,
         AgentInvocation invocation,
+        Guid correlationId,
         CancellationToken cancellationToken);
 }
 
 public interface IDurableInvocationWorkProcessor
 {
     Task<DurableInvocationWorkProcessResult> TryProcessNextAsync(CancellationToken cancellationToken);
+}
+
+public interface ITrustedSessionBindingSource
+{
+    Task<TrustedSessionBinding?> GetAsync(
+        SessionOwnership ownership,
+        CancellationToken cancellationToken);
 }
 
 public sealed class IdleDurableInvocationWorkProcessor : IDurableInvocationWorkProcessor
@@ -209,6 +218,7 @@ public sealed class DurableInvocationWorkProcessor(
             loaded.ObservedSessionVersion,
             loaded.Session,
             completion.Invocation,
+            command.CorrelationId,
             cancellationToken);
         if (!saved)
         {

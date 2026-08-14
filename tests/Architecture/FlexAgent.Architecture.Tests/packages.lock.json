@@ -217,7 +217,8 @@
       "flexagent.worker": {
         "type": "Project",
         "dependencies": {
-          "FlexAgent.Sessions": "[1.0.0, )"
+          "FlexAgent.Sessions": "[1.0.0, )",
+          "FlexAgent.Sessions.Infrastructure": "[1.0.0, )"
         }
       },
       "Dapper": {
