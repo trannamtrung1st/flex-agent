@@ -32,6 +32,11 @@ public sealed class FrozenRuntimePolicyResolverTests
         Assert.NotNull(policy.TimerLane);
         Assert.True(policy.TimerLane!.IsEnabled);
         Assert.Equal("PT5M", policy.TimerLane.DefaultDelay.WireValue);
+        Assert.Equal(512, policy.StreamingPublicationBounds.MaxFragmentUtf8Bytes);
+        Assert.Equal(40, policy.StreamingPublicationBounds.MaxFragmentsPerSecond);
+        Assert.Equal(64, policy.StreamingPublicationBounds.MaxFragmentCountPerMessage);
+        Assert.Equal(8_192, policy.StreamingPublicationBounds.MaxAssembledResponseUtf8Bytes);
+        Assert.Equal(2, policy.StreamingPublicationBounds.MaxInFlightStreamsPerSession);
         Assert.False(string.IsNullOrWhiteSpace(policy.PolicyDigest));
     }
 
@@ -407,6 +412,146 @@ public sealed class FrozenRuntimePolicyResolverTests
 
         Assert.False(result.Succeeded);
         Assert.Equal(RuntimePolicyResolutionOutcomeCodes.InvalidPolicyValues, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Resolve_fails_closed_when_streaming_publication_bounds_are_missing()
+    {
+        var values = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with
+        {
+            StreamingPublicationBounds = null,
+        };
+        var referenceBaseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var baseline = new RuntimePolicyBaselineSource(
+            RuntimePolicyTestFixtures.BaselineId,
+            referenceBaseline.BaselineDigest,
+            values);
+
+        var result = FrozenRuntimePolicyResolver.Resolve(
+            RuntimePolicyTestFixtures.CreateResolutionRequest(baseline));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.InvalidPolicyValues, result.OutcomeCode);
+        Assert.Null(result.Policy);
+    }
+
+    public static TheoryData<Func<StreamingPublicationBounds, StreamingPublicationBounds>>
+        NonPositiveStreamingBoundCases =>
+        new()
+        {
+            bounds => bounds with { MaxFragmentUtf8Bytes = 0 },
+            bounds => bounds with { MaxFragmentsPerSecond = 0 },
+            bounds => bounds with { MaxFragmentCountPerMessage = -1 },
+            bounds => bounds with { MaxAssembledResponseUtf8Bytes = 0 },
+            bounds => bounds with { MaxInFlightStreamsPerSession = 0 },
+        };
+
+    [Theory]
+    [MemberData(nameof(NonPositiveStreamingBoundCases))]
+    public void Resolve_fails_closed_when_a_streaming_publication_bound_is_not_positive(
+        Func<StreamingPublicationBounds, StreamingPublicationBounds> mutate)
+    {
+        var invalidValues = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with
+        {
+            StreamingPublicationBounds = mutate(
+                RuntimePolicyTestFixtures.CreateTestOnlyStreamingPublicationBounds()),
+        };
+        var invalid = RuntimePolicyTestFixtures.CreateBaseline(invalidValues);
+
+        var result = FrozenRuntimePolicyResolver.Resolve(
+            RuntimePolicyTestFixtures.CreateResolutionRequest(invalid));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.InvalidPolicyValues, result.OutcomeCode);
+        Assert.Null(result.Policy);
+    }
+
+    [Fact]
+    public void Lower_scope_may_tighten_streaming_publication_bounds()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var request = RuntimePolicyTestFixtures.CreateResolutionRequest(
+            baseline,
+            new RuntimePolicyNarrowingOverride(
+                RuntimePolicyScopeKinds.Activity,
+                new RuntimePolicyNarrowingValues
+                {
+                    StreamingPublicationBounds = new StreamingPublicationBoundsNarrowing(
+                        MaxFragmentUtf8Bytes: 256,
+                        MaxFragmentsPerSecond: 10,
+                        MaxFragmentCountPerMessage: 16,
+                        MaxAssembledResponseUtf8Bytes: 4_096,
+                        MaxInFlightStreamsPerSession: 1),
+                }));
+
+        var result = FrozenRuntimePolicyResolver.Resolve(request);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        var bounds = result.Policy!.StreamingPublicationBounds;
+        Assert.Equal(256, bounds.MaxFragmentUtf8Bytes);
+        Assert.Equal(10, bounds.MaxFragmentsPerSecond);
+        Assert.Equal(16, bounds.MaxFragmentCountPerMessage);
+        Assert.Equal(4_096, bounds.MaxAssembledResponseUtf8Bytes);
+        Assert.Equal(1, bounds.MaxInFlightStreamsPerSession);
+    }
+
+    [Fact]
+    public void Lower_scope_cannot_widen_streaming_publication_bounds()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var request = RuntimePolicyTestFixtures.CreateResolutionRequest(
+            baseline,
+            new RuntimePolicyNarrowingOverride(
+                RuntimePolicyScopeKinds.Session,
+                new RuntimePolicyNarrowingValues
+                {
+                    StreamingPublicationBounds = new StreamingPublicationBoundsNarrowing(
+                        MaxFragmentUtf8Bytes: 1_024,
+                        MaxFragmentsPerSecond: null,
+                        MaxFragmentCountPerMessage: null,
+                        MaxAssembledResponseUtf8Bytes: null,
+                        MaxInFlightStreamsPerSession: null),
+                }));
+
+        var result = FrozenRuntimePolicyResolver.Resolve(request);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RuntimePolicyResolutionOutcomeCodes.WideningRejected, result.OutcomeCode);
+    }
+
+    [Fact]
+    public void Policy_digest_changes_when_streaming_publication_bounds_change()
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerBaseline();
+        var tightenedValues = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with
+        {
+            StreamingPublicationBounds = RuntimePolicyTestFixtures.CreateTestOnlyStreamingPublicationBounds()
+                with { MaxFragmentUtf8Bytes = 256 },
+        };
+        var tightened = RuntimePolicyTestFixtures.CreateBaseline(tightenedValues);
+
+        var original = FrozenRuntimePolicyResolver.Resolve(
+            RuntimePolicyTestFixtures.CreateResolutionRequest(baseline));
+        var changed = FrozenRuntimePolicyResolver.Resolve(
+            RuntimePolicyTestFixtures.CreateResolutionRequest(tightened));
+
+        Assert.True(original.Succeeded, original.OutcomeCode);
+        Assert.True(changed.Succeeded, changed.OutcomeCode);
+        Assert.NotEqual(original.Policy!.PolicyDigest, changed.Policy!.PolicyDigest);
+    }
+
+    [Fact]
+    public void Baseline_content_digest_compute_fails_when_streaming_publication_bounds_are_missing()
+    {
+        var values = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with
+        {
+            StreamingPublicationBounds = null,
+        };
+
+        var exception = Assert.Throws<ArgumentException>(
+            () => RuntimePolicyBaselineContentDigest.Compute(values));
+
+        Assert.Contains("streaming", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     public static TheoryData<Func<RuntimePolicyEffectiveValues, RuntimePolicyEffectiveValues>>

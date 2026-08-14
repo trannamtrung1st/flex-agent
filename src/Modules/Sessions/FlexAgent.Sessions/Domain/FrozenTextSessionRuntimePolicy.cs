@@ -20,6 +20,7 @@ public sealed class FrozenTextSessionRuntimePolicy
         bool agentInitiatedClosingPermitted,
         bool noActionPermitted,
         InvocationBounds invocationBounds,
+        StreamingPublicationBounds streamingPublicationBounds,
         TimerLanePolicy? timerLane,
         IReadOnlyList<string> explicitlyDisabledCapabilities,
         string policyDigest)
@@ -34,6 +35,7 @@ public sealed class FrozenTextSessionRuntimePolicy
         AgentInitiatedClosingPermitted = agentInitiatedClosingPermitted;
         NoActionPermitted = noActionPermitted;
         InvocationBounds = invocationBounds;
+        StreamingPublicationBounds = streamingPublicationBounds;
         TimerLane = timerLane;
         ExplicitlyDisabledCapabilities = RuntimePolicySnapshots.CopyStrings(explicitlyDisabledCapabilities);
         PolicyDigest = policyDigest;
@@ -59,6 +61,8 @@ public sealed class FrozenTextSessionRuntimePolicy
     public bool NoActionPermitted { get; }
 
     public InvocationBounds InvocationBounds { get; }
+
+    public StreamingPublicationBounds StreamingPublicationBounds { get; }
 
     public TimerLanePolicy? TimerLane { get; }
 

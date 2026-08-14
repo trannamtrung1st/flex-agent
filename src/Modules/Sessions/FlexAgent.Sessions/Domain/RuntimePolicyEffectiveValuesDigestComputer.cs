@@ -68,6 +68,15 @@ internal static class RuntimePolicyEffectiveValuesDigestComputer
                 writer.WriteEndObject();
             }
 
+            if (values.StreamingPublicationBounds is null)
+            {
+                writer.WriteNull("streaming_publication_bounds");
+            }
+            else
+            {
+                WriteStreamingPublicationBounds(writer, values.StreamingPublicationBounds);
+            }
+
             writer.WriteBoolean("no_action_permitted", values.NoActionPermitted!.Value);
             writer.WriteBoolean(
                 "agent_initiated_opening_permitted",
@@ -112,6 +121,19 @@ internal static class RuntimePolicyEffectiveValuesDigestComputer
         }
 
         return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private static void WriteStreamingPublicationBounds(
+        Utf8JsonWriter writer,
+        StreamingPublicationBounds bounds)
+    {
+        writer.WriteStartObject("streaming_publication_bounds");
+        writer.WriteNumber("max_assembled_response_utf8_bytes", bounds.MaxAssembledResponseUtf8Bytes);
+        writer.WriteNumber("max_fragment_count_per_message", bounds.MaxFragmentCountPerMessage);
+        writer.WriteNumber("max_fragment_utf8_bytes", bounds.MaxFragmentUtf8Bytes);
+        writer.WriteNumber("max_fragments_per_second", bounds.MaxFragmentsPerSecond);
+        writer.WriteNumber("max_in_flight_streams_per_session", bounds.MaxInFlightStreamsPerSession);
+        writer.WriteEndObject();
     }
 
     private static void WriteTimerLane(Utf8JsonWriter writer, TimerLanePolicyValues timerLane)

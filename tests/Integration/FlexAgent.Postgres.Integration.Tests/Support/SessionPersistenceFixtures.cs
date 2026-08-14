@@ -33,6 +33,7 @@ internal static class SessionPersistenceFixtures
             AgentInitiatedClosingPermitted = true,
             NoActionPermitted = true,
             InvocationBounds = new InvocationBounds(3, 10, 0, cooldownSeconds, 30),
+            StreamingPublicationBounds = new StreamingPublicationBounds(512, 40, 64, 8_192, 2),
             TimerLane = new TimerLanePolicyValues
             {
                 Enabled = true,

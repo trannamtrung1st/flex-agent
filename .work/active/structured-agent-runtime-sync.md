@@ -668,17 +668,18 @@ and test reviews have no unresolved blocking findings.
     reconciles; gap, digest mismatch, competing attempt, empty delta, and
     pause/cutoff reject without mutating; complete seals assembled digest;
     incomplete preserves the visible prefix; one path for Participant, opening,
-    and timer. Frozen streaming numeric bounds, PostgreSQL fragment rows,
-    outbox/SSE, rolling validation, and worker content-phase remain later
-    sub-slices. Do not rewrite frozen `0005`–`0011`.
+    and timer. PostgreSQL fragment rows, outbox/SSE, rolling validation, and
+    worker content-phase remain later sub-slices. Do not rewrite frozen
+    `0005`–`0011`.
     External review of `3fda20e` (over `003f715`): **approved**, 0 P0 / 0 P1 /
     0 P2. Terminal generation-attempt ownership and deferred legacy `aout.*`
-    allocation are accepted. Next sub-slice is frozen streaming numeric bounds.
-  - [ ] Frozen streaming numeric bounds (`SESS-DEC-13`, `REQ-SESS-8`): require
+    allocation are accepted. Frozen streaming numeric bounds are required on
+    resolved policy.
+  - [x] Frozen streaming numeric bounds (`SESS-DEC-13`, `REQ-SESS-8`): require
     positive fragment size, rate, count, assembled-response size, and
     in-flight Session stream bounds on frozen policy; fail closed when absent;
     fixtures use explicit test-only values with no product-default claim.
-  - [ ] Additive PostgreSQL fragment persist and repository hydration linked to
+  - [>] Additive PostgreSQL fragment persist and repository hydration linked to
     Decision/`aout.*` (do not rewrite `0005`–`0011`).
   - [ ] Outbox/SSE commit-before-publish, replay, rolling validation,
     backpressure, and worker content-phase (cumulative vs delta).
@@ -764,19 +765,16 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-External review of `3fda20e` (2026-08-14) **approved: 0 P0 / 0 P1 / 0 P2.**
-The `003f715` P1 (terminal generation-attempt ownership) and P2 (legacy
-`aout.*` only at first visibility) are closed. Leave legacy validation
-`AgentOutputId` null after publication; durable identity is the
-`AgentResponseMessage`. GitHub connector status for this SHA was not
-independently visible. Next remaining ADR-011 `[ ]` item is frozen streaming
-numeric bounds (`SESS-DEC-13`, `REQ-SESS-8`). Do not fold live provider
-wiring or frozen-policy rehydration into that step unless the user
-reprioritizes. Voice stays disabled. Frozen `0005`–`0011` stay frozen.
+Frozen streaming numeric bounds are required on resolved runtime policy
+(`SESS-DEC-13`, `REQ-SESS-8`). Missing or non-positive fragment size, rate,
+count, assembled-response size, or in-flight Session stream bounds fail closed.
+Lower scopes may tighten those maxima and cannot raise them. Test fixtures use
+explicit test-only numbers and do not claim product defaults. Fragment commit
+enforcement, PostgreSQL fragment rows, outbox/SSE, rolling validation, and
+worker content-phase remain later ADR-011 sub-slices. Do not rewrite frozen
+`0005`–`0011`. Voice stays disabled.
 
-ADR-011 domain fragment publication is **approved** at `3fda20e`. Next ADR-011
-sub-slice is required frozen streaming numeric bounds on runtime policy, then
-additive PostgreSQL fragment persist, then outbox/SSE and worker content-phase.
+External review of `3fda20e` (2026-08-14) **approved: 0 P0 / 0 P1 / 0 P2.**
 
 External review of `f75ebb1` (2026-08-14) **approved: 0 P0 / 0 P1 / 0 P2 /
 1 optional P3 wording.** Push-triggered GitHub Actions on `main`:
@@ -875,9 +873,13 @@ surfaces.
   (`0005` `session_messages.content_digest` is insert-immutable). Envelope
   Decisions allocate `aout.*` at P0 validation; legacy `EmitMessageRecommendation`
   keeps a null validation output id until first fragment commit (`SESS-DEC-10` /
-  ADR-011). Frozen
-  streaming numeric bounds (`SESS-DEC-13`) remain a later fail-closed policy
-  sub-slice with explicit fixture values and no product-default claim.
+  ADR-011). Frozen streaming numeric bounds (`SESS-DEC-13`, `REQ-SESS-8`) are
+  required on the resolved policy: positive fragment UTF-8 size, fragments per
+  second, fragment count per message, assembled-response UTF-8 size, and
+  in-flight streams per Session. Absence or a non-positive value is
+  `invalid_policy_values`. Fixture numbers are test-only and are not product
+  defaults. Publication-path enforcement of those bounds remains with later
+  ADR-011 persist and content-phase work.
 - Exact `agent-decision.v2` validation at the model-execution boundary uses
   JsonSchema.Net Draft 2020-12 against the embedded canonical schema. The
   handwritten Domain parser remains a typed mapper after schema success and
@@ -1058,8 +1060,8 @@ surfaces.
 
 - External review of `3fda20e` (2026-08-14): **approved**, 0 P0 / 0 P1 / 0 P2.
   Prior `003f715` P1/P2 accepted. GitHub connector exposed no associated
-  checks for this SHA; that is not evidence CI did not run. Next work is
-  frozen streaming numeric bounds, then PostgreSQL fragment persist.
+  checks for this SHA; that is not evidence CI did not run. Next work after
+  frozen streaming numeric bounds is PostgreSQL fragment persist.
 - External review of `003f715` (2026-08-14): **request changes**, 0 P0 / 1 P1 /
   1 P2. P1: terminal fragment reconcile ignored generation-attempt ownership and
   classified same-attempt digest conflict as `already_terminal`. P2: legacy
@@ -1416,7 +1418,8 @@ surfaces.
 | `c2fa693` P1 remediations (Repeatable Read snapshot, idle host) | passed; **approved** `4a483a7` | Red: snapshot load `SHOW transaction_isolation` was `read committed`; Worker with `ConnectionStrings:Sessions` registered `DurableInvocationWorkProcessor` (2026-08-14). Green: worker snapshot uses `REPEATABLE READ` and does not mix a later Decision into the earlier head; Worker stays idle even when a Sessions connection string is set. Confirmation pass: snapshot+claim 7/7; Sessions 230/230; architecture 29/29; runtime 37/37; `git diff --check` and `python3 scripts/check_docs.py` passed. External review: 0 P0 / 0 P1 / 0 P2 / 1 P3 work-file current-work sentence (fixed). Head-of-line blocking on retry is covered by the crash/recovery tranche. |
 | `38f1375` P1 cancelled-token release | passed; application | Red: `MemoryWorkStore.ReleaseToPendingAsync` honoring `ThrowIfCancellationRequested` made `Pre_cancelled_worker_releases_claimed_work_with_a_cleanup_token` throw `OperationCanceledException` (2026-08-14). Green: `ReleaseForRetryAsync` uses a bounded cleanup token (default 2s); store still honors cancellation; Sessions 230/230; architecture 28/28; runtime 35/35. Cancellation during load/execute still leaves the claim until lease recovery (covered by crash/recovery tests). |
 | Durable worker crash/recovery fault injection (`SESS-DEC-16`, `SESS-DEC-21`) | passed; application+postgres | Confirmation pass (2026-08-14): Sessions 234/234 including crash-after-claim, crash-after-provider-return, failed durable-work acknowledgement, and unprocessable-oldest head-of-line progress; crash-recovery Postgres 8/8 including Decision-commit persist failure, database-time reclaim despite a still-valid host lease, stale-lease CAS, and two-worker contention. Leases are expired with `clock_timestamp()`, not wall-clock sleeps. External review of `fa95a1d`: keep; tighten claims (no scheduler fairness; acknowledgement is fail-before-`MarkCompleted`). External review of `f75ebb1`: **approved** 0 P0 / 0 P1 / 0 P2; optional P3 `lost-response` wording folded. ADR-011 fragment and scheduler effect-commit injection remain later. |
-| ADR-011 domain fragment publication (`REQ-SESS-55`–`60`, `SESS-DEC-9`–`12`, `AC-SESS-32`) | passed; **approved** `3fda20e` | Red: competing complete/incomplete reconciled; digest-after-complete was `already_terminal`; legacy emit had `aout.*` before first fragment. Green: 16/16 focused tests; `FlexAgent.Sessions.Tests` 250/250; architecture 29/29; `git diff --check` passed. External review of `3fda20e`: 0 P0 / 0 P1 / 0 P2. GitHub connector status for that SHA was not independently visible. Persistence, SSE/replay, streaming bounds, rolling validation, and worker content-phase remain. |
+| ADR-011 domain fragment publication (`REQ-SESS-55`–`60`, `SESS-DEC-9`–`12`, `AC-SESS-32`) | passed; **approved** `3fda20e` | Red: competing complete/incomplete reconciled; digest-after-complete was `already_terminal`; legacy emit had `aout.*` before first fragment. Green: 16/16 focused tests; `FlexAgent.Sessions.Tests` 250/250; architecture 29/29; `git diff --check` passed. External review of `3fda20e`: 0 P0 / 0 P1 / 0 P2. GitHub connector status for that SHA was not independently visible. Persistence, SSE/replay, rolling validation, and worker content-phase remain. |
+| Frozen streaming numeric bounds (`SESS-DEC-13`, `REQ-SESS-8`) | passed; domain policy | Red: missing/non-positive streaming bounds still resolved; frozen policy stored zeros; digest ignored bound changes; lower scope could raise fragment size (2026-08-14). Green: `FrozenRuntimePolicyResolverTests` 46/46; `FlexAgent.Sessions.Tests` 260/260; architecture 29/29. Fixture values are test-only (`512`/`40`/`64`/`8192`/`2`). Fragment persist, commit-time enforcement, outbox/SSE, and worker content-phase remain. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
@@ -1429,11 +1432,11 @@ surfaces.
 
 # Blockers
 
-None for the approved ADR-011 domain fragment slice (`3fda20e`). Next remaining
-work is frozen streaming numeric bounds, then additive PostgreSQL fragment
-persist, then outbox/SSE and worker content-phase. Live provider wiring and
-frozen-policy rehydration remain later gates. Worker host stays idle until
-those exist.
+None for the frozen streaming numeric-bounds policy slice. Next remaining
+ADR-011 work is additive PostgreSQL fragment persist and repository hydration
+linked to Decision/`aout.*`, then outbox/SSE and worker content-phase. Live
+provider wiring and frozen-policy rehydration remain later gates. Worker host
+stays idle until those exist.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.

@@ -65,6 +65,8 @@ internal static class RuntimePolicyDigestComputer
             writer.WriteNumber("max_tool_iterations", policy.InvocationBounds.MaxToolIterations);
             writer.WriteEndObject();
 
+            WriteStreamingPublicationBounds(writer, policy.StreamingPublicationBounds);
+
             writer.WriteBoolean("no_action_permitted", policy.NoActionPermitted);
             writer.WriteBoolean("agent_initiated_opening_permitted", policy.AgentInitiatedOpeningPermitted);
             writer.WriteBoolean("agent_initiated_closing_permitted", policy.AgentInitiatedClosingPermitted);
@@ -105,6 +107,19 @@ internal static class RuntimePolicyDigestComputer
         }
 
         return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private static void WriteStreamingPublicationBounds(
+        Utf8JsonWriter writer,
+        StreamingPublicationBounds bounds)
+    {
+        writer.WriteStartObject("streaming_publication_bounds");
+        writer.WriteNumber("max_assembled_response_utf8_bytes", bounds.MaxAssembledResponseUtf8Bytes);
+        writer.WriteNumber("max_fragment_count_per_message", bounds.MaxFragmentCountPerMessage);
+        writer.WriteNumber("max_fragment_utf8_bytes", bounds.MaxFragmentUtf8Bytes);
+        writer.WriteNumber("max_fragments_per_second", bounds.MaxFragmentsPerSecond);
+        writer.WriteNumber("max_in_flight_streams_per_session", bounds.MaxInFlightStreamsPerSession);
+        writer.WriteEndObject();
     }
 
     private static void WriteTimerLane(Utf8JsonWriter writer, TimerLanePolicy timerLane)

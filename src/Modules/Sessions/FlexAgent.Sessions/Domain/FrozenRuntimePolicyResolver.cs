@@ -21,7 +21,7 @@ public static partial class FrozenRuntimePolicyResolver
             return Failure(RuntimePolicyResolutionOutcomeCodes.BaselineDigestMismatch);
         }
 
-        if (!RuntimePolicyEffectiveValuesValidator.HasRequiredCommunicationPolicy(
+        if (!RuntimePolicyEffectiveValuesValidator.HasRequiredFreezeInputs(
                 request.Baseline.EffectiveValues))
         {
             return Failure(RuntimePolicyResolutionOutcomeCodes.InvalidPolicyValues);
@@ -177,10 +177,30 @@ public static partial class FrozenRuntimePolicyResolver
             };
         }
 
+        var streamingBounds = current.StreamingPublicationBounds;
+        if (streamingBounds is not null && narrowing.StreamingPublicationBounds is not null)
+        {
+            var streamingNarrowing = narrowing.StreamingPublicationBounds;
+            streamingBounds = streamingBounds with
+            {
+                MaxFragmentUtf8Bytes = streamingNarrowing.MaxFragmentUtf8Bytes
+                    ?? streamingBounds.MaxFragmentUtf8Bytes,
+                MaxFragmentsPerSecond = streamingNarrowing.MaxFragmentsPerSecond
+                    ?? streamingBounds.MaxFragmentsPerSecond,
+                MaxFragmentCountPerMessage = streamingNarrowing.MaxFragmentCountPerMessage
+                    ?? streamingBounds.MaxFragmentCountPerMessage,
+                MaxAssembledResponseUtf8Bytes = streamingNarrowing.MaxAssembledResponseUtf8Bytes
+                    ?? streamingBounds.MaxAssembledResponseUtf8Bytes,
+                MaxInFlightStreamsPerSession = streamingNarrowing.MaxInFlightStreamsPerSession
+                    ?? streamingBounds.MaxInFlightStreamsPerSession,
+            };
+        }
+
         return current with
         {
             TimerLane = timerLane,
             InvocationBounds = invocationBounds,
+            StreamingPublicationBounds = streamingBounds,
         };
     }
 
@@ -198,6 +218,7 @@ public static partial class FrozenRuntimePolicyResolver
             || merged.PermittedDecisionTypes is null
             || merged.DecisionSchemaBindings is null
             || merged.InvocationBounds is null
+            || merged.StreamingPublicationBounds is null
             || merged.ExplicitlyDisabledCapabilities is null
             || !RuntimePolicyEffectiveValuesValidator.HasRequiredCommunicationPolicy(merged))
         {
@@ -210,6 +231,11 @@ public static partial class FrozenRuntimePolicyResolver
         }
 
         if (!ValidateInvocationBounds(merged.InvocationBounds))
+        {
+            return false;
+        }
+
+        if (!ValidateStreamingPublicationBounds(merged.StreamingPublicationBounds))
         {
             return false;
         }
@@ -256,6 +282,13 @@ public static partial class FrozenRuntimePolicyResolver
         && bounds.MaxToolIterations >= 0
         && bounds.CooldownSeconds >= 0
         && bounds.DuplicateSuppressionWindowSeconds >= 0;
+
+    private static bool ValidateStreamingPublicationBounds(StreamingPublicationBounds bounds) =>
+        bounds.MaxFragmentUtf8Bytes > 0
+        && bounds.MaxFragmentsPerSecond > 0
+        && bounds.MaxFragmentCountPerMessage > 0
+        && bounds.MaxAssembledResponseUtf8Bytes > 0
+        && bounds.MaxInFlightStreamsPerSession > 0;
 
     private static bool ValidateEnabledTimerLane(TimerLanePolicyValues timerLane)
     {
@@ -387,6 +420,7 @@ public static partial class FrozenRuntimePolicyResolver
             merged.AgentInitiatedClosingPermitted!.Value,
             merged.NoActionPermitted!.Value,
             merged.InvocationBounds!,
+            merged.StreamingPublicationBounds!,
             timerLane,
             merged.ExplicitlyDisabledCapabilities!,
             policyDigest: string.Empty);
@@ -403,6 +437,7 @@ public static partial class FrozenRuntimePolicyResolver
             withoutDigest.AgentInitiatedClosingPermitted,
             withoutDigest.NoActionPermitted,
             withoutDigest.InvocationBounds,
+            withoutDigest.StreamingPublicationBounds,
             withoutDigest.TimerLane,
             withoutDigest.ExplicitlyDisabledCapabilities,
             digest);
@@ -501,11 +536,20 @@ public static partial class FrozenRuntimePolicyResolver
             }
 
             if (narrowing.MaxChainedInvocationsPerSession is not null
-                && narrowing.MaxChainedInvocationsPerSession.Value
-                    > baseline.InvocationBounds.MaxChainedInvocationsPerSession)
+            && narrowing.MaxChainedInvocationsPerSession.Value
+                > baseline.InvocationBounds.MaxChainedInvocationsPerSession)
             {
                 return true;
             }
+        }
+
+        if (baseline.StreamingPublicationBounds is not null
+            && narrowing.StreamingPublicationBounds is not null
+            && IsStreamingPublicationBoundWidening(
+                baseline.StreamingPublicationBounds,
+                narrowing.StreamingPublicationBounds))
+        {
+            return true;
         }
 
         return false;
@@ -557,6 +601,43 @@ public static partial class FrozenRuntimePolicyResolver
         if (narrowing.DuplicateSuppressionWindowSeconds is not null
             && narrowing.DuplicateSuppressionWindowSeconds.Value
                 < baselineBudgets.DuplicateSuppressionWindowSeconds)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsStreamingPublicationBoundWidening(
+        StreamingPublicationBounds baseline,
+        StreamingPublicationBoundsNarrowing narrowing)
+    {
+        if (narrowing.MaxFragmentUtf8Bytes is not null
+            && narrowing.MaxFragmentUtf8Bytes.Value > baseline.MaxFragmentUtf8Bytes)
+        {
+            return true;
+        }
+
+        if (narrowing.MaxFragmentsPerSecond is not null
+            && narrowing.MaxFragmentsPerSecond.Value > baseline.MaxFragmentsPerSecond)
+        {
+            return true;
+        }
+
+        if (narrowing.MaxFragmentCountPerMessage is not null
+            && narrowing.MaxFragmentCountPerMessage.Value > baseline.MaxFragmentCountPerMessage)
+        {
+            return true;
+        }
+
+        if (narrowing.MaxAssembledResponseUtf8Bytes is not null
+            && narrowing.MaxAssembledResponseUtf8Bytes.Value > baseline.MaxAssembledResponseUtf8Bytes)
+        {
+            return true;
+        }
+
+        if (narrowing.MaxInFlightStreamsPerSession is not null
+            && narrowing.MaxInFlightStreamsPerSession.Value > baseline.MaxInFlightStreamsPerSession)
         {
             return true;
         }

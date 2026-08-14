@@ -6,6 +6,14 @@ internal static class RuntimePolicyTestFixtures
 {
     internal const string BaselineId = "baseline.p0.text.0001";
 
+    internal static StreamingPublicationBounds CreateTestOnlyStreamingPublicationBounds() =>
+        new(
+            MaxFragmentUtf8Bytes: 512,
+            MaxFragmentsPerSecond: 40,
+            MaxFragmentCountPerMessage: 64,
+            MaxAssembledResponseUtf8Bytes: 8_192,
+            MaxInFlightStreamsPerSession: 2);
+
     internal static IReadOnlyList<DecisionTypeSchemaBinding> CreateP0DecisionSchemaBindings() =>
     [
         new DecisionTypeSchemaBinding(RuntimeDecisionTypes.EmitMessage, RuntimeContractVersions.AgentDecisionSchemaV1),
@@ -41,6 +49,8 @@ internal static class RuntimePolicyTestFixtures
                 MaxToolIterations: 0,
                 CooldownSeconds: 5,
                 DuplicateSuppressionWindowSeconds: 30),
+            // Test-only streaming bounds; not product defaults (SESS-DEC-13 / REQ-SESS-8).
+            StreamingPublicationBounds = CreateTestOnlyStreamingPublicationBounds(),
             TimerLane = new TimerLanePolicyValues
             {
                 Enabled = true,

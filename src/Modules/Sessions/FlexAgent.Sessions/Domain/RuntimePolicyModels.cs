@@ -59,6 +59,24 @@ public sealed record InvocationBounds(
     int CooldownSeconds,
     int DuplicateSuppressionWindowSeconds);
 
+/// <summary>
+/// Positive frozen publication limits. Concrete numbers come from resolved
+/// policy; test fixtures are not product defaults.
+/// </summary>
+public sealed record StreamingPublicationBounds(
+    int MaxFragmentUtf8Bytes,
+    int MaxFragmentsPerSecond,
+    int MaxFragmentCountPerMessage,
+    int MaxAssembledResponseUtf8Bytes,
+    int MaxInFlightStreamsPerSession);
+
+public sealed record StreamingPublicationBoundsNarrowing(
+    int? MaxFragmentUtf8Bytes,
+    int? MaxFragmentsPerSecond,
+    int? MaxFragmentCountPerMessage,
+    int? MaxAssembledResponseUtf8Bytes,
+    int? MaxInFlightStreamsPerSession);
+
 public sealed record TimerLaneBudgets(
     int MaxAcceptedReplacementsPerSession,
     int MaxTimerTriggeredInvocationsPerSession,
@@ -145,6 +163,8 @@ public sealed record RuntimePolicyEffectiveValues
 
     public InvocationBounds? InvocationBounds { get; init; }
 
+    public StreamingPublicationBounds? StreamingPublicationBounds { get; init; }
+
     public TimerLanePolicyValues? TimerLane { get; init; }
 
     public IReadOnlyList<string>? ExplicitlyDisabledCapabilities { get; init; }
@@ -169,6 +189,8 @@ public sealed record RuntimePolicyNarrowingValues
     public int? MaxAttemptsPerInvocation { get; init; }
 
     public int? MaxChainedInvocationsPerSession { get; init; }
+
+    public StreamingPublicationBoundsNarrowing? StreamingPublicationBounds { get; init; }
 }
 
 public sealed record TimerLaneBudgetsNarrowing
@@ -210,10 +232,10 @@ public static class RuntimePolicyBaselineContentDigest
 {
     public static string Compute(RuntimePolicyEffectiveValues values)
     {
-        if (!RuntimePolicyEffectiveValuesValidator.HasRequiredCommunicationPolicy(values))
+        if (!RuntimePolicyEffectiveValuesValidator.HasRequiredFreezeInputs(values))
         {
             throw new ArgumentException(
-                "Agent-initiated communication and no-action policy flags must be explicit.",
+                "Agent-initiated communication, no-action, and streaming publication bounds must be explicit.",
                 nameof(values));
         }
 
