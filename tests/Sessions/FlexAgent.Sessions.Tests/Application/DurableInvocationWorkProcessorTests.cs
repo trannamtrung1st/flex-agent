@@ -250,7 +250,7 @@ public sealed class DurableInvocationWorkProcessorTests
     }
 
     [Fact]
-    public async Task Lost_acknowledgement_after_decision_commit_reconciles_without_a_second_provider_call()
+    public async Task Failed_durable_work_acknowledgement_after_decision_commit_reconciles_without_a_second_provider_call()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
         var admitted = session.AdmitTrustedTrigger(
@@ -260,6 +260,7 @@ public sealed class DurableInvocationWorkProcessorTests
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var adapter = new CountingModelExecutionPort(EnqueueNoAction(invocationId, "adec.worker.ackcrash01"));
         var inner = new MemoryWorkStore(session.Ownership, invocationId);
+        // Throw before MarkCompletedAsync: Decision is in memory, work ack fails.
         var store = new FaultInjectingWorkStore(inner) { FailNextMarkCompleted = 1 };
         var processor = CreateProcessor(adapter, session, store);
 
@@ -279,7 +280,7 @@ public sealed class DurableInvocationWorkProcessorTests
     }
 
     [Fact]
-    public async Task Unprocessable_oldest_item_does_not_monopolize_the_queue()
+    public async Task Unprocessable_oldest_item_does_not_block_later_pending_work_on_the_next_claim()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
         var admitted = session.AdmitTrustedTrigger(

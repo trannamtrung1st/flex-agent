@@ -93,11 +93,13 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     }
 
     [Fact]
-    public async Task Lost_acknowledgement_after_decision_commit_reconciles_without_a_second_provider_call()
+    public async Task Failed_durable_work_acknowledgement_after_decision_commit_reconciles_without_a_second_provider_call()
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.crash.ack", "idem.crash.ack");
         await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
         var inner = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        // Throw before MarkCompletedAsync so Decision is committed and the
+        // durable-work acknowledgement itself fails (not a lost successful-ack response).
         var store = new FaultInjectingWorkStore(inner) { FailNextMarkCompleted = 1 };
         var adapter = new CountingModelExecutionPort(EnqueueNoAction(prepared.InvocationId, "adec.crash.ack0000001"));
         var processor = CreateProcessor(store, CreateGateway(prepared), adapter, prepared);
@@ -157,7 +159,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     }
 
     [Fact]
-    public async Task Unprocessable_oldest_item_does_not_monopolize_later_pending_work()
+    public async Task Unprocessable_oldest_item_does_not_block_later_pending_work_on_the_next_claim()
     {
         var prepared = await PrepareAdmittedWorkAsync(
             "trig.crash.poison",
