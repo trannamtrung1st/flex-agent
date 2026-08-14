@@ -7,16 +7,18 @@
 - Owner: Product Lead
 - Approvers: Product Lead, Architecture Lead, UI/UX reviewer, Security/Privacy reviewer
 - Approved date: 2026-08-14
-- Approval history: Baseline approved 2026-08-06; v0.2 approved 2026-08-09 with participant-visible incremental Agent-response streaming; v0.3 approved 2026-08-11 with the structured Agent Invocation/Decision boundary and explicit intentional no-action outcome; v0.4 approved 2026-08-11 with optional Agent-requested next-timer replacement; v0.5 approved 2026-08-14 with the P0-compatible Agent Decision output envelope
+- Approval history: Baseline approved 2026-08-06; v0.2 approved 2026-08-09 with participant-visible incremental Agent-response streaming; v0.3 approved 2026-08-11 with the structured Agent Invocation/Decision boundary and explicit intentional no-action outcome; v0.4 approved 2026-08-11 with optional Agent-requested next-timer replacement; v0.5 approved 2026-08-14 with the P0-compatible Agent Decision output envelope; v0.5 amended 2026-08-14 to make output and requested-action validation independent and partial, and to keep schema-invalid output as an Invocation execution outcome
 - Source: [Session](../../product/concept-model.md#session), [Agent Invocation, Invocation Trigger, and Agent Decision](../../product/concept-model.md#agent-invocation-invocation-trigger-and-agent-decision), [Workflow model](../../product/concept-model.md#workflow-model), [Session state and events](../../product/concept-model.md#session-state-and-events), [Inspectable justification boundary](../../product/concept-model.md#evaluation-review-decision-result-and-release), [Product invariants](../../product/concept-model.md#product-invariants), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice), [MVP executable workflow](../../product/mvp-scope.md#mvp-executable-workflow), and [Participant capabilities](../../product/mvp-scope.md#participant-capabilities-mvp)
 - Catalog entry: P0 #5 — [P0 authoring order](../README.md#p0-authoring-order)
 - Related requirements: Consumes authorization and isolation from [`auth-resource-isolation.md`](auth-resource-isolation.md), the frozen configuration and manifest from [`resolved-session-configuration.md`](resolved-session-configuration.md), the activated text workflow from [`assessment-setup.md`](assessment-setup.md), and the active Attempt plus exact Submission binding from [`submission-attempts.md`](submission-attempts.md). Supplies a terminal, ordered transcript and lifecycle record to [`evidence-evaluation.md`](evidence-evaluation.md).
 - Related decisions: Approved defaults `PROP-1`–`PROP-8` in this specification, with `PROP-7` revised by the 2026-08-09 product decision. [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs manifest integrity and terminal sealing. [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) governs interactive, real-time, and service authorization. [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) governs durable audit. [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) governs the committed readiness boundary from which this lifecycle begins. [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs the SPA/API/gateway, request/response plus SSE, worker, persistence, and recovery baseline. [ADR-009](../../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md) approved the original detailed Session contract; [ADR-011](../../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md) supersedes its complete-message-only publication boundary and approves version 0.2 of the [text Session runtime contract](../../architecture/session-runtime-contract.md). [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) approves the Invocation/Decision revision; [ADR-013](../../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) approves optional next-timer replacement; [ADR-014](../../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) approves the P0-compatible Decision-output envelope. The [MVP operational defaults](../mvp-operational-defaults.md#protected-data-lifecycle-defaults) govern the default transcript, configuration, manifest, and working-context lifecycle.
-- Decision approval: `PROP-1`–`PROP-8` and the participant-visible work-trace direction were approved on 2026-08-06. The revised `PROP-7`, incremental-streaming requirements `REQ-SESS-55`–`REQ-SESS-60`, and `AC-SESS-32` were approved on 2026-08-09. Structured Invocation/Decision requirements `REQ-SESS-61`–`REQ-SESS-70` and `AC-SESS-33`–`AC-SESS-37` were approved on 2026-08-11 with ADR-012. Next-timer requirements `REQ-SESS-71`–`REQ-SESS-77` and `AC-SESS-38`–`AC-SESS-41` were approved on 2026-08-11 with ADR-013. Output-envelope requirements `REQ-SESS-78`–`REQ-SESS-85` and `AC-SESS-42`–`AC-SESS-47` were approved on 2026-08-14 with ADR-014.
+- Decision approval: `PROP-1`–`PROP-8` and the participant-visible work-trace direction were approved on 2026-08-06. The revised `PROP-7`, incremental-streaming requirements `REQ-SESS-55`–`REQ-SESS-60`, and `AC-SESS-32` were approved on 2026-08-09. Structured Invocation/Decision requirements `REQ-SESS-61`–`REQ-SESS-70` and `AC-SESS-33`–`AC-SESS-37` were approved on 2026-08-11 with ADR-012. Next-timer requirements `REQ-SESS-71`–`REQ-SESS-77` and `AC-SESS-38`–`AC-SESS-41` were approved on 2026-08-11 with ADR-013. Output-envelope requirements `REQ-SESS-78`–`REQ-SESS-85` and `AC-SESS-42`–`AC-SESS-48` were approved on 2026-08-14 with ADR-014; `REQ-SESS-78`/`REQ-SESS-79` and `AC-SESS-43`–`AC-SESS-45`/`AC-SESS-48` record the independent-item validation clarification.
 
 Version 0.5 is **approved** and supersedes version 0.4 while preserving its
 Invocation/Decision, next-timer, and ADR-011 participant-visible streaming
-behavior.
+behavior. The 2026-08-14 amendment makes output and requested-action
+validation independent and partial and keeps schema-invalid output as an
+Invocation execution outcome.
 
 ## Problem and measurable outcome
 
@@ -270,10 +272,13 @@ Connection states such as `Connecting`, `Connected`, `Reconnecting`, and `Offlin
   be represented as `no_action` or another fabricated Agent Decision.
 - `REQ-SESS-64` — Every Agent Decision must be validated against current
   authorization, Session state, terminal cutoff, frozen Harness/workflow policy,
-  and permitted decision capabilities before any effect. A decision must not
-  widen scope or capability, change frozen configuration, make trusted facts,
-  execute a tool, transition workflow, enable memory, override timing, or
-  release a Result by itself.
+  and permitted decision capabilities before any effect. Disposition validity is
+  Decision-level. Outputs and requested actions are then validated and effected
+  independently; a Decision-level disposition failure must not fabricate
+  `no_action`, and it must not by itself void an independently valid requested
+  action. A decision must not widen scope or capability, change frozen
+  configuration, make trusted facts, execute a tool, transition workflow, enable
+  memory, override timing, or release a Result by itself.
 - `REQ-SESS-65` — When frozen policy permits intentional no-action and the Agent
   validly decides it for a Participant Turn, the response slot and Turn must
   reach an explicit successful non-error terminal outcome, no Agent Message may
@@ -359,13 +364,23 @@ Connection states such as `Connecting`, `Connected`, `Reconnecting`, and `Offlin
 - `REQ-SESS-78` — A successful Agent Decision must be recorded as one versioned
   envelope with an explicit disposition, a runtime-ordered collection of zero or
   more typed output recommendations, and a collection of zero or more typed
-  requested actions. Output and action collections must be validated
-  independently. Empty collections must not be inferred as `no_action`.
-- `REQ-SESS-79` — The P0 text Session profile must permit at most one Participant
+  requested actions. Envelope or schema failure is an Invocation execution
+  outcome under `REQ-SESS-63` and produces no Agent Decision. Disposition
+  validity is Decision-level. Each output and each requested action must be
+  validated and effected independently. Empty collections must not be inferred
+  as `no_action`. An invalid item produces no effect for that item and must not
+  fabricate `no_action`.
+- `REQ-SESS-79` — The P0 text Session profile must accept at most one Participant
   `message` output, zero `voice` outputs, no reviewer/administrator/runtime-only
   presentation outputs, and no requested action other than the optional
-  ADR-013 next-timer recommendation. A Decision that exceeds this profile must
-  be rejected without effect and without fabricating `no_action`.
+  ADR-013 next-timer recommendation. P0 does not impose Decision-wide output
+  atomicity; the same independent-item model is the later multi-channel
+  extension rule. If more than one `message` is recommended, the runtime must
+  accept only the first runtime-ordered permitted Participant `message` and must
+  reject each extra message independently. Each prohibited kind, extra item, or
+  unauthorized audience produces no effect for that item, must not enable a
+  deferred channel, and must not fabricate `no_action` or void an otherwise
+  valid sibling output or requested action.
 - `REQ-SESS-80` — Historical v1 `emit_message` must remain reconstructable as
   disposition `respond` plus one `message` output. Historical v1 `no_action`
   must remain reconstructable as explicit `no_action` plus zero presentation
@@ -945,7 +960,7 @@ Audit and manifest records use protected message, content, and transcript refere
 
 - **Given** a successful Agent Decision whose P0 profile maps from historical
   `emit_message` or an equivalent envelope with disposition `respond`
-- **When** validation accepts the Decision
+- **When** validation accepts the permitted Participant `message` output
 - **Then** the runtime records exactly one Participant `message` output with a
   runtime-allocated output identifier
 - **And** visible publication follows ADR-011
@@ -953,22 +968,26 @@ Audit and manifest records use protected message, content, and transcript refere
 
 ### `AC-SESS-43` — Empty presentation is not inferred as no-action
 
-- **Given** a well-formed Decision with zero presentation outputs and no explicit
-  `no_action` disposition
-- **When** the runtime validates it
-- **Then** the Decision is rejected or classified as an execution outcome
-  according to schema completeness
-- **And** the outcome is not recorded as intentional `no_action`.
+- **Given** a schema-valid Agent Decision exists with a disposition other than
+  `no_action` and zero valid presentation outputs
+- **When** the runtime validates the Decision
+- **Then** an Agent Decision exists; the case is not an Invocation execution
+  outcome
+- **And** communication/output validation rejects the empty presentation
+- **And** the outcome is not recorded as intentional `no_action`
+- **And** independently valid requested actions may still be effected.
 
 ### `AC-SESS-44` — A prohibited output or audience causes no effect
 
-- **Given** a Decision recommends voice, a second message, a reviewer/admin
-  presentation, Evidence/Evaluation content as a message, or a model-authored
-  audience/id
-- **When** the Session runtime validates the Decision
-- **Then** the prohibited output or audience has no effect
+- **Given** a schema-valid Decision recommends voice, a second message, a
+  reviewer/admin presentation, Evidence/Evaluation content as a message, or a
+  model-authored audience/id
+- **When** the Session runtime validates each output independently
+- **Then** each prohibited output or audience has no effect
 - **And** no Agent Message is published for the prohibited content
-- **And** the rejection is distinguishable from `no_action` and provider failure.
+- **And** an otherwise valid sibling output or requested action is not voided
+- **And** the item rejection is distinguishable from `no_action` and provider
+  failure.
 
 ### `AC-SESS-45` — Requested actions validate independently from outputs
 
@@ -978,7 +997,7 @@ Audit and manifest records use protected message, content, and transcript refere
 - **Then** timer rejection does not by itself reject a valid primary presentation
   or `no_action` outcome
 - **And** a prohibited extra requested action is rejected without fabricating
-  another Decision.
+  another Decision and without voiding an otherwise valid output.
 
 ### `AC-SESS-46` — Historical v1 Decisions remain reconstructable
 
@@ -998,6 +1017,19 @@ Audit and manifest records use protected message, content, and transcript refere
 - **And** audit, telemetry, and generic events contain no hidden chain-of-thought
   or raw sensitive payloads.
 
+### `AC-SESS-48` — Valid and invalid items in one Decision are independent
+
+- **Given** a schema-valid Decision with disposition `respond`, one permitted
+  Participant `message` output, one prohibited `voice` output, and an optional
+  permitted next-timer recommendation
+- **When** the runtime validates outputs and requested actions independently
+- **Then** the permitted message output is accepted and published under
+  ADR-011
+- **And** the voice output has no effect and does not enable voice
+- **And** timer validation remains independent of both outputs
+- **And** the Decision is not rejected as a whole
+- **And** `no_action` is not fabricated.
+
 ## Edge and failure cases
 
 | Case | Required outcome |
@@ -1015,8 +1047,8 @@ Audit and manifest records use protected message, content, and transcript refere
 | Session pauses during an in-flight turn | Apply the frozen cancellation/commit boundary and record the outcome; do not leave ambiguous visible content |
 | Agent requests a shorter or longer next delay within bounds | Replace the one pending timer event; do not add another event |
 | Agent omits or requests a prohibited delay | Retain the current valid next event, or arm the frozen default after a fired timer Invocation; keep primary Decision validation independent |
-| Decision has empty outputs without explicit `no_action` | Reject or classify as execution failure; do not infer intentional silence |
-| Decision recommends voice or a second message in P0 | Reject without effect; do not publish or enable deferred channels |
+| Decision has empty outputs without explicit `no_action` | Schema-invalid/incomplete output is an Invocation execution outcome with no Agent Decision; a schema-valid Decision with `respond` and zero valid outputs is a Decision whose communication/output validation rejects the empty presentation; do not infer intentional silence |
+| Decision recommends a permitted message plus voice or a second message in P0 | Accept the first runtime-ordered permitted message if valid; reject each prohibited or extra output independently; do not publish or enable deferred channels; do not void independently valid sibling items |
 | Model supplies audience, output id, or reviewer content | Ignore as authority; fail closed; keep Evidence/Evaluation in owning domains |
 | Timer replacement races another Decision or scheduler claim | Use expected schedule revision and authoritative Session order; permit one winner and no parallel timer |
 | Timer becomes due during pause or after cutoff | Do not admit an Invocation; preserve active-time remainder only for an authorized resume, otherwise cancel or expire the event |
@@ -1086,7 +1118,8 @@ Metrics, logs, traces, and alerts must use bounded labels and protected referenc
 None. `Q-1`–`Q-7` were resolved on 2026-08-06 as recorded below. The v0.3
 Invocation/Decision semantics and v0.4 next-timer replacement behavior were
 approved on 2026-08-11. The v0.5 P0-compatible output envelope was approved on
-2026-08-14 and introduces no new open question.
+2026-08-14 and introduces no new open question. The same-day independent-item
+validation clarification does not add an open question.
 
 ## Approved decision disposition
 
@@ -1120,7 +1153,7 @@ These defaults are approved with this specification and govern MVP text Session 
 | --- | --- | --- | --- | --- |
 | `REQ-SESS-1`–`REQ-SESS-7`, `AC-SESS-1`, `AC-SESS-2` | Instruction/notice versioning, acknowledgment command, ADR-005 readiness consumer, and canonical Session state — architecture approved in the [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Current/stale/declined acknowledgment; cross-scope; pre-commit failure; duplicate start tests | Pre-start instructions, required acknowledgment, blocked, starting, and active states | Gap |
 | `REQ-SESS-8`–`REQ-SESS-19`, `REQ-SESS-51`–`REQ-SESS-60`, `AC-SESS-3`–`AC-SESS-8`, `AC-SESS-31`, `AC-SESS-32`, `PROP-7` | Ordered message/turn/work-trace/response-fragment model, generation adapter, constrained explanation contract, durable-before-display streaming boundary, and safe renderer — architecture approved in version 0.2 of the [text Session runtime contract](../../architecture/session-runtime-contract.md) through [ADR-011](../../architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md); implementation TBD | Idempotency, concurrent publisher, fragment order/digest/gap/duplicate, reconnect replay, partial-stream failure, cutoff, work-trace policy/leakage, cross-Session, prompt-injection, unsafe-markup tests | Draft/sending/accepted/streaming/incomplete/retrying/published states at desktop and narrow widths | Gap |
-| `REQ-SESS-61`–`REQ-SESS-85`, `AC-SESS-33`–`AC-SESS-47` | Provider-neutral trusted trigger, Agent Invocation, execution attempt, Agent Decision envelope, P0 output profile, validation/effect, explicit no-action, one-lane next-timer replacement, ordering, historical v1 reconstruction, and minimized provenance — approved in [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), [ADR-014](../../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md), and version 0.5 of the [runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Fake/unknown/prohibited trigger, context isolation, exactly-one Decision, envelope cardinality, empty-output inference rejection, voice/audience/id rejection, no-action, rejection, accepted/rejected/omitted timer request, duplicate/concurrent replacement, single firing, pause/resume/cutoff, loop budget, provider-neutral control/content separation, v1 dual-read, and deferred-capability tests | Intentional-no-response, rejected/suppressed, governed timer-triggered Agent activity, and reconnect-resolved states | Gap |
+| `REQ-SESS-61`–`REQ-SESS-85`, `AC-SESS-33`–`AC-SESS-48` | Provider-neutral trusted trigger, Agent Invocation, execution attempt, Agent Decision envelope, P0 output profile, independent output/action validation and partial rejection, explicit no-action, one-lane next-timer replacement, ordering, historical v1 reconstruction, and minimized provenance — approved in [ADR-012](../../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), [ADR-014](../../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md), and version 0.5 of the [runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Fake/unknown/prohibited trigger, context isolation, exactly-one Decision, envelope cardinality, empty-output inference rejection, schema-invalid execution outcome versus Decision rejection, mixed valid message plus prohibited voice, voice/audience/id item rejection without voiding siblings, no-action, rejection, accepted/rejected/omitted timer request, duplicate/concurrent replacement, single firing, pause/resume/cutoff, loop budget, provider-neutral control/content separation, v1 dual-read, and deferred-capability tests | Intentional-no-response, rejected/suppressed, governed timer-triggered Agent activity, and reconnect-resolved states | Gap |
 | `REQ-SESS-20`–`REQ-SESS-30`, `AC-SESS-9`–`AC-SESS-14`, `PROP-2`, `PROP-3`, `PROP-6` | Authoritative timer, pause intervals, warning scheduler, and reconnect/revocation protocol — architecture approved in the [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Exact boundary, pause accounting, disconnect, reconnect, stale client, revocation, multiple-device tests | Timer/warnings, reconnecting, offline, paused, resumed, permission-changed states | Gap |
 | `REQ-SESS-31`–`REQ-SESS-41`, `AC-SESS-15`–`AC-SESS-20`, `PROP-5` | Terminal command/order, transcript cutoff, Attempt mapping, manifest seal, and handoff boundary — architecture approved in the [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Completion/expiry/termination/abort, message-terminal race, audit/seal failure, post-terminal callback tests | Confirmation, completing, completed, terminated, aborted, recovery states | Gap |
 | `REQ-SESS-42`–`REQ-SESS-50`, `AC-SESS-21`–`AC-SESS-23`, `AC-SESS-28`–`AC-SESS-30`, `PROP-1`, `PROP-8` | Transcript history, authorization/audit adapters, lifecycle enforcement, and scoped historical views — architecture approved in the [text Session runtime contract](../../architecture/session-runtime-contract.md); implementation TBD | Immutability, correction, audit durability/redaction, retention/unavailability, access-scope, disabled-learning tests | Participant transcript, assigned review, administrator monitoring, denied/unavailable states | Gap |

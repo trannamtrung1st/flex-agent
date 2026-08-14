@@ -8,7 +8,7 @@ unblocks: structured-agent-runtime-sync
 
 # Goal
 
-Turn `temp/multi-channel-agent-output-proposal.md` into a reviewed,
+Turn `.work/resources/multi-channel-agent-output-proposal.md` into a reviewed,
 authority-by-concern product, requirements, UI/UX, architecture, security, and
 migration agreement before further provider, worker, or Agent-message runtime
 implementation.
@@ -27,7 +27,7 @@ authoring and implementation stages.
 - `AGENTS.md` and `docs/README.md` — authority by concern, product invariants,
   open-question defaults, specification-driven delivery, security/privacy,
   and tracked-work rules
-- `temp/multi-channel-agent-output-proposal.md` — proposed behavior, design
+- `.work/resources/multi-channel-agent-output-proposal.md` — proposed behavior, design
   principles, seventeen planning questions, requested planning deliverables,
   scenarios A-G, and non-goals; Proposed only until promoted and approved in
   the governing authoritative documents
@@ -236,14 +236,17 @@ authoring and implementation stages.
 - [x] Run product/requirements, UI/UX, architecture, security/privacy, backend, frontend, and QA review passes.
 - [x] Amend the parent runtime plan and traceability matrix; clear the dependency.
 - [x] Run documentation validation and proposal-to-authority traceability audit.
+- [x] Resolve post-commit review: independent output/action validation (P1),
+  AC-SESS-43 execution-versus-Decision split (P2), and stale Text Session
+  version catalog references (P3).
 
 # Current state
 
-P0-compatible foundation is approved in product v0.4, resolved configuration
-v0.4, text Session v0.5, Text Session UI v0.5, Session runtime contract v0.5,
-MVP architecture v0.10, and ADR-014. P2 voice/shared-workspace remains Proposed
-in this record. Parent runtime task `structured-agent-runtime-sync` is unblocked
-at the model-execution port. No provider, worker, voice, TTS, or rich-content
+Post-commit review of `2018d764` is addressed in authoritative artifacts. P1
+independent item validation, P2 execution-versus-Decision split, and P3 Text
+Session v0.5 catalog references are in the specs/ADR/runtime contract. Parent
+runtime task `structured-agent-runtime-sync` is unblocked at the model-execution
+port with those semantics. No provider, worker, voice, TTS, or rich-content
 implementation was started here.
 
 # Current-state inventory
@@ -299,7 +302,8 @@ Migration choice: explicit successor (v2 or distinct schema id) plus dual-read o
 # Implementation phases (runtime task, not this task)
 
 1. Successor envelope schema/fixtures/C#/TS parity and v1 dual-read tests.
-2. Domain validation of P0 profile, output ids, independent actions.
+2. Domain validation of P0 profile, output ids, independent per-item
+   output/action validation, and partial rejection (`AC-SESS-48`).
 3. Additive persistence if envelope cannot be stored in current Decision payload without meaning change.
 4. Provider port + fake adapter using envelope.
 5. Worker Decision/effect including message output -> ADR-011.
@@ -339,18 +343,26 @@ are approved. Design-system `voice.md` does not enable the capability.
 | --- | --- | --- |
 | Product/BA | pass | Envelope meaning in concept model v0.4; P0 not widened; no eighth feature |
 | UI/UX | pass | `UI-SESS-DEC-15` hides internals; P2 outline stays Proposed |
-| Architecture | pass | ADR-014 extends 012/013; preserves 011; v1 immutable |
+| Architecture | pass | ADR-014 extends 012/013; preserves 011; v1 immutable; independent item validation is P0 |
 | Security/privacy | pass | Threat table in ADR-014; audience/id fail-closed; Evidence not a message |
 | Backend feasibility | pass | Dual-read + successor schema is implementable without rewriting 0005–0008 |
 | Frontend feasibility | pass | No new Participant states required in P0 |
-| QA/testability | pass | New AC-SESS-42–47 and AC-RSC-28 are Given/When/Then and mappable to tests |
+| QA/testability | pass | AC-SESS-42–48 and AC-RSC-28 are Given/When/Then; AC-SESS-48 covers mixed valid message + prohibited voice |
 
 Blocking contradiction found and resolved during authoring: empty outputs must
-not equal `no_action`. No remaining P0 blocker.
+not equal `no_action`. Post-commit contradiction resolved: P0 profile excess is
+per-item rejection, not Decision-wide atomic rejection. No remaining P0
+blocker.
 
 # Decisions
 
 - `PROP-MCO-1`–`6`, `13`–`16` are approved for P0 in product/requirements/ADR-014.
+- Independent output/action validation with partial rejection is the P0 rule
+  (`REQ-SESS-78`/`79`, `SESS-DEC-30`/`35`, `AC-SESS-48`). P0 does not impose
+  Decision-wide output atomicity.
+- Schema-invalid/incomplete provider output is an Invocation execution outcome
+  (`REQ-SESS-63`). Schema-valid `respond` with zero valid outputs is a Decision
+  whose communication/output validation fails (`AC-SESS-43`).
 - `PROP-MCO-7`–`12` remain Proposed P2/later inputs except where they restate
   already-approved P0 rules (trusted admission, ADR-011 message path, runtime
   timing authority, no dual writes).
@@ -363,6 +375,10 @@ not equal `no_action`. No remaining P0 blocker.
   shape, with v1 kept reconstructable.
 - Evaluator-facing proposal examples remain out of generic message outputs.
 - P2 authoring sequence unchanged.
+- Post-commit review: closed the `REQ-SESS-79` Decision-atomic contradiction in
+  favor of independent item validation; split schema-invalid execution from
+  Decision rejection in `AC-SESS-43`; corrected stale Text Session v0.4 catalog
+  references.
 
 # Verification
 
@@ -372,12 +388,12 @@ not equal `no_action`. No remaining P0 blocker.
 | Proposal section/question/scenario traceability | passed | Question answers, design-coverage matrix, principles 1–8 mapped to ADR-014/product/P2 handoff |
 | Current repository flow and impact inventory | passed | Inventory and impact matrix in this file |
 | Product/requirements/UI/architecture authority | passed | Concept/MVP/overview v0.4; RSC v0.4; Session v0.5; UI v0.5; runtime v0.5; architecture v0.10; ADR-014 |
-| Security/privacy threat model | passed | ADR-014 security table plus AC-SESS-44/46/47 |
+| Security/privacy threat model | passed | ADR-014 security table plus AC-SESS-44/46/47/48 |
 | Compatibility/migration review | passed | v1 immutable; successor + dual-read; migrations 0005–0008 untouched |
 | P0 versus later-release boundary | passed | No voice/tools/reviewer outputs enabled |
 | Independent cross-functional reviews | passed | Review table above |
 | Documentation, links, IDs, diff hygiene | passed | `python3 scripts/check_docs.py` passed; `git diff --check` clean |
-| Consistency re-review (2026-08-14 later pass) | passed | Closed stale `emit_message`-as-exclusive-Decision wording in ADR-012/runtime/MVP architecture, parent-task “unresolved gate” decisions, RSC freeze language, and UI AC coverage; `python3 scripts/check_docs.py` passed; `git diff --check` clean |
+| Post-commit review P1–P3 (2026-08-14) | passed | Independent item validation in REQ-SESS-78/79, ADR-014 layers, SESS-DEC-30/35, AC-SESS-43/44/45/48; Text Session catalogs v0.5; `python3 scripts/check_docs.py` passed; `git diff --check` clean |
 
 # Blockers
 

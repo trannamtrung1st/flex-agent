@@ -82,7 +82,7 @@ Illustrative examples in product documents are not MVP commitments unless captur
 
 - [UI/UX documentation](ui-ux/README.md) — Approved platform Activity IA,
   end-to-end P0 assessment Campaign journey, five approved P0 surface
-  specifications including Text Session v0.4, and the approved shared design
+  specifications including Text Session v0.5, and the approved shared design
   system
 
 ### Architecture

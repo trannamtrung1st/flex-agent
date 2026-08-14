@@ -12,7 +12,7 @@ Canonical product concepts, relationships, lifecycles, and invariants for Flex A
 | **Version** | 0.4 |
 | **Effective date** | 2026-08-14 |
 | **Last reviewed** | 2026-08-14 |
-| **Approval reference** | v0.4 P0-compatible Agent Decision output envelope approved 2026-08-14; supersedes v0.3 |
+| **Approval reference** | v0.4 P0-compatible Agent Decision output envelope approved 2026-08-14; supersedes v0.3; independent-item validation clarified 2026-08-14 |
 | **Related decisions** | Approved [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
 
 Version 0.4 is **approved** and supersedes v0.3. It preserves canonical Agent
@@ -196,8 +196,11 @@ wire schemas are architecture concerns.
 Current P0 text execution uses a restricted compatibility profile: zero or one
 Participant `message` output, no `voice` output, no reviewer or runtime-only
 presentation output, and only the already-approved optional next-timer
-requested action. Voice-only, coordinated voice plus message, richer message
-kinds, and additional actions remain later-release capabilities.
+requested action. The runtime validates and effects each output and requested
+action independently; a prohibited item has no effect and does not void an
+otherwise valid sibling item or fabricate no-action. Voice-only, coordinated
+voice plus message, richer message kinds, and additional actions remain
+later-release capabilities.
 
 Presentation kind and authorized visibility are independent. Effective audience
 is derived from trusted Harness, workflow, and runtime context. Model-authored

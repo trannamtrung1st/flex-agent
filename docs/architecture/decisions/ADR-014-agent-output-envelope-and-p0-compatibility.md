@@ -2,7 +2,10 @@
 
 ## Status
 
-Approved
+Approved. Clarified 2026-08-14: outputs and requested actions are validated and
+effected independently (partial rejection). P0 does not impose Decision-wide
+output atomicity. Schema-invalid provider output remains an Invocation
+execution outcome and does not create an Agent Decision.
 
 ## Decision metadata
 
@@ -111,6 +114,29 @@ distinguish:
 - rejection or suppression;
 - execution or effect failure;
 - Invocation execution failure with no Decision.
+
+### Validate in layers; reject items independently
+
+Validation is not atomic across the whole Decision payload. The layers are:
+
+1. **Envelope/schema completeness** — malformed, incomplete, or schema-invalid
+   provider output is an Invocation execution outcome. No Agent Decision exists.
+2. **Disposition validity** — Decision-level. `respond` with zero valid
+   presentation outputs is a recorded Agent Decision whose communication/output
+   validation fails; it is not `no_action` and not an execution outcome.
+3. **Outputs** — each output is validated and effected independently against
+   the frozen output profile, authorization, audience, and Session state.
+4. **Requested actions** — each requested action is validated and effected
+   independently, including ADR-013 next-timer replacement.
+
+An invalid output or requested action produces no effect for that item and
+cannot fabricate `no_action`. It must not void an otherwise valid sibling
+output or action. P0 does not add a special all-outputs-atomic restriction;
+later coordinated voice and message use this same item-level model.
+
+If a Decision recommends more than one Participant `message`, accept the
+first runtime-ordered permitted message and reject each extra message
+independently. Voice and other deferred kinds have no P0 effect.
 
 ### Keep v1 reconstructable and introduce an explicit successor
 
@@ -225,7 +251,7 @@ or the execution manifest.
 | Output-reference substitution | Resolve local refs inside the same Decision and current Session scope | Cross-Decision, cross-Session, and swapped-artifact references fail |
 | Unsafe rich rendering | P0 message remains untrusted text under existing Session rendering rules | Markup/script/link/fetch injection tests already required by `REQ-SESS-19` and `AC-SESS-26` |
 | Forged presentation or playback acknowledgements | No P0 client delivery authority; later acks must be authenticated, scoped, ordered, and labeled technical proxies | Client-supplied “shown” or “heard” facts cannot mutate authoritative state in P0 |
-| Resource storms from multi-output generation | P0 cardinality bounds; later per-output budgets | More than one message, any voice, or extra actions are rejected |
+| Resource storms from multi-output generation | P0 cardinality bounds; later per-output budgets | Extra messages, any voice, or extra actions are rejected per item; valid siblings may still effect |
 | Observability cardinality and leakage | Bounded labels; protected references; no raw Decision payloads in logs | Metric/log/export leakage tests |
 | Retention/export/backup | Existing lifecycle policy applies to new envelope records | Cross-scope export denial; no silent v1 rewrite |
 
@@ -247,9 +273,12 @@ or the execution manifest.
 
 - Successor schema compatibility fixtures plus lossless v1 dual-read mapping.
 - P0 cardinality tests: zero or one message, zero voice, timer independence.
-- Empty outputs without explicit `no_action` fail closed.
+- Empty outputs without explicit `no_action`: schema-invalid output is an
+  execution outcome; a schema-valid `respond` with zero valid outputs is a
+  Decision rejection of the communication path.
 - Model-authored audience, output id, or prohibited action tests.
-- Independent output versus requested-action validation and partial rejection.
+- Independent output versus requested-action validation and partial rejection,
+  including mixed permitted message plus prohibited voice.
 - ADR-011 fragment tests still linked to the driving Decision and output id.
 - Deferred-capability matrix proving voice, tools, reviewer outputs, and
   Interaction Controller triggers remain disabled.

@@ -31,7 +31,7 @@ and test reviews have no unresolved blocking findings.
 - `docs/product/concept-model.md`, `docs/product/mvp-scope.md`, and
   `docs/product/overview.md` — Session meaning, frozen configuration, P0 scope,
   and provider-independent validation strategy
-- `temp/multi-channel-agent-output-proposal.md` and
+- `.work/resources/multi-channel-agent-output-proposal.md` and
   `.work/active/multi-channel-agent-output-contract-adoption.md` — user-
   prioritized proposal and the prerequisite cross-concern decision task that
   must resolve the future output/action shape before provider and worker seams
@@ -59,9 +59,10 @@ and test reviews have no unresolved blocking findings.
   - `REQ-SESS-71`–`REQ-SESS-77`, `AC-SESS-38`–`AC-SESS-41`: optional
     Agent timer recommendation, independent validation, replacement semantics,
     active-time delay, firing, default cadence, and provenance
-  - `REQ-SESS-78`–`REQ-SESS-85`, `AC-SESS-42`–`AC-SESS-47`: P0 Decision
-    envelope, output cardinality, runtime-owned output identity, audience
-    derivation, Evidence/Evaluation exclusion, and v1 reconstruction
+  - `REQ-SESS-78`–`REQ-SESS-85`, `AC-SESS-42`–`AC-SESS-48`: P0 Decision
+    envelope, independent output/action validation and partial rejection,
+    output cardinality, runtime-owned output identity, audience derivation,
+    Evidence/Evaluation exclusion, and v1 reconstruction
 - `docs/ui-ux/text-session.md` — approved Participant-facing behavior,
   especially `UI-SESS-DEC-13`, `UI-SESS-DEC-14`, and `UI-SESS-DEC-15`
 - `docs/ui-ux/design-system/README.md` and
@@ -286,7 +287,7 @@ and test reviews have no unresolved blocking findings.
 | Provider/model authority (`REQ-RSC-46`, `AC-RSC-25`) | Trusted deployment and opaque credential-binding resolver, provider request context, worker preflight | Missing/revoked/wrong-Organization/provider-mismatched binding; no fallback payer/provider; credential absence from storage, DTOs, logs, telemetry, errors, fixtures, and artifacts |
 | Trusted admission and identity (`REQ-SESS-61`, `REQ-SESS-62`, `REQ-SESS-67`, `REQ-SESS-68`, `SESS-DEC-14`, `SESS-DEC-15`, `SESS-DEC-20`) | Trusted trigger adapter, admission command, scoped repository, Session sequence/idempotency | Accepted Participant/opening/closing/timer trigger; unknown/fake/prohibited trigger; forged scope; duplicate/mismatch; stale/lifecycle/cutoff/budget; cross-Organization/Activity/Participant/Session isolation |
 | Invocation execution (`REQ-SESS-63`, `REQ-SESS-69`, `SESS-DEC-16`, `SESS-DEC-21`) | Durable work row, claim/lease, Invocation handler, provider port/adapter, attempt/outcome and provider-request provenance | Exactly one Decision on success; timeout/unavailable/malformed/incomplete structured output with no fabricated Decision; bounded retry; cancellation/late result; crash at each commit boundary; lost response/lease; duplicate claim; attempt/chain/cooldown/Session budget exhaustion |
-| Decision authority/effect (`REQ-SESS-64`–`REQ-SESS-67`, `REQ-SESS-70`, `REQ-SESS-78`–`REQ-SESS-85`, `AC-SESS-42`–`AC-SESS-47`, `SESS-DEC-17`–`SESS-DEC-19`, `SESS-DEC-23`, `SESS-DEC-29`–`SESS-DEC-35`) | Successor Decision envelope schema/parser, validator, response-slot/Agent-initiated outcome state machine, effect transaction, audit/outbox, v1 dual-read | Exactly-one envelope; empty collections not inferred as `no_action`; 0–1 message / 0 voice; runtime-owned output ids; model audience/id fail-closed; Evidence/Evaluation not a message; accepted versus schema-valid policy/payload/capability rejection; Participant and non-Turn no-action terminalization; message output slot claim; accepted-effect failure distinct from execution failure; independent timer-action validation; v1 `emit_message`/`no_action` reconstruction; atomic failure injection; current-policy recheck; immutable recommendation/validation/effect history |
+| Decision authority/effect (`REQ-SESS-64`–`REQ-SESS-67`, `REQ-SESS-70`, `REQ-SESS-78`–`REQ-SESS-85`, `AC-SESS-42`–`AC-SESS-48`, `SESS-DEC-17`–`SESS-DEC-19`, `SESS-DEC-23`, `SESS-DEC-29`–`SESS-DEC-35`) | Successor Decision envelope schema/parser, validator, response-slot/Agent-initiated outcome state machine, effect transaction, audit/outbox, v1 dual-read | Exactly-one envelope; empty collections not inferred as `no_action`; schema-invalid output is an execution outcome with no Decision; disposition is Decision-level; outputs and requested actions validate/effect independently (partial rejection; mixed valid message + prohibited voice); 0–1 accepted message / 0 accepted voice; runtime-owned output ids; model audience/id fail-closed; Evidence/Evaluation not a message; Participant and non-Turn no-action terminalization; message output slot claim; accepted-effect failure distinct from execution failure; independent timer-action validation; v1 `emit_message`/`no_action` reconstruction; atomic failure injection; current-policy recheck; immutable recommendation/validation/effect history |
 | Durable message streaming (`REQ-SESS-55`–`REQ-SESS-60`, `AC-SESS-32`, ADR-011) | Message/fragment/completion persistence, outbox/SSE projection and replay | Fragment order, duplicate/gap/mismatch, commit-before-publish, disconnect/replay, completion digest/length, partial failure, late/extra delta, multiple nodes, terminal transcript reconstruction |
 | One-lane scheduling (`REQ-SESS-71`–`REQ-SESS-77`, `AC-SESS-38`–`AC-SESS-41`, `SESS-DEC-24`–`SESS-DEC-28`) | Timer request parser/validator, timer-lane aggregate, schedule revision rows, durable due-work scheduler | Default first arm; accepted/rejected/omitted request; primary-Decision independence; replace pending versus sole successor; expected-revision conflict; duplicate/concurrent response; one pending event/firing; restart; active-time pause/resume; cutoff/revocation/terminal cancellation; loop budgets |
 | Participant presentation (`UI-SESS-DEC-13`, `UI-SESS-DEC-14`, `UI-SESS-DEC-15`) | Browser-safe Session projection/SSE, synthetic scenarios, `SessionPage` working/resolved states | No synthetic Agent Message for no-action; no synthetic Participant Message for timer; envelope/output-id/audience/requested-action internals absent; one accessible announcement; no focus movement; real timer-triggered work/message only; raw control/timing data absent from DOM, storage, URL, logs, and screenshots |
@@ -548,13 +549,16 @@ and test reviews have no unresolved blocking findings.
   this implementation task.
 - [>] Add the model-execution port and deterministic fake provider through
   observed red-green-refactor. Consume the ADR-014 successor Decision envelope
-  and P0 profile (0–1 `message` output, 0 `voice`, explicit disposition,
-  runtime-owned output ids, independent requested-action validation). Dual-read
+  and P0 profile (0–1 accepted `message` output, 0 accepted `voice`, explicit
+  disposition, runtime-owned output ids, independent output and requested-action
+  validation with partial rejection). Dual-read
   historical v1 `emit_message`/`no_action`. Prove structured control/content
   phase separation, bounded provider requests within one Invocation,
   cancellation, transient/permanent failure classification,
   malformed/incomplete/oversized control, empty-output inference rejection,
-  prohibited voice/audience/id, cumulative-snapshot versus non-overlapping-delta
+  schema-invalid execution outcome versus Decision rejection, mixed valid
+  message plus prohibited voice, prohibited voice/audience/id item rejection
+  without voiding valid siblings, cumulative-snapshot versus non-overlapping-delta
   normalization, duplicate/late completion, one- and multi-interaction
   profiles, no message content before accepted communication control, no
   partial JSON exposure, and absence of hidden reasoning in records or logs. Do
@@ -699,11 +703,13 @@ restore wait on those later surfaces.
 # Decisions
 
 - The output-contract decision is resolved by ADR-014: one Decision envelope
-  with a P0 profile of zero or one `message` output, explicit `no_action`,
-  independent next-timer requested action, and reconstructable historical v1
-  `emit_message`/`no_action`. Provider, worker, and message-stream code must
-  consume that envelope rather than treating v1 `decision_type` as the future
-  shape.
+  with a P0 profile of zero or one accepted `message` output, explicit
+  `no_action`, independent next-timer requested action, and reconstructable
+  historical v1 `emit_message`/`no_action`. Outputs and requested actions are
+  validated and effected independently (partial rejection); schema-invalid
+  output is an Invocation execution outcome with no Decision. Provider, worker,
+  and message-stream code must consume that envelope rather than treating v1
+  `decision_type` as the future shape.
 - Keep this task's release boundary unchanged:
   text-only P0 remains the executable target, and tests must continue to reject
   voice, playback/Interaction Controller signals, unapproved audiences, tools,
