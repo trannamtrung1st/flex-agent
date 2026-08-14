@@ -685,7 +685,15 @@ and test reviews have no unresolved blocking findings.
     cascade against current effective state.
   - [x] Additive PostgreSQL fragment persist and repository hydration linked to
     Decision/`aout.*` (do not rewrite `0005`–`0011`).
-  - [>] Outbox/SSE commit-before-publish, replay, rolling validation,
+    External review of `a947759` (2026-08-14): **request changes**, 0 P0 / 0 P1 /
+    2 P2 / 1 P3. Do not start outbox/SSE until parent/fragment coherence,
+    incremental persist, and agent `turn_id` fail-closed are green. Do not
+    rewrite applied `0012`; fold the remediations in additive `0013`.
+  - [x] Remediate `a947759` P2/P3 before outbox/SSE (additive `0013`, do not
+    rewrite `0005`–`0012`). Composite publication-identity FK binds fragment
+    audit columns to the parent Agent Message; persist is dirty-only (O(1)
+    per new fragment); Agent `turn_id`/`response_slot_id` are required.
+  - [ ] Outbox/SSE commit-before-publish, replay, rolling validation,
     backpressure, and worker content-phase (cumulative vs delta).
 - [ ] Implement the one-lane scheduler with model-based/domain tests first,
   then PostgreSQL/worker integration: default arm on `Active`, independent
@@ -769,12 +777,19 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-ADR-011 additive PostgreSQL fragment persist is **complete**: `0012` stores
-exact UTF-8 fragment deltas, seals Agent Message completion, and hydrates
-them linked to the driving Decision and accepted `aout.*` when the envelope
-allocated one. Frozen `0005`–`0011` are unchanged. Next remaining ADR-011
-work is outbox/SSE commit-before-publish, replay, rolling validation,
-backpressure, and worker content-phase. Voice stays disabled.
+`a947759` P2/P3 remediations are green in additive `0013` (frozen `0005`–
+`0012` unchanged). Same-Session fragment cross-links, participant parents,
+and Agent messages without a Turn fail closed. Later fragment persist
+inserts only the new fragment. Next ADR-011 work is outbox/SSE
+commit-before-publish. Voice stays disabled.
+
+External review of `a947759` (2026-08-14) **request changes: 0 P0 / 0 P1 /
+2 P2 / 1 P3.** Those findings are addressed in `0013`; that SHA is not
+rewritten. Outbox/SSE remains the next sub-slice.
+
+ADR-011 additive PostgreSQL fragment persist (`0012`) stores exact UTF-8
+deltas and hydrates Decision/`aout.*` linkage. Frozen `0005`–`0011` are
+unchanged.
 
 External review of `ce8469f` (2026-08-14) **approved: 0 P0 / 0 P1 / 0 P2 /
 1 optional P3 test-hardening.** Keep that SHA as the frozen-policy sub-slice.
@@ -901,6 +916,13 @@ surfaces.
   ADR-011 persist and content-phase work. External review of `ce8469f` approved
   this freeze-only boundary; fragments/second meaning is deferred until
   publication enforcement.
+- ADR-011 `0013` publication coherence (2026-08-14): fragment audit columns
+  stay on `session_message_fragments` but a composite FK requires them to
+  match the parent Agent Message publication identity (invocation, decision,
+  generation attempt, turn, slot). Independent `0012` FKs remain. Persist
+  writes only dirty message/seal/fragment rows so commit-before-publish is
+  O(1) per fragment. Agent messages require `turn_id` and `response_slot_id`;
+  participant `turn_id` stays nullable.
 - Exact `agent-decision.v2` validation at the model-execution boundary uses
   JsonSchema.Net Draft 2020-12 against the embedded canonical schema. The
   handwritten Domain parser remains a typed mapper after schema success and
@@ -1079,15 +1101,26 @@ surfaces.
 
 # Findings / deviations
 
+- External review of `a947759` (2026-08-14): **request changes**, 0 P0 / 0 P1 /
+  2 P2 / 1 P3. P2: fragment FKs were independent of the parent message, so
+  same-Session cross-links were schema-valid and hydration dropped fragment
+  linkage. P2: `PersistAgentMessagesAsync` replayed every message/fragment.
+  P3: Agent `turn_id` stayed nullable while hydrate used `First()`. Remediation
+  is additive `0013` (do not rewrite `0012`): composite publication-identity
+  FK; dirty-only persist; Agent `turn_id`/`response_slot_id` required.
+  Red: same-Session cross-link, participant parent, null Agent turn, and
+  second-fragment insert count 2. Green: those cases fail closed / insert
+  count 1. Residual: `session_invocations.last_session_sequence` still
+  advances only from Decision/outcome commits (`0006`). Outbox/SSE is next.
 - Consistency review of ADR-011 PostgreSQL fragment persist (`0012`, 2026-08-14):
   no blocking defects. Envelope hydrate links `aout.*` + Decision; legacy
   `emit_message` persists without an accepted-output FK; ownership FKs and
-  digest/empty checks fail closed. Residual (non-blocking): agent `turn_id`
-  remains nullable in `0005` while hydrate requires a matching Turn;
+  digest/empty checks fail closed. Residual after `0013`:
   `session_invocations.last_session_sequence` still advances only from
   Decision/outcome commits (`0006`), not fragment rows (sequence lives on
-  the fragment and Session head). Outbox/SSE and worker content-phase are
-  the next ADR-011 sub-slice, not gaps in this persist/hydrate boundary.
+  the fragment and Session head). Agent `turn_id`/`response_slot_id` are
+  required. Outbox/SSE and worker content-phase are the next ADR-011
+  sub-slice.
 - External review of `ce8469f` (2026-08-14): **approved**, 0 P0 / 0 P1 / 0 P2 /
   1 optional P3. Frozen-policy sub-slice kept. P3 folded as per-bound widening
   theory plus cascading Activity/Session re-widen against current effective
@@ -1457,7 +1490,8 @@ surfaces.
 | Durable worker crash/recovery fault injection (`SESS-DEC-16`, `SESS-DEC-21`) | passed; application+postgres | Confirmation pass (2026-08-14): Sessions 234/234 including crash-after-claim, crash-after-provider-return, failed durable-work acknowledgement, and unprocessable-oldest head-of-line progress; crash-recovery Postgres 8/8 including Decision-commit persist failure, database-time reclaim despite a still-valid host lease, stale-lease CAS, and two-worker contention. Leases are expired with `clock_timestamp()`, not wall-clock sleeps. External review of `fa95a1d`: keep; tighten claims (no scheduler fairness; acknowledgement is fail-before-`MarkCompleted`). External review of `f75ebb1`: **approved** 0 P0 / 0 P1 / 0 P2; optional P3 `lost-response` wording folded. ADR-011 fragment and scheduler effect-commit injection remain later. |
 | ADR-011 domain fragment publication (`REQ-SESS-55`–`60`, `SESS-DEC-9`–`12`, `AC-SESS-32`) | passed; **approved** `3fda20e` | Red: competing complete/incomplete reconciled; digest-after-complete was `already_terminal`; legacy emit had `aout.*` before first fragment. Green: 16/16 focused tests; `FlexAgent.Sessions.Tests` 250/250; architecture 29/29; `git diff --check` passed. External review of `3fda20e`: 0 P0 / 0 P1 / 0 P2. GitHub connector status for that SHA was not independently visible. Persistence, SSE/replay, rolling validation, and worker content-phase remain. |
 | Frozen streaming numeric bounds (`SESS-DEC-13`, `REQ-SESS-8`) | passed; **approved** `ce8469f` | Red: missing/non-positive streaming bounds still resolved; frozen policy stored zeros; digest ignored bound changes; lower scope could raise fragment size (2026-08-14). Green: `FrozenRuntimePolicyResolverTests` 46/46; `FlexAgent.Sessions.Tests` 260/260; architecture 29/29. External review: 0 P0 / 0 P1 / 0 P2 / 1 optional P3. P3 folded: five individual widening cases plus `512 → Activity 256 → Session 384`; resolver tests 51/51; Sessions 265/265. Fixture values remain test-only. Fragment persist, commit-time enforcement, outbox/SSE, and worker content-phase remain. GitHub commit status for `ce8469f` was not independently visible. |
-| ADR-011 PostgreSQL fragment persist (`SESS-DEC-10`–`11`, `REQ-SESS-55`–`60`) | passed; schema+repository | Red: `session_messages` lacked `generation_attempt_id` / Decision/`aout.*` columns (2026-08-14). Green: additive `0012` (frozen `0005`–`0011` unchanged); envelope fragments hydrate with accepted `aout.*` and driving Decision; legacy `emit_message` persists `aout.*` without an accepted-output FK; duplicate ordinal+digest reconciles; empty/digest-mismatched text and ownership mismatch fail closed. Confirmation: Sessions 266/266; architecture 29/29; Postgres 106/107 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 12; `0011→0012` empty upgrade. Outbox/SSE, rolling validation, bound enforcement, and worker content-phase remain. |
+| ADR-011 PostgreSQL fragment persist (`SESS-DEC-10`–`11`, `REQ-SESS-55`–`60`) | passed; schema+repository | Red: `session_messages` lacked `generation_attempt_id` / Decision/`aout.*` columns (2026-08-14). Green: additive `0012` (frozen `0005`–`0011` unchanged); envelope fragments hydrate with accepted `aout.*` and driving Decision; legacy `emit_message` persists `aout.*` without an accepted-output FK; duplicate ordinal+digest reconciles; empty/digest-mismatched text and ownership mismatch fail closed. Confirmation: Sessions 266/266; architecture 29/29; Postgres 106/107 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 12; `0011→0012` empty upgrade. External review of `a947759`: request changes (2 P2 / 1 P3); remediations in `0013`. |
+| `a947759` P2/P3 remediations (publication coherence, incremental persist) | passed; schema+repository | Red: same-Session fragment→invocation B, generation-attempt mismatch, turn/slot mismatch, and participant parent inserted; Agent `turn_id` NULL inserted; second-fragment persist attempted 2 inserts (2026-08-14). Green: additive `0013` (frozen `0005`–`0012`); composite FK; dirty-only fragment insert; Agent turn/slot CHECK. Confirmation: focused schema/repository/upgrade 5/5; Sessions 266/266; architecture 29/29; Postgres 110/111 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 13; `0012→0013` empty upgrade. Outbox/SSE remains next. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
@@ -1470,7 +1504,7 @@ surfaces.
 
 # Blockers
 
-None for the additive PostgreSQL fragment persist slice (`0012`).
+None for the `0013` publication-coherence / incremental-persist remediations.
 Next remaining ADR-011 work is outbox/SSE commit-before-publish, replay,
 rolling validation, backpressure, and worker content-phase. Live provider
 wiring and frozen-policy rehydration remain later gates. Worker host stays

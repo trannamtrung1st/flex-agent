@@ -454,6 +454,7 @@ public sealed class AgentResponseFragment
         SessionSequence = sessionSequence;
         ExactUtf8Text = exactUtf8Text;
         ContentDigest = contentDigest;
+        PendingInsert = true;
     }
 
     public int FragmentOrdinal { get; }
@@ -463,6 +464,10 @@ public sealed class AgentResponseFragment
     public string ExactUtf8Text { get; }
 
     public string ContentDigest { get; }
+
+    internal bool PendingInsert { get; private set; }
+
+    internal void MarkPersisted() => PendingInsert = false;
 }
 
 public sealed class AgentResponseMessage
@@ -484,6 +489,7 @@ public sealed class AgentResponseMessage
         TurnId = turnId;
         ResponseSlotId = responseSlotId;
         CompletionState = AgentMessageCompletionStates.Open;
+        PendingInsert = true;
     }
 
     internal static AgentResponseMessage Rehydrate(
@@ -506,7 +512,13 @@ public sealed class AgentResponseMessage
             responseSlotId);
         message.CompletionState = completionState;
         message.AssembledContentDigest = assembledContentDigest;
-        message._fragments.AddRange(fragments);
+        message.PendingInsert = false;
+        message.SealDirty = false;
+        foreach (var fragment in fragments)
+        {
+            fragment.MarkPersisted();
+            message._fragments.Add(fragment);
+        }
         return message;
     }
 
@@ -525,6 +537,10 @@ public sealed class AgentResponseMessage
     public string CompletionState { get; private set; }
 
     public string? AssembledContentDigest { get; private set; }
+
+    internal bool PendingInsert { get; private set; }
+
+    internal bool SealDirty { get; private set; }
 
     public int FirstFragmentOrdinal => _fragments.Count == 0 ? 0 : _fragments[0].FragmentOrdinal;
 
@@ -554,5 +570,10 @@ public sealed class AgentResponseMessage
     {
         CompletionState = completionState;
         AssembledContentDigest = ProtectedContentRef.DigestUtf8(AssembleExactText());
+        SealDirty = true;
     }
+
+    internal void MarkMessagePersisted() => PendingInsert = false;
+
+    internal void MarkSealPersisted() => SealDirty = false;
 }

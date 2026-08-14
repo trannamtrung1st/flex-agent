@@ -317,6 +317,7 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                 cancellationToken: CancellationToken))).AsList();
 
         Assert.Contains("generation_attempt_id", messageColumns);
+        Assert.Contains("response_slot_id", messageColumns);
         Assert.Contains("driving_invocation_id", messageColumns);
         Assert.Contains("driving_decision_id", messageColumns);
         Assert.Contains("accepted_agent_output_id", messageColumns);
@@ -418,6 +419,126 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                     },
                     cancellationToken: CancellationToken)));
         Assert.Equal(PostgresErrorCodes.CheckViolation, mismatch.SqlState);
+    }
+
+    [Fact]
+    public async Task Agent_fragments_cannot_cross_link_another_invocation_or_attempt_in_the_same_session()
+    {
+        var seeded = await SeedRuntimeWithInvocationAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await InsertDecisionAsync(connection, seeded);
+        await InsertValidationRevisionAsync(connection, seeded, revisionOrdinal: 1, validationOutcome: "accepted");
+        await InsertOutputValidationAsync(connection, seeded, itemOrdinal: 0, validationOutcome: "accepted");
+        await InsertAgentMessageAsync(connection, seeded, "aout.roundtrip.0001", acceptedAgentOutputId: "aout.roundtrip.0001");
+
+        var other = seeded with { InvocationId = "inv-2", DecisionId = "dec-2" };
+        await InsertInvocationAsync(connection, other, other.InvocationId, "idem-2", "trigger-2");
+        await InsertDecisionAsync(connection, other);
+
+        var otherInvocation = await Assert.ThrowsAsync<PostgresException>(
+            async () => await InsertAgentFragmentAsync(
+                connection,
+                other,
+                "aout.roundtrip.0001",
+                fragmentOrdinal: 1,
+                sessionSequence: 3,
+                exactUtf8Text: "Hel",
+                acceptedAgentOutputId: "aout.roundtrip.0001"));
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, otherInvocation.SqlState);
+
+        var otherAttempt = await Assert.ThrowsAsync<PostgresException>(
+            async () => await InsertAgentFragmentAsync(
+                connection,
+                seeded,
+                "aout.roundtrip.0001",
+                fragmentOrdinal: 1,
+                sessionSequence: 3,
+                exactUtf8Text: "Hel",
+                acceptedAgentOutputId: "aout.roundtrip.0001",
+                generationAttemptId: "agen.other"));
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, otherAttempt.SqlState);
+
+        var otherTurn = await Assert.ThrowsAsync<PostgresException>(
+            async () => await InsertAgentFragmentAsync(
+                connection,
+                seeded,
+                "aout.roundtrip.0001",
+                fragmentOrdinal: 1,
+                sessionSequence: 3,
+                exactUtf8Text: "Hel",
+                acceptedAgentOutputId: "aout.roundtrip.0001",
+                turnId: "turn.other",
+                responseSlotId: "slot.other"));
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, otherTurn.SqlState);
+    }
+
+    [Fact]
+    public async Task Agent_fragments_cannot_attach_to_a_participant_message_and_agent_messages_require_a_turn()
+    {
+        var seeded = await SeedRuntimeWithInvocationAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await InsertDecisionAsync(connection, seeded);
+
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO session_messages (
+                    organization_id, activity_id, participant_id, attempt_id, session_id,
+                    message_id, author_type, turn_id, protected_ref, content_digest, completion_state)
+                VALUES (
+                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                    'msg.p.1', 'participant', 'turn.1', @ProtectedRef, @ContentDigest, 'complete');
+                """,
+                new
+                {
+                    seeded.OrganizationId,
+                    seeded.ActivityId,
+                    seeded.ParticipantId,
+                    seeded.AttemptId,
+                    seeded.SessionId,
+                    ProtectedRef = "msg:msg.p.1",
+                    ContentDigest = ProtectedContentRef.DigestForReference("msg:msg.p.1"),
+                },
+                cancellationToken: CancellationToken));
+
+        var participantParent = await Assert.ThrowsAsync<PostgresException>(
+            async () => await InsertAgentFragmentAsync(
+                connection,
+                seeded,
+                "msg.p.1",
+                fragmentOrdinal: 1,
+                sessionSequence: 3,
+                exactUtf8Text: "Hel",
+                acceptedAgentOutputId: null));
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, participantParent.SqlState);
+
+        var missingTurn = await Assert.ThrowsAsync<PostgresException>(
+            async () => await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO session_messages (
+                        organization_id, activity_id, participant_id, attempt_id, session_id,
+                        message_id, author_type, turn_id, protected_ref, content_digest,
+                        completion_state, generation_attempt_id, driving_invocation_id, driving_decision_id)
+                    VALUES (
+                        @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                        'aout.missing.turn', 'agent', NULL, @ProtectedRef, @ContentDigest,
+                        'open', 'agen.1', @InvocationId, @DecisionId);
+                    """,
+                    new
+                    {
+                        seeded.OrganizationId,
+                        seeded.ActivityId,
+                        seeded.ParticipantId,
+                        seeded.AttemptId,
+                        seeded.SessionId,
+                        ProtectedRef = "msg:aout.missing.turn",
+                        ContentDigest = ProtectedContentRef.DigestForReference("msg:aout.missing.turn"),
+                        seeded.InvocationId,
+                        seeded.DecisionId,
+                    },
+                    cancellationToken: CancellationToken)));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, missingTurn.SqlState);
     }
 
     [Fact]
@@ -1369,12 +1490,12 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                     organization_id, activity_id, participant_id, attempt_id, session_id,
                     message_id, author_type, turn_id, protected_ref, content_digest,
                     completion_state, generation_attempt_id, driving_invocation_id, driving_decision_id,
-                    accepted_agent_output_id, assembled_content_digest)
+                    accepted_agent_output_id, assembled_content_digest, response_slot_id)
                 VALUES (
                     @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
                     @MessageId, 'agent', 'turn.1', @ProtectedRef, @ContentDigest,
                     @CompletionState, 'agen.1', @InvocationId, @DecisionId,
-                    @AcceptedAgentOutputId, @AssembledContentDigest);
+                    @AcceptedAgentOutputId, @AssembledContentDigest, 'slot.1');
                 """,
                 new
                 {
@@ -1402,7 +1523,10 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         int fragmentOrdinal,
         long sessionSequence,
         string exactUtf8Text,
-        string? acceptedAgentOutputId)
+        string? acceptedAgentOutputId,
+        string generationAttemptId = "agen.1",
+        string turnId = "turn.1",
+        string responseSlotId = "slot.1")
     {
         await connection.ExecuteAsync(
             new CommandDefinition(
@@ -1414,8 +1538,8 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                     driving_invocation_id, driving_decision_id, accepted_agent_output_id)
                 VALUES (
                     @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
-                    @MessageId, @FragmentOrdinal, @SessionSequence, 'turn.1', 'slot.1',
-                    'agen.1', @ProtectedRef, @ContentDigest, @ExactUtf8Text,
+                    @MessageId, @FragmentOrdinal, @SessionSequence, @TurnId, @ResponseSlotId,
+                    @GenerationAttemptId, @ProtectedRef, @ContentDigest, @ExactUtf8Text,
                     @InvocationId, @DecisionId, @AcceptedAgentOutputId);
                 """,
                 new
@@ -1428,6 +1552,9 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                     MessageId = messageId,
                     FragmentOrdinal = fragmentOrdinal,
                     SessionSequence = sessionSequence,
+                    TurnId = turnId,
+                    ResponseSlotId = responseSlotId,
+                    GenerationAttemptId = generationAttemptId,
                     ProtectedRef = $"frag:{messageId}:{fragmentOrdinal}",
                     ContentDigest = ProtectedContentRef.DigestUtf8(exactUtf8Text),
                     ExactUtf8Text = exactUtf8Text,

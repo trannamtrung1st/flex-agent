@@ -8,6 +8,7 @@ namespace FlexAgent.Sessions.Infrastructure;
 public sealed class PostgresSessionRuntimeRepository
 {
     internal static Func<NpgsqlTransaction, Task>? AfterHeadLoadedAsync { get; set; }
+    internal static int FragmentInsertAttempts { get; set; }
     private const string InsertActiveSql = """
         INSERT INTO session_runtimes (
             organization_id, activity_id, participant_id, attempt_id, session_id,
@@ -93,7 +94,7 @@ public sealed class PostgresSessionRuntimeRepository
 
     private const string LoadAgentMessagesSql = """
         SELECT message_id, generation_attempt_id, driving_invocation_id, driving_decision_id,
-               turn_id, completion_state, assembled_content_digest
+               turn_id, response_slot_id, completion_state, assembled_content_digest
         FROM session_messages
         WHERE organization_id = @OrganizationId
           AND activity_id = @ActivityId
@@ -276,12 +277,12 @@ public sealed class PostgresSessionRuntimeRepository
             organization_id, activity_id, participant_id, attempt_id, session_id,
             message_id, author_type, turn_id, protected_ref, content_digest, completion_state,
             generation_attempt_id, driving_invocation_id, driving_decision_id,
-            accepted_agent_output_id, assembled_content_digest)
+            accepted_agent_output_id, assembled_content_digest, response_slot_id)
         VALUES (
             @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
             @MessageId, 'agent', @TurnId, @ProtectedRef, @ContentDigest, @CompletionState,
             @GenerationAttemptId, @DrivingInvocationId, @DrivingDecisionId,
-            @AcceptedAgentOutputId, @AssembledContentDigest)
+            @AcceptedAgentOutputId, @AssembledContentDigest, @ResponseSlotId)
         ON CONFLICT (organization_id, session_id, message_id) DO NOTHING;
         """;
 
@@ -706,9 +707,6 @@ public sealed class PostgresSessionRuntimeRepository
         var agentMessages = agentMessageRows
             .Select(item =>
             {
-                var slotId = turnRows
-                    .First(turn => string.Equals(turn.turn_id, item.turn_id, StringComparison.Ordinal))
-                    .response_slot_id;
                 var fragments = agentFragmentRows
                     .Where(fragment => string.Equals(fragment.message_id, item.message_id, StringComparison.Ordinal))
                     .Select(fragment => new AgentResponseFragment(
@@ -723,7 +721,7 @@ public sealed class PostgresSessionRuntimeRepository
                     item.driving_invocation_id,
                     item.driving_decision_id,
                     item.turn_id,
-                    slotId,
+                    item.response_slot_id,
                     item.completion_state,
                     item.assembled_content_digest,
                     fragments);
@@ -1247,50 +1245,66 @@ public sealed class PostgresSessionRuntimeRepository
         var connection = RequireConnection(transaction);
         foreach (var message in session.AgentMessages)
         {
+            if (!message.PendingInsert && !message.SealDirty && message.Fragments.All(fragment => !fragment.PendingInsert))
+            {
+                continue;
+            }
+
             var acceptedOutputId = ResolveAcceptedOutputId(session, message);
             var protectedRef = $"msg:{message.MessageId}";
-            await connection.ExecuteAsync(
-                new CommandDefinition(
-                    InsertAgentMessageSql,
-                    new
-                    {
-                        ownership.OrganizationId,
-                        ownership.ActivityId,
-                        ownership.ParticipantId,
-                        ownership.AttemptId,
-                        ownership.SessionId,
-                        message.MessageId,
-                        message.TurnId,
-                        ProtectedRef = protectedRef,
-                        ContentDigest = ProtectedContentRef.DigestForReference(protectedRef),
-                        message.CompletionState,
-                        message.GenerationAttemptId,
-                        DrivingInvocationId = message.DrivingInvocationId,
-                        DrivingDecisionId = message.DrivingDecisionId,
-                        AcceptedAgentOutputId = acceptedOutputId,
-                        message.AssembledContentDigest,
-                    },
-                    transaction,
-                    cancellationToken: cancellationToken));
-            await connection.ExecuteAsync(
-                new CommandDefinition(
-                    UpdateAgentMessageSealSql,
-                    new
-                    {
-                        ownership.OrganizationId,
-                        ownership.ActivityId,
-                        ownership.ParticipantId,
-                        ownership.AttemptId,
-                        ownership.SessionId,
-                        message.MessageId,
-                        message.CompletionState,
-                        message.AssembledContentDigest,
-                    },
-                    transaction,
-                    cancellationToken: cancellationToken));
-
-            foreach (var fragment in message.Fragments)
+            if (message.PendingInsert)
             {
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        InsertAgentMessageSql,
+                        new
+                        {
+                            ownership.OrganizationId,
+                            ownership.ActivityId,
+                            ownership.ParticipantId,
+                            ownership.AttemptId,
+                            ownership.SessionId,
+                            message.MessageId,
+                            message.TurnId,
+                            ProtectedRef = protectedRef,
+                            ContentDigest = ProtectedContentRef.DigestForReference(protectedRef),
+                            message.CompletionState,
+                            message.GenerationAttemptId,
+                            DrivingInvocationId = message.DrivingInvocationId,
+                            DrivingDecisionId = message.DrivingDecisionId,
+                            AcceptedAgentOutputId = acceptedOutputId,
+                            message.AssembledContentDigest,
+                            message.ResponseSlotId,
+                        },
+                        transaction,
+                        cancellationToken: cancellationToken));
+                message.MarkMessagePersisted();
+            }
+
+            if (message.SealDirty)
+            {
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        UpdateAgentMessageSealSql,
+                        new
+                        {
+                            ownership.OrganizationId,
+                            ownership.ActivityId,
+                            ownership.ParticipantId,
+                            ownership.AttemptId,
+                            ownership.SessionId,
+                            message.MessageId,
+                            message.CompletionState,
+                            message.AssembledContentDigest,
+                        },
+                        transaction,
+                        cancellationToken: cancellationToken));
+                message.MarkSealPersisted();
+            }
+
+            foreach (var fragment in message.Fragments.Where(item => item.PendingInsert))
+            {
+                FragmentInsertAttempts++;
                 var inserted = await connection.ExecuteAsync(
                     new CommandDefinition(
                         InsertAgentFragmentSql,
@@ -1336,6 +1350,8 @@ public sealed class PostgresSessionRuntimeRepository
                             "Persisted fragment digest does not match the committed ordinal.");
                     }
                 }
+
+                fragment.MarkPersisted();
             }
         }
     }
@@ -1611,6 +1627,7 @@ public sealed class PostgresSessionRuntimeRepository
         string driving_invocation_id,
         string driving_decision_id,
         string turn_id,
+        string response_slot_id,
         string completion_state,
         string? assembled_content_digest);
 

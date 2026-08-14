@@ -7,7 +7,7 @@ namespace FlexAgent.Postgres.Integration.Tests;
 
 public sealed class GrateToolMigrationTests
 {
-    private const int ExpectedOneTimeScriptCount = 12;
+    private const int ExpectedOneTimeScriptCount = 13;
 
     [Fact]
     public async Task Grate_tool_migrates_empty_database()

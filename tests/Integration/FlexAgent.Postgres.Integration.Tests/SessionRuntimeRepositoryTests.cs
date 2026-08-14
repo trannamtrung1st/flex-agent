@@ -1409,6 +1409,123 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     }
 
     [Fact]
+    public async Task Later_fragment_persist_does_not_replay_already_stored_fragments()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
+        var acceptCoordinator = new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler());
+        var completeCoordinator = new PostgresCompleteInvocationCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new CompleteInvocationHandler());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var admitted = await acceptCoordinator.AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                actor,
+                binding.Ownership,
+                ExpectedSessionVersion: 0,
+                "msg.p.incremental",
+                "turn.incremental",
+                "slot.incremental",
+                "trig.participant.incremental",
+                "idem.p.incremental",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+
+        var completed = await completeCoordinator.CompleteAsync(
+            new CompleteInvocationCommand(
+                actor,
+                binding.Ownership,
+                admitted.SessionVersion!.Value,
+                admitted.Invocation!.AgentInvocationId,
+                new EnvelopeRecommendation(
+                    "adec.incremental.0001",
+                    admitted.Invocation.AgentInvocationId,
+                    new DateTimeOffset(2026, 8, 13, 0, 0, 2, TimeSpan.Zero),
+                    DecisionDispositions.Respond,
+                    [
+                        new OutputRecommendation(
+                            AgentOutputKinds.Message,
+                            "out.message.primary",
+                            "participant_reply",
+                            "turn.incremental",
+                            "slot.incremental"),
+                    ],
+                    []),
+                null,
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+
+        long expectedVersion;
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            var loaded = await repository.LoadForUpdateAsync(
+                binding.Ownership,
+                binding,
+                scope.Transaction,
+                CancellationToken);
+            Assert.NotNull(loaded);
+            expectedVersion = loaded!.SessionVersion;
+            var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
+            Assert.True(loaded.CommitAgentResponseFragment(
+                new AgentResponseFragmentCommit(admitted.Invocation.AgentInvocationId, 1, "Hel", "agen.incremental.1"),
+                clock).Succeeded);
+            Assert.True(
+                await repository.TrySaveAgentResponsePublicationAsync(
+                    binding.Ownership,
+                    expectedVersion,
+                    loaded,
+                    scope.Transaction,
+                    CancellationToken));
+            await scope.CommitAsync(CancellationToken);
+            expectedVersion = loaded.SessionVersion;
+        }
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            var loaded = await repository.LoadForUpdateAsync(
+                binding.Ownership,
+                binding,
+                scope.Transaction,
+                CancellationToken);
+            Assert.NotNull(loaded);
+            var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
+            Assert.True(loaded!.CommitAgentResponseFragment(
+                new AgentResponseFragmentCommit(admitted.Invocation.AgentInvocationId, 2, "lo", "agen.incremental.1"),
+                clock).Succeeded);
+            PostgresSessionRuntimeRepository.FragmentInsertAttempts = 0;
+            Assert.True(
+                await repository.TrySaveAgentResponsePublicationAsync(
+                    binding.Ownership,
+                    expectedVersion,
+                    loaded,
+                    scope.Transaction,
+                    CancellationToken));
+            await scope.CommitAsync(CancellationToken);
+            Assert.Equal(1, PostgresSessionRuntimeRepository.FragmentInsertAttempts);
+            Assert.Equal("Hello", Assert.Single(loaded.AgentMessages).AssembleExactText());
+        }
+    }
+
+    [Fact]
     public async Task Legacy_emit_message_fragments_persist_without_accepted_output_fk()
     {
         var organization = await Fixture.SeedOrganizationAsync();
