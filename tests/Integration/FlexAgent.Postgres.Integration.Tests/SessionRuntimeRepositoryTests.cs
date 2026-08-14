@@ -825,8 +825,112 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         Assert.NotNull(loaded);
         Assert.Equal(["turn.z", "turn.a"], loaded!.Turns.Select(turn => turn.TurnId));
-        Assert.Equal(0, loaded.Turns[0].CreatedSessionSequence);
-        Assert.Equal(1, loaded.Turns[1].CreatedSessionSequence);
+        Assert.Equal(1, loaded.Turns[0].CreatedSessionSequence);
+        Assert.Equal(2, loaded.Turns[1].CreatedSessionSequence);
+    }
+
+    [Fact]
+    public async Task Opening_emit_then_participant_reply_persists_without_created_sequence_collision()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
+        var admitCoordinator = new PostgresAdmitTrustedTriggerCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AdmitTrustedTriggerHandler());
+        var completeCoordinator = new PostgresCompleteInvocationCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new CompleteInvocationHandler());
+        var acceptCoordinator = new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var opening = await admitCoordinator.AdmitAsync(
+            new AdmitTrustedTriggerCommand(
+                actor,
+                binding.Ownership,
+                ExpectedSessionVersion: 0,
+                SessionPersistenceFixtures.OpeningTrigger("trig.opening.order"),
+                "idem.opening.order",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(opening.Succeeded, opening.OutcomeCode);
+
+        var completed = await completeCoordinator.CompleteAsync(
+            new CompleteInvocationCommand(
+                actor,
+                binding.Ownership,
+                opening.SessionVersion!.Value,
+                opening.Invocation!.AgentInvocationId,
+                new EmitMessageRecommendation(
+                    Guid.NewGuid().ToString("N"),
+                    opening.Invocation.AgentInvocationId,
+                    new DateTimeOffset(2026, 8, 13, 0, 0, 2, TimeSpan.Zero),
+                    "agent_opening",
+                    null,
+                    null,
+                    null),
+                null,
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+
+        await using (var versionScope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            var afterOpening = await repository.LoadForUpdateAsync(
+                binding.Ownership,
+                binding,
+                versionScope.Transaction,
+                CancellationToken);
+            await versionScope.CommitAsync(CancellationToken);
+            Assert.NotNull(afterOpening);
+
+            var participant = await acceptCoordinator.AcceptAsync(
+                new AcceptParticipantMessageCommand(
+                    actor,
+                    binding.Ownership,
+                    afterOpening!.SessionVersion,
+                    "msg.a",
+                    "turn.a",
+                    "slot.a",
+                    "trig.a",
+                    "idem.a",
+                    Guid.NewGuid(),
+                    "integration.test"),
+                binding,
+                CancellationToken);
+            Assert.True(participant.Succeeded, participant.OutcomeCode);
+        }
+
+        await using var loadScope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken);
+        var loaded = await repository.LoadForUpdateAsync(
+            binding.Ownership,
+            binding,
+            loadScope.Transaction,
+            CancellationToken);
+        await loadScope.CommitAsync(CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(2, loaded!.Turns.Count);
+        Assert.Equal(TurnKinds.AgentOpening, loaded.Turns[0].Kind);
+        Assert.Equal("turn.a", loaded.Turns[1].TurnId);
+        Assert.Equal(2, loaded.Turns[0].CreatedSessionSequence);
+        Assert.Equal(3, loaded.Turns[1].CreatedSessionSequence);
     }
 
     private async Task<DateTime> ReadTurnCommittedAtAsync(SessionOwnership ownership, string turnId)

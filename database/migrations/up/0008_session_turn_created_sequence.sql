@@ -1,6 +1,12 @@
 -- Persist an immutable Turn creation order so reload does not sort by turn_id.
 -- created_session_sequence is stamped once and preserved on UPDATE.
 -- UTC-ordered; additive after frozen 0007.
+--
+-- Backfill uses last_committed_at, turn_id as a best-effort order for empty or
+-- test databases. That timestamp is not a faithful creation clock for rows
+-- written before this script: earlier UPSERTs restamped historical Turns.
+-- There is no production Session runtime data to upgrade; 0008 does not claim
+-- to reconstruct pre-0008 creation order.
 
 ALTER TABLE session_turns
     ADD COLUMN IF NOT EXISTS created_session_sequence BIGINT;

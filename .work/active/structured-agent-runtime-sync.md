@@ -508,13 +508,14 @@ and test reviews have no unresolved blocking findings.
   reflection/signature tests requiring trusted Organization plus complete
   Activity/Participant/Attempt/Session ownership on every protected repository
   entry point, and reject client/host time or order as mutation authority.
-  Follow-up from `6c89609` review is implemented: dirty-only Turn UPSERT
-  with conditional `DO UPDATE`; immutable `created_session_sequence`
-  (`0008`); completion audit/outbox rollback; execution-failure
-  `AlreadyTerminal` documented as a safe worker ack. Remaining this step:
+  Follow-up from `8f374d6` review: stamp participant Turns with
+  `NextAdmissionSequence()` (`SessionSequence + 1`) so they cannot collide
+  with an agent-initiated Turn already stamped at the Decision sequence.
+  `0008` backfill is best-effort; it does not reconstruct pre-0008 creation
+  order because `last_committed_at` was restamped. Remaining this step:
   commit-time revocation, timer replacement races, and
   export/backup/restore/lawful unavailability (deferred until those surfaces
-  exist). External review of the follow-up is still outstanding.
+  exist). External review of the collision fix is still outstanding.
 - [ ] Add the model-execution port and deterministic fake provider through
   observed red-green-refactor. Prove structured control/content phase
   separation, bounded provider requests within one Invocation, cancellation,
@@ -646,15 +647,15 @@ now waits on `pg_locks` until T2 is blocked by T1 before advancing
 implemented: participant no-action persist/hydrate, Decision/outcome XOR
 after persist, validation hydrate from `validation_commit_*`, concurrent
 completion serialization, audit/outbox fault rollback, and scoped list/count
-  leak tests. Follow-up from the `6c89609` review persists only dirty Turns
-  (conditional UPSERT so historical `last_committed_at` is not restamped),
-  stamps immutable `created_session_sequence` (`0008`) and reloads Turns in
-  that order, and covers completion audit/outbox rollback. Session/manifest
-  bind commit, worker processing, synthetic adapter scenarios, UI states, and
-  end-to-end proof remain pending. Remaining in this persistence step:
-  commit-time revocation (no Session grant surface yet), timer replacement
-  races (scheduler tranche), and export/backup/restore/lawful-unavailability
-  reconstruction. External review of the follow-up is outstanding.
+  leak tests. Follow-up from the `6c89609`/`8f374d6` reviews persists only
+  dirty Turns, stamps immutable `created_session_sequence`, and assigns
+  participant Turns the admission sequence about to be claimed so they cannot
+  collide with an agent-opening Turn. Session/manifest bind commit, worker
+  processing, synthetic adapter scenarios, UI states, and end-to-end proof
+  remain pending. Remaining in this persistence step: commit-time revocation
+  (no Session grant surface yet), timer replacement races (scheduler tranche),
+  and export/backup/restore/lawful-unavailability reconstruction. External
+  review of the sequence-collision fix is outstanding.
 
 # Decisions
 
@@ -757,8 +758,14 @@ completion serialization, audit/outbox fault rollback, and scoped list/count
 - Persist only dirty Turns. UPSERT conflict updates run only when `state`,
   `response_slot_state`, or `claimed_by_invocation_id` actually change, so
   historical `last_committed_at` is not restamped. Additive `0008` stores
-  immutable `created_session_sequence` (stamped at Turn creation from Session
-  sequence; preserved on UPDATE) and loads `ORDER BY created_session_sequence`.
+  immutable `created_session_sequence` (preserved on UPDATE) and loads
+  `ORDER BY created_session_sequence`. Participant Turns stamp
+  `NextAdmissionSequence()` (`SessionSequence + 1`, the sequence admission is
+  about to claim). Agent-initiated Turns stamp `ClaimedSessionSequence()`
+  after `RecordDecision` has already incremented. `0008` backfill from
+  `last_committed_at` is best-effort for empty/test databases; it does not
+  reconstruct pre-0008 creation order, and no production Session runtime rows
+  are expected to exist before this script.
 - Execution-failure completion after a terminal Invocation returns
   `AlreadyTerminal` with `Succeeded=false`. That is a **safe acknowledgement**
   for at-least-once workers (do not retry). Exact Decision retries instead
@@ -944,6 +951,11 @@ completion serialization, audit/outbox fault rollback, and scoped list/count
   audit-fault rollback now covers Decision/validation/attempts/slot/head/
   outbox. `AlreadyTerminal` on execution-failure retry is documented as a
   safe worker ack rather than Decision-style payload reconciliation.
+- Sequence collision review (2026-08-14, `8f374d6`): participant Turns stamped
+  current `SessionSequence` collided with agent-opening Turns stamped after
+  `RecordDecision`/`Touch()`. Participant Turns now use the admission sequence
+  about to be claimed. `0008` backfill limitation from restamped
+  `last_committed_at` is documented; no production Session upgrade path.
 
 # Verification
 
@@ -964,7 +976,7 @@ completion serialization, audit/outbox fault rollback, and scoped list/count
 | Decision validation idempotency and payload digest | passed; in-memory aggregate | Red: unchanged-state `ValidateDecision` retried bumped version; lifecycle-change overwrite left one validation row; same Decision IDs with `EmitMessage` payload reconciled as NoAction. Green: `FlexAgent.Sessions.Tests` 174/174; architecture suite 21/21; `git diff --check` clean (2026-08-13). |
 | PostgreSQL Session runtime schema (`0005`) | passed; schema/migration | Red: `SessionsPersistenceOwnershipTests` failed with missing `*_session_runtime*.sql`. Green: `FlexAgent.Postgres.Integration.Tests` 43/43 including 10 schema constraint tests (ownership FK, delete reject, fragment `session_sequence`); `FlexAgent.Architecture.Tests` 24/24; `FlexAgent.Sessions.Tests` 174/174; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-13). Repositories remain next. |
 | PostgreSQL Session runtime invariant patch (`0006`) | passed; schema/migration | Includes Decision XOR ExecutionOutcome (`SESS-DEC-16`) and validation→Decision FK. Red: both child rows and validation-without-Decision succeeded. Green: sequential XOR; concurrent exactly-one winner; schema/upgrade/concurrency 26/26; architecture 24/24; Sessions 174/174 (2026-08-13). Repositories remain next. |
-| PostgreSQL 18 repository isolation/concurrency/fault tests | in progress; admission **approved** `5430f4e`; completion/isolation follow-up pending external review | Dirty-only Turn persist; `0008` `created_session_sequence` round-trip (`turn.z` then `turn.a`); historical `last_committed_at` not restamped; completion audit-fault rolls back Decision/validation/attempts/slot/head/outbox. `AlreadyTerminal` documented as safe worker ack. Confirmation (2026-08-13): `FlexAgent.Sessions.Tests` 182/182; architecture 27/27; `FlexAgent.Postgres.Integration.Tests` 75/75 (`git diff --check` clean). One concurrent empty-DB Grate run hit a `pg_type` duplicate-key race and passed on retry; unrelated to `0008`. Remaining this step: commit-time revocation, timer replacement races, export/backup/restore/lawful unavailability. |
+| PostgreSQL 18 repository isolation/concurrency/fault tests | in progress; admission **approved** `5430f4e`; sequence-collision fix pending external review | Participant Turns stamp `NextAdmissionSequence()` so opening `emit_message` then a participant reply cannot collide on `created_session_sequence`. `0008` backfill from `last_committed_at` is documented as best-effort, not a faithful pre-0008 reconstruction. Red: opening-then-participant domain test expected created sequence 3, got 2 (2026-08-14). Green: `FlexAgent.Sessions.Tests` 183/183; architecture 27/27; Postgres 76/76 with known concurrent-empty Grate `pg_type` flake that passed on retry; `git diff --check` clean. Remaining this step: commit-time revocation, timer replacement races, export/backup/restore/lawful unavailability. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |

@@ -184,7 +184,7 @@ public sealed class SessionRuntime
             return AdmissionFailure(TriggerAdmissionOutcomeCodes.LifecycleIneligible);
         }
 
-        _turns.Add(new Turn(turnId, TurnKinds.Participant, triggerId, new ResponseSlot(responseSlotId), SessionSequence));
+        _turns.Add(new Turn(turnId, TurnKinds.Participant, triggerId, new ResponseSlot(responseSlotId), NextAdmissionSequence()));
         _visibleTranscript.Add(new VisibleTranscriptItemRef(
             participantMessageId,
             TranscriptAuthorTypes.Participant,
@@ -827,7 +827,7 @@ public sealed class SessionRuntime
                         AgentTurnKind(invocation.Trigger),
                         invocation.AgentInvocationId,
                         new ResponseSlot(AgentInitiatedSlotId(invocation)),
-                        SessionSequence);
+                        ClaimedSessionSequence());
                     _turns.Add(turn);
                 }
             }
@@ -1061,6 +1061,16 @@ public sealed class SessionRuntime
             or SessionLifecycleState.Completed
             or SessionLifecycleState.Terminated
             or SessionLifecycleState.Aborted;
+
+    // Participant Turns are created before AdmitTrustedTrigger claims the next
+    // sequence. Stamp the sequence that admission is about to occupy so it cannot
+    // collide with an agent-initiated Turn already stamped at SessionSequence.
+    private long NextAdmissionSequence() => SessionSequence + 1;
+
+    // Agent-initiated Turns are created after RecordDecision has already claimed
+    // SessionSequence. Touch() increments version only, so this value is the
+    // Decision sequence, not the next admission sequence.
+    private long ClaimedSessionSequence() => SessionSequence;
 
     private long NextSequence(DateTimeOffset authoritativeUtc)
     {

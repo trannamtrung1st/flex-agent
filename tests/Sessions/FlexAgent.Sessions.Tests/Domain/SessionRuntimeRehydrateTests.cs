@@ -56,7 +56,41 @@ public sealed class SessionRuntimeRehydrateTests
             "msg.a", "turn.a", "slot.a", "trig.a", "idem.a", SessionRuntimeTestFixtures.T0.AddSeconds(1));
 
         Assert.Equal(["turn.z", "turn.a"], session.Turns.Select(turn => turn.TurnId));
-        Assert.Equal(0, session.Turns[0].CreatedSessionSequence);
-        Assert.Equal(1, session.Turns[1].CreatedSessionSequence);
+        Assert.Equal(1, session.Turns[0].CreatedSessionSequence);
+        Assert.Equal(2, session.Turns[1].CreatedSessionSequence);
+    }
+
+    [Fact]
+    public void Opening_emit_then_participant_reply_assigns_distinct_created_session_sequences()
+    {
+        var values = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with
+        {
+            InvocationBounds = new InvocationBounds(3, 10, 0, CooldownSeconds: 0, 30),
+        };
+        var session = SessionRuntimeTestFixtures.CreateActiveSession(
+            RuntimePolicyTestFixtures.ResolvePolicy(values));
+        var opening = session.AdmitTrustedTrigger(
+            SessionRuntimeTestFixtures.OpeningTrigger(), "idem.open", SessionRuntimeTestFixtures.T0);
+        var openingId = opening.Invocation!.AgentInvocationId;
+        var completed = session.CompleteInvocation(
+            openingId,
+            SessionRuntimeTestFixtures.EmitMessage(
+                openingId,
+                communicationPurpose: "agent_opening",
+                turnId: null,
+                responseSlotId: null),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+
+        var admitted = session.AcceptParticipantMessage(
+            "msg.a", "turn.a", "slot.a", "trig.a", "idem.a", SessionRuntimeTestFixtures.T0.AddSeconds(3));
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+
+        Assert.Equal(2, session.Turns.Count);
+        Assert.Equal(TurnKinds.AgentOpening, session.Turns[0].Kind);
+        Assert.Equal("turn.a", session.Turns[1].TurnId);
+        Assert.Equal(2, session.Turns[0].CreatedSessionSequence);
+        Assert.Equal(3, session.Turns[1].CreatedSessionSequence);
+        Assert.Equal(3, session.Invocations[1].SessionSequence);
     }
 }
