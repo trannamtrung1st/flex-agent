@@ -325,7 +325,7 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         Assert.Contains("exact_utf8_text", fragmentColumns);
         Assert.Contains("driving_invocation_id", fragmentColumns);
         Assert.Contains("driving_decision_id", fragmentColumns);
-        Assert.Contains("accepted_agent_output_id", fragmentColumns);
+        Assert.DoesNotContain("accepted_agent_output_id", fragmentColumns);
 
         var seeded = await SeedRuntimeWithInvocationAsync();
         await InsertDecisionAsync(connection, seeded);
@@ -398,12 +398,12 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                         organization_id, activity_id, participant_id, attempt_id, session_id,
                         message_id, fragment_ordinal, session_sequence, turn_id, response_slot_id,
                         generation_attempt_id, protected_ref, content_digest, exact_utf8_text,
-                        driving_invocation_id, driving_decision_id, accepted_agent_output_id)
+                        driving_invocation_id, driving_decision_id)
                     VALUES (
                         @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
                         @MessageId, 1, 3, 'turn.1', 'slot.1',
                         'agen.1', 'frag:aout.roundtrip.0001:1', @ContentDigest, 'Hel',
-                        @InvocationId, @DecisionId, 'aout.roundtrip.0001');
+                        @InvocationId, @DecisionId);
                     """,
                     new
                     {
@@ -1535,12 +1535,12 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                     organization_id, activity_id, participant_id, attempt_id, session_id,
                     message_id, fragment_ordinal, session_sequence, turn_id, response_slot_id,
                     generation_attempt_id, protected_ref, content_digest, exact_utf8_text,
-                    driving_invocation_id, driving_decision_id, accepted_agent_output_id)
+                    driving_invocation_id, driving_decision_id)
                 VALUES (
                     @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
                     @MessageId, @FragmentOrdinal, @SessionSequence, @TurnId, @ResponseSlotId,
                     @GenerationAttemptId, @ProtectedRef, @ContentDigest, @ExactUtf8Text,
-                    @InvocationId, @DecisionId, @AcceptedAgentOutputId);
+                    @InvocationId, @DecisionId);
                 """,
                 new
                 {
@@ -1560,7 +1560,6 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                     ExactUtf8Text = exactUtf8Text,
                     runtime.InvocationId,
                     runtime.DecisionId,
-                    AcceptedAgentOutputId = acceptedAgentOutputId,
                 },
                 cancellationToken: CancellationToken));
     }

@@ -425,6 +425,34 @@ public sealed class AgentResponseFragmentPublicationTests
         Assert.Equal(DigestUtf8("Hello"), session.AgentMessages[0].AssembledContentDigest);
     }
 
+    [Fact]
+    public void Pending_publication_work_is_the_dirty_message_and_only_new_fragments()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var invocationId = ClaimParticipantPublication(session);
+        Assert.Empty(session.PendingPublicationWork);
+
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Hel", "agen.test.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3)).Succeeded);
+        var message = Assert.Single(session.PendingPublicationWork);
+        Assert.Equal(1, message.PendingInsertCount);
+
+        message.Fragments[0].MarkPersisted();
+        message.MarkMessagePersisted();
+        message.ClearPersistedPendingInserts();
+        session.RemoveCleanPublicationWork();
+        Assert.Empty(session.PendingPublicationWork);
+
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 2, "lo", "agen.test.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(4)).Succeeded);
+        Assert.Same(message, Assert.Single(session.PendingPublicationWork));
+        Assert.Equal(1, message.PendingInsertCount);
+        Assert.Equal("lo", Assert.Single(message.PendingInserts).ExactUtf8Text);
+        Assert.Equal(2, message.Fragments.Count);
+    }
+
     private static string ClaimParticipantPublication(SessionRuntime session)
     {
         var admitted = session.AcceptParticipantMessage(

@@ -473,6 +473,7 @@ public sealed class AgentResponseFragment
 public sealed class AgentResponseMessage
 {
     private readonly List<AgentResponseFragment> _fragments = [];
+    private readonly Queue<AgentResponseFragment> _pendingInserts = new();
 
     internal AgentResponseMessage(
         string messageId,
@@ -542,6 +543,13 @@ public sealed class AgentResponseMessage
 
     internal bool SealDirty { get; private set; }
 
+    internal bool HasPendingPublicationWork =>
+        PendingInsert || SealDirty || _pendingInserts.Count > 0;
+
+    internal int PendingInsertCount => _pendingInserts.Count;
+
+    internal IReadOnlyCollection<AgentResponseFragment> PendingInserts => _pendingInserts;
+
     public int FirstFragmentOrdinal => _fragments.Count == 0 ? 0 : _fragments[0].FragmentOrdinal;
 
     public int LastFragmentOrdinal => _fragments.Count == 0 ? 0 : _fragments[^1].FragmentOrdinal;
@@ -563,6 +571,7 @@ public sealed class AgentResponseMessage
             exactUtf8Text,
             ProtectedContentRef.DigestUtf8(exactUtf8Text));
         _fragments.Add(fragment);
+        _pendingInserts.Enqueue(fragment);
         return fragment;
     }
 
@@ -576,4 +585,12 @@ public sealed class AgentResponseMessage
     internal void MarkMessagePersisted() => PendingInsert = false;
 
     internal void MarkSealPersisted() => SealDirty = false;
+
+    internal void ClearPersistedPendingInserts()
+    {
+        while (_pendingInserts.Count > 0 && !_pendingInserts.Peek().PendingInsert)
+        {
+            _pendingInserts.Dequeue();
+        }
+    }
 }

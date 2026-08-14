@@ -19,6 +19,7 @@ public sealed class SessionRuntime
     private readonly List<Turn> _turns = [];
     private readonly List<VisibleTranscriptItemRef> _visibleTranscript = [];
     private readonly List<AgentResponseMessage> _agentMessages = [];
+    private readonly HashSet<AgentResponseMessage> _pendingPublicationWork = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, DateTimeOffset> _lastAdmittedAtByFamily = new(StringComparer.Ordinal);
 
     private SessionRuntime(TrustedSessionBinding binding, DateTimeOffset startedAt)
@@ -82,6 +83,8 @@ public sealed class SessionRuntime
     public IReadOnlyList<VisibleTranscriptItemRef> VisibleTranscript => _visibleTranscript;
 
     public IReadOnlyList<AgentResponseMessage> AgentMessages => _agentMessages;
+
+    internal IReadOnlyCollection<AgentResponseMessage> PendingPublicationWork => _pendingPublicationWork;
 
     public static SessionRuntime CreateActive(TrustedSessionBinding binding, DateTimeOffset startedAt)
     {
@@ -930,6 +933,7 @@ public sealed class SessionRuntime
                 commit.FragmentOrdinal,
                 NextSequence(authoritativeUtc),
                 commit.ExactUtf8Text);
+            TrackPublication(existing);
             Touch(authoritativeUtc);
             return new AgentResponseFragmentCommitResult(
                 true,
@@ -964,6 +968,7 @@ public sealed class SessionRuntime
             turn.ResponseSlot.ResponseSlotId);
         var fragment = message.AppendFragment(1, NextSequence(authoritativeUtc), commit.ExactUtf8Text);
         _agentMessages.Add(message);
+        TrackPublication(message);
         _visibleTranscript.Add(new VisibleTranscriptItemRef(
             message.MessageId,
             TranscriptAuthorTypes.Agent,
@@ -1330,6 +1335,7 @@ public sealed class SessionRuntime
         DateTimeOffset authoritativeUtc)
     {
         message.Seal(completionState);
+        TrackPublication(message);
         var turn = FindTurn(message.TurnId);
         if (turn is { State: TurnStates.WorkQueued })
         {
@@ -1356,6 +1362,11 @@ public sealed class SessionRuntime
         clockFailure == InvocationCompletionOutcomeCodes.StaleClock
             ? FragmentCommitOutcomeCodes.StaleClock
             : FragmentCommitOutcomeCodes.NonUtcClock;
+
+    internal void TrackPublication(AgentResponseMessage message) => _pendingPublicationWork.Add(message);
+
+    internal void RemoveCleanPublicationWork() =>
+        _pendingPublicationWork.RemoveWhere(message => !message.HasPendingPublicationWork);
 
     private AgentInvocation? FindInvocation(string agentInvocationId) =>
         _invocations.FirstOrDefault(invocation =>

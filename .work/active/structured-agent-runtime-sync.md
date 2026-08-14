@@ -691,8 +691,15 @@ and test reviews have no unresolved blocking findings.
     rewrite applied `0012`; fold the remediations in additive `0013`.
   - [x] Remediate `a947759` P2/P3 before outbox/SSE (additive `0013`, do not
     rewrite `0005`–`0012`). Composite publication-identity FK binds fragment
-    audit columns to the parent Agent Message; persist is dirty-only (O(1)
-    per new fragment); Agent `turn_id`/`response_slot_id` are required.
+    audit columns to the parent Agent Message; SQL writes are dirty-only;
+    Agent `turn_id`/`response_slot_id` are required.
+    External review of `0956b22` (2026-08-14): **request changes**, 0 P0 / 0 P1 /
+    2 P2 / 1 P3. Persist still scans accumulated fragments (CPU O(n²));
+    fragment `accepted_agent_output_id` can still disagree with the parent;
+    `0012→0013` upgrade was empty-only. Do not rewrite `0005`–`0013`.
+  - [x] Remediate `0956b22` P2/P3 before outbox/SSE (O(1) pending publication
+    work, derive fragment accepted-output from the parent in additive `0014`,
+    populated `0012→0013` upgrade). Do not rewrite `0005`–`0013`.
   - [ ] Outbox/SSE commit-before-publish, replay, rolling validation,
     backpressure, and worker content-phase (cumulative vs delta).
 - [ ] Implement the one-lane scheduler with model-based/domain tests first,
@@ -777,11 +784,18 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-`a947759` P2/P3 remediations are green in additive `0013` (frozen `0005`–
-`0012` unchanged). Same-Session fragment cross-links, participant parents,
-and Agent messages without a Turn fail closed. Later fragment persist
-inserts only the new fragment. Next ADR-011 work is outbox/SSE
-commit-before-publish. Voice stays disabled.
+`0956b22` P2/P3 remediations are green. Publication persist walks
+`PendingPublicationWork` and a per-message pending-fragment queue (O(dirty)
+per save, O(1) per new fragment across a stream), not `session.AgentMessages`
+or accumulated `Fragments`. Additive `0014` drops fragment
+`accepted_agent_output_id`; accepted output is the parent Agent Message
+column. Populated `0012` upgrade backfills `response_slot_id` from fragment 1
+and then `0014` removes the fragment accepted-output column. Frozen
+`0005`–`0013` unchanged. Next ADR-011 work is outbox/SSE commit-before-publish.
+Voice stays disabled.
+
+External review of `0956b22` (2026-08-14) **request changes: 0 P0 / 0 P1 /
+2 P2 / 1 P3.** Those findings are addressed here; that SHA is not rewritten.
 
 External review of `a947759` (2026-08-14) **request changes: 0 P0 / 0 P1 /
 2 P2 / 1 P3.** Those findings are addressed in `0013`; that SHA is not
@@ -919,10 +933,16 @@ surfaces.
 - ADR-011 `0013` publication coherence (2026-08-14): fragment audit columns
   stay on `session_message_fragments` but a composite FK requires them to
   match the parent Agent Message publication identity (invocation, decision,
-  generation attempt, turn, slot). Independent `0012` FKs remain. Persist
-  writes only dirty message/seal/fragment rows so commit-before-publish is
-  O(1) per fragment. Agent messages require `turn_id` and `response_slot_id`;
-  participant `turn_id` stays nullable.
+  generation attempt, turn, slot). Independent `0012` FKs remain. SQL writes
+  are dirty-only; CPU cost of scanning accumulated fragments was still
+  quadratic until the pending-work queue. Agent messages require `turn_id`
+  and `response_slot_id`; participant `turn_id` stays nullable.
+- ADR-011 `0014` accepted-output derivation and O(1) publication persist
+  (2026-08-14): fragments do not store `accepted_agent_output_id`; that value
+  is the parent Agent Message column. Persist iterates `PendingPublicationWork`
+  and each message's pending-fragment queue. Frozen `0005`–`0013` unchanged.
+  Agent Message invocation/decision/accepted-output FKs remaining independent
+  of each other is a later hardening item, not this slice.
 - Exact `agent-decision.v2` validation at the model-execution boundary uses
   JsonSchema.Net Draft 2020-12 against the embedded canonical schema. The
   handwritten Domain parser remains a typed mapper after schema success and
@@ -1101,6 +1121,16 @@ surfaces.
 
 # Findings / deviations
 
+- External review of `0956b22` (2026-08-14): **request changes**, 0 P0 / 0 P1 /
+  2 P2 / 1 P3. P2: dirty flags removed duplicate SQL but persist still scanned
+  `Fragments` on every save (CPU `1+…+n`). P2: fragment `accepted_agent_output_id`
+  could be NULL while the parent stored `aout.*`. P3: `0012→0013` upgrade was
+  empty-only. Remediation: pending publication queue (do not rewrite `0013`);
+  additive `0014` drops the fragment accepted-output column; populated `0012`
+  fixture backfills slot from fragment 1. Red: `FragmentPendingScans` was 2;
+  fragment columns still included `accepted_agent_output_id`. Green: scans 0,
+  one SQL insert, column absent, populated upgrade. Residual: Agent Message
+  invocation/decision/accepted-output FKs are still independent of each other.
 - External review of `a947759` (2026-08-14): **request changes**, 0 P0 / 0 P1 /
   2 P2 / 1 P3. P2: fragment FKs were independent of the parent message, so
   same-Session cross-links were schema-valid and hydration dropped fragment
@@ -1491,7 +1521,8 @@ surfaces.
 | ADR-011 domain fragment publication (`REQ-SESS-55`–`60`, `SESS-DEC-9`–`12`, `AC-SESS-32`) | passed; **approved** `3fda20e` | Red: competing complete/incomplete reconciled; digest-after-complete was `already_terminal`; legacy emit had `aout.*` before first fragment. Green: 16/16 focused tests; `FlexAgent.Sessions.Tests` 250/250; architecture 29/29; `git diff --check` passed. External review of `3fda20e`: 0 P0 / 0 P1 / 0 P2. GitHub connector status for that SHA was not independently visible. Persistence, SSE/replay, rolling validation, and worker content-phase remain. |
 | Frozen streaming numeric bounds (`SESS-DEC-13`, `REQ-SESS-8`) | passed; **approved** `ce8469f` | Red: missing/non-positive streaming bounds still resolved; frozen policy stored zeros; digest ignored bound changes; lower scope could raise fragment size (2026-08-14). Green: `FrozenRuntimePolicyResolverTests` 46/46; `FlexAgent.Sessions.Tests` 260/260; architecture 29/29. External review: 0 P0 / 0 P1 / 0 P2 / 1 optional P3. P3 folded: five individual widening cases plus `512 → Activity 256 → Session 384`; resolver tests 51/51; Sessions 265/265. Fixture values remain test-only. Fragment persist, commit-time enforcement, outbox/SSE, and worker content-phase remain. GitHub commit status for `ce8469f` was not independently visible. |
 | ADR-011 PostgreSQL fragment persist (`SESS-DEC-10`–`11`, `REQ-SESS-55`–`60`) | passed; schema+repository | Red: `session_messages` lacked `generation_attempt_id` / Decision/`aout.*` columns (2026-08-14). Green: additive `0012` (frozen `0005`–`0011` unchanged); envelope fragments hydrate with accepted `aout.*` and driving Decision; legacy `emit_message` persists `aout.*` without an accepted-output FK; duplicate ordinal+digest reconciles; empty/digest-mismatched text and ownership mismatch fail closed. Confirmation: Sessions 266/266; architecture 29/29; Postgres 106/107 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 12; `0011→0012` empty upgrade. External review of `a947759`: request changes (2 P2 / 1 P3); remediations in `0013`. |
-| `a947759` P2/P3 remediations (publication coherence, incremental persist) | passed; schema+repository | Red: same-Session fragment→invocation B, generation-attempt mismatch, turn/slot mismatch, and participant parent inserted; Agent `turn_id` NULL inserted; second-fragment persist attempted 2 inserts (2026-08-14). Green: additive `0013` (frozen `0005`–`0012`); composite FK; dirty-only fragment insert; Agent turn/slot CHECK. Confirmation: focused schema/repository/upgrade 5/5; Sessions 266/266; architecture 29/29; Postgres 110/111 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 13; `0012→0013` empty upgrade. Outbox/SSE remains next. |
+| `a947759` P2/P3 remediations (publication coherence, incremental persist) | passed; schema+repository | Red: same-Session fragment→invocation B, generation-attempt mismatch, turn/slot mismatch, and participant parent inserted; Agent `turn_id` NULL inserted; second-fragment persist attempted 2 inserts (2026-08-14). Green: additive `0013` (frozen `0005`–`0012`); composite FK; dirty-only fragment insert; Agent turn/slot CHECK. Confirmation: focused schema/repository/upgrade 5/5; Sessions 266/266; architecture 29/29; Postgres 110/111 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 13; `0012→0013` empty upgrade. External review of `0956b22`: request changes (2 P2 / 1 P3); remediations in pending-work persist + `0014`. |
+| `0956b22` P2/P3 remediations (O(1) persist, accepted-output from parent) | passed; schema+repository | Red: second-fragment persist scanned 2 accumulated fragments; `session_message_fragments` still had `accepted_agent_output_id` (2026-08-14). Green: pending publication queue; additive `0014` drops fragment accepted-output; populated `0012` backfills `response_slot_id` from fragment 1. Confirmation: focused persist/schema/upgrade 6/6; Sessions 267/267; architecture 29/29; Postgres 112/113 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 14; `0013→0014` empty upgrade. Outbox/SSE remains next. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
@@ -1504,7 +1535,7 @@ surfaces.
 
 # Blockers
 
-None for the `0013` publication-coherence / incremental-persist remediations.
+None for the `0956b22` remediations (pending publication work + `0014`).
 Next remaining ADR-011 work is outbox/SSE commit-before-publish, replay,
 rolling validation, backpressure, and worker content-phase. Live provider
 wiring and frozen-policy rehydration remain later gates. Worker host stays

@@ -9,6 +9,10 @@ public sealed class PostgresSessionRuntimeRepository
 {
     internal static Func<NpgsqlTransaction, Task>? AfterHeadLoadedAsync { get; set; }
     internal static int FragmentInsertAttempts { get; set; }
+
+    internal static int FragmentPendingScans { get; set; }
+
+    internal static int PublicationMessagesTouched { get; set; }
     private const string InsertActiveSql = """
         INSERT INTO session_runtimes (
             organization_id, activity_id, participant_id, attempt_id, session_id,
@@ -307,12 +311,12 @@ public sealed class PostgresSessionRuntimeRepository
             organization_id, activity_id, participant_id, attempt_id, session_id,
             message_id, fragment_ordinal, session_sequence, turn_id, response_slot_id,
             generation_attempt_id, protected_ref, content_digest, exact_utf8_text,
-            driving_invocation_id, driving_decision_id, accepted_agent_output_id)
+            driving_invocation_id, driving_decision_id)
         VALUES (
             @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
             @MessageId, @FragmentOrdinal, @SessionSequence, @TurnId, @ResponseSlotId,
             @GenerationAttemptId, @ProtectedRef, @ContentDigest, @ExactUtf8Text,
-            @DrivingInvocationId, @DrivingDecisionId, @AcceptedAgentOutputId)
+            @DrivingInvocationId, @DrivingDecisionId)
         ON CONFLICT (organization_id, session_id, message_id, fragment_ordinal) DO NOTHING;
         """;
 
@@ -1243,13 +1247,9 @@ public sealed class PostgresSessionRuntimeRepository
         CancellationToken cancellationToken)
     {
         var connection = RequireConnection(transaction);
-        foreach (var message in session.AgentMessages)
+        foreach (var message in session.PendingPublicationWork)
         {
-            if (!message.PendingInsert && !message.SealDirty && message.Fragments.All(fragment => !fragment.PendingInsert))
-            {
-                continue;
-            }
-
+            PublicationMessagesTouched++;
             var acceptedOutputId = ResolveAcceptedOutputId(session, message);
             var protectedRef = $"msg:{message.MessageId}";
             if (message.PendingInsert)
@@ -1302,7 +1302,7 @@ public sealed class PostgresSessionRuntimeRepository
                 message.MarkSealPersisted();
             }
 
-            foreach (var fragment in message.Fragments.Where(item => item.PendingInsert))
+            foreach (var fragment in message.PendingInserts)
             {
                 FragmentInsertAttempts++;
                 var inserted = await connection.ExecuteAsync(
@@ -1326,7 +1326,6 @@ public sealed class PostgresSessionRuntimeRepository
                             ExactUtf8Text = fragment.ExactUtf8Text,
                             DrivingInvocationId = message.DrivingInvocationId,
                             DrivingDecisionId = message.DrivingDecisionId,
-                            AcceptedAgentOutputId = acceptedOutputId,
                         },
                         transaction,
                         cancellationToken: cancellationToken));
@@ -1353,7 +1352,11 @@ public sealed class PostgresSessionRuntimeRepository
 
                 fragment.MarkPersisted();
             }
+
+            message.ClearPersistedPendingInserts();
         }
+
+        session.RemoveCleanPublicationWork();
     }
 
     private static string? ResolveAcceptedOutputId(SessionRuntime session, AgentResponseMessage message)

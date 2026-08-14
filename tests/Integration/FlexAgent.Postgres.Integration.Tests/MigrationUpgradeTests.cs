@@ -7,6 +7,7 @@ using FlexAgent.Configuration.Domain;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.Postgres.Integration.Tests.Support;
 using FlexAgent.Postgres.Migrations;
+using FlexAgent.Sessions.Domain;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
@@ -26,6 +27,7 @@ public sealed class MigrationUpgradeTests
     private const string Current0011ScriptName = "0011_session_decision_item_effect_ownership.sql";
     private const string Current0012ScriptName = "0012_session_agent_message_fragments.sql";
     private const string Current0013ScriptName = "0013_session_fragment_publication_coherence.sql";
+    private const string Current0014ScriptName = "0014_session_fragment_accepted_output_from_parent.sql";
 
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
@@ -61,7 +63,8 @@ public sealed class MigrationUpgradeTests
             Current0010ScriptName,
             Current0011ScriptName,
             Current0012ScriptName,
-            Current0013ScriptName);
+            Current0013ScriptName,
+            Current0014ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -98,7 +101,8 @@ public sealed class MigrationUpgradeTests
             Current0010ScriptName,
             Current0011ScriptName,
             Current0012ScriptName,
-            Current0013ScriptName);
+            Current0013ScriptName,
+            Current0014ScriptName);
     }
 
     [Fact]
@@ -133,7 +137,8 @@ public sealed class MigrationUpgradeTests
             Current0010ScriptName,
             Current0011ScriptName,
             Current0012ScriptName,
-            Current0013ScriptName);
+            Current0013ScriptName,
+            Current0014ScriptName);
     }
 
     [Fact]
@@ -168,7 +173,8 @@ public sealed class MigrationUpgradeTests
             Current0010ScriptName,
             Current0011ScriptName,
             Current0012ScriptName,
-            Current0013ScriptName);
+            Current0013ScriptName,
+            Current0014ScriptName);
     }
 
     [Fact]
@@ -203,7 +209,8 @@ public sealed class MigrationUpgradeTests
             Current0010ScriptName,
             Current0011ScriptName,
             Current0012ScriptName,
-            Current0013ScriptName);
+            Current0013ScriptName,
+            Current0014ScriptName);
     }
 
     [Fact]
@@ -238,7 +245,8 @@ public sealed class MigrationUpgradeTests
             Current0010ScriptName,
             Current0011ScriptName,
             Current0012ScriptName,
-            Current0013ScriptName);
+            Current0013ScriptName,
+            Current0014ScriptName);
     }
 
     [Fact]
@@ -273,7 +281,8 @@ public sealed class MigrationUpgradeTests
             Current0010ScriptName,
             Current0011ScriptName,
             Current0012ScriptName,
-            Current0013ScriptName);
+            Current0013ScriptName,
+            Current0014ScriptName);
     }
 
     [Fact]
@@ -308,7 +317,108 @@ public sealed class MigrationUpgradeTests
             Current0010ScriptName,
             Current0011ScriptName,
             Current0012ScriptName,
-            Current0013ScriptName);
+            Current0013ScriptName,
+            Current0014ScriptName);
+    }
+
+    [Fact]
+    public async Task Upgrade_from_populated_0012_backfills_agent_response_slot_and_keeps_publication_fk()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0012ScriptName);
+
+        var seeded = await SeedPopulated0012AgentFragmentsAsync(connectionString);
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var slotId = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT response_slot_id
+            FROM session_messages
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+              AND message_id = @MessageId;
+            """,
+            new
+            {
+                seeded.OrganizationId,
+                seeded.SessionId,
+                seeded.MessageId,
+            });
+        Assert.Equal("slot.1", slotId);
+
+        var fragmentCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM session_message_fragments
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+              AND message_id = @MessageId;
+            """,
+            new
+            {
+                seeded.OrganizationId,
+                seeded.SessionId,
+                seeded.MessageId,
+            });
+        Assert.Equal(2, fragmentCount);
+
+        var fragmentColumns = (await connection.QueryAsync<string>(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'session_message_fragments';
+            """)).AsList();
+        Assert.DoesNotContain("accepted_agent_output_id", fragmentColumns);
+    }
+
+    [Fact]
+    public async Task Upgrade_from_empty_0013_applies_0014()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0013ScriptName);
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
+
+        await AssertAppliedScriptsAsync(
+            connectionString,
+            "0001_initial_authorization_configuration_schema.sql",
+            Historical0002ScriptName,
+            Historical0003ScriptName,
+            Current0004ScriptName,
+            Current0005ScriptName,
+            Current0006ScriptName,
+            Current0007ScriptName,
+            Current0008ScriptName,
+            Current0009ScriptName,
+            Current0010ScriptName,
+            Current0011ScriptName,
+            Current0012ScriptName,
+            Current0013ScriptName,
+            Current0014ScriptName);
     }
 
     [Fact]
@@ -385,7 +495,8 @@ public sealed class MigrationUpgradeTests
             Current0010ScriptName,
             Current0011ScriptName,
             Current0012ScriptName,
-            Current0013ScriptName);
+            Current0013ScriptName,
+            Current0014ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -447,7 +558,8 @@ public sealed class MigrationUpgradeTests
             Current0010ScriptName,
             Current0011ScriptName,
             Current0012ScriptName,
-            Current0013ScriptName);
+            Current0013ScriptName,
+            Current0014ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -557,6 +669,126 @@ public sealed class MigrationUpgradeTests
                 Digest = digest,
                 CreatedAt = now,
             });
+    }
+
+    private static async Task<Populated0012PublicationSeed> SeedPopulated0012AgentFragmentsAsync(
+        string connectionString)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var organizationId = Guid.NewGuid();
+        var activityId = Guid.NewGuid();
+        var participantId = Guid.NewGuid();
+        var attemptId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        const string messageId = "aout.roundtrip.0001";
+        var digest = new string('a', 64);
+        var helDigest = Convert.ToHexString(SHA256.HashData("Hel"u8.ToArray())).ToLowerInvariant();
+        var loDigest = Convert.ToHexString(SHA256.HashData("lo"u8.ToArray())).ToLowerInvariant();
+        var now = DateTimeOffset.UtcNow;
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO organizations (id, created_at) VALUES (@OrganizationId, @CreatedAt);
+            INSERT INTO session_runtimes (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                configuration_id, configuration_digest, manifest_id, lifecycle_state)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'cfg-1', @Digest, 'man-1', 'active');
+            INSERT INTO session_invocations (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                agent_invocation_id, trigger_family, trigger_type, trigger_id, purpose,
+                idempotency_key, policy_digest, admitted_session_sequence, status)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'inv-1', 'participant_input', 'participant_message', 'trig-1',
+                'participant_turn.respond', 'idem-1', @Digest, 1, 'admitted');
+            INSERT INTO session_decisions (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                agent_invocation_id, decision_id, decision_type, produced_at, payload_digest,
+                decision_payload_digest_version, committed_session_version, committed_session_sequence)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'inv-1', 'dec-1', 'no_action', @CreatedAt, @Digest, @DigestVersion, 1, 2);
+            INSERT INTO session_decision_validations (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                agent_invocation_id, revision_ordinal,
+                validated_against_session_version, validated_against_session_sequence,
+                validation_commit_session_version, validation_commit_session_sequence,
+                validation_outcome, effect_outcome, timer_validation_outcome)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'inv-1', 1, 0, 1, 1, 2, 'accepted', 'not_attempted', 'not_present');
+            INSERT INTO session_decision_output_validations (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                agent_invocation_id, revision_ordinal, item_ordinal, local_ref, kind,
+                validation_outcome, rejection_reason_category, agent_output_id, effect_outcome)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'inv-1', 1, 0, 'out.message.primary', 'message',
+                'accepted', NULL, @MessageId, 'not_attempted');
+            INSERT INTO session_messages (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                message_id, author_type, turn_id, protected_ref, content_digest, completion_state,
+                generation_attempt_id, driving_invocation_id, driving_decision_id,
+                accepted_agent_output_id, assembled_content_digest)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                @MessageId, 'agent', 'turn.1', @ProtectedRef, @MessageDigest, 'open',
+                'agen.1', 'inv-1', 'dec-1', @MessageId, NULL);
+            INSERT INTO session_message_fragments (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                message_id, fragment_ordinal, session_sequence, turn_id, response_slot_id,
+                generation_attempt_id, protected_ref, content_digest, exact_utf8_text,
+                driving_invocation_id, driving_decision_id, accepted_agent_output_id)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                @MessageId, 1, 1, 'turn.1', 'slot.1',
+                'agen.1', @Fragment1Ref, @HelDigest, 'Hel',
+                'inv-1', 'dec-1', @MessageId),
+                (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                @MessageId, 2, 2, 'turn.1', 'slot.1',
+                'agen.1', @Fragment2Ref, @LoDigest, 'lo',
+                'inv-1', 'dec-1', NULL);
+            """,
+            new
+            {
+                OrganizationId = organizationId,
+                ActivityId = activityId,
+                ParticipantId = participantId,
+                AttemptId = attemptId,
+                SessionId = sessionId,
+                MessageId = messageId,
+                Digest = digest,
+                DigestVersion = DecisionPayloadDigest.FormatVersionV1,
+                CreatedAt = now,
+                ProtectedRef = $"msg:{messageId}",
+                MessageDigest = digest,
+                Fragment1Ref = $"frag:{messageId}:1",
+                Fragment2Ref = $"frag:{messageId}:2",
+                HelDigest = helDigest,
+                LoDigest = loDigest,
+            });
+
+        var nullSlot = await connection.ExecuteScalarAsync<string?>(
+            """
+            SELECT response_slot_id
+            FROM session_messages
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+              AND message_id = @MessageId;
+            """,
+            new
+            {
+                OrganizationId = organizationId,
+                SessionId = sessionId,
+                MessageId = messageId,
+            });
+        Assert.Null(nullSlot);
+
+        return new Populated0012PublicationSeed(organizationId, sessionId, messageId);
     }
 
     private static async Task<LegacyVersionSeed> SeedLegacyVersionAsync(string connectionString)
@@ -755,6 +987,11 @@ public sealed class MigrationUpgradeTests
 
         throw new InvalidOperationException("Could not locate repository root.");
     }
+
+    private sealed record Populated0012PublicationSeed(
+        Guid OrganizationId,
+        Guid SessionId,
+        string MessageId);
 
     private sealed record LegacyVersionSeed(
         Guid OrganizationId,

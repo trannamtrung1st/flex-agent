@@ -1512,6 +1512,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 new AgentResponseFragmentCommit(admitted.Invocation.AgentInvocationId, 2, "lo", "agen.incremental.1"),
                 clock).Succeeded);
             PostgresSessionRuntimeRepository.FragmentInsertAttempts = 0;
+            PostgresSessionRuntimeRepository.FragmentPendingScans = 0;
+            PostgresSessionRuntimeRepository.PublicationMessagesTouched = 0;
             Assert.True(
                 await repository.TrySaveAgentResponsePublicationAsync(
                     binding.Ownership,
@@ -1521,6 +1523,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                     CancellationToken));
             await scope.CommitAsync(CancellationToken);
             Assert.Equal(1, PostgresSessionRuntimeRepository.FragmentInsertAttempts);
+            Assert.Equal(0, PostgresSessionRuntimeRepository.FragmentPendingScans);
+            Assert.Equal(1, PostgresSessionRuntimeRepository.PublicationMessagesTouched);
             Assert.Equal("Hello", Assert.Single(loaded.AgentMessages).AssembleExactText());
         }
     }
