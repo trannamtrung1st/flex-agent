@@ -2,7 +2,7 @@
 id: structured-agent-runtime-sync
 status: in_progress
 created: 2026-08-11
-updated: 2026-08-13
+updated: 2026-08-14
 ---
 
 # Goal
@@ -497,7 +497,7 @@ and test reviews have no unresolved blocking findings.
   sequential XOR; validation FK 23503; two-connection exactly-one winner;
   schema/upgrade/concurrency 26/26; architecture 24/24; Sessions 174/174.
   External review approved `d7c2daf` and froze the Session runtime schema.
-- [>] Implement scoped PostgreSQL repositories and transaction coordinators
+- [x] Implement scoped PostgreSQL repositories and transaction coordinators
   against real PostgreSQL 18 tests. Cover wrong Organization/Activity/
   Participant/Attempt/Session, forged ownership, guessed IDs, list/count leaks,
   duplicate/mismatched idempotency, commit-time revocation, concurrent
@@ -508,15 +508,16 @@ and test reviews have no unresolved blocking findings.
   reflection/signature tests requiring trusted Organization plus complete
   Activity/Participant/Attempt/Session ownership on every protected repository
   entry point, and reject client/host time or order as mutation authority.
-  Follow-up from `8f374d6` review: stamp participant Turns with
-  `NextAdmissionSequence()` (`SessionSequence + 1`) so they cannot collide
-  with an agent-initiated Turn already stamped at the Decision sequence.
-  `0008` backfill is best-effort; it does not reconstruct pre-0008 creation
-  order because `last_committed_at` was restamped. Remaining this step:
-  commit-time revocation, timer replacement races, and
-  export/backup/restore/lawful unavailability (deferred until those surfaces
-  exist). External review of the collision fix is still outstanding.
-- [ ] Add the model-execution port and deterministic fake provider through
+  External review **approved** `0a40324` (no remaining P0/P1/P2). Dirty-only
+  Turn persist, conditional UPSERT, `created_session_sequence` order, mixed
+  agent/participant sequence uniqueness, completion audit/outbox rollback, and
+  execution-failure `AlreadyTerminal` ack semantics are in. Commit-time
+  revocation, timer replacement races, and export/backup/restore/lawful
+  unavailability wait on those later surfaces and do not block this slice.
+  P3 nit: `0008` header still says "UTC-ordered"; the column is Session-
+  sequence ordered. Left unchanged to avoid retouching an applied one-time
+  Grate checksum; noted here only.
+- [>] Add the model-execution port and deterministic fake provider through
   observed red-green-refactor. Prove structured control/content phase
   separation, bounded provider requests within one Invocation, cancellation,
   transient/permanent failure classification, malformed/incomplete/oversized
@@ -643,19 +644,14 @@ tranche is **approved and frozen** at `d7c2daf`. Additive `0006` is the
 pre-repository invariant repair. Do not add speculative schema constraints.
 Admission persistence is **approved** at `5430f4e`. The P3 concurrency test
 now waits on `pg_locks` until T2 is blocked by T1 before advancing
-`last_committed_at`. The repository **completion/isolation** slice is
-implemented: participant no-action persist/hydrate, Decision/outcome XOR
-after persist, validation hydrate from `validation_commit_*`, concurrent
-completion serialization, audit/outbox fault rollback, and scoped list/count
-  leak tests. Follow-up from the `6c89609`/`8f374d6` reviews persists only
-  dirty Turns, stamps immutable `created_session_sequence`, and assigns
-  participant Turns the admission sequence about to be claimed so they cannot
-  collide with an agent-opening Turn. Session/manifest bind commit, worker
-  processing, synthetic adapter scenarios, UI states, and end-to-end proof
-  remain pending. Remaining in this persistence step: commit-time revocation
-  (no Session grant surface yet), timer replacement races (scheduler tranche),
-  and export/backup/restore/lawful-unavailability reconstruction. External
-  review of the sequence-collision fix is outstanding.
+`last_committed_at`. The repository **completion/isolation/order** slice is
+**approved** at `0a40324`: dirty-only Turns, conditional UPSERT, immutable
+`created_session_sequence`, mixed agent-opening then participant uniqueness,
+completion audit/outbox rollback, and execution-failure `AlreadyTerminal` as
+a safe worker ack. `0008` backfill is best-effort; no production Session
+upgrade path. Next implementation work is the model-execution port and
+deterministic fake provider. Commit-time revocation, timer replacement
+races, and export/backup/restore wait on those later surfaces.
 
 # Decisions
 
@@ -956,6 +952,9 @@ completion serialization, audit/outbox fault rollback, and scoped list/count
   `RecordDecision`/`Touch()`. Participant Turns now use the admission sequence
   about to be claimed. `0008` backfill limitation from restamped
   `last_committed_at` is documented; no production Session upgrade path.
+  External review **approved** `0a40324` with no remaining P0/P1/P2. P3:
+  `0008` still says "UTC-ordered"; the column is Session-sequence ordered.
+  Not edited in place (applied one-time Grate script).
 
 # Verification
 
@@ -976,7 +975,7 @@ completion serialization, audit/outbox fault rollback, and scoped list/count
 | Decision validation idempotency and payload digest | passed; in-memory aggregate | Red: unchanged-state `ValidateDecision` retried bumped version; lifecycle-change overwrite left one validation row; same Decision IDs with `EmitMessage` payload reconciled as NoAction. Green: `FlexAgent.Sessions.Tests` 174/174; architecture suite 21/21; `git diff --check` clean (2026-08-13). |
 | PostgreSQL Session runtime schema (`0005`) | passed; schema/migration | Red: `SessionsPersistenceOwnershipTests` failed with missing `*_session_runtime*.sql`. Green: `FlexAgent.Postgres.Integration.Tests` 43/43 including 10 schema constraint tests (ownership FK, delete reject, fragment `session_sequence`); `FlexAgent.Architecture.Tests` 24/24; `FlexAgent.Sessions.Tests` 174/174; `git diff --check` and `python3 scripts/check_docs.py` passed (2026-08-13). Repositories remain next. |
 | PostgreSQL Session runtime invariant patch (`0006`) | passed; schema/migration | Includes Decision XOR ExecutionOutcome (`SESS-DEC-16`) and validation→Decision FK. Red: both child rows and validation-without-Decision succeeded. Green: sequential XOR; concurrent exactly-one winner; schema/upgrade/concurrency 26/26; architecture 24/24; Sessions 174/174 (2026-08-13). Repositories remain next. |
-| PostgreSQL 18 repository isolation/concurrency/fault tests | in progress; admission **approved** `5430f4e`; sequence-collision fix pending external review | Participant Turns stamp `NextAdmissionSequence()` so opening `emit_message` then a participant reply cannot collide on `created_session_sequence`. `0008` backfill from `last_committed_at` is documented as best-effort, not a faithful pre-0008 reconstruction. Red: opening-then-participant domain test expected created sequence 3, got 2 (2026-08-14). Green: `FlexAgent.Sessions.Tests` 183/183; architecture 27/27; Postgres 76/76 with known concurrent-empty Grate `pg_type` flake that passed on retry; `git diff --check` clean. Remaining this step: commit-time revocation, timer replacement races, export/backup/restore/lawful unavailability. |
+| PostgreSQL 18 repository isolation/concurrency/fault tests | passed; **approved** `0a40324` | Dirty-only Turn persist; conditional UPSERT; `created_session_sequence` order; opening `emit_message` then participant reply unique (2, 3); completion audit-fault rollback; `AlreadyTerminal` documented as safe worker ack; `0008` backfill scoped as best-effort. `FlexAgent.Sessions.Tests` 183/183; architecture 27/27; Postgres 76/76 with known concurrent-empty Grate `pg_type` flake that passed on retry. Deferred until later surfaces: commit-time revocation, timer replacement races, export/backup/restore/lawful unavailability. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
 | Web lint/type/unit/build/e2e | pending | |
