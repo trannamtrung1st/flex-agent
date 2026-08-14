@@ -100,6 +100,7 @@ public static class SessionRuntimeAuditActions
     public const string AcceptParticipantMessage = "session.participant_message.accept";
     public const string CompleteInvocation = "session.invocation.complete";
     public const string PublishAgentResponseFragment = "session.agent_response.publish";
+    public const string SealAgentResponse = "session.agent_response.seal";
 }
 
 public static class SessionRuntimeResourceTypes
@@ -113,6 +114,7 @@ public static class SessionRuntimeOutboxEventTypes
     public const string ParticipantMessageAccepted = "session.participant_message.accepted";
     public const string InvocationCompleted = "session.invocation.completed";
     public const string AgentFragmentCommitted = "session.agent.fragment.committed";
+    public const string AgentMessageSealed = "session.agent.message.sealed";
 }
 
 public static class DurableSessionWorkTypes

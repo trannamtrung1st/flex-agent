@@ -143,6 +143,80 @@ public sealed class PublishAgentResponseFragmentCommandTests
         Assert.Equal("Hel", Assert.Single(session.AgentMessages).AssembleExactText());
     }
 
+    [Fact]
+    public void Handler_reconciles_an_exact_retry_that_still_carries_the_original_expected_version()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var invocationId = ClaimParticipantPublication(session);
+        var originalVersion = session.SessionVersion;
+        var command = new PublishAgentResponseFragmentCommand(
+            SessionRuntimeTestFixtures.CreateActor(),
+            session.Ownership,
+            originalVersion,
+            invocationId,
+            1,
+            "Hel",
+            "agen.test.1",
+            Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            "application.test");
+        Assert.True(
+            new PublishAgentResponseFragmentHandler().Handle(
+                command,
+                session,
+                SessionRuntimeTestFixtures.T0.AddSeconds(3)).Succeeded);
+        Assert.True(session.SessionVersion > originalVersion);
+
+        var retry = new PublishAgentResponseFragmentHandler().Handle(
+            command,
+            session,
+            SessionRuntimeTestFixtures.T0.AddSeconds(4));
+
+        Assert.True(retry.Succeeded, retry.OutcomeCode);
+        Assert.Equal(FragmentCommitOutcomeCodes.Reconciled, retry.OutcomeCode);
+        Assert.Equal("Hel", Assert.Single(session.AgentMessages).AssembleExactText());
+    }
+
+    [Fact]
+    public void Handler_reports_digest_mismatch_for_a_stale_retry_with_the_same_ordinal_and_different_text()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var invocationId = ClaimParticipantPublication(session);
+        var originalVersion = session.SessionVersion;
+        Assert.True(
+            new PublishAgentResponseFragmentHandler().Handle(
+                new PublishAgentResponseFragmentCommand(
+                    SessionRuntimeTestFixtures.CreateActor(),
+                    session.Ownership,
+                    originalVersion,
+                    invocationId,
+                    1,
+                    "Hel",
+                    "agen.test.1",
+                    Guid.Parse("33333333-3333-3333-3333-333333333333"),
+                    "application.test"),
+                session,
+                SessionRuntimeTestFixtures.T0.AddSeconds(3)).Succeeded);
+
+        var retry = new PublishAgentResponseFragmentHandler().Handle(
+            new PublishAgentResponseFragmentCommand(
+                SessionRuntimeTestFixtures.CreateActor(),
+                session.Ownership,
+                originalVersion,
+                invocationId,
+                1,
+                "Hey",
+                "agen.test.1",
+                Guid.Parse("33333333-3333-3333-3333-333333333333"),
+                "application.test"),
+            session,
+            SessionRuntimeTestFixtures.T0.AddSeconds(4));
+
+        Assert.False(retry.Succeeded);
+        Assert.Equal(FragmentCommitOutcomeCodes.DigestMismatch, retry.OutcomeCode);
+        Assert.NotEqual(FragmentCommitOutcomeCodes.StaleVersion, retry.OutcomeCode);
+        Assert.Equal("Hel", Assert.Single(session.AgentMessages).AssembleExactText());
+    }
+
     private static string ClaimParticipantPublication(SessionRuntime session)
     {
         var admitted = session.AcceptParticipantMessage(

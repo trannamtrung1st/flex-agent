@@ -41,7 +41,11 @@ public sealed class PublishAgentResponseFragmentHandler : IPublishAgentResponseF
             return new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.OwnershipMismatch);
         }
 
-        if (command.ExpectedSessionVersion != session.SessionVersion)
+        var existing = session.AgentMessages.FirstOrDefault(message =>
+            string.Equals(message.DrivingInvocationId, command.AgentInvocationId, StringComparison.Ordinal));
+        var ordinalAlreadyPresent = existing?.Fragments.Any(fragment =>
+            fragment.FragmentOrdinal == command.FragmentOrdinal) == true;
+        if (!ordinalAlreadyPresent && command.ExpectedSessionVersion != session.SessionVersion)
         {
             return new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.StaleVersion);
         }
@@ -60,4 +64,7 @@ public static class SessionRuntimePublicationOutbox
 {
     public static string FragmentWakeupSeed(string messageId, int fragmentOrdinal, string contentDigest) =>
         $"frag:{messageId}:{fragmentOrdinal}:{contentDigest}";
+
+    public static string SealWakeupSeed(string messageId, string completionState, string? assembledContentDigest) =>
+        $"seal:{messageId}:{completionState}:{assembledContentDigest}";
 }

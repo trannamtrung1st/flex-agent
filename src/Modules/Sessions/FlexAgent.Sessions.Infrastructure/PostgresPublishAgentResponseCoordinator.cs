@@ -13,6 +13,7 @@ public sealed class PostgresPublishAgentResponseCoordinator(
     IAuditEventWriter? auditEventWriter = null,
     IOutboxItemWriter? outboxItemWriter = null)
 {
+    private readonly ISealAgentResponseHandler _sealHandler = new SealAgentResponseHandler();
     private readonly IAuditEventWriter _auditEventWriter = auditEventWriter ?? new PostgresAuditEventWriter();
     private readonly IOutboxItemWriter _outboxItemWriter = outboxItemWriter ?? new PostgresOutboxItemWriter();
 
@@ -32,14 +33,13 @@ public sealed class PostgresPublishAgentResponseCoordinator(
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
         try
         {
-            var session = await runtimeRepository.LoadForUpdateAsync(
+            var session = await LoadSessionOrRollbackAsync(
                 command.Ownership,
                 binding,
-                scope.Transaction,
+                scope,
                 cancellationToken);
             if (session is null)
             {
-                await scope.RollbackAsync(cancellationToken);
                 return new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.Denied);
             }
 
@@ -47,66 +47,182 @@ public sealed class PostgresPublishAgentResponseCoordinator(
                 scope.Transaction,
                 cancellationToken);
             var result = publicationHandler.Handle(command, session, authoritativeUtc);
-            if (!result.Succeeded)
-            {
-                await scope.RollbackAsync(cancellationToken);
-                return result;
-            }
-
-            if (result.OutcomeCode == FragmentCommitOutcomeCodes.Reconciled)
-            {
-                await scope.RollbackAsync(cancellationToken);
-                return result;
-            }
-
-            var pendingFragments = session.PendingPublicationWork
-                .SelectMany(message => message.PendingInserts.Select(fragment => (message.MessageId, fragment)))
-                .ToArray();
-
-            var saved = await runtimeRepository.TrySaveAgentResponsePublicationAsync(
+            return await PersistPublicationAsync(
+                command.Actor,
                 command.Ownership,
                 command.ExpectedSessionVersion,
+                command.CorrelationId,
+                command.SourceChannel,
                 session,
-                scope.Transaction,
+                result,
+                scope,
+                authoritativeUtc,
                 cancellationToken);
-            if (!saved)
-            {
-                await scope.RollbackAsync(cancellationToken);
-                return new AgentResponseFragmentCommitResult(
-                    false,
-                    FragmentCommitOutcomeCodes.StaleVersion,
-                    result.Message,
-                    result.Fragment,
-                    result.AgentMessagePublished);
-            }
-
-            foreach (var (messageId, fragment) in pendingFragments)
-            {
-                await SessionRuntimePersistenceAudit.WriteAsync(
-                    _auditEventWriter,
-                    _outboxItemWriter,
-                    command.Actor,
-                    command.Ownership,
-                    command.CorrelationId,
-                    command.SourceChannel,
-                    SessionRuntimeAuditActions.PublishAgentResponseFragment,
-                    SessionRuntimeOutboxEventTypes.AgentFragmentCommitted,
-                    SessionRuntimePublicationOutbox.FragmentWakeupSeed(
-                        messageId,
-                        fragment.FragmentOrdinal,
-                        fragment.ContentDigest),
-                    authoritativeUtc,
-                    scope.Transaction,
-                    cancellationToken);
-            }
-
-            await scope.CommitAsync(cancellationToken);
-            return result;
         }
         catch
         {
             await scope.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    public async Task<AgentResponseFragmentCommitResult> SealAsync(
+        SealAgentResponseCommand command,
+        TrustedSessionBinding binding,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ArgumentNullException.ThrowIfNull(binding);
+
+        if (command.Ownership != binding.Ownership)
+        {
+            return new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.OwnershipMismatch);
+        }
+
+        await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
+        try
+        {
+            var session = await LoadSessionOrRollbackAsync(
+                command.Ownership,
+                binding,
+                scope,
+                cancellationToken);
+            if (session is null)
+            {
+                return new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.Denied);
+            }
+
+            var authoritativeUtc = await runtimeRepository.ReadAuthoritativeUtcAsync(
+                scope.Transaction,
+                cancellationToken);
+            var result = _sealHandler.Handle(command, session, authoritativeUtc);
+            return await PersistPublicationAsync(
+                command.Actor,
+                command.Ownership,
+                command.ExpectedSessionVersion,
+                command.CorrelationId,
+                command.SourceChannel,
+                session,
+                result,
+                scope,
+                authoritativeUtc,
+                cancellationToken);
+        }
+        catch
+        {
+            await scope.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    private async Task<SessionRuntime?> LoadSessionOrRollbackAsync(
+        SessionOwnership ownership,
+        TrustedSessionBinding binding,
+        PostgresTransactionScope scope,
+        CancellationToken cancellationToken)
+    {
+        var session = await runtimeRepository.LoadForUpdateAsync(
+            ownership,
+            binding,
+            scope.Transaction,
+            cancellationToken);
+        if (session is null)
+        {
+            await scope.RollbackAsync(cancellationToken);
+        }
+
+        return session;
+    }
+
+    private async Task<AgentResponseFragmentCommitResult> PersistPublicationAsync(
+        TrustedRuntimeActor actor,
+        SessionOwnership ownership,
+        long expectedSessionVersion,
+        Guid correlationId,
+        string sourceChannel,
+        SessionRuntime session,
+        AgentResponseFragmentCommitResult result,
+        PostgresTransactionScope scope,
+        DateTimeOffset authoritativeUtc,
+        CancellationToken cancellationToken)
+    {
+        if (!result.Succeeded)
+        {
+            await scope.RollbackAsync(cancellationToken);
+            return result;
+        }
+
+        if (result.OutcomeCode == FragmentCommitOutcomeCodes.Reconciled)
+        {
+            await scope.RollbackAsync(cancellationToken);
+            return result;
+        }
+
+        var pendingFragments = session.PendingPublicationWork
+            .SelectMany(message => message.PendingInserts.Select(fragment => (message.MessageId, fragment)))
+            .ToArray();
+        var pendingSeals = session.PendingPublicationWork
+            .Where(message => message.SealDirty)
+            .ToArray();
+
+        var saved = await runtimeRepository.TrySaveAgentResponsePublicationAsync(
+            ownership,
+            expectedSessionVersion,
+            session,
+            scope.Transaction,
+            cancellationToken);
+        if (!saved)
+        {
+            await scope.RollbackAsync(cancellationToken);
+            return new AgentResponseFragmentCommitResult(
+                false,
+                FragmentCommitOutcomeCodes.StaleVersion,
+                result.Message,
+                result.Fragment,
+                result.AgentMessagePublished);
+        }
+
+        foreach (var (messageId, fragment) in pendingFragments)
+        {
+            await SessionRuntimePersistenceAudit.WriteAsync(
+                _auditEventWriter,
+                _outboxItemWriter,
+                actor,
+                ownership,
+                correlationId,
+                sourceChannel,
+                SessionRuntimeAuditActions.PublishAgentResponseFragment,
+                SessionRuntimeOutboxEventTypes.AgentFragmentCommitted,
+                SessionRuntimePublicationOutbox.FragmentWakeupSeed(
+                    messageId,
+                    fragment.FragmentOrdinal,
+                    fragment.ContentDigest),
+                authoritativeUtc,
+                scope.Transaction,
+                cancellationToken);
+        }
+
+        foreach (var message in pendingSeals)
+        {
+            await SessionRuntimePersistenceAudit.WriteAsync(
+                _auditEventWriter,
+                _outboxItemWriter,
+                actor,
+                ownership,
+                correlationId,
+                sourceChannel,
+                SessionRuntimeAuditActions.SealAgentResponse,
+                SessionRuntimeOutboxEventTypes.AgentMessageSealed,
+                SessionRuntimePublicationOutbox.SealWakeupSeed(
+                    message.MessageId,
+                    message.CompletionState,
+                    message.AssembledContentDigest),
+                authoritativeUtc,
+                scope.Transaction,
+                cancellationToken);
+        }
+
+        await scope.CommitAsync(cancellationToken);
+        return result;
     }
 }

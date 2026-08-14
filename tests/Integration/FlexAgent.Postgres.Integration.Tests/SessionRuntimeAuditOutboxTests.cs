@@ -819,6 +819,375 @@ public sealed class SessionRuntimeAuditOutboxTests(PostgresIntegrationFixture fi
         Assert.Equal(versionAfterFirst, sessionVersion);
     }
 
+    [Fact]
+    public async Task Exact_retry_at_the_original_expected_version_reconciles_without_a_second_outbox()
+    {
+        var ready = await PrepareReadyToPublishAsync("retry");
+        var correlationId = Guid.NewGuid();
+        var command = new PublishAgentResponseFragmentCommand(
+            ready.Actor,
+            ready.Binding.Ownership,
+            ready.SessionVersion,
+            ready.InvocationId,
+            1,
+            "Hel",
+            "agen.retry.1",
+            correlationId,
+            "integration.test");
+        Assert.True((await ready.Publisher.PublishFragmentAsync(command, ready.Binding, CancellationToken)).Succeeded);
+
+        var retry = await ready.Publisher.PublishFragmentAsync(command, ready.Binding, CancellationToken);
+        Assert.True(retry.Succeeded, retry.OutcomeCode);
+        Assert.Equal(FragmentCommitOutcomeCodes.Reconciled, retry.OutcomeCode);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        Assert.Equal(1, await CountFragmentsAsync(connection, ready.Binding.Ownership));
+        Assert.Equal(1, await CountOutboxAsync(connection, correlationId));
+        Assert.Equal(
+            ready.SessionVersion + 1,
+            await ReadSessionVersionAsync(connection, ready.Binding.Ownership));
+    }
+
+    [Fact]
+    public async Task Stale_retry_with_the_same_ordinal_and_different_text_is_digest_mismatch()
+    {
+        var ready = await PrepareReadyToPublishAsync("mismatch");
+        var original = new PublishAgentResponseFragmentCommand(
+            ready.Actor,
+            ready.Binding.Ownership,
+            ready.SessionVersion,
+            ready.InvocationId,
+            1,
+            "Hel",
+            "agen.mismatch.1",
+            Guid.NewGuid(),
+            "integration.test");
+        Assert.True((await ready.Publisher.PublishFragmentAsync(original, ready.Binding, CancellationToken)).Succeeded);
+
+        var retry = await ready.Publisher.PublishFragmentAsync(
+            original with { ExactUtf8Text = "Hey", CorrelationId = Guid.NewGuid() },
+            ready.Binding,
+            CancellationToken);
+        Assert.False(retry.Succeeded);
+        Assert.Equal(FragmentCommitOutcomeCodes.DigestMismatch, retry.OutcomeCode);
+        Assert.NotEqual(FragmentCommitOutcomeCodes.StaleVersion, retry.OutcomeCode);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        Assert.Equal(1, await CountFragmentsAsync(connection, ready.Binding.Ownership));
+        Assert.Equal("Hel", await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT exact_utf8_text
+            FROM session_message_fragments
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId;
+            """,
+            ready.Binding.Ownership));
+    }
+
+    [Fact]
+    public async Task Seal_after_final_fragment_emits_a_second_wakeup_while_fragment_observation_is_still_open()
+    {
+        var ready = await PrepareReadyToPublishAsync("seal");
+        var fragmentCorrelation = Guid.NewGuid();
+        var published = await ready.Publisher.PublishFragmentAsync(
+            new PublishAgentResponseFragmentCommand(
+                ready.Actor,
+                ready.Binding.Ownership,
+                ready.SessionVersion,
+                ready.InvocationId,
+                1,
+                "Hel",
+                "agen.seal.1",
+                fragmentCorrelation,
+                "integration.test"),
+            ready.Binding,
+            CancellationToken);
+        Assert.True(published.Succeeded, published.OutcomeCode);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var observedState = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT completion_state
+            FROM session_messages
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId;
+            """,
+            ready.Binding.Ownership);
+        Assert.Equal(AgentMessageCompletionStates.Open, observedState);
+        Assert.Equal(1, await CountOutboxAsync(connection, fragmentCorrelation));
+
+        var sealCorrelation = Guid.NewGuid();
+        var versionAfterFragment = await ReadSessionVersionAsync(connection, ready.Binding.Ownership);
+        var sealedResult = await ready.Publisher.SealAsync(
+            new SealAgentResponseCommand(
+                ready.Actor,
+                ready.Binding.Ownership,
+                versionAfterFragment,
+                ready.InvocationId,
+                AgentMessageCompletionStates.Complete,
+                sealCorrelation,
+                "integration.test"),
+            ready.Binding,
+            CancellationToken);
+        Assert.True(sealedResult.Succeeded, sealedResult.OutcomeCode);
+
+        var completionState = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT completion_state
+            FROM session_messages
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId;
+            """,
+            ready.Binding.Ownership);
+        var sealEvent = await connection.ExecuteScalarAsync<string>(
+            "SELECT event_type FROM outbox_items WHERE correlation_id = @CorrelationId;",
+            new { CorrelationId = sealCorrelation });
+        Assert.Equal(AgentMessageCompletionStates.Complete, completionState);
+        Assert.Equal(SessionRuntimeOutboxEventTypes.AgentMessageSealed, sealEvent);
+        Assert.Equal(1, await CountOutboxAsync(connection, fragmentCorrelation));
+        Assert.Equal(1, await CountOutboxAsync(connection, sealCorrelation));
+    }
+
+    [Fact]
+    public async Task Outbox_failure_during_seal_leaves_the_message_open()
+    {
+        var ready = await PrepareReadyToPublishAsync(
+            "sealfail",
+            new PostgresAuditEventWriter(),
+            new FaultInjectingOutboxItemWriter());
+        var published = await new PostgresPublishAgentResponseCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            ready.Repository,
+            new PublishAgentResponseFragmentHandler()).PublishFragmentAsync(
+            new PublishAgentResponseFragmentCommand(
+                ready.Actor,
+                ready.Binding.Ownership,
+                ready.SessionVersion,
+                ready.InvocationId,
+                1,
+                "Hel",
+                "agen.sealfail.1",
+                Guid.NewGuid(),
+                "integration.test"),
+            ready.Binding,
+            CancellationToken);
+        Assert.True(published.Succeeded, published.OutcomeCode);
+
+        long versionAfterFragment;
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            versionAfterFragment = await ReadSessionVersionAsync(connection, ready.Binding.Ownership);
+        }
+
+        var sealCorrelation = Guid.NewGuid();
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ready.Publisher.SealAsync(
+                new SealAgentResponseCommand(
+                    ready.Actor,
+                    ready.Binding.Ownership,
+                    versionAfterFragment,
+                    ready.InvocationId,
+                    AgentMessageCompletionStates.Incomplete,
+                    sealCorrelation,
+                    "integration.test"),
+                ready.Binding,
+                CancellationToken));
+
+        await using var verify = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var completionState = await verify.ExecuteScalarAsync<string>(
+            """
+            SELECT completion_state
+            FROM session_messages
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId;
+            """,
+            ready.Binding.Ownership);
+        Assert.Equal(AgentMessageCompletionStates.Open, completionState);
+        Assert.Equal(0, await CountOutboxAsync(verify, sealCorrelation));
+    }
+
+    [Fact]
+    public async Task Duplicate_seal_reconciles_without_a_second_outbox_item()
+    {
+        var ready = await PrepareReadyToPublishAsync("sealdup");
+        Assert.True((await ready.Publisher.PublishFragmentAsync(
+            new PublishAgentResponseFragmentCommand(
+                ready.Actor,
+                ready.Binding.Ownership,
+                ready.SessionVersion,
+                ready.InvocationId,
+                1,
+                "Hel",
+                "agen.sealdup.1",
+                Guid.NewGuid(),
+                "integration.test"),
+            ready.Binding,
+            CancellationToken)).Succeeded);
+
+        long versionAfterFragment;
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            versionAfterFragment = await ReadSessionVersionAsync(connection, ready.Binding.Ownership);
+        }
+
+        var sealCorrelation = Guid.NewGuid();
+        var sealCommand = new SealAgentResponseCommand(
+            ready.Actor,
+            ready.Binding.Ownership,
+            versionAfterFragment,
+            ready.InvocationId,
+            AgentMessageCompletionStates.Complete,
+            sealCorrelation,
+            "integration.test");
+        Assert.True((await ready.Publisher.SealAsync(sealCommand, ready.Binding, CancellationToken)).Succeeded);
+
+        var retry = await ready.Publisher.SealAsync(sealCommand, ready.Binding, CancellationToken);
+        Assert.True(retry.Succeeded, retry.OutcomeCode);
+        Assert.Equal(FragmentCommitOutcomeCodes.Reconciled, retry.OutcomeCode);
+
+        await using var verify = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        Assert.Equal(1, await CountOutboxAsync(verify, sealCorrelation));
+        Assert.Equal(
+            AgentMessageCompletionStates.Complete,
+            await verify.ExecuteScalarAsync<string>(
+                """
+                SELECT completion_state
+                FROM session_messages
+                WHERE organization_id = @OrganizationId
+                  AND session_id = @SessionId;
+                """,
+                ready.Binding.Ownership));
+    }
+
+    private async Task<ReadyPublication> PrepareReadyToPublishAsync(
+        string key,
+        IAuditEventWriter? auditEventWriter = null,
+        IOutboxItemWriter? outboxItemWriter = null)
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
+        var acceptCoordinator = new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler());
+        var completeCoordinator = new PostgresCompleteInvocationCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new CompleteInvocationHandler());
+        var publisher = new PostgresPublishAgentResponseCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new PublishAgentResponseFragmentHandler(),
+            auditEventWriter,
+            outboxItemWriter);
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var admitted = await acceptCoordinator.AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                actor,
+                binding.Ownership,
+                ExpectedSessionVersion: 0,
+                $"msg.p.{key}",
+                $"turn.{key}",
+                $"slot.{key}",
+                $"trig.participant.{key}",
+                $"idem.p.{key}",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+
+        var completed = await completeCoordinator.CompleteAsync(
+            new CompleteInvocationCommand(
+                actor,
+                binding.Ownership,
+                admitted.SessionVersion!.Value,
+                admitted.Invocation!.AgentInvocationId,
+                new EnvelopeRecommendation(
+                    $"adec.{key}.0001",
+                    admitted.Invocation.AgentInvocationId,
+                    new DateTimeOffset(2026, 8, 13, 0, 0, 2, TimeSpan.Zero),
+                    DecisionDispositions.Respond,
+                    [
+                        new OutputRecommendation(
+                            AgentOutputKinds.Message,
+                            "out.message.primary",
+                            "participant_reply",
+                            $"turn.{key}",
+                            $"slot.{key}"),
+                    ],
+                    []),
+                null,
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+
+        long sessionVersion;
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            var loaded = await repository.LoadForUpdateAsync(
+                binding.Ownership,
+                binding,
+                scope.Transaction,
+                CancellationToken);
+            Assert.NotNull(loaded);
+            sessionVersion = loaded!.SessionVersion;
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        return new ReadyPublication(
+            binding,
+            actor,
+            admitted.Invocation.AgentInvocationId,
+            sessionVersion,
+            repository,
+            publisher);
+    }
+
+    private static async Task<int> CountFragmentsAsync(NpgsqlConnection connection, SessionOwnership ownership) =>
+        await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM session_message_fragments
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId;
+            """,
+            ownership);
+
+    private static async Task<int> CountOutboxAsync(NpgsqlConnection connection, Guid correlationId) =>
+        await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*)::int FROM outbox_items WHERE correlation_id = @CorrelationId;",
+            new { CorrelationId = correlationId });
+
+    private static async Task<long> ReadSessionVersionAsync(NpgsqlConnection connection, SessionOwnership ownership) =>
+        await connection.ExecuteScalarAsync<long>(
+            """
+            SELECT session_version
+            FROM session_runtimes
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId;
+            """,
+            ownership);
+
+    private sealed record ReadyPublication(
+        TrustedSessionBinding Binding,
+        TrustedRuntimeActor Actor,
+        string InvocationId,
+        long SessionVersion,
+        PostgresSessionRuntimeRepository Repository,
+        PostgresPublishAgentResponseCoordinator Publisher);
+
     private sealed class FaultInjectingAuditEventWriter : IAuditEventWriter
     {
         public Task InsertAsync(

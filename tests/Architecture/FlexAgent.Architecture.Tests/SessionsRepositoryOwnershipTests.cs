@@ -48,6 +48,7 @@ public sealed class SessionsRepositoryOwnershipTests
         AssertCoordinatorRejectsClientClocks(typeof(PostgresAcceptParticipantMessageCoordinator), "AcceptAsync");
         AssertCoordinatorRejectsClientClocks(typeof(PostgresCompleteInvocationCoordinator), "CompleteAsync");
         AssertCoordinatorRejectsClientClocks(typeof(PostgresPublishAgentResponseCoordinator), "PublishFragmentAsync");
+        AssertCoordinatorRejectsClientClocks(typeof(PostgresPublishAgentResponseCoordinator), "SealAsync");
     }
 
     private static void AssertCoordinatorRejectsClientClocks(Type coordinatorType, string methodName)
