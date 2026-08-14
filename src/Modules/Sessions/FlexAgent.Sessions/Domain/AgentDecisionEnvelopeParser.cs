@@ -98,7 +98,8 @@ public static class AgentDecisionEnvelopeParser
             }
 
             if (!TryParseOutputs(outputsElement, out var outputs)
-                || !TryParseActions(actionsElement, out var actions))
+                || !TryParseActions(actionsElement, out var actions)
+                || !TryReadOptionalPayloadRef(root, out var envelopePayloadRef))
             {
                 return Fail(EnvelopeParseOutcomeCodes.MalformedControl, ExecutionFailureReasons.MalformedControl);
             }
@@ -130,7 +131,8 @@ public static class AgentDecisionEnvelopeParser
                     disposition,
                     outputs,
                     actions,
-                    noActionReason));
+                    noActionReason,
+                    envelopePayloadRef));
         }
     }
 
@@ -156,7 +158,8 @@ public static class AgentDecisionEnvelopeParser
                 return false;
             }
 
-            if (!TryReadOptionalPayloadRef(item, out var payloadRef))
+            if (!TryReadOptionalPayloadRef(item, out var payloadRef)
+                || !TryParseReferences(item, out var references))
             {
                 outputs = [];
                 return false;
@@ -170,7 +173,8 @@ public static class AgentDecisionEnvelopeParser
                 ReadOptionalString(item, "response_slot_id"),
                 ReadOptionalString(item, "agent_output_id"),
                 ReadOptionalString(item, "audience"),
-                PayloadRef: payloadRef));
+                references,
+                payloadRef));
         }
 
         outputs = parsed;
@@ -224,6 +228,36 @@ public static class AgentDecisionEnvelopeParser
             }
         }
 
+        return true;
+    }
+
+    private static bool TryParseReferences(JsonElement item, out IReadOnlyList<OutputLocalReference>? references)
+    {
+        references = null;
+        if (!item.TryGetProperty("references", out var element))
+        {
+            return true;
+        }
+
+        if (element.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        var parsed = new List<OutputLocalReference>();
+        foreach (var reference in element.EnumerateArray())
+        {
+            if (reference.ValueKind != JsonValueKind.Object
+                || !TryReadRequiredString(reference, "relation", out var relation)
+                || !TryReadRequiredString(reference, "local_ref", out var localRef))
+            {
+                return false;
+            }
+
+            parsed.Add(new OutputLocalReference(relation, localRef));
+        }
+
+        references = parsed;
         return true;
     }
 

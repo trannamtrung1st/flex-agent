@@ -12,8 +12,15 @@ internal static class P0DecisionProfileValidator
 
         var outputs = new List<OutputItemValidation>(envelope.Outputs.Count);
         var acceptedMessageCount = 0;
+        var isNoAction = string.Equals(envelope.Disposition, DecisionDispositions.NoAction, StringComparison.Ordinal);
         foreach (var output in envelope.Outputs)
         {
+            if (isNoAction)
+            {
+                outputs.Add(RejectOutput(output, RejectionReasonCategories.PolicyProhibited));
+                continue;
+            }
+
             outputs.Add(ValidateOutput(output, ref acceptedMessageCount));
         }
 
@@ -31,7 +38,6 @@ internal static class P0DecisionProfileValidator
                 ? TimerValidationOutcomes.Rejected
                 : TimerValidationOutcomes.NotPresent;
 
-        var isNoAction = string.Equals(envelope.Disposition, DecisionDispositions.NoAction, StringComparison.Ordinal);
         if (isNoAction && !policy.NoActionPermitted)
         {
             return new P0ProfileValidation(

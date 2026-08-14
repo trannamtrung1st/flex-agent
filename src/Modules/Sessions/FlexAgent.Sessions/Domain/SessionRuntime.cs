@@ -743,8 +743,7 @@ public sealed class SessionRuntime
         var recommendation = invocation.Decision.Recommendation;
         if (recommendation is NoActionRecommendation
             || recommendation is EnvelopeRecommendation envelope
-                && string.Equals(envelope.Disposition, DecisionDispositions.NoAction, StringComparison.Ordinal)
-                && !HasAcceptedMessage(invocation.ValidationEffect))
+                && string.Equals(envelope.Disposition, DecisionDispositions.NoAction, StringComparison.Ordinal))
         {
             Turn? turn = null;
             if (IsParticipantTrigger(invocation.Trigger))

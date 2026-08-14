@@ -122,7 +122,8 @@ internal static class SessionRuntimeTestFixtures
         IReadOnlyList<OutputRecommendation>? outputs = null,
         IReadOnlyList<RequestedActionRecommendation>? requestedActions = null,
         string? noActionReasonCategory = null,
-        string? decisionId = null) =>
+        string? decisionId = null,
+        ProtectedContentRef? payloadRef = null) =>
         new(
             DecisionId: decisionId ?? Guid.NewGuid().ToString("N"),
             InvocationId: invocationId,
@@ -130,7 +131,8 @@ internal static class SessionRuntimeTestFixtures
             Disposition: disposition,
             Outputs: outputs ?? [],
             RequestedActions: requestedActions ?? [],
-            NoActionReasonCategory: noActionReasonCategory);
+            NoActionReasonCategory: noActionReasonCategory,
+            PayloadRef: payloadRef);
 
     internal static OutputRecommendation MessageOutput(
         string localRef = "out.message.primary",
@@ -138,7 +140,9 @@ internal static class SessionRuntimeTestFixtures
         string? turnId = "turn.1",
         string? responseSlotId = "slot.1",
         string? modelAgentOutputId = null,
-        string? audience = null) =>
+        string? audience = null,
+        IReadOnlyList<OutputLocalReference>? references = null,
+        ProtectedContentRef? payloadRef = null) =>
         new(
             AgentOutputKinds.Message,
             localRef,
@@ -146,7 +150,9 @@ internal static class SessionRuntimeTestFixtures
             turnId,
             responseSlotId,
             modelAgentOutputId,
-            audience);
+            audience,
+            references,
+            payloadRef);
 
     internal static OutputRecommendation VoiceOutput(string localRef = "out.voice.primary") =>
         new(AgentOutputKinds.Voice, localRef);

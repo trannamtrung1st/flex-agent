@@ -95,6 +95,8 @@ internal static class DecisionRecommendationDigestComputer
             writer.WriteString("no_action_reason_category", envelope.NoActionReasonCategory);
         }
 
+        WritePayloadRef(writer, envelope.PayloadRef);
+
         writer.WritePropertyName("outputs");
         writer.WriteStartArray();
         foreach (var output in envelope.Outputs)
@@ -105,6 +107,8 @@ internal static class DecisionRecommendationDigestComputer
             WriteOptional(writer, "audience", output.ModelAudience);
             WriteOptional(writer, "communication_purpose", output.CommunicationPurpose);
             WriteOptional(writer, "model_agent_output_id", output.ModelAgentOutputId);
+            WritePayloadRef(writer, output.PayloadRef);
+            WriteReferences(writer, output.References);
             WriteOptional(writer, "response_slot_id", output.ResponseSlotId);
             WriteOptional(writer, "turn_id", output.TurnId);
             writer.WriteEndObject();
@@ -121,6 +125,39 @@ internal static class DecisionRecommendationDigestComputer
             WriteOptional(writer, "expected_schedule_revision", action.ExpectedScheduleRevision);
             WriteOptional(writer, "relative_delay", action.RelativeDelay);
             writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
+    }
+
+    private static void WritePayloadRef(Utf8JsonWriter writer, ProtectedContentRef? payloadRef)
+    {
+        if (payloadRef is null)
+        {
+            writer.WriteNull("payload_ref");
+            return;
+        }
+
+        writer.WritePropertyName("payload_ref");
+        writer.WriteStartObject();
+        writer.WriteString("content_digest", payloadRef.ContentDigest);
+        writer.WriteString("protected_ref", payloadRef.ProtectedRef);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteReferences(Utf8JsonWriter writer, IReadOnlyList<OutputLocalReference>? references)
+    {
+        writer.WritePropertyName("references");
+        writer.WriteStartArray();
+        if (references is not null)
+        {
+            foreach (var reference in references)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("local_ref", reference.LocalRef);
+                writer.WriteString("relation", reference.Relation);
+                writer.WriteEndObject();
+            }
         }
 
         writer.WriteEndArray();

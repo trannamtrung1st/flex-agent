@@ -61,7 +61,8 @@ public sealed record EnvelopeRecommendation(
     string Disposition,
     IReadOnlyList<OutputRecommendation> Outputs,
     IReadOnlyList<RequestedActionRecommendation> RequestedActions,
-    string? NoActionReasonCategory = null)
+    string? NoActionReasonCategory = null,
+    ProtectedContentRef? PayloadRef = null)
     : DecisionRecommendation(
         DecisionId,
         InvocationId,

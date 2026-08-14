@@ -225,6 +225,142 @@ public sealed class DecisionEnvelopeTests
     }
 
     [Fact]
+    public void No_action_with_a_valid_message_rejects_the_message_and_does_not_publish()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            invocationId,
+            DecisionDispositions.NoAction,
+            [SessionRuntimeTestFixtures.MessageOutput()],
+            noActionReasonCategory: NoActionReasonCategories.IntentionalSilence);
+
+        var result = session.CompleteInvocation(
+            invocationId, envelope, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.NotNull(result.Decision);
+        Assert.Null(result.ExecutionOutcome);
+        Assert.Equal(DecisionValidationOutcomes.Accepted, result.ValidationEffect!.ValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NoDomainEffect, result.ValidationEffect.EffectOutcome);
+        Assert.False(result.PublicationPathClaimed);
+        var message = Assert.Single(result.ValidationEffect.OutputValidations);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, message.ValidationOutcome);
+        Assert.Equal(RejectionReasonCategories.PolicyProhibited, message.RejectionReasonCategory);
+        Assert.Null(message.AgentOutputId);
+        Assert.Equal(ResponseSlotStates.IntentionalNoAction, session.Turns[0].ResponseSlot.State);
+        Assert.DoesNotContain(session.VisibleTranscript, item => item.AuthorType == TranscriptAuthorTypes.Agent);
+    }
+
+    [Fact]
+    public void Parser_retains_envelope_payload_ref_and_output_references()
+    {
+        var json = """
+            {"schema_version":"v2","agent_decision_id":"adec.00000001","agent_invocation_id":"ainv.00000001","produced_at":"2026-08-14T00:00:00Z","disposition":"respond","outputs":[{"kind":"message","local_ref":"out.message.primary","communication_purpose":"reply","references":[{"relation":"continues","local_ref":"out.prior.primary"}]},{"kind":"voice","local_ref":"out.voice.primary","payload_ref":{"protected_ref":"pref.voice.1","content_digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}],"requested_actions":[],"payload_ref":{"protected_ref":"pref.envelope.1","content_digest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}
+            """;
+
+        var parsed = AgentDecisionEnvelopeParser.Parse(Encoding.UTF8.GetBytes(json));
+
+        Assert.True(parsed.Succeeded, parsed.OutcomeCode);
+        Assert.Equal("pref.envelope.1", parsed.Envelope!.PayloadRef!.ProtectedRef);
+        var message = Assert.Single(parsed.Envelope.Outputs, item => item.Kind == AgentOutputKinds.Message);
+        var reference = Assert.Single(message.References!);
+        Assert.Equal("continues", reference.Relation);
+        Assert.Equal("out.prior.primary", reference.LocalRef);
+        var voice = Assert.Single(parsed.Envelope.Outputs, item => item.Kind == AgentOutputKinds.Voice);
+        Assert.Equal("pref.voice.1", voice.PayloadRef!.ProtectedRef);
+    }
+
+    [Fact]
+    public void Recommendation_digest_changes_when_any_retained_envelope_field_changes()
+    {
+        var payload = new ProtectedContentRef(
+            "pref.envelope.1",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        var voicePayload = new ProtectedContentRef(
+            "pref.voice.1",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+        var baseline = SessionRuntimeTestFixtures.Envelope(
+            "ainv.00000001",
+            outputs:
+            [
+                SessionRuntimeTestFixtures.MessageOutput(
+                    references: [new OutputLocalReference("continues", "out.prior.primary")]),
+                SessionRuntimeTestFixtures.VoiceOutput() with { PayloadRef = voicePayload },
+            ],
+            requestedActions:
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.primary",
+                    "PT5M",
+                    "1"),
+            ],
+            decisionId: "adec.00000001",
+            payloadRef: payload);
+        var baselineDigest = DecisionRecommendationDigestComputer.Compute(baseline);
+
+        Assert.NotEqual(
+            baselineDigest,
+            DecisionRecommendationDigestComputer.Compute(
+                baseline with
+                {
+                    PayloadRef = payload with { ProtectedRef = "pref.envelope.2" },
+                }));
+        Assert.NotEqual(
+            baselineDigest,
+            DecisionRecommendationDigestComputer.Compute(
+                baseline with
+                {
+                    Outputs =
+                    [
+                        baseline.Outputs[0] with
+                        {
+                            References = [new OutputLocalReference("supersedes", "out.prior.primary")],
+                        },
+                        baseline.Outputs[1],
+                    ],
+                }));
+        Assert.NotEqual(
+            baselineDigest,
+            DecisionRecommendationDigestComputer.Compute(
+                baseline with
+                {
+                    Outputs =
+                    [
+                        baseline.Outputs[0],
+                        baseline.Outputs[1] with
+                        {
+                            PayloadRef = voicePayload with { ProtectedRef = "pref.voice.2" },
+                        },
+                    ],
+                }));
+        Assert.NotEqual(
+            baselineDigest,
+            DecisionRecommendationDigestComputer.Compute(
+                baseline with
+                {
+                    Outputs =
+                    [
+                        baseline.Outputs[0] with { CommunicationPurpose = "closing_summary" },
+                        baseline.Outputs[1],
+                    ],
+                }));
+        Assert.NotEqual(
+            baselineDigest,
+            DecisionRecommendationDigestComputer.Compute(
+                baseline with
+                {
+                    RequestedActions =
+                    [
+                        baseline.RequestedActions[0] with { RelativeDelay = "PT6M" },
+                    ],
+                }));
+    }
+
+    [Fact]
     public void Parser_rejects_voice_speech_semantics_as_malformed_control()
     {
         var json = """
