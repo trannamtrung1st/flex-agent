@@ -380,7 +380,10 @@ Connection states such as `Connecting`, `Connected`, `Reconnecting`, and `Offlin
   reject each extra message independently. Each prohibited kind, extra item, or
   unauthorized audience produces no effect for that item, must not enable a
   deferred channel, and must not fabricate `no_action` or void an otherwise
-  valid sibling output or requested action.
+  valid sibling output or requested action. Known typed output kinds that P0
+  prohibits, including `voice`, must remain representable in a schema-valid
+  Decision envelope; their P0 denial is frozen-profile and capability
+  validation of that item, not envelope or schema failure.
 - `REQ-SESS-80` — Historical v1 `emit_message` must remain reconstructable as
   disposition `respond` plus one `message` output. Historical v1 `no_action`
   must remain reconstructable as explicit `no_action` plus zero presentation
@@ -1020,8 +1023,8 @@ Audit and manifest records use protected message, content, and transcript refere
 ### `AC-SESS-48` — Valid and invalid items in one Decision are independent
 
 - **Given** a schema-valid Decision with disposition `respond`, one permitted
-  Participant `message` output, one prohibited `voice` output, and an optional
-  permitted next-timer recommendation
+  Participant `message` output, one typed prohibited `voice` output that is
+  envelope-valid, and an optional permitted next-timer recommendation
 - **When** the runtime validates outputs and requested actions independently
 - **Then** the permitted message output is accepted and published under
   ADR-011

@@ -379,6 +379,9 @@ blocker.
   favor of independent item validation; split schema-invalid execution from
   Decision rejection in `AC-SESS-43`; corrected stale Text Session v0.4 catalog
   references.
+- Follow-up review: documented `.work/resources/` as non-authoritative; recorded
+  that successor schema must parse typed `voice` as a valid envelope item that
+  fails P0 profile validation (`REQ-SESS-79`, `SESS-DEC-31`, ADR-014).
 
 # Verification
 

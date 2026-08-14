@@ -551,7 +551,9 @@ and test reviews have no unresolved blocking findings.
   observed red-green-refactor. Consume the ADR-014 successor Decision envelope
   and P0 profile (0–1 accepted `message` output, 0 accepted `voice`, explicit
   disposition, runtime-owned output ids, independent output and requested-action
-  validation with partial rejection). Dual-read
+  validation with partial rejection). The successor envelope must parse typed
+  `voice` as a schema-valid output that then fails frozen P0 profile validation;
+  do not omit `voice` from the schema so parse rejects the Decision. Dual-read
   historical v1 `emit_message`/`no_action`. Prove structured control/content
   phase separation, bounded provider requests within one Invocation,
   cancellation, transient/permanent failure classification,
@@ -707,7 +709,9 @@ restore wait on those later surfaces.
   `no_action`, independent next-timer requested action, and reconstructable
   historical v1 `emit_message`/`no_action`. Outputs and requested actions are
   validated and effected independently (partial rejection); schema-invalid
-  output is an Invocation execution outcome with no Decision. Provider, worker,
+  output is an Invocation execution outcome with no Decision. The successor
+  schema must represent typed `voice` so P0 denial is profile/capability
+  validation of that item (`AC-SESS-48`), not envelope parse. Provider, worker,
   and message-stream code must consume that envelope rather than treating v1
   `decision_type` as the future shape.
 - Keep this task's release boundary unchanged:

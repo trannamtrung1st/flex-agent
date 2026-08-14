@@ -4,6 +4,20 @@
 
 Permanent truth lives in approved specs under `docs/`, ADRs, code, tests, migrations, and durable developer documentation such as `AGENTS.md` and `docs/contributing/development-harness.md`.
 
+## Directory structure
+
+```text
+.work/
+├── active/      # task execution state (one file per implementation task)
+├── resources/   # non-authoritative source, proposal, or reference material used by tasks
+└── templates/   # task templates
+```
+
+`.work/resources/` holds inputs such as planning proposals that a task consumes
+before promotion. Those files **must not** become product, requirements, UI/UX,
+or architecture authority. Promote durable decisions into approved artifacts
+under `docs/` (or ADRs) before implementation treats them as governing.
+
 ## When a task file is required
 
 Create `.work/active/<task-slug>.md` for substantive implementation work, such as:
@@ -99,6 +113,8 @@ Tracked for implementation collaboration and external review:
 - `.work/README.md`
 - `.work/templates/`
 - `.work/active/`, including live and retained completed task files
+- `.work/resources/`, non-authoritative source or proposal material (not
+  product, requirements, UI/UX, or architecture authority)
 
 Nothing under `.work/` is intentionally ignored. Before adding or updating a task file, ensure it contains no secrets, credentials, sensitive participant data, or unnecessary raw output.
 

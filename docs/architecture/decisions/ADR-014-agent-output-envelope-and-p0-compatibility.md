@@ -146,7 +146,16 @@ discriminator profile.
 
 The runtime task must introduce an explicit successor contract (v2 Decision
 envelope or an additive versioned profile with a distinct schema id) before
-provider and worker seams consume Decision shape. Dual-read is required:
+provider and worker seams consume Decision shape.
+
+The successor envelope must keep known typed output kinds, including `voice`,
+syntactically representable. A P0 Decision that recommends `voice` remains a
+schema-valid Agent Decision when the envelope is otherwise complete; the
+`voice` item fails frozen P0 profile and capability validation and has no
+effect. Omitting `voice` from the envelope schema would collapse
+`AC-SESS-48` into whole-Decision parse failure and is prohibited.
+
+Dual-read is required:
 
 - persisted v1 rows remain readable as the mapped P0 profile;
 - new writes use the approved successor once that schema exists;
@@ -272,6 +281,8 @@ or the execution manifest.
 ## Verification required before implementation acceptance
 
 - Successor schema compatibility fixtures plus lossless v1 dual-read mapping.
+  Typed `voice` must parse as a schema-valid output item and fail P0
+  profile/capability validation (`AC-SESS-48`), not envelope parse.
 - P0 cardinality tests: zero or one message, zero voice, timer independence.
 - Empty outputs without explicit `no_action`: schema-invalid output is an
   execution outcome; a schema-valid `respond` with zero valid outputs is a
