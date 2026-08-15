@@ -448,12 +448,14 @@ public sealed class AgentResponseFragment
         int fragmentOrdinal,
         long sessionSequence,
         string exactUtf8Text,
-        string contentDigest)
+        string contentDigest,
+        DateTimeOffset committedAt = default)
     {
         FragmentOrdinal = fragmentOrdinal;
         SessionSequence = sessionSequence;
         ExactUtf8Text = exactUtf8Text;
         ContentDigest = contentDigest;
+        CommittedAt = committedAt == default ? DateTimeOffset.UnixEpoch : committedAt;
         PendingInsert = true;
     }
 
@@ -464,6 +466,8 @@ public sealed class AgentResponseFragment
     public string ExactUtf8Text { get; }
 
     public string ContentDigest { get; }
+
+    public DateTimeOffset CommittedAt { get; }
 
     internal bool PendingInsert { get; private set; }
 
@@ -505,7 +509,9 @@ public sealed class AgentResponseMessage
         string completionState,
         string? assembledContentDigest,
         IReadOnlyList<AgentResponseFragment> fragments,
-        string? acceptedAgentOutputId = null)
+        string? acceptedAgentOutputId = null,
+        long? sealedSessionSequence = null,
+        DateTimeOffset? sealedAt = null)
     {
         var message = new AgentResponseMessage(
             messageId,
@@ -517,6 +523,8 @@ public sealed class AgentResponseMessage
             acceptedAgentOutputId);
         message.CompletionState = completionState;
         message.AssembledContentDigest = assembledContentDigest;
+        message.SealedSessionSequence = sealedSessionSequence;
+        message.SealedAt = sealedAt;
         message.PendingInsert = false;
         message.SealDirty = false;
         foreach (var fragment in fragments)
@@ -545,6 +553,10 @@ public sealed class AgentResponseMessage
 
     public string? AssembledContentDigest { get; private set; }
 
+    public long? SealedSessionSequence { get; private set; }
+
+    public DateTimeOffset? SealedAt { get; private set; }
+
     internal bool PendingInsert { get; private set; }
 
     internal bool SealDirty { get; private set; }
@@ -569,22 +581,29 @@ public sealed class AgentResponseMessage
 
     public string AssembleExactText() => string.Concat(_fragments.Select(fragment => fragment.ExactUtf8Text));
 
-    internal AgentResponseFragment AppendFragment(int fragmentOrdinal, long sessionSequence, string exactUtf8Text)
+    internal AgentResponseFragment AppendFragment(
+        int fragmentOrdinal,
+        long sessionSequence,
+        string exactUtf8Text,
+        DateTimeOffset committedAt)
     {
         var fragment = new AgentResponseFragment(
             fragmentOrdinal,
             sessionSequence,
             exactUtf8Text,
-            ProtectedContentRef.DigestUtf8(exactUtf8Text));
+            ProtectedContentRef.DigestUtf8(exactUtf8Text),
+            committedAt);
         _fragments.Add(fragment);
         _pendingInserts.Enqueue(fragment);
         return fragment;
     }
 
-    internal void Seal(string completionState)
+    internal void Seal(string completionState, long sealedSessionSequence, DateTimeOffset sealedAt)
     {
         CompletionState = completionState;
         AssembledContentDigest = ProtectedContentRef.DigestUtf8(AssembleExactText());
+        SealedSessionSequence = sealedSessionSequence;
+        SealedAt = sealedAt;
         SealDirty = true;
     }
 

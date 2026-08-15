@@ -1153,6 +1153,24 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         Assert.Contains("generation_attempt_id", columns);
     }
 
+    [Fact]
+    public async Task Agent_messages_store_seal_session_sequence()
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var columns = (await connection.QueryAsync<string>(
+            new CommandDefinition(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'session_messages';
+                """,
+                cancellationToken: CancellationToken))).AsList();
+
+        Assert.Contains("sealed_session_sequence", columns);
+        Assert.Contains("sealed_at", columns);
+    }
+
     private async Task<SeededRuntime> SeedRuntimeAsync()
     {
         var organization = await Fixture.SeedOrganizationAsync();

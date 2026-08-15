@@ -101,7 +101,7 @@ public sealed class PostgresSessionRuntimeRepository
     private const string LoadAgentMessagesSql = """
         SELECT message_id, generation_attempt_id, driving_invocation_id, driving_decision_id,
                turn_id, response_slot_id, completion_state, assembled_content_digest,
-               accepted_agent_output_id
+               accepted_agent_output_id, sealed_session_sequence, sealed_at
         FROM session_messages
         WHERE organization_id = @OrganizationId
           AND activity_id = @ActivityId
@@ -113,7 +113,7 @@ public sealed class PostgresSessionRuntimeRepository
         """;
 
     private const string LoadAgentFragmentsSql = """
-        SELECT message_id, fragment_ordinal, session_sequence, exact_utf8_text, content_digest
+        SELECT message_id, fragment_ordinal, session_sequence, exact_utf8_text, content_digest, committed_at
         FROM session_message_fragments
         WHERE organization_id = @OrganizationId
           AND activity_id = @ActivityId
@@ -284,12 +284,14 @@ public sealed class PostgresSessionRuntimeRepository
             organization_id, activity_id, participant_id, attempt_id, session_id,
             message_id, author_type, turn_id, protected_ref, content_digest, completion_state,
             generation_attempt_id, driving_invocation_id, driving_decision_id,
-            accepted_agent_output_id, assembled_content_digest, response_slot_id)
+            accepted_agent_output_id, assembled_content_digest, response_slot_id,
+            sealed_session_sequence, sealed_at)
         VALUES (
             @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
             @MessageId, 'agent', @TurnId, @ProtectedRef, @ContentDigest, @CompletionState,
             @GenerationAttemptId, @DrivingInvocationId, @DrivingDecisionId,
-            @AcceptedAgentOutputId, @AssembledContentDigest, @ResponseSlotId)
+            @AcceptedAgentOutputId, @AssembledContentDigest, @ResponseSlotId,
+            @SealedSessionSequence, @SealedAt)
         ON CONFLICT (organization_id, session_id, message_id) DO NOTHING;
         """;
 
@@ -297,7 +299,9 @@ public sealed class PostgresSessionRuntimeRepository
         UPDATE session_messages
         SET
             completion_state = @CompletionState,
-            assembled_content_digest = @AssembledContentDigest
+            assembled_content_digest = @AssembledContentDigest,
+            sealed_session_sequence = @SealedSessionSequence,
+            sealed_at = @SealedAt
         WHERE organization_id = @OrganizationId
           AND activity_id = @ActivityId
           AND participant_id = @ParticipantId
@@ -306,7 +310,9 @@ public sealed class PostgresSessionRuntimeRepository
           AND message_id = @MessageId
           AND (
               completion_state IS DISTINCT FROM @CompletionState
-              OR assembled_content_digest IS DISTINCT FROM @AssembledContentDigest);
+              OR assembled_content_digest IS DISTINCT FROM @AssembledContentDigest
+              OR sealed_session_sequence IS DISTINCT FROM @SealedSessionSequence
+              OR sealed_at IS DISTINCT FROM @SealedAt);
         """;
 
     private const string InsertAgentFragmentSql = """
@@ -720,7 +726,8 @@ public sealed class PostgresSessionRuntimeRepository
                         fragment.fragment_ordinal,
                         fragment.session_sequence,
                         fragment.exact_utf8_text,
-                        fragment.content_digest))
+                        fragment.content_digest,
+                        ToUtc(fragment.committed_at)))
                     .ToArray();
                 return AgentResponseMessage.Rehydrate(
                     item.message_id,
@@ -732,7 +739,9 @@ public sealed class PostgresSessionRuntimeRepository
                     item.completion_state,
                     item.assembled_content_digest,
                     fragments,
-                    item.accepted_agent_output_id);
+                    item.accepted_agent_output_id,
+                    item.sealed_session_sequence,
+                    item.sealed_at is null ? null : ToUtc(item.sealed_at.Value));
             })
             .ToArray();
 
@@ -1292,6 +1301,8 @@ public sealed class PostgresSessionRuntimeRepository
                             AcceptedAgentOutputId = message.AcceptedAgentOutputId,
                             message.AssembledContentDigest,
                             message.ResponseSlotId,
+                            message.SealedSessionSequence,
+                            SealedAt = message.SealedAt?.UtcDateTime,
                         },
                         transaction,
                         cancellationToken: cancellationToken));
@@ -1313,6 +1324,8 @@ public sealed class PostgresSessionRuntimeRepository
                             message.MessageId,
                             message.CompletionState,
                             message.AssembledContentDigest,
+                            message.SealedSessionSequence,
+                            SealedAt = message.SealedAt?.UtcDateTime,
                         },
                         transaction,
                         cancellationToken: cancellationToken));
@@ -1641,14 +1654,17 @@ public sealed class PostgresSessionRuntimeRepository
         string response_slot_id,
         string completion_state,
         string? assembled_content_digest,
-        string? accepted_agent_output_id);
+        string? accepted_agent_output_id,
+        long? sealed_session_sequence,
+        DateTime? sealed_at);
 
     private sealed record SessionAgentFragmentRow(
         string message_id,
         int fragment_ordinal,
         long session_sequence,
         string exact_utf8_text,
-        string content_digest);
+        string content_digest,
+        DateTime committed_at);
 
     private sealed record SessionAttemptRow(
         string agent_invocation_id,

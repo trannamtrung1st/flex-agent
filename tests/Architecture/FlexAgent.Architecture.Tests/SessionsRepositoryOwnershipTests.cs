@@ -20,6 +20,7 @@ public sealed class SessionsRepositoryOwnershipTests
             "TrySaveAgentResponsePublicationAsync",
             "CountInvocationsAsync",
             "ListInvocationIdsAsync",
+            "LoadSnapshotAsync",
         };
 
         foreach (var methodName in scopedMethods)
@@ -49,6 +50,7 @@ public sealed class SessionsRepositoryOwnershipTests
         AssertCoordinatorRejectsClientClocks(typeof(PostgresCompleteInvocationCoordinator), "CompleteAsync");
         AssertCoordinatorRejectsClientClocks(typeof(PostgresPublishAgentResponseCoordinator), "PublishFragmentAsync");
         AssertCoordinatorRejectsClientClocks(typeof(PostgresPublishAgentResponseCoordinator), "SealAsync");
+        AssertCoordinatorRejectsClientClocks(typeof(PostgresReplayAuthorizedSessionEventsCoordinator), "ReplayAsync");
     }
 
     private static void AssertCoordinatorRejectsClientClocks(Type coordinatorType, string methodName)

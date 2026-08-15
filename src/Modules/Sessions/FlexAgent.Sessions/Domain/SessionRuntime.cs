@@ -948,7 +948,8 @@ public sealed class SessionRuntime
             var appended = existing.AppendFragment(
                 commit.FragmentOrdinal,
                 NextSequence(authoritativeUtc),
-                commit.ExactUtf8Text);
+                commit.ExactUtf8Text,
+                authoritativeUtc);
             TrackPublication(existing);
             Touch(authoritativeUtc);
             return new AgentResponseFragmentCommitResult(
@@ -987,7 +988,7 @@ public sealed class SessionRuntime
             turn.TurnId,
             turn.ResponseSlot.ResponseSlotId,
             acceptedOutputId);
-        var fragment = message.AppendFragment(1, NextSequence(authoritativeUtc), commit.ExactUtf8Text);
+        var fragment = message.AppendFragment(1, NextSequence(authoritativeUtc), commit.ExactUtf8Text, authoritativeUtc);
         _agentMessages.Add(message);
         TrackPublication(message);
         var agentTranscript = new VisibleTranscriptItemRef(
@@ -1357,7 +1358,8 @@ public sealed class SessionRuntime
         string completionState,
         DateTimeOffset authoritativeUtc)
     {
-        message.Seal(completionState);
+        var sealedSessionSequence = NextSequence(authoritativeUtc);
+        message.Seal(completionState, sealedSessionSequence, authoritativeUtc);
         TrackPublication(message);
         var turn = FindTurn(message.TurnId);
         if (turn is { State: TurnStates.WorkQueued })
@@ -1366,7 +1368,6 @@ public sealed class SessionRuntime
             TrackTurn(turn);
         }
 
-        NextSequence(authoritativeUtc);
         Touch(authoritativeUtc);
         return new AgentResponseFragmentCommitResult(
             true,

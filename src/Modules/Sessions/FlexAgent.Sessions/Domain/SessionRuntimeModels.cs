@@ -389,6 +389,38 @@ public sealed record AgentResponseFragmentCommitResult(
     AgentResponseFragment? Fragment = null,
     bool AgentMessagePublished = false);
 
+public static class AuthorizedSessionEventTypes
+{
+    public const string AgentFragment = "session.agent.fragment.v1";
+    public const string AgentComplete = "session.agent.complete.v1";
+}
+
+public static class SessionEventReplayOutcomeCodes
+{
+    public const string Succeeded = "session_event_replay.succeeded";
+    public const string Reconcile = "session_event_replay.reconcile";
+    public const string Denied = "session_event_replay.denied";
+    public const string OwnershipMismatch = "session_event_replay.ownership_mismatch";
+}
+
+public sealed record AuthorizedSessionProjectionEvent(
+    string EventType,
+    string SessionId,
+    string SessionSequence,
+    string OccurredAt,
+    string Summary,
+    int? FragmentSequence = null,
+    string? AgentMessageId = null,
+    string? TextDelta = null,
+    string? AssembledContentDigest = null,
+    int? FragmentCount = null);
+
+public sealed record AuthorizedSessionEventReplayResult(
+    bool Succeeded,
+    string OutcomeCode,
+    IReadOnlyList<AuthorizedSessionProjectionEvent> Events,
+    bool HasMore = false);
+
 public sealed record InvocationContextAssembleResult(
     bool Succeeded,
     string OutcomeCode,
