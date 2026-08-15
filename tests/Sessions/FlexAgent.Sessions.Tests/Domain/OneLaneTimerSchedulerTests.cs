@@ -249,6 +249,39 @@ public sealed class OneLaneTimerSchedulerTests
     }
 
     [Fact]
+    public void Recovered_claimed_revision_stays_due_even_when_stored_remaining_is_positive()
+    {
+        var binding = SessionRuntimeTestFixtures.CreateBinding();
+        var claimed = TimerScheduleRevision.Rehydrate(
+            "tsrev.claimed",
+            1,
+            TimerLaneStates.Claimed,
+            "PT5M",
+            remainingActiveSeconds: 300,
+            dueAt: SessionRuntimeTestFixtures.T0.AddMinutes(5),
+            remainingSince: SessionRuntimeTestFixtures.T0,
+            TimerRequestedByCategories.DefaultCadence,
+            drivingDecisionId: null,
+            firedInvocationId: null,
+            SessionRuntimeTestFixtures.T0);
+        var session = SessionRuntime.Rehydrate(
+            binding,
+            SessionLifecycleState.Active,
+            sessionVersion: 0,
+            sessionSequence: 0,
+            cutoffSequence: null,
+            SessionRuntimeTestFixtures.T0,
+            timerSchedules: [claimed]);
+
+        var result = session.FireDueTimer(1, SessionRuntimeTestFixtures.T0.AddMinutes(5));
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(TimerFireOutcomeCodes.Succeeded, result.OutcomeCode);
+        Assert.Equal(TimerLaneStates.Fired, session.CurrentTimerLane!.LaneState);
+        Assert.Single(session.Invocations);
+    }
+
+    [Fact]
     public void Fire_due_before_remaining_active_delay_elapses_does_not_mutate()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();

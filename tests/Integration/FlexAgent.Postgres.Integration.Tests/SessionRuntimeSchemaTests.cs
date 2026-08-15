@@ -52,6 +52,29 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
     }
 
     [Fact]
+    public async Task Timer_schedules_store_contract_lane_state_and_remaining_delay()
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var columns = (await connection.QueryAsync<string>(
+            new CommandDefinition(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'session_timer_schedules';
+                """,
+                cancellationToken: CancellationToken))).AsList();
+
+        Assert.Contains("lane_state", columns);
+        Assert.Contains("schedule_revision_ordinal", columns);
+        Assert.Contains("remaining_active_seconds", columns);
+        Assert.Contains("remaining_since", columns);
+        Assert.Contains("requested_by_category", columns);
+        Assert.Contains("created_at", columns);
+        Assert.Contains("fired_invocation_id", columns);
+    }
+
+    [Fact]
     public async Task Decision_validation_distinguishes_observed_state_from_commit_state()
     {
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);

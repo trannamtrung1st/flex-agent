@@ -104,6 +104,9 @@ public sealed partial class SessionRuntime
 
     internal IReadOnlyCollection<VisibleTranscriptItemRef> PendingTranscript => _pendingTranscript;
 
+    internal IEnumerable<TimerScheduleRevision> DirtyTimerSchedules =>
+        _timerSchedules.Where(revision => revision.PendingInsert || revision.IsDirty);
+
     public static SessionRuntime CreateActive(TrustedSessionBinding binding, DateTimeOffset startedAt)
     {
         ArgumentNullException.ThrowIfNull(binding);

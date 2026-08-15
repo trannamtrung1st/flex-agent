@@ -1205,12 +1205,13 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
         var voice = Assert.Single(
             loadedInvocation.ValidationEffect.OutputValidations,
             item => item.Kind == AgentOutputKinds.Voice);
+        var timerAction = Assert.Single(loadedInvocation.ValidationEffect.RequestedActionValidations);
         Assert.Equal(DecisionValidationOutcomes.Accepted, message.ValidationOutcome);
         Assert.Equal(DecisionEffectOutcomes.Applied, message.EffectOutcome);
         Assert.StartsWith("aout.", message.AgentOutputId);
         Assert.Equal(DecisionValidationOutcomes.Rejected, voice.ValidationOutcome);
         Assert.Equal(DecisionEffectOutcomes.NotAttempted, voice.EffectOutcome);
-        Assert.Equal(DecisionEffectOutcomes.NotAttempted, Assert.Single(loadedInvocation.ValidationEffect.RequestedActionValidations).EffectOutcome);
+        Assert.Equal(DecisionEffectOutcomes.Applied, timerAction.EffectOutcome);
         Assert.Equal(completed.Decision!.PayloadDigest, loadedInvocation.Decision!.PayloadDigest);
         Assert.Equal(
             completed.Decision.PayloadDigest,

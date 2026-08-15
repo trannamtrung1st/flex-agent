@@ -115,6 +115,7 @@ public static class TimerFireOutcomeCodes
 {
     public const string Succeeded = "timer_fire.succeeded";
     public const string Reconciled = "timer_fire.reconciled";
+    public const string Idle = "timer_fire.idle";
     public const string NotDue = "timer_fire.not_due";
     public const string LifecycleIneligible = "timer_fire.lifecycle_ineligible";
     public const string BudgetExhausted = "timer_fire.budget_exhausted";
@@ -131,6 +132,7 @@ public sealed record TimerFireResult(
 
 public static class SessionRuntimeAuditActions
 {
+    public const string FireDueTimer = "session.timer_lane.fire";
     public const string AdmitTrustedTrigger = "session.trusted_trigger.admit";
     public const string AcceptParticipantMessage = "session.participant_message.accept";
     public const string CompleteInvocation = "session.invocation.complete";
@@ -145,6 +147,7 @@ public static class SessionRuntimeResourceTypes
 
 public static class SessionRuntimeOutboxEventTypes
 {
+    public const string TimerLaneFired = "session.timer_lane.fired";
     public const string TrustedTriggerAdmitted = "session.trusted_trigger.admitted";
     public const string ParticipantMessageAccepted = "session.participant_message.accepted";
     public const string InvocationCompleted = "session.invocation.completed";

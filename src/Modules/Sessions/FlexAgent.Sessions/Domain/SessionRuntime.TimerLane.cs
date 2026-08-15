@@ -50,7 +50,8 @@ public sealed partial class SessionRuntime
             return new TimerFireResult(false, TimerFireOutcomeCodes.StaleRevision, targeted);
         }
 
-        if (targeted.RemainingAt(authoritativeUtc, isActive: true) > 0)
+        if (targeted.LaneState != TimerLaneStates.Claimed
+            && targeted.RemainingAt(authoritativeUtc, isActive: true) > 0)
         {
             return new TimerFireResult(false, TimerFireOutcomeCodes.NotDue, targeted);
         }

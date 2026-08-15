@@ -657,6 +657,39 @@ public sealed class TimerScheduleRevision
         RequestedByCategory = requestedByCategory;
         DrivingDecisionId = drivingDecisionId;
         CreatedAt = createdAt;
+        PendingInsert = true;
+    }
+
+    internal static TimerScheduleRevision Rehydrate(
+        string scheduleRevisionId,
+        long scheduleRevision,
+        string laneState,
+        string relativeDelay,
+        int remainingActiveSeconds,
+        DateTimeOffset? dueAt,
+        DateTimeOffset remainingSince,
+        string requestedByCategory,
+        string? drivingDecisionId,
+        string? firedInvocationId,
+        DateTimeOffset createdAt)
+    {
+        var revision = new TimerScheduleRevision(
+            scheduleRevisionId,
+            scheduleRevision,
+            relativeDelay,
+            remainingActiveSeconds,
+            dueAt,
+            remainingSince,
+            requestedByCategory,
+            drivingDecisionId,
+            createdAt)
+        {
+            LaneState = laneState,
+            FiredInvocationId = firedInvocationId,
+            PendingInsert = false,
+            IsDirty = false,
+        };
+        return revision;
     }
 
     public string ScheduleRevisionId { get; }
@@ -681,6 +714,10 @@ public sealed class TimerScheduleRevision
 
     internal DateTimeOffset RemainingSince { get; private set; }
 
+    internal bool PendingInsert { get; private set; }
+
+    internal bool IsDirty { get; private set; }
+
     internal bool IsOpen =>
         LaneState is TimerLaneStates.Pending or TimerLaneStates.Claimed;
 
@@ -700,21 +737,28 @@ public sealed class TimerScheduleRevision
         RemainingActiveSeconds = RemainingAt(utc, wasActive);
         RemainingSince = utc;
         DueAt = null;
+        IsDirty = true;
     }
 
     internal void ResumeRemaining(DateTimeOffset utc)
     {
         RemainingSince = utc;
         DueAt = RemainingActiveSeconds > 0 ? utc.AddSeconds(RemainingActiveSeconds) : utc;
+        IsDirty = true;
     }
 
-    internal void Claim() => LaneState = TimerLaneStates.Claimed;
+    internal void Claim()
+    {
+        LaneState = TimerLaneStates.Claimed;
+        IsDirty = true;
+    }
 
     internal void Unclaim()
     {
         if (LaneState == TimerLaneStates.Claimed)
         {
             LaneState = TimerLaneStates.Pending;
+            IsDirty = true;
         }
     }
 
@@ -724,9 +768,14 @@ public sealed class TimerScheduleRevision
         FiredInvocationId = invocationId;
         RemainingActiveSeconds = 0;
         DueAt = null;
+        IsDirty = true;
     }
 
-    internal void Supersede() => LaneState = TimerLaneStates.Superseded;
+    internal void Supersede()
+    {
+        LaneState = TimerLaneStates.Superseded;
+        IsDirty = true;
+    }
 
     internal void Cancel()
     {
@@ -734,6 +783,13 @@ public sealed class TimerScheduleRevision
         {
             LaneState = TimerLaneStates.Cancelled;
             DueAt = null;
+            IsDirty = true;
         }
+    }
+
+    internal void MarkPersisted()
+    {
+        PendingInsert = false;
+        IsDirty = false;
     }
 }

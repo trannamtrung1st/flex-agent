@@ -123,6 +123,59 @@ public sealed class PostgresSessionRuntimeRepository
         ORDER BY message_id, fragment_ordinal;
         """;
 
+    private const string LoadTimerSchedulesSql = """
+        SELECT
+            schedule_revision,
+            schedule_revision_ordinal,
+            state,
+            lane_state,
+            relative_delay,
+            remaining_active_seconds,
+            remaining_since,
+            fire_at,
+            requested_by_category,
+            source_decision_id,
+            fired_invocation_id,
+            created_at
+        FROM session_timer_schedules
+        WHERE organization_id = @OrganizationId
+          AND activity_id = @ActivityId
+          AND participant_id = @ParticipantId
+          AND attempt_id = @AttemptId
+          AND session_id = @SessionId
+        ORDER BY schedule_revision_ordinal, schedule_revision;
+        """;
+
+    private const string InsertTimerScheduleSql = """
+        INSERT INTO session_timer_schedules (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            schedule_revision, schedule_revision_ordinal, state, lane_state, relative_delay,
+            remaining_active_seconds, remaining_since, fire_at, requested_by_category,
+            source_decision_id, fired_invocation_id, created_at)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @ScheduleRevisionId, @ScheduleRevisionOrdinal, @State, @LaneState, @RelativeDelay,
+            @RemainingActiveSeconds, @RemainingSince, @FireAt, @RequestedByCategory,
+            @SourceDecisionId, @FiredInvocationId, @CreatedAt);
+        """;
+
+    private const string UpdateTimerScheduleSql = """
+        UPDATE session_timer_schedules
+        SET
+            state = @State,
+            lane_state = @LaneState,
+            remaining_active_seconds = @RemainingActiveSeconds,
+            remaining_since = @RemainingSince,
+            fire_at = @FireAt,
+            fired_invocation_id = @FiredInvocationId
+        WHERE organization_id = @OrganizationId
+          AND activity_id = @ActivityId
+          AND participant_id = @ParticipantId
+          AND attempt_id = @AttemptId
+          AND session_id = @SessionId
+          AND schedule_revision = @ScheduleRevisionId;
+        """;
+
     private const string LoadAttemptsSql = """
         SELECT agent_invocation_id, attempt_ordinal, outcome_category, agent_decision_id
         FROM session_invocation_attempts
@@ -559,6 +612,7 @@ public sealed class PostgresSessionRuntimeRepository
                 cancellationToken: cancellationToken)));
 
         session.ReplaceLastCommittedAtFromDatabase(lastCommittedAt);
+        await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
     }
 
     public Task<SessionRuntime?> LoadForUpdateAsync(
@@ -638,6 +692,8 @@ public sealed class PostgresSessionRuntimeRepository
             new CommandDefinition(LoadAgentMessagesSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
         var agentFragmentRows = (await connection.QueryAsync<SessionAgentFragmentRow>(
             new CommandDefinition(LoadAgentFragmentsSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
+        var timerRows = (await connection.QueryAsync<SessionTimerScheduleRow>(
+            new CommandDefinition(LoadTimerSchedulesSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
 
         var invocations = invocationRows
             .Select(item => AgentInvocation.Rehydrate(
@@ -756,7 +812,8 @@ public sealed class PostgresSessionRuntimeRepository
             turns,
             transcript,
             lastAdmittedAtByFamily,
-            agentMessages);
+            agentMessages,
+            timerRows.Select(ToTimerSchedule).ToArray());
     }
 
     public async Task<bool> TrySaveAdmissionAsync(
@@ -828,6 +885,7 @@ public sealed class PostgresSessionRuntimeRepository
                 },
                 transaction,
                 cancellationToken: cancellationToken));
+        await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
         return true;
     }
 
@@ -859,6 +917,7 @@ public sealed class PostgresSessionRuntimeRepository
         }
 
         await PersistTurnsAndTranscriptAsync(ownership, session, transaction, cancellationToken);
+        await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
         foreach (var attempt in invocation.Attempts)
         {
             await connection.ExecuteAsync(
@@ -1165,7 +1224,35 @@ public sealed class PostgresSessionRuntimeRepository
         }
 
         await PersistTurnsAndTranscriptAsync(ownership, session, transaction, cancellationToken);
+        await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
         await PersistAgentMessagesAsync(ownership, session, transaction, cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> TrySaveLifecycleAsync(
+        SessionOwnership ownership,
+        long expectedSessionVersion,
+        SessionRuntime session,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(ownership);
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(transaction);
+        EnsureOwnership(ownership, session.Ownership);
+
+        var updated = await RequireConnection(transaction).ExecuteAsync(
+            new CommandDefinition(
+                UpdateHeadSql,
+                HeadParameters(ownership, session, expectedSessionVersion),
+                transaction,
+                cancellationToken: cancellationToken));
+        if (updated != 1)
+        {
+            return false;
+        }
+
+        await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
         return true;
     }
 
@@ -1265,6 +1352,104 @@ public sealed class PostgresSessionRuntimeRepository
         }
 
         session.ClearPendingTranscript();
+    }
+
+    private async Task PersistTimerSchedulesAsync(
+        SessionOwnership ownership,
+        SessionRuntime session,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var connection = RequireConnection(transaction);
+        foreach (var revision in session.DirtyTimerSchedules)
+        {
+            var parameters = TimerScheduleParameters(ownership, revision);
+            if (revision.PendingInsert)
+            {
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        InsertTimerScheduleSql,
+                        parameters,
+                        transaction,
+                        cancellationToken: cancellationToken));
+            }
+            else
+            {
+                var updated = await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        UpdateTimerScheduleSql,
+                        parameters,
+                        transaction,
+                        cancellationToken: cancellationToken));
+                if (updated != 1)
+                {
+                    throw new InvalidOperationException(
+                        $"Timer schedule '{revision.ScheduleRevisionId}' was dirty but not updated.");
+                }
+            }
+
+            revision.MarkPersisted();
+        }
+    }
+
+    private static object TimerScheduleParameters(SessionOwnership ownership, TimerScheduleRevision revision) => new
+    {
+        ownership.OrganizationId,
+        ownership.ActivityId,
+        ownership.ParticipantId,
+        ownership.AttemptId,
+        ownership.SessionId,
+        ScheduleRevisionId = revision.ScheduleRevisionId,
+        ScheduleRevisionOrdinal = revision.ScheduleRevision,
+        State = ToDbTimerState(revision.LaneState),
+        LaneState = revision.LaneState,
+        revision.RelativeDelay,
+        revision.RemainingActiveSeconds,
+        RemainingSince = revision.RemainingSince.UtcDateTime,
+        FireAt = revision.DueAt?.UtcDateTime,
+        revision.RequestedByCategory,
+        SourceDecisionId = revision.DrivingDecisionId,
+        revision.FiredInvocationId,
+        CreatedAt = revision.CreatedAt.UtcDateTime,
+    };
+
+    private static string ToDbTimerState(string laneState) => laneState switch
+    {
+        TimerLaneStates.Superseded => "replaced",
+        TimerLaneStates.Expired => "cancelled",
+        _ => laneState,
+    };
+
+    private static string FromDbTimerLaneState(string? laneState, string state)
+    {
+        if (!string.IsNullOrEmpty(laneState))
+        {
+            return laneState;
+        }
+
+        return state switch
+        {
+            "replaced" => TimerLaneStates.Superseded,
+            _ => state,
+        };
+    }
+
+    private TimerScheduleRevision ToTimerSchedule(SessionTimerScheduleRow row)
+    {
+        var remainingSince = row.remaining_since is null ? ToUtc(row.created_at ?? DateTime.UnixEpoch) : ToUtc(row.remaining_since.Value);
+        var createdAt = row.created_at is null ? remainingSince : ToUtc(row.created_at.Value);
+        return TimerScheduleRevision.Rehydrate(
+            row.schedule_revision,
+            row.schedule_revision_ordinal ?? 1,
+            FromDbTimerLaneState(row.lane_state, row.state),
+            row.relative_delay,
+            row.remaining_active_seconds ?? 0,
+            row.fire_at is null ? null : ToUtc(row.fire_at.Value),
+            remainingSince,
+            row.requested_by_category ?? TimerRequestedByCategories.DefaultCadence,
+            row.source_decision_id,
+            row.fired_invocation_id,
+            createdAt);
     }
 
     private async Task PersistAgentMessagesAsync(
@@ -1665,6 +1850,20 @@ public sealed class PostgresSessionRuntimeRepository
         string exact_utf8_text,
         string content_digest,
         DateTime committed_at);
+
+    private sealed record SessionTimerScheduleRow(
+        string schedule_revision,
+        long? schedule_revision_ordinal,
+        string state,
+        string? lane_state,
+        string relative_delay,
+        int? remaining_active_seconds,
+        DateTime? remaining_since,
+        DateTime? fire_at,
+        string? requested_by_category,
+        string? source_decision_id,
+        string? fired_invocation_id,
+        DateTime? created_at);
 
     private sealed record SessionAttemptRow(
         string agent_invocation_id,

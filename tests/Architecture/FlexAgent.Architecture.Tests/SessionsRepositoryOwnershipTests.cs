@@ -18,6 +18,7 @@ public sealed class SessionsRepositoryOwnershipTests
             "TrySaveAdmissionAsync",
             "TrySaveCompletionAsync",
             "TrySaveAgentResponsePublicationAsync",
+            "TrySaveLifecycleAsync",
             "CountInvocationsAsync",
             "ListInvocationIdsAsync",
             "LoadSnapshotAsync",
@@ -51,6 +52,7 @@ public sealed class SessionsRepositoryOwnershipTests
         AssertCoordinatorRejectsClientClocks(typeof(PostgresPublishAgentResponseCoordinator), "PublishFragmentAsync");
         AssertCoordinatorRejectsClientClocks(typeof(PostgresPublishAgentResponseCoordinator), "SealAsync");
         AssertCoordinatorRejectsClientClocks(typeof(PostgresReplayAuthorizedSessionEventsCoordinator), "ReplayAsync");
+        AssertCoordinatorRejectsClientClocks(typeof(PostgresFireDueTimerCoordinator), "TryFireNextDueAsync");
         var replaySource = File.ReadAllText(
             Path.Combine(FindSessionsInfrastructureRoot(), "PostgresReplayAuthorizedSessionEventsCoordinator.cs"));
         Assert.Contains("IsolationLevel.RepeatableRead", replaySource, StringComparison.Ordinal);
