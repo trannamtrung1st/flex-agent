@@ -384,6 +384,41 @@ public sealed class OneLaneTimerSchedulerTests
     }
 
     [Fact]
+    public void Concurrent_replacement_ignores_recorded_decisions_that_can_no_longer_recommend_a_timer()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession(
+            ResolveTimerPolicy(maxConcurrentReplacements: 1));
+        var first = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var recorded = session.RecordDecision(
+            first.Invocation!.AgentInvocationId,
+            SessionRuntimeTestFixtures.NoAction(first.Invocation.AgentInvocationId),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        var opening = session.AdmitTrustedTrigger(
+            SessionRuntimeTestFixtures.OpeningTrigger(),
+            "idem.open",
+            SessionRuntimeTestFixtures.T0.AddSeconds(3));
+
+        var replacement = session.CompleteInvocation(
+            opening.Invocation!.AgentInvocationId,
+            SessionRuntimeTestFixtures.EmitMessage(
+                opening.Invocation.AgentInvocationId,
+                communicationPurpose: "agent_opening",
+                turnId: null,
+                responseSlotId: null,
+                nextTimer: new NextTimerRecommendation("PT2M", "1")),
+            SessionRuntimeTestFixtures.T0.AddSeconds(4));
+
+        Assert.Equal(AgentInvocationStatuses.DecisionRecorded, recorded.Invocation!.Status);
+        Assert.False(recorded.Invocation.IsTerminal);
+        Assert.Null(recorded.Invocation.Decision!.NextTimer);
+        Assert.Equal(TimerValidationOutcomes.Accepted, replacement.ValidationEffect!.TimerValidationOutcome);
+        Assert.Equal(1, session.PendingTimerCount);
+        Assert.Equal(2, session.CurrentTimerLane!.ScheduleRevision);
+        Assert.Equal("PT2M", session.CurrentTimerLane.RelativeDelay);
+    }
+
+    [Fact]
     public void Duplicate_suppression_matches_equivalent_delay_not_every_replacement()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession(

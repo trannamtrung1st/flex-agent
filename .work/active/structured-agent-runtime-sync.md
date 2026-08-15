@@ -774,6 +774,11 @@ and test reviews have no unresolved blocking findings.
     `FireDueTimer` (`REQ-SESS-75`), and cooldown vs duplicate-suppression
     identity. `fc01220` and `935fed3` remain approved with no code action.
     PostgreSQL persist/worker due-claim is still next.
+  - [x] External review of `164b6b8` (2026-08-15): request changes, 0 High /
+    1 Medium. Count only Invocations that can still recommend a replacement;
+    record cooldown/duplicate/concurrency identity as `PROP-9` rather than an
+    approved contract clarification. Persistence guard: claimed
+    `RemainingAt` must not become permanently `NotDue` after crash recovery.
 - [ ] Extend the non-production synthetic adapter to mirror the browser-safe
   semantics without becoming runtime authority. Add deterministic scenarios for
   Participant reply, Agent opening/closing, Participant and timer no-action,
@@ -838,10 +843,11 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-One-lane scheduler **domain** remediations from `bc13408` are green
-(`REQ-SESS-72` concurrency, `REQ-SESS-75` revision-addressed fire, cooldown vs
-duplicate-suppression identity). Next: PostgreSQL schedule persist and worker
-due-claim. HTTP `/sessions/{id}/events`, ADR-002
+One-lane scheduler **domain** remediations from `164b6b8` are green:
+concurrency ignores recorded Decisions that can no longer recommend a timer,
+and cooldown/duplicate/concurrency identity is proposed `PROP-9`. Next:
+PostgreSQL schedule persist and worker due-claim, including the claimed
+`RemainingAt` recovery guard. HTTP `/sessions/{id}/events`, ADR-002
 kernel enforcement, and 60-second revocation revalidation remain later host
 work and do not complete `REQ-SESS-59`.
 
@@ -1004,14 +1010,14 @@ surfaces.
 
 # Decisions
 
-- Timer-lane review remediations (2026-08-15, `bc13408`): concurrency unit is
-  other in-flight Invocations eligible to recommend a replacement (exclude the
-  Decision being validated). `FireDueTimer` is addressed by exact
-  `schedule_revision`; already-fired retries reconcile that revision and do not
-  observe or mutate a successor. Interim default: cooldown limits all
-  replacement frequency; duplicate suppression matches equivalent replacement
-  identity (normalized requested delay) plus request provenance (agent
-  recommendation) inside its window.
+- Timer-lane review remediations (2026-08-15, `164b6b8`): concurrency counts
+  other Invocations that still can recommend a replacement (no Decision, or a
+  timer-bearing Decision whose timer action is still in flight). `FireDueTimer`
+  is addressed by exact `schedule_revision`. Cooldown vs duplicate-suppression
+  vs concurrency identity is proposed `PROP-9`, not an approved contract
+  amendment. Next-slice persistence guard: a durable `Claimed` revision must
+  not become permanently `NotDue` because `RemainingAt` ignores elapsed time
+  unless state is `Pending`.
 - One-lane scheduler domain (2026-08-15): `CreateActive` arms the frozen default
   delay in memory without consuming `session_sequence` so existing PostgreSQL
   head inserts stay sequence `0` until the persist slice writes schedule rows.
@@ -1317,6 +1323,9 @@ surfaces.
   domain uses the contract states. Additive mapping is required before
   PostgreSQL persist. Direct `AdmitTrustedTrigger` of a timer still exists for
   capability tests and is not the trusted firing path (`FireDueTimer` is).
+- `164b6b8` review (2026-08-15): claimed `RemainingAt` returns stored remaining
+  seconds whenever state is not `Pending`; `Claim()` does not zero remaining.
+  Treat recovered due claims as still due in the PostgreSQL/worker slice.
   Consistency review: a timer Invocation that terminalized while paused left
   the lane with no successor; default cadence now arms frozen while `Paused`
   and `Resume` recomputes `due_at` (`REQ-SESS-76`).
@@ -1760,7 +1769,7 @@ surfaces.
 | ADR-011 publication outbox/audit (`REQ-SESS-56`, `SESS-DEC-9`, `SESS-DEC-13`) | passed; **approved** `e2f9cf0` | Red: exact retry at original `V` was `StaleVersion`; seal had no wake-up (2026-08-14). Green: original-command retry Reconciles (1 fragment, 1 outbox, version `V+1`); same ordinal different text is `DigestMismatch`; `SealAsync` emits `session.agent.message.sealed` after an `open` fragment observation; seal outbox failure leaves `open`; duplicate seal has no second outbox; opposite seal at original `V` is `AlreadyTerminal` not `StaleVersion`. Confirmation (2026-08-15): handler 12/12; Sessions 279/279; architecture 29/29; audit/outbox 12/12. External review: 0 P0 / 0 P1 / 0 P2 / 0 P3. GitHub commit status for `e2f9cf0`/`2aa0718` was not independently visible. Future guard: lifecycle persist of `BeginCompleting`/`Abort` incomplete seals must reuse the terminal outbox. SSE projection/replay is implemented in this slice. |
 | ADR-011 authorized SSE projection and reconnect replay (`REQ-SESS-59`, `SESS-DEC-7`, `SESS-DEC-10`, `SESS-DEC-13`, `AC-SESS-32`) | passed; **approved** `18c9193` | Red: compile failed for missing `ReplayAuthorizedSessionEventsCommand` (2026-08-15). Green: replay from start is fragment then distinct seal cursor; after-cursor omits earlier text; malformed/future/negative cursors and terminal-without-seal-sequence reconcile; missing actor/ownership mismatch leak no events. External review of `00dc160`: request changes (1 P1 / 1 P2). Remediations in `18c9193`: Repeatable Read hydration (concurrent fragment/seal after head read omitted); in-range non-stream `Last-Event-ID` reconciles. Confirmation recorded at remediation: replay command 8/8; Sessions 287/287; architecture 29/29; SSE replay 5/5. External review of `18c9193` (2026-08-15): **approved** 0 P0 / 0 P1 / 0 P2. GitHub exposed no combined CI status for `18c9193` at review time. HTTP SSE host wiring, ADR-002 kernel, 60s revalidation, and synthetic adapter remain later and do not complete `REQ-SESS-59`. Frozen `0005`–`0014` unchanged. |
 | ADR-011 rolling validation, frozen-bound backpressure, and worker content-phase (`SESS-DEC-13`, `REQ-SESS-8`, `REQ-SESS-55`–`60`, `AC-SESS-32`) | passed; **approved** `303a11f` | Red (2026-08-15): compile failed for missing bound/validation outcome codes, `ProviderContentNormalizer`, and `EnqueueContent`. Green: oversized/count/assembled/in-flight/rate bounds fail closed without mutation; split `<script` keeps the safe prefix; tab/LF/CR recordable; duplicate reconcile does not consume rate; cumulative suffix/skip/prefix-divergence; worker publishes deltas then seals, skips content on `no_action`. External review of `0c04987`: request changes (2 P1 / 2 P2). Remediations in `2fc033e`: zero-fragment `Completed` cancels claimed turn/slot; post-visibility redelivery seals `Incomplete` without streaming; `InFlightExceeded` retries before first fragment. External review of `2fc033e`: request changes (1 P2). Remediation in `303a11f`: post-visibility cancel seals with `EffectiveClaimCleanupTimeout`; test cancels a real CTS after first delta. External review of `303a11f` (2026-08-15): **approved** 0 P0 / 0 P1 / 0 P2 / 0 P3. Closes `0c04987` → `2fc033e` → `303a11f`. GitHub exposed no combined CI status for `303a11f` at review time. Residual: idle Worker host; processor commits on the loaded aggregate; HTTP SSE/`REQ-SESS-59` host work. Eventual coordinator wiring must keep post-visibility terminalization. |
-| One-lane scheduler domain (`REQ-SESS-71`–`77`, `AC-SESS-38`–`41`, `SESS-DEC-24`–`28`) | passed after `bc13408` remediations; in-memory aggregate | Red (2026-08-15): overlapping `MaxConcurrentReplacements = 1` accepted a second replacement; distinct delay inside the duplicate window was rejected; `FireDueTimer` was clock-only. Green: concurrency counts other in-flight eligible Invocations; duplicate suppression matches normalized Agent-requested delay; `FireDueTimer(expectedScheduleRevision, utc)` reconciles a lost rev1 retry after rev2 is armed. Confirmation: focused scheduler 23/23; `FlexAgent.Sessions.Tests` 340/340; architecture 29/29; `python3 scripts/check_docs.py` passed. Frozen `0005`–`0015` unchanged. PostgreSQL schedule persist, worker due-claim, and `replaced`→`superseded`/`expired` mapping remain. |
+| One-lane scheduler domain (`REQ-SESS-71`–`77`, `AC-SESS-38`–`41`, `SESS-DEC-24`–`28`) | passed after `164b6b8` remediations; in-memory aggregate | Red (2026-08-15): `RecordDecision` without a timer still occupied `MaxConcurrentReplacements = 1`. Green: eligibility is no Decision yet, or a timer-bearing Decision whose timer action is still in flight. `PROP-9` recorded as proposed, not an approved 0.5 clarification. Confirmation: focused scheduler 24/24; `FlexAgent.Sessions.Tests` 341/341; architecture 29/29; `python3 scripts/check_docs.py` passed. Frozen `0005`–`0015` unchanged. PostgreSQL persist must keep claimed due-work from becoming permanently `NotDue`. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |

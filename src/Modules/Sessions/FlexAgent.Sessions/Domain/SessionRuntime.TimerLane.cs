@@ -194,8 +194,41 @@ public sealed partial class SessionRuntime
 
     private int CountInFlightEligibleReplacementInvocations(AgentInvocation current) =>
         _invocations.Count(item =>
-            !item.IsTerminal
-            && !string.Equals(item.AgentInvocationId, current.AgentInvocationId, StringComparison.Ordinal));
+            !string.Equals(item.AgentInvocationId, current.AgentInvocationId, StringComparison.Ordinal)
+            && RemainsEligibleToRecommendReplacement(item));
+
+    private static bool RemainsEligibleToRecommendReplacement(AgentInvocation item)
+    {
+        if (item.IsTerminal)
+        {
+            return false;
+        }
+
+        if (item.Decision is null)
+        {
+            return true;
+        }
+
+        if (item.Decision.NextTimer is null)
+        {
+            return false;
+        }
+
+        var validation = item.ValidationEffect;
+        if (validation is null)
+        {
+            return true;
+        }
+
+        if (validation.TimerValidationOutcome != TimerValidationOutcomes.Accepted)
+        {
+            return false;
+        }
+
+        return validation.EffectOutcome is not DecisionEffectOutcomes.Applied
+            and not DecisionEffectOutcomes.NoDomainEffect
+            and not DecisionEffectOutcomes.EffectFailed;
+    }
 
     private DateTimeOffset? LastAcceptedReplacementAt()
     {

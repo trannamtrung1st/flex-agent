@@ -14,7 +14,7 @@ and the P0-compatible Decision-output envelope.
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, UI/UX, security/privacy, documentation |
 | **Version** | 0.5 |
-| **Approved date** | Version 0.1 approved 2026-08-06; version 0.2 approved 2026-08-09; versions 0.3 and 0.4 approved 2026-08-11; version 0.5 approved 2026-08-14; version 0.5 amended 2026-08-14 for independent item validation and minimal P0 voice representation; version 0.5 clarified 2026-08-15 for revision-addressed timer fire, replacement concurrency, and duplicate-suppression identity |
+| **Approved date** | Version 0.1 approved 2026-08-06; version 0.2 approved 2026-08-09; versions 0.3 and 0.4 approved 2026-08-11; version 0.5 approved 2026-08-14; version 0.5 amended 2026-08-14 for independent item validation and minimal P0 voice representation |
 | **Approval reference** | [ADR-009](decisions/ADR-009-mvp-session-evaluation-review-contracts.md) approved `SESS-DEC-1`–`SESS-DEC-8`; [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md) approves `SESS-DEC-9`–`SESS-DEC-13`; [ADR-012](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) approves `SESS-DEC-14`–`SESS-DEC-23`; [ADR-013](decisions/ADR-013-agent-requested-next-timer-replacement.md) approves `SESS-DEC-24`–`SESS-DEC-28`; [ADR-014](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) approves `SESS-DEC-29`–`SESS-DEC-35` |
 | **Governs** | Session command, Invocation/Decision, ordering, timing, publication, reconnect, terminalization, and recovery realization |
 
@@ -481,13 +481,15 @@ and one Invocation admission. A retry must name that same revision: if it
 already fired, the runtime reconciles the existing Invocation and does not
 observe or mutate a successor. After that Invocation terminalizes, the lane
 receives the default next delay unless the successful Decision supplies an
-accepted replacement. Cooldown limits all replacement frequency. Duplicate
-suppression applies only to an equivalent Agent-requested delay (normalized
-duration) and agent-recommendation provenance inside its window, not to every
-later replacement. Max concurrent replacements counts other in-flight
-Invocations that remain eligible to recommend a replacement; expected-revision
-competition remains a separate one-winner control. Uniqueness and expected
-revision prevent overlapping timers or Invocations.
+accepted replacement. Uniqueness and expected revision prevent overlapping
+timers or Invocations.
+
+Proposed working guidance `PROP-9` in the
+[text Session lifecycle](../requirements/features/session-text-lifecycle.md#open-questions)
+is **not approved**. Until decided, implementation treats cooldown as a limit on
+all replacement frequency; duplicate suppression as equivalent Agent-requested
+delay identity inside its window; and max concurrent replacements as a count of
+other in-flight Invocations that still can recommend a replacement.
 
 ### Terminalization and Evaluation handoff
 
