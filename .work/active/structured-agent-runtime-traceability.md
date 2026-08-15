@@ -3,7 +3,7 @@ id: structured-agent-runtime-traceability
 parent_task: structured-agent-runtime-sync
 status: in-progress
 created: 2026-08-11
-updated: 2026-08-14
+updated: 2026-08-15
 ---
 
 # Structured Agent runtime — executable traceability and threat model
@@ -67,7 +67,7 @@ Examples: `PT30S`, `PT5M`, `PT1H`, `PT24H`. Wire shape is validated by
 | `REQ-SESS-61`, `62`, `67`, `68`, `SESS-DEC-14`–`15`, `20` | `TrustedTriggerV1` → `AgentInvocation` admission | Single admission TX | Participant/service at boundary | `(session_id, trigger_family, trigger_id, purpose, policy_digest)` | None | Participant/opening/closing/timer admitted | Unknown/forged/prohibited/stale/cutoff denied |
 | `REQ-SESS-63`, `69`, `SESS-DEC-16`, `21` | Invocation + execution attempts | Claim → provider (ext) → outcome TX | Worker service identity | Invocation id + attempt ordinal | None | One Decision on success | Timeout/malformed → outcome, no Decision |
 | `REQ-SESS-64`–`67`, `70`, `78`–`85`, `AC-SESS-42`–`48`, `SESS-DEC-17`–`19`, `23`, `29`–`35` | Successor Decision envelope + validation/effect; v1 dual-read | Decision commit; independent per-item output vs action validation; separate effect TX | Reauth at effect | Decision id + output id + effect idempotency | `session.agent.work.v1` resolved state | `respond`+one message / `no_action`+zero outputs; timer action independent; mixed valid message + rejected voice | Schema-invalid → execution outcome, no Decision; schema-valid `respond` + zero valid outputs → Decision rejection, not `no_action`; typed `voice` parses then fails P0 profile; extra message/audience/id rejected per item without voiding siblings |
-| `REQ-SESS-55`–`60`, `AC-SESS-32`, ADR-011 | Fragments + completion linked to output id | Per-fragment TX; completion TX | Service at publish | `(agent_output_id, agent_message_id, fragment_sequence)` | `session.agent.fragment.v1`, `session.agent.complete.v1` | Ordered replay | Gap/duplicate/cutoff; client “shown” facts ignored |
+| `REQ-SESS-55`–`60`, `AC-SESS-32`, ADR-011 | Fragments + completion linked to output id | Per-fragment TX; completion TX; replay hydration Repeatable Read | Service at publish; production HTTP SSE / ADR-002 kernel / 60s revalidation remain host work (`REQ-SESS-59` not complete until then) | `(agent_output_id, agent_message_id, fragment_sequence)`; reconnect `Last-Event-ID` only if it matches a persisted fragment or seal sequence (not delivery acknowledgement) | `session.agent.fragment.v1`, `session.agent.complete.v1` | Ordered replay | Gap/duplicate/cutoff; client “shown” facts ignored; in-range non-stream sequence reconciles |
 | `REQ-SESS-71`–`77`, `AC-SESS-38`–`41`, `SESS-DEC-24`–`28` | `TimerScheduleRevision` | Replacement / fire TX | Scheduler service | `expected_schedule_revision` | None (UI-SESS-DEC-14) | Default arm, replace, fire once | Two pending / double fire impossible |
 | `UI-SESS-DEC-13` | Turn + work projection | Effect commit couples turn terminalization | N/A | Turn/slot id | Work SSE + optional neutral status | No-action resolves without Agent message | No raw `no_action` in DOM |
 | `UI-SESS-DEC-14` | Timer lane internal | Schedule TX | Scheduler | Revision + session order | Agent work states only when visible work | Timer-triggered message path | No synthetic Participant message |
