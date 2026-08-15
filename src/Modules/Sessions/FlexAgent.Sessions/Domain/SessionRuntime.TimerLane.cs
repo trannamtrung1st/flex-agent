@@ -4,7 +4,7 @@ namespace FlexAgent.Sessions.Domain;
 
 public sealed partial class SessionRuntime
 {
-    public TimerFireResult FireDueTimer(DateTimeOffset authoritativeUtc)
+    public TimerFireResult FireDueTimer(long expectedScheduleRevision, DateTimeOffset authoritativeUtc)
     {
         if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: true))
         {
@@ -20,17 +20,22 @@ public sealed partial class SessionRuntime
             return new TimerFireResult(false, TimerFireOutcomeCodes.LifecycleIneligible);
         }
 
-        var current = OpenTimerLane()
-            ?? _timerSchedules.LastOrDefault(revision => revision.LaneState == TimerLaneStates.Fired);
-        if (current is { LaneState: TimerLaneStates.Fired, FiredInvocationId: not null })
+        var targeted = _timerSchedules.FirstOrDefault(revision =>
+            revision.ScheduleRevision == expectedScheduleRevision);
+        if (targeted is null)
         {
-            var existing = FindInvocation(current.FiredInvocationId);
+            return new TimerFireResult(false, TimerFireOutcomeCodes.StaleRevision);
+        }
+
+        if (targeted is { LaneState: TimerLaneStates.Fired, FiredInvocationId: not null })
+        {
+            var existing = FindInvocation(targeted.FiredInvocationId);
             if (existing is not null)
             {
                 return new TimerFireResult(
                     true,
                     TimerFireOutcomeCodes.Reconciled,
-                    current,
+                    targeted,
                     new TriggerAdmissionResult(
                         true,
                         TriggerAdmissionOutcomeCodes.Reconciled,
@@ -40,42 +45,46 @@ public sealed partial class SessionRuntime
             }
         }
 
-        if (current is null || current.LaneState != TimerLaneStates.Pending)
+        if (targeted.LaneState is not TimerLaneStates.Pending and not TimerLaneStates.Claimed)
         {
-            return new TimerFireResult(false, TimerFireOutcomeCodes.NotDue, current);
+            return new TimerFireResult(false, TimerFireOutcomeCodes.StaleRevision, targeted);
         }
 
-        if (current.RemainingAt(authoritativeUtc, isActive: true) > 0)
+        if (targeted.RemainingAt(authoritativeUtc, isActive: true) > 0)
         {
-            return new TimerFireResult(false, TimerFireOutcomeCodes.NotDue, current);
+            return new TimerFireResult(false, TimerFireOutcomeCodes.NotDue, targeted);
         }
 
         if (Policy.TimerLane.Budgets.MaxTimerTriggeredInvocationsPerSession
             <= _invocations.Count(invocation => IsTimerTrigger(invocation.Trigger)))
         {
-            return new TimerFireResult(false, TimerFireOutcomeCodes.BudgetExhausted, current);
+            return new TimerFireResult(false, TimerFireOutcomeCodes.BudgetExhausted, targeted);
         }
 
-        current.Claim();
+        if (targeted.LaneState == TimerLaneStates.Pending)
+        {
+            targeted.Claim();
+        }
+
         var trigger = new TrustedTrigger(
             RuntimeTriggerIdentifiers.TimerEventFamily,
             RuntimeTriggerIdentifiers.TimerLaneDefaultType,
-            $"trig.timer.{current.ScheduleRevisionId}",
+            $"trig.timer.{targeted.ScheduleRevisionId}",
             InvocationPurposes.TimerLaneCheck,
             TurnId: null,
             ResponseSlotId: null);
         var admitted = AdmitTrustedTrigger(
             trigger,
-            $"idem.timer.{current.ScheduleRevisionId}",
+            $"idem.timer.{targeted.ScheduleRevisionId}",
             authoritativeUtc);
         if (!admitted.Succeeded || admitted.Invocation is null)
         {
-            current.Unclaim();
-            return new TimerFireResult(false, admitted.OutcomeCode, current, admitted);
+            targeted.Unclaim();
+            return new TimerFireResult(false, admitted.OutcomeCode, targeted, admitted);
         }
 
-        current.Fire(admitted.Invocation.AgentInvocationId);
-        return new TimerFireResult(true, TimerFireOutcomeCodes.Succeeded, current, admitted);
+        targeted.Fire(admitted.Invocation.AgentInvocationId);
+        return new TimerFireResult(true, TimerFireOutcomeCodes.Succeeded, targeted, admitted);
     }
 
     private void ArmDefaultCadence(DateTimeOffset utc, string requestedByCategory)
@@ -183,6 +192,11 @@ public sealed partial class SessionRuntime
         _timerSchedules.Count(revision =>
             revision.RequestedByCategory == TimerRequestedByCategories.AgentRecommendation);
 
+    private int CountInFlightEligibleReplacementInvocations(AgentInvocation current) =>
+        _invocations.Count(item =>
+            !item.IsTerminal
+            && !string.Equals(item.AgentInvocationId, current.AgentInvocationId, StringComparison.Ordinal));
+
     private DateTimeOffset? LastAcceptedReplacementAt()
     {
         var last = _timerSchedules.LastOrDefault(revision =>
@@ -201,15 +215,27 @@ public sealed partial class SessionRuntime
         return last is not null && utc < last.Value.AddSeconds(Policy.TimerLane.Budgets.CooldownSeconds);
     }
 
-    private bool IsDuplicateReplacementSuppressed(DateTimeOffset utc)
+    private bool IsDuplicateReplacementSuppressed(NextTimerRecommendation nextTimer, DateTimeOffset utc)
     {
         if (Policy.TimerLane is null || Policy.TimerLane.Budgets.DuplicateSuppressionWindowSeconds <= 0)
         {
             return false;
         }
 
-        var last = LastAcceptedReplacementAt();
-        return last is not null
-            && utc < last.Value.AddSeconds(Policy.TimerLane.Budgets.DuplicateSuppressionWindowSeconds);
+        if (!Iso8601PositiveDuration.TryParse(nextTimer.RelativeDelay, out var delay))
+        {
+            return false;
+        }
+
+        var last = _timerSchedules.LastOrDefault(revision =>
+            revision.RequestedByCategory == TimerRequestedByCategories.AgentRecommendation);
+        if (last is null
+            || utc >= last.CreatedAt.AddSeconds(Policy.TimerLane.Budgets.DuplicateSuppressionWindowSeconds)
+            || !Iso8601PositiveDuration.TryParse(last.RelativeDelay, out var lastDelay))
+        {
+            return false;
+        }
+
+        return lastDelay.TotalSeconds == delay.TotalSeconds;
     }
 }

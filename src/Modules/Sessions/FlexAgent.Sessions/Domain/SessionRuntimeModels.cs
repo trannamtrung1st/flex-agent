@@ -120,6 +120,7 @@ public static class TimerFireOutcomeCodes
     public const string BudgetExhausted = "timer_fire.budget_exhausted";
     public const string NonUtcClock = "timer_fire.non_utc_clock";
     public const string StaleClock = "timer_fire.stale_clock";
+    public const string StaleRevision = "timer_fire.stale_revision";
 }
 
 public sealed record TimerFireResult(

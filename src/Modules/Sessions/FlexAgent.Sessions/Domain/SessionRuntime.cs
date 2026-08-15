@@ -719,7 +719,7 @@ public sealed partial class SessionRuntime
             P0Kernel.IsDecisionTypeSupportedByP0,
             allocateRuntimeOutputIds: recommendation is EnvelopeRecommendation);
         var timerOutcome = CombineTimerOutcomes(
-            ValidateTimerRecommendation(envelope.NextTimer, authoritativeUtc),
+            ValidateTimerRecommendation(invocation, envelope.NextTimer, authoritativeUtc),
             profile.TimerValidationOutcome);
         if (!Policy.PermittedDecisionTypes.Contains(recommendation.DecisionType, StringComparer.Ordinal)
             || !P0Kernel.IsDecisionTypeSupportedByP0(recommendation.DecisionType))
@@ -1273,7 +1273,10 @@ public sealed partial class SessionRuntime
             string.Equals(item.Kind, AgentOutputKinds.Message, StringComparison.Ordinal)
             && string.Equals(item.ValidationOutcome, DecisionValidationOutcomes.Accepted, StringComparison.Ordinal));
 
-    private string ValidateTimerRecommendation(NextTimerRecommendation? nextTimer, DateTimeOffset authoritativeUtc)
+    private string ValidateTimerRecommendation(
+        AgentInvocation invocation,
+        NextTimerRecommendation? nextTimer,
+        DateTimeOffset authoritativeUtc)
     {
         if (nextTimer is null)
         {
@@ -1289,8 +1292,10 @@ public sealed partial class SessionRuntime
             || delay.CompareTo(Policy.TimerLane.MaxRequestedDelay) > 0
             || !MatchesExpectedScheduleRevision(nextTimer.ExpectedScheduleRevision)
             || CountAcceptedReplacements() >= Policy.TimerLane.Budgets.MaxAcceptedReplacementsPerSession
+            || CountInFlightEligibleReplacementInvocations(invocation)
+                >= Policy.TimerLane.Budgets.MaxConcurrentReplacements
             || IsTimerReplacementCooldownActive(authoritativeUtc)
-            || IsDuplicateReplacementSuppressed(authoritativeUtc)
+            || IsDuplicateReplacementSuppressed(nextTimer, authoritativeUtc)
             || OpenTimerLane()?.LaneState == TimerLaneStates.Claimed)
         {
             return TimerValidationOutcomes.Rejected;

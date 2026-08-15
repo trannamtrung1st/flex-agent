@@ -185,7 +185,7 @@ public sealed class OneLaneTimerSchedulerTests
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
         session.Pause(SessionRuntimeTestFixtures.T0.AddMinutes(1));
-        var early = session.FireDueTimer(SessionRuntimeTestFixtures.T0.AddMinutes(5));
+        var early = session.FireDueTimer(1, SessionRuntimeTestFixtures.T0.AddMinutes(5));
         session.Resume(SessionRuntimeTestFixtures.T0.AddMinutes(10));
 
         Assert.False(early.Succeeded);
@@ -202,8 +202,8 @@ public sealed class OneLaneTimerSchedulerTests
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
         var dueAt = SessionRuntimeTestFixtures.T0.AddMinutes(5);
 
-        var first = session.FireDueTimer(dueAt);
-        var retry = session.FireDueTimer(dueAt.AddSeconds(1));
+        var first = session.FireDueTimer(1, dueAt);
+        var retry = session.FireDueTimer(1, dueAt.AddSeconds(1));
 
         Assert.True(first.Succeeded, first.OutcomeCode);
         Assert.Equal(TimerFireOutcomeCodes.Succeeded, first.OutcomeCode);
@@ -218,11 +218,42 @@ public sealed class OneLaneTimerSchedulerTests
     }
 
     [Fact]
+    public void Lost_fire_retry_reconciles_the_addressed_revision_without_touching_its_successor()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var dueAt = SessionRuntimeTestFixtures.T0.AddMinutes(5);
+        var first = session.FireDueTimer(1, dueAt);
+        var invocationId = first.Admission!.Invocation!.AgentInvocationId;
+        var completeAt = dueAt.AddSeconds(2);
+        session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.NoAction(invocationId),
+            completeAt);
+
+        var lostRetry = session.FireDueTimer(1, completeAt.AddSeconds(1));
+        var successorFire = session.FireDueTimer(2, completeAt.AddMinutes(4));
+
+        Assert.True(lostRetry.Succeeded, lostRetry.OutcomeCode);
+        Assert.Equal(TimerFireOutcomeCodes.Reconciled, lostRetry.OutcomeCode);
+        Assert.Equal(1, lostRetry.Revision!.ScheduleRevision);
+        Assert.Equal(invocationId, lostRetry.Admission!.Invocation!.AgentInvocationId);
+        Assert.Equal(TimerLaneStates.Fired, session.TimerSchedules[0].LaneState);
+        Assert.Equal(TimerLaneStates.Pending, session.TimerSchedules[1].LaneState);
+        Assert.Equal(2, session.CurrentTimerLane!.ScheduleRevision);
+        Assert.Equal(1, session.PendingTimerCount);
+        Assert.Equal(1, session.Invocations.Count(item =>
+            item.Trigger.TriggerType == RuntimeTriggerIdentifiers.TimerLaneDefaultType));
+        Assert.False(successorFire.Succeeded);
+        Assert.Equal(TimerFireOutcomeCodes.NotDue, successorFire.OutcomeCode);
+        Assert.Equal(2, successorFire.Revision!.ScheduleRevision);
+    }
+
+    [Fact]
     public void Fire_due_before_remaining_active_delay_elapses_does_not_mutate()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
 
-        var result = session.FireDueTimer(SessionRuntimeTestFixtures.T0.AddMinutes(4));
+        var result = session.FireDueTimer(1, SessionRuntimeTestFixtures.T0.AddMinutes(4));
 
         Assert.False(result.Succeeded);
         Assert.Equal(TimerFireOutcomeCodes.NotDue, result.OutcomeCode);
@@ -234,7 +265,7 @@ public sealed class OneLaneTimerSchedulerTests
     public void Timer_no_action_without_replacement_arms_the_default_successor()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var fired = session.FireDueTimer(SessionRuntimeTestFixtures.T0.AddMinutes(5));
+        var fired = session.FireDueTimer(1, SessionRuntimeTestFixtures.T0.AddMinutes(5));
         var invocationId = fired.Admission!.Invocation!.AgentInvocationId;
         var completeAt = SessionRuntimeTestFixtures.T0.AddMinutes(5).AddSeconds(2);
 
@@ -259,7 +290,7 @@ public sealed class OneLaneTimerSchedulerTests
     public void Accepted_timer_decision_installs_the_sole_successor_instead_of_default()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var fired = session.FireDueTimer(SessionRuntimeTestFixtures.T0.AddMinutes(5));
+        var fired = session.FireDueTimer(1, SessionRuntimeTestFixtures.T0.AddMinutes(5));
         var invocationId = fired.Admission!.Invocation!.AgentInvocationId;
         var completeAt = SessionRuntimeTestFixtures.T0.AddMinutes(5).AddSeconds(2);
 
@@ -285,13 +316,9 @@ public sealed class OneLaneTimerSchedulerTests
     [Fact]
     public void Concurrent_non_timer_replacement_during_long_running_timer_wins_expected_revision()
     {
-        var values = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues() with
-        {
-            InvocationBounds = new InvocationBounds(3, 10, 0, CooldownSeconds: 0, 30),
-        };
         var session = SessionRuntimeTestFixtures.CreateActiveSession(
-            RuntimePolicyTestFixtures.ResolvePolicy(values));
-        session.FireDueTimer(SessionRuntimeTestFixtures.T0.AddMinutes(5));
+            ResolveTimerPolicy(maxConcurrentReplacements: 2));
+        session.FireDueTimer(1, SessionRuntimeTestFixtures.T0.AddMinutes(5));
         var participant = session.AcceptParticipantMessage(
             "msg.p.1",
             "turn.1",
@@ -321,10 +348,93 @@ public sealed class OneLaneTimerSchedulerTests
     }
 
     [Fact]
+    public void Concurrent_replacement_budget_rejects_overlapping_eligible_invocations()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession(
+            ResolveTimerPolicy(maxConcurrentReplacements: 1));
+        session.FireDueTimer(1, SessionRuntimeTestFixtures.T0.AddMinutes(5));
+        var participant = session.AcceptParticipantMessage(
+            "msg.p.1",
+            "turn.1",
+            "slot.1",
+            "trig.participant.1",
+            "idem.p.1",
+            SessionRuntimeTestFixtures.T0.AddMinutes(5).AddSeconds(1));
+
+        var overlapping = session.CompleteInvocation(
+            participant.Invocation!.AgentInvocationId,
+            SessionRuntimeTestFixtures.NoAction(
+                participant.Invocation.AgentInvocationId,
+                nextTimer: new NextTimerRecommendation("PT4M", "1")),
+            SessionRuntimeTestFixtures.T0.AddMinutes(5).AddSeconds(2));
+        var timerId = session.Invocations[0].AgentInvocationId;
+        var timerSuccessor = session.CompleteInvocation(
+            timerId,
+            SessionRuntimeTestFixtures.NoAction(
+                timerId,
+                nextTimer: new NextTimerRecommendation("PT2M", "1")),
+            SessionRuntimeTestFixtures.T0.AddMinutes(5).AddSeconds(3));
+
+        Assert.Equal(TimerValidationOutcomes.Rejected, overlapping.ValidationEffect!.TimerValidationOutcome);
+        Assert.Equal(DecisionValidationOutcomes.Accepted, overlapping.ValidationEffect.ValidationOutcome);
+        Assert.Equal(TimerValidationOutcomes.Accepted, timerSuccessor.ValidationEffect!.TimerValidationOutcome);
+        Assert.Equal(1, session.PendingTimerCount);
+        Assert.Equal("PT2M", session.CurrentTimerLane!.RelativeDelay);
+        Assert.Equal(TimerRequestedByCategories.AgentRecommendation, session.CurrentTimerLane.RequestedByCategory);
+    }
+
+    [Fact]
+    public void Duplicate_suppression_matches_equivalent_delay_not_every_replacement()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession(
+            ResolveTimerPolicy(duplicateSuppressionWindowSeconds: 30));
+        var first = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        session.CompleteInvocation(
+            first.Invocation!.AgentInvocationId,
+            SessionRuntimeTestFixtures.NoAction(
+                first.Invocation.AgentInvocationId,
+                nextTimer: new NextTimerRecommendation("PT2M", "1")),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        var duplicate = session.AdmitTrustedTrigger(
+            SessionRuntimeTestFixtures.OpeningTrigger(),
+            "idem.open",
+            SessionRuntimeTestFixtures.T0.AddSeconds(3));
+        var duplicateResult = session.CompleteInvocation(
+            duplicate.Invocation!.AgentInvocationId,
+            SessionRuntimeTestFixtures.EmitMessage(
+                duplicate.Invocation.AgentInvocationId,
+                communicationPurpose: "agent_opening",
+                turnId: null,
+                responseSlotId: null,
+                nextTimer: new NextTimerRecommendation("PT2M", "2")),
+            SessionRuntimeTestFixtures.T0.AddSeconds(4));
+        var distinct = session.AcceptParticipantMessage(
+            "msg.p.2",
+            "turn.2",
+            "slot.2",
+            "trig.participant.2",
+            "idem.p.2",
+            SessionRuntimeTestFixtures.T0.AddSeconds(5));
+        var distinctResult = session.CompleteInvocation(
+            distinct.Invocation!.AgentInvocationId,
+            SessionRuntimeTestFixtures.NoAction(
+                distinct.Invocation.AgentInvocationId,
+                nextTimer: new NextTimerRecommendation("PT3M", "2")),
+            SessionRuntimeTestFixtures.T0.AddSeconds(6));
+
+        Assert.Equal(TimerValidationOutcomes.Rejected, duplicateResult.ValidationEffect!.TimerValidationOutcome);
+        Assert.Equal(TimerValidationOutcomes.Accepted, distinctResult.ValidationEffect!.TimerValidationOutcome);
+        Assert.Equal(1, session.PendingTimerCount);
+        Assert.Equal(3, session.CurrentTimerLane!.ScheduleRevision);
+        Assert.Equal("PT3M", session.CurrentTimerLane.RelativeDelay);
+    }
+
+    [Fact]
     public void Timer_terminalization_while_paused_still_arms_a_frozen_default_successor()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var fired = session.FireDueTimer(SessionRuntimeTestFixtures.T0.AddMinutes(5));
+        var fired = session.FireDueTimer(1, SessionRuntimeTestFixtures.T0.AddMinutes(5));
         var invocationId = fired.Admission!.Invocation!.AgentInvocationId;
         session.Pause(SessionRuntimeTestFixtures.T0.AddMinutes(5).AddSeconds(1));
 
@@ -342,8 +452,8 @@ public sealed class OneLaneTimerSchedulerTests
         Assert.Equal("PT5M", successor.RelativeDelay);
         Assert.Equal(TimerRequestedByCategories.SuccessorAfterFire, successor.RequestedByCategory);
         Assert.Equal(SessionRuntimeTestFixtures.T0.AddMinutes(15), successor.DueAt);
-        Assert.False(session.FireDueTimer(SessionRuntimeTestFixtures.T0.AddMinutes(14)).Succeeded);
-        var due = session.FireDueTimer(SessionRuntimeTestFixtures.T0.AddMinutes(15));
+        Assert.False(session.FireDueTimer(successor.ScheduleRevision, SessionRuntimeTestFixtures.T0.AddMinutes(14)).Succeeded);
+        var due = session.FireDueTimer(successor.ScheduleRevision, SessionRuntimeTestFixtures.T0.AddMinutes(15));
         Assert.True(due.Succeeded, due.OutcomeCode);
         Assert.Equal(TimerFireOutcomeCodes.Succeeded, due.OutcomeCode);
     }
@@ -353,7 +463,7 @@ public sealed class OneLaneTimerSchedulerTests
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
         session.BeginCompleting(SessionRuntimeTestFixtures.T0.AddSeconds(1));
-        var fire = session.FireDueTimer(SessionRuntimeTestFixtures.T0.AddMinutes(5));
+        var fire = session.FireDueTimer(1, SessionRuntimeTestFixtures.T0.AddMinutes(5));
         var opening = session.AdmitTrustedTrigger(
             SessionRuntimeTestFixtures.OpeningTrigger(),
             "idem.open",
@@ -370,22 +480,8 @@ public sealed class OneLaneTimerSchedulerTests
     [Fact]
     public void Replacement_budget_rejects_further_accepted_replacements()
     {
-        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues();
-        var values = baseline with
-        {
-            TimerLane = baseline.TimerLane! with
-            {
-                Budgets = new TimerLaneBudgets(
-                    MaxAcceptedReplacementsPerSession: 1,
-                    MaxTimerTriggeredInvocationsPerSession: baseline.TimerLane.Budgets!.MaxTimerTriggeredInvocationsPerSession,
-                    CooldownSeconds: 0,
-                    MaxConcurrentReplacements: baseline.TimerLane.Budgets.MaxConcurrentReplacements,
-                    DuplicateSuppressionWindowSeconds: 0),
-            },
-            InvocationBounds = new InvocationBounds(3, 10, 0, CooldownSeconds: 0, 30),
-        };
         var session = SessionRuntimeTestFixtures.CreateActiveSession(
-            RuntimePolicyTestFixtures.ResolvePolicy(values));
+            ResolveTimerPolicy(maxAcceptedReplacements: 1));
         var first = session.AcceptParticipantMessage(
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         session.CompleteInvocation(
@@ -434,5 +530,28 @@ public sealed class OneLaneTimerSchedulerTests
         Assert.Equal(1, session.PendingTimerCount);
         Assert.Equal(2, session.TimerSchedules.Count);
         Assert.Equal(2, session.CurrentTimerLane!.ScheduleRevision);
+    }
+
+    private static FrozenTextSessionRuntimePolicy ResolveTimerPolicy(
+        int maxConcurrentReplacements = 2,
+        int cooldownSeconds = 0,
+        int duplicateSuppressionWindowSeconds = 0,
+        int maxAcceptedReplacements = 5)
+    {
+        var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues();
+        return RuntimePolicyTestFixtures.ResolvePolicy(
+            baseline with
+            {
+                TimerLane = baseline.TimerLane! with
+                {
+                    Budgets = new TimerLaneBudgets(
+                        MaxAcceptedReplacementsPerSession: maxAcceptedReplacements,
+                        MaxTimerTriggeredInvocationsPerSession: baseline.TimerLane.Budgets!.MaxTimerTriggeredInvocationsPerSession,
+                        CooldownSeconds: cooldownSeconds,
+                        MaxConcurrentReplacements: maxConcurrentReplacements,
+                        DuplicateSuppressionWindowSeconds: duplicateSuppressionWindowSeconds),
+                },
+                InvocationBounds = new InvocationBounds(3, 10, 0, CooldownSeconds: 0, 30),
+            });
     }
 }
