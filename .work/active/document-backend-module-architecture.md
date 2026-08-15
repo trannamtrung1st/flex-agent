@@ -50,7 +50,9 @@ apply consistently during future implementation.
 The backend module guide now consolidates the approved architectural identity,
 module ownership and dependencies, project-splitting policy, adapter placement,
 cross-module collaboration, persistence/isolation rules, and verification
-checklist. Architecture and contributor routes link to the guide.
+checklist. Architecture and contributor routes link to the guide. Explicit
+owner approval was recorded on 2026-08-15, so the guide is authoritative for
+future backend implementation under ADR-006 and ADR-010.
 
 # Decisions
 
@@ -61,6 +63,8 @@ checklist. Architecture and contributor routes link to the guide.
   adapter assemblies only when they create an enforceable dependency boundary.
 - Preserve existing approved ADR-010 decisions; the new guide explains their
   application and does not create new product scope.
+- Record the 2026-08-15 explicit owner approval in the guide and architecture
+  index; no further architecture approval action remains for this item.
 
 # Findings / deviations
 
@@ -74,6 +78,7 @@ checklist. Architecture and contributor routes link to the guide.
 | `python3 scripts/check_docs.py` | passed | Documentation validation passed. |
 | Scoped `git diff --check` | passed | No whitespace errors in task-owned files. |
 | Scoped diff review | passed | Only the task record and five documentation files are in scope. |
+| Approval record follow-up | passed | Guide and architecture index record explicit owner approval dated 2026-08-15. |
 | Application/integration tests | skipped | Documentation-only change; no implemented behavior changed. |
 
 # Blockers

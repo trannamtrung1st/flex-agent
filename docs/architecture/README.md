@@ -50,6 +50,12 @@ workspace boundaries, and application dependency policy. Its schema, RFC 8785,
 database, provider, artifact, session, and operability gates remain required
 implementation evidence.
 
+The [backend module architecture](backend-module-architecture.md) is approved
+as the implementation guide for applying ADR-006 and ADR-010 consistently. It
+defines the domain-oriented modular-monolith identity, ports-and-adapters
+boundaries, project-splitting policy, module ownership rules, and required
+verification for future backend work.
+
 [ADR-011](decisions/ADR-011-participant-visible-agent-response-streaming.md)
 supersedes ADR-009's complete-message-only Session publication boundary and
 approves participant-visible durable-before-display incremental Agent-response

@@ -5,6 +5,9 @@ the approved MVP modular monolith grows.
 
 ## Status and authority
 
+**Approved — 2026-08-15.** Explicit owner approval was recorded in the
+2026-08-15 backend-module architecture follow-up.
+
 This guide applies the approved decisions in
 [ADR-006](decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) and
 [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md). It
