@@ -710,16 +710,17 @@ and test reviews have no unresolved blocking findings.
     0 P2 / 0 P3. Persistence boundary is closed; outbox/SSE is next.
   - [>] Outbox/SSE commit-before-publish, replay, rolling validation,
     backpressure, and worker content-phase (cumulative vs delta).
-    - [>] Transactional outbox/audit on each publication persist
+    - [x] Transactional outbox/audit on each publication persist
       (`REQ-SESS-56`, `SESS-DEC-9`, `SESS-DEC-13`, `AC-SESS-32`): same
       transaction as fragment/seal writes; outbox is a wake-up with digest
       identity, not transcript text; rollback removes fragment and outbox.
-      External review of `de58503` (2026-08-14): **request changes**, 0 P0 /
-      0 P1 / 2 P2. Exact retry at original expected version must reconcile;
-      terminal seal must emit a transactional wake-up. Remediations: version
-      check only for new mutation; `SealAsync` digest-only terminal outbox.
-      Do not rewrite `0005`–`0014`. SSE projector remains later.
-    - [ ] Authorized SSE projection and database-backed reconnect replay
+      External review of `e2f9cf0` (2026-08-15): **approved**, 0 P0 / 0 P1 /
+      0 P2 / 0 P3. Closes `de58503` remediations (original-command retry
+      reconcile + terminal seal wake-up). `2aa0718` is an unrelated Voice TODO
+      on top. Future guard: when lifecycle persistence is added,
+      `BeginCompleting`/`Abort` automatic incomplete seals must use the same
+      terminal audit/outbox path. Do not rewrite `0005`–`0014`.
+    - [>] Authorized SSE projection and database-backed reconnect replay
       after a trusted Session cursor (no client-held text/position).
     - [ ] Rolling incremental validation, frozen-bound backpressure, and
       worker content-phase (cumulative vs delta).
@@ -728,8 +729,9 @@ and test reviews have no unresolved blocking findings.
   recommendation validation, replacement/sole-successor atomicity, expected
   revision and Session order, active-time pause/resume, due reauthorization,
   one trusted trigger/Invocation, default resumption, restart recovery,
-  terminal/cutoff cancellation, and positive cooldown/replacement/Invocation/
-  Session budgets. Prove there can never be two pending events or two effects
+  terminal/cutoff cancellation (automatic incomplete seals must reuse the
+  `SealAsync` terminal audit/outbox path), and positive cooldown/replacement/
+  Invocation/Session budgets. Prove there can never be two pending events or two effects
   from one due revision. Cover zero/negative/minimum/maximum/over-maximum delay,
   malformed complete Decision control, structurally valid policy rejection,
   accepted replacements coexisting with both `emit_message` and `no_action`,
@@ -805,23 +807,31 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-ADR-011 publication persist is **approved** at `ea21ec3`. External review of
-`de58503` (2026-08-14) **request changes: 0 P0 / 0 P1 / 2 P2 / 0 P3.** Current
-work remediates exact-command stale retry (reconcile, not `StaleVersion`) and
-terminal seal outbox/audit in the same publication transaction. SSE projector,
-replay, rolling validation, backpressure, and worker content-phase remain later.
-Frozen `0005`–`0014` unchanged. Voice stays disabled.
+ADR-011 publication outbox/audit is **approved** at `e2f9cf0` (sequence with
+`de58503`; `2aa0718` is an unrelated Voice TODO). External review (2026-08-15)
+**approved: 0 P0 / 0 P1 / 0 P2 / 0 P3.** Exact original-command retry
+reconciles; terminal seal emits a digest-only `session.agent.message.sealed`
+wake-up; injected outbox failure leaves `open`. Next: authorized SSE
+projection and database-backed reconnect replay. Future guard: lifecycle
+persist of `BeginCompleting`/`Abort` incomplete seals must reuse that
+terminal outbox (no PostgreSQL lifecycle coordinator exists yet). Frozen
+`0005`–`0014` unchanged. Voice stays disabled.
 
-External review of `cdd586d` (2026-08-14) **request changes: 0 P0 / 0 P1 /
-1 P2 / 2 P3.** Those findings are addressed in `ea21ec3`; that SHA is not
+External review of `de58503` (2026-08-14) **request changes: 0 P0 / 0 P1 /
+2 P2 / 0 P3.** Those findings are addressed in `e2f9cf0`; that SHA is not
 rewritten.
 
+ADR-011 publication persist is **approved** at `ea21ec3`. External review of
+`cdd586d` (2026-08-14) **request changes: 0 P0 / 0 P1 / 1 P2 / 2 P3.** Those
+findings are addressed in `ea21ec3`; that SHA is not rewritten.
+
 External review of `0956b22` (2026-08-14) **request changes: 0 P0 / 0 P1 /
-2 P2 / 1 P3.** Those findings are addressed here; that SHA is not rewritten.
+2 P2 / 1 P3.** Those findings are addressed in the `cdd586d` remediations;
+that SHA is not rewritten.
 
 External review of `a947759` (2026-08-14) **request changes: 0 P0 / 0 P1 /
 2 P2 / 1 P3.** Those findings are addressed in `0013`; that SHA is not
-rewritten. Outbox/SSE remains the next sub-slice.
+rewritten.
 
 ADR-011 additive PostgreSQL fragment persist (`0012`) stores exact UTF-8
 deltas and hydrates Decision/`aout.*` linkage. Frozen `0005`–`0011` are
@@ -1158,6 +1168,15 @@ surfaces.
 
 # Findings / deviations
 
+- External review of `e2f9cf0` (2026-08-15): **approved**, 0 P0 / 0 P1 / 0 P2 /
+  0 P3 (sequence with `de58503`; `2aa0718` Voice TODO only). Original-command
+  retry at `V` reconciles; digest mismatch is distinct from `StaleVersion`;
+  seal writes digest-only `session.agent.message.sealed` after an `open`
+  fragment observation; outbox failure leaves `open`; duplicate seals do not
+  emit a second wake-up. GitHub exposed no combined status checks for either
+  SHA. Future guard (not a defect): lifecycle persist of
+  `BeginCompleting`/`Abort` automatic incomplete seals must reuse that
+  terminal outbox. Next: authorized SSE projection and reconnect replay.
 - External review of `de58503` (2026-08-14): **request changes**, 0 P0 / 0 P1 /
   2 P2 / 0 P3. P2: exact retry at original expected version returned
   `StaleVersion` before domain reconcile. P2: complete/incomplete seal had no
@@ -1586,7 +1605,7 @@ surfaces.
 | `a947759` P2/P3 remediations (publication coherence, incremental persist) | passed; schema+repository | Red: same-Session fragment→invocation B, generation-attempt mismatch, turn/slot mismatch, and participant parent inserted; Agent `turn_id` NULL inserted; second-fragment persist attempted 2 inserts (2026-08-14). Green: additive `0013` (frozen `0005`–`0012`); composite FK; dirty-only fragment insert; Agent turn/slot CHECK. Confirmation: focused schema/repository/upgrade 5/5; Sessions 266/266; architecture 29/29; Postgres 110/111 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 13; `0012→0013` empty upgrade. External review of `0956b22`: request changes (2 P2 / 1 P3); remediations in pending-work persist + `0014`. |
 | `0956b22` P2/P3 remediations (O(1) persist, accepted-output from parent) | passed; schema+repository | Red: second-fragment persist scanned 2 accumulated fragments; `session_message_fragments` still had `accepted_agent_output_id` (2026-08-14). Green: pending publication queue; additive `0014` drops fragment accepted-output; populated `0012` backfills `response_slot_id` from fragment 1. Confirmation: focused persist/schema/upgrade 6/6; Sessions 267/267; architecture 29/29; Postgres 112/113 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 14; `0013→0014` empty upgrade. External review of `cdd586d`: request changes (1 P2 / 2 P3). |
 | `cdd586d` P2/P3 remediations (dirty Turns, pending transcript, rollback reload) | passed; **approved** `ea21ec3` | Red: second-fragment persist attempted 2 transcript INSERTs (2026-08-14). Green: `DirtyTurns` + `PendingTranscript`; accepted output on the Agent Message; unused `FragmentPendingScans` removed; rollback discards aggregate and retry reloads PostgreSQL. Confirmation: focused persist/rollback/admission 6/6; Sessions 267/267; architecture 29/29; Postgres 113/114 with known concurrent-empty Grate `pg_type` flake. External review: 0 P0 / 0 P1 / 0 P2 / 0 P3. GitHub commit status for `ea21ec3` was not independently visible. Outbox/SSE remains next. |
-| ADR-011 publication outbox/audit (`REQ-SESS-56`, `SESS-DEC-9`, `SESS-DEC-13`) | passed after `de58503` P2 remediations; application+repository | Red: exact retry at original `V` was `StaleVersion`; seal had no wake-up (2026-08-14). Green: original-command retry Reconciles (1 fragment, 1 outbox, version `V+1`); same ordinal different text is `DigestMismatch`; `SealAsync` emits `session.agent.message.sealed` after an `open` fragment observation; seal outbox failure leaves `open`; duplicate seal has no second outbox; opposite seal at original `V` is `AlreadyTerminal` not `StaleVersion`. Confirmation (2026-08-15): handler 12/12; Sessions 279/279; architecture 29/29; audit/outbox 12/12. SSE projector, replay, rolling validation, backpressure, and worker content-phase remain. |
+| ADR-011 publication outbox/audit (`REQ-SESS-56`, `SESS-DEC-9`, `SESS-DEC-13`) | passed; **approved** `e2f9cf0` | Red: exact retry at original `V` was `StaleVersion`; seal had no wake-up (2026-08-14). Green: original-command retry Reconciles (1 fragment, 1 outbox, version `V+1`); same ordinal different text is `DigestMismatch`; `SealAsync` emits `session.agent.message.sealed` after an `open` fragment observation; seal outbox failure leaves `open`; duplicate seal has no second outbox; opposite seal at original `V` is `AlreadyTerminal` not `StaleVersion`. Confirmation (2026-08-15): handler 12/12; Sessions 279/279; architecture 29/29; audit/outbox 12/12. External review: 0 P0 / 0 P1 / 0 P2 / 0 P3. GitHub commit status for `e2f9cf0`/`2aa0718` was not independently visible. Future guard: lifecycle persist of `BeginCompleting`/`Abort` incomplete seals must reuse the terminal outbox. Next: SSE projector and reconnect replay. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
@@ -1599,11 +1618,13 @@ surfaces.
 
 # Blockers
 
-None for the `de58503` P2 remediations (stale exact-retry reconcile + seal
-wake-up). Next remaining ADR-011 work is SSE projection/replay, rolling
-validation, backpressure, and worker content-phase. Live provider wiring and
-frozen-policy rehydration remain later gates. Worker host stays idle until
-those exist.
+None for starting authorized SSE projection and database-backed reconnect
+replay. Publication outbox/audit is approved at `e2f9cf0`. Rolling validation,
+backpressure, and worker content-phase remain later ADR-011 work. When
+lifecycle persistence is added, automatic incomplete seals from
+`BeginCompleting`/`Abort` must use the same terminal audit/outbox path. Live
+provider wiring and frozen-policy rehydration remain later gates. Worker host
+stays idle until those exist.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
