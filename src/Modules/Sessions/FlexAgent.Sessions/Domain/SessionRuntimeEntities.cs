@@ -28,7 +28,7 @@ public sealed class ResponseSlot
 
     internal void Cancel()
     {
-        if (State == ResponseSlotStates.Open)
+        if (State is ResponseSlotStates.Open or ResponseSlotStates.ClaimedForPublication)
         {
             State = ResponseSlotStates.Cancelled;
         }

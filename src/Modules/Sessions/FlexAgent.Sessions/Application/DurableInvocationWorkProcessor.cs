@@ -268,6 +268,16 @@ public sealed class DurableInvocationWorkProcessor(
         var session = loaded.Session;
         var existing = session.AgentMessages.FirstOrDefault(message =>
             string.Equals(message.DrivingInvocationId, invocation.AgentInvocationId, StringComparison.Ordinal));
+        if (existing is { Fragments.Count: > 0, IsTerminal: false })
+        {
+            return await StopContentAsync(
+                claimed,
+                loaded,
+                invocation.AgentInvocationId,
+                DurableInvocationWorkOutcomes.PublicationIncomplete,
+                cancellationToken);
+        }
+
         var generationAttemptId = existing?.GenerationAttemptId ?? $"agen.{claimed.WorkId:N}";
         var nextOrdinal = (existing?.LastFragmentOrdinal ?? 0) + 1;
         var assembled = existing?.AssembleExactText() ?? string.Empty;
@@ -283,7 +293,11 @@ public sealed class DurableInvocationWorkProcessor(
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+                    return await InterruptContentAsync(
+                        claimed,
+                        loaded,
+                        invocation.AgentInvocationId,
+                        cancellationToken);
                 }
 
                 var normalized = ProviderContentNormalizer.Normalize(contentEvent, assembled);
@@ -346,9 +360,13 @@ public sealed class DurableInvocationWorkProcessor(
                 }
             }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
-            return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+            return await InterruptContentAsync(
+                claimed,
+                loaded,
+                invocation.AgentInvocationId,
+                cancellationToken);
         }
 
         return await StopContentAsync(
@@ -394,6 +412,14 @@ public sealed class DurableInvocationWorkProcessor(
             string.Equals(item.DrivingInvocationId, agentInvocationId, StringComparison.Ordinal));
         if (message is null || message.Fragments.Count == 0)
         {
+            var utc = await sessionGateway.ReadAuthoritativeUtcAsync(cancellationToken);
+            var failed = loaded.Session.FailUnpublishedAgentResponse(agentInvocationId, utc);
+            if (!failed.Succeeded
+                && failed.OutcomeCode != FragmentCommitOutcomeCodes.Reconciled)
+            {
+                return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+            }
+
             await workStore.MarkCompletedAsync(claimed, cancellationToken);
             return new DurableInvocationWorkProcessResult(
                 DurableInvocationWorkOutcomes.PublicationFailed,
@@ -458,6 +484,14 @@ public sealed class DurableInvocationWorkProcessor(
         }
         else if (message is null || message.Fragments.Count == 0)
         {
+            var utc = await sessionGateway.ReadAuthoritativeUtcAsync(cancellationToken);
+            var failed = loaded.Session.FailUnpublishedAgentResponse(agentInvocationId, utc);
+            if (!failed.Succeeded
+                && failed.OutcomeCode != FragmentCommitOutcomeCodes.Reconciled)
+            {
+                return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+            }
+
             outcome = DurableInvocationWorkOutcomes.PublicationFailed;
         }
 
@@ -472,6 +506,7 @@ public sealed class DurableInvocationWorkProcessor(
     {
         if (outcomeCode is not (
             FragmentCommitOutcomeCodes.RateExceeded
+            or FragmentCommitOutcomeCodes.InFlightExceeded
             or FragmentCommitOutcomeCodes.StaleVersion
             or FragmentCommitOutcomeCodes.StaleClock))
         {
@@ -481,6 +516,27 @@ public sealed class DurableInvocationWorkProcessor(
         var message = session.AgentMessages.FirstOrDefault(item =>
             string.Equals(item.DrivingInvocationId, agentInvocationId, StringComparison.Ordinal));
         return message is null || message.Fragments.Count == 0;
+    }
+
+    private async Task<DurableInvocationWorkProcessResult> InterruptContentAsync(
+        DurableInvocationWorkItem claimed,
+        LoadedInvocationWorkSession loaded,
+        string agentInvocationId,
+        CancellationToken cancellationToken)
+    {
+        var message = loaded.Session.AgentMessages.FirstOrDefault(item =>
+            string.Equals(item.DrivingInvocationId, agentInvocationId, StringComparison.Ordinal));
+        if (message is { Fragments.Count: > 0 })
+        {
+            return await StopContentAsync(
+                claimed,
+                loaded,
+                agentInvocationId,
+                DurableInvocationWorkOutcomes.PublicationIncomplete,
+                cancellationToken);
+        }
+
+        return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
     }
 
     private async Task<DurableInvocationWorkProcessResult> ReleaseForRetryAsync(

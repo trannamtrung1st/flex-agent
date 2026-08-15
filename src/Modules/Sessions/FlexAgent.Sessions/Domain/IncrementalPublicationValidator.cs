@@ -95,8 +95,22 @@ internal static class IncrementalPublicationValidator
 
     private static bool IsRecordableText(string text)
     {
-        foreach (var ch in text)
+        for (var index = 0; index < text.Length; index++)
         {
+            var ch = text[index];
+            if (char.IsSurrogate(ch))
+            {
+                if (!char.IsHighSurrogate(ch)
+                    || index + 1 >= text.Length
+                    || !char.IsLowSurrogate(text[index + 1]))
+                {
+                    return false;
+                }
+
+                index++;
+                continue;
+            }
+
             if (ch is '\t' or '\n' or '\r')
             {
                 continue;

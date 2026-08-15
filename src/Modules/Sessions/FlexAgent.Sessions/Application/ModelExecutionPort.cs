@@ -24,14 +24,31 @@ public sealed record ModelExecutionFailed(string ReasonCategory) : ModelExecutio
 
 public abstract record ModelContentEvent;
 
+/// <summary>
+/// A non-overlapping suffix. Adapters must supply well-formed Unicode scalar
+/// text (no unpaired surrogates). This event is not a resume cursor; after any
+/// durable fragment, interrupted delta streams must not restart without a
+/// proven provider position.
+/// </summary>
 public sealed record ModelContentTextDelta(string ExactUtf8Text) : ModelContentEvent;
 
+/// <summary>
+/// A cumulative snapshot of the assembled visible text. Adapters must supply
+/// well-formed Unicode scalar text. The normalizer verifies the committed
+/// prefix before taking any suffix.
+/// </summary>
 public sealed record ModelContentCumulativeSnapshot(string ExactUtf8Text) : ModelContentEvent;
 
 public sealed record ModelContentMetadata : ModelContentEvent;
 
 public sealed record ModelContentCompleted : ModelContentEvent;
 
+/// <summary>
+/// Starts a content stream for an invocation/generation attempt. The request
+/// does not carry a provider cursor, committed ordinal, or byte position.
+/// Resume is therefore not proven; the worker seals a visible prefix
+/// <c>Incomplete</c> instead of restarting a delta stream.
+/// </summary>
 public sealed record ModelContentStreamRequest(
     SessionOwnership Ownership,
     string AgentInvocationId,

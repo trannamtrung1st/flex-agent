@@ -430,6 +430,166 @@ public sealed class DurableInvocationWorkProcessorTests
     }
 
     [Fact]
+    public async Task Completed_with_zero_fragments_terminalizes_the_claimed_publication_path()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var adapter = new DeterministicFakeModelExecutionAdapter();
+        adapter.EnqueueEnvelope(
+            SessionRuntimeTestFixtures.Envelope(
+                invocationId,
+                outputs: [SessionRuntimeTestFixtures.MessageOutput(turnId: null, responseSlotId: null)],
+                decisionId: "adec.worker.emptycomp1"));
+        adapter.EnqueueContent(new ModelContentCompleted());
+        var store = new MemoryWorkStore(session.Ownership, invocationId);
+        var processor = CreateProcessor(adapter, session, store);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.PublicationFailed, result.Outcome);
+        Assert.True(store.Completed);
+        Assert.Empty(session.AgentMessages);
+        Assert.False(session.HasOpenAgentContentPublication(invocationId));
+        Assert.Equal(TurnStates.Cancelled, session.Turns[0].State);
+        Assert.Equal(ResponseSlotStates.Cancelled, session.Turns[0].ResponseSlot.State);
+    }
+
+    [Fact]
+    public async Task Redelivery_after_a_visible_delta_seals_incomplete_instead_of_duplicating_text()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var completed = session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.Envelope(
+                invocationId,
+                outputs: [SessionRuntimeTestFixtures.MessageOutput(turnId: null, responseSlotId: null)],
+                decisionId: "adec.worker.dupdelta01"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        Assert.True(completed.PublicationPathClaimed, completed.OutcomeCode);
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "Hel", "agen.visible.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3)).Succeeded);
+        var inner = new DeterministicFakeModelExecutionAdapter();
+        inner.EnqueueContent(
+            new ModelContentTextDelta("Hel"),
+            new ModelContentTextDelta("lo"),
+            new ModelContentCompleted());
+        var adapter = new CountingModelExecutionPort(inner);
+        var store = new MemoryWorkStore(session.Ownership, invocationId);
+        var processor = CreateProcessor(adapter, session, store);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.PublicationIncomplete, result.Outcome);
+        Assert.Equal(0, adapter.StreamCount);
+        Assert.Equal("Hel", session.AgentMessages[0].AssembleExactText());
+        Assert.Equal(AgentMessageCompletionStates.Incomplete, session.AgentMessages[0].CompletionState);
+        Assert.Single(session.AgentMessages[0].Fragments);
+        Assert.True(store.Completed);
+    }
+
+    [Fact]
+    public async Task Cancellation_after_a_visible_fragment_seals_incomplete()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var adapter = new CancelAfterFirstDeltaPort();
+        adapter.EnqueueEnvelope(
+            SessionRuntimeTestFixtures.Envelope(
+                invocationId,
+                outputs: [SessionRuntimeTestFixtures.MessageOutput(turnId: null, responseSlotId: null)],
+                decisionId: "adec.worker.cancelvis1"));
+        var store = new MemoryWorkStore(session.Ownership, invocationId);
+        var processor = CreateProcessor(adapter, session, store);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.PublicationIncomplete, result.Outcome);
+        Assert.True(store.Completed);
+        Assert.Equal("Hel", session.AgentMessages[0].AssembleExactText());
+        Assert.Equal(AgentMessageCompletionStates.Incomplete, session.AgentMessages[0].CompletionState);
+    }
+
+    [Fact]
+    public async Task Cancellation_before_first_visibility_releases_the_claim()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var adapter = new CancelBeforeFirstDeltaPort();
+        adapter.EnqueueEnvelope(
+            SessionRuntimeTestFixtures.Envelope(
+                invocationId,
+                outputs: [SessionRuntimeTestFixtures.MessageOutput(turnId: null, responseSlotId: null)],
+                decisionId: "adec.worker.cancelpre1"));
+        var store = new MemoryWorkStore(session.Ownership, invocationId);
+        var processor = CreateProcessor(adapter, session, store);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.RetryLater, result.Outcome);
+        Assert.False(store.Completed);
+        Assert.Empty(session.AgentMessages);
+        Assert.True(session.HasOpenAgentContentPublication(invocationId));
+    }
+
+    [Fact]
+    public async Task In_flight_bound_before_first_fragment_releases_the_claim_for_retry()
+    {
+        var values = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues();
+        var session = SessionRuntimeTestFixtures.CreateActiveSession(
+            RuntimePolicyTestFixtures.ResolvePolicy(values with
+            {
+                InvocationBounds = values.InvocationBounds! with
+                {
+                    CooldownSeconds = 0,
+                    DuplicateSuppressionWindowSeconds = 0,
+                },
+                StreamingPublicationBounds = new StreamingPublicationBounds(512, 40, 64, 8_192, 1),
+            }));
+        var firstAdmitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var firstInvocationId = firstAdmitted.Invocation!.AgentInvocationId;
+        Assert.True(session.CompleteInvocation(
+            firstInvocationId,
+            SessionRuntimeTestFixtures.EmitMessage(firstInvocationId),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2)).PublicationPathClaimed);
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(firstInvocationId, 1, "a", "agen.inflight.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2)).Succeeded);
+        var secondAdmitted = session.AcceptParticipantMessage(
+            "msg.p.2", "turn.2", "slot.2", "trig.participant.2", "idem.p.2", session.LastCommittedAt);
+        Assert.True(secondAdmitted.Succeeded, secondAdmitted.OutcomeCode);
+        var secondInvocationId = secondAdmitted.Invocation!.AgentInvocationId;
+        Assert.True(session.CompleteInvocation(
+            secondInvocationId,
+            SessionRuntimeTestFixtures.Envelope(
+                secondInvocationId,
+                outputs: [SessionRuntimeTestFixtures.MessageOutput(turnId: null, responseSlotId: null)],
+                decisionId: "adec.worker.inflight01"),
+            session.LastCommittedAt).PublicationPathClaimed);
+        var adapter = new DeterministicFakeModelExecutionAdapter();
+        adapter.EnqueueContent(new ModelContentTextDelta("b"), new ModelContentCompleted());
+        var store = new MemoryWorkStore(session.Ownership, secondInvocationId);
+        var processor = CreateProcessor(adapter, session, store);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.RetryLater, result.Outcome);
+        Assert.False(store.Completed);
+        Assert.Single(session.AgentMessages);
+        Assert.True(session.HasOpenAgentContentPublication(secondInvocationId));
+    }
+
+    [Fact]
     public async Task Stream_end_without_completed_event_seals_visible_prefix_incomplete()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
@@ -706,8 +866,11 @@ public sealed class DurableInvocationWorkProcessorTests
                     ? new LoadedInvocationWorkSession(session, session.Binding, session.SessionVersion)
                     : null);
 
-        public Task<DateTimeOffset> ReadAuthoritativeUtcAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        public Task<DateTimeOffset> ReadAuthoritativeUtcAsync(CancellationToken cancellationToken)
+        {
+            var floor = SessionRuntimeTestFixtures.T0.AddSeconds(2);
+            return Task.FromResult(session.LastCommittedAt > floor ? session.LastCommittedAt : floor);
+        }
 
         public Task<bool> TrySaveCompletionAsync(
             SessionOwnership ownership,
@@ -785,6 +948,8 @@ public sealed class DurableInvocationWorkProcessorTests
     {
         public int ExecuteCount { get; private set; }
 
+        public int StreamCount { get; private set; }
+
         public Task<ModelExecutionAttemptResult> ExecuteAsync(
             ModelExecutionAttemptRequest request,
             CancellationToken cancellationToken)
@@ -795,8 +960,50 @@ public sealed class DurableInvocationWorkProcessorTests
 
         public IAsyncEnumerable<ModelContentEvent> StreamParticipantVisibleContentAsync(
             ModelContentStreamRequest request,
+            CancellationToken cancellationToken)
+        {
+            StreamCount++;
+            return inner.StreamParticipantVisibleContentAsync(request, cancellationToken);
+        }
+    }
+
+    private sealed class CancelAfterFirstDeltaPort : IModelExecutionPort
+    {
+        private readonly DeterministicFakeModelExecutionAdapter _inner = new();
+
+        public void EnqueueEnvelope(EnvelopeRecommendation envelope) => _inner.EnqueueEnvelope(envelope);
+
+        public Task<ModelExecutionAttemptResult> ExecuteAsync(
+            ModelExecutionAttemptRequest request,
             CancellationToken cancellationToken) =>
-            inner.StreamParticipantVisibleContentAsync(request, cancellationToken);
+            _inner.ExecuteAsync(request, cancellationToken);
+
+        public async IAsyncEnumerable<ModelContentEvent> StreamParticipantVisibleContentAsync(
+            ModelContentStreamRequest request,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            yield return new ModelContentTextDelta("Hel");
+            throw new OperationCanceledException(cancellationToken);
+        }
+    }
+
+    private sealed class CancelBeforeFirstDeltaPort : IModelExecutionPort
+    {
+        private readonly DeterministicFakeModelExecutionAdapter _inner = new();
+
+        public void EnqueueEnvelope(EnvelopeRecommendation envelope) => _inner.EnqueueEnvelope(envelope);
+
+        public Task<ModelExecutionAttemptResult> ExecuteAsync(
+            ModelExecutionAttemptRequest request,
+            CancellationToken cancellationToken) =>
+            _inner.ExecuteAsync(request, cancellationToken);
+
+        public IAsyncEnumerable<ModelContentEvent> StreamParticipantVisibleContentAsync(
+            ModelContentStreamRequest request,
+            CancellationToken cancellationToken)
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
     }
 
     private sealed class CrashAfterReturnPort(IModelExecutionPort inner) : IModelExecutionPort

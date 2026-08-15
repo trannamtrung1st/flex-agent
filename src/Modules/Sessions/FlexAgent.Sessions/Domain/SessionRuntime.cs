@@ -1109,6 +1109,46 @@ public sealed class SessionRuntime
         return SealAgentMessage(message, AgentMessageCompletionStates.Incomplete, authoritativeUtc);
     }
 
+    public AgentResponseFragmentCommitResult FailUnpublishedAgentResponse(
+        string agentInvocationId,
+        DateTimeOffset authoritativeUtc)
+    {
+        var invocation = FindInvocation(agentInvocationId);
+        var message = FindAgentMessageByInvocation(agentInvocationId);
+        if (message is { Fragments.Count: > 0 })
+        {
+            return FragmentFailure(FragmentCommitOutcomeCodes.AlreadyTerminal, message);
+        }
+
+        var turn = invocation is null ? null : FindPublicationTurn(invocation);
+        if (turn is { State: TurnStates.Cancelled }
+            && turn.ResponseSlot.State == ResponseSlotStates.Cancelled)
+        {
+            return new AgentResponseFragmentCommitResult(
+                true,
+                FragmentCommitOutcomeCodes.Reconciled,
+                AgentMessagePublished: false);
+        }
+
+        if (invocation is null || !IsPublicationClaimed(invocation) || turn is null)
+        {
+            return FragmentFailure(FragmentCommitOutcomeCodes.PublicationNotClaimed, message);
+        }
+
+        if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: false))
+        {
+            return FragmentFailure(MapFragmentClockFailure(clockFailure), message);
+        }
+
+        turn.Cancel();
+        TrackTurn(turn);
+        Touch(authoritativeUtc);
+        return new AgentResponseFragmentCommitResult(
+            true,
+            FragmentCommitOutcomeCodes.UnpublishedFailed,
+            AgentMessagePublished: false);
+    }
+
     private DecisionEffectResult ReconcileAppliedEffect(AgentInvocation invocation)
     {
         invocation.MarkPipelineComplete();

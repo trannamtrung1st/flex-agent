@@ -173,6 +173,7 @@ public static class FragmentCommitOutcomeCodes
     public const string InFlightExceeded = "fragment_commit.in_flight_exceeded";
     public const string RateExceeded = "fragment_commit.rate_exceeded";
     public const string ValidationFailed = "fragment_commit.validation_failed";
+    public const string UnpublishedFailed = "fragment_commit.unpublished_failed";
 }
 
 public static class ExecutionFailureReasons

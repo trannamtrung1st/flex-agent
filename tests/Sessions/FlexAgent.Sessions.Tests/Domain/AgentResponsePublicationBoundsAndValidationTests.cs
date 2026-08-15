@@ -161,6 +161,42 @@ public sealed class AgentResponsePublicationBoundsAndValidationTests
         Assert.Equal("line\r\n\tnext", session.AgentMessages[0].AssembleExactText());
     }
 
+    [Fact]
+    public void Unpaired_surrogate_is_rejected_without_mutation()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var invocationId = ClaimParticipantPublication(session);
+        var version = session.SessionVersion;
+
+        var result = session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(invocationId, 1, "\uD800", "agen.val.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(FragmentCommitOutcomeCodes.ValidationFailed, result.OutcomeCode);
+        Assert.Empty(session.AgentMessages);
+        Assert.Equal(version, session.SessionVersion);
+    }
+
+    [Fact]
+    public void Unpublished_completed_publication_cancels_the_claimed_slot_and_turn()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var invocationId = ClaimParticipantPublication(session);
+        Assert.True(session.HasOpenAgentContentPublication(invocationId));
+
+        var result = session.FailUnpublishedAgentResponse(
+            invocationId,
+            SessionRuntimeTestFixtures.T0.AddSeconds(3));
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(FragmentCommitOutcomeCodes.UnpublishedFailed, result.OutcomeCode);
+        Assert.Empty(session.AgentMessages);
+        Assert.False(session.HasOpenAgentContentPublication(invocationId));
+        Assert.Equal(TurnStates.Cancelled, session.Turns[0].State);
+        Assert.Equal(ResponseSlotStates.Cancelled, session.Turns[0].ResponseSlot.State);
+    }
+
     private static SessionRuntime CreateSession(StreamingPublicationBounds bounds) =>
         SessionRuntimeTestFixtures.CreateActiveSession(
             RuntimePolicyTestFixtures.ResolvePolicy(
