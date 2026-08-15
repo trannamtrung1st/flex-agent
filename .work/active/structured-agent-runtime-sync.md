@@ -724,10 +724,11 @@ and test reviews have no unresolved blocking findings.
       after a trusted Session cursor (no client-held text/position).
       Additive `0015` stores seal `session_sequence` and UTC; projector
       emits `session.agent.fragment.v1` / `session.agent.complete.v1`
-      from committed rows; unknown/future/malformed/non-positive cursors reconcile;
-      client text/fragment position are not command inputs. HTTP SSE
-      subscription, 60s revocation revalidation, and synthetic adapter
-      remain later. Do not rewrite `0005`–`0015`.
+      from committed rows. Untrusted `Last-Event-ID` is accepted only when
+      it matches an issued fragment or seal cursor on the loaded Session;
+      other in-range Session sequences reconcile. Replay hydration uses
+      Repeatable Read. HTTP SSE subscription, 60s revocation revalidation,
+      and synthetic adapter remain later. Do not rewrite `0005`–`0015`.
     - [>] Rolling incremental validation, frozen-bound backpressure, and
       worker content-phase (cumulative vs delta).
 - [ ] Implement the one-lane scheduler with model-based/domain tests first,
@@ -813,12 +814,21 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
+External review of `00dc160` **request changes: 1 P1 / 1 P2** is addressed.
+Replay `LoadSnapshotAsync` uses Repeatable Read; an in-range non-stream
+`Last-Event-ID` reconciles instead of skipping Agent events. HTTP SSE
+authorization/revalidation remains later host work and is not claimed
+complete for `REQ-SESS-59`. Concurrent empty-database Grate `RunAsync`
+takes `pg_advisory_lock(727001, 1)` and retries catalog unique collisions
+without rewriting frozen `0001`.
+
 ADR-011 authorized SSE projection and reconnect replay is **implemented**
 (awaiting external review). Additive `0015` stores `sealed_session_sequence`
 and `sealed_at` on Agent Messages. Replay loads the Session by complete
-ownership, treats `Last-Event-ID` as an untrusted `session_sequence`, and
-projects committed fragment `text_delta` plus a distinct complete-event
-cursor. Unknown, future, malformed, or non-positive cursors, and terminal messages
+ownership, treats `Last-Event-ID` as an untrusted last-event id, and
+accepts it as `afterSequence` only when it matches an issued fragment or
+seal cursor. Replay hydration uses Repeatable Read. Unknown, future,
+malformed, non-positive, or in-range non-stream cursors, and terminal messages
 without a stored seal sequence, reconcile instead of optimistic replay.
 Wrong ownership is denied with no events. HTTP `/sessions/{id}/events` on
 the production API host is not wired; the synthetic browser adapter still
@@ -954,6 +964,12 @@ surfaces.
 
 # Decisions
 
+- Concurrent empty-database Grate (2026-08-15): do not rewrite frozen `0001`.
+  Serialize `GrateMigrationRunner.RunAsync` with session
+  `pg_advisory_lock(727001, 1)` and retry PostgreSQL catalog unique collisions
+  (`pg_type_typname_nsp_index`, `pg_class_relname_nsp_index`). Do not retry
+  application unique violations. The deploy CLI remains a single bounded
+  Grate step per `STACK-DEC-9`.
 - ADR-011 domain publication (2026-08-14): the first committed fragment claims
   the generation attempt and Agent message; envelope streams reuse the
   accepted `aout.*` output id; v1 `emit_message` allocates `aout.*` at first
@@ -1012,12 +1028,16 @@ surfaces.
 - ADR-011 authorized SSE replay (2026-08-15): `ReplayAuthorizedSessionEventsCommand`
   takes only actor, complete Session ownership, and an untrusted last-event id.
   The handler never accepts client text, fragment ordinal, or clocks.
-  `Last-Event-ID` is parsed as `session_sequence`; empty starts from the
-  beginning; malformed, non-positive, or future values reconcile with no events.
-  Complete events use the seal sequence from additive `0015`, not the last
-  fragment sequence. Uncertain terminal rows without a stored seal sequence
-  also reconcile. Cross-ownership replay is denied. Production HTTP SSE and
-  60-second subscription revalidation remain later host work.
+  `Last-Event-ID` is parsed as `session_sequence` and becomes `afterSequence`
+  only when it matches an issued Agent fragment or seal cursor on the loaded
+  Session. Empty starts from the beginning; malformed, non-positive, future,
+  or in-range non-stream values reconcile with no events. PostgreSQL replay
+  hydration uses Repeatable Read so a concurrent fragment/seal cannot mix
+  into an earlier Session head. Complete events use the seal sequence from
+  additive `0015`, not the last fragment sequence. Uncertain terminal rows
+  without a stored seal sequence also reconcile. Cross-ownership replay is
+  denied. Production HTTP SSE authorization, 60-second subscription
+  revalidation, and kernel checks remain later host work.
 - Exact `agent-decision.v2` validation at the model-execution boundary uses
   JsonSchema.Net Draft 2020-12 against the embedded canonical schema. The
   handwritten Domain parser remains a typed mapper after schema success and
@@ -1634,7 +1654,8 @@ surfaces.
 | `0956b22` P2/P3 remediations (O(1) persist, accepted-output from parent) | passed; schema+repository | Red: second-fragment persist scanned 2 accumulated fragments; `session_message_fragments` still had `accepted_agent_output_id` (2026-08-14). Green: pending publication queue; additive `0014` drops fragment accepted-output; populated `0012` backfills `response_slot_id` from fragment 1. Confirmation: focused persist/schema/upgrade 6/6; Sessions 267/267; architecture 29/29; Postgres 112/113 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 14; `0013→0014` empty upgrade. External review of `cdd586d`: request changes (1 P2 / 2 P3). |
 | `cdd586d` P2/P3 remediations (dirty Turns, pending transcript, rollback reload) | passed; **approved** `ea21ec3` | Red: second-fragment persist attempted 2 transcript INSERTs (2026-08-14). Green: `DirtyTurns` + `PendingTranscript`; accepted output on the Agent Message; unused `FragmentPendingScans` removed; rollback discards aggregate and retry reloads PostgreSQL. Confirmation: focused persist/rollback/admission 6/6; Sessions 267/267; architecture 29/29; Postgres 113/114 with known concurrent-empty Grate `pg_type` flake. External review: 0 P0 / 0 P1 / 0 P2 / 0 P3. GitHub commit status for `ea21ec3` was not independently visible. Outbox/SSE remains next. |
 | ADR-011 publication outbox/audit (`REQ-SESS-56`, `SESS-DEC-9`, `SESS-DEC-13`) | passed; **approved** `e2f9cf0` | Red: exact retry at original `V` was `StaleVersion`; seal had no wake-up (2026-08-14). Green: original-command retry Reconciles (1 fragment, 1 outbox, version `V+1`); same ordinal different text is `DigestMismatch`; `SealAsync` emits `session.agent.message.sealed` after an `open` fragment observation; seal outbox failure leaves `open`; duplicate seal has no second outbox; opposite seal at original `V` is `AlreadyTerminal` not `StaleVersion`. Confirmation (2026-08-15): handler 12/12; Sessions 279/279; architecture 29/29; audit/outbox 12/12. External review: 0 P0 / 0 P1 / 0 P2 / 0 P3. GitHub commit status for `e2f9cf0`/`2aa0718` was not independently visible. Future guard: lifecycle persist of `BeginCompleting`/`Abort` incomplete seals must reuse the terminal outbox. SSE projection/replay is implemented in this slice. |
-| ADR-011 authorized SSE projection and reconnect replay (`REQ-SESS-59`, `SESS-DEC-7`, `SESS-DEC-10`, `SESS-DEC-13`, `AC-SESS-32`) | passed; application+postgres | Red: compile failed for missing `ReplayAuthorizedSessionEventsCommand` (2026-08-15). Green: replay from start is fragment then distinct seal cursor; after-cursor omits earlier text; malformed/future/negative cursors and terminal-without-seal-sequence reconcile; missing actor/ownership mismatch leak no events. Confirmation: replay command 7/7; Sessions 286/286; architecture 29/29; SSE replay 3/3; schema seal columns; `0014→0015` empty upgrade; audit/outbox+repository 32/32; Grate empty+repeat 2/2 with one-time script count 15. Known concurrent-empty Grate `pg_type` flake unchanged. HTTP SSE host wiring, 60s subscription revalidation, rolling validation, and synthetic adapter remain later. Frozen `0005`–`0014` unchanged. |
+| ADR-011 authorized SSE projection and reconnect replay (`REQ-SESS-59`, `SESS-DEC-7`, `SESS-DEC-10`, `SESS-DEC-13`, `AC-SESS-32`) | passed; application+postgres; `00dc160` remediations | Red: compile failed for missing `ReplayAuthorizedSessionEventsCommand` (2026-08-15). Green: replay from start is fragment then distinct seal cursor; after-cursor omits earlier text; malformed/future/negative cursors and terminal-without-seal-sequence reconcile; missing actor/ownership mismatch leak no events. `00dc160` P1 red: isolation was `read committed` (2026-08-15). P1 green: Repeatable Read; concurrent fragment/seal after head read is omitted. P2 red: in-range invocation sequence replayed as a trusted cursor. P2 green: only issued fragment/seal cursors are accepted. Confirmation: replay command 8/8; Sessions 287/287; architecture 29/29 including Repeatable Read source guard; SSE replay 5/5 including isolation and non-stream cursor. HTTP SSE host wiring, 60s subscription revalidation, rolling validation, and synthetic adapter remain later. Frozen `0005`–`0014` unchanged. |
+| Concurrent empty-database Grate `pg_type` collision | passed; postgres | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` for real Grate invocations and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
@@ -1648,10 +1669,10 @@ surfaces.
 # Blockers
 
 None for starting rolling incremental validation, frozen-bound backpressure,
-and worker content-phase. Authorized SSE projection/replay is implemented and
-awaiting external review. HTTP production SSE subscription and 60-second
-revocation revalidation wait on API host wiring. Synthetic adapter mirroring
-remains a later plan step. When lifecycle persistence is added, automatic
+and worker content-phase. Authorized SSE projection/replay remediates the
+`00dc160` P1/P2 findings and still awaits HTTP host wiring. HTTP production
+SSE subscription and 60-second revocation revalidation wait on API host
+wiring. Synthetic adapter mirroring remains a later plan step. When lifecycle persistence is added, automatic
 incomplete seals from `BeginCompleting`/`Abort` must use the same terminal
 audit/outbox path. Live provider wiring and frozen-policy rehydration remain
 later gates. Worker host stays idle until those exist.

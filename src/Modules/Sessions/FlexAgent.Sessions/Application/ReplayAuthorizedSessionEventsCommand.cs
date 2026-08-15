@@ -46,6 +46,11 @@ public sealed class ReplayAuthorizedSessionEventsHandler : IReplayAuthorizedSess
             return Denied(SessionEventReplayOutcomeCodes.Reconcile);
         }
 
+        if (!AuthorizedSessionEventProjector.IsIssuedStreamCursor(session, afterSequence))
+        {
+            return Denied(SessionEventReplayOutcomeCodes.Reconcile);
+        }
+
         return AuthorizedSessionEventProjector.Project(session, afterSequence);
     }
 

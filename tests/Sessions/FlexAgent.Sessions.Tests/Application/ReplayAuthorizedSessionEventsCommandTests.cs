@@ -151,6 +151,62 @@ public sealed class ReplayAuthorizedSessionEventsCommandTests
     }
 
     [Fact]
+    public void In_range_non_stream_session_sequence_reconciles_instead_of_becoming_a_trusted_cursor()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var firstInvocationId = ClaimParticipantPublication(session, "1");
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(firstInvocationId, 1, "Hel", "agen.replay.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(3)).Succeeded);
+        Assert.True(session.CompleteAgentResponseMessage(firstInvocationId, SessionRuntimeTestFixtures.T0.AddSeconds(4)).Succeeded);
+        var firstSeal = session.AgentMessages[0].SealedSessionSequence;
+        Assert.NotNull(firstSeal);
+
+        var secondAdmitted = session.AcceptParticipantMessage(
+            "msg.p.2",
+            "turn.2",
+            "slot.2",
+            "trig.participant.2",
+            "idem.p.2",
+            SessionRuntimeTestFixtures.T0.AddSeconds(5));
+        Assert.True(secondAdmitted.Succeeded, secondAdmitted.OutcomeCode);
+        var nonStreamSequence = session.Invocations[^1].SessionSequence;
+        Assert.True(nonStreamSequence > firstSeal);
+        Assert.True(nonStreamSequence <= session.SessionSequence);
+        Assert.NotEqual(firstSeal, nonStreamSequence);
+
+        var secondCompleted = session.CompleteInvocation(
+            secondAdmitted.Invocation!.AgentInvocationId,
+            SessionRuntimeTestFixtures.EmitMessage(
+                secondAdmitted.Invocation.AgentInvocationId,
+                turnId: "turn.2",
+                responseSlotId: "slot.2"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(6));
+        Assert.True(secondCompleted.Succeeded, secondCompleted.OutcomeCode);
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(
+                secondAdmitted.Invocation.AgentInvocationId,
+                1,
+                "later",
+                "agen.replay.2"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(7)).Succeeded);
+
+        var skipped = AuthorizedSessionEventProjector.Project(session, nonStreamSequence);
+        Assert.DoesNotContain(skipped.Events, evt => evt.TextDelta == "Hel");
+
+        var result = new ReplayAuthorizedSessionEventsHandler().Handle(
+            new ReplayAuthorizedSessionEventsCommand(
+                SessionRuntimeTestFixtures.CreateActor(),
+                session.Ownership,
+                nonStreamSequence.ToString(CultureInfo.InvariantCulture)),
+            session);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(SessionEventReplayOutcomeCodes.Reconcile, result.OutcomeCode);
+        Assert.Empty(result.Events);
+    }
+
+    [Fact]
     public void Replay_rejects_missing_actor_and_ownership_mismatch_without_leaking_events()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
@@ -218,14 +274,14 @@ public sealed class ReplayAuthorizedSessionEventsCommandTests
         Assert.Empty(result.Events);
     }
 
-    private static string ClaimParticipantPublication(SessionRuntime session)
+    private static string ClaimParticipantPublication(SessionRuntime session, string key = "1")
     {
         var admitted = session.AcceptParticipantMessage(
-            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+            $"msg.p.{key}", $"turn.{key}", $"slot.{key}", $"trig.participant.{key}", $"idem.p.{key}", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var completed = session.CompleteInvocation(
             invocationId,
-            SessionRuntimeTestFixtures.EmitMessage(invocationId),
+            SessionRuntimeTestFixtures.EmitMessage(invocationId, turnId: $"turn.{key}", responseSlotId: $"slot.{key}"),
             SessionRuntimeTestFixtures.T0.AddSeconds(2));
         Assert.True(completed.PublicationPathClaimed);
         return invocationId;

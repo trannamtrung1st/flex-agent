@@ -1,3 +1,4 @@
+using System.Data;
 using FlexAgent.Postgres;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
@@ -25,7 +26,10 @@ public sealed class PostgresReplayAuthorizedSessionEventsCoordinator(
                 []);
         }
 
-        await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
+        await using var scope = await PostgresTransactionScope.BeginAsync(
+            connectionAccessor,
+            IsolationLevel.RepeatableRead,
+            cancellationToken);
         try
         {
             var session = await runtimeRepository.LoadSnapshotAsync(

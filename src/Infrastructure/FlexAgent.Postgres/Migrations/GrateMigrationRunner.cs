@@ -33,6 +33,11 @@ public static class GrateMigrationRunner
         IGrateToolInvoker toolInvoker,
         IGrateBootstrapRetryDelayPolicy retryDelayPolicy)
     {
+        await using var migrationLock = await TryAcquireExclusiveMigrationLockAsync(
+            connectionString,
+            toolInvoker,
+            cancellationToken);
+
         var toolOptions = new GrateToolInvocationOptions(MigrationsDirectory: migrationsDirectory);
         ToolInvocationResult? lastToolResult = null;
 
@@ -279,8 +284,88 @@ public static class GrateMigrationRunner
             return true;
         }
 
+        if (combinedOutput.Contains("pg_type_typname_nsp_index", StringComparison.OrdinalIgnoreCase)
+            || combinedOutput.Contains("pg_class_relname_nsp_index", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         return combinedOutput.Contains("being used by another process", StringComparison.OrdinalIgnoreCase)
             && combinedOutput.Contains("grate", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<IAsyncDisposable> TryAcquireExclusiveMigrationLockAsync(
+        string connectionString,
+        IGrateToolInvoker toolInvoker,
+        CancellationToken cancellationToken)
+    {
+        if (!ReferenceEquals(toolInvoker, ProcessGrateToolInvoker.Instance))
+        {
+            return NoOpAsyncDisposable.Instance;
+        }
+
+        return await PostgresAdvisoryMigrationLock.AcquireAsync(connectionString, cancellationToken);
+    }
+
+    private sealed class NoOpAsyncDisposable : IAsyncDisposable
+    {
+        public static NoOpAsyncDisposable Instance { get; } = new();
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class PostgresAdvisoryMigrationLock : IAsyncDisposable
+    {
+        internal const int LockClassId = 727001;
+        internal const int LockObjectId = 1;
+
+        private readonly NpgsqlConnection _connection;
+        private bool _released;
+
+        private PostgresAdvisoryMigrationLock(NpgsqlConnection connection) => _connection = connection;
+
+        internal static async Task<PostgresAdvisoryMigrationLock> AcquireAsync(
+            string connectionString,
+            CancellationToken cancellationToken)
+        {
+            var connection = new NpgsqlConnection(connectionString);
+            try
+            {
+                await connection.OpenAsync(cancellationToken);
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        "SELECT pg_advisory_lock(@LockClassId, @LockObjectId);",
+                        new { LockClassId, LockObjectId },
+                        cancellationToken: cancellationToken));
+                return new PostgresAdvisoryMigrationLock(connection);
+            }
+            catch
+            {
+                await connection.DisposeAsync();
+                throw;
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (_released)
+            {
+                return;
+            }
+
+            _released = true;
+            try
+            {
+                await _connection.ExecuteAsync(
+                    new CommandDefinition(
+                        "SELECT pg_advisory_unlock(@LockClassId, @LockObjectId);",
+                        new { LockClassId, LockObjectId }));
+            }
+            finally
+            {
+                await _connection.DisposeAsync();
+            }
+        }
     }
 
     private static string FindRepositoryRoot()

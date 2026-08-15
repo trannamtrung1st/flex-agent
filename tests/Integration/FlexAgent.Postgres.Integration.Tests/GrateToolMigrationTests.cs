@@ -209,6 +209,61 @@ public sealed class GrateToolMigrationTests
     }
 
     [Fact]
+    public async Task RunAsync_retries_transient_pg_type_catalog_collision()
+    {
+        var toolInvoker = new SequenceGrateToolInvoker(attempt =>
+        {
+            if (attempt == 1)
+            {
+                return GrateMigrationRunner.ToolInvocationResult.Failed(
+                    """
+                    Running '0001_initial_authorization_configuration_schema.sql'.
+                    0001_initial_authorization_configuration_schema.sql: 23505: duplicate key value violates unique constraint "pg_type_typname_nsp_index"
+                    An error occurred: Migration failed due to the following errors:
+                    """,
+                    isRuntimeIncompatibility: false,
+                    exitCode: 1);
+            }
+
+            return GrateMigrationRunner.ToolInvocationResult.Success();
+        });
+
+        await GrateMigrationRunner.RunAsync(
+            "Host=unused;Database=unused;Username=unused;Password=unused",
+            GetProductionMigrationsDirectory(),
+            TestContext.Current.CancellationToken,
+            allowEmbeddedFallback: false,
+            toolInvoker,
+            ZeroBootstrapRetryDelayPolicy.Instance);
+
+        Assert.Equal(2, toolInvoker.Attempts);
+    }
+
+    [Fact]
+    public async Task RunAsync_does_not_retry_application_unique_violation()
+    {
+        var toolInvoker = new SequenceGrateToolInvoker(_ =>
+            GrateMigrationRunner.ToolInvocationResult.Failed(
+                """
+                INSERT failed: 23505: duplicate key value violates unique constraint "session_messages_pkey"
+                """,
+                isRuntimeIncompatibility: false,
+                exitCode: 1));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            GrateMigrationRunner.RunAsync(
+                "Host=unused;Database=unused;Username=unused;Password=unused",
+                GetProductionMigrationsDirectory(),
+                TestContext.Current.CancellationToken,
+                allowEmbeddedFallback: false,
+                toolInvoker,
+                ZeroBootstrapRetryDelayPolicy.Instance));
+
+        Assert.Contains("session_messages_pkey", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(1, toolInvoker.Attempts);
+    }
+
+    [Fact]
     public async Task RunAsync_retries_transient_tool_restore_file_lock()
     {
         var toolInvoker = new SequenceGrateToolInvoker(attempt =>

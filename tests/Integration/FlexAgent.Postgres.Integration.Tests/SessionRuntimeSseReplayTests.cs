@@ -156,6 +156,97 @@ public sealed class SessionRuntimeSseReplayTests(PostgresIntegrationFixture fixt
     }
 
     [Fact]
+    public async Task Replay_snapshot_does_not_mix_a_later_committed_fragment_into_an_earlier_head()
+    {
+        var ready = await PrepareReadyToPublishAsync("rr");
+        Assert.True((await ready.Publisher.PublishFragmentAsync(
+            new PublishAgentResponseFragmentCommand(
+                ready.Actor,
+                ready.Binding.Ownership,
+                ready.SessionVersion,
+                ready.InvocationId,
+                1,
+                "Hel",
+                "agen.rr.1",
+                Guid.NewGuid(),
+                "integration.test"),
+            ready.Binding,
+            CancellationToken)).Succeeded);
+
+        long versionAfterFirst;
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            versionAfterFirst = await ReadSessionVersionAsync(connection, ready.Binding.Ownership);
+        }
+
+        string? isolation = null;
+        PostgresSessionRuntimeRepository.AfterHeadLoadedAsync = async transaction =>
+        {
+            isolation = await transaction.Connection!.ExecuteScalarAsync<string>(
+                new CommandDefinition(
+                    "SHOW transaction_isolation;",
+                    transaction: transaction,
+                    cancellationToken: CancellationToken));
+            var second = await ready.Publisher.PublishFragmentAsync(
+                new PublishAgentResponseFragmentCommand(
+                    ready.Actor,
+                    ready.Binding.Ownership,
+                    versionAfterFirst,
+                    ready.InvocationId,
+                    2,
+                    "lo",
+                    "agen.rr.1",
+                    Guid.NewGuid(),
+                    "integration.test"),
+                ready.Binding,
+                CancellationToken);
+            Assert.True(second.Succeeded, second.OutcomeCode);
+
+            long versionAfterSecond;
+            await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+            {
+                versionAfterSecond = await ReadSessionVersionAsync(connection, ready.Binding.Ownership);
+            }
+
+            Assert.True((await ready.Publisher.SealAsync(
+                new SealAgentResponseCommand(
+                    ready.Actor,
+                    ready.Binding.Ownership,
+                    versionAfterSecond,
+                    ready.InvocationId,
+                    AgentMessageCompletionStates.Complete,
+                    Guid.NewGuid(),
+                    "integration.test"),
+                ready.Binding,
+                CancellationToken)).Succeeded);
+        };
+
+        try
+        {
+            var replay = await new PostgresReplayAuthorizedSessionEventsCoordinator(
+                Fixture.Services.ConnectionAccessor,
+                ready.Repository,
+                new ReplayAuthorizedSessionEventsHandler()).ReplayAsync(
+                new ReplayAuthorizedSessionEventsCommand(ready.Actor, ready.Binding.Ownership, null),
+                ready.Binding,
+                CancellationToken);
+
+            Assert.Equal("repeatable read", isolation);
+            Assert.True(replay.Succeeded, replay.OutcomeCode);
+            var fragment = Assert.Single(replay.Events);
+            Assert.Equal("Hel", fragment.TextDelta);
+            Assert.DoesNotContain(replay.Events, evt => evt.TextDelta == "lo");
+            Assert.DoesNotContain(
+                replay.Events,
+                evt => evt.EventType == AuthorizedSessionEventTypes.AgentComplete);
+        }
+        finally
+        {
+            PostgresSessionRuntimeRepository.AfterHeadLoadedAsync = null;
+        }
+    }
+
+    [Fact]
     public async Task Unknown_future_cursor_reconciles_from_the_loaded_session()
     {
         var ready = await PrepareReadyToPublishAsync("future");
@@ -194,6 +285,62 @@ public sealed class SessionRuntimeSseReplayTests(PostgresIntegrationFixture fixt
                 ready.Actor,
                 ready.Binding.Ownership,
                 (sessionSequence + 1).ToString(CultureInfo.InvariantCulture)),
+            ready.Binding,
+            CancellationToken);
+
+        Assert.Equal(SessionEventReplayOutcomeCodes.Reconcile, replay.OutcomeCode);
+        Assert.Empty(replay.Events);
+    }
+
+    [Fact]
+    public async Task In_range_non_stream_session_sequence_reconciles_from_the_loaded_session()
+    {
+        var ready = await PrepareReadyToPublishAsync("nonstream");
+        Assert.True((await ready.Publisher.PublishFragmentAsync(
+            new PublishAgentResponseFragmentCommand(
+                ready.Actor,
+                ready.Binding.Ownership,
+                ready.SessionVersion,
+                ready.InvocationId,
+                1,
+                "Hel",
+                "agen.nonstream.1",
+                Guid.NewGuid(),
+                "integration.test"),
+            ready.Binding,
+            CancellationToken)).Succeeded);
+
+        long invocationSequence;
+        long fragmentSequence;
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            invocationSequence = await connection.ExecuteScalarAsync<long>(
+                """
+                SELECT admitted_session_sequence
+                FROM session_invocations
+                WHERE organization_id = @OrganizationId
+                  AND session_id = @SessionId
+                  AND agent_invocation_id = @InvocationId;
+                """,
+                new
+                {
+                    ready.Binding.Ownership.OrganizationId,
+                    ready.Binding.Ownership.SessionId,
+                    InvocationId = ready.InvocationId,
+                });
+            fragmentSequence = await ReadFragmentSequenceAsync(connection, ready.Binding.Ownership, 1);
+        }
+
+        Assert.InRange(invocationSequence, 1, fragmentSequence - 1);
+
+        var replay = await new PostgresReplayAuthorizedSessionEventsCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            ready.Repository,
+            new ReplayAuthorizedSessionEventsHandler()).ReplayAsync(
+            new ReplayAuthorizedSessionEventsCommand(
+                ready.Actor,
+                ready.Binding.Ownership,
+                invocationSequence.ToString(CultureInfo.InvariantCulture)),
             ready.Binding,
             CancellationToken);
 

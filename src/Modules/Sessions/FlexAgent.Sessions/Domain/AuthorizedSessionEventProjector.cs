@@ -78,6 +78,28 @@ public static class AuthorizedSessionEventProjector
             hasMore);
     }
 
+    public static bool IsIssuedStreamCursor(SessionRuntime session, long sequence)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        foreach (var message in session.AgentMessages)
+        {
+            foreach (var fragment in message.Fragments)
+            {
+                if (fragment.SessionSequence == sequence)
+                {
+                    return true;
+                }
+            }
+
+            if (message.SealedSessionSequence == sequence)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static string FormatUtc(DateTimeOffset value)
     {
         var utc = value.ToUniversalTime();

@@ -51,6 +51,31 @@ public sealed class SessionsRepositoryOwnershipTests
         AssertCoordinatorRejectsClientClocks(typeof(PostgresPublishAgentResponseCoordinator), "PublishFragmentAsync");
         AssertCoordinatorRejectsClientClocks(typeof(PostgresPublishAgentResponseCoordinator), "SealAsync");
         AssertCoordinatorRejectsClientClocks(typeof(PostgresReplayAuthorizedSessionEventsCoordinator), "ReplayAsync");
+        var replaySource = File.ReadAllText(
+            Path.Combine(FindSessionsInfrastructureRoot(), "PostgresReplayAuthorizedSessionEventsCoordinator.cs"));
+        Assert.Contains("IsolationLevel.RepeatableRead", replaySource, StringComparison.Ordinal);
+    }
+
+    private static string FindSessionsInfrastructureRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(
+                directory.FullName,
+                "src",
+                "Modules",
+                "Sessions",
+                "FlexAgent.Sessions.Infrastructure");
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("Could not locate Sessions infrastructure project.");
     }
 
     private static void AssertCoordinatorRejectsClientClocks(Type coordinatorType, string methodName)
