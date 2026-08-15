@@ -138,6 +138,9 @@ public static class DurableInvocationWorkOutcomes
     public const string ExecutionFailed = "execution_failed";
     public const string Reconciled = "reconciled";
     public const string RetryLater = "retry_later";
+    public const string Published = "published";
+    public const string PublicationIncomplete = "publication_incomplete";
+    public const string PublicationFailed = "publication_failed";
 }
 
 public static class AgentMessageCompletionStates
@@ -164,6 +167,12 @@ public static class FragmentCommitOutcomeCodes
     public const string StaleVersion = "fragment_commit.stale_version";
     public const string Denied = "fragment_commit.denied";
     public const string OwnershipMismatch = "fragment_commit.ownership_mismatch";
+    public const string FragmentTooLarge = "fragment_commit.fragment_too_large";
+    public const string FragmentCountExceeded = "fragment_commit.fragment_count_exceeded";
+    public const string AssembledSizeExceeded = "fragment_commit.assembled_size_exceeded";
+    public const string InFlightExceeded = "fragment_commit.in_flight_exceeded";
+    public const string RateExceeded = "fragment_commit.rate_exceeded";
+    public const string ValidationFailed = "fragment_commit.validation_failed";
 }
 
 public static class ExecutionFailureReasons

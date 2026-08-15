@@ -558,6 +558,11 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             ExecuteCount++;
             return inner.ExecuteAsync(request, cancellationToken);
         }
+
+        public IAsyncEnumerable<ModelContentEvent> StreamParticipantVisibleContentAsync(
+            ModelContentStreamRequest request,
+            CancellationToken cancellationToken) =>
+            inner.StreamParticipantVisibleContentAsync(request, cancellationToken);
     }
 
     private sealed class InvocationKeyedModelExecutionPort : IModelExecutionPort
@@ -580,6 +585,11 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             _executeCounts.AddOrUpdate(request.AgentInvocationId, 1, static (_, count) => count + 1);
             return _ports[request.AgentInvocationId].ExecuteAsync(request, cancellationToken);
         }
+
+        public IAsyncEnumerable<ModelContentEvent> StreamParticipantVisibleContentAsync(
+            ModelContentStreamRequest request,
+            CancellationToken cancellationToken) =>
+            _ports[request.AgentInvocationId].StreamParticipantVisibleContentAsync(request, cancellationToken);
     }
 
     private sealed class CrashAfterReturnPort(IModelExecutionPort inner) : IModelExecutionPort

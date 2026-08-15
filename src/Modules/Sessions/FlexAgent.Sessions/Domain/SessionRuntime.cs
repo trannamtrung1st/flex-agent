@@ -945,6 +945,18 @@ public sealed class SessionRuntime
                 return FragmentFailure(FragmentCommitOutcomeCodes.Cutoff, existing);
             }
 
+            var boundFailure = IncrementalPublicationValidator.RejectDelta(
+                commit.ExactUtf8Text,
+                existing.AssembleExactText(),
+                Policy.StreamingPublicationBounds,
+                _agentMessages,
+                existing,
+                authoritativeUtc);
+            if (boundFailure is not null)
+            {
+                return FragmentFailure(boundFailure, existing);
+            }
+
             var appended = existing.AppendFragment(
                 commit.FragmentOrdinal,
                 NextSequence(authoritativeUtc),
@@ -973,6 +985,18 @@ public sealed class SessionRuntime
         if (invocation is null || !IsPublicationClaimed(invocation))
         {
             return FragmentFailure(FragmentCommitOutcomeCodes.PublicationNotClaimed, null);
+        }
+
+        var firstBoundFailure = IncrementalPublicationValidator.RejectDelta(
+            commit.ExactUtf8Text,
+            string.Empty,
+            Policy.StreamingPublicationBounds,
+            _agentMessages,
+            existing: null,
+            authoritativeUtc);
+        if (firstBoundFailure is not null)
+        {
+            return FragmentFailure(firstBoundFailure, null);
         }
 
         var turn = FindPublicationTurn(invocation)!;
@@ -1042,6 +1066,11 @@ public sealed class SessionRuntime
         if (!CanPublishNewFragment())
         {
             return FragmentFailure(FragmentCommitOutcomeCodes.Cutoff, message);
+        }
+
+        if (!IncrementalPublicationValidator.IsRecordableAssembled(message.AssembleExactText()))
+        {
+            return FragmentFailure(FragmentCommitOutcomeCodes.ValidationFailed, message);
         }
 
         return SealAgentMessage(message, AgentMessageCompletionStates.Complete, authoritativeUtc);
@@ -1276,6 +1305,18 @@ public sealed class SessionRuntime
     {
         var turnId = invocation.ValidationEffect?.AppliedTurnId ?? invocation.Trigger.TurnId;
         return turnId is null ? null : FindTurn(turnId);
+    }
+
+    public bool HasOpenAgentContentPublication(string agentInvocationId)
+    {
+        var invocation = FindInvocation(agentInvocationId);
+        if (invocation is null || !IsPublicationClaimed(invocation))
+        {
+            return false;
+        }
+
+        var message = FindAgentMessageByInvocation(agentInvocationId);
+        return message is null || !message.IsTerminal;
     }
 
     private bool IsPublicationClaimed(AgentInvocation invocation)

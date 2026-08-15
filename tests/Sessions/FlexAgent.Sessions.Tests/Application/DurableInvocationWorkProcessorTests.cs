@@ -280,6 +280,234 @@ public sealed class DurableInvocationWorkProcessorTests
     }
 
     [Fact]
+    public async Task Accepted_message_decision_publishes_delta_content_then_seals_complete()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var adapter = new DeterministicFakeModelExecutionAdapter();
+        adapter.EnqueueEnvelope(
+            SessionRuntimeTestFixtures.Envelope(
+                invocationId,
+                outputs: [SessionRuntimeTestFixtures.MessageOutput(turnId: null, responseSlotId: null)],
+                decisionId: "adec.worker.content001"));
+        adapter.EnqueueContent(
+            new ModelContentTextDelta("Hel"),
+            new ModelContentTextDelta("lo"),
+            new ModelContentCompleted());
+        var store = new MemoryWorkStore(session.Ownership, invocationId);
+        var processor = CreateProcessor(adapter, session, store);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.Published, result.Outcome);
+        Assert.True(store.Completed);
+        var message = Assert.Single(session.AgentMessages);
+        Assert.Equal("Hello", message.AssembleExactText());
+        Assert.Equal(AgentMessageCompletionStates.Complete, message.CompletionState);
+        Assert.Equal(2, message.Fragments.Count);
+        Assert.Equal(TurnStates.Complete, session.Turns[0].State);
+    }
+
+    [Fact]
+    public async Task Cumulative_snapshots_publish_only_verified_suffixes()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var adapter = new DeterministicFakeModelExecutionAdapter();
+        adapter.EnqueueEnvelope(
+            SessionRuntimeTestFixtures.Envelope(
+                invocationId,
+                outputs: [SessionRuntimeTestFixtures.MessageOutput(turnId: null, responseSlotId: null)],
+                decisionId: "adec.worker.cumul0001"));
+        adapter.EnqueueContent(
+            new ModelContentCumulativeSnapshot("Hel"),
+            new ModelContentCumulativeSnapshot("Hello"),
+            new ModelContentCompleted());
+        var store = new MemoryWorkStore(session.Ownership, invocationId);
+        var processor = CreateProcessor(adapter, session, store);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.Published, result.Outcome);
+        Assert.Equal("Hello", session.AgentMessages[0].AssembleExactText());
+        Assert.Equal("Hel", session.AgentMessages[0].Fragments[0].ExactUtf8Text);
+        Assert.Equal("lo", session.AgentMessages[0].Fragments[1].ExactUtf8Text);
+    }
+
+    [Fact]
+    public async Task Prefix_divergence_seals_visible_prefix_incomplete_without_echo()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var adapter = new DeterministicFakeModelExecutionAdapter();
+        adapter.EnqueueEnvelope(
+            SessionRuntimeTestFixtures.Envelope(
+                invocationId,
+                outputs: [SessionRuntimeTestFixtures.MessageOutput(turnId: null, responseSlotId: null)],
+                decisionId: "adec.worker.diverg001"));
+        adapter.EnqueueContent(
+            new ModelContentCumulativeSnapshot("Hel"),
+            new ModelContentCumulativeSnapshot("Hey"),
+            new ModelContentCompleted());
+        var store = new MemoryWorkStore(session.Ownership, invocationId);
+        var processor = CreateProcessor(adapter, session, store);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.PublicationIncomplete, result.Outcome);
+        Assert.DoesNotContain("Hey", result.Outcome, StringComparison.Ordinal);
+        Assert.True(store.Completed);
+        Assert.Equal("Hel", session.AgentMessages[0].AssembleExactText());
+        Assert.Equal(AgentMessageCompletionStates.Incomplete, session.AgentMessages[0].CompletionState);
+    }
+
+    [Fact]
+    public async Task No_action_does_not_enter_the_content_phase()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AdmitTrustedTrigger(
+            SessionRuntimeTestFixtures.OpeningTrigger("trig.opening.nocontent"),
+            "idem.opening.nocontent",
+            SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var adapter = new DeterministicFakeModelExecutionAdapter();
+        adapter.EnqueueEnvelope(
+            SessionRuntimeTestFixtures.Envelope(
+                invocationId,
+                DecisionDispositions.NoAction,
+                outputs: [],
+                requestedActions: [],
+                noActionReasonCategory: NoActionReasonCategories.IntentionalSilence,
+                decisionId: "adec.worker.nocontent1"));
+        adapter.EnqueueContent(new ModelContentTextDelta("should-not-publish"));
+        var store = new MemoryWorkStore(session.Ownership, invocationId);
+        var processor = CreateProcessor(adapter, session, store);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.Decided, result.Outcome);
+        Assert.Empty(session.AgentMessages);
+        Assert.True(store.Completed);
+    }
+
+    [Fact]
+    public async Task Terminal_publication_claimed_invocation_resumes_content_without_control()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var completed = session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.Envelope(
+                invocationId,
+                outputs: [SessionRuntimeTestFixtures.MessageOutput(turnId: null, responseSlotId: null)],
+                decisionId: "adec.worker.resume0001"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        Assert.True(completed.PublicationPathClaimed, completed.OutcomeCode);
+        var inner = new DeterministicFakeModelExecutionAdapter();
+        inner.EnqueueContent(
+            new ModelContentTextDelta("Hi"),
+            new ModelContentCompleted());
+        var adapter = new CountingModelExecutionPort(inner);
+        var store = new MemoryWorkStore(session.Ownership, invocationId);
+        var processor = CreateProcessor(adapter, session, store);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.Published, result.Outcome);
+        Assert.Equal(0, adapter.ExecuteCount);
+        Assert.Equal("Hi", session.AgentMessages[0].AssembleExactText());
+        Assert.Equal(AgentMessageCompletionStates.Complete, session.AgentMessages[0].CompletionState);
+        Assert.True(store.Completed);
+    }
+
+    [Fact]
+    public async Task Stream_end_without_completed_event_seals_visible_prefix_incomplete()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var adapter = new DeterministicFakeModelExecutionAdapter();
+        adapter.EnqueueEnvelope(
+            SessionRuntimeTestFixtures.Envelope(
+                invocationId,
+                outputs: [SessionRuntimeTestFixtures.MessageOutput(turnId: null, responseSlotId: null)],
+                decisionId: "adec.worker.nocomplete1"));
+        adapter.EnqueueContent(new ModelContentTextDelta("Hi"));
+        var store = new MemoryWorkStore(session.Ownership, invocationId);
+        var processor = CreateProcessor(adapter, session, store);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.PublicationIncomplete, result.Outcome);
+        Assert.True(store.Completed);
+        Assert.Equal("Hi", session.AgentMessages[0].AssembleExactText());
+        Assert.Equal(AgentMessageCompletionStates.Incomplete, session.AgentMessages[0].CompletionState);
+    }
+
+    [Fact]
+    public async Task Rate_limit_before_first_fragment_releases_the_claim_for_retry()
+    {
+        var values = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues();
+        var session = SessionRuntimeTestFixtures.CreateActiveSession(
+            RuntimePolicyTestFixtures.ResolvePolicy(values with
+            {
+                InvocationBounds = values.InvocationBounds! with
+                {
+                    CooldownSeconds = 0,
+                    DuplicateSuppressionWindowSeconds = 0,
+                },
+                StreamingPublicationBounds = new StreamingPublicationBounds(512, 1, 64, 8_192, 2),
+            }));
+        var firstAdmitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var firstInvocationId = firstAdmitted.Invocation!.AgentInvocationId;
+        Assert.True(session.CompleteInvocation(
+            firstInvocationId,
+            SessionRuntimeTestFixtures.EmitMessage(firstInvocationId),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2)).PublicationPathClaimed);
+        Assert.True(session.CommitAgentResponseFragment(
+            new AgentResponseFragmentCommit(firstInvocationId, 1, "a", "agen.rate.1"),
+            SessionRuntimeTestFixtures.T0.AddSeconds(2)).Succeeded);
+        var secondAdmitted = session.AcceptParticipantMessage(
+            "msg.p.2",
+            "turn.2",
+            "slot.2",
+            "trig.participant.2",
+            "idem.p.2",
+            session.LastCommittedAt);
+        Assert.True(secondAdmitted.Succeeded, secondAdmitted.OutcomeCode);
+        var secondInvocationId = secondAdmitted.Invocation!.AgentInvocationId;
+        Assert.True(session.CompleteInvocation(
+            secondInvocationId,
+            SessionRuntimeTestFixtures.Envelope(
+                secondInvocationId,
+                outputs: [SessionRuntimeTestFixtures.MessageOutput(turnId: null, responseSlotId: null)],
+                decisionId: "adec.worker.rate000001"),
+            session.LastCommittedAt).PublicationPathClaimed);
+        var adapter = new DeterministicFakeModelExecutionAdapter();
+        adapter.EnqueueContent(new ModelContentTextDelta("b"), new ModelContentCompleted());
+        var store = new MemoryWorkStore(session.Ownership, secondInvocationId);
+        var processor = CreateProcessor(adapter, session, store);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.RetryLater, result.Outcome);
+        Assert.False(store.Completed);
+        Assert.Single(session.AgentMessages);
+        Assert.Equal("a", session.AgentMessages[0].AssembleExactText());
+    }
+
+    [Fact]
     public async Task Unprocessable_oldest_item_does_not_block_later_pending_work_on_the_next_claim()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
@@ -564,6 +792,11 @@ public sealed class DurableInvocationWorkProcessorTests
             ExecuteCount++;
             return inner.ExecuteAsync(request, cancellationToken);
         }
+
+        public IAsyncEnumerable<ModelContentEvent> StreamParticipantVisibleContentAsync(
+            ModelContentStreamRequest request,
+            CancellationToken cancellationToken) =>
+            inner.StreamParticipantVisibleContentAsync(request, cancellationToken);
     }
 
     private sealed class CrashAfterReturnPort(IModelExecutionPort inner) : IModelExecutionPort

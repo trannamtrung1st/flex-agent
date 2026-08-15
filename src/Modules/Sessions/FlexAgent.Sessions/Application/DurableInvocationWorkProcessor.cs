@@ -91,6 +91,9 @@ public sealed class DurableInvocationWorkProcessor(
     ICompleteInvocationHandler completionHandler,
     DurableInvocationWorkSettings settings) : IDurableInvocationWorkProcessor
 {
+    private readonly IPublishAgentResponseFragmentHandler _publicationHandler = new PublishAgentResponseFragmentHandler();
+    private readonly ISealAgentResponseHandler _sealHandler = new SealAgentResponseHandler();
+
     public async Task<DurableInvocationWorkProcessResult> TryProcessNextAsync(
         CancellationToken cancellationToken)
     {
@@ -122,6 +125,11 @@ public sealed class DurableInvocationWorkProcessor(
 
         if (invocation.IsTerminal)
         {
+            if (loaded.Session.HasOpenAgentContentPublication(invocation.AgentInvocationId))
+            {
+                return await PublishContentAsync(claimed, loaded, invocation, cancellationToken);
+            }
+
             await workStore.MarkCompletedAsync(claimed, cancellationToken);
             return new DurableInvocationWorkProcessResult(
                 DurableInvocationWorkOutcomes.Reconciled,
@@ -228,11 +236,251 @@ public sealed class DurableInvocationWorkProcessor(
                 InvocationCompletionOutcomeCodes.StaleVersion);
         }
 
+        if (completion.OutcomeCode == InvocationCompletionOutcomeCodes.ExecutionFailed)
+        {
+            await workStore.MarkCompletedAsync(claimed, cancellationToken);
+            return new DurableInvocationWorkProcessResult(
+                DurableInvocationWorkOutcomes.ExecutionFailed,
+                claimed.AgentInvocationId,
+                completion.OutcomeCode);
+        }
+
+        invocation = completion.Invocation;
+        loaded = loaded with { ObservedSessionVersion = loaded.Session.SessionVersion };
+        if (loaded.Session.HasOpenAgentContentPublication(invocation.AgentInvocationId))
+        {
+            return await PublishContentAsync(claimed, loaded, invocation, cancellationToken);
+        }
+
         await workStore.MarkCompletedAsync(claimed, cancellationToken);
-        var outcome = completion.OutcomeCode == InvocationCompletionOutcomeCodes.ExecutionFailed
-            ? DurableInvocationWorkOutcomes.ExecutionFailed
-            : DurableInvocationWorkOutcomes.Decided;
-        return new DurableInvocationWorkProcessResult(outcome, claimed.AgentInvocationId, completion.OutcomeCode);
+        return new DurableInvocationWorkProcessResult(
+            DurableInvocationWorkOutcomes.Decided,
+            claimed.AgentInvocationId,
+            completion.OutcomeCode);
+    }
+
+    private async Task<DurableInvocationWorkProcessResult> PublishContentAsync(
+        DurableInvocationWorkItem claimed,
+        LoadedInvocationWorkSession loaded,
+        AgentInvocation invocation,
+        CancellationToken cancellationToken)
+    {
+        var session = loaded.Session;
+        var existing = session.AgentMessages.FirstOrDefault(message =>
+            string.Equals(message.DrivingInvocationId, invocation.AgentInvocationId, StringComparison.Ordinal));
+        var generationAttemptId = existing?.GenerationAttemptId ?? $"agen.{claimed.WorkId:N}";
+        var nextOrdinal = (existing?.LastFragmentOrdinal ?? 0) + 1;
+        var assembled = existing?.AssembleExactText() ?? string.Empty;
+
+        try
+        {
+            await foreach (var contentEvent in modelExecutionPort.StreamParticipantVisibleContentAsync(
+                new ModelContentStreamRequest(
+                    claimed.Ownership,
+                    invocation.AgentInvocationId,
+                    generationAttemptId),
+                cancellationToken))
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+                }
+
+                var normalized = ProviderContentNormalizer.Normalize(contentEvent, assembled);
+                switch (normalized)
+                {
+                    case NormalizedContentSkipped:
+                        continue;
+                    case NormalizedContentFailed:
+                        return await StopContentAsync(
+                            claimed,
+                            loaded,
+                            invocation.AgentInvocationId,
+                            DurableInvocationWorkOutcomes.PublicationIncomplete,
+                            cancellationToken);
+                    case NormalizedContentCompleted:
+                        return await FinishContentAsync(
+                            claimed,
+                            loaded,
+                            invocation.AgentInvocationId,
+                            cancellationToken);
+                    case NormalizedContentDelta delta:
+                        var published = await PublishDeltaAsync(
+                            claimed,
+                            loaded,
+                            invocation.AgentInvocationId,
+                            nextOrdinal,
+                            delta.ExactUtf8Text,
+                            generationAttemptId,
+                            cancellationToken);
+                        if (!published.Succeeded)
+                        {
+                            if (ShouldRetryPublication(published.OutcomeCode, session, invocation.AgentInvocationId))
+                            {
+                                return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+                            }
+
+                            return await StopContentAsync(
+                                claimed,
+                                loaded,
+                                invocation.AgentInvocationId,
+                                DurableInvocationWorkOutcomes.PublicationIncomplete,
+                                cancellationToken);
+                        }
+
+                        if (published.OutcomeCode != FragmentCommitOutcomeCodes.Reconciled)
+                        {
+                            nextOrdinal++;
+                            assembled += delta.ExactUtf8Text;
+                            loaded = loaded with { ObservedSessionVersion = session.SessionVersion };
+                        }
+
+                        continue;
+                    default:
+                        return await StopContentAsync(
+                            claimed,
+                            loaded,
+                            invocation.AgentInvocationId,
+                            DurableInvocationWorkOutcomes.PublicationFailed,
+                            cancellationToken);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+        }
+
+        return await StopContentAsync(
+            claimed,
+            loaded,
+            invocation.AgentInvocationId,
+            DurableInvocationWorkOutcomes.PublicationIncomplete,
+            cancellationToken);
+    }
+
+    private async Task<AgentResponseFragmentCommitResult> PublishDeltaAsync(
+        DurableInvocationWorkItem claimed,
+        LoadedInvocationWorkSession loaded,
+        string agentInvocationId,
+        int fragmentOrdinal,
+        string exactUtf8Text,
+        string generationAttemptId,
+        CancellationToken cancellationToken)
+    {
+        var utc = await sessionGateway.ReadAuthoritativeUtcAsync(cancellationToken);
+        return _publicationHandler.Handle(
+            new PublishAgentResponseFragmentCommand(
+                settings.ServiceActor,
+                claimed.Ownership,
+                loaded.ObservedSessionVersion,
+                agentInvocationId,
+                fragmentOrdinal,
+                exactUtf8Text,
+                generationAttemptId,
+                Guid.NewGuid(),
+                settings.SourceChannel),
+            loaded.Session,
+            utc);
+    }
+
+    private async Task<DurableInvocationWorkProcessResult> FinishContentAsync(
+        DurableInvocationWorkItem claimed,
+        LoadedInvocationWorkSession loaded,
+        string agentInvocationId,
+        CancellationToken cancellationToken)
+    {
+        var message = loaded.Session.AgentMessages.FirstOrDefault(item =>
+            string.Equals(item.DrivingInvocationId, agentInvocationId, StringComparison.Ordinal));
+        if (message is null || message.Fragments.Count == 0)
+        {
+            await workStore.MarkCompletedAsync(claimed, cancellationToken);
+            return new DurableInvocationWorkProcessResult(
+                DurableInvocationWorkOutcomes.PublicationFailed,
+                claimed.AgentInvocationId);
+        }
+
+        if (!message.IsTerminal)
+        {
+            var utc = await sessionGateway.ReadAuthoritativeUtcAsync(cancellationToken);
+            var sealedResult = _sealHandler.Handle(
+                new SealAgentResponseCommand(
+                    settings.ServiceActor,
+                    claimed.Ownership,
+                    loaded.Session.SessionVersion,
+                    agentInvocationId,
+                    AgentMessageCompletionStates.Complete,
+                    Guid.NewGuid(),
+                    settings.SourceChannel),
+                loaded.Session,
+                utc);
+            if (!sealedResult.Succeeded)
+            {
+                return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+            }
+        }
+
+        await workStore.MarkCompletedAsync(claimed, cancellationToken);
+        return new DurableInvocationWorkProcessResult(
+            DurableInvocationWorkOutcomes.Published,
+            claimed.AgentInvocationId);
+    }
+
+    private async Task<DurableInvocationWorkProcessResult> StopContentAsync(
+        DurableInvocationWorkItem claimed,
+        LoadedInvocationWorkSession loaded,
+        string agentInvocationId,
+        string outcome,
+        CancellationToken cancellationToken)
+    {
+        var message = loaded.Session.AgentMessages.FirstOrDefault(item =>
+            string.Equals(item.DrivingInvocationId, agentInvocationId, StringComparison.Ordinal));
+        if (message is { Fragments.Count: > 0, IsTerminal: false })
+        {
+            var utc = await sessionGateway.ReadAuthoritativeUtcAsync(cancellationToken);
+            var sealedResult = _sealHandler.Handle(
+                new SealAgentResponseCommand(
+                    settings.ServiceActor,
+                    claimed.Ownership,
+                    loaded.Session.SessionVersion,
+                    agentInvocationId,
+                    AgentMessageCompletionStates.Incomplete,
+                    Guid.NewGuid(),
+                    settings.SourceChannel),
+                loaded.Session,
+                utc);
+            if (!sealedResult.Succeeded)
+            {
+                return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+            }
+
+            outcome = DurableInvocationWorkOutcomes.PublicationIncomplete;
+        }
+        else if (message is null || message.Fragments.Count == 0)
+        {
+            outcome = DurableInvocationWorkOutcomes.PublicationFailed;
+        }
+
+        await workStore.MarkCompletedAsync(claimed, cancellationToken);
+        return new DurableInvocationWorkProcessResult(outcome, claimed.AgentInvocationId);
+    }
+
+    private static bool ShouldRetryPublication(
+        string outcomeCode,
+        SessionRuntime session,
+        string agentInvocationId)
+    {
+        if (outcomeCode is not (
+            FragmentCommitOutcomeCodes.RateExceeded
+            or FragmentCommitOutcomeCodes.StaleVersion
+            or FragmentCommitOutcomeCodes.StaleClock))
+        {
+            return false;
+        }
+
+        var message = session.AgentMessages.FirstOrDefault(item =>
+            string.Equals(item.DrivingInvocationId, agentInvocationId, StringComparison.Ordinal));
+        return message is null || message.Fragments.Count == 0;
     }
 
     private async Task<DurableInvocationWorkProcessResult> ReleaseForRetryAsync(

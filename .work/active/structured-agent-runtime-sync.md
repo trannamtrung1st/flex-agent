@@ -733,7 +733,12 @@ and test reviews have no unresolved blocking findings.
       and synthetic adapter remain later host work and do not complete
       `REQ-SESS-59`. Do not rewrite `0005`–`0015`.
     - [>] Rolling incremental validation, frozen-bound backpressure, and
-      worker content-phase (cumulative vs delta).
+      worker content-phase (cumulative vs delta). Domain publication-time
+      enforcement of frozen streaming bounds; bounded rolling unsafe-markup
+      and encoding checks; provider delta vs cumulative-snapshot
+      normalization; worker content-phase after an accepted P0 `message`
+      Decision. Do not rewrite `0005`–`0015`. HTTP SSE host wiring remains
+      later. Voice stays disabled.
 - [ ] Implement the one-lane scheduler with model-based/domain tests first,
   then PostgreSQL/worker integration: default arm on `Active`, independent
   recommendation validation, replacement/sole-successor atomicity, expected
@@ -817,15 +822,40 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
+ADR-011 rolling validation, frozen-bound backpressure, and worker
+content-phase are implemented and awaiting external review. Consistency
+review (2026-08-15) fixed three working defects: stream exhaustion without a
+provider `Completed` event now seals `Incomplete` instead of `Complete`;
+failed complete/incomplete seals release the claim instead of acknowledging
+work; rate/stale clock/version before first visibility releases for retry
+(`SESS-DEC-12`) instead of `publication_failed`. Confirmation: Sessions
+310/310; architecture 29/29; durable-work Postgres 14/14. Publication-time
+enforcement uses the frozen `StreamingPublicationBounds`: fragment UTF-8 size,
+trailing one-second Session fragment rate, per-message count, assembled UTF-8
+size, and in-flight open streams per Session. Rolling validation rejects
+non-recordable controls (tab/LF/CR allowed) and assembled-prefix unsafe-markup
+tokens, including split-fragment `<script`; rejected text is never copied into
+outcome codes. After an accepted P0 `message` Decision, the worker streams
+provider events, normalizes cumulative snapshots to verified suffixes, commits
+each exact delta, and seals `Complete` or `Incomplete`. `no_action` skips the
+content phase. A decided Invocation with a claimed publication path resumes
+content without a second control call. Frozen `0005`–`0015` unchanged. Voice
+stays disabled.
+
+HTTP `/sessions/{id}/events`, ADR-002 kernel enforcement, and 60-second
+revocation revalidation remain later host work and do not complete
+`REQ-SESS-59`. The idle Worker host is unchanged. Fragment rows still persist
+only through `PostgresPublishAgentResponseCoordinator`; this processor slice
+commits on the loaded aggregate (in-memory proof). Organization-wide in-flight
+stream caps, buffered-uncommitted provider byte caps beyond assembled size,
+and generation-timeout content cancellation remain later because they are not
+on the frozen Session streaming bound record.
+
 ADR-011 authorized SSE projection and reconnect replay is **approved** at
 `18c9193` (remediates `00dc160`). External review (2026-08-15)
 **approved: 0 P0 / 0 P1 / 0 P2.** Repeatable Read hydration and persisted
 fragment/seal cursor checks are accepted. GitHub exposed no combined CI
-status for `18c9193` at review time. HTTP `/sessions/{id}/events`, ADR-002
-kernel enforcement, and 60-second revocation revalidation remain later host
-work and do not complete `REQ-SESS-59`. Next: rolling incremental validation,
-frozen-bound backpressure, and worker content-phase. Frozen `0005`–`0014`
-unchanged; do not rewrite `0015`. Voice stays disabled.
+status for `18c9193` at review time.
 
 Additive `0015` stores `sealed_session_sequence` and `sealed_at` on Agent
 Messages. Replay loads the Session by complete ownership, treats
@@ -1042,6 +1072,27 @@ surfaces.
   means a persisted fragment or seal sequence that the Agent stream could have
   emitted, not delivery acknowledgement to a particular browser. Keep `00dc160`
   as the unremediated SHA; `18c9193` is the approved remediation.
+- ADR-011 rolling validation, backpressure, and worker content-phase
+  (2026-08-15): commit-time enforcement of frozen Session streaming bounds.
+  `MaxFragmentsPerSecond` is the count of newly committed Session fragments
+  with `CommittedAt` in `(utc − 1s, utc]` plus the candidate; reconcile does
+  not consume it. Rolling validation uses the assembled prefix plus the
+  candidate delta (bounded by assembled-size policy): recordable text allows
+  tab/LF/CR and rejects other controls and DEL; unsafe-markup tokens are
+  `<script`, `javascript:`, `onerror=`, `onload=`, `onclick=`, `<iframe`,
+  `<object`, and `<embed` (ordinal-ignore-case). Failures return category
+  codes only. The versioned adapter normalizes cumulative snapshots to a
+  verified suffix and fails closed on prefix divergence. After an accepted
+  P0 `message` effect, the worker content-phase publishes then seals;
+  `no_action` does not stream. A terminal Invocation with an open publication
+  path resumes content without another control call. Empty content after an
+  accepted message is `publication_failed` with no Agent Message. Visible
+  prefix plus later validation/bound/divergence failure seals `Incomplete`.
+  Organization-wide in-flight caps are not on the frozen Session record.
+  Worker host stays idle; PostgreSQL fragment persist remains the existing
+  coordinator, not yet called from this processor loop. Stream end without a
+  provider completed event seals `Incomplete`. Rate, stale clock, and stale
+  version before first visibility release the claim for retry.
 - Exact `agent-decision.v2` validation at the model-execution boundary uses
   JsonSchema.Net Draft 2020-12 against the embedded canonical schema. The
   handwritten Domain parser remains a typed mapper after schema success and
@@ -1658,7 +1709,8 @@ surfaces.
 | `0956b22` P2/P3 remediations (O(1) persist, accepted-output from parent) | passed; schema+repository | Red: second-fragment persist scanned 2 accumulated fragments; `session_message_fragments` still had `accepted_agent_output_id` (2026-08-14). Green: pending publication queue; additive `0014` drops fragment accepted-output; populated `0012` backfills `response_slot_id` from fragment 1. Confirmation: focused persist/schema/upgrade 6/6; Sessions 267/267; architecture 29/29; Postgres 112/113 with known concurrent-empty Grate `pg_type` flake; Grate one-time script count 14; `0013→0014` empty upgrade. External review of `cdd586d`: request changes (1 P2 / 2 P3). |
 | `cdd586d` P2/P3 remediations (dirty Turns, pending transcript, rollback reload) | passed; **approved** `ea21ec3` | Red: second-fragment persist attempted 2 transcript INSERTs (2026-08-14). Green: `DirtyTurns` + `PendingTranscript`; accepted output on the Agent Message; unused `FragmentPendingScans` removed; rollback discards aggregate and retry reloads PostgreSQL. Confirmation: focused persist/rollback/admission 6/6; Sessions 267/267; architecture 29/29; Postgres 113/114 with known concurrent-empty Grate `pg_type` flake. External review: 0 P0 / 0 P1 / 0 P2 / 0 P3. GitHub commit status for `ea21ec3` was not independently visible. Outbox/SSE remains next. |
 | ADR-011 publication outbox/audit (`REQ-SESS-56`, `SESS-DEC-9`, `SESS-DEC-13`) | passed; **approved** `e2f9cf0` | Red: exact retry at original `V` was `StaleVersion`; seal had no wake-up (2026-08-14). Green: original-command retry Reconciles (1 fragment, 1 outbox, version `V+1`); same ordinal different text is `DigestMismatch`; `SealAsync` emits `session.agent.message.sealed` after an `open` fragment observation; seal outbox failure leaves `open`; duplicate seal has no second outbox; opposite seal at original `V` is `AlreadyTerminal` not `StaleVersion`. Confirmation (2026-08-15): handler 12/12; Sessions 279/279; architecture 29/29; audit/outbox 12/12. External review: 0 P0 / 0 P1 / 0 P2 / 0 P3. GitHub commit status for `e2f9cf0`/`2aa0718` was not independently visible. Future guard: lifecycle persist of `BeginCompleting`/`Abort` incomplete seals must reuse the terminal outbox. SSE projection/replay is implemented in this slice. |
-| ADR-011 authorized SSE projection and reconnect replay (`REQ-SESS-59`, `SESS-DEC-7`, `SESS-DEC-10`, `SESS-DEC-13`, `AC-SESS-32`) | passed; **approved** `18c9193` | Red: compile failed for missing `ReplayAuthorizedSessionEventsCommand` (2026-08-15). Green: replay from start is fragment then distinct seal cursor; after-cursor omits earlier text; malformed/future/negative cursors and terminal-without-seal-sequence reconcile; missing actor/ownership mismatch leak no events. External review of `00dc160`: request changes (1 P1 / 1 P2). Remediations in `18c9193`: Repeatable Read hydration (concurrent fragment/seal after head read omitted); in-range non-stream `Last-Event-ID` reconciles. Confirmation recorded at remediation: replay command 8/8; Sessions 287/287; architecture 29/29; SSE replay 5/5. External review of `18c9193` (2026-08-15): **approved** 0 P0 / 0 P1 / 0 P2. GitHub exposed no combined CI status for `18c9193` at review time. HTTP SSE host wiring, ADR-002 kernel, 60s revalidation, rolling validation, and synthetic adapter remain later and do not complete `REQ-SESS-59`. Frozen `0005`–`0014` unchanged. |
+| ADR-011 authorized SSE projection and reconnect replay (`REQ-SESS-59`, `SESS-DEC-7`, `SESS-DEC-10`, `SESS-DEC-13`, `AC-SESS-32`) | passed; **approved** `18c9193` | Red: compile failed for missing `ReplayAuthorizedSessionEventsCommand` (2026-08-15). Green: replay from start is fragment then distinct seal cursor; after-cursor omits earlier text; malformed/future/negative cursors and terminal-without-seal-sequence reconcile; missing actor/ownership mismatch leak no events. External review of `00dc160`: request changes (1 P1 / 1 P2). Remediations in `18c9193`: Repeatable Read hydration (concurrent fragment/seal after head read omitted); in-range non-stream `Last-Event-ID` reconciles. Confirmation recorded at remediation: replay command 8/8; Sessions 287/287; architecture 29/29; SSE replay 5/5. External review of `18c9193` (2026-08-15): **approved** 0 P0 / 0 P1 / 0 P2. GitHub exposed no combined CI status for `18c9193` at review time. HTTP SSE host wiring, ADR-002 kernel, 60s revalidation, and synthetic adapter remain later and do not complete `REQ-SESS-59`. Frozen `0005`–`0014` unchanged. |
+| ADR-011 rolling validation, frozen-bound backpressure, and worker content-phase (`SESS-DEC-13`, `REQ-SESS-8`, `REQ-SESS-55`–`60`, `AC-SESS-32`) | passed; awaiting review | Red (2026-08-15): compile failed for missing bound/validation outcome codes, `ProviderContentNormalizer`, and `EnqueueContent`. Green: oversized/count/assembled/in-flight/rate bounds fail closed without mutation; split `<script` keeps the safe prefix; tab/LF/CR recordable; duplicate reconcile does not consume rate; cumulative suffix/skip/prefix-divergence; worker publishes deltas then seals, skips content on `no_action`, resumes content without a second control call. Consistency review remediations: stream end without `Completed` is `Incomplete`; failed seals release the claim; rate/stale before first visibility retries. Confirmation: processor+bounds+normalizer 34/34; `FlexAgent.Sessions.Tests` 310/310; architecture 29/29; durable work Postgres 14/14; `git diff --check` passed. Frozen `0005`–`0015` unchanged. Residual: idle Worker host; processor commits on the loaded aggregate (Postgres coordinator not yet the content persist path); HTTP SSE/`REQ-SESS-59` host work; Organization-wide in-flight cap absent from frozen Session policy. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
@@ -1672,15 +1724,16 @@ surfaces.
 
 # Blockers
 
-None for starting rolling incremental validation, frozen-bound backpressure,
-and worker content-phase. Authorized SSE projection/replay is **approved** at
-`18c9193` (0 P0 / 0 P1 / 0 P2). HTTP production SSE subscription, ADR-002
-kernel enforcement, and 60-second revocation revalidation wait on API host
-wiring and do not complete `REQ-SESS-59`. Synthetic adapter mirroring remains
-a later plan step. When lifecycle persistence is added, automatic
-incomplete seals from `BeginCompleting`/`Abort` must use the same terminal
-audit/outbox path. Live provider wiring and frozen-policy rehydration remain
-later gates. Worker host stays idle until those exist.
+None for external review of rolling validation, frozen-bound backpressure,
+and worker content-phase. HTTP production SSE subscription, ADR-002 kernel
+enforcement, and 60-second revocation revalidation wait on API host wiring
+and do not complete `REQ-SESS-59`. Synthetic adapter mirroring remains a
+later plan step. The idle Worker host is unchanged. PostgreSQL fragment
+persist still goes through `PostgresPublishAgentResponseCoordinator`; wiring
+that coordinator into the worker content loop is residual. When lifecycle
+persistence is added, automatic incomplete seals from `BeginCompleting`/`Abort`
+must use the same terminal audit/outbox path. Live provider wiring and
+frozen-policy rehydration remain later gates.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.

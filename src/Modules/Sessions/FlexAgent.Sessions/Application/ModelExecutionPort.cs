@@ -22,11 +22,31 @@ public sealed record ModelExecutionStructuredControl(ValidatedAgentDecisionEnvel
 
 public sealed record ModelExecutionFailed(string ReasonCategory) : ModelExecutionAttemptResult;
 
+public abstract record ModelContentEvent;
+
+public sealed record ModelContentTextDelta(string ExactUtf8Text) : ModelContentEvent;
+
+public sealed record ModelContentCumulativeSnapshot(string ExactUtf8Text) : ModelContentEvent;
+
+public sealed record ModelContentMetadata : ModelContentEvent;
+
+public sealed record ModelContentCompleted : ModelContentEvent;
+
+public sealed record ModelContentStreamRequest(
+    SessionOwnership Ownership,
+    string AgentInvocationId,
+    string GenerationAttemptId);
+
 public interface IModelExecutionPort
 {
     Task<ModelExecutionAttemptResult> ExecuteAsync(
         ModelExecutionAttemptRequest request,
         CancellationToken cancellationToken);
+
+    IAsyncEnumerable<ModelContentEvent> StreamParticipantVisibleContentAsync(
+        ModelContentStreamRequest request,
+        CancellationToken cancellationToken) =>
+        AsyncEnumerable.Empty<ModelContentEvent>();
 }
 
 public static class ModelExecutionPreflight
@@ -48,6 +68,7 @@ public sealed class DeterministicFakeModelExecutionAdapter : IModelExecutionPort
 {
     private readonly Queue<Func<ModelExecutionAttemptRequest, CancellationToken, ModelExecutionAttemptResult>> _scripted =
         new();
+    private readonly Queue<ModelContentEvent[]> _content = new();
 
     public void EnqueueEnvelope(EnvelopeRecommendation envelope) =>
         _scripted.Enqueue((request, _) => CompleteFromJson(request, AgentDecisionEnvelopeSerializer.ToUtf8Json(envelope)));
@@ -57,6 +78,9 @@ public sealed class DeterministicFakeModelExecutionAdapter : IModelExecutionPort
 
     public void EnqueueFailure(string reasonCategory) =>
         _scripted.Enqueue((_, _) => new ModelExecutionFailed(reasonCategory));
+
+    public void EnqueueContent(params ModelContentEvent[] events) =>
+        _content.Enqueue(events);
 
     public Task<ModelExecutionAttemptResult> ExecuteAsync(
         ModelExecutionAttemptRequest request,
@@ -82,6 +106,24 @@ public sealed class DeterministicFakeModelExecutionAdapter : IModelExecutionPort
         }
 
         return Task.FromResult(_scripted.Dequeue()(request, cancellationToken));
+    }
+
+    public async IAsyncEnumerable<ModelContentEvent> StreamParticipantVisibleContentAsync(
+        ModelContentStreamRequest request,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (_content.Count == 0)
+        {
+            yield break;
+        }
+
+        foreach (var item in _content.Dequeue())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            yield return item;
+            await Task.CompletedTask;
+        }
     }
 
     private static ModelExecutionAttemptResult CompleteFromJson(
