@@ -2,6 +2,10 @@
 
 This document describes the executable Flex Agent workspace scaffold introduced by
 [ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md).
+Backend feature modules follow the
+[backend module architecture](../architecture/backend-module-architecture.md):
+a domain-oriented modular monolith with ports and adapters and inward dependency
+rules.
 
 ## Prerequisites
 
@@ -33,10 +37,9 @@ deploy/docker/
 build/scripts/
 ```
 
-Only executable composition roots, the SPA, architecture/runtime tests, and
-deployment build inputs are present in this scaffold. Feature modules,
-contracts, database migrations, and provider adapters are intentionally
-deferred to later sequenced artifacts.
+The workspace grows by implemented capability. Do not create placeholder
+modules or empty layer projects. See the backend module guide for current
+module packaging, ownership, adapter, and project-splitting rules.
 
 ## Common commands
 

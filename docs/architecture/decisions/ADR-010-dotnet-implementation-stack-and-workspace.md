@@ -40,6 +40,13 @@ Node.js. The MVP remains a modular monolith with separate API and worker
 processes; this decision preserves a later microservice extraction path but does
 not authorize premature networked services.
 
+The implementation style is a **domain-oriented modular monolith with ports and
+adapters**. Clean Architecture supplies the inward dependency rule, not a
+mandatory project-per-layer template. The implementation-facing conventions,
+project-splitting thresholds, and review checklist are consolidated in the
+[backend module architecture guide](../backend-module-architecture.md). That
+guide applies this ADR; it does not create a competing architecture decision.
+
 The stack must support the approved detailed contracts for
 [text Session runtime](../session-runtime-contract.md),
 [Evidence and Evaluation execution](../evaluation-execution-contract.md), and

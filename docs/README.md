@@ -14,6 +14,7 @@ The repository root [`README.md`](../README.md) is the GitHub landing page: curr
 | Find or author feature specifications | [Feature catalog](requirements/README.md#feature-catalog-overview) and [P0 authoring order](requirements/README.md#p0-authoring-order) |
 | Design journeys, interaction states, or design-system guidance | [UI/UX](ui-ux/README.md) |
 | Review system boundaries, data flows, or technical decisions | [Architecture](architecture/README.md) |
+| Structure or review a backend feature module | [Backend module architecture](architecture/backend-module-architecture.md) |
 | Write a new feature specification | [Feature spec template](templates/feature-spec.md) and [Feature specs](requirements/features/README.md) |
 | Understand Cursor rules, roles, and QA expectations | [Development harness](contributing/development-harness.md) |
 | Run the .NET/React workspace scaffold | [Workspace development](contributing/workspace.md) |

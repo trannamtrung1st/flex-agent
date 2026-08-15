@@ -88,6 +88,7 @@ This area governs how the system is structured: boundaries, data ownership, runt
 | Review the approved next-timer replacement boundary | [ADR-013: Agent-requested next-timer replacement](decisions/ADR-013-agent-requested-next-timer-replacement.md) |
 | Review the approved P0 Decision-output envelope | [ADR-014: Agent output envelope and P0 compatibility](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
 | Review the approved implementation stack and workspace | [ADR-010: .NET implementation stack](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) |
+| Structure or review a backend module | [Backend module architecture](backend-module-architecture.md) |
 | Review approved OSS component defaults and pending evidence gates | [ADR-008: bounded OSS component set](decisions/ADR-008-bounded-oss-component-set.md) |
 | Implement the approved text Session realization | [Text Session runtime contract](session-runtime-contract.md) |
 | Implement the approved Evidence/Evaluation realization | [Evidence and Evaluation execution contract](evaluation-execution-contract.md) |
@@ -132,4 +133,5 @@ Architecture must preserve [Concept model — Product invariants](../product/con
 - [Concept model](../product/concept-model.md)
 - [Requirements](../requirements/README.md)
 - [Approved MVP architecture](mvp-architecture.md)
+- [Backend module architecture](backend-module-architecture.md)
 - [Architecture decisions](decisions/README.md)
