@@ -1,6 +1,6 @@
 namespace FlexAgent.Sessions.Domain;
 
-public sealed class SessionRuntime
+public sealed partial class SessionRuntime
 {
     private static readonly P0TextSessionRuntimeCapabilityPolicy P0Kernel =
         P0TextSessionRuntimeCapabilityPolicy.Create();
@@ -23,6 +23,7 @@ public sealed class SessionRuntime
     private readonly HashSet<Turn> _dirtyTurns = new(ReferenceEqualityComparer.Instance);
     private readonly Queue<VisibleTranscriptItemRef> _pendingTranscript = new();
     private readonly Dictionary<string, DateTimeOffset> _lastAdmittedAtByFamily = new(StringComparer.Ordinal);
+    private readonly List<TimerScheduleRevision> _timerSchedules = [];
 
     private SessionRuntime(TrustedSessionBinding binding, DateTimeOffset startedAt)
     {
@@ -43,7 +44,8 @@ public sealed class SessionRuntime
         IReadOnlyList<Turn> turns,
         IReadOnlyList<VisibleTranscriptItemRef> transcript,
         IReadOnlyDictionary<string, DateTimeOffset> lastAdmittedAtByFamily,
-        IReadOnlyList<AgentResponseMessage> agentMessages)
+        IReadOnlyList<AgentResponseMessage> agentMessages,
+        IReadOnlyList<TimerScheduleRevision> timerSchedules)
     {
         Binding = binding;
         Ownership = binding.Ownership;
@@ -56,6 +58,7 @@ public sealed class SessionRuntime
         _turns.AddRange(turns);
         _visibleTranscript.AddRange(transcript);
         _agentMessages.AddRange(agentMessages);
+        _timerSchedules.AddRange(timerSchedules);
         foreach (var pair in lastAdmittedAtByFamily)
         {
             _lastAdmittedAtByFamily[pair.Key] = pair.Value;
@@ -86,6 +89,15 @@ public sealed class SessionRuntime
 
     public IReadOnlyList<AgentResponseMessage> AgentMessages => _agentMessages;
 
+    public IReadOnlyList<TimerScheduleRevision> TimerSchedules => _timerSchedules;
+
+    public TimerScheduleRevision? CurrentTimerLane =>
+        _timerSchedules.LastOrDefault(revision => revision.IsOpen)
+        ?? _timerSchedules.LastOrDefault(revision => revision.LaneState == TimerLaneStates.Fired);
+
+    public int PendingTimerCount =>
+        _timerSchedules.Count(revision => revision.IsOpen);
+
     internal IReadOnlyCollection<AgentResponseMessage> PendingPublicationWork => _pendingPublicationWork;
 
     internal IReadOnlyCollection<Turn> DirtyTurns => _dirtyTurns;
@@ -100,7 +112,9 @@ public sealed class SessionRuntime
             throw new ArgumentException("Authoritative Session time must be UTC.", nameof(startedAt));
         }
 
-        return new SessionRuntime(binding, startedAt);
+        var session = new SessionRuntime(binding, startedAt);
+        session.ArmDefaultCadence(startedAt, TimerRequestedByCategories.DefaultCadence);
+        return session;
     }
 
     public static SessionRuntime Rehydrate(
@@ -114,7 +128,8 @@ public sealed class SessionRuntime
         IReadOnlyList<Turn>? turns = null,
         IReadOnlyList<VisibleTranscriptItemRef>? transcript = null,
         IReadOnlyDictionary<string, DateTimeOffset>? lastAdmittedAtByFamily = null,
-        IReadOnlyList<AgentResponseMessage>? agentMessages = null)
+        IReadOnlyList<AgentResponseMessage>? agentMessages = null,
+        IReadOnlyList<TimerScheduleRevision>? timerSchedules = null)
     {
         ArgumentNullException.ThrowIfNull(binding);
         if (!IsUtc(lastCommittedAt))
@@ -133,7 +148,8 @@ public sealed class SessionRuntime
             turns ?? [],
             transcript ?? [],
             lastAdmittedAtByFamily ?? new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal),
-            agentMessages ?? []);
+            agentMessages ?? [],
+            timerSchedules ?? []);
     }
 
     internal void ReplaceLastCommittedAtFromDatabase(DateTimeOffset lastCommittedAt)
@@ -333,7 +349,25 @@ public sealed class SessionRuntime
             return;
         }
 
+        FreezeOpenTimerRemaining(authoritativeUtc, wasActive: true);
         LifecycleState = SessionLifecycleState.Paused;
+        Touch(authoritativeUtc);
+    }
+
+    public void Resume(DateTimeOffset authoritativeUtc)
+    {
+        EnsureAuthoritativeClock(authoritativeUtc);
+        if (LifecycleState != SessionLifecycleState.Paused)
+        {
+            return;
+        }
+
+        LifecycleState = SessionLifecycleState.Active;
+        foreach (var revision in _timerSchedules.Where(item => item.LaneState == TimerLaneStates.Pending))
+        {
+            revision.ResumeRemaining(authoritativeUtc);
+        }
+
         Touch(authoritativeUtc);
     }
 
@@ -349,6 +383,7 @@ public sealed class SessionRuntime
 
         LifecycleState = SessionLifecycleState.Completing;
         CutoffSequence = SessionSequence;
+        CancelOpenTimerLane();
         SealOpenAgentMessagesIncomplete(authoritativeUtc);
         foreach (var turn in _turns)
         {
@@ -395,6 +430,7 @@ public sealed class SessionRuntime
 
         LifecycleState = SessionLifecycleState.Aborted;
         CutoffSequence ??= SessionSequence;
+        CancelOpenTimerLane();
         SealOpenAgentMessagesIncomplete(authoritativeUtc);
         foreach (var turn in _turns)
         {
@@ -454,6 +490,7 @@ public sealed class SessionRuntime
         ValidateDecision(agentInvocationId, authoritativeUtc);
         var applied = ApplyDecisionEffect(agentInvocationId, authoritativeUtc);
         invocation.MarkPipelineComplete();
+        ArmDefaultSuccessorIfTimerTerminal(invocation, authoritativeUtc);
         if (applied.OutcomeCode == InvocationCompletionOutcomeCodes.EffectFailed)
         {
             return new InvocationCompletionResult(
@@ -512,6 +549,7 @@ public sealed class SessionRuntime
         invocation.AttachExecutionOutcome(outcome, NextSequence(authoritativeUtc), AgentInvocationStatuses.ExecutionFailed);
         SessionVersion++;
         outcome.BindCommitState(SessionVersion, invocation.SessionSequence);
+        ArmDefaultSuccessorIfTimerTerminal(invocation, authoritativeUtc);
         return new InvocationCompletionResult(
             true,
             InvocationCompletionOutcomeCodes.ExecutionFailed,
@@ -557,6 +595,7 @@ public sealed class SessionRuntime
         invocation.AttachExecutionOutcome(outcome, NextSequence(authoritativeUtc), AgentInvocationStatuses.ExecutionFailed);
         SessionVersion++;
         outcome.BindCommitState(SessionVersion, invocation.SessionSequence);
+        ArmDefaultSuccessorIfTimerTerminal(invocation, authoritativeUtc);
         return new InvocationCompletionResult(
             true,
             InvocationCompletionOutcomeCodes.AttemptsExhausted,
@@ -680,7 +719,7 @@ public sealed class SessionRuntime
             P0Kernel.IsDecisionTypeSupportedByP0,
             allocateRuntimeOutputIds: recommendation is EnvelopeRecommendation);
         var timerOutcome = CombineTimerOutcomes(
-            ValidateTimerRecommendation(envelope.NextTimer),
+            ValidateTimerRecommendation(envelope.NextTimer, authoritativeUtc),
             profile.TimerValidationOutcome);
         if (!Policy.PermittedDecisionTypes.Contains(recommendation.DecisionType, StringComparer.Ordinal)
             || !P0Kernel.IsDecisionTypeSupportedByP0(recommendation.DecisionType))
@@ -791,6 +830,7 @@ public sealed class SessionRuntime
                 DecisionEffectOutcomes.NoDomainEffect,
                 turn?.TurnId,
                 turn?.ResponseSlot.ResponseSlotId);
+            ApplyAcceptedTimerReplacement(invocation, authoritativeUtc);
             Touch(authoritativeUtc);
             invocation.ValidationEffect.BindEffectCommitState(SessionVersion, SessionSequence);
             invocation.MarkPipelineComplete();
@@ -864,6 +904,7 @@ public sealed class SessionRuntime
                 DecisionEffectOutcomes.Applied,
                 turn.TurnId,
                 turn.ResponseSlot.ResponseSlotId);
+            ApplyAcceptedTimerReplacement(invocation, authoritativeUtc);
             Touch(authoritativeUtc);
             invocation.ValidationEffect.BindEffectCommitState(SessionVersion, SessionSequence);
             invocation.MarkPipelineComplete();
@@ -1232,7 +1273,7 @@ public sealed class SessionRuntime
             string.Equals(item.Kind, AgentOutputKinds.Message, StringComparison.Ordinal)
             && string.Equals(item.ValidationOutcome, DecisionValidationOutcomes.Accepted, StringComparison.Ordinal));
 
-    private string ValidateTimerRecommendation(NextTimerRecommendation? nextTimer)
+    private string ValidateTimerRecommendation(NextTimerRecommendation? nextTimer, DateTimeOffset authoritativeUtc)
     {
         if (nextTimer is null)
         {
@@ -1241,9 +1282,16 @@ public sealed class SessionRuntime
 
         if (Policy.TimerLane is not { IsEnabled: true }
             || LifecycleState != SessionLifecycleState.Active
+            || HasCutoff()
+            || !Policy.TimerLane.PermittedStages.Contains("active", StringComparer.Ordinal)
             || !Iso8601PositiveDuration.TryParse(nextTimer.RelativeDelay, out var delay)
             || delay.CompareTo(Policy.TimerLane.MinRequestedDelay) < 0
-            || delay.CompareTo(Policy.TimerLane.MaxRequestedDelay) > 0)
+            || delay.CompareTo(Policy.TimerLane.MaxRequestedDelay) > 0
+            || !MatchesExpectedScheduleRevision(nextTimer.ExpectedScheduleRevision)
+            || CountAcceptedReplacements() >= Policy.TimerLane.Budgets.MaxAcceptedReplacementsPerSession
+            || IsTimerReplacementCooldownActive(authoritativeUtc)
+            || IsDuplicateReplacementSuppressed(authoritativeUtc)
+            || OpenTimerLane()?.LaneState == TimerLaneStates.Claimed)
         {
             return TimerValidationOutcomes.Rejected;
         }

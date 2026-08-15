@@ -94,6 +94,40 @@ public static class InvocationCompletionOutcomeCodes
     public const string OwnershipMismatch = "invocation_completion.ownership_mismatch";
 }
 
+public static class TimerLaneStates
+{
+    public const string Pending = "pending";
+    public const string Claimed = "claimed";
+    public const string Fired = "fired";
+    public const string Cancelled = "cancelled";
+    public const string Superseded = "superseded";
+    public const string Expired = "expired";
+}
+
+public static class TimerRequestedByCategories
+{
+    public const string DefaultCadence = "default_cadence";
+    public const string AgentRecommendation = "agent_recommendation";
+    public const string SuccessorAfterFire = "successor_after_fire";
+}
+
+public static class TimerFireOutcomeCodes
+{
+    public const string Succeeded = "timer_fire.succeeded";
+    public const string Reconciled = "timer_fire.reconciled";
+    public const string NotDue = "timer_fire.not_due";
+    public const string LifecycleIneligible = "timer_fire.lifecycle_ineligible";
+    public const string BudgetExhausted = "timer_fire.budget_exhausted";
+    public const string NonUtcClock = "timer_fire.non_utc_clock";
+    public const string StaleClock = "timer_fire.stale_clock";
+}
+
+public sealed record TimerFireResult(
+    bool Succeeded,
+    string OutcomeCode,
+    TimerScheduleRevision? Revision = null,
+    TriggerAdmissionResult? Admission = null);
+
 public static class SessionRuntimeAuditActions
 {
     public const string AdmitTrustedTrigger = "session.trusted_trigger.admit";

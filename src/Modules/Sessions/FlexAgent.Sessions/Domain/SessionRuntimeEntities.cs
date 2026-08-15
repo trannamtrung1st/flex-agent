@@ -245,6 +245,20 @@ public sealed class DecisionValidationEffectRecord
             .ToArray();
     }
 
+    internal void BindTimerActionEffect(bool applied)
+    {
+        RequestedActionValidations = RequestedActionValidations
+            .Select(item => item with
+            {
+                EffectOutcome = applied
+                    && string.Equals(item.ValidationOutcome, DecisionValidationOutcomes.Accepted, StringComparison.Ordinal)
+                    && string.Equals(item.Kind, AgentRequestedActionKinds.NextTimerRequest, StringComparison.Ordinal)
+                    ? DecisionEffectOutcomes.Applied
+                    : DecisionEffectOutcomes.NotAttempted,
+            })
+            .ToArray();
+    }
+
     internal void RestorePersistedEffect(
         string effectOutcome,
         string? appliedTurnId,
@@ -616,6 +630,110 @@ public sealed class AgentResponseMessage
         while (_pendingInserts.Count > 0 && !_pendingInserts.Peek().PendingInsert)
         {
             _pendingInserts.Dequeue();
+        }
+    }
+}
+
+public sealed class TimerScheduleRevision
+{
+    internal TimerScheduleRevision(
+        string scheduleRevisionId,
+        long scheduleRevision,
+        string relativeDelay,
+        int remainingActiveSeconds,
+        DateTimeOffset? dueAt,
+        DateTimeOffset remainingSince,
+        string requestedByCategory,
+        string? drivingDecisionId,
+        DateTimeOffset createdAt)
+    {
+        ScheduleRevisionId = scheduleRevisionId;
+        ScheduleRevision = scheduleRevision;
+        LaneState = TimerLaneStates.Pending;
+        RelativeDelay = relativeDelay;
+        RemainingActiveSeconds = remainingActiveSeconds;
+        DueAt = dueAt;
+        RemainingSince = remainingSince;
+        RequestedByCategory = requestedByCategory;
+        DrivingDecisionId = drivingDecisionId;
+        CreatedAt = createdAt;
+    }
+
+    public string ScheduleRevisionId { get; }
+
+    public long ScheduleRevision { get; }
+
+    public string LaneState { get; private set; }
+
+    public string RelativeDelay { get; }
+
+    public int RemainingActiveSeconds { get; private set; }
+
+    public DateTimeOffset? DueAt { get; private set; }
+
+    public string RequestedByCategory { get; }
+
+    public string? DrivingDecisionId { get; }
+
+    public string? FiredInvocationId { get; private set; }
+
+    public DateTimeOffset CreatedAt { get; }
+
+    internal DateTimeOffset RemainingSince { get; private set; }
+
+    internal bool IsOpen =>
+        LaneState is TimerLaneStates.Pending or TimerLaneStates.Claimed;
+
+    internal int RemainingAt(DateTimeOffset utc, bool isActive)
+    {
+        if (!isActive || LaneState != TimerLaneStates.Pending)
+        {
+            return RemainingActiveSeconds;
+        }
+
+        var elapsed = (int)Math.Floor((utc - RemainingSince).TotalSeconds);
+        return Math.Max(0, RemainingActiveSeconds - Math.Max(0, elapsed));
+    }
+
+    internal void FreezeRemaining(DateTimeOffset utc, bool wasActive)
+    {
+        RemainingActiveSeconds = RemainingAt(utc, wasActive);
+        RemainingSince = utc;
+        DueAt = null;
+    }
+
+    internal void ResumeRemaining(DateTimeOffset utc)
+    {
+        RemainingSince = utc;
+        DueAt = RemainingActiveSeconds > 0 ? utc.AddSeconds(RemainingActiveSeconds) : utc;
+    }
+
+    internal void Claim() => LaneState = TimerLaneStates.Claimed;
+
+    internal void Unclaim()
+    {
+        if (LaneState == TimerLaneStates.Claimed)
+        {
+            LaneState = TimerLaneStates.Pending;
+        }
+    }
+
+    internal void Fire(string invocationId)
+    {
+        LaneState = TimerLaneStates.Fired;
+        FiredInvocationId = invocationId;
+        RemainingActiveSeconds = 0;
+        DueAt = null;
+    }
+
+    internal void Supersede() => LaneState = TimerLaneStates.Superseded;
+
+    internal void Cancel()
+    {
+        if (IsOpen)
+        {
+            LaneState = TimerLaneStates.Cancelled;
+            DueAt = null;
         }
     }
 }
