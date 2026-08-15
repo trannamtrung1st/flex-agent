@@ -125,3 +125,5 @@ projections remain in `web/src/contracts/v1.ts`.
   path and is not yet invoked from `DurableInvocationWorkProcessor`. The idle
   Worker host is unchanged. Provider-cursor stream resume is not implemented;
   after first visibility, interrupted delta generation seals `Incomplete`.
+  External review of `303a11f` (2026-08-15) approved the in-memory processor
+  recovery semantics; coordinator wiring must retain them.
