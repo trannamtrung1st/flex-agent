@@ -500,7 +500,8 @@ public sealed class DurableInvocationWorkProcessorTests
         var admitted = session.AcceptParticipantMessage(
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
-        var adapter = new CancelAfterFirstDeltaPort();
+        using var workerCancellation = new CancellationTokenSource();
+        var adapter = new CancelAfterFirstDeltaPort(workerCancellation);
         adapter.EnqueueEnvelope(
             SessionRuntimeTestFixtures.Envelope(
                 invocationId,
@@ -509,7 +510,7 @@ public sealed class DurableInvocationWorkProcessorTests
         var store = new MemoryWorkStore(session.Ownership, invocationId);
         var processor = CreateProcessor(adapter, session, store);
 
-        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+        var result = await processor.TryProcessNextAsync(workerCancellation.Token);
 
         Assert.Equal(DurableInvocationWorkOutcomes.PublicationIncomplete, result.Outcome);
         Assert.True(store.Completed);
@@ -860,14 +861,18 @@ public sealed class DurableInvocationWorkProcessorTests
     {
         public Task<LoadedInvocationWorkSession?> LoadAsync(
             SessionOwnership ownership,
-            CancellationToken cancellationToken) =>
-            Task.FromResult<LoadedInvocationWorkSession?>(
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult<LoadedInvocationWorkSession?>(
                 ownership == session.Ownership
                     ? new LoadedInvocationWorkSession(session, session.Binding, session.SessionVersion)
                     : null);
+        }
 
         public Task<DateTimeOffset> ReadAuthoritativeUtcAsync(CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var floor = SessionRuntimeTestFixtures.T0.AddSeconds(2);
             return Task.FromResult(session.LastCommittedAt > floor ? session.LastCommittedAt : floor);
         }
@@ -967,7 +972,7 @@ public sealed class DurableInvocationWorkProcessorTests
         }
     }
 
-    private sealed class CancelAfterFirstDeltaPort : IModelExecutionPort
+    private sealed class CancelAfterFirstDeltaPort(CancellationTokenSource workerCancellation) : IModelExecutionPort
     {
         private readonly DeterministicFakeModelExecutionAdapter _inner = new();
 
@@ -983,7 +988,8 @@ public sealed class DurableInvocationWorkProcessorTests
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
         {
             yield return new ModelContentTextDelta("Hel");
-            throw new OperationCanceledException(cancellationToken);
+            workerCancellation.Cancel();
+            cancellationToken.ThrowIfCancellationRequested();
         }
     }
 

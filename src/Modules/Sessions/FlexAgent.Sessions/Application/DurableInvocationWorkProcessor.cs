@@ -296,8 +296,7 @@ public sealed class DurableInvocationWorkProcessor(
                     return await InterruptContentAsync(
                         claimed,
                         loaded,
-                        invocation.AgentInvocationId,
-                        cancellationToken);
+                        invocation.AgentInvocationId);
                 }
 
                 var normalized = ProviderContentNormalizer.Normalize(contentEvent, assembled);
@@ -365,8 +364,7 @@ public sealed class DurableInvocationWorkProcessor(
             return await InterruptContentAsync(
                 claimed,
                 loaded,
-                invocation.AgentInvocationId,
-                cancellationToken);
+                invocation.AgentInvocationId);
         }
 
         return await StopContentAsync(
@@ -521,19 +519,19 @@ public sealed class DurableInvocationWorkProcessor(
     private async Task<DurableInvocationWorkProcessResult> InterruptContentAsync(
         DurableInvocationWorkItem claimed,
         LoadedInvocationWorkSession loaded,
-        string agentInvocationId,
-        CancellationToken cancellationToken)
+        string agentInvocationId)
     {
         var message = loaded.Session.AgentMessages.FirstOrDefault(item =>
             string.Equals(item.DrivingInvocationId, agentInvocationId, StringComparison.Ordinal));
         if (message is { Fragments.Count: > 0 })
         {
+            using var cleanup = new CancellationTokenSource(settings.EffectiveClaimCleanupTimeout);
             return await StopContentAsync(
                 claimed,
                 loaded,
                 agentInvocationId,
                 DurableInvocationWorkOutcomes.PublicationIncomplete,
-                cancellationToken);
+                cleanup.Token);
         }
 
         return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
