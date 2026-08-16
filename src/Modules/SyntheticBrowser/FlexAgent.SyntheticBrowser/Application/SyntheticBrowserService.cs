@@ -682,7 +682,8 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
 
         if (!SyntheticScenarioIds.Known.Contains(scenarioId) ||
             !string.Equals(triggerType, "timer.due", StringComparison.Ordinal) ||
-            string.IsNullOrWhiteSpace(scenarioInstanceId))
+            string.IsNullOrWhiteSpace(scenarioInstanceId) ||
+            string.IsNullOrWhiteSpace(revisionId))
         {
             return false;
         }
@@ -693,7 +694,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             SyntheticSessionRuntimeAdapter.AdmitTimerFire(
                 scenarioId,
                 instance.State,
-                string.IsNullOrWhiteSpace(revisionId) ? "1" : revisionId);
+                revisionId.Trim());
             return true;
         }
     }

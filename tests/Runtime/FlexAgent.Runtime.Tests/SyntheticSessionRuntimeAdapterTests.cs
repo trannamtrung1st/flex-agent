@@ -433,6 +433,54 @@ public sealed class SyntheticSessionRuntimeAdapterTests : IClassFixture<WebAppli
         Assert.True(closingIndex >= 0 && terminalIndex > closingIndex);
     }
 
+    [Fact]
+    public async Task Closing_from_paused_publishes_agent_message_then_terminals()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var participant = await PrepareActiveSessionAsync(
+            instanceId,
+            cancellationToken,
+            SyntheticScenarioIds.SessionOpeningClosing);
+
+        await PostCommandAsync(participant, "session.pause", "pause-before-close", cancellationToken, sessionVersion: 1);
+        await PostCommandAsync(participant, "session.complete", "close-paused", cancellationToken, sessionVersion: 2);
+
+        var events = await ReadSseAsync(participant, cancellationToken);
+        Assert.Contains(events, evt => evt.Payload.TextDelta == "This Session is now complete. ");
+        Assert.Contains(events, evt => evt.EventType == "session.terminal.v1");
+        var closingIndex = events.FindIndex(evt => evt.Payload.TextDelta == "This Session is now complete. ");
+        var terminalIndex = events.FindIndex(evt => evt.EventType == "session.terminal.v1");
+        Assert.True(closingIndex >= 0 && terminalIndex > closingIndex);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Harness_timer_fire_rejects_missing_or_blank_revision_id(string? revisionId)
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var participant = await PrepareActiveSessionAsync(
+            instanceId,
+            cancellationToken,
+            SyntheticScenarioIds.SessionTimerVisibleWork);
+
+        var rejected = await FireTimerRawAsync(
+            instanceId,
+            revisionId,
+            cancellationToken,
+            SyntheticScenarioIds.SessionTimerVisibleWork);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        Assert.Empty(await ReadSseAsync(participant, cancellationToken));
+
+        (await FireTimerAsync(instanceId, "1", cancellationToken, SyntheticScenarioIds.SessionTimerVisibleWork))
+            .EnsureSuccessStatusCode();
+        var events = await ReadSseAsync(participant, cancellationToken);
+        Assert.Contains(events, evt => evt.EventType == "session.agent.fragment.v1");
+    }
+
     [Theory]
     [InlineData(SyntheticScenarioIds.SessionTimerReplacementAccepted)]
     [InlineData(SyntheticScenarioIds.SessionTimerReplacementRejected)]
@@ -569,6 +617,28 @@ public sealed class SyntheticSessionRuntimeAdapterTests : IClassFixture<WebAppli
                 trigger_type = "timer.due",
                 revision_id = revisionId,
             }, options: JsonOptions),
+        };
+        request.Headers.Add(SyntheticBrowserEndpointExtensions.HarnessApiKeyHeaderName, HarnessApiKey);
+        return await client.SendAsync(request, cancellationToken);
+    }
+
+    private async Task<HttpResponseMessage> FireTimerRawAsync(
+        string instanceId,
+        string? revisionId,
+        CancellationToken cancellationToken,
+        string scenarioId)
+    {
+        var client = _factory.CreateClient();
+        var payload = new Dictionary<string, string?>
+        {
+            ["scenario_id"] = scenarioId,
+            ["scenario_instance_id"] = instanceId,
+            ["trigger_type"] = "timer.due",
+            ["revision_id"] = revisionId,
+        };
+        var request = new HttpRequestMessage(HttpMethod.Post, "/browser/harness/session-triggers")
+        {
+            Content = JsonContent.Create(payload, options: JsonOptions),
         };
         request.Headers.Add(SyntheticBrowserEndpointExtensions.HarnessApiKeyHeaderName, HarnessApiKey);
         return await client.SendAsync(request, cancellationToken);

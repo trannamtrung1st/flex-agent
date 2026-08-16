@@ -835,6 +835,9 @@ and test reviews have no unresolved blocking findings.
   timer-triggered visible work, pause/resume, reconnect, and cutoff. Require a
   trusted synthetic trigger instead of generating work merely because SSE was
   read.
+  - [x] Remediate `a1dc86f` P2: require harness `revision_id` (null/empty/
+    whitespace fail closed; do not occupy `"1"`). Add paused-completion
+    regression coverage.
 - [ ] Update the Text Session UI under the approved design-system modules using
   component/state TDD. Consume authoritative queued/working/resolved states,
   stop work honestly on no-action, announce once without focus movement, render
@@ -891,12 +894,10 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-Synthetic adapter slice is **green** (2026-08-16). SSE subscribe no longer
-fabricates Agent work. Trusted triggers are participant `session.send_message`,
-attempt start (opening scenario), `session.complete` (closing/cutoff), and
-harness `POST /browser/harness/session-triggers` (`timer.due`). The adapter
-stays in `FlexAgent.SyntheticBrowser` and does not call Sessions or
-PostgreSQL. Next is the Text Session UI under approved design-system modules.
+Synthetic adapter slice is **green** including `a1dc86f` P2 (2026-08-16).
+Harness `revision_id` is required; null/empty/whitespace returns 400 and
+does not occupy `"1"`. Closing from paused is covered. Next is the Text
+Session UI under approved design-system modules.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0016`
@@ -1112,6 +1113,9 @@ surfaces.
   absent. Dump-once SSE plus `Last-Event-ID` replay stands in until
   production HTTP SSE host wiring. `SessionPage` is unchanged in this
   slice.
+- `a1dc86f` P2 (2026-08-16): harness `timer.due` requires a non-blank
+  `revision_id`. Null, empty, and whitespace fail closed with 400 and
+  do not occupy identity `"1"`. Accepted values are trimmed.
 - Timer-lane persist (2026-08-15): additive `0016` stores contract `lane_state`
   and maps `superseded`→`replaced`, `expired`→`cancelled` on the frozen `0005`
   `state` column. `FireDueTimer` skips remaining-delay checks for `Claimed`
@@ -1934,6 +1938,7 @@ surfaces.
 | Timer-lane cutoff persist and fire ACK (`SESS-DEC-5`, `SESS-DEC-26`, `REQ-SESS-60`, `REQ-SESS-75`) | passed; **approved** `1c11744` | Red (2026-08-16): compile failed for missing `ChangeSessionLifecycleCommand`, `DurableTimerFireProcessor`, and `PostgresSessionLifecycleCoordinator`. Green: begin-completing/abort cancel the timer and seal a visible prefix; original-command cutoff retry reconciles; resume on never-paused Active is ineligible; stale Resume after later Active work is `StaleVersion`; `BudgetExhausted` is `acknowledged` not `retry_later`; persist writes cancelled `lane_state` plus `session.agent.message.sealed`; outbox failure leaves `open`+pending; duplicate cutoff emits one seal wake-up. Confirmation after consistency review: Sessions 359/359; architecture 29/29; Postgres 148/148. External review of `1c11744` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Combined CI not claimed green (Documentation seen green; Implementation in progress at review time; `gh` unauthenticated here). Harmless abort-query duplicate `lane_state` predicate folded. Frozen `0005`–`0016` unchanged. Worker host stays idle. |
 | Independent requested-action effect (`SESS-DEC-35`, `AC-SESS-43`) | passed; **approved** `053de74` | Red (2026-08-16): `effect_failed` plus accepted timer had `HasPendingIndependentActionEffect`; cutoff left the accepted timer item `not_attempted`. Green: pending work requires rejected+`not_attempted`; cutoff item is `no_domain_effect`; coordinator retry after cutoff/`effect_failed` writes no second complete audit/outbox. Confirmation: Sessions 367/367; architecture 29/29; `SessionRuntimeRepositoryTests` 24/24. External review of `053de74` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Closes `83cc0dc`. GitHub exposed no status checks or PR-triggered workflow runs for `053de74` at review time. Frozen `0005`–`0016` unchanged. |
 | Synthetic browser runtime adapter (`UI-SESS-DEC-13`–`15`) | passed; focused runtime | Red (2026-08-16): active SSE without a trigger emitted fragment+complete; new scenario grants returned 400. Green: `SyntheticSessionRuntimeAdapterTests` 19/19; `SyntheticBrowserRuntimeTests` 27/27; full `FlexAgent.Runtime.Tests` 56/56. SSE read is replay-only; participant reply, opening/closing, no-action, suppressed/execution failure, default/timer visible work, replacement silence, duplicate revision, pause/resume (paused fire suppressed; resume then fire publishes), reconnect cursor, and cutoff are scenario-scripted. Consistency pass: `session-pause-resume` now admits timer work after resume. Harness timer fire requires the API key. Playwright and `SessionPage` remain the next plan items. |
+| `a1dc86f` P2 `revision_id` required | passed; focused runtime | Red (2026-08-16): null/empty/whitespace `revision_id` returned 204 and defaulted to `"1"`. Green: those three cases return 400 and a later `"1"` fire still publishes; closing from paused emits closing then terminal. `SyntheticSessionRuntimeAdapterTests` 23/23; `FlexAgent.Runtime.Tests` 60/60. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
@@ -1947,7 +1952,7 @@ surfaces.
 
 # Blockers
 
-None for the synthetic adapter focused tests (19/19 + existing 27/27).
+None for the synthetic adapter focused tests (23/23 + existing 27/27; runtime 60/60).
 Host Worker still does not poll due timers.
 When that polling is wired, design poison-row/backoff/terminalization for
 permanent `timer_fire.lifecycle_ineligible` instead of default `RetryLater`.
