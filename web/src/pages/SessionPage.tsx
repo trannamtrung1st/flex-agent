@@ -172,6 +172,7 @@ export function SessionPage() {
     key: string;
     draft: string;
     retainIdentity: boolean;
+    expectedVersion: number | null;
   } | null>(null);
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
@@ -291,8 +292,12 @@ export function SessionPage() {
         setCheckingMessage(true);
         return;
       }
-      if (effect === "retain_uncommitted") {
+      if (effect === "retire_uncommitted") {
+        pendingCommandRef.current = null;
         setCheckingMessage(false);
+        if (result.safe_message) {
+          setActionError(result.safe_message);
+        }
         return;
       }
       if (effect === "retire_conflict") {
@@ -448,9 +453,19 @@ export function SessionPage() {
       !session ||
       !sessionId ||
       session.session_id !== sessionId ||
-      checkingMessage ||
       !commandsEnabled(runtimeRef.current.connectionState)
     ) {
+      return;
+    }
+
+    const pendingSend = pendingCommandRef.current;
+    const isExactUnresolvedSend =
+      action.action_id === "send_message" &&
+      pendingSend?.retainIdentity === true &&
+      pendingSend.actionId === action.action_id &&
+      pendingSend.draft === messageText;
+
+    if (checkingMessage && !isExactUnresolvedSend) {
       return;
     }
 
@@ -477,7 +492,17 @@ export function SessionPage() {
       retainedCommand.draft === draft
         ? retainedCommand.key
         : createIdempotencyKey();
-    pendingCommandRef.current = { actionId: action.action_id, key: idempotencyKey, draft, retainIdentity: false };
+    const expectedVersion =
+      isExactUnresolvedSend && retainedCommand?.expectedVersion != null
+        ? retainedCommand.expectedVersion
+        : (session.session_version ?? null);
+    pendingCommandRef.current = {
+      actionId: action.action_id,
+      key: idempotencyKey,
+      draft,
+      retainIdentity: false,
+      expectedVersion,
+    };
 
     setPending(true);
     setActionError(null);
@@ -506,6 +531,7 @@ export function SessionPage() {
           key: idempotencyKey,
           draft,
           retainIdentity: shouldRetainCommandIdentity(kind),
+          expectedVersion,
         };
         setCheckingMessage(true);
         setActionError(null);
@@ -531,7 +557,7 @@ export function SessionPage() {
         idempotency_key: idempotencyKey,
         command_type: commandType,
         resource_id: startedSessionId,
-        expected_version: session.session_version,
+        expected_version: expectedVersion,
         payload,
       });
 
@@ -639,7 +665,16 @@ export function SessionPage() {
 
       {checkingMessage ? (
         <Alert variant="info" title="Checking message status">
-          {CHECKING_MESSAGE_STATUS_COPY}
+          <p>{CHECKING_MESSAGE_STATUS_COPY}</p>
+          {sendAction ? (
+            <Button
+              variant="secondary"
+              onClick={() => void runAction(sendAction)}
+              disabled={pending || !commandsEnabled(runtime.connectionState)}
+            >
+              Retry this send
+            </Button>
+          ) : null}
         </Alert>
       ) : runtime.connectionState === "reconciling" ? (
         <Alert variant="info" title="Updating Session">

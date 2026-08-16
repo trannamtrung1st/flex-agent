@@ -225,7 +225,7 @@ export function shouldRetainCommandIdentity(kind: CommandAdmissionKind): boolean
 export type CommandIdentityEffect =
   | "clear_accepted"
   | "keep_checking"
-  | "retain_uncommitted"
+  | "retire_uncommitted"
   | "retire_conflict"
   | "access_loss";
 
@@ -236,7 +236,7 @@ export function effectForCommandIdentityOutcome(outcome: string): CommandIdentit
     case "still_pending":
       return "keep_checking";
     case "confirmed_not_committed":
-      return "retain_uncommitted";
+      return "retire_uncommitted";
     case "conflict":
       return "retire_conflict";
     case "denied":

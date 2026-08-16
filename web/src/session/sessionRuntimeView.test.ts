@@ -453,7 +453,7 @@ describe("sessionRuntimeView", () => {
     expect(shouldRetainCommandIdentity("pre_commit_rejection")).toBe(false);
     expect(effectForCommandIdentityOutcome("accepted")).toBe("clear_accepted");
     expect(effectForCommandIdentityOutcome("still_pending")).toBe("keep_checking");
-    expect(effectForCommandIdentityOutcome("confirmed_not_committed")).toBe("retain_uncommitted");
+    expect(effectForCommandIdentityOutcome("confirmed_not_committed")).toBe("retire_uncommitted");
     expect(effectForCommandIdentityOutcome("conflict")).toBe("retire_conflict");
   });
 });

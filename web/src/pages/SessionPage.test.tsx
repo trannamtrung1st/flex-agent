@@ -1440,8 +1440,87 @@ describe("SessionPage Decision presentation", () => {
 
     expect((await screen.findAllByText(/checking message status/i)).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /retry this send/i })).toBeEnabled();
     expect(composer).toHaveValue("Hello from the Participant.");
     expect(commandBodies).toHaveLength(1);
+  });
+
+  it("retries an unresolved send with the same idempotency key when the original POST never reached the server", async () => {
+    const commandPosts: Array<{ idempotency_key: string; expected_version: number | null }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands/reconcile")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ schema_version: "v1", outcome: "still_pending" }),
+          });
+        }
+        if (url.includes("/browser/commands")) {
+          const body =
+            typeof init?.body === "string"
+              ? (JSON.parse(init.body) as { idempotency_key: string; expected_version: number | null })
+              : { idempotency_key: "", expected_version: null };
+          commandPosts.push(body);
+          if (commandPosts.length === 1) {
+            return Promise.reject(new TypeError("Failed to fetch"));
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ schema_version: "v1", outcome: "succeeded" }),
+          });
+        }
+        if (url.includes("/browser/sessions/")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve(
+                commandPosts.length === 0
+                  ? activeSession
+                  : { ...activeSession, session_version: 5, last_sequence: "4" },
+              ),
+          });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Hello from the Participant." } });
+    await openSessionStream();
+    fireEvent.click(screen.getByRole("button", { name: /send message/i }));
+
+    expect((await screen.findAllByText(/checking message status/i)).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
+    await waitFor(() => {
+      expect(commandPosts).toHaveLength(1);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /retry this send/i }));
+
+    await waitFor(() => {
+      expect(commandPosts).toHaveLength(2);
+    });
+    expect(commandPosts[1]?.idempotency_key).toBe(commandPosts[0]?.idempotency_key);
+    expect(commandPosts[1]?.expected_version).toBe(3);
+    expect(commandPosts[0]?.expected_version).toBe(3);
+    await waitFor(() => {
+      expect(screen.queryByText(/checking message status/i)).not.toBeInTheDocument();
+    });
+    expect(composer).toHaveValue("");
   });
 
   it("does not treat an earlier accepted Yes as proof that a new uncertain Yes committed", async () => {
@@ -1748,6 +1827,84 @@ describe("SessionPage Decision presentation", () => {
       expect(screen.getByRole("button", { name: /send message/i })).toBeEnabled();
     });
     expect(composer).toHaveValue("Hello from the Participant.");
+
+    fireEvent.click(screen.getByRole("button", { name: /send message/i }));
+
+    await waitFor(() => {
+      expect(commandPosts).toHaveLength(2);
+    });
+    expect(commandPosts[0]?.expected_version).toBe(3);
+    expect(commandPosts[1]?.expected_version).toBe(5);
+    expect(commandPosts[1]?.idempotency_key).not.toBe(commandPosts[0]?.idempotency_key);
+  });
+
+  it("mints a new key after a lost 409 whose identity reconcile confirms non-commit", async () => {
+    const commandPosts: Array<{ idempotency_key: string; expected_version: number | null }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands/reconcile")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                schema_version: "v1",
+                outcome: "confirmed_not_committed",
+                safe_message: "Session version is stale. Refresh and retry.",
+              }),
+          });
+        }
+        if (url.includes("/browser/commands")) {
+          const body =
+            typeof init?.body === "string"
+              ? (JSON.parse(init.body) as { idempotency_key: string; expected_version: number | null })
+              : { idempotency_key: "", expected_version: null };
+          commandPosts.push(body);
+          if (commandPosts.length === 1) {
+            return Promise.reject(new TypeError("Failed to fetch"));
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ schema_version: "v1", outcome: "succeeded" }),
+          });
+        }
+        if (url.includes("/browser/sessions/")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve(
+                commandPosts.length === 0
+                  ? activeSession
+                  : { ...activeSession, session_version: 5, last_sequence: "4" },
+              ),
+          });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Hello from the Participant." } });
+    await openSessionStream();
+    fireEvent.click(screen.getByRole("button", { name: /send message/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByText(/checking message status/i)).not.toBeInTheDocument();
+    });
+    expect(composer).toHaveValue("Hello from the Participant.");
+    expect(await screen.findByText(/session version is stale/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /send message/i })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: /send message/i }));
 
