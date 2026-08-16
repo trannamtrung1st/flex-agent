@@ -11,7 +11,7 @@ Canonical product concepts, relationships, lifecycles, and invariants for Flex A
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.4 |
 | **Effective date** | 2026-08-14 |
-| **Last reviewed** | 2026-08-14 |
+| **Last reviewed** | 2026-08-16 |
 | **Approval reference** | v0.4 P0-compatible Agent Decision output envelope approved 2026-08-14; supersedes v0.3; independent-item validation clarified 2026-08-14 |
 | **Related decisions** | Approved [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
 
@@ -19,7 +19,9 @@ Version 0.4 is **approved** and supersedes v0.3. It preserves canonical Agent
 Invocation, Invocation Trigger, Agent Decision, and next-timer semantics and
 adds Agent Output, requested action, and presentation-versus-visibility meaning
 without enabling voice or additional P0 effects. Normative system behavior
-remains governed by approved feature specifications.
+remains governed by approved feature specifications. The clearly labeled
+`PROP-AGENT-1` added on 2026-08-16 is proposed working guidance only and does
+not alter approved v0.4 behavior until explicitly approved.
 
 ## Purpose
 
@@ -97,12 +99,40 @@ An agent may define:
 
 The same agent may be used across many activities while retaining a recognizable role and consistent operating identity.
 
+Persona describes the Agent's conversational character and communication
+behavior; it does not change the Agent into a Participant or human actor.
+
 An Agent operates through structured decision opportunities rather than only a
 chat request/response loop. Given a trusted situation and authorized context,
 the Agent recommends semantic next behavior. It may recommend a bounded delay
 for the next event on an enabled system timer lane, but it does not schedule or
 wake itself, grant authority, mutate Session or workflow state directly, or
 make its own output a trusted platform fact.
+
+#### Proposed person-like persona and honest identity boundary
+
+**Status:** Proposed working guidance only; Product approval is required before
+this boundary governs behavior.
+
+`PROP-AGENT-1` — An Agent may express a distinctive, person-like persona through
+its name, language, manner, social presence, and communication style.
+If approved, participant-facing presentation would remain honestly attributable
+to an Agent and would not misrepresent the Agent as an actual human or
+impersonate a real person. Persona content or presentation would not establish
+human identity, organizational authority, professional credentials, or another
+trusted role.
+
+**Interim default:** Permit fictional or person-like conversational personas,
+keep the Agent identity discernible wherever authorship could be ambiguous, and
+do not enable real-person impersonation or photographic human representation.
+This default preserves expressive character while reducing deception,
+impersonation, and misplaced-authority risk. It remains working guidance until
+approved.
+
+If approved, the P1 Agent-library specification should define persona authoring,
+revision, preview, validation, and identity-presentation rules. Any later voice
+or human-likeness treatment should follow its owning approved specification and
+the same honest-identity boundary.
 
 ### Harness
 

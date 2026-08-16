@@ -4,6 +4,12 @@ The **Agent Core** is the primary visual embodiment of the active Flex Agent and
 
 It should create the feeling that the intelligence is present in the environment — observing, listening, processing, and responding — without pretending to be a human avatar.
 
+Conversational persona and visual identity are separate concerns. A warm,
+distinctive, or person-like communication style does not authorize a human
+likeness, a claim of human identity, or real-person impersonation. Until an
+owning approved specification says otherwise, preserve visible Agent
+attribution and the abstract Agent Core direction in `DS-DEC-4`.
+
 ## Form
 
 The core may be a circular/polygonal central field, concentric vector/dither rings, bounded constellation field, sensor/aperture-like form, or a notched intelligence plate for compact layouts.

@@ -9,7 +9,8 @@ Avatars may represent:
 - agent
 - participant group
 
-Agent avatars may use dither/grid identity artwork rather than humanoid robot imagery.
+Agent identity marks use the abstract Agent Core or related dither/grid artwork
+rather than humanoid robot imagery.
 
 ## Sizes
 
@@ -22,6 +23,11 @@ Agent avatars may use dither/grid identity artwork rather than humanoid robot im
 | XL | 48px |
 | 2XL | 64px |
 
-Default radius is `full` for people. Default agent identity mark radius is `md`; use `full` only when an agent is intentionally represented with a person-like photographic/avatar treatment.
+Default radius is `full` for people. Default Agent identity-mark radius is
+`md`. Under the approved `DS-DEC-4`, an active Agent uses the abstract Agent
+Core or a related non-human identity mark. Person-like photographic treatment
+is not an approved active-Agent pattern in v0.1; a later owning specification
+may introduce one only with explicit Agent attribution and participant-trust
+review.
 
 Presence/status indicators require border buffering and must follow `status.md`.

@@ -6,7 +6,10 @@
 - Owner: TBD
 - Source: [Agent](../../product/concept-model.md#agent), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice)
 - Catalog entry: P1 #8 — [P1 — Foundation expansion](../README.md#p1-foundation-expansion)
-- Related decisions:
+- Related decisions: Proposed
+  [`PROP-AGENT-1`](../../product/concept-model.md#proposed-person-like-persona-and-honest-identity-boundary)
+  person-like persona and honest Agent identity boundary; resolve through
+  Product approval before promoting it into normative P1 requirements
 
 ## Problem and measurable outcome
 
