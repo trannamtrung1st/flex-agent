@@ -422,7 +422,6 @@ FodyWeavers.xsd
 *.vsix
 
 # Local Playwright MCP screenshots, traces, logs, and browser state
-.playwright-mcp/
 web/test-results/
 web/playwright-report/
 
