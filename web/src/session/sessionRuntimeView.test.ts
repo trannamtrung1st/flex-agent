@@ -5,10 +5,12 @@ import {
   containsForbiddenControlCopy,
   createSessionRuntimeView,
   evaluateProjectionCommit,
+  isCurrentSessionAction,
   markConnected,
   markOffline,
   markReconciling,
   markReconnecting,
+  shouldReconcileProjectionOnOpen,
   transcriptStatusLabel,
 } from "./sessionRuntimeView";
 import type { SseSessionEventV1 } from "../contracts/v1";
@@ -235,6 +237,7 @@ describe("sessionRuntimeView", () => {
     const recovered = markConnected(markReconciling(reconnecting));
     expect(recovered.connectionState).toBe("connected");
     expect(recovered.assertiveAnnouncement).toBeNull();
+    expect(recovered.politeAnnouncement).toBeNull();
   });
 
   it("enables mutating commands only while the stream is connected", () => {
@@ -358,6 +361,38 @@ describe("sessionRuntimeView", () => {
         currentEpoch: 3,
         readyState: 1,
         openReadyState: 1,
+      }),
+    ).toBe(false);
+  });
+
+  it("requires projection reconcile on OPEN after any connectivity failure, including before the first OPEN", () => {
+    expect(shouldReconcileProjectionOnOpen(false)).toBe(false);
+    expect(shouldReconcileProjectionOnOpen(true)).toBe(true);
+  });
+
+  it("treats a Session action as current only for the same Session and generation", () => {
+    expect(
+      isCurrentSessionAction({
+        startedSessionId: "sess.a",
+        liveSessionId: "sess.a",
+        startedGeneration: 1,
+        liveGeneration: 1,
+      }),
+    ).toBe(true);
+    expect(
+      isCurrentSessionAction({
+        startedSessionId: "sess.a",
+        liveSessionId: "sess.b",
+        startedGeneration: 1,
+        liveGeneration: 2,
+      }),
+    ).toBe(false);
+    expect(
+      isCurrentSessionAction({
+        startedSessionId: "sess.b",
+        liveSessionId: "sess.b",
+        startedGeneration: 1,
+        liveGeneration: 2,
       }),
     ).toBe(false);
   });

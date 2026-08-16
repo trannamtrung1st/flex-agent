@@ -864,6 +864,11 @@ and test reviews have no unresolved blocking findings.
     EventSource on `session_version`; mock EventSource starts `CONNECTING`;
     latest-but-stale GET exposes recoverable retry instead of stuck
     reconciling.
+  - [x] Remediate `459b0e0` P1/P2: fence every post-await `runAction`
+    mutation to the Session/action generation that started it; after any
+    reconnecting/offline, the next `OPEN` reconciles before `connected`
+    even if no prior `OPEN` succeeded; successful commands enter
+    reconciling before the authoritative GET (`UI-SESS-DEC-8`).
 - [ ] Exercise the changed journey through real API/SSE interactions with
   Playwright MCP. Inspect accessibility snapshots and screenshots at desktop
   and narrow viewports; cover keyboard/focus, no-action, timer-triggered message
@@ -914,13 +919,13 @@ Synthetic adapter slice is **approved** at `71a7721` (2026-08-16):
 claimed green: GitHub exposed no status checks or PR-triggered workflow
 runs for `71a7721` at review time. Trimmed `" 1 "` and `"1"` are the
 same revision identity. Text Session UI (`UI-SESS-DEC-13`–`15`) is in
-client code through `352b5da`. External review of `352b5da` requested
-changes (2 P1 / 1 P2): cross-Session projection commit, EventSource
-recreate on `session_version` while still `connected`, and latest-but-stale
-GET leaving `reconciling`. Those items are in the working tree. Confirmation pass: SSE
-payloads no longer promote `connecting` to `connected`; only `onopen`
-with `OPEN` enables commands. Next is Playwright MCP. Do not treat
-`352b5da` as approved until this remediation is reviewed.
+client code through `459b0e0`. External review of `459b0e0` requested
+changes (2 P1 / 1 P2). Those remediations are in the working tree: in-flight
+commands cannot mutate a later Session; first `OPEN` after reconnecting or
+offline reconciles before `connected`; successful commands stay gated until
+the post-mutation GET commits. Confirmation pass: explicit reconnect
+retries mark connectivity failure so the first later `OPEN` reconciles.
+Do not treat `459b0e0` as approved. Playwright MCP remains next.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0016`
@@ -1132,6 +1137,12 @@ surfaces.
   commits require the live route `session_id`; request generation is
   monotonic. EventSource is not recreated on `session_version`. A latest
   but stale GET is recoverable retry, not a silent `reconciling` stall.
+- Text Session UI review remediations (2026-08-16, `459b0e0`, `UI-SESS-DEC-8`):
+  `runAction` captures Session id plus action generation and ignores every
+  post-await mutation when the route has changed. Any reconnecting or offline
+  failure makes the next `OPEN` reconcile before commands. A successful
+  command enters reconciling, then the authoritative GET, before
+  `connected`. `markConnected` clears reconciling polite copy.
 - Independent requested-action effect (2026-08-16, `SESS-DEC-35`,
   `AC-SESS-43`): when communication/output validation is rejected,
   `ApplyDecisionEffect` still applies an independently accepted
@@ -1547,6 +1558,15 @@ surfaces.
   version updates; the test mock starts `CONNECTING`. Latest-but-stale GET
   sets **Try again** while keeping the committed projection. Confirmation:
   SSE payloads do not mark the stream connected; `onopen` with `OPEN` does.
+  Playwright MCP remains next.
+- Text Session UI review remediations (2026-08-16, `459b0e0` P1/P2): obsolete
+  commands do not clear drafts, pending, errors, or start a projection GET
+  after A→B navigation. First `OPEN` after an initial CONNECTING error
+  reconciles before enabling Send. Successful send/complete enters
+  reconciling; a failed/stale refresh stays gated with **Try again**.
+  Confirmation: **Try reconnecting** / disconnected **Try again** also mark
+  connectivity failure so the replacement source reconciles on first `OPEN`;
+  post-await action fencing is checked again before `reconcileSession()`.
   Playwright MCP remains next.
 - Timer due-claim (2026-08-16, `bcd9ac8`): `timer_fire.budget_exhausted`
   returns `Succeeded=false` after committing `Expired`.
@@ -2025,7 +2045,7 @@ surfaces.
 | Timer-lane cutoff persist and fire ACK (`SESS-DEC-5`, `SESS-DEC-26`, `REQ-SESS-60`, `REQ-SESS-75`) | passed; **approved** `1c11744` | Red (2026-08-16): compile failed for missing `ChangeSessionLifecycleCommand`, `DurableTimerFireProcessor`, and `PostgresSessionLifecycleCoordinator`. Green: begin-completing/abort cancel the timer and seal a visible prefix; original-command cutoff retry reconciles; resume on never-paused Active is ineligible; stale Resume after later Active work is `StaleVersion`; `BudgetExhausted` is `acknowledged` not `retry_later`; persist writes cancelled `lane_state` plus `session.agent.message.sealed`; outbox failure leaves `open`+pending; duplicate cutoff emits one seal wake-up. Confirmation after consistency review: Sessions 359/359; architecture 29/29; Postgres 148/148. External review of `1c11744` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Combined CI not claimed green (Documentation seen green; Implementation in progress at review time; `gh` unauthenticated here). Harmless abort-query duplicate `lane_state` predicate folded. Frozen `0005`–`0016` unchanged. Worker host stays idle. |
 | Independent requested-action effect (`SESS-DEC-35`, `AC-SESS-43`) | passed; **approved** `053de74` | Red (2026-08-16): `effect_failed` plus accepted timer had `HasPendingIndependentActionEffect`; cutoff left the accepted timer item `not_attempted`. Green: pending work requires rejected+`not_attempted`; cutoff item is `no_domain_effect`; coordinator retry after cutoff/`effect_failed` writes no second complete audit/outbox. Confirmation: Sessions 367/367; architecture 29/29; `SessionRuntimeRepositoryTests` 24/24. External review of `053de74` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Closes `83cc0dc`. GitHub exposed no status checks or PR-triggered workflow runs for `053de74` at review time. Frozen `0005`–`0016` unchanged. |
 | Synthetic browser runtime adapter (`UI-SESS-DEC-13`–`15`) | passed; focused runtime | Red (2026-08-16): active SSE without a trigger emitted fragment+complete; new scenario grants returned 400. Green: `SyntheticSessionRuntimeAdapterTests` 19/19; `SyntheticBrowserRuntimeTests` 27/27; full `FlexAgent.Runtime.Tests` 56/56. SSE read is replay-only; participant reply, opening/closing, no-action, suppressed/execution failure, default/timer visible work, replacement silence, duplicate revision, pause/resume (paused fire suppressed; resume then fire publishes), reconnect cursor, and cutoff are scenario-scripted. Consistency pass: `session-pause-resume` now admits timer work after resume. Harness timer fire requires the API key. |
-| Text Session UI (`UI-SESS-DEC-13`–`15`) | passed focused web unit; `352b5da` not approved | Red (2026-08-16): composer **Message**, ignored `work_state`, empty Agent rows. Green `94d752d` 20/20 vitest; review **request changes**. `f0401ed` then `352b5da` closed prior reconnect/stale-projection findings. External review of `352b5da`: **request changes** (2 P1 / 1 P2): A→B projection race; EventSource recreate on version while `connected`; latest-but-stale GET stuck reconciling. Remediation green after confirmation pass (2026-08-16): `sessionRuntimeView.test.ts` 17/17; `SessionPage.test.tsx` 15/15; full web `vitest` 36/36; `tsc -b --noEmit` passed. Late Session A GET cannot replace B; pause/version reconcile keeps one EventSource; mock starts `CONNECTING` so Send stays disabled until `OPEN`; SSE events do not promote `connecting` to `connected`; latest older version shows **Try again**. Playwright MCP remains the next plan item. |
+| Text Session UI (`UI-SESS-DEC-13`–`15`) | passed focused web unit; `459b0e0` not approved | Red (2026-08-16): composer **Message**, ignored `work_state`, empty Agent rows. Green `94d752d` 20/20 vitest; review **request changes**. `f0401ed` then `352b5da` closed prior reconnect/stale-projection findings. External review of `459b0e0`: **request changes** (2 P1 / 1 P2): A command finishing after A→B; first OPEN after initial failure skipping reconcile; post-command GET leaving stale actions enabled. Remediation green (2026-08-16): `sessionRuntimeView.test.ts` 19/19; `SessionPage.test.tsx` 20/20; full web `vitest` 43/43; `tsc -b --noEmit` passed. Obsolete A commands cannot wipe B drafts or supersede B GETs; CONNECTING→error→OPEN reconciles; successful commands stay gated until the refresh commits or **Try again**. Playwright MCP remains the next plan item. |
 | `a1dc86f` P2 `revision_id` required | passed; **approved** `71a7721` | Red (2026-08-16): null/empty/whitespace `revision_id` returned 204 and defaulted to `"1"`. Green: those three cases return 400 and a later `"1"` fire still publishes; closing from paused emits closing then terminal. External review of `71a7721` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Non-blocking trim identity folded: `" 1 "` then `"1"` is one stream. Confirmation: `SyntheticSessionRuntimeAdapterTests` 24/24; `FlexAgent.Runtime.Tests` 61/61. GitHub exposed no status checks or PR-triggered workflow runs for `71a7721` at review time. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |

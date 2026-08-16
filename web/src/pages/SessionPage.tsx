@@ -22,6 +22,7 @@ import {
   commandsEnabled,
   createSessionRuntimeView,
   evaluateProjectionCommit,
+  isCurrentSessionAction,
   isSessionAccessLoss,
   markConnected,
   markOffline,
@@ -29,6 +30,7 @@ import {
   markReconnecting,
   presenceForLifecycle,
   requiresSessionProjectionReconcile,
+  shouldReconcileProjectionOnOpen,
   transcriptStatusLabel,
   type AgentPresenceState,
   type SessionRuntimeView,
@@ -157,7 +159,8 @@ export function SessionPage() {
     last_sequence?: string | null;
   } | null>(null);
   const hasLoadedSessionRef = useRef(false);
-  const hasConnectedOnceRef = useRef(false);
+  const hasSeenConnectivityFailureRef = useRef(false);
+  const actionGenerationRef = useRef(0);
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
   const [streamRetryKey, setStreamRetryKey] = useState(0);
@@ -261,7 +264,8 @@ export function SessionPage() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
     hasLoadedSessionRef.current = false;
-    hasConnectedOnceRef.current = false;
+    hasSeenConnectivityFailureRef.current = false;
+    actionGenerationRef.current += 1;
     committedProjectionRef.current = null;
     setSession(null);
     setMessageText("");
@@ -299,16 +303,15 @@ export function SessionPage() {
         return;
       }
 
-      if (!hasConnectedOnceRef.current) {
-        hasConnectedOnceRef.current = true;
-        if (source.readyState === EventSource.OPEN) {
-          setRuntime((current) => markConnected(current));
-        }
+      if (shouldReconcileProjectionOnOpen(hasSeenConnectivityFailureRef.current)) {
+        setRuntime((current) => markReconciling(current));
+        void reconcileSession();
         return;
       }
 
-      setRuntime((current) => markReconciling(current));
-      void reconcileSession();
+      if (source.readyState === EventSource.OPEN) {
+        setRuntime((current) => markConnected(current));
+      }
     };
 
     source.onmessage = (event: MessageEvent<string>) => {
@@ -335,10 +338,12 @@ export function SessionPage() {
         return;
       }
       if (source.readyState === EventSource.CONNECTING) {
+        hasSeenConnectivityFailureRef.current = true;
         setRuntime((current) => markReconnecting(current));
         return;
       }
       if (source.readyState === EventSource.CLOSED) {
+        hasSeenConnectivityFailureRef.current = true;
         setRuntime((current) => markOffline(current));
       }
     };
@@ -370,6 +375,16 @@ export function SessionPage() {
       return;
     }
 
+    const startedSessionId = sessionId;
+    const startedGeneration = actionGenerationRef.current;
+    const actionStillCurrent = () =>
+      isCurrentSessionAction({
+        startedSessionId,
+        liveSessionId: sessionIdRef.current,
+        startedGeneration,
+        liveGeneration: actionGenerationRef.current,
+      });
+
     setPending(true);
     setActionError(null);
 
@@ -381,23 +396,37 @@ export function SessionPage() {
         command_id: action.action_id,
         idempotency_key: createIdempotencyKey(),
         command_type: commandType,
-        resource_id: sessionId,
+        resource_id: startedSessionId,
         expected_version: session.session_version,
         payload,
       });
 
+      if (!actionStillCurrent()) {
+        return;
+      }
+
       if (result.outcome !== "succeeded") {
         setActionError(result.safe_message ?? "Action could not be completed.");
-      } else {
-        if (action.action_id === "send_message") {
-          setMessageText("");
-        }
-        await loadSession();
+        return;
       }
+
+      if (action.action_id === "send_message") {
+        setMessageText("");
+      }
+      setRuntime((current) => markReconciling(current));
+      if (!actionStillCurrent()) {
+        return;
+      }
+      await reconcileSession();
     } catch (err: unknown) {
+      if (!actionStillCurrent()) {
+        return;
+      }
       setActionError(err instanceof Error ? err.message : "Action failed");
     } finally {
-      setPending(false);
+      if (actionStillCurrent()) {
+        setPending(false);
+      }
     }
   };
 
@@ -488,6 +517,7 @@ export function SessionPage() {
           <Button
             variant="secondary"
             onClick={() => {
+              hasSeenConnectivityFailureRef.current = true;
               setRuntime((current) => markReconnecting(current));
               setStreamRetryKey((current) => current + 1);
             }}
@@ -505,6 +535,7 @@ export function SessionPage() {
             onClick={() => {
               const source = eventSourceRef.current;
               if (!source || source.readyState !== EventSource.OPEN) {
+                hasSeenConnectivityFailureRef.current = true;
                 setRuntime((current) => markReconnecting(current));
                 setStreamRetryKey((current) => current + 1);
                 return;

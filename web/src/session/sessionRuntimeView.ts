@@ -140,6 +140,21 @@ export function canMarkConnectedAfterReconcile(input: {
   return input.reconcileEpoch === input.currentEpoch && input.readyState === input.openReadyState;
 }
 
+export function shouldReconcileProjectionOnOpen(hasSeenConnectivityFailure: boolean): boolean {
+  return hasSeenConnectivityFailure;
+}
+
+export function isCurrentSessionAction(input: {
+  startedSessionId: string;
+  liveSessionId: string | undefined;
+  startedGeneration: number;
+  liveGeneration: number;
+}): boolean {
+  return (
+    input.liveSessionId === input.startedSessionId && input.startedGeneration === input.liveGeneration
+  );
+}
+
 export function transcriptStatusLabel(item: { streaming: boolean; status: string }): string | null {
   if (item.streaming) {
     return AGENT_RESPONDING_COPY;
@@ -266,6 +281,7 @@ export function markConnected(view: SessionRuntimeView): SessionRuntimeView {
   return {
     ...view,
     connectionState: "connected",
+    politeAnnouncement: view.politeAnnouncement === RECONCILING_COPY ? null : view.politeAnnouncement,
     assertiveAnnouncement: connectivityAnnouncement ? null : view.assertiveAnnouncement,
   };
 }

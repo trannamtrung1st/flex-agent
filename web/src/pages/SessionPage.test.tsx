@@ -820,4 +820,362 @@ describe("SessionPage Decision presentation", () => {
     expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
     expect(screen.queryByText(/^session paused$/i)).not.toBeInTheDocument();
   });
+
+  it("does not let a Session A command mutate Session B after navigation", async () => {
+    const sessionB: SessionProjectionV1 = {
+      ...activeSession,
+      session_id: "sess.synthetic.0002",
+      transcript: [
+        {
+          item_id: "msg.synthetic.participant.b",
+          role: "participant",
+          content: "Session B only.",
+          status: "accepted",
+          occurred_at: "2026-08-16T00:00:00Z",
+        },
+      ],
+    };
+    const pendingCommand: { resolve: (value: Response) => void } = {
+      resolve: () => undefined,
+    };
+    const pendingB: { resolve: (value: SessionProjectionV1) => void } = {
+      resolve: () => undefined,
+    };
+    const sessionGets: string[] = [];
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands")) {
+          return new Promise<Response>((resolve) => {
+            pendingCommand.resolve = resolve;
+          });
+        }
+        if (url.includes("/browser/sessions/sess.synthetic.0001")) {
+          sessionGets.push("A");
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(activeSession) });
+        }
+        if (url.includes("/browser/sessions/sess.synthetic.0002")) {
+          sessionGets.push("B");
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              new Promise<SessionProjectionV1>((resolve) => {
+                pendingB.resolve = resolve;
+              }),
+          });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    const router = createMemoryRouter(
+      [{ path: "/sessions/:sessionId", element: <SessionPage /> }],
+      { initialEntries: ["/sessions/sess.synthetic.0001"] },
+    );
+    render(
+      <BrowserApiProvider>
+        <RouterProvider router={router} />
+      </BrowserApiProvider>,
+    );
+
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Message from A." } });
+    await openSessionStream();
+    fireEvent.click(screen.getByRole("button", { name: /send message/i }));
+    expect(await screen.findByRole("button", { name: /send message/i })).toBeDisabled();
+
+    await act(async () => {
+      await router.navigate("/sessions/sess.synthetic.0002");
+    });
+
+    expect(await screen.findByText(/loading session/i)).toBeInTheDocument();
+
+    await act(async () => {
+      pendingCommand.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            schema_version: "v1",
+            outcome: "succeeded",
+          }),
+      } as Response);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      pendingB.resolve(sessionB);
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText(/session b only/i)).toBeInTheDocument();
+    const sessionBComposer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(sessionBComposer, { target: { value: "Draft on B." } });
+    expect(sessionBComposer).toHaveValue("Draft on B.");
+    expect(screen.queryByText(/ready for the session/i)).not.toBeInTheDocument();
+    expect(sessionGets.filter((id) => id === "A")).toHaveLength(1);
+  });
+
+  it("does not clear a Session B draft when a Session A command later succeeds", async () => {
+    const sessionB: SessionProjectionV1 = {
+      ...activeSession,
+      session_id: "sess.synthetic.0002",
+      transcript: [
+        {
+          item_id: "msg.synthetic.participant.b",
+          role: "participant",
+          content: "Session B only.",
+          status: "accepted",
+          occurred_at: "2026-08-16T00:00:00Z",
+        },
+      ],
+    };
+    const pendingCommand: { resolve: (value: Response) => void } = {
+      resolve: () => undefined,
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands")) {
+          return new Promise<Response>((resolve) => {
+            pendingCommand.resolve = resolve;
+          });
+        }
+        if (url.includes("/browser/sessions/sess.synthetic.0001")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(activeSession) });
+        }
+        if (url.includes("/browser/sessions/sess.synthetic.0002")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(sessionB) });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    const router = createMemoryRouter(
+      [{ path: "/sessions/:sessionId", element: <SessionPage /> }],
+      { initialEntries: ["/sessions/sess.synthetic.0001"] },
+    );
+    render(
+      <BrowserApiProvider>
+        <RouterProvider router={router} />
+      </BrowserApiProvider>,
+    );
+
+    fireEvent.change(await screen.findByLabelText(/your message/i), {
+      target: { value: "Message from A." },
+    });
+    await openSessionStream();
+    fireEvent.click(screen.getByRole("button", { name: /send message/i }));
+
+    await act(async () => {
+      await router.navigate("/sessions/sess.synthetic.0002");
+    });
+
+    expect(await screen.findByText(/session b only/i)).toBeInTheDocument();
+    const sessionBComposer = screen.getByLabelText(/your message/i);
+    fireEvent.change(sessionBComposer, { target: { value: "Draft on B." } });
+
+    await act(async () => {
+      pendingCommand.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ schema_version: "v1", outcome: "succeeded" }),
+      } as Response);
+      await Promise.resolve();
+    });
+
+    expect(sessionBComposer).toHaveValue("Draft on B.");
+    expect(screen.getByText(/session b only/i)).toBeInTheDocument();
+    expect(screen.queryByText(/ready for the session/i)).not.toBeInTheDocument();
+  });
+
+  it("reconciles before enabling commands when the first OPEN follows an initial connection failure", async () => {
+    let sessionLoads = 0;
+    const pendingReconcile: { resolve: (value: SessionProjectionV1) => void } = {
+      resolve: () => undefined,
+    };
+    vi.stubGlobal(
+      "fetch",
+      mockFetch(() => {
+        sessionLoads += 1;
+        if (sessionLoads === 1) {
+          return activeSession;
+        }
+        return new Promise<SessionProjectionV1>((resolve) => {
+          pendingReconcile.resolve = resolve;
+        });
+      }),
+    );
+
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Draft that must be kept." } });
+    await waitFor(() => {
+      expect(MockEventSource.instances[0]?.readyState).toBe(MockEventSource.CONNECTING);
+    });
+
+    const source = MockEventSource.instances[0];
+    source.readyState = MockEventSource.CONNECTING;
+    act(() => {
+      source.onerror?.(new Event("error"));
+    });
+
+    expect(await screen.findByRole("button", { name: /send message/i })).toBeDisabled();
+    expect(screen.getAllByText(/your session and time have not been paused/i).length).toBeGreaterThan(0);
+
+    act(() => {
+      source.readyState = MockEventSource.OPEN;
+      source.onopen?.();
+    });
+
+    expect((await screen.findAllByText(/updating session state/i)).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
+    expect(sessionLoads).toBeGreaterThanOrEqual(2);
+
+    await act(async () => {
+      pendingReconcile.resolve(activeSession);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /send message/i })).toBeEnabled();
+    });
+    expect(composer).toHaveValue("Draft that must be kept.");
+  });
+
+  it("keeps commands disabled until a post-command projection refresh commits", async () => {
+    let sessionLoads = 0;
+    const pendingRefresh: { resolve: (value: SessionProjectionV1) => void } = {
+      resolve: () => undefined,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ schema_version: "v1", outcome: "succeeded" }),
+          });
+        }
+        if (url.includes("/browser/sessions/")) {
+          sessionLoads += 1;
+          if (sessionLoads === 1) {
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(activeSession) });
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              new Promise<SessionProjectionV1>((resolve) => {
+                pendingRefresh.resolve = resolve;
+              }),
+          });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Hello from the Participant." } });
+    await openSessionStream();
+    fireEvent.click(screen.getByRole("button", { name: /send message/i }));
+
+    expect((await screen.findAllByText(/updating session state/i)).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
+    expect(composer).toHaveValue("");
+
+    await act(async () => {
+      pendingRefresh.resolve({
+        ...activeSession,
+        session_version: 4,
+        last_sequence: "3",
+        transcript: [
+          ...activeSession.transcript,
+          {
+            item_id: "msg.synthetic.participant.2",
+            role: "participant",
+            content: "Hello from the Participant.",
+            status: "accepted",
+            occurred_at: "2026-08-16T00:01:00Z",
+          },
+        ],
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/hello from the participant/i)).toBeInTheDocument();
+    });
+    fireEvent.change(composer, { target: { value: "Follow-up draft." } });
+    expect(screen.getByRole("button", { name: /send message/i })).toBeEnabled();
+    expect(screen.queryByText(/updating session/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps commands gated with Try again when the post-command projection refresh fails", async () => {
+    let sessionLoads = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ schema_version: "v1", outcome: "succeeded" }),
+          });
+        }
+        if (url.includes("/browser/sessions/")) {
+          sessionLoads += 1;
+          if (sessionLoads === 1) {
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(activeSession) });
+          }
+          return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Hello from the Participant." } });
+    await openSessionStream();
+    fireEvent.click(screen.getByRole("button", { name: /send message/i }));
+
+    expect(await screen.findByRole("button", { name: /try again/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
+    expect((await screen.findAllByText(/updating session state/i)).length).toBeGreaterThan(0);
+    expect(composer).toHaveValue("");
+  });
 });
