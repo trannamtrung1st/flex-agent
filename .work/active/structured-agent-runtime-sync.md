@@ -842,7 +842,7 @@ and test reviews have no unresolved blocking findings.
     identity after trim. External review of `71a7721` (2026-08-16):
     **approved**, 0 High / 0 Medium / 0 Low. GitHub exposed no status
     checks or PR-triggered workflow runs for that SHA.
-- [ ] Update the Text Session UI under the approved design-system modules using
+- [x] Update the Text Session UI under the approved design-system modules using
   component/state TDD. Consume authoritative queued/working/resolved states,
   stop work honestly on no-action, announce once without focus movement, render
   no false transcript item, show persistent neutral resolution only when the
@@ -902,8 +902,9 @@ Synthetic adapter slice is **approved** at `71a7721` (2026-08-16):
 0 High / 0 Medium / 0 Low. Closes `a1dc86f` P2. Combined CI is not
 claimed green: GitHub exposed no status checks or PR-triggered workflow
 runs for `71a7721` at review time. Trimmed `" 1 "` and `"1"` are the
-same revision identity. Next is the Text Session UI under approved
-design-system modules.
+same revision identity. Text Session UI (`UI-SESS-DEC-13`–`15`) is
+implemented in the client with component/state tests. Next is Playwright
+MCP accessibility/visual coverage of the changed journey.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0016`
@@ -1086,6 +1087,18 @@ surfaces.
 
 # Decisions
 
+- Text Session UI (2026-08-16, `UI-SESS-DEC-13`–`15`): Participant copy is
+  derived from browser-safe `work_state` / `resolution_category`, never
+  rendered as those tokens. `no_action` persistent status is
+  **No Agent reply for this turn** only when `show_persistent_turn_status`
+  is true (participant no-action in the synthetic adapter; timer no-action
+  stays announcement-only). `suppressed_failure` always shows **This turn
+  could not be completed.** and `execution_failure` always shows **The Agent
+  could not finish this response.** even when the workflow flag is false,
+  because those are bounded failure outcomes rather than optional silence.
+  Agent presence uses Ready/Processing/Dormant; queued/working is not a
+  transcript item. Fragments are the only Agent Message path. Timer
+  internals, envelope fields, and output identifiers stay out of the DOM.
 - Independent requested-action effect (2026-08-16, `SESS-DEC-35`,
   `AC-SESS-43`): when communication/output validation is rejected,
   `ApplyDecisionEffect` still applies an independently accepted
@@ -1472,6 +1485,12 @@ surfaces.
 
 # Findings / deviations
 
+- Text Session UI (2026-08-16): dump-once SSE `onerror` while
+  `EventSource` is `CONNECTING` is idle retry, not Participant
+  reconnecting. Reconnecting copy is reserved for `readyState === CLOSED`.
+  Presence render honors `runtime.agentPresence === dormant` so a terminal
+  event is visible before the projection lifecycle catches up. Refresh after
+  send does not remount the loading panel. Playwright MCP remains next.
 - Timer due-claim (2026-08-16, `bcd9ac8`): `timer_fire.budget_exhausted`
   returns `Succeeded=false` after committing `Expired`.
   `DurableTimerFireProcessor` now acknowledges that outcome (`acknowledged`)
@@ -1948,7 +1967,8 @@ surfaces.
 | `5b2a3db` persist/due-claim remediations (budget poison row, populated `0016` backfill) | passed; **approved** `bcd9ac8` | Red (2026-08-16): successor still armed at `MaxTimerTriggeredInvocationsPerSession = 1` (`PendingTimerCount` 1); recovered due successor stayed `pending`. Green: no successor when another timer Invocation is not permitted; `BudgetExhausted` expires the revision and the coordinator persists it; populated `0015→0016` reconstructs ~10-minute remaining and `agent_recommendation` from `source_decision_id`. Confirmation: Sessions 344/344; architecture 29/29; timer persist+upgrade 25/25; `git diff --check` and `python3 scripts/check_docs.py` passed. Frozen `0005`–`0015` unchanged. External review of `bcd9ac8` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. GitHub exposed no combined CI status for `bcd9ac8` at review time. Host wiring must ACK `timer_fire.budget_exhausted` and not retry. |
 | Timer-lane cutoff persist and fire ACK (`SESS-DEC-5`, `SESS-DEC-26`, `REQ-SESS-60`, `REQ-SESS-75`) | passed; **approved** `1c11744` | Red (2026-08-16): compile failed for missing `ChangeSessionLifecycleCommand`, `DurableTimerFireProcessor`, and `PostgresSessionLifecycleCoordinator`. Green: begin-completing/abort cancel the timer and seal a visible prefix; original-command cutoff retry reconciles; resume on never-paused Active is ineligible; stale Resume after later Active work is `StaleVersion`; `BudgetExhausted` is `acknowledged` not `retry_later`; persist writes cancelled `lane_state` plus `session.agent.message.sealed`; outbox failure leaves `open`+pending; duplicate cutoff emits one seal wake-up. Confirmation after consistency review: Sessions 359/359; architecture 29/29; Postgres 148/148. External review of `1c11744` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Combined CI not claimed green (Documentation seen green; Implementation in progress at review time; `gh` unauthenticated here). Harmless abort-query duplicate `lane_state` predicate folded. Frozen `0005`–`0016` unchanged. Worker host stays idle. |
 | Independent requested-action effect (`SESS-DEC-35`, `AC-SESS-43`) | passed; **approved** `053de74` | Red (2026-08-16): `effect_failed` plus accepted timer had `HasPendingIndependentActionEffect`; cutoff left the accepted timer item `not_attempted`. Green: pending work requires rejected+`not_attempted`; cutoff item is `no_domain_effect`; coordinator retry after cutoff/`effect_failed` writes no second complete audit/outbox. Confirmation: Sessions 367/367; architecture 29/29; `SessionRuntimeRepositoryTests` 24/24. External review of `053de74` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Closes `83cc0dc`. GitHub exposed no status checks or PR-triggered workflow runs for `053de74` at review time. Frozen `0005`–`0016` unchanged. |
-| Synthetic browser runtime adapter (`UI-SESS-DEC-13`–`15`) | passed; focused runtime | Red (2026-08-16): active SSE without a trigger emitted fragment+complete; new scenario grants returned 400. Green: `SyntheticSessionRuntimeAdapterTests` 19/19; `SyntheticBrowserRuntimeTests` 27/27; full `FlexAgent.Runtime.Tests` 56/56. SSE read is replay-only; participant reply, opening/closing, no-action, suppressed/execution failure, default/timer visible work, replacement silence, duplicate revision, pause/resume (paused fire suppressed; resume then fire publishes), reconnect cursor, and cutoff are scenario-scripted. Consistency pass: `session-pause-resume` now admits timer work after resume. Harness timer fire requires the API key. Playwright and `SessionPage` remain the next plan items. |
+| Synthetic browser runtime adapter (`UI-SESS-DEC-13`–`15`) | passed; focused runtime | Red (2026-08-16): active SSE without a trigger emitted fragment+complete; new scenario grants returned 400. Green: `SyntheticSessionRuntimeAdapterTests` 19/19; `SyntheticBrowserRuntimeTests` 27/27; full `FlexAgent.Runtime.Tests` 56/56. SSE read is replay-only; participant reply, opening/closing, no-action, suppressed/execution failure, default/timer visible work, replacement silence, duplicate revision, pause/resume (paused fire suppressed; resume then fire publishes), reconnect cursor, and cutoff are scenario-scripted. Consistency pass: `session-pause-resume` now admits timer work after resume. Harness timer fire requires the API key. |
+| Text Session UI (`UI-SESS-DEC-13`–`15`) | passed; focused web unit | Red (2026-08-16): `SessionPage` labeled composer **Message**, ignored `work_state`, and turned work events into empty Agent transcript items. Green: `sessionRuntimeView.test.ts` 10/10; `SessionPage.test.tsx` 6/6; full web `vitest` 20/20. No-action stops Processing, keeps the Participant message, announces once without focus movement, and omits `no_action`/envelope tokens. Timer-triggered fragments have no invented You message. Policy-rejected Decisions use suppressed turn status, not no-action or provider failure. Consistency pass (2026-08-16): dump-once CONNECTING `onerror` is not Reconnecting; CLOSED `onerror` is; terminal SSE shows Dormant while lifecycle badge may still be Active. Playwright MCP remains the next plan item. |
 | `a1dc86f` P2 `revision_id` required | passed; **approved** `71a7721` | Red (2026-08-16): null/empty/whitespace `revision_id` returned 204 and defaulted to `"1"`. Green: those three cases return 400 and a later `"1"` fire still publishes; closing from paused emits closing then terminal. External review of `71a7721` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Non-blocking trim identity folded: `" 1 "` then `"1"` is one stream. Confirmation: `SyntheticSessionRuntimeAdapterTests` 24/24; `FlexAgent.Runtime.Tests` 61/61. GitHub exposed no status checks or PR-triggered workflow runs for `71a7721` at review time. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
@@ -1972,8 +1992,8 @@ revocation revalidation wait on API host wiring and do not complete
 `REQ-SESS-59`. PostgreSQL fragment persist still goes through
 `PostgresPublishAgentResponseCoordinator`; wiring that coordinator into the
 worker content loop is residual. Live provider wiring and frozen-policy
-rehydration remain later gates. Text Session UI and Playwright MCP are the
-next plan items; this slice did not claim visual completion.
+rehydration remain later gates. Playwright MCP for the Text Session UI is
+the next plan item; this UI slice did not claim visual completion.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.

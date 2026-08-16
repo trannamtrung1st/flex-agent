@@ -157,6 +157,104 @@ body {
   gap: 1rem;
 }
 
+.agent-presence {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-secondary);
+}
+
+.agent-presence h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9375rem;
+}
+
+.agent-presence-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.agent-presence-row p {
+  margin: 0;
+}
+
+.agent-core {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 2.5rem;
+  border-radius: 999px;
+  border: 2px solid var(--border-brand);
+  background: radial-gradient(circle at 40% 35%, var(--brand-soft), var(--brand-softer) 55%, var(--surface-inset));
+  box-shadow: 0 0 0 4px var(--emission-agent);
+}
+
+.agent-core-processing {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 4px var(--emission-focus);
+}
+
+.agent-core-dormant {
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.agent-presence-state {
+  font-weight: 600;
+  color: var(--fg-strong);
+}
+
+.agent-presence-activity {
+  color: var(--fg-default);
+}
+
+.turn-status {
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--border-strong);
+  color: var(--fg-default);
+}
+
+.transcript-item-agent {
+  border-left: 3px solid var(--border-brand);
+  padding-left: 0.75rem;
+}
+
+.transcript-item-participant {
+  border-left: 3px solid var(--border-strong);
+  padding-left: 0.75rem;
+}
+
+.transcript-item-streaming {
+  box-shadow: inset 3px 0 0 var(--brand-signal);
+}
+
+.transcript-content {
+  overflow-wrap: anywhere;
+  max-width: 47.5rem;
+}
+
+.composer-disabled-reason,
+.field-hint {
+  margin: 0.375rem 0 0;
+  color: var(--fg-muted);
+  font-size: 0.875rem;
+}
+
+.session-time {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-core,
+  .agent-core-processing,
+  .transcript-item-streaming {
+    animation: none;
+    transition: none;
+  }
+}
+
 .session-layout {
   display: grid;
   gap: 1rem;
@@ -190,14 +288,13 @@ body {
 }
 
 .composer-row {
-  display: flex;
+  display: grid;
   gap: 0.5rem;
-  align-items: flex-end;
 }
 
 .composer-row textarea {
-  flex: 1;
-  min-height: 2.75rem;
+  min-height: 4.5rem;
+  max-height: 12rem;
 }
 
 .action-row {

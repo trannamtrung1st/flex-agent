@@ -121,7 +121,7 @@ test.describe("Synthetic P0 activity journey", () => {
     await page.getByRole("button", { name: /submit text/i }).click();
     await page.getByRole("button", { name: /start attempt/i }).click();
     await page.getByRole("link", { name: /open session/i }).click();
-    await page.getByLabel(/^message$/i).fill("Ready for synthetic session.");
+    await page.getByLabel(/your message/i).fill("Ready for synthetic session.");
     await page.getByRole("button", { name: /^send$/i }).click();
     await page.getByRole("button", { name: /complete session/i }).click();
     await logout(page);

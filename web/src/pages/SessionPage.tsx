@@ -1,19 +1,126 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useBrowserApi } from "../api/browser-api";
-import type { PermittedActionV1, SessionProjectionV1 } from "../api/browser-contracts";
+import type { PermittedActionV1, SessionProjectionV1, SessionTranscriptItemV1 } from "../api/browser-contracts";
+import { AgentPresence } from "../components/session/AgentPresence";
 import { Alert } from "../components/ui/Alert";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { ErrorSummary } from "../components/ui/ErrorSummary";
 import { ProtectedLoading } from "../components/ui/ProtectedLoading";
 import { SafeContent } from "../components/ui/SafeContent";
+import type { SseSessionEventV1 } from "../contracts/v1";
+import {
+  AGENT_PREPARING_COPY,
+  AGENT_RESPONDING_COPY,
+  applySseEvent,
+  createSessionRuntimeView,
+  markConnected,
+  markReconnecting,
+  presenceForLifecycle,
+  type AgentPresenceState,
+  type SessionRuntimeView,
+} from "../session/sessionRuntimeView";
 import { createIdempotencyKey, mapActionToCommand } from "../utils/commands";
 
-interface AgentStreamItem {
-  id: string;
-  content: string;
-  status: string;
+const SESSION_UNAVAILABLE_COPY =
+  "This Session is not available. Return to My work or use the provided support route.";
+
+function authorLabel(role: string): string {
+  if (role === "participant") {
+    return "You";
+  }
+  if (role === "agent") {
+    return "Agent";
+  }
+  return role;
+}
+
+function lifecycleLabel(state: string): string {
+  switch (state) {
+    case "active":
+      return "Active";
+    case "paused":
+      return "Session paused";
+    case "completed":
+      return "Session completed";
+    case "terminated":
+      return "Session terminated";
+    case "aborted":
+      return "Session aborted";
+    default:
+      return state;
+  }
+}
+
+function composerDisabledReason(lifecycleState: string): string {
+  if (lifecycleState === "paused") {
+    return "Session active time is paused. Sending is unavailable until the Session resumes.";
+  }
+  if (lifecycleState === "completed") {
+    return "Session completed. No more messages are accepted.";
+  }
+  if (lifecycleState === "terminated" || lifecycleState === "aborted") {
+    return "This Session is no longer accepting messages.";
+  }
+  return "Sending is unavailable in the current Session state.";
+}
+
+function visiblePresence(lifecycleState: string, view: SessionRuntimeView): AgentPresenceState {
+  if (
+    view.agentPresence === "dormant" ||
+    lifecycleState === "completed" ||
+    lifecycleState === "terminated" ||
+    lifecycleState === "aborted"
+  ) {
+    return "dormant";
+  }
+
+  return presenceForLifecycle(lifecycleState, view.turnPhase);
+}
+
+function transcriptStatusLabel(item: { streaming: boolean; status: string }): string | null {
+  if (item.streaming) {
+    return AGENT_RESPONDING_COPY;
+  }
+  if (item.status === "accepted") {
+    return "Message accepted";
+  }
+  return null;
+}
+
+function activityLabelFor(view: SessionRuntimeView): string | null {
+  if (view.turnPhase === "queued" || view.turnPhase === "working") {
+    return AGENT_PREPARING_COPY;
+  }
+  if (view.turnPhase === "streaming") {
+    return AGENT_RESPONDING_COPY;
+  }
+  return null;
+}
+
+function mergeTranscript(
+  projectionItems: SessionTranscriptItemV1[],
+  view: SessionRuntimeView,
+): Array<{ id: string; role: string; content: string; status: string; streaming: boolean }> {
+  const projectedIds = new Set(projectionItems.map((item) => item.item_id));
+  const projected = projectionItems.map((item) => ({
+    id: item.item_id,
+    role: item.role,
+    content: item.content,
+    status: item.status,
+    streaming: false,
+  }));
+  const streamed = view.streamedMessages
+    .filter((item) => !projectedIds.has(item.id) && item.content.length > 0)
+    .map((item) => ({
+      id: item.id,
+      role: "agent",
+      content: item.content,
+      status: item.status,
+      streaming: item.status === "streaming",
+    }));
+  return [...projected, ...streamed];
 }
 
 export function SessionPage() {
@@ -21,86 +128,100 @@ export function SessionPage() {
   const { fetchJson, executeCommand } = useBrowserApi();
   const [session, setSession] = useState<SessionProjectionV1 | null>(null);
   const [messageText, setMessageText] = useState("");
-  const [agentItems, setAgentItems] = useState<AgentStreamItem[]>([]);
+  const [runtime, setRuntime] = useState<SessionRuntimeView>(() => createSessionRuntimeView("active"));
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
-  const seenSequencesRef = useRef<Set<string>>(new Set());
+  const eventSourceEpochRef = useRef(0);
+  const hasLoadedSessionRef = useRef(false);
 
   const loadSession = useCallback(async () => {
     if (!sessionId) {
       return;
     }
 
-    setLoading(true);
+    if (!hasLoadedSessionRef.current) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
       const projection = await fetchJson<SessionProjectionV1>(`/browser/sessions/${sessionId}`);
+      hasLoadedSessionRef.current = true;
       setSession(projection);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load session");
+      const message = err instanceof Error ? err.message : "Failed to load session";
+      if (message === "protected" || message === "Access denied" || message.includes("Access")) {
+        setError(SESSION_UNAVAILABLE_COPY);
+      } else {
+        setError(message);
+      }
+      setSession(null);
     } finally {
       setLoading(false);
     }
   }, [sessionId, fetchJson]);
 
   useEffect(() => {
+    hasLoadedSessionRef.current = false;
+    setRuntime(createSessionRuntimeView("active"));
+  }, [sessionId]);
+
+  useEffect(() => {
     void loadSession();
   }, [loadSession]);
 
   useEffect(() => {
-    if (!sessionId || !session || session.lifecycle_state !== "active") {
+    if (!sessionId || !session || session.lifecycle_state === "completed" || session.lifecycle_state === "terminated" || session.lifecycle_state === "aborted") {
       return;
     }
 
+    const epoch = ++eventSourceEpochRef.current;
     const source = new EventSource(`/browser/sessions/${sessionId}/events`);
     eventSourceRef.current = source;
 
+    source.onopen = () => {
+      if (eventSourceEpochRef.current !== epoch) {
+        return;
+      }
+      setRuntime((current) => markConnected(current));
+    };
+
     source.onmessage = (event: MessageEvent<string>) => {
+      if (eventSourceEpochRef.current !== epoch) {
+        return;
+      }
+
       try {
-        const payload = JSON.parse(event.data) as {
-          event_type?: string;
-          session_sequence?: string;
-          payload?: { text_delta?: string; agent_message_id?: string };
-        };
-
-        const sequence = payload.session_sequence ?? event.lastEventId;
-        if (sequence && seenSequencesRef.current.has(sequence)) {
-          return;
-        }
-
-        if (sequence) {
-          seenSequencesRef.current.add(sequence);
-        }
-
-        const content = payload.payload?.text_delta ?? "";
-        const messageId = payload.payload?.agent_message_id ?? crypto.randomUUID();
-        const status =
-          payload.event_type === "session.agent.complete.v1" ? "confirmed" : "streaming";
-
-        setAgentItems((current) => {
-          const existing = current.find((item) => item.id === messageId);
-          if (existing) {
-            return current.map((item) =>
-              item.id === messageId ? { ...item, content: item.content + content, status } : item,
-            );
-          }
-
-          return [...current, { id: messageId, content, status }];
-        });
+        const payload = JSON.parse(event.data) as SseSessionEventV1;
+        setRuntime((current) => applySseEvent(current, payload));
       } catch {
         // Ignore malformed SSE payloads in synthetic adapter.
       }
     };
 
+    source.onerror = () => {
+      if (eventSourceEpochRef.current !== epoch) {
+        return;
+      }
+      if (source.readyState === EventSource.CLOSED) {
+        setRuntime((current) => markReconnecting(current));
+      }
+    };
+
     return () => {
       source.close();
-      eventSourceRef.current = null;
+      if (eventSourceRef.current === source) {
+        eventSourceRef.current = null;
+      }
     };
-  }, [sessionId, session?.lifecycle_state]);
+    // Reconnect when identity, lifecycle, or version changes; ignore transcript-only projection refreshes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- session object identity is not the subscription key
+  }, [sessionId, session?.lifecycle_state, session?.session_version]);
+
+  const sendAction = session?.permitted_actions.find((action) => action.action_id === "send_message");
 
   const runAction = async (action: PermittedActionV1) => {
     if (!session || !sessionId) {
@@ -143,55 +264,112 @@ export function SessionPage() {
     }
   };
 
+  const onComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || !(event.ctrlKey || event.metaKey) || !sendAction) {
+      return;
+    }
+
+    event.preventDefault();
+    if (!pending && messageText.trim()) {
+      void runAction(sendAction);
+    }
+  };
+
+  const transcriptItems = useMemo(
+    () => (session ? mergeTranscript(session.transcript, runtime) : []),
+    [session, runtime],
+  );
+
   if (loading) {
     return <ProtectedLoading label="Loading session…" />;
   }
 
   if (error || !session) {
-    return <Alert variant="danger" title="Could not load session">{error ?? "Session not found"}</Alert>;
+    return (
+      <Alert variant="danger" title="Session unavailable">
+        <p>{error ?? SESSION_UNAVAILABLE_COPY}</p>
+        <p>
+          <Link to="/my-work">Return to My work</Link>
+        </p>
+      </Alert>
+    );
   }
 
-  const canSend = session.permitted_actions.some((action) => action.action_id === "send_message");
+  const canSend = Boolean(sendAction);
+  const presence = visiblePresence(session.lifecycle_state, runtime);
+  const activityLabel = activityLabelFor(runtime);
 
   return (
-    <div>
+    <div className="session-page">
       <header className="page-header">
         <h1>Session</h1>
         <p>
-          <Badge variant="brand">{session.lifecycle_state}</Badge>
-          {session.remaining_time ? <span> · {session.remaining_time} remaining</span> : null}
+          <Badge variant="brand">{lifecycleLabel(session.lifecycle_state)}</Badge>
+          {session.remaining_time ? (
+            <span>
+              {" "}
+              · <span className="session-time">Time remaining {session.remaining_time}</span>
+            </span>
+          ) : null}
         </p>
         {session.bound_submission_summary ? <p>{session.bound_submission_summary}</p> : null}
       </header>
+
+      <AgentPresence state={presence} activityLabel={activityLabel} />
+
+      <div className="session-live-regions">
+        <p
+          className="sr-only"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          aria-label="Session updates"
+        >
+          {runtime.politeAnnouncement ?? ""}
+        </p>
+        <p className="sr-only" role="alert" aria-live="assertive" aria-atomic="true">
+          {runtime.assertiveAnnouncement ?? ""}
+        </p>
+      </div>
+
+      {runtime.connectionState === "reconnecting" ? (
+        <Alert variant="warning" title="Reconnecting">
+          Reconnecting. Your Session and time have not been paused by this connection issue.
+        </Alert>
+      ) : null}
 
       {actionError ? <ErrorSummary errors={[actionError]} /> : null}
 
       <div className="session-layout">
         <section aria-labelledby="transcript-heading">
           <h2 id="transcript-heading">Transcript</h2>
-          <div className="transcript-panel" role="log" aria-live="polite" aria-relevant="additions">
-            {session.transcript.length === 0 && agentItems.length === 0 ? (
-              <p className="empty-state">No messages yet.</p>
+          <div className="transcript-panel" role="log" aria-live="off" aria-relevant="additions">
+            {transcriptItems.length === 0 && !runtime.persistentTurnStatus ? (
+              <p className="empty-state">No messages yet. Send a message when you are ready.</p>
             ) : (
               <>
-                {session.transcript.map((item) => (
-                  <article key={item.item_id} className="transcript-item">
-                    <p className="transcript-role">{item.role}</p>
+                {transcriptItems.map((item) => {
+                  const statusLabel = transcriptStatusLabel(item);
+                  return (
+                  <article
+                    key={item.id}
+                    className={`transcript-item transcript-item-${item.role}${item.streaming ? " transcript-item-streaming" : ""}`}
+                  >
+                    <p className="transcript-role">{authorLabel(item.role)}</p>
                     <SafeContent>
-                      <p>{item.content}</p>
+                      <p className="transcript-content">{item.content}</p>
                     </SafeContent>
-                    <Badge variant="default">{item.status}</Badge>
+                    {statusLabel ? (
+                      <Badge variant={item.streaming ? "info" : "default"}>{statusLabel}</Badge>
+                    ) : null}
                   </article>
-                ))}
-                {agentItems.map((item) => (
-                  <article key={item.id} className="transcript-item">
-                    <p className="transcript-role">agent</p>
-                    <SafeContent>
-                      <p>{item.content}</p>
-                    </SafeContent>
-                    <Badge variant={item.status === "streaming" ? "info" : "success"}>{item.status}</Badge>
-                  </article>
-                ))}
+                  );
+                })}
+                {runtime.persistentTurnStatus ? (
+                  <p className="turn-status" role="status">
+                    {runtime.persistentTurnStatus}
+                  </p>
+                ) : null}
               </>
             )}
           </div>
@@ -201,17 +379,23 @@ export function SessionPage() {
           <h2 id="session-controls-heading">Controls</h2>
           {canSend ? (
             <div className="composer-row field">
-              <label className="sr-only" htmlFor="session-message">Message</label>
+              <label htmlFor="session-message">Your message</label>
               <textarea
                 id="session-message"
                 className="textarea"
                 value={messageText}
-                onChange={(event) => { setMessageText(event.target.value); }}
-                placeholder="Type your message"
+                onChange={(event) => {
+                  setMessageText(event.target.value);
+                }}
+                onKeyDown={onComposerKeyDown}
+                placeholder="Not sent. The Agent cannot see this draft."
                 rows={3}
               />
+              <p className="field-hint">Enter adds a new line. Ctrl+Enter or Command+Enter sends.</p>
             </div>
-          ) : null}
+          ) : (
+            <p className="composer-disabled-reason">{composerDisabledReason(session.lifecycle_state)}</p>
+          )}
 
           <div className="action-row" role="group" aria-label="Session actions">
             {session.permitted_actions.map((action) => (
@@ -219,10 +403,7 @@ export function SessionPage() {
                 key={action.action_id}
                 variant={action.is_destructive ? "danger" : "primary"}
                 onClick={() => void runAction(action)}
-                disabled={
-                  pending ||
-                  (action.action_id === "send_message" && !messageText.trim())
-                }
+                disabled={pending || (action.action_id === "send_message" && !messageText.trim())}
               >
                 {action.label}
               </Button>
