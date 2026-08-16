@@ -4,6 +4,7 @@ using FlexAgent.Postgres.Integration.Tests.Support;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
+using Npgsql;
 
 namespace FlexAgent.Postgres.Integration.Tests;
 
@@ -1453,6 +1454,365 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
         Assert.Equal("PT2M", reloaded.CurrentTimerLane!.RelativeDelay);
         Assert.Equal(TimerRequestedByCategories.AgentRecommendation, reloaded.CurrentTimerLane.RequestedByCategory);
         Assert.Equal(1, reloaded.PendingTimerCount);
+    }
+
+    [Fact]
+    public async Task Complete_after_cutoff_reconciles_without_a_second_completion_audit()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
+        var acceptCoordinator = new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler());
+        var lifecycleCoordinator = new PostgresSessionLifecycleCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new ChangeSessionLifecycleHandler());
+        var completeCoordinator = new PostgresCompleteInvocationCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new CompleteInvocationHandler());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var admitted = await acceptCoordinator.AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                actor,
+                binding.Ownership,
+                ExpectedSessionVersion: 0,
+                "msg.p.1",
+                "turn.1",
+                "slot.1",
+                "trig.participant.1",
+                "idem.p.cutoff-timer-retry",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+
+        var envelope = new EnvelopeRecommendation(
+            "adec.cutoff-timer-retry.0001",
+            admitted.Invocation!.AgentInvocationId,
+            new DateTimeOffset(2026, 8, 13, 0, 0, 2, TimeSpan.Zero),
+            DecisionDispositions.Respond,
+            [],
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.primary",
+                    "PT2M",
+                    "1"),
+            ]);
+
+        long validatedVersion;
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            var loaded = await repository.LoadForUpdateAsync(
+                binding.Ownership,
+                binding,
+                scope.Transaction,
+                CancellationToken);
+            Assert.NotNull(loaded);
+            var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
+            Assert.True(
+                loaded!.RecordDecision(admitted.Invocation.AgentInvocationId, envelope, clock).Succeeded);
+            var validated = loaded.ValidateDecision(admitted.Invocation.AgentInvocationId, clock);
+            Assert.Equal(DecisionValidationOutcomes.Rejected, validated.ValidationOutcome);
+            Assert.Equal(TimerValidationOutcomes.Accepted, validated.TimerValidationOutcome);
+            Assert.True(
+                await repository.TrySaveCompletionAsync(
+                    binding.Ownership,
+                    admitted.SessionVersion!.Value,
+                    loaded,
+                    loaded.Invocations[0],
+                    scope.Transaction,
+                    CancellationToken));
+            validatedVersion = loaded.SessionVersion;
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var cutoff = await lifecycleCoordinator.ChangeAsync(
+            new ChangeSessionLifecycleCommand(
+                actor,
+                binding.Ownership,
+                validatedVersion,
+                SessionLifecycleTransitions.BeginCompleting,
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(cutoff.Succeeded, cutoff.OutcomeCode);
+
+        var correlationId = Guid.NewGuid();
+        var completed = await completeCoordinator.CompleteAsync(
+            new CompleteInvocationCommand(
+                actor,
+                binding.Ownership,
+                cutoff.SessionVersion,
+                admitted.Invocation.AgentInvocationId,
+                envelope,
+                null,
+                correlationId,
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+        Assert.Equal(
+            DecisionEffectOutcomes.NoDomainEffect,
+            Assert.Single(completed.ValidationEffect!.RequestedActionValidations).EffectOutcome);
+        Assert.False(completed.ValidationEffect.HasPendingIndependentActionEffect);
+
+        long completedVersion;
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            completedVersion = await connection.ExecuteScalarAsync<long>(
+                """
+                SELECT session_version
+                FROM session_runtimes
+                WHERE organization_id = @OrganizationId
+                  AND session_id = @SessionId;
+                """,
+                binding.Ownership);
+            Assert.Equal(1, await CountCompletionSideEffectsAsync(connection, correlationId));
+        }
+
+        var retried = await completeCoordinator.CompleteAsync(
+            new CompleteInvocationCommand(
+                actor,
+                binding.Ownership,
+                completedVersion,
+                admitted.Invocation.AgentInvocationId,
+                envelope,
+                null,
+                correlationId,
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(retried.Succeeded, retried.OutcomeCode);
+        Assert.Equal(InvocationCompletionOutcomeCodes.Decided, retried.OutcomeCode);
+        Assert.False(retried.ValidationEffect!.HasPendingIndependentActionEffect);
+
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            Assert.Equal(1, await CountCompletionSideEffectsAsync(connection, correlationId));
+            Assert.Equal(
+                completedVersion,
+                await connection.ExecuteScalarAsync<long>(
+                    """
+                    SELECT session_version
+                    FROM session_runtimes
+                    WHERE organization_id = @OrganizationId
+                      AND session_id = @SessionId;
+                    """,
+                    binding.Ownership));
+        }
+    }
+
+    [Fact]
+    public async Task Effect_failed_retry_with_accepted_timer_reconciles_without_a_second_completion_audit()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
+        var acceptCoordinator = new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler());
+        var lifecycleCoordinator = new PostgresSessionLifecycleCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new ChangeSessionLifecycleHandler());
+        var completeCoordinator = new PostgresCompleteInvocationCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new CompleteInvocationHandler());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var admitted = await acceptCoordinator.AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                actor,
+                binding.Ownership,
+                ExpectedSessionVersion: 0,
+                "msg.p.1",
+                "turn.1",
+                "slot.1",
+                "trig.participant.1",
+                "idem.p.effect-failed-timer-retry",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+
+        var envelope = new EnvelopeRecommendation(
+            "adec.effect-failed-timer-retry.0001",
+            admitted.Invocation!.AgentInvocationId,
+            new DateTimeOffset(2026, 8, 13, 0, 0, 2, TimeSpan.Zero),
+            DecisionDispositions.Respond,
+            [
+                new OutputRecommendation(
+                    AgentOutputKinds.Message,
+                    "out.message.primary",
+                    "participant_reply",
+                    "turn.1",
+                    "slot.1"),
+            ],
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.primary",
+                    "PT2M",
+                    "1"),
+            ]);
+
+        long validatedVersion;
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            var loaded = await repository.LoadForUpdateAsync(
+                binding.Ownership,
+                binding,
+                scope.Transaction,
+                CancellationToken);
+            Assert.NotNull(loaded);
+            var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
+            Assert.True(
+                loaded!.RecordDecision(admitted.Invocation.AgentInvocationId, envelope, clock).Succeeded);
+            var validated = loaded.ValidateDecision(admitted.Invocation.AgentInvocationId, clock);
+            Assert.Equal(DecisionValidationOutcomes.Accepted, validated.ValidationOutcome);
+            Assert.Equal(TimerValidationOutcomes.Accepted, validated.TimerValidationOutcome);
+            Assert.True(
+                await repository.TrySaveCompletionAsync(
+                    binding.Ownership,
+                    admitted.SessionVersion!.Value,
+                    loaded,
+                    loaded.Invocations[0],
+                    scope.Transaction,
+                    CancellationToken));
+            validatedVersion = loaded.SessionVersion;
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var paused = await lifecycleCoordinator.ChangeAsync(
+            new ChangeSessionLifecycleCommand(
+                actor,
+                binding.Ownership,
+                validatedVersion,
+                SessionLifecycleTransitions.Pause,
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(paused.Succeeded, paused.OutcomeCode);
+
+        long failedVersion;
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            var loaded = await repository.LoadForUpdateAsync(
+                binding.Ownership,
+                binding,
+                scope.Transaction,
+                CancellationToken);
+            Assert.NotNull(loaded);
+            var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
+            var applied = loaded!.ApplyDecisionEffect(admitted.Invocation.AgentInvocationId, clock);
+            Assert.Equal(DecisionEffectOutcomes.EffectFailed, applied.EffectOutcome);
+            Assert.False(loaded.Invocations[0].ValidationEffect!.HasPendingIndependentActionEffect);
+            Assert.True(
+                await repository.TrySaveCompletionAsync(
+                    binding.Ownership,
+                    paused.SessionVersion,
+                    loaded,
+                    loaded.Invocations[0],
+                    scope.Transaction,
+                    CancellationToken));
+            failedVersion = loaded.SessionVersion;
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var correlationId = Guid.NewGuid();
+        var completed = await completeCoordinator.CompleteAsync(
+            new CompleteInvocationCommand(
+                actor,
+                binding.Ownership,
+                failedVersion,
+                admitted.Invocation.AgentInvocationId,
+                envelope,
+                null,
+                correlationId,
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.False(completed.Succeeded);
+        Assert.Equal(InvocationCompletionOutcomeCodes.EffectFailed, completed.OutcomeCode);
+        Assert.False(completed.ValidationEffect!.HasPendingIndependentActionEffect);
+
+        var retried = await completeCoordinator.CompleteAsync(
+            new CompleteInvocationCommand(
+                actor,
+                binding.Ownership,
+                failedVersion,
+                admitted.Invocation.AgentInvocationId,
+                envelope,
+                null,
+                correlationId,
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.False(retried.Succeeded);
+        Assert.Equal(InvocationCompletionOutcomeCodes.EffectFailed, retried.OutcomeCode);
+
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            Assert.Equal(0, await CountCompletionSideEffectsAsync(connection, correlationId));
+            Assert.Equal(
+                failedVersion,
+                await connection.ExecuteScalarAsync<long>(
+                    """
+                    SELECT session_version
+                    FROM session_runtimes
+                    WHERE organization_id = @OrganizationId
+                      AND session_id = @SessionId;
+                    """,
+                    binding.Ownership));
+        }
+    }
+
+    private static async Task<int> CountCompletionSideEffectsAsync(NpgsqlConnection connection, Guid correlationId)
+    {
+        var auditCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM audit_events
+            WHERE correlation_id = @CorrelationId
+              AND action = @Action;
+            """,
+            new { CorrelationId = correlationId, Action = SessionRuntimeAuditActions.CompleteInvocation });
+        var outboxCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM outbox_items
+            WHERE correlation_id = @CorrelationId
+              AND event_type = @EventType;
+            """,
+            new { CorrelationId = correlationId, EventType = SessionRuntimeOutboxEventTypes.InvocationCompleted });
+        Assert.Equal(auditCount, outboxCount);
+        return auditCount;
     }
 
     [Fact]

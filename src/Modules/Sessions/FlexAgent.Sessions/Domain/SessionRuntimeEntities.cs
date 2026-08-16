@@ -225,10 +225,11 @@ public sealed class DecisionValidationEffectRecord
     public IReadOnlyList<RequestedActionItemValidation> RequestedActionValidations { get; private set; }
 
     public bool HasPendingIndependentActionEffect =>
-        TimerValidationOutcome == TimerValidationOutcomes.Accepted
+        ValidationOutcome == DecisionValidationOutcomes.Rejected
+        && EffectOutcome == DecisionEffectOutcomes.NotAttempted
+        && TimerValidationOutcome == TimerValidationOutcomes.Accepted
         && RequestedActionValidations.Any(item =>
-            string.Equals(item.Kind, AgentRequestedActionKinds.NextTimerRequest, StringComparison.Ordinal)
-            && string.Equals(item.ValidationOutcome, DecisionValidationOutcomes.Accepted, StringComparison.Ordinal)
+            IsAcceptedNextTimerAction(item)
             && string.Equals(item.EffectOutcome, DecisionEffectOutcomes.NotAttempted, StringComparison.Ordinal));
 
     internal void SetEffectOutcome(string effectOutcome, string? appliedTurnId = null, string? appliedResponseSlotId = null)
@@ -257,11 +258,11 @@ public sealed class DecisionValidationEffectRecord
         RequestedActionValidations = RequestedActionValidations
             .Select(item => item with
             {
-                EffectOutcome = applied
-                    && string.Equals(item.ValidationOutcome, DecisionValidationOutcomes.Accepted, StringComparison.Ordinal)
-                    && string.Equals(item.Kind, AgentRequestedActionKinds.NextTimerRequest, StringComparison.Ordinal)
-                    ? DecisionEffectOutcomes.Applied
-                    : DecisionEffectOutcomes.NotAttempted,
+                EffectOutcome = IsAcceptedNextTimerAction(item)
+                    ? applied
+                        ? DecisionEffectOutcomes.Applied
+                        : DecisionEffectOutcomes.NoDomainEffect
+                    : item.EffectOutcome,
             })
             .ToArray();
     }
@@ -282,6 +283,10 @@ public sealed class DecisionValidationEffectRecord
             AppliedResponseSlotId = appliedResponseSlotId;
         }
     }
+
+    private static bool IsAcceptedNextTimerAction(RequestedActionItemValidation item) =>
+        string.Equals(item.Kind, AgentRequestedActionKinds.NextTimerRequest, StringComparison.Ordinal)
+        && string.Equals(item.ValidationOutcome, DecisionValidationOutcomes.Accepted, StringComparison.Ordinal);
 
     private static string DeriveOutputEffect(OutputItemValidation item, string decisionEffect)
     {

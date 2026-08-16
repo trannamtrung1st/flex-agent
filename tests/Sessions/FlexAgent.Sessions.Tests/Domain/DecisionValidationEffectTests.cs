@@ -246,8 +246,64 @@ public sealed class DecisionValidationEffectTests
             session.TimerSchedules,
             revision => revision.RequestedByCategory == TimerRequestedByCategories.AgentRecommendation);
         Assert.Equal(
-            DecisionEffectOutcomes.NotAttempted,
+            DecisionEffectOutcomes.NoDomainEffect,
             Assert.Single(session.Invocations[0].ValidationEffect!.RequestedActionValidations).EffectOutcome);
+        Assert.False(session.Invocations[0].ValidationEffect!.HasPendingIndependentActionEffect);
+
+        var version = session.SessionVersion;
+        var retried = session.CompleteInvocation(
+            invocationId, envelope, SessionRuntimeTestFixtures.T0.AddSeconds(5));
+
+        Assert.True(retried.Succeeded, retried.OutcomeCode);
+        Assert.Equal(version, session.SessionVersion);
+        Assert.Single(session.Invocations[0].ValidationHistory);
+        Assert.Equal(AgentInvocationStatuses.Decided, retried.Invocation!.Status);
+        Assert.Equal(0, session.PendingTimerCount);
+        Assert.False(retried.ValidationEffect!.HasPendingIndependentActionEffect);
+    }
+
+    [Fact]
+    public void Effect_failed_with_accepted_timer_is_not_pending_independent_work()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            invocationId,
+            outputs: [SessionRuntimeTestFixtures.MessageOutput()],
+            requestedActions:
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.primary",
+                    "PT2M",
+                    "1"),
+            ]);
+        session.RecordDecision(invocationId, envelope, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        var validated = session.ValidateDecision(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        session.Pause(SessionRuntimeTestFixtures.T0.AddSeconds(3));
+
+        var applied = session.ApplyDecisionEffect(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(4));
+        var version = session.SessionVersion;
+        var retried = session.CompleteInvocation(
+            invocationId, envelope, SessionRuntimeTestFixtures.T0.AddSeconds(5));
+
+        Assert.Equal(DecisionValidationOutcomes.Accepted, validated.ValidationOutcome);
+        Assert.Equal(TimerValidationOutcomes.Accepted, validated.TimerValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.EffectFailed, applied.EffectOutcome);
+        Assert.Equal(InvocationCompletionOutcomeCodes.EffectFailed, applied.OutcomeCode);
+        Assert.True(session.Invocations[0].IsTerminal);
+        var failedEffect = session.Invocations[0].ValidationEffect!;
+        Assert.False(failedEffect.HasPendingIndependentActionEffect);
+        Assert.Equal(
+            DecisionEffectOutcomes.NotAttempted,
+            Assert.Single(failedEffect.RequestedActionValidations).EffectOutcome);
+        Assert.False(retried.Succeeded);
+        Assert.Equal(InvocationCompletionOutcomeCodes.EffectFailed, retried.OutcomeCode);
+        Assert.Equal(version, session.SessionVersion);
+        Assert.Single(session.Invocations[0].ValidationHistory);
+        Assert.Equal(1, session.PendingTimerCount);
     }
 
     [Fact]
