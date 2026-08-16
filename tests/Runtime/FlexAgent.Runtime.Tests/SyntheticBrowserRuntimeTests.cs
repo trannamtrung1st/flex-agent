@@ -225,7 +225,7 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
         Assert.False(string.IsNullOrWhiteSpace(firstBody.MessageId));
         Assert.False(string.IsNullOrWhiteSpace(secondBody.MessageId));
         Assert.NotEqual(firstBody.MessageId, secondBody.MessageId);
-        Assert.Equal("confirmed_not_committed", unknownBody!.Outcome);
+        Assert.Equal("still_pending", unknownBody!.Outcome);
         Assert.Null(unknownBody.MessageId);
 
         var sessionJson = await (await participant.GetAsync($"/browser/sessions/{SessionId}", cancellationToken))
@@ -288,6 +288,62 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
         Assert.Equal(HttpStatusCode.Forbidden, reconcile.StatusCode);
         var body = await reconcile.Content.ReadFromJsonAsync<CommandReconciliationDto>(JsonOptions, cancellationToken);
         Assert.Equal("denied", body!.Outcome);
+    }
+
+    [Fact]
+    public async Task Command_reconciliation_stays_pending_until_the_original_command_is_observed()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await PrepareActiveSessionAsync(instanceId, cancellationToken);
+        var participant = await CreateAuthenticatedClientAsync(SyntheticActorStages.Participant, instanceId: instanceId);
+
+        var beforeCommit = await PostReconcileAsync(participant, "session.send_message", "late-post", cancellationToken);
+        var beforeBody = await beforeCommit.Content.ReadFromJsonAsync<CommandReconciliationDto>(JsonOptions, cancellationToken);
+        Assert.Equal("still_pending", beforeBody!.Outcome);
+
+        var send = PostCommandRawAsync(
+            participant,
+            "session.send_message",
+            "late-post",
+            cancellationToken,
+            resourceId: SessionId,
+            expectedVersion: 1,
+            payload: new Dictionary<string, string> { ["message_text"] = "Yes" });
+        var during = PostReconcileAsync(participant, "session.send_message", "late-post", cancellationToken);
+        await Task.WhenAll(send, during);
+
+        (await send).EnsureSuccessStatusCode();
+        var duringBody = await (await during).Content.ReadFromJsonAsync<CommandReconciliationDto>(JsonOptions, cancellationToken);
+        Assert.True(duringBody!.Outcome is "still_pending" or "accepted");
+
+        var after = await PostReconcileAsync(participant, "session.send_message", "late-post", cancellationToken);
+        var afterBody = await after.Content.ReadFromJsonAsync<CommandReconciliationDto>(JsonOptions, cancellationToken);
+        Assert.Equal("accepted", afterBody!.Outcome);
+        Assert.False(string.IsNullOrWhiteSpace(afterBody.MessageId));
+    }
+
+    [Fact]
+    public async Task Command_reconciliation_confirms_noncommit_only_after_a_processed_rejection()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await PrepareActiveSessionAsync(instanceId, cancellationToken);
+        var participant = await CreateAuthenticatedClientAsync(SyntheticActorStages.Participant, instanceId: instanceId);
+
+        var stale = await PostCommandRawAsync(
+            participant,
+            "session.send_message",
+            "stale-send",
+            cancellationToken,
+            resourceId: SessionId,
+            expectedVersion: 99,
+            payload: new Dictionary<string, string> { ["message_text"] = "Yes" });
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+
+        var reconcile = await PostReconcileAsync(participant, "session.send_message", "stale-send", cancellationToken);
+        var body = await reconcile.Content.ReadFromJsonAsync<CommandReconciliationDto>(JsonOptions, cancellationToken);
+        Assert.Equal("confirmed_not_committed", body!.Outcome);
     }
 
     [Fact]

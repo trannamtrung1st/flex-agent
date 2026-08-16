@@ -5,6 +5,7 @@ import {
   containsForbiddenControlCopy,
   createSessionRuntimeView,
   evaluateProjectionCommit,
+  isCurrentCommandIdentityReconciliation,
   isCurrentSessionAction,
   markConnected,
   markOffline,
@@ -396,6 +397,40 @@ describe("sessionRuntimeView", () => {
         liveSessionId: "sess.b",
         startedGeneration: 1,
         liveGeneration: 2,
+      }),
+    ).toBe(false);
+  });
+
+  it("treats identity reconciliation as current only for the same Session, generation, and retained key", () => {
+    const pending = { actionId: "send_message", key: "key-a", retainIdentity: true };
+    expect(
+      isCurrentCommandIdentityReconciliation({
+        startedSessionId: "sess.a",
+        liveSessionId: "sess.a",
+        startedGeneration: 1,
+        liveGeneration: 1,
+        startedKey: "key-a",
+        livePending: pending,
+      }),
+    ).toBe(true);
+    expect(
+      isCurrentCommandIdentityReconciliation({
+        startedSessionId: "sess.a",
+        liveSessionId: "sess.b",
+        startedGeneration: 1,
+        liveGeneration: 2,
+        startedKey: "key-a",
+        livePending: null,
+      }),
+    ).toBe(false);
+    expect(
+      isCurrentCommandIdentityReconciliation({
+        startedSessionId: "sess.a",
+        liveSessionId: "sess.a",
+        startedGeneration: 1,
+        liveGeneration: 1,
+        startedKey: "key-a",
+        livePending: { actionId: "send_message", key: "key-b", retainIdentity: true },
       }),
     ).toBe(false);
   });

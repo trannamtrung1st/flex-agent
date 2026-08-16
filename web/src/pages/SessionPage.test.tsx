@@ -1006,6 +1006,190 @@ describe("SessionPage Decision presentation", () => {
     expect(screen.queryByText(/ready for the session/i)).not.toBeInTheDocument();
   });
 
+  it("does not apply Session A identity reconciliation to a Session B draft", async () => {
+    const sessionB: SessionProjectionV1 = {
+      ...activeSession,
+      session_id: "sess.synthetic.0002",
+      transcript: [
+        {
+          item_id: "msg.synthetic.participant.b",
+          role: "participant",
+          content: "Session B only.",
+          status: "accepted",
+          occurred_at: "2026-08-16T00:00:00Z",
+        },
+      ],
+    };
+    const pendingReconcile: { resolve: (value: Response) => void } = {
+      resolve: () => undefined,
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands/reconcile")) {
+          return new Promise<Response>((resolve) => {
+            pendingReconcile.resolve = resolve;
+          });
+        }
+        if (url.includes("/browser/commands")) {
+          return Promise.reject(new TypeError("Failed to fetch"));
+        }
+        if (url.includes("/browser/sessions/sess.synthetic.0001")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(activeSession) });
+        }
+        if (url.includes("/browser/sessions/sess.synthetic.0002")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(sessionB) });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    const router = createMemoryRouter(
+      [{ path: "/sessions/:sessionId", element: <SessionPage /> }],
+      { initialEntries: ["/sessions/sess.synthetic.0001"] },
+    );
+    render(
+      <BrowserApiProvider>
+        <RouterProvider router={router} />
+      </BrowserApiProvider>,
+    );
+
+    fireEvent.change(await screen.findByLabelText(/your message/i), {
+      target: { value: "Message from A." },
+    });
+    await openSessionStream();
+    fireEvent.click(screen.getByRole("button", { name: /send message/i }));
+    expect((await screen.findAllByText(/checking message status/i)).length).toBeGreaterThan(0);
+
+    await act(async () => {
+      await router.navigate("/sessions/sess.synthetic.0002");
+    });
+
+    expect(await screen.findByText(/session b only/i)).toBeInTheDocument();
+    await openSessionStream(2);
+    const sessionBComposer = screen.getByLabelText(/your message/i);
+    fireEvent.change(sessionBComposer, { target: { value: "Draft on B." } });
+
+    await act(async () => {
+      pendingReconcile.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            schema_version: "v1",
+            outcome: "accepted",
+            message_id: "msg.part.a",
+          }),
+      } as Response);
+      await Promise.resolve();
+    });
+
+    expect(sessionBComposer).toHaveValue("Draft on B.");
+    expect(screen.getByText(/session b only/i)).toBeInTheDocument();
+    expect(screen.queryByText(/checking message status/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /send message/i })).toBeEnabled();
+  });
+
+  it("does not mark Session B unavailable when Session A identity reconciliation is denied", async () => {
+    const sessionB: SessionProjectionV1 = {
+      ...activeSession,
+      session_id: "sess.synthetic.0002",
+      transcript: [
+        {
+          item_id: "msg.synthetic.participant.b",
+          role: "participant",
+          content: "Session B only.",
+          status: "accepted",
+          occurred_at: "2026-08-16T00:00:00Z",
+        },
+      ],
+    };
+    const pendingReconcile: { resolve: (value: Response) => void } = {
+      resolve: () => undefined,
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands/reconcile")) {
+          return new Promise<Response>((resolve) => {
+            pendingReconcile.resolve = resolve;
+          });
+        }
+        if (url.includes("/browser/commands")) {
+          return Promise.reject(new TypeError("Failed to fetch"));
+        }
+        if (url.includes("/browser/sessions/sess.synthetic.0001")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(activeSession) });
+        }
+        if (url.includes("/browser/sessions/sess.synthetic.0002")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(sessionB) });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    const router = createMemoryRouter(
+      [{ path: "/sessions/:sessionId", element: <SessionPage /> }],
+      { initialEntries: ["/sessions/sess.synthetic.0001"] },
+    );
+    render(
+      <BrowserApiProvider>
+        <RouterProvider router={router} />
+      </BrowserApiProvider>,
+    );
+
+    fireEvent.change(await screen.findByLabelText(/your message/i), {
+      target: { value: "Message from A." },
+    });
+    await openSessionStream();
+    fireEvent.click(screen.getByRole("button", { name: /send message/i }));
+    expect((await screen.findAllByText(/checking message status/i)).length).toBeGreaterThan(0);
+
+    await act(async () => {
+      await router.navigate("/sessions/sess.synthetic.0002");
+    });
+
+    expect(await screen.findByText(/session b only/i)).toBeInTheDocument();
+    await openSessionStream(2);
+    const sessionBComposer = screen.getByLabelText(/your message/i);
+    fireEvent.change(sessionBComposer, { target: { value: "Draft on B." } });
+
+    await act(async () => {
+      pendingReconcile.resolve({
+        ok: false,
+        status: 403,
+        json: () =>
+          Promise.resolve({
+            schema_version: "v1",
+            outcome: "denied",
+            safe_message: "Access denied",
+          }),
+      } as Response);
+      await Promise.resolve();
+    });
+
+    expect(sessionBComposer).toHaveValue("Draft on B.");
+    expect(screen.getByText(/session b only/i)).toBeInTheDocument();
+    expect(screen.queryByText(/this session is not available/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /send message/i })).toBeEnabled();
+  });
+
   it("reconciles before enabling commands when the first OPEN follows an initial connection failure", async () => {
     let sessionLoads = 0;
     const pendingReconcile: { resolve: (value: SessionProjectionV1) => void } = {

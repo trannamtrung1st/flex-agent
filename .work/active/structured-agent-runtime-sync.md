@@ -874,14 +874,11 @@ and test reviews have no unresolved blocking findings.
     Lost responses keep the idempotency key and show **Checking message
     status**; 409/stale conflict and 403/access loss gate commands and
     reconcile (`UI-SESS-DEC-5`, `AC-SESS-4`, `AC-SESS-14`).
-  - [>] Remediate `cd73929` P1: reconcile uncertain sends by retained
-    command/idempotency identity, not matching transcript text; retire the
-    key after a confirmed 409 so the next deliberate send is a new command
-    (`UI-SESS-DEC-5`, `REQ-SESS-26`, `AC-SESS-4`). Lookup is
-    `POST /browser/commands/reconcile` (`accepted` + `message_id`,
-    `confirmed_not_committed`, `conflict`, `still_pending`, `denied`). Raw
-    keys stay off the transcript projection. Confirmation pass: identity
-    lookup is visible while a command is in flight; 409 retires the key.
+  - [>] Remediate `8ae8457` P1: fence identity reconciliation to the Session
+    and retained command that requested it; do not treat missing command
+    records as `confirmed_not_committed` because a late original POST may
+    still commit (`UI-SESS-DEC-5`, `REQ-SESS-26`). Confirmation pass: identity
+    mutations are fenced; unknown keys stay `still_pending`.
 - [ ] Exercise the changed journey through real API/SSE interactions with
   Playwright MCP. Inspect accessibility snapshots and screenshots at desktop
   and narrow viewports; cover keyboard/focus, no-action, timer-triggered message
@@ -1604,6 +1601,12 @@ surfaces.
   Confirmed 409 retires the command identity so the next deliberate send
   uses a new key and the refreshed `expected_version`. Duplicate `"Yes"`
   cannot settle a later lost send. Playwright MCP remains next.
+- Text Session UI review remediations (2026-08-16, `8ae8457` P1): identity
+  reconcile mutations are fenced to the requesting Session, action
+  generation, and retained key. Missing command records stay
+  `still_pending` so a late original POST cannot be treated as confirmed
+  non-commit. `confirmed_not_committed` is returned only after a processed
+  rejection. Playwright MCP remains next.
 - Timer due-claim (2026-08-16, `bcd9ac8`): `timer_fire.budget_exhausted`
   returns `Succeeded=false` after committing `Expired`.
   `DurableTimerFireProcessor` now acknowledges that outcome (`acknowledged`)
@@ -2081,7 +2084,7 @@ surfaces.
 | Timer-lane cutoff persist and fire ACK (`SESS-DEC-5`, `SESS-DEC-26`, `REQ-SESS-60`, `REQ-SESS-75`) | passed; **approved** `1c11744` | Red (2026-08-16): compile failed for missing `ChangeSessionLifecycleCommand`, `DurableTimerFireProcessor`, and `PostgresSessionLifecycleCoordinator`. Green: begin-completing/abort cancel the timer and seal a visible prefix; original-command cutoff retry reconciles; resume on never-paused Active is ineligible; stale Resume after later Active work is `StaleVersion`; `BudgetExhausted` is `acknowledged` not `retry_later`; persist writes cancelled `lane_state` plus `session.agent.message.sealed`; outbox failure leaves `open`+pending; duplicate cutoff emits one seal wake-up. Confirmation after consistency review: Sessions 359/359; architecture 29/29; Postgres 148/148. External review of `1c11744` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Combined CI not claimed green (Documentation seen green; Implementation in progress at review time; `gh` unauthenticated here). Harmless abort-query duplicate `lane_state` predicate folded. Frozen `0005`–`0016` unchanged. Worker host stays idle. |
 | Independent requested-action effect (`SESS-DEC-35`, `AC-SESS-43`) | passed; **approved** `053de74` | Red (2026-08-16): `effect_failed` plus accepted timer had `HasPendingIndependentActionEffect`; cutoff left the accepted timer item `not_attempted`. Green: pending work requires rejected+`not_attempted`; cutoff item is `no_domain_effect`; coordinator retry after cutoff/`effect_failed` writes no second complete audit/outbox. Confirmation: Sessions 367/367; architecture 29/29; `SessionRuntimeRepositoryTests` 24/24. External review of `053de74` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Closes `83cc0dc`. GitHub exposed no status checks or PR-triggered workflow runs for `053de74` at review time. Frozen `0005`–`0016` unchanged. |
 | Synthetic browser runtime adapter (`UI-SESS-DEC-13`–`15`) | passed; focused runtime | Red (2026-08-16): active SSE without a trigger emitted fragment+complete; new scenario grants returned 400. Green: `SyntheticSessionRuntimeAdapterTests` 19/19; `SyntheticBrowserRuntimeTests` 27/27; full `FlexAgent.Runtime.Tests` 56/56. SSE read is replay-only; participant reply, opening/closing, no-action, suppressed/execution failure, default/timer visible work, replacement silence, duplicate revision, pause/resume (paused fire suppressed; resume then fire publishes), reconnect cursor, and cutoff are scenario-scripted. Consistency pass: `session-pause-resume` now admits timer work after resume. Harness timer fire requires the API key. |
-| Text Session UI (`UI-SESS-DEC-13`–`15`) | passed focused web unit; `cd73929` not approved | Red (2026-08-16): composer **Message**, ignored `work_state`, empty Agent rows. Green `94d752d` through `cd73929` closed prior reconnect/stale-projection, in-flight, and lost-send races. External review of `cd73929`: **request changes** (2 P1): text-matched uncertain settle; 409 reused the old key. Confirmation pass (2026-08-16): identity lookup can report `still_pending` while execute holds the instance lock; `sessionRuntimeView.test.ts` 20/20; `SessionPage.test.tsx` 26/26; full web `vitest` 50/50; `tsc -b --noEmit` passed; `SyntheticBrowserRuntimeTests` 30/30. Duplicate `"Yes"` does not settle a later lost send; GET-before-commit stays **Checking message status** until identity `accepted`; post-409 active retry uses a new key. Playwright MCP remains the next plan item. |
+| Text Session UI (`UI-SESS-DEC-13`–`15`) | passed focused web unit; `8ae8457` not approved | Red (2026-08-16): composer **Message**, ignored `work_state`, empty Agent rows. Green `94d752d` through `8ae8457` closed prior reconnect/stale-projection, in-flight, lost-send, and identity-reconcile races. External review of `8ae8457`: **request changes** (2 P1): late identity mutate after navigation; `confirmed_not_committed` from absence. Confirmation pass (2026-08-16): `sessionRuntimeView.test.ts` 21/21; `SessionPage.test.tsx` 28/28; full web `vitest` 53/53; `tsc -b --noEmit` passed; `SyntheticBrowserRuntimeTests` 32/32. Identity results cannot clear a later Session; unknown keys stay `still_pending` until the original command is observed or a processed rejection is remembered. Playwright MCP remains the next plan item. |
 | `a1dc86f` P2 `revision_id` required | passed; **approved** `71a7721` | Red (2026-08-16): null/empty/whitespace `revision_id` returned 204 and defaulted to `"1"`. Green: those three cases return 400 and a later `"1"` fire still publishes; closing from paused emits closing then terminal. External review of `71a7721` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Non-blocking trim identity folded: `" 1 "` then `"1"` is one stream. Confirmation: `SyntheticSessionRuntimeAdapterTests` 24/24; `FlexAgent.Runtime.Tests` 61/61. GitHub exposed no status checks or PR-triggered workflow runs for `71a7721` at review time. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |

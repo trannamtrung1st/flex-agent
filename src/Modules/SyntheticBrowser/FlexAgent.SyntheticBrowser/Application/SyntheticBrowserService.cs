@@ -588,19 +588,19 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     public BrowserCommandResultV1 ExecuteCommand(SyntheticSessionRecord session, BrowserCommandEnvelopeV1 command)
     {
         var instance = GetInstance(session.ScenarioId, session.ScenarioInstanceId);
-        lock (instance.Sync)
+        var scopeKey = SyntheticIdempotency.BuildScopeKey(session, command);
+        var requestDigest = SyntheticIdempotency.BuildRequestDigest(command);
+        instance.State.InFlightIdempotencyScopes.TryAdd(scopeKey, 0);
+        try
         {
-            var state = instance.State;
-            if (SyntheticResourceAuthorization.IsAccessRevoked(session, state))
+            lock (instance.Sync)
             {
-                return Denied("Access has changed.");
-            }
+                var state = instance.State;
+                if (SyntheticResourceAuthorization.IsAccessRevoked(session, state))
+                {
+                    return Denied("Access has changed.");
+                }
 
-            var scopeKey = SyntheticIdempotency.BuildScopeKey(session, command);
-            var requestDigest = SyntheticIdempotency.BuildRequestDigest(command);
-            state.InFlightIdempotencyScopes.TryAdd(scopeKey, 0);
-            try
-            {
                 var replay = SyntheticIdempotency.TryReplay(state.IdempotencyRecords, scopeKey, requestDigest);
                 if (replay is not null)
                 {
@@ -610,6 +610,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
                 var authorizationFailure = SyntheticCommandAuthorization.Authorize(session, command, state);
                 if (authorizationFailure is not null)
                 {
+                    SyntheticIdempotency.Remember(state.IdempotencyRecords, scopeKey, requestDigest, authorizationFailure);
                     return authorizationFailure;
                 }
 
@@ -645,10 +646,10 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
                 SyntheticIdempotency.Remember(state.IdempotencyRecords, scopeKey, requestDigest, result, acceptedMessageId);
                 return result;
             }
-            finally
-            {
-                state.InFlightIdempotencyScopes.TryRemove(scopeKey, out _);
-            }
+        }
+        finally
+        {
+            instance.State.InFlightIdempotencyScopes.TryRemove(scopeKey, out _);
         }
     }
 

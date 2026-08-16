@@ -157,6 +157,27 @@ export function isCurrentSessionAction(input: {
   );
 }
 
+export function isCurrentCommandIdentityReconciliation(input: {
+  startedSessionId: string;
+  liveSessionId: string | undefined;
+  startedGeneration: number;
+  liveGeneration: number;
+  startedKey: string;
+  livePending: { actionId: string; key: string; retainIdentity: boolean } | null;
+}): boolean {
+  return (
+    isCurrentSessionAction({
+      startedSessionId: input.startedSessionId,
+      liveSessionId: input.liveSessionId,
+      startedGeneration: input.startedGeneration,
+      liveGeneration: input.liveGeneration,
+    }) &&
+    input.livePending?.retainIdentity === true &&
+    input.livePending.actionId === "send_message" &&
+    input.livePending.key === input.startedKey
+  );
+}
+
 export type CommandAdmissionKind =
   | "succeeded"
   | "pre_commit_rejection"

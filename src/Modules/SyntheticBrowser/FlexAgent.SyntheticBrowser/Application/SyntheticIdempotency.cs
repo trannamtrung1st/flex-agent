@@ -74,7 +74,7 @@ internal static class SyntheticIdempotency
         BrowserCommandResultV1 result,
         string? acceptedMessageId = null)
     {
-        if (result.Outcome is not ("succeeded" or "uncertain"))
+        if (result.Outcome is not ("succeeded" or "uncertain" or "denied" or "conflict" or "validation_failed"))
         {
             return;
         }
@@ -106,10 +106,10 @@ internal static class SyntheticIdempotency
         {
             return new BrowserCommandReconciliationV1(
                 BrowserSchemaVersion.V1,
-                "confirmed_not_committed",
+                "still_pending",
                 null,
-                "retry",
-                "The command was not committed.");
+                "reconcile",
+                "Checking command status.");
         }
 
         if (string.Equals(existing.Result.Outcome, "succeeded", StringComparison.Ordinal))
@@ -132,9 +132,31 @@ internal static class SyntheticIdempotency
                 existing.Result.SafeMessage);
         }
 
+        if (string.Equals(existing.Result.Outcome, "denied", StringComparison.Ordinal) ||
+            string.Equals(existing.Result.Outcome, "forbidden", StringComparison.Ordinal))
+        {
+            return new BrowserCommandReconciliationV1(
+                BrowserSchemaVersion.V1,
+                "denied",
+                null,
+                existing.Result.PermittedRecoveryAction,
+                existing.Result.SafeMessage);
+        }
+
+        if (string.Equals(existing.Result.Outcome, "validation_failed", StringComparison.Ordinal) ||
+            string.Equals(existing.Result.Outcome, "conflict", StringComparison.Ordinal))
+        {
+            return new BrowserCommandReconciliationV1(
+                BrowserSchemaVersion.V1,
+                "confirmed_not_committed",
+                null,
+                existing.Result.PermittedRecoveryAction ?? "retry",
+                existing.Result.SafeMessage);
+        }
+
         return new BrowserCommandReconciliationV1(
             BrowserSchemaVersion.V1,
-            "conflict",
+            "still_pending",
             null,
             "reconcile",
             existing.Result.SafeMessage);

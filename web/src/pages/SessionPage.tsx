@@ -26,6 +26,7 @@ import {
   createSessionRuntimeView,
   effectForCommandIdentityOutcome,
   evaluateProjectionCommit,
+  isCurrentCommandIdentityReconciliation,
   isCurrentSessionAction,
   isSessionAccessLoss,
   markConnected,
@@ -251,18 +252,34 @@ export function SessionPage() {
 
   const applyPendingCommandIdentity = useCallback(async () => {
     const pendingSend = pendingCommandRef.current;
-    const liveSessionId = sessionIdRef.current;
-    if (!pendingSend?.retainIdentity || pendingSend.actionId !== "send_message" || !liveSessionId) {
+    const startedSessionId = sessionIdRef.current;
+    if (!pendingSend?.retainIdentity || pendingSend.actionId !== "send_message" || !startedSessionId) {
       return;
     }
+
+    const startedGeneration = actionGenerationRef.current;
+    const startedKey = pendingSend.key;
+    const identityIsCurrent = () =>
+      isCurrentCommandIdentityReconciliation({
+        startedSessionId,
+        liveSessionId: sessionIdRef.current,
+        startedGeneration,
+        liveGeneration: actionGenerationRef.current,
+        startedKey,
+        livePending: pendingCommandRef.current,
+      });
 
     try {
       const result = await reconcileCommand({
         command_id: pendingSend.actionId,
-        idempotency_key: pendingSend.key,
+        idempotency_key: startedKey,
         command_type: "session.send_message",
-        resource_id: liveSessionId,
+        resource_id: startedSessionId,
       });
+      if (!identityIsCurrent()) {
+        return;
+      }
+
       const effect = effectForCommandIdentityOutcome(result.outcome);
       if (effect === "clear_accepted") {
         setMessageText("");
@@ -291,6 +308,9 @@ export function SessionPage() {
       setSession(null);
       committedProjectionRef.current = null;
     } catch {
+      if (!identityIsCurrent()) {
+        return;
+      }
       setCheckingMessage(true);
     }
   }, [reconcileCommand]);
