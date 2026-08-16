@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Playwright MCP Verification
 
-Use the project `playwright` MCP server for browser verification. It is configured in `.cursor/mcp.json`; artifacts must stay under the gitignored `.playwright-mcp/` directory.
+Use the project `playwright` MCP server for browser verification. It is configured in `.cursor/mcp.json`; artifacts must stay under the `.playwright-mcp/` directory.
 
 For every UI-affecting change when the app can run:
 
@@ -25,6 +25,6 @@ Cover applicable states, not only the happy path:
 - Voice listening, processing, speaking, interrupted, unavailable, and permission denied
 - Desktop and narrow/mobile viewports for responsive surfaces
 
-Screenshots are required evidence for UI/UX claims; snapshots alone are insufficient. Report artifact paths and a short visual evaluation. With the pinned MCP version, omit the optional screenshot `filename` so auto-generated files honor `--output-dir`; a custom name may bypass it. Never place real credentials, secrets, or participant data in artifacts.
+Screenshots are required evidence for UI/UX claims; snapshots alone are insufficient. Report artifact paths and a short visual evaluation. With the pinned MCP version, omit the optional screenshot `filename` so auto-generated files honor `--output-dir`; a custom name may bypass it. Only inspected PNG screenshots produced with synthetic accounts and data may be committed for external review; keep accessibility snapshots, logs, traces, and browser state untracked. Never place real credentials, secrets, or participant data in artifacts.
 
 If the MCP server or runnable app is unavailable, report the exact blocker and required manual checks. Do not claim the UI is polished or verified from source code alone.

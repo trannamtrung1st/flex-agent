@@ -421,7 +421,9 @@ FodyWeavers.xsd
 # Built Visual Studio Code Extensions
 *.vsix
 
-# Local Playwright MCP screenshots, traces, logs, and browser state
+# Playwright MCP review screenshots are Git-visible; keep other artifacts local
+.playwright-mcp/*
+!.playwright-mcp/*.png
 web/test-results/
 web/playwright-report/
 

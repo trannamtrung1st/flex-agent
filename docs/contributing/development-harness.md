@@ -61,7 +61,8 @@ When the project adopts additional concrete processes—such as feature discover
 - Isolated browser contexts prevent state leaking between QA sessions.
 - Screenshots, logs, and other artifacts are written to `.playwright-mcp/`.
 - Omit custom screenshot filenames with the pinned MCP version so files cannot bypass the configured output directory.
-- `.playwright-mcp/` is gitignored and must never be committed.
+- Only inspected PNG screenshots produced with synthetic accounts and data may be committed for external review.
+- Accessibility snapshots, logs, traces, and browser state must remain untracked.
 - Use synthetic accounts and data; browser artifacts must not contain real participant data or secrets.
 
 After cloning, open the repository in Cursor or trust it in Codex, then enable the project MCP server if prompted. Codex only loads project `.codex/config.toml` settings for trusted repositories. `npx` downloads the pinned Playwright MCP package on first use. Upgrade both MCP pins together and run a browser smoke test. If a browser binary is missing, follow the MCP server’s install prompt before testing.

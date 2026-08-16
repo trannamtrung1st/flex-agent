@@ -112,7 +112,7 @@ For every UI-affecting change when the app can run, use the project `playwright`
    design-system modules.
 5. Fix defects and repeat the browser check.
 
-Cover applicable loading, empty, populated, success, validation, error/retry, pending, disabled, dialog, destructive confirmation, keyboard-focus, permission, session lifecycle, release, and voice states at desktop and narrow viewports. Store artifacts only in `.playwright-mcp/`. Omit custom screenshot filenames so the pinned server honors its output directory. Never put real credentials, secrets, or participant data in artifacts. If the server or runnable app is unavailable, report the exact blocker and manual checks; do not claim visual verification from source alone.
+Cover applicable loading, empty, populated, success, validation, error/retry, pending, disabled, dialog, destructive confirmation, keyboard-focus, permission, session lifecycle, release, and voice states at desktop and narrow viewports. Store artifacts only in `.playwright-mcp/`. Omit custom screenshot filenames so the pinned server honors its output directory. Only inspected PNG screenshots produced with synthetic accounts and data may be committed for external review; keep accessibility snapshots, logs, traces, and browser state untracked. Never put real credentials, secrets, or participant data in artifacts. If the server or runnable app is unavailable, report the exact blocker and manual checks; do not claim visual verification from source alone.
 
 ## Security and privacy defaults
 
