@@ -9,7 +9,7 @@
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.4 |
 | **Effective date** | 2026-08-14 |
-| **Last reviewed** | 2026-08-14 |
+| **Last reviewed** | 2026-08-16 |
 | **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; supersedes v0.3 |
 
 Vision, positioning, and principles. Canonical concepts, scope boundaries, and requirements live in linked product and requirements documents.
@@ -18,11 +18,14 @@ Version 0.4 is approved and supersedes v0.3. Structured Agent
 Invocation/Decision, bounded next-timer replacement, and the P0-compatible
 Decision-output envelope may proceed against the approved product,
 requirements, UI/UX, and architecture package, subject to its contract and
-verification gates. Voice remains a later release.
+verification gates. It remains compatible with approved Concept model v0.5,
+whose person-like persona and honest Agent identity decision does not expand the
+MVP. Voice remains a later release.
 
 ## What to do next
 
-Product baseline v0.4, all seven P0 feature specifications, the
+Approved Concept model v0.5, product overview and MVP scope v0.4, all seven P0
+feature specifications, the
 [MVP operational defaults](../requirements/mvp-operational-defaults.md), and the
 OSS-first self-hostable
 [MVP architecture](../architecture/mvp-architecture.md) and the detailed

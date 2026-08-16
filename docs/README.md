@@ -55,7 +55,7 @@ Illustrative examples in product documents are not MVP commitments unless captur
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Product | Approved v0.4 | [Product hub](product/README.md): P0-compatible Agent Decision output envelope preserves text-only assessment scope |
+| Product | Concept model v0.5; overview and MVP scope v0.4 approved | [Product hub](product/README.md): person-like persona and honest Agent identity approved without expanding text-only assessment scope |
 | Requirements | Seven P0 specifications approved at current versions | [Feature catalog](requirements/README.md#feature-catalog-overview); resolved configuration v0.4 and text Session v0.5 add the P0 output profile without an eighth P0 feature; [MVP operational defaults](requirements/mvp-operational-defaults.md) remain approved |
 | UI/UX | All five P0 surfaces approved; Text Session v0.5 current | The approved [Text Session](ui-ux/text-session.md) keeps envelope, output-id, audience, and timer internals hidden while presenting existing accessible message and no-action states; the journey and shared [design system](ui-ux/design-system/README.md) remain approved |
 | Architecture | Approved v0.10 baseline and fourteen ADRs | [MVP architecture](architecture/mvp-architecture.md) v0.10, [ADR-012](architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) govern Invocation/Decision, next-timer, and the P0 output envelope while preserving ADR-011 streaming |

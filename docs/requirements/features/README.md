@@ -74,7 +74,7 @@ Author in this order:
 
 | Order | File | Governs |
 | --- | --- | --- |
-| 8 | [`agent-library-configuration.md`](agent-library-configuration.md) | Reusable agent authoring beyond assessment-required selection |
+| 8 | [`agent-library-configuration.md`](agent-library-configuration.md) | Reusable Agent identity, persona, communication behavior, and revision authoring beyond assessment-required selection |
 | 9 | [`harness-library-configuration.md`](harness-library-configuration.md) | Reusable harness authoring beyond assessment-required selection |
 
 ## P2 spec files

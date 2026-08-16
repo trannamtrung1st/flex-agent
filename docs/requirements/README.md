@@ -144,7 +144,7 @@ Author after all P0 specs are approved.
 
 | Order | Specification | Spec file | Boundary | Product source | Status |
 | --- | --- | --- | --- | --- | --- |
-| 8 | Agent library and general configuration | [`agent-library-configuration.md`](features/agent-library-configuration.md) | Reusable agent authoring: identity, knowledge defaults, capabilities, evaluation defaults, revisions | [Agent](../product/concept-model.md#agent), [MVP slice](../product/mvp-scope.md#mvp-validation-slice) | Placeholder |
+| 8 | Agent library and general configuration | [`agent-library-configuration.md`](features/agent-library-configuration.md) | Reusable agent authoring: identity, persona and communication behavior, knowledge defaults, capabilities, evaluation defaults, revisions | [Agent](../product/concept-model.md#agent), [MVP slice](../product/mvp-scope.md#mvp-validation-slice) | Placeholder |
 | 9 | Harness library and general configuration | [`harness-library-configuration.md`](features/harness-library-configuration.md) | Reusable harness authoring: workflow, rubric, policies, stable memory controls | [Harness](../product/concept-model.md#harness), [Workflow model](../product/concept-model.md#workflow-model) | Placeholder |
 
 ## P2 — Next release

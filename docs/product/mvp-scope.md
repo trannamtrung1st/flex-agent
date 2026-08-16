@@ -11,15 +11,18 @@ First product experience, platform direction, explicit non-goals, and deferred c
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.4 |
 | **Effective date** | 2026-08-14 |
-| **Last reviewed** | 2026-08-14 |
+| **Last reviewed** | 2026-08-16 |
 | **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; supersedes v0.3 |
-| **Related decisions** | Approved [Concept model v0.4](concept-model.md), [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
+| **Related decisions** | Approved [Concept model v0.5](concept-model.md), [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
 
 Version 0.4 is **approved** and supersedes v0.3. It preserves the seven-step MVP
 slice, text-only examination, and optional bounded next-timer replacement. It
 records the P0-compatible Agent Decision output envelope without enabling voice
 or additional presentation channels. Approved feature specifications govern
-observable behavior.
+observable behavior. It remains compatible with approved Concept model v0.5:
+`PROP-AGENT-1` permits person-like personas for existing Agent revisions but
+does not add general Agent authoring, photographic human representation, voice,
+or another MVP capability.
 
 ## First product experience
 
@@ -200,8 +203,8 @@ Continue provider-independent scaffold work and the first
 authorization/configuration vertical slice defined by
 [ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#traceability-and-downstream-work).
 Structured Agent Invocation/Decision, next-timer, and P0-compatible output
-envelope implementation may now proceed against the approved v0.4 product
-revisions, current approved feature specifications,
+envelope implementation may now proceed against approved Concept model v0.5,
+MVP scope v0.4, current approved feature specifications,
 [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md),
 [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md),
 and
