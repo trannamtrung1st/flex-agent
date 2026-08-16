@@ -787,6 +787,19 @@ public sealed class TimerScheduleRevision
         }
     }
 
+    internal void Expire()
+    {
+        if (!IsOpen)
+        {
+            return;
+        }
+
+        LaneState = TimerLaneStates.Expired;
+        RemainingActiveSeconds = 0;
+        DueAt = null;
+        IsDirty = true;
+    }
+
     internal void MarkPersisted()
     {
         PendingInsert = false;

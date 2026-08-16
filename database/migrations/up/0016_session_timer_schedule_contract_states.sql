@@ -2,6 +2,9 @@
 -- frozen 0005-0015. Persist remaining active delay, revision ordinal, and
 -- lossless lane_state. 0005 state keeps pending|claimed|fired|replaced|cancelled.
 -- superseded -> replaced; expired -> cancelled.
+-- Pending remaining is reconstructed from fire_at - last_committed_at.
+-- source_decision_id implies agent_recommendation; created_at uses
+-- last_committed_at because 0005 has no original creation timestamp.
 
 ALTER TABLE session_timer_schedules
     ADD COLUMN IF NOT EXISTS schedule_revision_ordinal BIGINT NULL;
@@ -39,9 +42,22 @@ WHERE schedule.ctid = ranked.ctid;
 
 UPDATE session_timer_schedules
 SET
-    remaining_active_seconds = COALESCE(remaining_active_seconds, 0),
+    remaining_active_seconds = COALESCE(
+        remaining_active_seconds,
+        CASE
+            WHEN state IN ('pending', 'claimed') AND fire_at IS NOT NULL
+                THEN GREATEST(
+                    0,
+                    FLOOR(EXTRACT(EPOCH FROM (fire_at - last_committed_at)))::INTEGER)
+            ELSE 0
+        END),
     remaining_since = COALESCE(remaining_since, last_committed_at),
-    requested_by_category = COALESCE(requested_by_category, 'default_cadence'),
+    requested_by_category = COALESCE(
+        requested_by_category,
+        CASE
+            WHEN source_decision_id IS NOT NULL THEN 'agent_recommendation'
+            ELSE 'default_cadence'
+        END),
     created_at = COALESCE(created_at, last_committed_at),
     lane_state = COALESCE(
         lane_state,

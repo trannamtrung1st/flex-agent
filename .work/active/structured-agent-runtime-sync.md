@@ -2,7 +2,7 @@
 id: structured-agent-runtime-sync
 status: in-progress
 created: 2026-08-11
-updated: 2026-08-15
+updated: 2026-08-16
 ---
 
 # Goal
@@ -789,6 +789,13 @@ and test reviews have no unresolved blocking findings.
     and lifecycle save. Due-claim uses a materialized `SKIP LOCKED` CTE and
     database `clock_timestamp()`. Recovered `Claimed` revisions remain due.
     Worker host stays idle (same residual as invocation processing).
+  - [x] External review of `5b2a3db` (2026-08-16): request changes, 1 High /
+    1 Medium. High: do not arm a default successor when another timer
+    Invocation is not permitted, and expire a due revision on permanent
+    budget exhaustion so due-claim cannot livelock. Medium: reconstruct
+    populated `0016` remaining delay from `fire_at` and
+    `agent_recommendation` from `source_decision_id` before freezing the
+    migration. Worker host stays idle.
 - [ ] Follow-up (pre-existing, not the timer domain slice): when
   communication/output validation fails, still effect independently valid
   requested actions (`SESS-DEC-35`, `AC-SESS-43`). `ApplyDecisionEffect`
@@ -858,20 +865,11 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-One-lane scheduler **PostgreSQL persist and due-claim** is in at additive
-`0016` (frozen `0005`–`0015` unchanged). Domain claimed-recovery guard:
-`FireDueTimer` treats `Claimed` as due even when stored remaining seconds
-are positive. `InsertActive`, admission, completion, and lifecycle save
-persist dirty schedule rows; hydrate reconstructs contract `lane_state`.
-`PostgresFireDueTimerCoordinator` claims due `pending`/`claimed` rows with
-a materialized `FOR UPDATE SKIP LOCKED` CTE that joins `session_runtimes`
-and requires `lifecycle_state = 'active'` (`SESS-DEC-26`), then admits one
-timer Invocation. Worker host remains idle. HTTP SSE subscription and
-60-second revocation revalidation remain later host work.
-
-Next: remaining scheduler integration (host wiring, cutoff/terminal
-lifecycle persist using the ADR-011 `SealAsync` outbox path) or the
-pre-existing independent-action follow-up, then the synthetic adapter.
+One-lane scheduler persist/due-claim remediations for `5b2a3db` are in:
+no default successor when another timer Invocation is not permitted;
+permanent `BudgetExhausted` expires and persists the due revision;
+populated `0016` reconstructs pending remaining from `fire_at` and
+`agent_recommendation` from `source_decision_id`. Worker host remains idle.
 
 One-lane scheduler **domain** is **approved** at `0d738db` (closes `bc13408`
 → `164b6b8`). External review (2026-08-15) **approved: 0 High / 0 Medium /
@@ -1048,6 +1046,15 @@ surfaces.
   Invocation before timer `fired_invocation_id`; timer UPDATE must affect
   one row; due-claim filters `lifecycle_state = 'active'` inside the
   SKIP LOCKED CTE so paused due rows cannot head-of-line block.
+- Timer-lane persist review remediations (2026-08-16, `5b2a3db`): do not arm
+  a default successor when another timer-triggered Invocation is not
+  permitted (`SESS-DEC-28` budgets). Permanent `BudgetExhausted` expires the
+  due revision and the coordinator persists that terminal state instead of
+  rolling back a still-due poison row. `0016` reconstructs pending remaining
+  active seconds from `fire_at - last_committed_at` and classifies
+  `source_decision_id` rows as `agent_recommendation`. `created_at` stays
+  `last_committed_at` because `0005` has no original creation timestamp
+  (fail-closed for replacement cooldown). Frozen `0005`–`0015` unchanged.
 - Timer-lane domain **approved** (2026-08-15, `0d738db`): external review
   0 High / 0 Medium / 0 Low; closes `bc13408` → `164b6b8` → `0d738db`.
   Concurrency counts Invocations that still can recommend a replacement.
@@ -1818,7 +1825,7 @@ surfaces.
 | ADR-011 publication outbox/audit (`REQ-SESS-56`, `SESS-DEC-9`, `SESS-DEC-13`) | passed; **approved** `e2f9cf0` | Red: exact retry at original `V` was `StaleVersion`; seal had no wake-up (2026-08-14). Green: original-command retry Reconciles (1 fragment, 1 outbox, version `V+1`); same ordinal different text is `DigestMismatch`; `SealAsync` emits `session.agent.message.sealed` after an `open` fragment observation; seal outbox failure leaves `open`; duplicate seal has no second outbox; opposite seal at original `V` is `AlreadyTerminal` not `StaleVersion`. Confirmation (2026-08-15): handler 12/12; Sessions 279/279; architecture 29/29; audit/outbox 12/12. External review: 0 P0 / 0 P1 / 0 P2 / 0 P3. GitHub commit status for `e2f9cf0`/`2aa0718` was not independently visible. Future guard: lifecycle persist of `BeginCompleting`/`Abort` incomplete seals must reuse the terminal outbox. SSE projection/replay is implemented in this slice. |
 | ADR-011 authorized SSE projection and reconnect replay (`REQ-SESS-59`, `SESS-DEC-7`, `SESS-DEC-10`, `SESS-DEC-13`, `AC-SESS-32`) | passed; **approved** `18c9193` | Red: compile failed for missing `ReplayAuthorizedSessionEventsCommand` (2026-08-15). Green: replay from start is fragment then distinct seal cursor; after-cursor omits earlier text; malformed/future/negative cursors and terminal-without-seal-sequence reconcile; missing actor/ownership mismatch leak no events. External review of `00dc160`: request changes (1 P1 / 1 P2). Remediations in `18c9193`: Repeatable Read hydration (concurrent fragment/seal after head read omitted); in-range non-stream `Last-Event-ID` reconciles. Confirmation recorded at remediation: replay command 8/8; Sessions 287/287; architecture 29/29; SSE replay 5/5. External review of `18c9193` (2026-08-15): **approved** 0 P0 / 0 P1 / 0 P2. GitHub exposed no combined CI status for `18c9193` at review time. HTTP SSE host wiring, ADR-002 kernel, 60s revalidation, and synthetic adapter remain later and do not complete `REQ-SESS-59`. Frozen `0005`–`0014` unchanged. |
 | ADR-011 rolling validation, frozen-bound backpressure, and worker content-phase (`SESS-DEC-13`, `REQ-SESS-8`, `REQ-SESS-55`–`60`, `AC-SESS-32`) | passed; **approved** `303a11f` | Red (2026-08-15): compile failed for missing bound/validation outcome codes, `ProviderContentNormalizer`, and `EnqueueContent`. Green: oversized/count/assembled/in-flight/rate bounds fail closed without mutation; split `<script` keeps the safe prefix; tab/LF/CR recordable; duplicate reconcile does not consume rate; cumulative suffix/skip/prefix-divergence; worker publishes deltas then seals, skips content on `no_action`. External review of `0c04987`: request changes (2 P1 / 2 P2). Remediations in `2fc033e`: zero-fragment `Completed` cancels claimed turn/slot; post-visibility redelivery seals `Incomplete` without streaming; `InFlightExceeded` retries before first fragment. External review of `2fc033e`: request changes (1 P2). Remediation in `303a11f`: post-visibility cancel seals with `EffectiveClaimCleanupTimeout`; test cancels a real CTS after first delta. External review of `303a11f` (2026-08-15): **approved** 0 P0 / 0 P1 / 0 P2 / 0 P3. Closes `0c04987` → `2fc033e` → `303a11f`. GitHub exposed no combined CI status for `303a11f` at review time. Residual: idle Worker host; processor commits on the loaded aggregate; HTTP SSE/`REQ-SESS-59` host work. Eventual coordinator wiring must keep post-visibility terminalization. |
-| One-lane scheduler PostgreSQL persist and due-claim (`REQ-SESS-71`–`77`, `SESS-DEC-24`–`28`) | passed; schema+repository+coordinator | Red: claimed `RemainingAt` was `timer_fire.not_due`; `TimerScheduleRevision.Rehydrate` missing (2026-08-15). Green: `FireDueTimer` treats `Claimed` as due; additive `0016` (frozen `0005`–`0015` unchanged); default arm, superseded→`replaced`, pause/resume remaining, addressed fire+reconcile, concurrent SKIP LOCKED, claimed recovery, future pending idle. Consistency review (2026-08-15): paused Session with past `fire_at` stays `timer_fire.idle`; due-claim joins active runtime inside SKIP LOCKED. Confirmation: Sessions 342/342; architecture 29/29; Postgres 142/142; Grate one-time script count 16; `git diff --check` and `python3 scripts/check_docs.py` passed. Worker host stays idle. Envelope mixed voice+accepted timer now hydrates timer action `applied` because the pending revision exists. |
+| `5b2a3db` persist/due-claim remediations (budget poison row, populated `0016` backfill) | passed; domain+schema+coordinator | Red (2026-08-16): successor still armed at `MaxTimerTriggeredInvocationsPerSession = 1` (`PendingTimerCount` 1); recovered due successor stayed `pending`. Green: no successor when another timer Invocation is not permitted; `BudgetExhausted` expires the revision and the coordinator persists it; populated `0015→0016` reconstructs ~10-minute remaining and `agent_recommendation` from `source_decision_id`. Confirmation: Sessions 344/344; architecture 29/29; timer persist+upgrade 25/25; `git diff --check` and `python3 scripts/check_docs.py` passed. Frozen `0005`–`0015` unchanged. Worker host stays idle. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |

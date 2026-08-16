@@ -50,16 +50,17 @@ public sealed partial class SessionRuntime
             return new TimerFireResult(false, TimerFireOutcomeCodes.StaleRevision, targeted);
         }
 
+        if (!HasRemainingTimerInvocationBudget())
+        {
+            targeted.Expire();
+            Touch(authoritativeUtc);
+            return new TimerFireResult(false, TimerFireOutcomeCodes.BudgetExhausted, targeted);
+        }
+
         if (targeted.LaneState != TimerLaneStates.Claimed
             && targeted.RemainingAt(authoritativeUtc, isActive: true) > 0)
         {
             return new TimerFireResult(false, TimerFireOutcomeCodes.NotDue, targeted);
-        }
-
-        if (Policy.TimerLane.Budgets.MaxTimerTriggeredInvocationsPerSession
-            <= _invocations.Count(invocation => IsTimerTrigger(invocation.Trigger)))
-        {
-            return new TimerFireResult(false, TimerFireOutcomeCodes.BudgetExhausted, targeted);
         }
 
         if (targeted.LaneState == TimerLaneStates.Pending)
@@ -119,6 +120,7 @@ public sealed partial class SessionRuntime
     {
         if (!invocation.IsTerminal
             || !IsTimerTrigger(invocation.Trigger)
+            || !HasRemainingTimerInvocationBudget()
             || HasCutoff()
             || LifecycleState is not SessionLifecycleState.Active and not SessionLifecycleState.Paused)
         {

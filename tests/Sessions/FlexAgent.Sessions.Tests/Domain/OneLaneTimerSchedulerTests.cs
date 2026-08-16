@@ -600,11 +600,77 @@ public sealed class OneLaneTimerSchedulerTests
         Assert.Equal(2, session.CurrentTimerLane!.ScheduleRevision);
     }
 
+    [Fact]
+    public void Timer_terminalization_at_invocation_budget_does_not_arm_a_successor()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession(
+            ResolveTimerPolicy(maxTimerTriggeredInvocations: 1));
+        var fired = session.FireDueTimer(1, SessionRuntimeTestFixtures.T0.AddMinutes(5));
+        var invocationId = fired.Admission!.Invocation!.AgentInvocationId;
+        var completeAt = SessionRuntimeTestFixtures.T0.AddMinutes(5).AddSeconds(2);
+
+        var result = session.CompleteInvocation(
+            invocationId,
+            SessionRuntimeTestFixtures.NoAction(invocationId),
+            completeAt);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(0, session.PendingTimerCount);
+        Assert.Equal(TimerLaneStates.Fired, session.CurrentTimerLane!.LaneState);
+        Assert.Single(session.TimerSchedules);
+    }
+
+    [Fact]
+    public void Recovered_due_successor_past_invocation_budget_expires_instead_of_staying_pending()
+    {
+        var binding = SessionRuntimeTestFixtures.CreateBinding(
+            ResolveTimerPolicy(maxTimerTriggeredInvocations: 1));
+        var trigger = SessionRuntimeTestFixtures.TimerTrigger();
+        var invocation = AgentInvocation.Rehydrate(
+            "ainv.timer.1",
+            binding.Ownership,
+            trigger,
+            "idem.timer.1",
+            binding.Policy.PolicyDigest,
+            sessionSequence: 1,
+            AgentInvocationStatuses.Decided);
+        var pending = TimerScheduleRevision.Rehydrate(
+            "tsrev.poison",
+            2,
+            TimerLaneStates.Pending,
+            "PT5M",
+            remainingActiveSeconds: 0,
+            dueAt: SessionRuntimeTestFixtures.T0.AddMinutes(10),
+            remainingSince: SessionRuntimeTestFixtures.T0.AddMinutes(10),
+            TimerRequestedByCategories.SuccessorAfterFire,
+            drivingDecisionId: null,
+            firedInvocationId: null,
+            SessionRuntimeTestFixtures.T0.AddMinutes(10));
+        var session = SessionRuntime.Rehydrate(
+            binding,
+            SessionLifecycleState.Active,
+            sessionVersion: 1,
+            sessionSequence: 1,
+            cutoffSequence: null,
+            SessionRuntimeTestFixtures.T0.AddMinutes(10),
+            invocations: [invocation],
+            timerSchedules: [pending]);
+
+        var result = session.FireDueTimer(2, SessionRuntimeTestFixtures.T0.AddMinutes(10));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(TimerFireOutcomeCodes.BudgetExhausted, result.OutcomeCode);
+        Assert.Equal(TimerLaneStates.Expired, session.TimerSchedules[0].LaneState);
+        Assert.Equal(0, session.PendingTimerCount);
+        Assert.Equal("ainv.timer.1", Assert.Single(session.Invocations).AgentInvocationId);
+    }
+
     private static FrozenTextSessionRuntimePolicy ResolveTimerPolicy(
         int maxConcurrentReplacements = 2,
         int cooldownSeconds = 0,
         int duplicateSuppressionWindowSeconds = 0,
-        int maxAcceptedReplacements = 5)
+        int maxAcceptedReplacements = 5,
+        int maxTimerTriggeredInvocations = 8)
     {
         var baseline = RuntimePolicyTestFixtures.CreateEnabledTimerEffectiveValues();
         return RuntimePolicyTestFixtures.ResolvePolicy(
@@ -614,7 +680,7 @@ public sealed class OneLaneTimerSchedulerTests
                 {
                     Budgets = new TimerLaneBudgets(
                         MaxAcceptedReplacementsPerSession: maxAcceptedReplacements,
-                        MaxTimerTriggeredInvocationsPerSession: baseline.TimerLane.Budgets!.MaxTimerTriggeredInvocationsPerSession,
+                        MaxTimerTriggeredInvocationsPerSession: maxTimerTriggeredInvocations,
                         CooldownSeconds: cooldownSeconds,
                         MaxConcurrentReplacements: maxConcurrentReplacements,
                         DuplicateSuppressionWindowSeconds: duplicateSuppressionWindowSeconds),

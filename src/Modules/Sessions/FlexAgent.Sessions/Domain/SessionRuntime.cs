@@ -311,10 +311,7 @@ public sealed partial class SessionRuntime
             return AdmissionFailure(TriggerAdmissionOutcomeCodes.BudgetExhausted);
         }
 
-        if (IsTimerTrigger(trigger)
-            && Policy.TimerLane is not null
-            && _invocations.Count(invocation => IsTimerTrigger(invocation.Trigger))
-                >= Policy.TimerLane.Budgets.MaxTimerTriggeredInvocationsPerSession)
+        if (IsTimerTrigger(trigger) && !HasRemainingTimerInvocationBudget())
         {
             return AdmissionFailure(TriggerAdmissionOutcomeCodes.BudgetExhausted);
         }
@@ -1299,7 +1296,8 @@ public sealed partial class SessionRuntime
                 >= Policy.TimerLane.Budgets.MaxConcurrentReplacements
             || IsTimerReplacementCooldownActive(authoritativeUtc)
             || IsDuplicateReplacementSuppressed(nextTimer, authoritativeUtc)
-            || OpenTimerLane()?.LaneState == TimerLaneStates.Claimed)
+            || OpenTimerLane()?.LaneState == TimerLaneStates.Claimed
+            || !HasRemainingTimerInvocationBudget())
         {
             return TimerValidationOutcomes.Rejected;
         }
@@ -1380,6 +1378,11 @@ public sealed partial class SessionRuntime
     private static bool IsTimerTrigger(TrustedTrigger trigger) =>
         trigger.TriggerFamily == RuntimeTriggerIdentifiers.TimerEventFamily
         && trigger.TriggerType == RuntimeTriggerIdentifiers.TimerLaneDefaultType;
+
+    private bool HasRemainingTimerInvocationBudget() =>
+        Policy.TimerLane is { IsEnabled: true }
+        && _invocations.Count(invocation => IsTimerTrigger(invocation.Trigger))
+            < Policy.TimerLane.Budgets.MaxTimerTriggeredInvocationsPerSession;
 
     private static string AgentTurnKind(TrustedTrigger trigger) =>
         trigger.TriggerType switch

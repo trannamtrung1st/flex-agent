@@ -518,6 +518,77 @@ public sealed class MigrationUpgradeTests
     }
 
     [Fact]
+    public async Task Upgrade_from_populated_0015_preserves_pending_remaining_and_recommendation_category()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0015ScriptName);
+
+        var seeded = await SeedPopulated0015TimerSchedulesAsync(connectionString);
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var pendingDefault = await connection.QuerySingleAsync<(int Remaining, string Category, string LaneState)>(
+            """
+            SELECT remaining_active_seconds, requested_by_category, lane_state
+            FROM session_timer_schedules
+            WHERE organization_id = @OrganizationId
+              AND session_id = @DefaultSessionId;
+            """,
+            new
+            {
+                seeded.OrganizationId,
+                seeded.DefaultSessionId,
+            });
+        Assert.InRange(pendingDefault.Remaining, 590, 610);
+        Assert.Equal(TimerRequestedByCategories.DefaultCadence, pendingDefault.Category);
+        Assert.Equal(TimerLaneStates.Pending, pendingDefault.LaneState);
+
+        var pendingRecommended = await connection.QuerySingleAsync<(int Remaining, string Category)>(
+            """
+            SELECT remaining_active_seconds, requested_by_category
+            FROM session_timer_schedules
+            WHERE organization_id = @OrganizationId
+              AND session_id = @RecommendedSessionId;
+            """,
+            new
+            {
+                seeded.OrganizationId,
+                seeded.RecommendedSessionId,
+            });
+        Assert.InRange(pendingRecommended.Remaining, 590, 610);
+        Assert.Equal(TimerRequestedByCategories.AgentRecommendation, pendingRecommended.Category);
+
+        var replaced = await connection.QuerySingleAsync<(int Remaining, string Category, string State, string LaneState)>(
+            """
+            SELECT remaining_active_seconds, requested_by_category, state, lane_state
+            FROM session_timer_schedules
+            WHERE organization_id = @OrganizationId
+              AND session_id = @ReplacedSessionId;
+            """,
+            new
+            {
+                seeded.OrganizationId,
+                seeded.ReplacedSessionId,
+            });
+        Assert.Equal(0, replaced.Remaining);
+        Assert.Equal(TimerRequestedByCategories.AgentRecommendation, replaced.Category);
+        Assert.Equal("replaced", replaced.State);
+        Assert.Equal(TimerLaneStates.Superseded, replaced.LaneState);
+    }
+
+    [Fact]
     public async Task Upgrade_from_populated_0005_runtime_fails_closed()
     {
         await using var container = await StartContainerAsync();
@@ -891,6 +962,64 @@ public sealed class MigrationUpgradeTests
         return new Populated0012PublicationSeed(organizationId, sessionId, messageId);
     }
 
+    private static async Task<Populated0015TimerSeed> SeedPopulated0015TimerSchedulesAsync(
+        string connectionString)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var organizationId = Guid.NewGuid();
+        var defaultSessionId = Guid.NewGuid();
+        var recommendedSessionId = Guid.NewGuid();
+        var replacedSessionId = Guid.NewGuid();
+        var digest = new string('a', 64);
+        var now = DateTimeOffset.UtcNow;
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO organizations (id, created_at) VALUES (@OrganizationId, @CreatedAt);
+            INSERT INTO session_runtimes (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                configuration_id, configuration_digest, manifest_id, lifecycle_state)
+            VALUES
+                (@OrganizationId, @DefaultActivityId, @DefaultParticipantId, @DefaultAttemptId, @DefaultSessionId,
+                 'cfg-1', @Digest, 'man-1', 'active'),
+                (@OrganizationId, @RecommendedActivityId, @RecommendedParticipantId, @RecommendedAttemptId, @RecommendedSessionId,
+                 'cfg-1', @Digest, 'man-1', 'active'),
+                (@OrganizationId, @ReplacedActivityId, @ReplacedParticipantId, @ReplacedAttemptId, @ReplacedSessionId,
+                 'cfg-1', @Digest, 'man-1', 'active');
+            INSERT INTO session_timer_schedules (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                schedule_revision, state, relative_delay, fire_at, source_decision_id)
+            VALUES
+                (@OrganizationId, @DefaultActivityId, @DefaultParticipantId, @DefaultAttemptId, @DefaultSessionId,
+                 'tsrev.default', 'pending', 'PT10M', clock_timestamp() + INTERVAL '10 minutes', NULL),
+                (@OrganizationId, @RecommendedActivityId, @RecommendedParticipantId, @RecommendedAttemptId, @RecommendedSessionId,
+                 'tsrev.recommended', 'pending', 'PT10M', clock_timestamp() + INTERVAL '10 minutes', 'dec-hist-1'),
+                (@OrganizationId, @ReplacedActivityId, @ReplacedParticipantId, @ReplacedAttemptId, @ReplacedSessionId,
+                 'tsrev.replaced', 'replaced', 'PT10M', NULL, 'dec-hist-2');
+            """,
+            new
+            {
+                OrganizationId = organizationId,
+                DefaultActivityId = Guid.NewGuid(),
+                DefaultParticipantId = Guid.NewGuid(),
+                DefaultAttemptId = Guid.NewGuid(),
+                DefaultSessionId = defaultSessionId,
+                RecommendedActivityId = Guid.NewGuid(),
+                RecommendedParticipantId = Guid.NewGuid(),
+                RecommendedAttemptId = Guid.NewGuid(),
+                RecommendedSessionId = recommendedSessionId,
+                ReplacedActivityId = Guid.NewGuid(),
+                ReplacedParticipantId = Guid.NewGuid(),
+                ReplacedAttemptId = Guid.NewGuid(),
+                ReplacedSessionId = replacedSessionId,
+                Digest = digest,
+                CreatedAt = now,
+            });
+
+        return new Populated0015TimerSeed(organizationId, defaultSessionId, recommendedSessionId, replacedSessionId);
+    }
+
     private static async Task<LegacyVersionSeed> SeedLegacyVersionAsync(string connectionString)
     {
         var organizationId = Guid.NewGuid();
@@ -1087,6 +1216,12 @@ public sealed class MigrationUpgradeTests
 
         throw new InvalidOperationException("Could not locate repository root.");
     }
+
+    private sealed record Populated0015TimerSeed(
+        Guid OrganizationId,
+        Guid DefaultSessionId,
+        Guid RecommendedSessionId,
+        Guid ReplacedSessionId);
 
     private sealed record Populated0012PublicationSeed(
         Guid OrganizationId,

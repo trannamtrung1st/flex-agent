@@ -433,10 +433,138 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
         Assert.Equal(TimerFireOutcomeCodes.Idle, result.OutcomeCode);
     }
 
-    private async Task<PreparedSession> InsertActiveSessionAsync(bool armFromDatabaseClock = false)
+    [Fact]
+    public async Task Budget_exhausted_due_row_expires_and_does_not_block_another_session()
+    {
+        var exhausted = await InsertActiveSessionAsync(maxTimerTriggeredInvocations: 1);
+        TimerFireResult fired;
+        await using (var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            var session = await exhausted.Repository.LoadForUpdateAsync(
+                exhausted.Binding.Ownership,
+                exhausted.Binding,
+                scope.Transaction,
+                CancellationToken);
+            var utc = await exhausted.Repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
+            var expectedVersion = session!.SessionVersion;
+            fired = session.FireDueTimer(1, utc);
+            Assert.True(fired.Succeeded, fired.OutcomeCode);
+            var admitted = fired.Admission!.Invocation!;
+            Assert.True(
+                await exhausted.Repository.TrySaveAdmissionAsync(
+                    exhausted.Binding.Ownership,
+                    expectedVersion,
+                    session,
+                    admitted,
+                    scope.Transaction,
+                    CancellationToken));
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var completed = await new PostgresCompleteInvocationCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            exhausted.Repository,
+            new CompleteInvocationHandler()).CompleteAsync(
+            new CompleteInvocationCommand(
+                SessionPersistenceFixtures.Actor(exhausted.Organization.ActorId),
+                exhausted.Binding.Ownership,
+                fired.Admission!.SessionVersion!.Value,
+                fired.Admission.Invocation!.AgentInvocationId,
+                SessionRuntimeTestFixturesNoAction(fired.Admission.Invocation.AgentInvocationId),
+                null,
+                Guid.NewGuid(),
+                "integration.test"),
+            exhausted.Binding,
+            CancellationToken);
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            var pending = await connection.ExecuteScalarAsync<int>(
+                """
+                SELECT COUNT(*)::int
+                FROM session_timer_schedules
+                WHERE organization_id = @OrganizationId
+                  AND session_id = @SessionId
+                  AND state IN ('pending', 'claimed');
+                """,
+                new
+                {
+                    exhausted.Binding.Ownership.OrganizationId,
+                    exhausted.Binding.Ownership.SessionId,
+                });
+            Assert.Equal(0, pending);
+
+            var inserted = await connection.ExecuteAsync(
+                """
+                INSERT INTO session_timer_schedules (
+                    organization_id, activity_id, participant_id, attempt_id, session_id,
+                    schedule_revision, schedule_revision_ordinal, state, lane_state, relative_delay,
+                    remaining_active_seconds, remaining_since, fire_at, requested_by_category, created_at)
+                VALUES (
+                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                    'tsrev.poison', 2, 'pending', 'pending', 'PT5M',
+                    0, clock_timestamp(), clock_timestamp() - INTERVAL '1 minute',
+                    'successor_after_fire', clock_timestamp());
+                """,
+                new
+                {
+                    exhausted.Binding.Ownership.OrganizationId,
+                    exhausted.Binding.Ownership.ActivityId,
+                    exhausted.Binding.Ownership.ParticipantId,
+                    exhausted.Binding.Ownership.AttemptId,
+                    exhausted.Binding.Ownership.SessionId,
+                });
+            Assert.Equal(1, inserted);
+        }
+
+        var other = await InsertActiveSessionAsync();
+        await MarkScheduleDueAsync(other.Binding.Ownership);
+        await using var otherDue = await HoldOtherDueSchedulesAsync(
+            exhausted.Binding.Ownership,
+            other.Binding.Ownership);
+        var bindingSource = new MemoryTrustedSessionBindingSource();
+        bindingSource.Register(exhausted.Binding);
+        bindingSource.Register(other.Binding);
+        var coordinator = new PostgresFireDueTimerCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            exhausted.Repository,
+            bindingSource);
+        var command = new FireDueTimerCommand(
+            SessionPersistenceFixtures.Actor(exhausted.Organization.ActorId),
+            Guid.NewGuid(),
+            "integration.test");
+
+        var first = await coordinator.TryFireNextDueAsync(command, CancellationToken);
+        var second = await coordinator.TryFireNextDueAsync(command, CancellationToken);
+        var results = new[] { first, second };
+        Assert.Contains(results, item => item.OutcomeCode == TimerFireOutcomeCodes.BudgetExhausted);
+        Assert.Contains(
+            results,
+            item => item.Succeeded
+                && item.OutcomeCode == TimerFireOutcomeCodes.Succeeded
+                && item.Admission!.Invocation!.Ownership.SessionId == other.Binding.Ownership.SessionId);
+    }
+
+    private static NoActionRecommendation SessionRuntimeTestFixturesNoAction(string invocationId) =>
+        new(
+            Guid.NewGuid().ToString("N"),
+            invocationId,
+            new DateTimeOffset(2026, 8, 13, 0, 0, 2, TimeSpan.Zero),
+            NoActionReasonCategories.IntentionalSilence,
+            null);
+
+    private async Task<PreparedSession> InsertActiveSessionAsync(
+        bool armFromDatabaseClock = false,
+        int maxTimerTriggeredInvocations = 8)
     {
         var organization = await Fixture.SeedOrganizationAsync();
-        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var binding = SessionPersistenceFixtures.CreateBinding(
+            organization.OrganizationId,
+            cooldownSeconds: 0,
+            maxTimerTriggeredInvocations);
         var repository = new PostgresSessionRuntimeRepository();
         DateTimeOffset startedAt = new(2026, 8, 13, 0, 0, 0, TimeSpan.Zero);
         await using (var scope = await PostgresTransactionScope.BeginAsync(
@@ -475,7 +603,12 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
         Assert.Equal(1, updated);
     }
 
-    private async Task<IAsyncDisposable> HoldOtherDueSchedulesAsync(SessionOwnership ownership)
+    private Task<IAsyncDisposable> HoldOtherDueSchedulesAsync(SessionOwnership ownership) =>
+        HoldOtherDueSchedulesAsync(ownership, other: null);
+
+    private async Task<IAsyncDisposable> HoldOtherDueSchedulesAsync(
+        SessionOwnership ownership,
+        SessionOwnership? other)
     {
         var connection = new NpgsqlConnection(Fixture.ConnectionString);
         await connection.OpenAsync(CancellationToken);
@@ -485,7 +618,14 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
                 """
                 SELECT schedule_revision
                 FROM session_timer_schedules
-                WHERE NOT (organization_id = @OrganizationId AND session_id = @SessionId)
+                WHERE NOT (
+                        (organization_id = @OrganizationId AND session_id = @SessionId)
+                        OR (
+                            @OtherOrganizationId IS NOT NULL
+                            AND organization_id = @OtherOrganizationId
+                            AND session_id = @OtherSessionId
+                        )
+                      )
                   AND (
                         (state = 'pending' AND fire_at IS NOT NULL AND fire_at <= clock_timestamp())
                         OR state = 'claimed'
@@ -496,6 +636,8 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
                 {
                     ownership.OrganizationId,
                     ownership.SessionId,
+                    OtherOrganizationId = other?.OrganizationId,
+                    OtherSessionId = other?.SessionId,
                 },
                 transaction,
                 cancellationToken: CancellationToken));

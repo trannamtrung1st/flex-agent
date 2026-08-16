@@ -112,6 +112,24 @@ public sealed class PostgresFireDueTimerCoordinator(
             }
 
             var result = session.FireDueTimer(due.schedule_revision_ordinal.Value, authoritativeUtc);
+            if (result.OutcomeCode == TimerFireOutcomeCodes.BudgetExhausted)
+            {
+                var expired = await runtimeRepository.TrySaveLifecycleAsync(
+                    ownership,
+                    expectedVersion,
+                    session,
+                    scope.Transaction,
+                    cancellationToken);
+                if (!expired)
+                {
+                    await scope.RollbackAsync(cancellationToken);
+                    return new TimerFireResult(false, TimerFireOutcomeCodes.StaleRevision, result.Revision);
+                }
+
+                await scope.CommitAsync(cancellationToken);
+                return result;
+            }
+
             if (!result.Succeeded)
             {
                 await scope.RollbackAsync(cancellationToken);
