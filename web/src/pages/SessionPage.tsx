@@ -24,6 +24,7 @@ import {
   classifyCommandAdmission,
   commandsEnabled,
   createSessionRuntimeView,
+  effectForCommandIdentityOutcome,
   evaluateProjectionCommit,
   isCurrentSessionAction,
   isSessionAccessLoss,
@@ -32,9 +33,9 @@ import {
   markReconciling,
   markReconnecting,
   presenceForLifecycle,
-  projectionContainsAcceptedParticipantMessage,
   requiresSessionProjectionReconcile,
   shouldReconcileProjectionOnOpen,
+  shouldRetainCommandIdentity,
   transcriptStatusLabel,
   type AgentPresenceState,
   type SessionRuntimeView,
@@ -144,7 +145,7 @@ function mergeTranscript(
 
 export function SessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const { fetchJson, executeCommand } = useBrowserApi();
+  const { fetchJson, executeCommand, reconcileCommand } = useBrowserApi();
   const [session, setSession] = useState<SessionProjectionV1 | null>(null);
   const [messageText, setMessageText] = useState("");
   const [runtime, setRuntime] = useState<SessionRuntimeView>(() => createSessionRuntimeView("active"));
@@ -165,7 +166,12 @@ export function SessionPage() {
   const hasLoadedSessionRef = useRef(false);
   const hasSeenConnectivityFailureRef = useRef(false);
   const actionGenerationRef = useRef(0);
-  const pendingCommandRef = useRef<{ actionId: string; key: string; draft: string } | null>(null);
+  const pendingCommandRef = useRef<{
+    actionId: string;
+    key: string;
+    draft: string;
+    retainIdentity: boolean;
+  } | null>(null);
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
   const [streamRetryKey, setStreamRetryKey] = useState(0);
@@ -243,6 +249,52 @@ export function SessionPage() {
     }
   }, [sessionId, fetchJson]);
 
+  const applyPendingCommandIdentity = useCallback(async () => {
+    const pendingSend = pendingCommandRef.current;
+    const liveSessionId = sessionIdRef.current;
+    if (!pendingSend?.retainIdentity || pendingSend.actionId !== "send_message" || !liveSessionId) {
+      return;
+    }
+
+    try {
+      const result = await reconcileCommand({
+        command_id: pendingSend.actionId,
+        idempotency_key: pendingSend.key,
+        command_type: "session.send_message",
+        resource_id: liveSessionId,
+      });
+      const effect = effectForCommandIdentityOutcome(result.outcome);
+      if (effect === "clear_accepted") {
+        setMessageText("");
+        pendingCommandRef.current = null;
+        setCheckingMessage(false);
+        return;
+      }
+      if (effect === "keep_checking") {
+        setCheckingMessage(true);
+        return;
+      }
+      if (effect === "retain_uncommitted") {
+        setCheckingMessage(false);
+        return;
+      }
+      if (effect === "retire_conflict") {
+        pendingCommandRef.current = null;
+        setCheckingMessage(false);
+        setActionError(result.safe_message ?? "Action could not be completed.");
+        return;
+      }
+
+      pendingCommandRef.current = null;
+      setCheckingMessage(false);
+      setError(SESSION_UNAVAILABLE_COPY);
+      setSession(null);
+      committedProjectionRef.current = null;
+    } catch {
+      setCheckingMessage(true);
+    }
+  }, [reconcileCommand]);
+
   const reconcileSession = useCallback(async () => {
     const epoch = eventSourceEpochRef.current;
     const source = eventSourceRef.current;
@@ -260,22 +312,14 @@ export function SessionPage() {
         openReadyState: EventSource.OPEN,
       })
     ) {
+      await applyPendingCommandIdentity();
       return projection;
     }
 
     setRuntime((current) => markConnected(current));
-    const pendingSend = pendingCommandRef.current;
-    if (pendingSend?.actionId === "send_message") {
-      if (projectionContainsAcceptedParticipantMessage(projection.transcript, pendingSend.draft)) {
-        setMessageText("");
-        pendingCommandRef.current = null;
-        setCheckingMessage(false);
-      } else {
-        setCheckingMessage(false);
-      }
-    }
+    await applyPendingCommandIdentity();
     return projection;
-  }, [loadSession]);
+  }, [loadSession, applyPendingCommandIdentity]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -408,10 +452,12 @@ export function SessionPage() {
     const draft = action.action_id === "send_message" ? messageText : "";
     const retainedCommand = pendingCommandRef.current;
     const idempotencyKey =
-      retainedCommand && retainedCommand.actionId === action.action_id && retainedCommand.draft === draft
+      retainedCommand?.retainIdentity &&
+      retainedCommand.actionId === action.action_id &&
+      retainedCommand.draft === draft
         ? retainedCommand.key
         : createIdempotencyKey();
-    pendingCommandRef.current = { actionId: action.action_id, key: idempotencyKey, draft };
+    pendingCommandRef.current = { actionId: action.action_id, key: idempotencyKey, draft, retainIdentity: false };
 
     setPending(true);
     setActionError(null);
@@ -420,27 +466,31 @@ export function SessionPage() {
       kind: ReturnType<typeof classifyCommandAdmission>,
       safeMessage: string | null,
     ) => {
-      if (kind === "pre_commit_rejection") {
+      if (kind === "pre_commit_rejection" || kind === "conflict" || kind === "access_loss") {
         pendingCommandRef.current = null;
         setCheckingMessage(false);
         setActionError(
-          action.action_id === "send_message"
+          action.action_id === "send_message" && kind === "pre_commit_rejection"
             ? (safeMessage ?? MESSAGE_NOT_ACCEPTED_COPY)
             : (safeMessage ?? "Action could not be completed."),
         );
-        return;
-      }
-
-      if (kind === "succeeded") {
+      } else if (kind === "succeeded") {
         pendingCommandRef.current = null;
         setCheckingMessage(false);
         if (action.action_id === "send_message") {
           setMessageText("");
         }
       } else if (kind === "uncertain" && action.action_id === "send_message") {
+        pendingCommandRef.current = {
+          actionId: action.action_id,
+          key: idempotencyKey,
+          draft,
+          retainIdentity: shouldRetainCommandIdentity(kind),
+        };
         setCheckingMessage(true);
         setActionError(null);
       } else {
+        pendingCommandRef.current = null;
         setCheckingMessage(false);
         setActionError(safeMessage ?? "Action could not be completed.");
       }
@@ -450,20 +500,7 @@ export function SessionPage() {
         return;
       }
 
-      const projection = await reconcileSession();
-      if (!actionStillCurrent()) {
-        return;
-      }
-
-      if (kind === "uncertain" && action.action_id === "send_message") {
-        if (projection && projectionContainsAcceptedParticipantMessage(projection.transcript, draft)) {
-          setMessageText("");
-          pendingCommandRef.current = null;
-          setCheckingMessage(false);
-        } else if (projection) {
-          setCheckingMessage(false);
-        }
-      }
+      await reconcileSession();
     };
 
     try {
@@ -675,6 +712,7 @@ export function SessionPage() {
                 id="session-message"
                 className="textarea"
                 value={messageText}
+                readOnly={checkingMessage}
                 onChange={(event) => {
                   setMessageText(event.target.value);
                 }}

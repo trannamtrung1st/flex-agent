@@ -1,6 +1,7 @@
 import type {
   ActorContextV1,
   BrowserCommandEnvelopeV1,
+  BrowserCommandReconciliationV1,
   BrowserCommandResultV1,
   NavigationProjectionV1,
 } from "./browser-contracts";
@@ -72,6 +73,36 @@ export async function executeBrowserCommand(
   const body = (await response.json()) as BrowserCommandResultV1;
 
   if (response.status === 403 || response.status === 409) {
+    return body;
+  }
+
+  if (!response.ok) {
+    throw new Error(body.safe_message ?? `Request failed: ${String(response.status)}`);
+  }
+
+  return body;
+}
+
+export async function reconcileBrowserCommand(
+  command: Omit<BrowserCommandEnvelopeV1, "schema_version">,
+): Promise<BrowserCommandReconciliationV1> {
+  const response = await fetch("/browser/commands/reconcile", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ schema_version: "v1", ...command }),
+  });
+
+  if (response.status === 401) {
+    throw new Error("unauthenticated");
+  }
+
+  const body = (await response.json()) as BrowserCommandReconciliationV1;
+
+  if (response.status === 403) {
     return body;
   }
 

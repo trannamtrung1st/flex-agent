@@ -52,6 +52,8 @@ public interface ISyntheticBrowserService
 
     BrowserCommandResultV1 ExecuteCommand(SyntheticSessionRecord session, BrowserCommandEnvelopeV1 command);
 
+    BrowserCommandReconciliationV1 ReconcileCommand(SyntheticSessionRecord session, BrowserCommandEnvelopeV1 command);
+
     IEnumerable<SseSessionEventV1> GetSessionEvents(
         SyntheticSessionRecord session,
         string sessionId,

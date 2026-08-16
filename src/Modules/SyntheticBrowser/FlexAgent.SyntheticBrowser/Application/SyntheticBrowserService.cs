@@ -40,6 +40,7 @@ public sealed class SyntheticScenarioState
     public int AgentMessageOrdinal { get; set; }
     public HashSet<string> FiredTimerRevisions { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, SyntheticIdempotencyRecord> IdempotencyRecords { get; } = [];
+    public ConcurrentDictionary<string, byte> InFlightIdempotencyScopes { get; } = new(StringComparer.Ordinal);
     public List<SseSessionEventV1> EmittedSseEvents { get; } = [];
 }
 
@@ -597,46 +598,88 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
 
             var scopeKey = SyntheticIdempotency.BuildScopeKey(session, command);
             var requestDigest = SyntheticIdempotency.BuildRequestDigest(command);
-            var replay = SyntheticIdempotency.TryReplay(state.IdempotencyRecords, scopeKey, requestDigest);
-            if (replay is not null)
+            state.InFlightIdempotencyScopes.TryAdd(scopeKey, 0);
+            try
             {
-                return replay;
+                var replay = SyntheticIdempotency.TryReplay(state.IdempotencyRecords, scopeKey, requestDigest);
+                if (replay is not null)
+                {
+                    return replay;
+                }
+
+                var authorizationFailure = SyntheticCommandAuthorization.Authorize(session, command, state);
+                if (authorizationFailure is not null)
+                {
+                    return authorizationFailure;
+                }
+
+                if (session.ScenarioId == SyntheticScenarioIds.UncertainReconciliation &&
+                    command.CommandType == "activity.activate_cohort")
+                {
+                    var uncertain = Uncertain("Activation outcome uncertain. Reconcile from current state.");
+                    SyntheticIdempotency.Remember(state.IdempotencyRecords, scopeKey, requestDigest, uncertain);
+                    return uncertain;
+                }
+
+                var result = command.CommandType switch
+                {
+                    "activity.save_draft" => HandleSaveDraft(state),
+                    "activity.activate_cohort" => HandleActivate(state),
+                    "enrollment.assign" => HandleAssign(state),
+                    "submission.submit_text" => HandleSubmit(state, command),
+                    "attempt.start" => HandleStartAttempt(session, state),
+                    "session.send_message" => HandleSendMessage(session, state, command),
+                    "session.pause" => HandlePause(state),
+                    "session.resume" => HandleResume(state),
+                    "session.complete" => HandleComplete(session, state),
+                    "review.approve" => HandleReviewApprove(state),
+                    "review.reject" => HandleReviewReject(state),
+                    "review.escalate" => HandleReviewEscalate(state),
+                    "release.confirm" => HandleRelease(state),
+                    _ => Denied("Action is not permitted."),
+                };
+
+                var acceptedMessageId = command.CommandType == "session.send_message" && result.Outcome == "succeeded"
+                    ? state.Transcript.LastOrDefault(item => item.Role == "participant")?.ItemId
+                    : null;
+                SyntheticIdempotency.Remember(state.IdempotencyRecords, scopeKey, requestDigest, result, acceptedMessageId);
+                return result;
+            }
+            finally
+            {
+                state.InFlightIdempotencyScopes.TryRemove(scopeKey, out _);
+            }
+        }
+    }
+
+    public BrowserCommandReconciliationV1 ReconcileCommand(SyntheticSessionRecord session, BrowserCommandEnvelopeV1 command)
+    {
+        var instance = GetInstance(session.ScenarioId, session.ScenarioInstanceId);
+        var scopeKey = SyntheticIdempotency.BuildScopeKey(session, command);
+        if (instance.State.InFlightIdempotencyScopes.ContainsKey(scopeKey))
+        {
+            return new BrowserCommandReconciliationV1(
+                BrowserSchemaVersion.V1,
+                "still_pending",
+                null,
+                "reconcile",
+                "Checking command status.");
+        }
+
+        lock (instance.Sync)
+        {
+            var state = instance.State;
+            if (SyntheticResourceAuthorization.IsAccessRevoked(session, state))
+            {
+                return new BrowserCommandReconciliationV1(
+                    BrowserSchemaVersion.V1,
+                    "denied",
+                    null,
+                    "contact_administrator",
+                    "Access has changed.");
             }
 
-            var authorizationFailure = SyntheticCommandAuthorization.Authorize(session, command, state);
-            if (authorizationFailure is not null)
-            {
-                return authorizationFailure;
-            }
-
-            if (session.ScenarioId == SyntheticScenarioIds.UncertainReconciliation &&
-                command.CommandType == "activity.activate_cohort")
-            {
-                var uncertain = Uncertain("Activation outcome uncertain. Reconcile from current state.");
-                SyntheticIdempotency.Remember(state.IdempotencyRecords, scopeKey, requestDigest, uncertain);
-                return uncertain;
-            }
-
-            var result = command.CommandType switch
-            {
-                "activity.save_draft" => HandleSaveDraft(state),
-                "activity.activate_cohort" => HandleActivate(state),
-                "enrollment.assign" => HandleAssign(state),
-                "submission.submit_text" => HandleSubmit(state, command),
-                "attempt.start" => HandleStartAttempt(session, state),
-                "session.send_message" => HandleSendMessage(session, state, command),
-                "session.pause" => HandlePause(state),
-                "session.resume" => HandleResume(state),
-                "session.complete" => HandleComplete(session, state),
-                "review.approve" => HandleReviewApprove(state),
-                "review.reject" => HandleReviewReject(state),
-                "review.escalate" => HandleReviewEscalate(state),
-                "release.confirm" => HandleRelease(state),
-                _ => Denied("Action is not permitted."),
-            };
-
-            SyntheticIdempotency.Remember(state.IdempotencyRecords, scopeKey, requestDigest, result);
-            return result;
+            return SyntheticIdempotency.Inspect(state.IdempotencyRecords, state.InFlightIdempotencyScopes, scopeKey);
         }
     }
 
@@ -758,8 +801,9 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     private BrowserCommandResultV1 HandleSendMessage(SyntheticSessionRecord session, SyntheticScenarioState state, BrowserCommandEnvelopeV1 command)
     {
         var text = command.Payload?.GetValueOrDefault("message_text") ?? "";
+        var itemId = $"msg.part.{state.Transcript.Count + 1}";
         state.Transcript.Add(new SessionTranscriptItemV1(
-            $"msg.part.{state.Transcript.Count + 1}",
+            itemId,
             "participant",
             text,
             "confirmed",

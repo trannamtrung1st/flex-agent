@@ -197,13 +197,34 @@ export function classifyCommandAdmission(input: {
   }
 }
 
-export function projectionContainsAcceptedParticipantMessage(
-  transcript: ReadonlyArray<{ role: string; content: string; status: string }>,
-  messageText: string,
-): boolean {
-  return transcript.some(
-    (item) => item.role === "participant" && item.status === "accepted" && item.content === messageText,
-  );
+export function shouldRetainCommandIdentity(kind: CommandAdmissionKind): boolean {
+  return kind === "uncertain";
+}
+
+export type CommandIdentityEffect =
+  | "clear_accepted"
+  | "keep_checking"
+  | "retain_uncommitted"
+  | "retire_conflict"
+  | "access_loss";
+
+export function effectForCommandIdentityOutcome(outcome: string): CommandIdentityEffect {
+  switch (outcome) {
+    case "accepted":
+      return "clear_accepted";
+    case "still_pending":
+      return "keep_checking";
+    case "confirmed_not_committed":
+      return "retain_uncommitted";
+    case "conflict":
+      return "retire_conflict";
+    case "denied":
+    case "forbidden":
+    case "unauthorized":
+      return "access_loss";
+    default:
+      return "keep_checking";
+  }
 }
 
 export function transcriptStatusLabel(item: { streaming: boolean; status: string }): string | null {

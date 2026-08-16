@@ -40,6 +40,7 @@ public static class SyntheticBrowserEndpointExtensions
         browser.MapGet("/my-work", GetMyWork);
         browser.MapGet("/sessions/{sessionId}", GetSession);
         browser.MapPost("/commands", ExecuteCommand);
+        browser.MapPost("/commands/reconcile", ReconcileCommand);
         browser.MapGet("/sessions/{sessionId}/events", GetSessionEvents);
         browser.MapGet("/review-work", GetReviewWork);
         browser.MapGet("/review-work/{caseId}", GetReviewCase);
@@ -381,6 +382,27 @@ public static class SyntheticBrowserEndpointExtensions
             _ => StatusCodes.Status200OK,
         };
 
+        return Results.Json(result, JsonOptions, statusCode: statusCode);
+    }
+
+    private static IResult ReconcileCommand(HttpContext context, BrowserCommandEnvelopeV1 command)
+    {
+        var service = GetService(context);
+        if (!service.IsEnabled)
+        {
+            return Disabled();
+        }
+
+        var session = ResolveSession(context, service);
+        if (session is null)
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = service.ReconcileCommand(session, command);
+        var statusCode = result.Outcome == "denied"
+            ? StatusCodes.Status403Forbidden
+            : StatusCodes.Status200OK;
         return Results.Json(result, JsonOptions, statusCode: statusCode);
     }
 

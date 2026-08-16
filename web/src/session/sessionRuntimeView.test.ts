@@ -12,7 +12,8 @@ import {
   markReconnecting,
   shouldReconcileProjectionOnOpen,
   classifyCommandAdmission,
-  projectionContainsAcceptedParticipantMessage,
+  effectForCommandIdentityOutcome,
+  shouldRetainCommandIdentity,
   transcriptStatusLabel,
 } from "./sessionRuntimeView";
 import type { SseSessionEventV1 } from "../contracts/v1";
@@ -412,12 +413,13 @@ describe("sessionRuntimeView", () => {
     expect(classifyCommandAdmission({ threw: false, outcome: "validation_failed", permittedRecoveryAction: "retry" })).toBe(
       "pre_commit_rejection",
     );
-    expect(
-      projectionContainsAcceptedParticipantMessage(
-        [{ role: "participant", content: "Hello from the Participant.", status: "accepted" }],
-        "Hello from the Participant.",
-      ),
-    ).toBe(true);
+    expect(shouldRetainCommandIdentity("uncertain")).toBe(true);
+    expect(shouldRetainCommandIdentity("conflict")).toBe(false);
+    expect(shouldRetainCommandIdentity("pre_commit_rejection")).toBe(false);
+    expect(effectForCommandIdentityOutcome("accepted")).toBe("clear_accepted");
+    expect(effectForCommandIdentityOutcome("still_pending")).toBe("keep_checking");
+    expect(effectForCommandIdentityOutcome("confirmed_not_committed")).toBe("retain_uncommitted");
+    expect(effectForCommandIdentityOutcome("conflict")).toBe("retire_conflict");
   });
 });
 

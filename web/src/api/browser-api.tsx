@@ -10,10 +10,11 @@ import {
 import type {
   ActorContextV1,
   BrowserCommandEnvelopeV1,
+  BrowserCommandReconciliationV1,
   BrowserCommandResultV1,
   NavigationProjectionV1,
 } from "./browser-contracts";
-import { apiFetch, executeBrowserCommand, loadBrowserContext, type ApiState } from "./browser-client";
+import { apiFetch, executeBrowserCommand, loadBrowserContext, reconcileBrowserCommand, type ApiState } from "./browser-client";
 
 export type { ApiState };
 
@@ -24,6 +25,9 @@ interface BrowserApiContextValue {
   errorMessage: string | null;
   refresh: () => Promise<void>;
   executeCommand: (command: Omit<BrowserCommandEnvelopeV1, "schema_version">) => Promise<BrowserCommandResultV1>;
+  reconcileCommand: (
+    command: Omit<BrowserCommandEnvelopeV1, "schema_version">,
+  ) => Promise<BrowserCommandReconciliationV1>;
   fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>;
 }
 
@@ -81,9 +85,14 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
     [refresh],
   );
 
+  const reconcileCommand = useCallback(
+    (command: Omit<BrowserCommandEnvelopeV1, "schema_version">) => reconcileBrowserCommand(command),
+    [],
+  );
+
   const value = useMemo(
-    () => ({ actor, navigation, apiState, errorMessage, refresh, executeCommand, fetchJson }),
-    [actor, navigation, apiState, errorMessage, refresh, executeCommand, fetchJson],
+    () => ({ actor, navigation, apiState, errorMessage, refresh, executeCommand, reconcileCommand, fetchJson }),
+    [actor, navigation, apiState, errorMessage, refresh, executeCommand, reconcileCommand, fetchJson],
   );
 
   return <BrowserApiContext.Provider value={value}>{children}</BrowserApiContext.Provider>;

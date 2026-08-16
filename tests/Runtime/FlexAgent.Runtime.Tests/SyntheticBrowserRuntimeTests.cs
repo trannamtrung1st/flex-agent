@@ -186,6 +186,111 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
     }
 
     [Fact]
+    public async Task Command_reconciliation_uses_idempotency_identity_not_message_text()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await PrepareActiveSessionAsync(instanceId, cancellationToken);
+        var participant = await CreateAuthenticatedClientAsync(SyntheticActorStages.Participant, instanceId: instanceId);
+
+        await PostCommandAsync(
+            participant,
+            "session.send_message",
+            "yes-first",
+            cancellationToken,
+            sessionVersion: 1,
+            payload: new Dictionary<string, string> { ["message_text"] = "Yes" });
+        await PostCommandAsync(
+            participant,
+            "session.send_message",
+            "yes-second",
+            cancellationToken,
+            sessionVersion: 2,
+            payload: new Dictionary<string, string> { ["message_text"] = "Yes" });
+
+        var first = await PostReconcileAsync(participant, "session.send_message", "yes-first", cancellationToken);
+        var second = await PostReconcileAsync(participant, "session.send_message", "yes-second", cancellationToken);
+        var unknown = await PostReconcileAsync(participant, "session.send_message", "yes-never-sent", cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, unknown.StatusCode);
+
+        var firstBody = await first.Content.ReadFromJsonAsync<CommandReconciliationDto>(JsonOptions, cancellationToken);
+        var secondBody = await second.Content.ReadFromJsonAsync<CommandReconciliationDto>(JsonOptions, cancellationToken);
+        var unknownBody = await unknown.Content.ReadFromJsonAsync<CommandReconciliationDto>(JsonOptions, cancellationToken);
+
+        Assert.Equal("accepted", firstBody!.Outcome);
+        Assert.Equal("accepted", secondBody!.Outcome);
+        Assert.False(string.IsNullOrWhiteSpace(firstBody.MessageId));
+        Assert.False(string.IsNullOrWhiteSpace(secondBody.MessageId));
+        Assert.NotEqual(firstBody.MessageId, secondBody.MessageId);
+        Assert.Equal("confirmed_not_committed", unknownBody!.Outcome);
+        Assert.Null(unknownBody.MessageId);
+
+        var sessionJson = await (await participant.GetAsync($"/browser/sessions/{SessionId}", cancellationToken))
+            .Content.ReadAsStringAsync(cancellationToken);
+        Assert.DoesNotContain("yes-first", sessionJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("yes-second", sessionJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("idempotency", sessionJson, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Command_reconciliation_reports_still_pending_for_remembered_uncertain_outcome()
+    {
+        var instanceId = NewInstanceId();
+        var scenarioId = SyntheticScenarioIds.UncertainReconciliation;
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var admin = await CreateAuthenticatedClientAsync(
+            SyntheticActorStages.Administrator,
+            scenarioId: scenarioId,
+            instanceId: instanceId);
+        await PostCommandAsync(admin, "activity.save_draft", "uncertain-save", cancellationToken, activityVersion: 1);
+
+        var uncertain = await PostCommandRawAsync(
+            admin,
+            "activity.activate_cohort",
+            "uncertain-activate",
+            cancellationToken,
+            resourceId: ActivityId,
+            expectedVersion: 2);
+        Assert.Equal(HttpStatusCode.Conflict, uncertain.StatusCode);
+
+        var reconcile = await PostReconcileAsync(
+            admin,
+            "activity.activate_cohort",
+            "uncertain-activate",
+            cancellationToken,
+            resourceId: ActivityId);
+        Assert.Equal(HttpStatusCode.OK, reconcile.StatusCode);
+        var body = await reconcile.Content.ReadFromJsonAsync<CommandReconciliationDto>(JsonOptions, cancellationToken);
+        Assert.Equal("still_pending", body!.Outcome);
+    }
+
+    [Fact]
+    public async Task Command_reconciliation_denies_revoked_access()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await PrepareActiveSessionAsync(instanceId, cancellationToken);
+        var participant = await CreateAuthenticatedClientAsync(SyntheticActorStages.Participant, instanceId: instanceId);
+        await PostCommandAsync(
+            participant,
+            "session.send_message",
+            "revoke-send",
+            cancellationToken,
+            sessionVersion: 1,
+            payload: new Dictionary<string, string> { ["message_text"] = "Yes" });
+
+        await RevokeScenarioAccessAsync(instanceId, cancellationToken);
+
+        var reconcile = await PostReconcileAsync(participant, "session.send_message", "revoke-send", cancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, reconcile.StatusCode);
+        var body = await reconcile.Content.ReadFromJsonAsync<CommandReconciliationDto>(JsonOptions, cancellationToken);
+        Assert.Equal("denied", body!.Outcome);
+    }
+
+    [Fact]
     public async Task Release_detail_before_approval_is_not_readable()
     {
         var instanceId = NewInstanceId();
@@ -761,6 +866,21 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
         Assert.Equal("succeeded", body!.Outcome);
     }
 
+    private static Task<HttpResponseMessage> PostReconcileAsync(
+        HttpClient client,
+        string commandType,
+        string idempotencyKey,
+        CancellationToken cancellationToken,
+        string? resourceId = null) =>
+        client.PostAsJsonAsync("/browser/commands/reconcile", new
+        {
+            schema_version = "v1",
+            command_id = Guid.NewGuid().ToString("N"),
+            idempotency_key = idempotencyKey,
+            command_type = commandType,
+            resource_id = resourceId ?? ResolveResourceId(commandType),
+        }, JsonOptions, cancellationToken);
+
     private static IReadOnlyDictionary<string, string>? ResolveDefaultPayload(string commandType) =>
         commandType switch
         {
@@ -819,6 +939,7 @@ public sealed class SyntheticBrowserRuntimeTests : IClassFixture<WebApplicationF
     private sealed record ReleaseItemDto(string StatusLabel);
     private sealed record ResultDetailDto(string LifecycleState, string? Content);
     private sealed record CommandResultDto(string Outcome);
+    private sealed record CommandReconciliationDto(string Outcome, string? MessageId);
     private sealed record CommandResultDetailDto(string Outcome, string? LifecycleState, int? NewVersion);
     private sealed record AssignmentDto(
         string LifecycleState,

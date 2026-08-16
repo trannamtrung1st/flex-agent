@@ -270,6 +270,13 @@ public sealed record BrowserCommandResultV1(
     string? PermittedRecoveryAction,
     string? SafeMessage);
 
+public sealed record BrowserCommandReconciliationV1(
+    string SchemaVersion,
+    string Outcome,
+    string? MessageId,
+    string? PermittedRecoveryAction,
+    string? SafeMessage);
+
 public sealed record ProtectedContentResponseV1(
     string SchemaVersion,
     string Outcome,

@@ -10,6 +10,7 @@ public sealed class SyntheticIdempotencyRecord
 {
     public required string RequestDigest { get; init; }
     public required BrowserCommandResultV1 Result { get; init; }
+    public string? AcceptedMessageId { get; init; }
 }
 
 internal static class SyntheticIdempotency
@@ -70,7 +71,8 @@ internal static class SyntheticIdempotency
         IDictionary<string, SyntheticIdempotencyRecord> records,
         string scopeKey,
         string requestDigest,
-        BrowserCommandResultV1 result)
+        BrowserCommandResultV1 result,
+        string? acceptedMessageId = null)
     {
         if (result.Outcome is not ("succeeded" or "uncertain"))
         {
@@ -81,6 +83,60 @@ internal static class SyntheticIdempotency
         {
             RequestDigest = requestDigest,
             Result = result,
+            AcceptedMessageId = acceptedMessageId,
         };
+    }
+
+    internal static BrowserCommandReconciliationV1 Inspect(
+        IDictionary<string, SyntheticIdempotencyRecord> records,
+        IReadOnlyDictionary<string, byte> inFlightScopes,
+        string scopeKey)
+    {
+        if (inFlightScopes.ContainsKey(scopeKey))
+        {
+            return new BrowserCommandReconciliationV1(
+                BrowserSchemaVersion.V1,
+                "still_pending",
+                null,
+                "reconcile",
+                "Checking command status.");
+        }
+
+        if (!records.TryGetValue(scopeKey, out var existing))
+        {
+            return new BrowserCommandReconciliationV1(
+                BrowserSchemaVersion.V1,
+                "confirmed_not_committed",
+                null,
+                "retry",
+                "The command was not committed.");
+        }
+
+        if (string.Equals(existing.Result.Outcome, "succeeded", StringComparison.Ordinal))
+        {
+            return new BrowserCommandReconciliationV1(
+                BrowserSchemaVersion.V1,
+                "accepted",
+                existing.AcceptedMessageId,
+                null,
+                null);
+        }
+
+        if (string.Equals(existing.Result.Outcome, "uncertain", StringComparison.Ordinal))
+        {
+            return new BrowserCommandReconciliationV1(
+                BrowserSchemaVersion.V1,
+                "still_pending",
+                null,
+                "reconcile",
+                existing.Result.SafeMessage);
+        }
+
+        return new BrowserCommandReconciliationV1(
+            BrowserSchemaVersion.V1,
+            "conflict",
+            null,
+            "reconcile",
+            existing.Result.SafeMessage);
     }
 }

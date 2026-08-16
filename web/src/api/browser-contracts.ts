@@ -272,3 +272,11 @@ export interface BrowserCommandResultV1 {
   permitted_recovery_action?: string | null;
   safe_message?: string | null;
 }
+
+export interface BrowserCommandReconciliationV1 {
+  schema_version: SchemaVersionV1;
+  outcome: string;
+  message_id?: string | null;
+  permitted_recovery_action?: string | null;
+  safe_message?: string | null;
+}
