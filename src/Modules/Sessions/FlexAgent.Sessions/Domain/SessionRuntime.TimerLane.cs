@@ -52,6 +52,9 @@ public sealed partial class SessionRuntime
 
         if (!HasRemainingTimerInvocationBudget())
         {
+            // Permanent budget exhaustion expires the due revision. Succeeded=false
+            // is a safe acknowledgement for at-least-once scheduler polls, not a
+            // retryable error. The coordinator must persist and commit this state.
             targeted.Expire();
             Touch(authoritativeUtc);
             return new TimerFireResult(false, TimerFireOutcomeCodes.BudgetExhausted, targeted);

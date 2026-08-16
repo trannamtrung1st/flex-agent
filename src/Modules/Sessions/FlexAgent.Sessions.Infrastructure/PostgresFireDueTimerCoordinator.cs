@@ -114,6 +114,8 @@ public sealed class PostgresFireDueTimerCoordinator(
             var result = session.FireDueTimer(due.schedule_revision_ordinal.Value, authoritativeUtc);
             if (result.OutcomeCode == TimerFireOutcomeCodes.BudgetExhausted)
             {
+                // Durable terminal mutation: persist Expired and commit. Hosts must
+                // acknowledge this outcome and must not retry the same due row.
                 var expired = await runtimeRepository.TrySaveLifecycleAsync(
                     ownership,
                     expectedVersion,
