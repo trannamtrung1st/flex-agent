@@ -13,12 +13,15 @@ import type { SseSessionEventV1 } from "../contracts/v1";
 import {
   AGENT_PREPARING_COPY,
   AGENT_RESPONDING_COPY,
+  CHECKING_MESSAGE_STATUS_COPY,
+  MESSAGE_NOT_ACCEPTED_COPY,
   OFFLINE_COPY,
   PROJECTION_RETRY_COPY,
   RECONNECTING_COPY,
   RECONCILING_COPY,
   applySseEvent,
   canMarkConnectedAfterReconcile,
+  classifyCommandAdmission,
   commandsEnabled,
   createSessionRuntimeView,
   evaluateProjectionCommit,
@@ -29,6 +32,7 @@ import {
   markReconciling,
   markReconnecting,
   presenceForLifecycle,
+  projectionContainsAcceptedParticipantMessage,
   requiresSessionProjectionReconcile,
   shouldReconcileProjectionOnOpen,
   transcriptStatusLabel,
@@ -161,9 +165,11 @@ export function SessionPage() {
   const hasLoadedSessionRef = useRef(false);
   const hasSeenConnectivityFailureRef = useRef(false);
   const actionGenerationRef = useRef(0);
+  const pendingCommandRef = useRef<{ actionId: string; key: string; draft: string } | null>(null);
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
   const [streamRetryKey, setStreamRetryKey] = useState(0);
+  const [checkingMessage, setCheckingMessage] = useState(false);
   const runtimeRef = useRef(runtime);
   runtimeRef.current = runtime;
 
@@ -242,7 +248,7 @@ export function SessionPage() {
     const source = eventSourceRef.current;
     const projection = await loadSession();
     if (!projection) {
-      return;
+      return null;
     }
 
     if (
@@ -254,10 +260,21 @@ export function SessionPage() {
         openReadyState: EventSource.OPEN,
       })
     ) {
-      return;
+      return projection;
     }
 
     setRuntime((current) => markConnected(current));
+    const pendingSend = pendingCommandRef.current;
+    if (pendingSend?.actionId === "send_message") {
+      if (projectionContainsAcceptedParticipantMessage(projection.transcript, pendingSend.draft)) {
+        setMessageText("");
+        pendingCommandRef.current = null;
+        setCheckingMessage(false);
+      } else {
+        setCheckingMessage(false);
+      }
+    }
+    return projection;
   }, [loadSession]);
 
   useEffect(() => {
@@ -266,10 +283,12 @@ export function SessionPage() {
     hasLoadedSessionRef.current = false;
     hasSeenConnectivityFailureRef.current = false;
     actionGenerationRef.current += 1;
+    pendingCommandRef.current = null;
     committedProjectionRef.current = null;
     setSession(null);
     setMessageText("");
     setActionError(null);
+    setCheckingMessage(false);
     setError(null);
     setProjectionError(null);
     setPending(false);
@@ -365,6 +384,7 @@ export function SessionPage() {
       !session ||
       !sessionId ||
       session.session_id !== sessionId ||
+      checkingMessage ||
       !commandsEnabled(runtimeRef.current.connectionState)
     ) {
       return;
@@ -385,16 +405,73 @@ export function SessionPage() {
         liveGeneration: actionGenerationRef.current,
       });
 
+    const draft = action.action_id === "send_message" ? messageText : "";
+    const retainedCommand = pendingCommandRef.current;
+    const idempotencyKey =
+      retainedCommand && retainedCommand.actionId === action.action_id && retainedCommand.draft === draft
+        ? retainedCommand.key
+        : createIdempotencyKey();
+    pendingCommandRef.current = { actionId: action.action_id, key: idempotencyKey, draft };
+
     setPending(true);
     setActionError(null);
 
+    const settleDispatchedCommand = async (
+      kind: ReturnType<typeof classifyCommandAdmission>,
+      safeMessage: string | null,
+    ) => {
+      if (kind === "pre_commit_rejection") {
+        pendingCommandRef.current = null;
+        setCheckingMessage(false);
+        setActionError(
+          action.action_id === "send_message"
+            ? (safeMessage ?? MESSAGE_NOT_ACCEPTED_COPY)
+            : (safeMessage ?? "Action could not be completed."),
+        );
+        return;
+      }
+
+      if (kind === "succeeded") {
+        pendingCommandRef.current = null;
+        setCheckingMessage(false);
+        if (action.action_id === "send_message") {
+          setMessageText("");
+        }
+      } else if (kind === "uncertain" && action.action_id === "send_message") {
+        setCheckingMessage(true);
+        setActionError(null);
+      } else {
+        setCheckingMessage(false);
+        setActionError(safeMessage ?? "Action could not be completed.");
+      }
+
+      setRuntime((current) => markReconciling(current));
+      if (!actionStillCurrent()) {
+        return;
+      }
+
+      const projection = await reconcileSession();
+      if (!actionStillCurrent()) {
+        return;
+      }
+
+      if (kind === "uncertain" && action.action_id === "send_message") {
+        if (projection && projectionContainsAcceptedParticipantMessage(projection.transcript, draft)) {
+          setMessageText("");
+          pendingCommandRef.current = null;
+          setCheckingMessage(false);
+        } else if (projection) {
+          setCheckingMessage(false);
+        }
+      }
+    };
+
     try {
-      const payload =
-        action.action_id === "send_message" ? { message_text: messageText } : undefined;
+      const payload = action.action_id === "send_message" ? { message_text: draft } : undefined;
 
       const result = await executeCommand({
         command_id: action.action_id,
-        idempotency_key: createIdempotencyKey(),
+        idempotency_key: idempotencyKey,
         command_type: commandType,
         resource_id: startedSessionId,
         expected_version: session.session_version,
@@ -405,24 +482,22 @@ export function SessionPage() {
         return;
       }
 
-      if (result.outcome !== "succeeded") {
-        setActionError(result.safe_message ?? "Action could not be completed.");
-        return;
-      }
-
-      if (action.action_id === "send_message") {
-        setMessageText("");
-      }
-      setRuntime((current) => markReconciling(current));
-      if (!actionStillCurrent()) {
-        return;
-      }
-      await reconcileSession();
+      await settleDispatchedCommand(
+        classifyCommandAdmission({
+          threw: false,
+          outcome: result.outcome,
+          permittedRecoveryAction: result.permitted_recovery_action,
+        }),
+        result.safe_message ?? null,
+      );
     } catch (err: unknown) {
       if (!actionStillCurrent()) {
         return;
       }
-      setActionError(err instanceof Error ? err.message : "Action failed");
+      await settleDispatchedCommand(
+        classifyCommandAdmission({ threw: true }),
+        err instanceof Error ? err.message : "Action failed",
+      );
     } finally {
       if (actionStillCurrent()) {
         setPending(false);
@@ -436,7 +511,7 @@ export function SessionPage() {
     }
 
     event.preventDefault();
-    if (!pending && messageText.trim() && commandsEnabled(runtime.connectionState)) {
+    if (!pending && !checkingMessage && messageText.trim() && commandsEnabled(runtime.connectionState)) {
       void runAction(sendAction);
     }
   };
@@ -462,7 +537,7 @@ export function SessionPage() {
   }
 
   const canSend = Boolean(sendAction);
-  const mutationsEnabled = commandsEnabled(runtime.connectionState);
+  const mutationsEnabled = commandsEnabled(runtime.connectionState) && !checkingMessage;
   const presence = visiblePresence(session.lifecycle_state, runtime);
   const activityLabel = activityLabelFor(runtime);
 
@@ -505,7 +580,11 @@ export function SessionPage() {
         </Alert>
       ) : null}
 
-      {runtime.connectionState === "reconciling" ? (
+      {checkingMessage ? (
+        <Alert variant="info" title="Checking message status">
+          {CHECKING_MESSAGE_STATUS_COPY}
+        </Alert>
+      ) : runtime.connectionState === "reconciling" ? (
         <Alert variant="info" title="Updating Session">
           {RECONCILING_COPY}
         </Alert>

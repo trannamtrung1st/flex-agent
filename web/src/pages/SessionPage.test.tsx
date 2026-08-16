@@ -1178,4 +1178,278 @@ describe("SessionPage Decision presentation", () => {
     expect((await screen.findAllByText(/updating session state/i)).length).toBeGreaterThan(0);
     expect(composer).toHaveValue("");
   });
+
+  it("does not allow a new send while a lost command response is still being reconciled", async () => {
+    let sessionLoads = 0;
+    const commandBodies: string[] = [];
+    const pendingRefresh: { resolve: (value: SessionProjectionV1) => void } = {
+      resolve: () => undefined,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands")) {
+          commandBodies.push(typeof init?.body === "string" ? init.body : "");
+          return Promise.reject(new TypeError("Failed to fetch"));
+        }
+        if (url.includes("/browser/sessions/")) {
+          sessionLoads += 1;
+          if (sessionLoads === 1) {
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(activeSession) });
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              new Promise<SessionProjectionV1>((resolve) => {
+                pendingRefresh.resolve = resolve;
+              }),
+          });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Hello from the Participant." } });
+    await openSessionStream();
+    fireEvent.click(screen.getByRole("button", { name: /send message/i }));
+
+    expect((await screen.findAllByText(/checking message status/i)).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
+    expect(composer).toHaveValue("Hello from the Participant.");
+    expect(commandBodies).toHaveLength(1);
+
+    await act(async () => {
+      pendingRefresh.resolve({
+        ...activeSession,
+        session_version: 4,
+        last_sequence: "3",
+        transcript: [
+          ...activeSession.transcript,
+          {
+            item_id: "msg.synthetic.participant.2",
+            role: "participant",
+            content: "Hello from the Participant.",
+            status: "accepted",
+            occurred_at: "2026-08-16T00:01:00Z",
+          },
+        ],
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText(/checking message status/i)).not.toBeInTheDocument();
+    });
+    expect(composer).toHaveValue("");
+    expect(commandBodies).toHaveLength(1);
+    fireEvent.change(composer, { target: { value: "Follow-up draft." } });
+    expect(screen.getByRole("button", { name: /send message/i })).toBeEnabled();
+  });
+
+  it("clears a lost send after Try again finds the accepted message", async () => {
+    let sessionLoads = 0;
+    const commandBodies: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands")) {
+          commandBodies.push(typeof init?.body === "string" ? init.body : "");
+          return Promise.reject(new TypeError("Failed to fetch"));
+        }
+        if (url.includes("/browser/sessions/")) {
+          sessionLoads += 1;
+          if (sessionLoads === 1) {
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(activeSession) });
+          }
+          if (sessionLoads === 2) {
+            return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                ...activeSession,
+                session_version: 4,
+                last_sequence: "3",
+                transcript: [
+                  ...activeSession.transcript,
+                  {
+                    item_id: "msg.synthetic.participant.2",
+                    role: "participant",
+                    content: "Hello from the Participant.",
+                    status: "accepted",
+                    occurred_at: "2026-08-16T00:01:00Z",
+                  },
+                ],
+              }),
+          });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Hello from the Participant." } });
+    await openSessionStream();
+    fireEvent.click(screen.getByRole("button", { name: /send message/i }));
+
+    expect(await screen.findByRole("button", { name: /try again/i })).toBeInTheDocument();
+    expect((await screen.findAllByText(/checking message status/i)).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
+
+    act(() => {
+      screen.getByRole("button", { name: /try again/i }).click();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText(/checking message status/i)).not.toBeInTheDocument();
+    });
+    expect(composer).toHaveValue("");
+    expect(commandBodies).toHaveLength(1);
+    fireEvent.change(composer, { target: { value: "Follow-up draft." } });
+    expect(screen.getByRole("button", { name: /send message/i })).toBeEnabled();
+  });
+
+  it("reconciles a newer projection after a 409 stale command before enabling actions", async () => {
+    let sessionLoads = 0;
+    const pendingRefresh: { resolve: (value: SessionProjectionV1) => void } = {
+      resolve: () => undefined,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands")) {
+          return Promise.resolve({
+            ok: false,
+            status: 409,
+            json: () =>
+              Promise.resolve({
+                schema_version: "v1",
+                outcome: "conflict",
+                permitted_recovery_action: "reconcile",
+                safe_message: "Session version is stale. Refresh and retry.",
+              }),
+          });
+        }
+        if (url.includes("/browser/sessions/")) {
+          sessionLoads += 1;
+          if (sessionLoads === 1) {
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(activeSession) });
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              new Promise<SessionProjectionV1>((resolve) => {
+                pendingRefresh.resolve = resolve;
+              }),
+          });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Hello from the Participant." } });
+    await openSessionStream();
+    fireEvent.click(screen.getByRole("button", { name: /send message/i }));
+
+    expect(await screen.findByText(/session version is stale/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
+    expect(composer).toHaveValue("Hello from the Participant.");
+
+    await act(async () => {
+      pendingRefresh.resolve({
+        ...activeSession,
+        lifecycle_state: "paused",
+        remaining_time: "12 minutes (paused)",
+        permitted_actions: [],
+        session_version: 5,
+      });
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText(/^session paused$/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /send message/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/sending is unavailable until the session resumes/i)).toBeInTheDocument();
+  });
+
+  it("clears protected Session content after a 403 command when the projection is denied", async () => {
+    let sessionLoads = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands")) {
+          return Promise.resolve({
+            ok: false,
+            status: 403,
+            json: () =>
+              Promise.resolve({
+                schema_version: "v1",
+                outcome: "denied",
+                permitted_recovery_action: "contact_administrator",
+                safe_message: "Access denied",
+              }),
+          });
+        }
+        if (url.includes("/browser/sessions/")) {
+          sessionLoads += 1;
+          if (sessionLoads === 1) {
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(activeSession) });
+          }
+          return Promise.resolve({
+            ok: false,
+            status: 403,
+            json: () => Promise.resolve({ safe_message: "Access denied" }),
+          });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Hello from the Participant." } });
+    await openSessionStream();
+    fireEvent.click(screen.getByRole("button", { name: /send message/i }));
+
+    expect(await screen.findByText(/session unavailable/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/your message/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /send message/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/ready for the session/i)).not.toBeInTheDocument();
+  });
 });

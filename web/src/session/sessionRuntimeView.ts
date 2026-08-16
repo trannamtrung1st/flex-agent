@@ -51,6 +51,8 @@ export const AGENT_COMPLETE_STATUS = "Complete";
 export const AGENT_INCOMPLETE_STATUS = "Incomplete";
 export const AGENT_CANCELLED_STATUS = "Cancelled";
 export const PROJECTION_RETRY_COPY = "Could not update Session. Your draft and transcript are still here.";
+export const CHECKING_MESSAGE_STATUS_COPY = "Checking message status";
+export const MESSAGE_NOT_ACCEPTED_COPY = "Message was not accepted";
 
 export function requiresSessionProjectionReconcile(eventType: string): boolean {
   return eventType === "session.state.changed.v1" || eventType === "session.terminal.v1";
@@ -152,6 +154,55 @@ export function isCurrentSessionAction(input: {
 }): boolean {
   return (
     input.liveSessionId === input.startedSessionId && input.startedGeneration === input.liveGeneration
+  );
+}
+
+export type CommandAdmissionKind =
+  | "succeeded"
+  | "pre_commit_rejection"
+  | "conflict"
+  | "access_loss"
+  | "uncertain";
+
+export function classifyCommandAdmission(input: {
+  threw: boolean;
+  outcome?: string | null;
+  permittedRecoveryAction?: string | null;
+}): CommandAdmissionKind {
+  if (input.threw) {
+    return "uncertain";
+  }
+
+  switch (input.outcome) {
+    case "succeeded":
+      return "succeeded";
+    case "denied":
+    case "forbidden":
+    case "unauthorized":
+      return "access_loss";
+    case "conflict":
+      return "conflict";
+    case "uncertain":
+      return "uncertain";
+    case "validation_failed":
+      return "pre_commit_rejection";
+    default:
+      if (input.permittedRecoveryAction === "reconcile") {
+        return "conflict";
+      }
+      if (input.permittedRecoveryAction === "retry" || input.permittedRecoveryAction === "none") {
+        return "pre_commit_rejection";
+      }
+      return "uncertain";
+  }
+}
+
+export function projectionContainsAcceptedParticipantMessage(
+  transcript: ReadonlyArray<{ role: string; content: string; status: string }>,
+  messageText: string,
+): boolean {
+  return transcript.some(
+    (item) => item.role === "participant" && item.status === "accepted" && item.content === messageText,
   );
 }
 

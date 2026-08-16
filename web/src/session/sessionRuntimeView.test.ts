@@ -11,6 +11,8 @@ import {
   markReconciling,
   markReconnecting,
   shouldReconcileProjectionOnOpen,
+  classifyCommandAdmission,
+  projectionContainsAcceptedParticipantMessage,
   transcriptStatusLabel,
 } from "./sessionRuntimeView";
 import type { SseSessionEventV1 } from "../contracts/v1";
@@ -395,6 +397,27 @@ describe("sessionRuntimeView", () => {
         liveGeneration: 2,
       }),
     ).toBe(false);
+  });
+
+  it("classifies dispatched command outcomes so only confirmed pre-commit failures stay freely actionable", () => {
+    expect(classifyCommandAdmission({ threw: false, outcome: "succeeded" })).toBe("succeeded");
+    expect(classifyCommandAdmission({ threw: true })).toBe("uncertain");
+    expect(classifyCommandAdmission({ threw: false, outcome: "uncertain", permittedRecoveryAction: "reconcile" })).toBe(
+      "uncertain",
+    );
+    expect(classifyCommandAdmission({ threw: false, outcome: "conflict", permittedRecoveryAction: "reconcile" })).toBe(
+      "conflict",
+    );
+    expect(classifyCommandAdmission({ threw: false, outcome: "denied" })).toBe("access_loss");
+    expect(classifyCommandAdmission({ threw: false, outcome: "validation_failed", permittedRecoveryAction: "retry" })).toBe(
+      "pre_commit_rejection",
+    );
+    expect(
+      projectionContainsAcceptedParticipantMessage(
+        [{ role: "participant", content: "Hello from the Participant.", status: "accepted" }],
+        "Hello from the Participant.",
+      ),
+    ).toBe(true);
   });
 });
 
