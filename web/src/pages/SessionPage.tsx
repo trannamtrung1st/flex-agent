@@ -495,7 +495,7 @@ export function SessionPage() {
     const expectedVersion =
       isExactUnresolvedSend && retainedCommand?.expectedVersion != null
         ? retainedCommand.expectedVersion
-        : (session.session_version ?? null);
+        : session.session_version;
     pendingCommandRef.current = {
       actionId: action.action_id,
       key: idempotencyKey,
@@ -525,7 +525,7 @@ export function SessionPage() {
         if (action.action_id === "send_message") {
           setMessageText("");
         }
-      } else if (kind === "uncertain" && action.action_id === "send_message") {
+      } else if (action.action_id === "send_message") {
         pendingCommandRef.current = {
           actionId: action.action_id,
           key: idempotencyKey,
