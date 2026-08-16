@@ -171,6 +171,48 @@ public sealed class DecisionValidationEffectTests
     }
 
     [Fact]
+    public void Complete_invocation_retry_after_rejected_validate_still_applies_the_accepted_timer()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            invocationId,
+            outputs: [],
+            requestedActions:
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.primary",
+                    "PT2M",
+                    "1"),
+            ]);
+        session.RecordDecision(invocationId, envelope, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        var validated = session.ValidateDecision(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        Assert.Equal(DecisionValidationOutcomes.Rejected, validated.ValidationOutcome);
+        Assert.Equal(TimerValidationOutcomes.Accepted, validated.TimerValidationOutcome);
+        Assert.Equal(AgentInvocationStatuses.DecisionRecorded, session.Invocations[0].Status);
+        Assert.Equal(
+            DecisionEffectOutcomes.NotAttempted,
+            session.Invocations[0].ValidationEffect!.EffectOutcome);
+
+        var retried = session.CompleteInvocation(
+            invocationId, envelope, SessionRuntimeTestFixtures.T0.AddSeconds(3));
+
+        Assert.True(retried.Succeeded, retried.OutcomeCode);
+        Assert.Equal(AgentInvocationStatuses.Decided, retried.Invocation!.Status);
+        Assert.Equal(
+            DecisionEffectOutcomes.Applied,
+            Assert.Single(retried.ValidationEffect!.RequestedActionValidations).EffectOutcome);
+        Assert.Equal(1, session.PendingTimerCount);
+        Assert.Equal("PT2M", session.CurrentTimerLane!.RelativeDelay);
+        Assert.Equal(TimerRequestedByCategories.AgentRecommendation, session.CurrentTimerLane.RequestedByCategory);
+        Assert.Single(session.Invocations[0].ValidationHistory);
+    }
+
+    [Fact]
     public void Rejected_communication_does_not_rearm_an_accepted_timer_after_cutoff()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();

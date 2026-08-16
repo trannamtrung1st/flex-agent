@@ -453,7 +453,7 @@ public sealed partial class SessionRuntime
             return CompletionFailure(InvocationCompletionOutcomeCodes.AlreadyTerminal, null);
         }
 
-        if (invocation.IsTerminal)
+        if (invocation.IsTerminal && invocation.ValidationEffect?.HasPendingIndependentActionEffect != true)
         {
             return ReconcileTerminalDecision(invocation, recommendation);
         }
@@ -719,8 +719,11 @@ public sealed partial class SessionRuntime
             Policy,
             P0Kernel.IsDecisionTypeSupportedByP0,
             allocateRuntimeOutputIds: recommendation is EnvelopeRecommendation);
+        var executableTimer = EnvelopeRecommendationMapping.ResolveExecutableNextTimer(
+            envelope.RequestedActions,
+            profile.RequestedActions);
         var timerOutcome = CombineTimerOutcomes(
-            ValidateTimerRecommendation(invocation, envelope.NextTimer, authoritativeUtc),
+            ValidateTimerRecommendation(invocation, executableTimer, authoritativeUtc),
             profile.TimerValidationOutcome);
         if (!Policy.PermittedDecisionTypes.Contains(recommendation.DecisionType, StringComparer.Ordinal)
             || !P0Kernel.IsDecisionTypeSupportedByP0(recommendation.DecisionType))
@@ -1209,6 +1212,7 @@ public sealed partial class SessionRuntime
         ApplyAcceptedTimerReplacement(invocation, authoritativeUtc);
         if (!HasAppliedTimerAction(invocation.ValidationEffect!))
         {
+            invocation.MarkPipelineComplete();
             return new DecisionEffectResult(
                 true,
                 InvocationCompletionOutcomeCodes.Decided,
@@ -1270,7 +1274,8 @@ public sealed partial class SessionRuntime
             invocation.ValidationHistory.Count,
             SessionVersion,
             SessionSequence);
-        if (validationOutcome != DecisionValidationOutcomes.Accepted)
+        if (validationOutcome != DecisionValidationOutcomes.Accepted
+            && !record.HasPendingIndependentActionEffect)
         {
             invocation.MarkPipelineComplete();
         }

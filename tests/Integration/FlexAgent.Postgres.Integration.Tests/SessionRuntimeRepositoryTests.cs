@@ -1337,6 +1337,125 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     }
 
     [Fact]
+    public async Task Complete_after_rejected_validate_reload_applies_the_accepted_timer_once()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
+        var acceptCoordinator = new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler());
+        var completeCoordinator = new PostgresCompleteInvocationCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new CompleteInvocationHandler());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var admitted = await acceptCoordinator.AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                actor,
+                binding.Ownership,
+                ExpectedSessionVersion: 0,
+                "msg.p.1",
+                "turn.1",
+                "slot.1",
+                "trig.participant.1",
+                "idem.p.staged-empty-timer",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+
+        var envelope = new EnvelopeRecommendation(
+            "adec.staged-empty-timer.0001",
+            admitted.Invocation!.AgentInvocationId,
+            new DateTimeOffset(2026, 8, 13, 0, 0, 2, TimeSpan.Zero),
+            DecisionDispositions.Respond,
+            [],
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.primary",
+                    "PT2M",
+                    "1"),
+            ]);
+
+        long validatedVersion;
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            var loaded = await repository.LoadForUpdateAsync(
+                binding.Ownership,
+                binding,
+                scope.Transaction,
+                CancellationToken);
+            Assert.NotNull(loaded);
+            var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
+            var recorded = loaded!.RecordDecision(
+                admitted.Invocation.AgentInvocationId,
+                envelope,
+                clock);
+            Assert.True(recorded.Succeeded, recorded.OutcomeCode);
+            var validated = loaded.ValidateDecision(admitted.Invocation.AgentInvocationId, clock);
+            Assert.Equal(DecisionValidationOutcomes.Rejected, validated.ValidationOutcome);
+            Assert.Equal(TimerValidationOutcomes.Accepted, validated.TimerValidationOutcome);
+            Assert.Equal(AgentInvocationStatuses.DecisionRecorded, loaded.Invocations[0].Status);
+            Assert.True(
+                await repository.TrySaveCompletionAsync(
+                    binding.Ownership,
+                    admitted.SessionVersion!.Value,
+                    loaded,
+                    loaded.Invocations[0],
+                    scope.Transaction,
+                    CancellationToken));
+            validatedVersion = loaded.SessionVersion;
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var completed = await completeCoordinator.CompleteAsync(
+            new CompleteInvocationCommand(
+                actor,
+                binding.Ownership,
+                validatedVersion,
+                admitted.Invocation.AgentInvocationId,
+                envelope,
+                null,
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+        Assert.Equal(
+            DecisionEffectOutcomes.Applied,
+            Assert.Single(completed.ValidationEffect!.RequestedActionValidations).EffectOutcome);
+
+        await using var loadScope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken);
+        var reloaded = await repository.LoadForUpdateAsync(
+            binding.Ownership,
+            binding,
+            loadScope.Transaction,
+            CancellationToken);
+        await loadScope.CommitAsync(CancellationToken);
+
+        Assert.NotNull(reloaded);
+        Assert.Equal(AgentInvocationStatuses.Decided, reloaded!.Invocations[0].Status);
+        Assert.Equal(
+            DecisionEffectOutcomes.Applied,
+            Assert.Single(reloaded.Invocations[0].ValidationEffect!.RequestedActionValidations).EffectOutcome);
+        Assert.Equal("PT2M", reloaded.CurrentTimerLane!.RelativeDelay);
+        Assert.Equal(TimerRequestedByCategories.AgentRecommendation, reloaded.CurrentTimerLane.RequestedByCategory);
+        Assert.Equal(1, reloaded.PendingTimerCount);
+    }
+
+    [Fact]
     public async Task Envelope_message_fragments_persist_and_hydrate_linked_to_decision_output()
     {
         var organization = await Fixture.SeedOrganizationAsync();

@@ -136,7 +136,14 @@ public sealed partial class SessionRuntime
     private void ApplyAcceptedTimerReplacement(AgentInvocation invocation, DateTimeOffset utc)
     {
         var validation = invocation.ValidationEffect;
-        var nextTimer = invocation.Decision?.NextTimer;
+        var envelope = invocation.Decision is null
+            ? null
+            : HistoricalDecisionEnvelopeMapper.ToEnvelope(invocation.Decision.Recommendation);
+        var nextTimer = envelope is null
+            ? invocation.Decision?.NextTimer
+            : EnvelopeRecommendationMapping.ResolveExecutableNextTimer(
+                envelope.RequestedActions,
+                validation?.RequestedActionValidations);
         if (validation is null
             || nextTimer is null
             || validation.TimerValidationOutcome != TimerValidationOutcomes.Accepted

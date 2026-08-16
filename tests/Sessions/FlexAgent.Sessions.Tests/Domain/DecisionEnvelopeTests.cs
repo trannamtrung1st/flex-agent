@@ -203,6 +203,48 @@ public sealed class DecisionEnvelopeTests
     }
 
     [Fact]
+    public void Later_valid_timer_is_applied_when_the_first_timer_action_is_invalid()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var commitAt = SessionRuntimeTestFixtures.T0.AddSeconds(2);
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            invocationId,
+            outputs: [],
+            requestedActions:
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.bad",
+                    "PT0S",
+                    "1"),
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.good",
+                    "PT2M",
+                    "1"),
+            ]);
+
+        var result = session.CompleteInvocation(invocationId, envelope, commitAt);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, result.ValidationEffect!.ValidationOutcome);
+        Assert.Equal(TimerValidationOutcomes.Accepted, result.ValidationEffect.TimerValidationOutcome);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, result.ValidationEffect.RequestedActionValidations[0].ValidationOutcome);
+        Assert.Equal(DecisionValidationOutcomes.Accepted, result.ValidationEffect.RequestedActionValidations[1].ValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, result.ValidationEffect.RequestedActionValidations[0].EffectOutcome);
+        Assert.Equal(DecisionEffectOutcomes.Applied, result.ValidationEffect.RequestedActionValidations[1].EffectOutcome);
+        Assert.Equal(ResponseSlotStates.Open, session.Turns[0].ResponseSlot.State);
+        Assert.False(result.PublicationPathClaimed);
+        Assert.Equal("PT2M", session.CurrentTimerLane!.RelativeDelay);
+        Assert.Equal(TimerRequestedByCategories.AgentRecommendation, session.CurrentTimerLane.RequestedByCategory);
+        Assert.Equal(result.Decision!.DecisionId, session.CurrentTimerLane.DrivingDecisionId);
+        Assert.Equal(commitAt.AddMinutes(2), session.CurrentTimerLane.DueAt);
+    }
+
+    [Fact]
     public void Model_authored_output_id_and_reviewer_audience_are_rejected_per_item()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();

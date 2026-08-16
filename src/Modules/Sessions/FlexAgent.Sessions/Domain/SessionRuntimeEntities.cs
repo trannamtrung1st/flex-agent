@@ -224,6 +224,13 @@ public sealed class DecisionValidationEffectRecord
 
     public IReadOnlyList<RequestedActionItemValidation> RequestedActionValidations { get; private set; }
 
+    public bool HasPendingIndependentActionEffect =>
+        TimerValidationOutcome == TimerValidationOutcomes.Accepted
+        && RequestedActionValidations.Any(item =>
+            string.Equals(item.Kind, AgentRequestedActionKinds.NextTimerRequest, StringComparison.Ordinal)
+            && string.Equals(item.ValidationOutcome, DecisionValidationOutcomes.Accepted, StringComparison.Ordinal)
+            && string.Equals(item.EffectOutcome, DecisionEffectOutcomes.NotAttempted, StringComparison.Ordinal));
+
     internal void SetEffectOutcome(string effectOutcome, string? appliedTurnId = null, string? appliedResponseSlotId = null)
     {
         EffectOutcome = effectOutcome;

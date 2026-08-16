@@ -45,7 +45,8 @@ public sealed class PostgresCompleteInvocationCoordinator(
 
             var existing = session.Invocations.FirstOrDefault(item =>
                 string.Equals(item.AgentInvocationId, command.AgentInvocationId, StringComparison.Ordinal));
-            var wasTerminal = existing?.IsTerminal == true;
+            var wasTerminal = existing?.IsTerminal == true
+                && existing.ValidationEffect?.HasPendingIndependentActionEffect != true;
             var authoritativeUtc = await runtimeRepository.ReadAuthoritativeUtcAsync(
                 scope.Transaction,
                 cancellationToken);

@@ -73,10 +73,42 @@ public sealed record EnvelopeRecommendation(
 public static class EnvelopeRecommendationMapping
 {
     public static NextTimerRecommendation? DeriveNextTimer(
-        IReadOnlyList<RequestedActionRecommendation> requestedActions)
+        IReadOnlyList<RequestedActionRecommendation> requestedActions) =>
+        ToNextTimer(requestedActions.FirstOrDefault(action =>
+            string.Equals(action.Kind, AgentRequestedActionKinds.NextTimerRequest, StringComparison.Ordinal)));
+
+    public static NextTimerRecommendation? ResolveExecutableNextTimer(
+        IReadOnlyList<RequestedActionRecommendation> requestedActions,
+        IReadOnlyList<RequestedActionItemValidation>? actionValidations)
     {
-        var timer = requestedActions.FirstOrDefault(action =>
-            string.Equals(action.Kind, AgentRequestedActionKinds.NextTimerRequest, StringComparison.Ordinal));
+        if (actionValidations is { Count: > 0 })
+        {
+            var accepted = actionValidations.FirstOrDefault(item =>
+                string.Equals(item.Kind, AgentRequestedActionKinds.NextTimerRequest, StringComparison.Ordinal)
+                && string.Equals(
+                    item.ValidationOutcome,
+                    DecisionValidationOutcomes.Accepted,
+                    StringComparison.Ordinal));
+            if (accepted is null)
+            {
+                return null;
+            }
+
+            return ToNextTimer(requestedActions.FirstOrDefault(action =>
+                string.Equals(action.LocalRef, accepted.LocalRef, StringComparison.Ordinal)
+                && string.Equals(action.Kind, AgentRequestedActionKinds.NextTimerRequest, StringComparison.Ordinal)));
+        }
+
+        return DeriveNextTimer(requestedActions);
+    }
+
+    public static string DeriveDecisionType(string disposition) =>
+        string.Equals(disposition, DecisionDispositions.NoAction, StringComparison.Ordinal)
+            ? RuntimeDecisionTypes.NoAction
+            : RuntimeDecisionTypes.EmitMessage;
+
+    private static NextTimerRecommendation? ToNextTimer(RequestedActionRecommendation? timer)
+    {
         if (timer?.RelativeDelay is null || timer.ExpectedScheduleRevision is null)
         {
             return null;
@@ -84,11 +116,6 @@ public static class EnvelopeRecommendationMapping
 
         return new NextTimerRecommendation(timer.RelativeDelay, timer.ExpectedScheduleRevision);
     }
-
-    public static string DeriveDecisionType(string disposition) =>
-        string.Equals(disposition, DecisionDispositions.NoAction, StringComparison.Ordinal)
-            ? RuntimeDecisionTypes.NoAction
-            : RuntimeDecisionTypes.EmitMessage;
 }
 
 public sealed record OutputItemValidation(
