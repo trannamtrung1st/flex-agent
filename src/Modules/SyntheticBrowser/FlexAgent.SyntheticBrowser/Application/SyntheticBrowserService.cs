@@ -35,6 +35,10 @@ public sealed class SyntheticScenarioState
     public int ReleaseVersion { get; set; } = 1;
     public string ResultLifecycle { get; set; } = "neutral_pre_release";
     public bool PermissionRevoked { get; set; }
+    public bool CutoffReached { get; set; }
+    public int TurnOrdinal { get; set; }
+    public int AgentMessageOrdinal { get; set; }
+    public HashSet<string> FiredTimerRevisions { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, SyntheticIdempotencyRecord> IdempotencyRecords { get; } = [];
     public List<SseSessionEventV1> EmittedSseEvents { get; } = [];
 }
@@ -619,11 +623,11 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
                 "activity.activate_cohort" => HandleActivate(state),
                 "enrollment.assign" => HandleAssign(state),
                 "submission.submit_text" => HandleSubmit(state, command),
-                "attempt.start" => HandleStartAttempt(state),
-                "session.send_message" => HandleSendMessage(state, command),
+                "attempt.start" => HandleStartAttempt(session, state),
+                "session.send_message" => HandleSendMessage(session, state, command),
                 "session.pause" => HandlePause(state),
                 "session.resume" => HandleResume(state),
-                "session.complete" => HandleComplete(state),
+                "session.complete" => HandleComplete(session, state),
                 "review.approve" => HandleReviewApprove(state),
                 "review.reject" => HandleReviewReject(state),
                 "review.escalate" => HandleReviewEscalate(state),
@@ -666,59 +670,32 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
                 return [];
             }
 
-            EnsureSyntheticAgentStream(state);
             return state.EmittedSseEvents
                 .Where(evt => IsAfterCursor(evt.SessionSequence, lastEventId))
                 .ToList();
         }
     }
 
-    private const string SyntheticAgentFragmentText = "Thank you for your response. ";
-
-    private static void EnsureSyntheticAgentStream(SyntheticScenarioState state)
+    public bool AdmitSessionTrigger(string scenarioId, string scenarioInstanceId, string triggerType, string? revisionId)
     {
-        if (state.EmittedSseEvents.Count > 0 || state.SessionLifecycle != "active")
+        EnsureEnabled();
+
+        if (!SyntheticScenarioIds.Known.Contains(scenarioId) ||
+            !string.Equals(triggerType, "timer.due", StringComparison.Ordinal) ||
+            string.IsNullOrWhiteSpace(scenarioInstanceId))
         {
-            return;
+            return false;
         }
 
-        state.SessionSequence++;
-        state.EmittedSseEvents.Add(new SseSessionEventV1(
-            BrowserSchemaVersion.V1,
-            "session.agent.fragment.v1",
-            SyntheticCommandAuthorization.SyntheticSessionId,
-            state.SessionSequence.ToString(),
-            DateTimeOffset.UtcNow.ToString("O"),
-            new SseSessionEventPayloadV1(
-                "Agent response fragment",
-                1,
-                "msg.synthetic.agent.001",
-                SyntheticAgentFragmentText)));
-
-        state.SessionSequence++;
-        state.EmittedSseEvents.Add(new SseSessionEventV1(
-            BrowserSchemaVersion.V1,
-            "session.agent.complete.v1",
-            SyntheticCommandAuthorization.SyntheticSessionId,
-            state.SessionSequence.ToString(),
-            DateTimeOffset.UtcNow.ToString("O"),
-            new SseSessionEventPayloadV1(
-                "Agent response complete",
-                null,
-                "msg.synthetic.agent.001",
-                null,
-                null,
-                null,
-                null,
-                null,
-                ComputeSha256Hex(SyntheticAgentFragmentText),
-                1)));
-    }
-
-    private static string ComputeSha256Hex(string content)
-    {
-        var hash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(content));
-        return Convert.ToHexString(hash).ToLowerInvariant();
+        var instance = GetInstance(scenarioId, scenarioInstanceId);
+        lock (instance.Sync)
+        {
+            SyntheticSessionRuntimeAdapter.AdmitTimerFire(
+                scenarioId,
+                instance.State,
+                string.IsNullOrWhiteSpace(revisionId) ? "1" : revisionId);
+            return true;
+        }
     }
 
     private static bool IsAfterCursor(string sessionSequence, string? lastEventId)
@@ -768,15 +745,16 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         return Success("submission.submit_text", state, "Submission accepted as version 1.");
     }
 
-    private BrowserCommandResultV1 HandleStartAttempt(SyntheticScenarioState state)
+    private BrowserCommandResultV1 HandleStartAttempt(SyntheticSessionRecord session, SyntheticScenarioState state)
     {
         state.AttemptStarted = true;
         state.SessionLifecycle = "active";
         state.Transcript.Add(new SessionTranscriptItemV1("msg.sys.001", "system", "Session started. Good luck.", "confirmed", DateTimeOffset.UtcNow.ToString("O")));
+        SyntheticSessionRuntimeAdapter.OnSessionActivated(session.ScenarioId, state);
         return Success("attempt.start", state, "Attempt started.");
     }
 
-    private BrowserCommandResultV1 HandleSendMessage(SyntheticScenarioState state, BrowserCommandEnvelopeV1 command)
+    private BrowserCommandResultV1 HandleSendMessage(SyntheticSessionRecord session, SyntheticScenarioState state, BrowserCommandEnvelopeV1 command)
     {
         var text = command.Payload?.GetValueOrDefault("message_text") ?? "";
         state.Transcript.Add(new SessionTranscriptItemV1(
@@ -786,6 +764,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
             "confirmed",
             DateTimeOffset.UtcNow.ToString("O")));
         state.SessionVersion++;
+        SyntheticSessionRuntimeAdapter.OnParticipantMessage(session.ScenarioId, state);
         return Success("session.send_message", state, "Message sent.");
     }
 
@@ -793,6 +772,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     {
         state.SessionLifecycle = "paused";
         state.SessionVersion++;
+        SyntheticSessionRuntimeAdapter.OnPause(state);
         return Success("session.pause", state, "Session paused.");
     }
 
@@ -800,11 +780,13 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
     {
         state.SessionLifecycle = "active";
         state.SessionVersion++;
+        SyntheticSessionRuntimeAdapter.OnResume(state);
         return Success("session.resume", state, "Session resumed.");
     }
 
-    private BrowserCommandResultV1 HandleComplete(SyntheticScenarioState state)
+    private BrowserCommandResultV1 HandleComplete(SyntheticSessionRecord session, SyntheticScenarioState state)
     {
+        SyntheticSessionRuntimeAdapter.OnComplete(session.ScenarioId, state);
         state.SessionLifecycle = "completed";
         state.SessionVersion++;
         state.ReviewLifecycle = "ready_for_review";
@@ -943,16 +925,7 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
 
     private static void ValidateScenario(string scenarioId, string actorStage)
     {
-        var validScenarios = new HashSet<string>(StringComparer.Ordinal)
-        {
-            SyntheticScenarioIds.CampaignFullJourney,
-            SyntheticScenarioIds.DeniedAccess,
-            SyntheticScenarioIds.StaleRevision,
-            SyntheticScenarioIds.PermissionRevoked,
-            SyntheticScenarioIds.UncertainReconciliation,
-        };
-
-        if (!validScenarios.Contains(scenarioId))
+        if (!SyntheticScenarioIds.Known.Contains(scenarioId))
         {
             throw new ArgumentException("Unknown scenario.", nameof(scenarioId));
         }
@@ -1102,3 +1075,10 @@ public sealed class SyntheticAccessDeniedException : Exception
 {
     public SyntheticAccessDeniedException() : base("Access denied.") { }
 }
+
+internal sealed record SyntheticSessionTriggerRequest(
+    string ScenarioId,
+    string ScenarioInstanceId,
+    string TriggerType,
+    string? RevisionId = null);
+

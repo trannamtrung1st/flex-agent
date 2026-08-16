@@ -827,7 +827,7 @@ and test reviews have no unresolved blocking findings.
   resolved. GitHub exposed no status checks or PR-triggered workflow runs
   for `053de74` at review time, so combined CI is not claimed green here.
   Frozen `0005`–`0016` unchanged.
-- [ ] Extend the non-production synthetic adapter to mirror the browser-safe
+- [x] Extend the non-production synthetic adapter to mirror the browser-safe
   semantics without becoming runtime authority. Add deterministic scenarios for
   Participant reply, Agent opening/closing, Participant and timer no-action,
   rejected Decision, accepted-effect failure, execution failure, default timer,
@@ -891,12 +891,16 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) is **approved**
-at `053de74`. External review (2026-08-16) **approved: 0 High / 0 Medium /
-0 Low.** Closes `83cc0dc`. Combined CI is not claimed green: GitHub
-exposed no status checks or PR-triggered workflow runs for `053de74` at
-review time. Frozen `0005`–`0016` unchanged. Worker host stays idle. Next
-is the synthetic adapter.
+Synthetic adapter slice is **green** (2026-08-16). SSE subscribe no longer
+fabricates Agent work. Trusted triggers are participant `session.send_message`,
+attempt start (opening scenario), `session.complete` (closing/cutoff), and
+harness `POST /browser/harness/session-triggers` (`timer.due`). The adapter
+stays in `FlexAgent.SyntheticBrowser` and does not call Sessions or
+PostgreSQL. Next is the Text Session UI under approved design-system modules.
+
+Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
+**approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0016`
+unchanged.
 
 One-lane scheduler **cutoff/terminal lifecycle persist and timer-fire ACK**
 is **approved** at `1c11744`. External review (2026-08-16) **approved:
@@ -1098,7 +1102,16 @@ surfaces.
   independent work requires rejected validation and decision-level
   `not_attempted`. Cutoff-suppressed accepted timers are item
   `no_domain_effect`. GitHub exposed no status checks or PR-triggered
-  workflow runs for `053de74` at review time. Next is the synthetic adapter.
+  workflow runs for `053de74` at review time. Synthetic adapter is next.
+- Synthetic browser runtime mirror (2026-08-16, `UI-SESS-DEC-13`–`15`):
+  keep the adapter non-authoritative. Deterministic scenario ids select
+  browser-safe SSE/transcript outcomes. Timer fire is a harness-only
+  trusted trigger, not SSE subscribe and not a Participant command.
+  Accepted/rejected/omitted replacement remain indistinguishable in
+  Participant events by design; tests assert schedule internals are
+  absent. Dump-once SSE plus `Last-Event-ID` replay stands in until
+  production HTTP SSE host wiring. `SessionPage` is unchanged in this
+  slice.
 - Timer-lane persist (2026-08-15): additive `0016` stores contract `lane_state`
   and maps `superseded`→`replaced`, `expired`→`cancelled` on the frozen `0005`
   `state` column. `FireDueTimer` skips remaining-delay checks for `Claimed`
@@ -1920,6 +1933,7 @@ surfaces.
 | `5b2a3db` persist/due-claim remediations (budget poison row, populated `0016` backfill) | passed; **approved** `bcd9ac8` | Red (2026-08-16): successor still armed at `MaxTimerTriggeredInvocationsPerSession = 1` (`PendingTimerCount` 1); recovered due successor stayed `pending`. Green: no successor when another timer Invocation is not permitted; `BudgetExhausted` expires the revision and the coordinator persists it; populated `0015→0016` reconstructs ~10-minute remaining and `agent_recommendation` from `source_decision_id`. Confirmation: Sessions 344/344; architecture 29/29; timer persist+upgrade 25/25; `git diff --check` and `python3 scripts/check_docs.py` passed. Frozen `0005`–`0015` unchanged. External review of `bcd9ac8` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. GitHub exposed no combined CI status for `bcd9ac8` at review time. Host wiring must ACK `timer_fire.budget_exhausted` and not retry. |
 | Timer-lane cutoff persist and fire ACK (`SESS-DEC-5`, `SESS-DEC-26`, `REQ-SESS-60`, `REQ-SESS-75`) | passed; **approved** `1c11744` | Red (2026-08-16): compile failed for missing `ChangeSessionLifecycleCommand`, `DurableTimerFireProcessor`, and `PostgresSessionLifecycleCoordinator`. Green: begin-completing/abort cancel the timer and seal a visible prefix; original-command cutoff retry reconciles; resume on never-paused Active is ineligible; stale Resume after later Active work is `StaleVersion`; `BudgetExhausted` is `acknowledged` not `retry_later`; persist writes cancelled `lane_state` plus `session.agent.message.sealed`; outbox failure leaves `open`+pending; duplicate cutoff emits one seal wake-up. Confirmation after consistency review: Sessions 359/359; architecture 29/29; Postgres 148/148. External review of `1c11744` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Combined CI not claimed green (Documentation seen green; Implementation in progress at review time; `gh` unauthenticated here). Harmless abort-query duplicate `lane_state` predicate folded. Frozen `0005`–`0016` unchanged. Worker host stays idle. |
 | Independent requested-action effect (`SESS-DEC-35`, `AC-SESS-43`) | passed; **approved** `053de74` | Red (2026-08-16): `effect_failed` plus accepted timer had `HasPendingIndependentActionEffect`; cutoff left the accepted timer item `not_attempted`. Green: pending work requires rejected+`not_attempted`; cutoff item is `no_domain_effect`; coordinator retry after cutoff/`effect_failed` writes no second complete audit/outbox. Confirmation: Sessions 367/367; architecture 29/29; `SessionRuntimeRepositoryTests` 24/24. External review of `053de74` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Closes `83cc0dc`. GitHub exposed no status checks or PR-triggered workflow runs for `053de74` at review time. Frozen `0005`–`0016` unchanged. |
+| Synthetic browser runtime adapter (`UI-SESS-DEC-13`–`15`) | passed; focused runtime | Red (2026-08-16): active SSE without a trigger emitted fragment+complete; new scenario grants returned 400. Green: `SyntheticSessionRuntimeAdapterTests` 19/19; `SyntheticBrowserRuntimeTests` 27/27; full `FlexAgent.Runtime.Tests` 56/56. SSE read is replay-only; participant reply, opening/closing, no-action, suppressed/execution failure, default/timer visible work, replacement silence, duplicate revision, pause/resume (paused fire suppressed; resume then fire publishes), reconnect cursor, and cutoff are scenario-scripted. Consistency pass: `session-pause-resume` now admits timer work after resume. Harness timer fire requires the API key. Playwright and `SessionPage` remain the next plan items. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
@@ -1933,8 +1947,8 @@ surfaces.
 
 # Blockers
 
-None for the independent-action follow-up **approved** at `053de74`
-(`SESS-DEC-35`, `AC-SESS-43`; closes `83cc0dc`). Next is the synthetic adapter. Host Worker still does not poll due timers.
+None for the synthetic adapter focused tests (19/19 + existing 27/27).
+Host Worker still does not poll due timers.
 When that polling is wired, design poison-row/backoff/terminalization for
 permanent `timer_fire.lifecycle_ineligible` instead of default `RetryLater`.
 HTTP production SSE subscription, ADR-002 kernel enforcement, and 60-second
@@ -1942,7 +1956,8 @@ revocation revalidation wait on API host wiring and do not complete
 `REQ-SESS-59`. PostgreSQL fragment persist still goes through
 `PostgresPublishAgentResponseCoordinator`; wiring that coordinator into the
 worker content loop is residual. Live provider wiring and frozen-policy
-rehydration remain later gates.
+rehydration remain later gates. Text Session UI and Playwright MCP are the
+next plan items; this slice did not claim visual completion.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.

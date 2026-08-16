@@ -56,4 +56,6 @@ public interface ISyntheticBrowserService
         SyntheticSessionRecord session,
         string sessionId,
         string? lastEventId);
+
+    bool AdmitSessionTrigger(string scenarioId, string scenarioInstanceId, string triggerType, string? revisionId);
 }

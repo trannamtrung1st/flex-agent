@@ -28,6 +28,7 @@ public static class SyntheticBrowserEndpointExtensions
 
         browser.MapPost("/harness/scenario-grants", CreateScenarioGrant);
         browser.MapPost("/harness/scenario-instances/revoke-access", RevokeScenarioAccess);
+        browser.MapPost("/harness/session-triggers", AdmitSessionTrigger);
         browser.MapPost("/auth/exchange", ExchangeGrant);
         browser.MapPost("/auth/logout", Logout);
         browser.MapGet("/actor-context", GetActorContext);
@@ -108,6 +109,28 @@ public static class SyntheticBrowserEndpointExtensions
                 null,
                 null));
         }
+    }
+
+    private static IResult AdmitSessionTrigger(HttpContext context, SyntheticSessionTriggerRequest request)
+    {
+        var service = GetService(context);
+        if (!service.IsEnabled)
+        {
+            return Disabled();
+        }
+
+        if (!service.IsHarnessAuthorized(context.Request.Headers[HarnessApiKeyHeaderName]))
+        {
+            return Results.NotFound();
+        }
+
+        return service.AdmitSessionTrigger(
+            request.ScenarioId,
+            request.ScenarioInstanceId,
+            request.TriggerType,
+            request.RevisionId)
+            ? Results.NoContent()
+            : Results.BadRequest();
     }
 
     private static IResult RevokeScenarioAccess(HttpContext context, ScenarioInstanceRevokeRequestV1 request)
