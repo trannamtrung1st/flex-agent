@@ -182,7 +182,6 @@ public sealed class SessionLifecyclePersistenceTests(PostgresIntegrationFixture 
                 ON schedule.organization_id = runtime.organization_id
                AND schedule.session_id = runtime.session_id
                AND schedule.lane_state = 'cancelled'
-               AND schedule.lane_state = 'cancelled'
             INNER JOIN session_messages AS message
                 ON message.organization_id = runtime.organization_id
                AND message.session_id = runtime.session_id
