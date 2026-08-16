@@ -130,6 +130,32 @@ public sealed record TimerFireResult(
     TimerScheduleRevision? Revision = null,
     TriggerAdmissionResult? Admission = null);
 
+public static class SessionLifecycleTransitions
+{
+    public const string Pause = "pause";
+    public const string Resume = "resume";
+    public const string BeginCompleting = "begin_completing";
+    public const string Complete = "complete";
+    public const string Terminate = "terminate";
+    public const string Abort = "abort";
+}
+
+public static class SessionLifecycleOutcomeCodes
+{
+    public const string Succeeded = "session_lifecycle.succeeded";
+    public const string Reconciled = "session_lifecycle.reconciled";
+    public const string Denied = "session_lifecycle.denied";
+    public const string OwnershipMismatch = "session_lifecycle.ownership_mismatch";
+    public const string StaleVersion = "session_lifecycle.stale_version";
+    public const string LifecycleIneligible = "session_lifecycle.lifecycle_ineligible";
+}
+
+public sealed record SessionLifecycleChangeResult(
+    bool Succeeded,
+    string OutcomeCode,
+    SessionLifecycleState LifecycleState,
+    long SessionVersion);
+
 public static class SessionRuntimeAuditActions
 {
     public const string FireDueTimer = "session.timer_lane.fire";
@@ -138,6 +164,7 @@ public static class SessionRuntimeAuditActions
     public const string CompleteInvocation = "session.invocation.complete";
     public const string PublishAgentResponseFragment = "session.agent_response.publish";
     public const string SealAgentResponse = "session.agent_response.seal";
+    public const string ChangeLifecycle = "session.lifecycle.change";
 }
 
 public static class SessionRuntimeResourceTypes
@@ -153,6 +180,7 @@ public static class SessionRuntimeOutboxEventTypes
     public const string InvocationCompleted = "session.invocation.completed";
     public const string AgentFragmentCommitted = "session.agent.fragment.committed";
     public const string AgentMessageSealed = "session.agent.message.sealed";
+    public const string LifecycleChanged = "session.lifecycle.changed";
 }
 
 public static class DurableSessionWorkTypes

@@ -800,6 +800,14 @@ and test reviews have no unresolved blocking findings.
     0 Medium / 0 Low. Closes `5b2a3db`. GitHub exposed no combined CI
     status for `bcd9ac8` at review time. Host wiring must treat
     `timer_fire.budget_exhausted` as a durable acknowledgement, not a retry.
+  - [x] Cutoff/terminal lifecycle persist and timer-fire ACK (do not rewrite
+    frozen `0005`–`0016`). Application lifecycle commands use trusted ownership
+    and server UTC. `BeginCompleting`/`Abort` persist cancelled timers/turns and
+    automatic incomplete seals through the same `session.agent.message.sealed`
+    audit/outbox path as `SealAsync`; injected outbox failure leaves the
+    message `open` and the timer pending. `DurableTimerFireProcessor`
+    acknowledges committed `timer_fire.budget_exhausted` and does not retry.
+    Worker host stays idle.
 - [ ] Follow-up (pre-existing, not the timer domain slice): when
   communication/output validation fails, still effect independently valid
   requested actions (`SESS-DEC-35`, `AC-SESS-43`). `ApplyDecisionEffect`
@@ -869,18 +877,19 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-One-lane scheduler **PostgreSQL persist and due-claim** is **approved** at
-`bcd9ac8` (closes `5b2a3db`). External review (2026-08-16) **approved:
-0 High / 0 Medium / 0 Low.** GitHub exposed no combined CI status for
-`bcd9ac8` at review time. `timer_fire.budget_exhausted` expires and
-commits the due revision; future host wiring must acknowledge that
-outcome and must not retry the same scheduler operation. Worker host
-remains idle. HTTP SSE subscription and 60-second revocation
-revalidation remain later host work.
+One-lane scheduler **cutoff/terminal lifecycle persist and timer-fire ACK**
+is implemented over approved `bcd9ac8`. `ChangeSessionLifecycleCommand`
+uses trusted ownership and server UTC. `BeginCompleting` persists
+cancelled timer rows, cancelled/completed turns, and automatic
+incomplete seals with the same `session.agent.message.sealed`
+audit/outbox wake-up as `SealAsync`. Injected outbox failure rolls back
+to `open` + pending timer. Original-command retry reconciles without a
+second seal. `DurableTimerFireProcessor` maps
+`timer_fire.budget_exhausted` (`Succeeded=false`) to `acknowledged`.
+Worker host stays idle. External review of this slice is next.
 
-Next: remaining scheduler integration (host wiring, cutoff/terminal
-lifecycle persist using the ADR-011 `SealAsync` outbox path) or the
-pre-existing independent-action follow-up, then the synthetic adapter.
+HTTP SSE subscription and 60-second revocation revalidation remain later
+host work.
 
 One-lane scheduler **domain** is **approved** at `0d738db` (closes `bc13408`
 → `164b6b8`). External review (2026-08-15) **approved: 0 High / 0 Medium /
@@ -1070,6 +1079,18 @@ surfaces.
   review 0 High / 0 Medium / 0 Low; closes `5b2a3db`. Host wiring must treat
   `timer_fire.budget_exhausted` (`Succeeded=false`) as a durable
   acknowledgement after the expired revision is committed, not as a retry.
+- Timer-lane cutoff persist and fire ACK (2026-08-16):
+  `PostgresSessionLifecycleCoordinator` persists `BeginCompleting`/`Abort`
+  (and pause/resume/complete/terminate) through expanded
+  `TrySaveLifecycleAsync` (head, timers, dirty turns, publication seals).
+  Automatic incomplete seals reuse `SealAgentResponse` /
+  `session.agent.message.sealed`. Outbox failure rolls back. Duplicate cutoff
+  at the original expected version reconciles with no second seal.
+  `DurableTimerFireProcessor` acknowledges `BudgetExhausted` and retries only
+  non-terminal failures such as `StaleRevision`. Consistency review (2026-08-16):
+  stale `Resume` after later Active work is `StaleVersion`, not `Reconciled`;
+  Abort persist has a PostgreSQL seal/outbox proof. Worker host stays idle.
+  Frozen `0005`–`0016` unchanged.
 - Timer-lane domain **approved** (2026-08-15, `0d738db`): external review
   0 High / 0 Medium / 0 Low; closes `bc13408` → `164b6b8` → `0d738db`.
   Concurrency counts Invocations that still can recommend a replacement.
@@ -1382,8 +1403,10 @@ surfaces.
 # Findings / deviations
 
 - Timer due-claim (2026-08-16, `bcd9ac8`): `timer_fire.budget_exhausted`
-  returns `Succeeded=false` after committing `Expired`. Host/worker wiring
-  must acknowledge that outcome and must not retry the same due row.
+  returns `Succeeded=false` after committing `Expired`.
+  `DurableTimerFireProcessor` now acknowledges that outcome (`acknowledged`)
+  and does not map it to `retry_later`. Worker host still registers the idle
+  invocation processor and does not poll due timers.
 - One-lane scheduler domain (2026-08-15): default arm does not allocate
   `session_sequence` so `InsertActiveAsync` remains sequence `0` until schedule
   rows are persisted. Frozen `0005` `session_timer_schedules.state` allows
@@ -1844,6 +1867,7 @@ surfaces.
 | ADR-011 authorized SSE projection and reconnect replay (`REQ-SESS-59`, `SESS-DEC-7`, `SESS-DEC-10`, `SESS-DEC-13`, `AC-SESS-32`) | passed; **approved** `18c9193` | Red: compile failed for missing `ReplayAuthorizedSessionEventsCommand` (2026-08-15). Green: replay from start is fragment then distinct seal cursor; after-cursor omits earlier text; malformed/future/negative cursors and terminal-without-seal-sequence reconcile; missing actor/ownership mismatch leak no events. External review of `00dc160`: request changes (1 P1 / 1 P2). Remediations in `18c9193`: Repeatable Read hydration (concurrent fragment/seal after head read omitted); in-range non-stream `Last-Event-ID` reconciles. Confirmation recorded at remediation: replay command 8/8; Sessions 287/287; architecture 29/29; SSE replay 5/5. External review of `18c9193` (2026-08-15): **approved** 0 P0 / 0 P1 / 0 P2. GitHub exposed no combined CI status for `18c9193` at review time. HTTP SSE host wiring, ADR-002 kernel, 60s revalidation, and synthetic adapter remain later and do not complete `REQ-SESS-59`. Frozen `0005`–`0014` unchanged. |
 | ADR-011 rolling validation, frozen-bound backpressure, and worker content-phase (`SESS-DEC-13`, `REQ-SESS-8`, `REQ-SESS-55`–`60`, `AC-SESS-32`) | passed; **approved** `303a11f` | Red (2026-08-15): compile failed for missing bound/validation outcome codes, `ProviderContentNormalizer`, and `EnqueueContent`. Green: oversized/count/assembled/in-flight/rate bounds fail closed without mutation; split `<script` keeps the safe prefix; tab/LF/CR recordable; duplicate reconcile does not consume rate; cumulative suffix/skip/prefix-divergence; worker publishes deltas then seals, skips content on `no_action`. External review of `0c04987`: request changes (2 P1 / 2 P2). Remediations in `2fc033e`: zero-fragment `Completed` cancels claimed turn/slot; post-visibility redelivery seals `Incomplete` without streaming; `InFlightExceeded` retries before first fragment. External review of `2fc033e`: request changes (1 P2). Remediation in `303a11f`: post-visibility cancel seals with `EffectiveClaimCleanupTimeout`; test cancels a real CTS after first delta. External review of `303a11f` (2026-08-15): **approved** 0 P0 / 0 P1 / 0 P2 / 0 P3. Closes `0c04987` → `2fc033e` → `303a11f`. GitHub exposed no combined CI status for `303a11f` at review time. Residual: idle Worker host; processor commits on the loaded aggregate; HTTP SSE/`REQ-SESS-59` host work. Eventual coordinator wiring must keep post-visibility terminalization. |
 | `5b2a3db` persist/due-claim remediations (budget poison row, populated `0016` backfill) | passed; **approved** `bcd9ac8` | Red (2026-08-16): successor still armed at `MaxTimerTriggeredInvocationsPerSession = 1` (`PendingTimerCount` 1); recovered due successor stayed `pending`. Green: no successor when another timer Invocation is not permitted; `BudgetExhausted` expires the revision and the coordinator persists it; populated `0015→0016` reconstructs ~10-minute remaining and `agent_recommendation` from `source_decision_id`. Confirmation: Sessions 344/344; architecture 29/29; timer persist+upgrade 25/25; `git diff --check` and `python3 scripts/check_docs.py` passed. Frozen `0005`–`0015` unchanged. External review of `bcd9ac8` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. GitHub exposed no combined CI status for `bcd9ac8` at review time. Host wiring must ACK `timer_fire.budget_exhausted` and not retry. |
+| Timer-lane cutoff persist and fire ACK (`SESS-DEC-5`, `SESS-DEC-26`, `REQ-SESS-60`, `REQ-SESS-75`) | passed; application+postgres | Red (2026-08-16): compile failed for missing `ChangeSessionLifecycleCommand`, `DurableTimerFireProcessor`, and `PostgresSessionLifecycleCoordinator`. Green: begin-completing/abort cancel the timer and seal a visible prefix; original-command cutoff retry reconciles; resume on never-paused Active is ineligible; stale Resume after later Active work is `StaleVersion`; `BudgetExhausted` is `acknowledged` not `retry_later`; persist writes cancelled `lane_state` plus `session.agent.message.sealed`; outbox failure leaves `open`+pending; duplicate cutoff emits one seal wake-up. Confirmation after consistency review: Sessions 359/359; architecture 29/29; Postgres 148/148; `git diff --check` and `python3 scripts/check_docs.py` passed. Frozen `0005`–`0016` unchanged. Worker host stays idle. External review of this slice is next. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
@@ -1857,19 +1881,15 @@ surfaces.
 
 # Blockers
 
-None for the one-lane scheduler **persist/due-claim** slice (`bcd9ac8`).
-Next is remaining scheduler host/cutoff wiring, the pre-existing
-independent-action follow-up, or the synthetic adapter. Host wiring must
-acknowledge committed `timer_fire.budget_exhausted` and must not retry
-that due row. HTTP production SSE subscription, ADR-002 kernel
-enforcement, and 60-second revocation revalidation wait on API host
-wiring and do not complete `REQ-SESS-59`. The idle Worker host is
-unchanged. PostgreSQL fragment persist still goes through
-`PostgresPublishAgentResponseCoordinator`; wiring that coordinator into the
-worker content loop is residual. When lifecycle persistence is added,
-automatic incomplete seals from `BeginCompleting`/`Abort` must use the same
-terminal audit/outbox path. Live provider wiring and frozen-policy
-rehydration remain later gates.
+None for the one-lane scheduler **cutoff persist / timer-fire ACK** slice.
+External review of this slice is next. Do not start the synthetic adapter
+or the independent-action follow-up until that review lands. Host Worker
+still does not poll due timers. HTTP production SSE subscription, ADR-002
+kernel enforcement, and 60-second revocation revalidation wait on API host
+wiring and do not complete `REQ-SESS-59`. PostgreSQL fragment persist still
+goes through `PostgresPublishAgentResponseCoordinator`; wiring that
+coordinator into the worker content loop is residual. Live provider wiring
+and frozen-policy rehydration remain later gates.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.

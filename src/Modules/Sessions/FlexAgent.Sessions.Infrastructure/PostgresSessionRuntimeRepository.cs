@@ -1252,7 +1252,9 @@ public sealed class PostgresSessionRuntimeRepository
             return false;
         }
 
+        await PersistTurnsAndTranscriptAsync(ownership, session, transaction, cancellationToken);
         await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
+        await PersistAgentMessagesAsync(ownership, session, transaction, cancellationToken);
         return true;
     }
 

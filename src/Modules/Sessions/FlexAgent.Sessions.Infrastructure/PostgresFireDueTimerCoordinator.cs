@@ -12,7 +12,7 @@ public sealed class PostgresFireDueTimerCoordinator(
     PostgresSessionRuntimeRepository runtimeRepository,
     ITrustedSessionBindingSource bindingSource,
     IAuditEventWriter? auditEventWriter = null,
-    IOutboxItemWriter? outboxItemWriter = null)
+    IOutboxItemWriter? outboxItemWriter = null) : IDueTimerFirePort
 {
     private const string ClaimDueSql = """
         WITH candidate AS MATERIALIZED (
