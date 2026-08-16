@@ -481,6 +481,26 @@ public sealed class SyntheticSessionRuntimeAdapterTests : IClassFixture<WebAppli
         Assert.Contains(events, evt => evt.EventType == "session.agent.fragment.v1");
     }
 
+    [Fact]
+    public async Task Padded_and_trimmed_revision_ids_are_the_same_timer_identity()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var participant = await PrepareActiveSessionAsync(
+            instanceId,
+            cancellationToken,
+            SyntheticScenarioIds.SessionTimerVisibleWork);
+
+        (await FireTimerAsync(instanceId, " 1 ", cancellationToken, SyntheticScenarioIds.SessionTimerVisibleWork))
+            .EnsureSuccessStatusCode();
+        (await FireTimerAsync(instanceId, "1", cancellationToken, SyntheticScenarioIds.SessionTimerVisibleWork))
+            .EnsureSuccessStatusCode();
+
+        var events = await ReadSseAsync(participant, cancellationToken);
+        Assert.Equal(1, events.Count(evt => evt.EventType == "session.agent.complete.v1"));
+        Assert.Equal(1, events.Count(evt => evt.EventType == "session.agent.fragment.v1"));
+    }
+
     [Theory]
     [InlineData(SyntheticScenarioIds.SessionTimerReplacementAccepted)]
     [InlineData(SyntheticScenarioIds.SessionTimerReplacementRejected)]
