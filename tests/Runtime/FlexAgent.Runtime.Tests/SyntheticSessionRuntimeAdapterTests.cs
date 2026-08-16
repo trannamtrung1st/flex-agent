@@ -1,5 +1,7 @@
+using System.IO;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using FlexAgent.SyntheticBrowser;
 using FlexAgent.SyntheticBrowser.Domain;
@@ -60,6 +62,62 @@ public sealed class SyntheticSessionRuntimeAdapterTests : IClassFixture<WebAppli
 
         Assert.Empty(events);
         Assert.DoesNotContain(events, evt => evt.EventType.StartsWith("session.agent.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Held_session_sse_emits_replay_complete_then_later_events_on_the_same_connection()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var participant = await PrepareActiveSessionAsync(instanceId, cancellationToken);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/browser/sessions/{SessionId}/events");
+        using var response = await participant.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+
+        var replay = await ReadSseUntilReplayCompleteAsync(reader, cancellationToken);
+        Assert.Contains(": replay-complete", replay, StringComparison.Ordinal);
+
+        var liveRead = ReadNextSseEventAsync(reader, cancellationToken);
+        await PostCommandAsync(
+            participant,
+            "session.send_message",
+            "held-stream",
+            cancellationToken,
+            sessionVersion: 1,
+            payload: new Dictionary<string, string> { ["message_text"] = "Hold the stream." });
+
+        var liveEvent = await liveRead.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+        Assert.Equal("session.agent.work.v1", liveEvent.EventType);
+    }
+
+    [Fact]
+    public async Task Held_session_sse_completes_when_scenario_access_is_revoked()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var participant = await PrepareActiveSessionAsync(instanceId, cancellationToken);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/browser/sessions/{SessionId}/events");
+        using var response = await participant.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+
+        _ = await ReadSseUntilReplayCompleteAsync(reader, cancellationToken);
+        (await RevokeScenarioAccessAsync(instanceId, cancellationToken)).EnsureSuccessStatusCode();
+
+        var remaining = await ReadSseUntilClosedAsync(reader, cancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+        Assert.DoesNotContain("session.agent.", remaining, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -664,6 +722,24 @@ public sealed class SyntheticSessionRuntimeAdapterTests : IClassFixture<WebAppli
         return await client.SendAsync(request, cancellationToken);
     }
 
+    private async Task<HttpResponseMessage> RevokeScenarioAccessAsync(
+        string instanceId,
+        CancellationToken cancellationToken,
+        string scenarioId = SyntheticScenarioIds.CampaignFullJourney)
+    {
+        var client = _factory.CreateClient();
+        var request = new HttpRequestMessage(HttpMethod.Post, "/browser/harness/scenario-instances/revoke-access")
+        {
+            Content = JsonContent.Create(new
+            {
+                scenario_id = scenarioId,
+                scenario_instance_id = instanceId,
+            }, options: JsonOptions),
+        };
+        request.Headers.Add(SyntheticBrowserEndpointExtensions.HarnessApiKeyHeaderName, HarnessApiKey);
+        return await client.SendAsync(request, cancellationToken);
+    }
+
     private static async Task<List<SseDto>> ReadSseAsync(
         HttpClient client,
         CancellationToken cancellationToken,
@@ -675,9 +751,14 @@ public sealed class SyntheticSessionRuntimeAdapterTests : IClassFixture<WebAppli
             request.Headers.TryAddWithoutValidation("Last-Event-ID", lastEventId);
         }
 
-        var response = await client.SendAsync(request, cancellationToken);
+        using var response = await client.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
         response.EnsureSuccessStatusCode();
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+        var body = await ReadSseUntilReplayCompleteAsync(reader, cancellationToken);
         var events = new List<SseDto>();
         foreach (var block in body.Split("\n\n", StringSplitOptions.RemoveEmptyEntries))
         {
@@ -695,6 +776,81 @@ public sealed class SyntheticSessionRuntimeAdapterTests : IClassFixture<WebAppli
         }
 
         return events;
+    }
+
+    private static async Task<string> ReadSseUntilReplayCompleteAsync(
+        StreamReader reader,
+        CancellationToken cancellationToken)
+    {
+        var body = new StringBuilder();
+        while (true)
+        {
+            var line = await reader.ReadLineAsync(cancellationToken);
+            if (line is null)
+            {
+                return body.ToString();
+            }
+
+            body.Append(line);
+            body.Append('\n');
+            if (line.Equals(": replay-complete", StringComparison.Ordinal))
+            {
+                return body.ToString();
+            }
+        }
+    }
+
+    private static async Task<string> ReadSseUntilClosedAsync(
+        StreamReader reader,
+        CancellationToken cancellationToken)
+    {
+        var body = new StringBuilder();
+        while (true)
+        {
+            var line = await reader.ReadLineAsync(cancellationToken);
+            if (line is null)
+            {
+                return body.ToString();
+            }
+
+            body.Append(line);
+            body.Append('\n');
+        }
+    }
+
+    private static async Task<SseDto> ReadNextSseEventAsync(
+        StreamReader reader,
+        CancellationToken cancellationToken)
+    {
+        var block = new StringBuilder();
+        while (true)
+        {
+            var line = await reader.ReadLineAsync(cancellationToken);
+            Assert.NotNull(line);
+            if (line.Length == 0)
+            {
+                if (block.Length == 0)
+                {
+                    continue;
+                }
+
+                var dataLine = block.ToString()
+                    .Split('\n')
+                    .FirstOrDefault(candidate => candidate.StartsWith("data: ", StringComparison.Ordinal));
+                Assert.NotNull(dataLine);
+                var evt = JsonSerializer.Deserialize<SseDto>(dataLine["data: ".Length..], JsonOptions);
+                Assert.NotNull(evt);
+                return evt;
+            }
+
+            if (line.StartsWith(':'))
+            {
+                continue;
+            }
+
+            block.Append(line);
+            block.Append('\n');
+        }
     }
 
     private static void AssertNoParticipantLeaks(IEnumerable<SseDto> events)

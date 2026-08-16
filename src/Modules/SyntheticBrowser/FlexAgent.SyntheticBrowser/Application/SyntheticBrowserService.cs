@@ -1,5 +1,8 @@
 using System.Collections.Concurrent;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using System.Threading.Channels;
 using FlexAgent.Contracts.Browser;
 using FlexAgent.Contracts.Transport;
 using FlexAgent.SyntheticBrowser.Domain;
@@ -42,6 +45,7 @@ public sealed class SyntheticScenarioState
     public Dictionary<string, SyntheticIdempotencyRecord> IdempotencyRecords { get; } = [];
     public ConcurrentDictionary<string, byte> InFlightIdempotencyScopes { get; } = new(StringComparer.Ordinal);
     public List<SseSessionEventV1> EmittedSseEvents { get; } = [];
+    public List<ChannelWriter<SseSessionEventV1>> SseListeners { get; } = [];
 }
 
 public sealed class SyntheticBrowserService : ISyntheticBrowserService
@@ -114,6 +118,10 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         lock (instance.Sync)
         {
             instance.State.PermissionRevoked = true;
+            foreach (var listener in instance.State.SseListeners)
+            {
+                listener.TryComplete();
+            }
         }
 
         return true;
@@ -692,6 +700,65 @@ public sealed class SyntheticBrowserService : ISyntheticBrowserService
         foreach (var evt in CollectSessionEvents(session, sessionId, lastEventId))
         {
             yield return evt;
+        }
+    }
+
+    public async IAsyncEnumerable<SseSessionEventV1?> StreamSessionEvents(
+        SyntheticSessionRecord session,
+        string sessionId,
+        string? lastEventId,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var channel = Channel.CreateUnbounded<SseSessionEventV1>(new UnboundedChannelOptions
+        {
+            SingleReader = true,
+            SingleWriter = false,
+        });
+        List<SseSessionEventV1> snapshot;
+        var holdConnection = false;
+        var instance = GetInstance(session.ScenarioId, session.ScenarioInstanceId);
+        lock (instance.Sync)
+        {
+            snapshot = CollectSessionEvents(session, sessionId, lastEventId).ToList();
+            holdConnection = SyntheticResourceAuthorization.CanAccessSessionResource(session, instance.State);
+            if (holdConnection)
+            {
+                instance.State.SseListeners.Add(channel.Writer);
+            }
+        }
+
+        try
+        {
+            foreach (var evt in snapshot)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                yield return evt;
+            }
+
+            yield return null;
+
+            if (!holdConnection)
+            {
+                channel.Writer.TryComplete();
+                yield break;
+            }
+
+            while (await channel.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                while (channel.Reader.TryRead(out var evt))
+                {
+                    yield return evt;
+                }
+            }
+        }
+        finally
+        {
+            lock (instance.Sync)
+            {
+                instance.State.SseListeners.Remove(channel.Writer);
+            }
+
+            channel.Writer.TryComplete();
         }
     }
 

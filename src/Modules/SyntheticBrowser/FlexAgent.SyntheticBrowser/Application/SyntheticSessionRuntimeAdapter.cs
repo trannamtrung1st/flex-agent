@@ -180,13 +180,18 @@ internal static class SyntheticSessionRuntimeAdapter
     private static void AppendEvent(SyntheticScenarioState state, string eventType, SseSessionEventPayloadV1 payload)
     {
         state.SessionSequence++;
-        state.EmittedSseEvents.Add(new SseSessionEventV1(
+        var evt = new SseSessionEventV1(
             BrowserSchemaVersion.V1,
             eventType,
             SyntheticCommandAuthorization.SyntheticSessionId,
             state.SessionSequence.ToString(CultureInfo.InvariantCulture),
             UtcNow(),
-            payload));
+            payload);
+        state.EmittedSseEvents.Add(evt);
+        foreach (var listener in state.SseListeners)
+        {
+            listener.TryWrite(evt);
+        }
     }
 
     private static string NextTurnId(SyntheticScenarioState state)

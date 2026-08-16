@@ -6,6 +6,7 @@ using FlexAgent.SyntheticBrowser.Application;
 using FlexAgent.SyntheticBrowser.Domain;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -433,13 +434,56 @@ public static class SyntheticBrowserEndpointExtensions
 
         context.Response.Headers.ContentType = "text/event-stream";
         context.Response.Headers.CacheControl = "no-cache";
+        context.Response.Headers["X-Accel-Buffering"] = "no";
+        context.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
 
-        await foreach (var evt in service.GetSessionEvents(session, sessionId, lastEventId).ToAsyncEnumerable())
+        var cancellationToken = context.RequestAborted;
+        try
         {
-            var json = JsonSerializer.Serialize(evt, JsonOptions);
-            await context.Response.WriteAsync($"id: {evt.SessionSequence}\n");
-            await context.Response.WriteAsync($"data: {json}\n\n");
-            await context.Response.Body.FlushAsync();
+            await using var events = service.StreamSessionEvents(session, sessionId, lastEventId, cancellationToken)
+                .GetAsyncEnumerator(cancellationToken);
+            using var heartbeat = new PeriodicTimer(TimeSpan.FromSeconds(15));
+            var nextEvent = events.MoveNextAsync().AsTask();
+            var nextHeartbeat = heartbeat.WaitForNextTickAsync(cancellationToken).AsTask();
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var completed = await Task.WhenAny(nextEvent, nextHeartbeat);
+                if (completed == nextHeartbeat)
+                {
+                    if (!await nextHeartbeat)
+                    {
+                        break;
+                    }
+
+                    await context.Response.WriteAsync(": keep-alive\n\n", cancellationToken);
+                    await context.Response.Body.FlushAsync(cancellationToken);
+                    nextHeartbeat = heartbeat.WaitForNextTickAsync(cancellationToken).AsTask();
+                    continue;
+                }
+
+                if (!await nextEvent)
+                {
+                    break;
+                }
+
+                var evt = events.Current;
+                if (evt is null)
+                {
+                    await context.Response.WriteAsync(": replay-complete\n\n", cancellationToken);
+                }
+                else
+                {
+                    var json = JsonSerializer.Serialize(evt, JsonOptions);
+                    await context.Response.WriteAsync($"id: {evt.SessionSequence}\n", cancellationToken);
+                    await context.Response.WriteAsync($"data: {json}\n\n", cancellationToken);
+                }
+
+                await context.Response.Body.FlushAsync(cancellationToken);
+                nextEvent = events.MoveNextAsync().AsTask();
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
         }
     }
 

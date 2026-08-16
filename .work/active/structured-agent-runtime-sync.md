@@ -880,14 +880,25 @@ and test reviews have no unresolved blocking findings.
     External review of `889286e` (2026-08-17): **approved**, 0 P0 / 0 P1 /
     0 P2. Closes `e007a28`. External review of `dea1477` (2026-08-17):
     **approved**, 0 P0 / 0 P1 / 0 P2. Implementation and Documentation
-    push workflows succeeded at `dea1477`. Playwright MCP remains next.
-- [ ] Exercise the changed journey through real API/SSE interactions with
+    push workflows succeeded at `dea1477`. Playwright MCP for this UI is
+    recorded under the following plan item.
+- [x] Exercise the changed journey through real API/SSE interactions with
   Playwright MCP. Inspect accessibility snapshots and screenshots at desktop
   and narrow viewports; cover keyboard/focus, no-action, timer-triggered message
   and no-action, disconnect/replay, pause/resume, error, permission loss,
   terminal state, both themes, reduced motion, and 400-percent reflow. Iterate
   until functional, accessibility, privacy, and visual evidence is clean; store
   artifacts only under `.playwright-mcp/`.
+  - [x] Live Playwright exposed dump-once synthetic SSE: native EventSource
+    reconnect left the Session in `reconnecting` with commands disabled
+    (`UI-SESS-DEC-8`). Held the synthetic stream after `: replay-complete`,
+    forwarded later events on the same connection, and proved it with
+    `Held_session_sse_emits_replay_complete_then_later_events_on_the_same_connection`.
+  - [x] Consistency review: revoke must complete held SSE writers so an
+    already-open stream cannot keep receiving Session events after access
+    loss. Red: `Held_session_sse_completes_when_scenario_access_is_revoked`
+    timed out. Green: `RevokeScenarioAccess` completes listeners and a
+    revoked subscribe dumps replay then ends.
 - [ ] Complete the production-shaped internal end-to-end proof from committed
   readiness and immutable Session binding through `Active`, trusted Participant
   and Agent-initiated triggers, no-action/message effects, timer replacement,
@@ -936,8 +947,12 @@ and **CI-green** at `dea1477` (2026-08-17): 0 P0 / 0 P1 / 0 P2. Closes
 `c53afa2` → `cd73929` → `8ae8457` → `e007a28` → `889286e`. Implementation
 and Documentation push workflows succeeded for
 `dea14774931733d70a01332855c12084d76aeb33`. Production-code delta from
-`889286e` through `dea1477` is lint-only. Do not iterate this code slice
-unless Playwright exposes a defect. Playwright MCP remains next.
+`889286e` through `dea1477` is lint-only. Do not iterate this UI slice
+unless Playwright exposes a defect. Playwright MCP for Text Session
+journeys is **complete** (2026-08-17): live API/SSE evidence plus held
+synthetic SSE so the browser stays `connected`. Held-stream revoke now
+closes the connection. Production-shaped internal end-to-end proof is
+next.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0016`
@@ -2093,22 +2108,26 @@ surfaces.
 | Independent requested-action effect (`SESS-DEC-35`, `AC-SESS-43`) | passed; **approved** `053de74` | Red (2026-08-16): `effect_failed` plus accepted timer had `HasPendingIndependentActionEffect`; cutoff left the accepted timer item `not_attempted`. Green: pending work requires rejected+`not_attempted`; cutoff item is `no_domain_effect`; coordinator retry after cutoff/`effect_failed` writes no second complete audit/outbox. Confirmation: Sessions 367/367; architecture 29/29; `SessionRuntimeRepositoryTests` 24/24. External review of `053de74` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Closes `83cc0dc`. GitHub exposed no status checks or PR-triggered workflow runs for `053de74` at review time. Frozen `0005`–`0016` unchanged. |
 | Synthetic browser runtime adapter (`UI-SESS-DEC-13`–`15`) | passed; focused runtime | Red (2026-08-16): active SSE without a trigger emitted fragment+complete; new scenario grants returned 400. Green: `SyntheticSessionRuntimeAdapterTests` 19/19; `SyntheticBrowserRuntimeTests` 27/27; full `FlexAgent.Runtime.Tests` 56/56. SSE read is replay-only; participant reply, opening/closing, no-action, suppressed/execution failure, default/timer visible work, replacement silence, duplicate revision, pause/resume (paused fire suppressed; resume then fire publishes), reconnect cursor, and cutoff are scenario-scripted. Consistency pass: `session-pause-resume` now admits timer work after resume. Harness timer fire requires the API key. |
 | Text Session UI (`UI-SESS-DEC-13`–`15`) | passed focused web unit; **approved** and **CI-green** `dea1477` | Red (2026-08-16): composer **Message**, ignored `work_state`, empty Agent rows. Green through `889286e` closed reconnect, lost-send, identity-reconcile, dead-key, and never-arrived POST races. Lint-only follow-up `dea1477` cleared unnecessary `??` / exhaustiveness checks. External review of `dea1477` (2026-08-17): **approved** 0 P0 / 0 P1 / 0 P2. Closes `c53afa2` → `cd73929` → `8ae8457` → `e007a28` → `889286e`. Confirmation: Implementation and Documentation push workflows succeeded at `dea1477`. Local: `sessionRuntimeView.test.ts` 21/21; `SessionPage.test.tsx` 30/30; full web `vitest` 55/55; `tsc -b --noEmit` passed. Stop iterating this slice unless Playwright exposes a defect. Playwright MCP remains the next plan item. |
+| Playwright MCP Text Session journeys (`UI-SESS-DEC-8`, `UI-SESS-DEC-13`–`15`) | passed live browser; held synthetic SSE | Red (2026-08-17): live Session stayed **Reconnecting** because dump-once SSE closed; focused test `Held_session_sse_emits_replay_complete_then_later_events_on_the_same_connection` failed (`: replay-complete` absent). Green: stream holds after replay-complete and later send/timer events arrive on the same connection. Consistency review red: `Held_session_sse_completes_when_scenario_access_is_revoked` timed out; green: revoke completes listeners and a revoked subscribe does not hold. Held-SSE tests 2/2; `verify-dotnet.sh` 775/775. Live Playwright (desktop 1280×800, narrow 390×844, 320×256 reflow, light/dark, `prefers-reduced-motion: reduce`): empty Active, Ctrl+Enter send + Agent reply, pause/resume, reload replay, complete/terminal/Dormant, participant no-action (You kept, no Agent row, announced once), timer-triggered Agent check-in without a You row, timer no-action (announce, no persistent status, no You/Agent), execution-failure turn status, permission revoke **Access denied**, SSE abort **Reconnecting** with send disabled. Artifacts under `.playwright-mcp/` including `page-2026-08-16T17-34-31-992Z.png` (connected empty), `...17-35-14-105Z.png` (populated), `...17-35-42-980Z.png` (paused light), `...17-36-15-115Z.png` (paused dark), `...17-36-40-729Z.png` (narrow), `...17-36-59-477Z.png` (400% reflow), `...17-38-50-453Z.png` (no-action), `...17-39-26-400Z.png` (timer message), `...17-39-56-918Z.png` (timer no-action), `...17-40-22-584Z.png` (execution failure), `...17-41-33-242Z.png` (permission loss), `...17-42-13-806Z.png` (reconnecting). Residual: `UI-SESS-DEC-10` Complete confirmation still absent; disabled primary buttons remain brand-colored. |
 | `a1dc86f` P2 `revision_id` required | passed; **approved** `71a7721` | Red (2026-08-16): null/empty/whitespace `revision_id` returned 204 and defaulted to `"1"`. Green: those three cases return 400 and a later `"1"` fire still publishes; closing from paused emits closing then terminal. External review of `71a7721` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Non-blocking trim identity folded: `" 1 "` then `"1"` is one stream. Confirmation: `SyntheticSessionRuntimeAdapterTests` 24/24; `FlexAgent.Runtime.Tests` 61/61. GitHub exposed no status checks or PR-triggered workflow runs for `71a7721` at review time. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
-| Web lint/type/unit/build/e2e | pending | |
-| Playwright accessibility/responsive/visual evaluation | pending | |
-| Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | pending | |
+| Web lint/type/unit/build/e2e | local web CI script passed; Playwright e2e not in GitHub web job | `bash build/scripts/verify-web.sh` (2026-08-17): frozen install, boundary check, contracts JCS 8/8, eslint warning-only `react-refresh/only-export-components` in `web/src/api/browser-api.tsx`, `tsc -b --noEmit`, vitest 55/55, production build. GitHub Implementation `web` job matches this script and does not run Playwright e2e. |
+| Playwright accessibility/responsive/visual evaluation | passed live MCP | Desktop, narrow, 400% reflow, light/dark, reduced motion, no-action, timer message/no-action, pause/resume, reload replay, reconnecting, execution failure, permission loss, terminal. Artifact dir `.playwright-mcp/`. |
+| Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | local CI-equivalent passed (2026-08-17); GitHub push not claimed | `git diff --check` clean; `python3 scripts/check_docs.py` passed. `verify-web.sh` as above. `verify-dotnet.sh`: 775/775, Release publish, no `appsettings.Development.json`. `gitleaks detect` no leaks. NuGet `--vulnerable --include-transitive` none. `pnpm audit --audit-level=high` exit 0 (2 moderate). Native OCI `flex-agent-oci-{api,worker,spa}:local`. CI-shaped `linux/amd64` `flex-agent-{api,worker,spa}:linux-amd64`. `scan-oci-image-sboms.sh` exit 0 (`--fail-on critical`; SPA Alpine `tiff` High recorded, not critical). GitHub Implementation/Documentation workflows are not claimed from this machine. |
 | Performance, observability, lifecycle/export, backup/restore verification | pending | |
 | Architecture/backend/frontend/security/privacy/QA review | pending | |
 | Final specification and repository consistency audit | pending | |
 
 # Blockers
 
-None for the synthetic adapter **approved** at `71a7721` (0 High / 0 Medium /
-0 Low; closes `a1dc86f` P2). Host Worker still does not poll due timers.
+None for the Playwright MCP Text Session journeys (2026-08-17). Dump-once
+synthetic SSE that caused native reconnect cycles is fixed: the adapter holds
+the stream after `: replay-complete` and publishes later events on the same
+connection. Revoke now completes those held writers. Host Worker still does
+not poll due timers.
 When that polling is wired, design poison-row/backoff/terminalization for
 permanent `timer_fire.lifecycle_ineligible` instead of default `RetryLater`.
 HTTP production SSE subscription, ADR-002 kernel enforcement, and 60-second
@@ -2117,12 +2136,9 @@ revocation revalidation wait on API host wiring and do not complete
 `PostgresPublishAgentResponseCoordinator`; wiring that coordinator into the
 worker content loop is residual. Live provider wiring and frozen-policy
 rehydration remain later gates. Text Session command admission /
-reconciliation is code-reviewed and CI-green at `dea1477`. Playwright MCP
-for the Text Session UI is the next plan item; this UI slice did not claim
-visual completion.
-Do not treat `352b5da` as approved until the P1/P2 remediations are
-reviewed. Dump-once synthetic SSE can still cause native reconnect
-cycles in a live browser until the adapter holds the stream.
+reconciliation is code-reviewed and CI-green at `dea1477`. `UI-SESS-DEC-10`
+one-step Complete confirmation is still absent on the synthetic Participant
+surface (pre-existing; not required to close `UI-SESS-DEC-13`–`15`).
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
