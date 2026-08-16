@@ -676,9 +676,10 @@ public sealed partial class SessionRuntime
         }
 
         if (invocation.ValidationEffect is not null
-            && invocation.ValidationEffect.EffectOutcome is DecisionEffectOutcomes.Applied
-                or DecisionEffectOutcomes.NoDomainEffect
-                or DecisionEffectOutcomes.EffectFailed)
+            && (invocation.ValidationEffect.EffectOutcome is DecisionEffectOutcomes.Applied
+                    or DecisionEffectOutcomes.NoDomainEffect
+                    or DecisionEffectOutcomes.EffectFailed
+                || HasAppliedTimerAction(invocation.ValidationEffect)))
         {
             return new DecisionValidationResult(
                 invocation.ValidationEffect.ValidationOutcome == DecisionValidationOutcomes.Accepted,
@@ -795,10 +796,7 @@ public sealed partial class SessionRuntime
 
         if (invocation.ValidationEffect.ValidationOutcome != DecisionValidationOutcomes.Accepted)
         {
-            return new DecisionEffectResult(
-                true,
-                InvocationCompletionOutcomeCodes.Decided,
-                DecisionEffectOutcomes.NotAttempted);
+            return ApplyIndependentRequestedActionEffects(invocation, authoritativeUtc);
         }
 
         if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: false))
@@ -1190,6 +1188,42 @@ public sealed partial class SessionRuntime
             AgentMessagePublished: false);
     }
 
+    private DecisionEffectResult ApplyIndependentRequestedActionEffects(
+        AgentInvocation invocation,
+        DateTimeOffset authoritativeUtc)
+    {
+        if (HasAppliedTimerAction(invocation.ValidationEffect!))
+        {
+            invocation.MarkPipelineComplete();
+            return new DecisionEffectResult(
+                true,
+                InvocationCompletionOutcomeCodes.Decided,
+                DecisionEffectOutcomes.NotAttempted);
+        }
+
+        if (!TryAuthorizeClock(authoritativeUtc, out var clockFailure, admission: false))
+        {
+            return new DecisionEffectResult(false, clockFailure, DecisionEffectOutcomes.NotAttempted);
+        }
+
+        ApplyAcceptedTimerReplacement(invocation, authoritativeUtc);
+        if (!HasAppliedTimerAction(invocation.ValidationEffect!))
+        {
+            return new DecisionEffectResult(
+                true,
+                InvocationCompletionOutcomeCodes.Decided,
+                DecisionEffectOutcomes.NotAttempted);
+        }
+
+        Touch(authoritativeUtc);
+        invocation.ValidationEffect!.BindEffectCommitState(SessionVersion, SessionSequence);
+        invocation.MarkPipelineComplete();
+        return new DecisionEffectResult(
+            true,
+            InvocationCompletionOutcomeCodes.Decided,
+            DecisionEffectOutcomes.NotAttempted);
+    }
+
     private DecisionEffectResult ReconcileAppliedEffect(AgentInvocation invocation)
     {
         invocation.MarkPipelineComplete();
@@ -1272,6 +1306,12 @@ public sealed partial class SessionRuntime
         validation.OutputValidations.Any(item =>
             string.Equals(item.Kind, AgentOutputKinds.Message, StringComparison.Ordinal)
             && string.Equals(item.ValidationOutcome, DecisionValidationOutcomes.Accepted, StringComparison.Ordinal));
+
+    private static bool HasAppliedTimerAction(DecisionValidationEffectRecord validation) =>
+        validation.RequestedActionValidations.Any(item =>
+            string.Equals(item.Kind, AgentRequestedActionKinds.NextTimerRequest, StringComparison.Ordinal)
+            && string.Equals(item.ValidationOutcome, DecisionValidationOutcomes.Accepted, StringComparison.Ordinal)
+            && string.Equals(item.EffectOutcome, DecisionEffectOutcomes.Applied, StringComparison.Ordinal));
 
     private string ValidateTimerRecommendation(
         AgentInvocation invocation,

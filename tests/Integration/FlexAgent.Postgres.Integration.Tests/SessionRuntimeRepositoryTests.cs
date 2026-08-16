@@ -1236,6 +1236,107 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     }
 
     [Fact]
+    public async Task Rejected_empty_respond_still_persists_an_accepted_next_timer_effect()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
+        var acceptCoordinator = new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler());
+        var completeCoordinator = new PostgresCompleteInvocationCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new CompleteInvocationHandler());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var admitted = await acceptCoordinator.AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                actor,
+                binding.Ownership,
+                ExpectedSessionVersion: 0,
+                "msg.p.1",
+                "turn.1",
+                "slot.1",
+                "trig.participant.1",
+                "idem.p.empty-respond-timer",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+
+        var envelope = new EnvelopeRecommendation(
+            "adec.empty-respond.0001",
+            admitted.Invocation!.AgentInvocationId,
+            new DateTimeOffset(2026, 8, 13, 0, 0, 2, TimeSpan.Zero),
+            DecisionDispositions.Respond,
+            [],
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.primary",
+                    "PT2M",
+                    "1"),
+            ]);
+
+        var completed = await completeCoordinator.CompleteAsync(
+            new CompleteInvocationCommand(
+                actor,
+                binding.Ownership,
+                admitted.SessionVersion!.Value,
+                admitted.Invocation.AgentInvocationId,
+                envelope,
+                null,
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, completed.ValidationEffect!.ValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, completed.ValidationEffect.EffectOutcome);
+        Assert.Equal(
+            DecisionEffectOutcomes.Applied,
+            Assert.Single(completed.ValidationEffect.RequestedActionValidations).EffectOutcome);
+
+        await using var loadScope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken);
+        var loaded = await repository.LoadForUpdateAsync(
+            binding.Ownership,
+            binding,
+            loadScope.Transaction,
+            CancellationToken);
+        Assert.NotNull(loaded);
+        var clock = await repository.ReadAuthoritativeUtcAsync(loadScope.Transaction, CancellationToken);
+        var revisionId = loaded!.CurrentTimerLane!.ScheduleRevisionId;
+        var duplicate = loaded.ApplyDecisionEffect(admitted.Invocation.AgentInvocationId, clock);
+        await loadScope.CommitAsync(CancellationToken);
+
+        var effect = loaded.Invocations[0].ValidationEffect!;
+        Assert.Equal(DecisionValidationOutcomes.Rejected, effect.ValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, effect.EffectOutcome);
+        Assert.Equal(TimerValidationOutcomes.Accepted, effect.TimerValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.Applied, Assert.Single(effect.RequestedActionValidations).EffectOutcome);
+        Assert.Equal(ResponseSlotStates.Open, loaded.Turns[0].ResponseSlot.State);
+        Assert.Equal(1, loaded.PendingTimerCount);
+        Assert.Equal(TimerLaneStates.Superseded, loaded.TimerSchedules[0].LaneState);
+        Assert.Equal("PT2M", loaded.CurrentTimerLane.RelativeDelay);
+        Assert.Equal(TimerRequestedByCategories.AgentRecommendation, loaded.CurrentTimerLane.RequestedByCategory);
+        Assert.Equal(completed.Decision!.DecisionId, loaded.CurrentTimerLane.DrivingDecisionId);
+        Assert.True(duplicate.Succeeded, duplicate.OutcomeCode);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, duplicate.EffectOutcome);
+        Assert.Equal(revisionId, loaded.CurrentTimerLane.ScheduleRevisionId);
+        Assert.Equal(2, loaded.CurrentTimerLane.ScheduleRevision);
+    }
+
+    [Fact]
     public async Task Envelope_message_fragments_persist_and_hydrate_linked_to_decision_output()
     {
         var organization = await Fixture.SeedOrganizationAsync();

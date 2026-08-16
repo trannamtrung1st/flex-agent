@@ -123,6 +123,86 @@ public sealed class DecisionEnvelopeTests
     }
 
     [Fact]
+    public void Respond_with_zero_valid_outputs_still_effects_an_accepted_next_timer()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var commitAt = SessionRuntimeTestFixtures.T0.AddSeconds(2);
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            invocationId,
+            outputs: [],
+            requestedActions:
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.primary",
+                    "PT2M",
+                    "1"),
+            ]);
+
+        var result = session.CompleteInvocation(invocationId, envelope, commitAt);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.NotNull(result.Decision);
+        Assert.Null(result.ExecutionOutcome);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, result.ValidationEffect!.ValidationOutcome);
+        Assert.Equal(RejectionReasonCategories.PayloadInvalid, result.ValidationEffect.RejectionReasonCategory);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, result.ValidationEffect.EffectOutcome);
+        Assert.Equal(TimerValidationOutcomes.Accepted, result.ValidationEffect.TimerValidationOutcome);
+        var timerAction = Assert.Single(result.ValidationEffect.RequestedActionValidations);
+        Assert.Equal(DecisionValidationOutcomes.Accepted, timerAction.ValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.Applied, timerAction.EffectOutcome);
+        Assert.Equal(ResponseSlotStates.Open, session.Turns[0].ResponseSlot.State);
+        Assert.NotEqual(ResponseSlotStates.IntentionalNoAction, session.Turns[0].ResponseSlot.State);
+        Assert.False(result.PublicationPathClaimed);
+        Assert.Equal(1, session.PendingTimerCount);
+        Assert.Equal(TimerLaneStates.Superseded, session.TimerSchedules[0].LaneState);
+        var pending = session.CurrentTimerLane!;
+        Assert.Equal(2, pending.ScheduleRevision);
+        Assert.Equal("PT2M", pending.RelativeDelay);
+        Assert.Equal(TimerRequestedByCategories.AgentRecommendation, pending.RequestedByCategory);
+        Assert.Equal(result.Decision.DecisionId, pending.DrivingDecisionId);
+        Assert.Equal(commitAt.AddMinutes(2), pending.DueAt);
+    }
+
+    [Fact]
+    public void Voice_only_respond_still_effects_an_accepted_next_timer()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            invocationId,
+            outputs: [SessionRuntimeTestFixtures.VoiceOutput()],
+            requestedActions:
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.primary",
+                    "PT3M",
+                    "1"),
+            ]);
+
+        var result = session.CompleteInvocation(
+            invocationId, envelope, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, result.ValidationEffect!.ValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, result.ValidationEffect.EffectOutcome);
+        Assert.Equal(TimerValidationOutcomes.Accepted, result.ValidationEffect.TimerValidationOutcome);
+        Assert.Equal(
+            DecisionEffectOutcomes.Applied,
+            Assert.Single(result.ValidationEffect.RequestedActionValidations).EffectOutcome);
+        Assert.Equal(ResponseSlotStates.Open, session.Turns[0].ResponseSlot.State);
+        Assert.False(result.PublicationPathClaimed);
+        Assert.Equal("PT3M", session.CurrentTimerLane!.RelativeDelay);
+        Assert.Equal(TimerRequestedByCategories.AgentRecommendation, session.CurrentTimerLane.RequestedByCategory);
+    }
+
+    [Fact]
     public void Model_authored_output_id_and_reviewer_audience_are_rejected_per_item()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();

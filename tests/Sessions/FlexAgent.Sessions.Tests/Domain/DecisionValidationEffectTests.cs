@@ -129,6 +129,86 @@ public sealed class DecisionValidationEffectTests
     }
 
     [Fact]
+    public void Duplicate_apply_of_rejected_communication_does_not_install_a_second_timer_replacement()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            invocationId,
+            outputs: [],
+            requestedActions:
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.primary",
+                    "PT2M",
+                    "1"),
+            ]);
+        session.RecordDecision(invocationId, envelope, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        session.ValidateDecision(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        var first = session.ApplyDecisionEffect(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(3));
+        var firstRevisionId = session.CurrentTimerLane!.ScheduleRevisionId;
+        var duplicate = session.ApplyDecisionEffect(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(4));
+        var revalidated = session.ValidateDecision(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(5));
+
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        Assert.True(duplicate.Succeeded, duplicate.OutcomeCode);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, first.EffectOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, duplicate.EffectOutcome);
+        Assert.False(first.PublicationPathClaimed);
+        Assert.False(duplicate.PublicationPathClaimed);
+        Assert.Equal(1, session.PendingTimerCount);
+        Assert.Equal(firstRevisionId, session.CurrentTimerLane.ScheduleRevisionId);
+        Assert.Equal(2, session.CurrentTimerLane.ScheduleRevision);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, revalidated.ValidationOutcome);
+        Assert.Single(session.Invocations[0].ValidationHistory);
+        Assert.Equal(
+            DecisionEffectOutcomes.Applied,
+            Assert.Single(session.Invocations[0].ValidationEffect!.RequestedActionValidations).EffectOutcome);
+    }
+
+    [Fact]
+    public void Rejected_communication_does_not_rearm_an_accepted_timer_after_cutoff()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            invocationId,
+            outputs: [],
+            requestedActions:
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.primary",
+                    "PT2M",
+                    "1"),
+            ]);
+        session.RecordDecision(invocationId, envelope, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        var validated = session.ValidateDecision(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        session.BeginCompleting(SessionRuntimeTestFixtures.T0.AddSeconds(3));
+
+        var applied = session.ApplyDecisionEffect(invocationId, SessionRuntimeTestFixtures.T0.AddSeconds(4));
+
+        Assert.Equal(TimerValidationOutcomes.Accepted, validated.TimerValidationOutcome);
+        Assert.True(applied.Succeeded, applied.OutcomeCode);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, applied.EffectOutcome);
+        Assert.False(applied.PublicationPathClaimed);
+        Assert.Equal(0, session.PendingTimerCount);
+        Assert.Equal(TimerLaneStates.Cancelled, session.TimerSchedules[0].LaneState);
+        Assert.DoesNotContain(
+            session.TimerSchedules,
+            revision => revision.RequestedByCategory == TimerRequestedByCategories.AgentRecommendation);
+        Assert.Equal(
+            DecisionEffectOutcomes.NotAttempted,
+            Assert.Single(session.Invocations[0].ValidationEffect!.RequestedActionValidations).EffectOutcome);
+    }
+
+    [Fact]
     public void Well_formed_prohibited_decision_is_rejected_and_causes_no_effect()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();

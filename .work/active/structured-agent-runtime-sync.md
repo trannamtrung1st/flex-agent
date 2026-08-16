@@ -817,7 +817,7 @@ and test reviews have no unresolved blocking findings.
     `LifecycleIneligible` (unresolved binding) instead of default
     `RetryLater`. Harmless abort-query duplicate `lane_state` predicate
     folded here.
-- [ ] Follow-up (pre-existing, not the timer domain slice): when
+- [x] Follow-up (pre-existing, not the timer domain slice): when
   communication/output validation fails, still effect independently valid
   requested actions (`SESS-DEC-35`, `AC-SESS-43`). `ApplyDecisionEffect`
   currently returns `NotAttempted` whenever overall `ValidationOutcome` is
@@ -886,14 +886,24 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
+Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) is **green**
+in this working tree. Rejected communication/output validation still
+effects an independently accepted next-timer action. Decision-level
+`ValidationOutcome` stays `rejected` and Decision-level `EffectOutcome`
+stays `not_attempted` (empty presentation is not `no_action` and does
+not claim a publication path). The accepted timer item records `applied`.
+Duplicate apply, revalidation, reload, and timer-Invocation successor
+selection do not install a second replacement or the default successor.
+Frozen `0005`–`0016` unchanged. Worker host stays idle. Next is the
+synthetic adapter.
+
 One-lane scheduler **cutoff/terminal lifecycle persist and timer-fire ACK**
 is **approved** at `1c11744`. External review (2026-08-16) **approved:
 0 High / 0 Medium / 0 Low.** Combined CI is not claimed green: GitHub CLI
 had no auth here; the reviewer saw Documentation pass and Implementation
-still in progress. The one-lane scheduler parent is closed. Next is the
-pre-existing independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`)
-or the synthetic adapter. Worker host stays idle. When due-timer polling
-is wired, design poison-row/backoff for permanent `LifecycleIneligible`.
+still in progress. The one-lane scheduler parent is closed. When due-timer
+polling is wired, design poison-row/backoff for permanent
+`LifecycleIneligible`.
 
 HTTP SSE subscription and 60-second revocation revalidation remain later
 host work.
@@ -1064,6 +1074,16 @@ surfaces.
 
 # Decisions
 
+- Independent requested-action effect (2026-08-16, `SESS-DEC-35`,
+  `AC-SESS-43`): when communication/output validation is rejected,
+  `ApplyDecisionEffect` still applies an independently accepted
+  `next_timer_request`. Decision-level `EffectOutcome` remains
+  `not_attempted` so the empty presentation is not recorded as
+  `no_action` and `PublicationPathClaimed` stays false. Per-item timer
+  effect is `applied`. Revalidation and duplicate apply treat an already
+  applied timer item as terminal so a second replacement is not
+  installed. `ApplyAcceptedTimerReplacement` does not rearm after cutoff
+  (`SESS-DEC-26`). Frozen `0005`–`0016` unchanged.
 - Timer-lane persist (2026-08-15): additive `0016` stores contract `lane_state`
   and maps `superseded`→`replaced`, `expired`→`cancelled` on the frozen `0005`
   `state` column. `FireDueTimer` skips remaining-delay checks for `Claimed`
@@ -1430,11 +1450,11 @@ surfaces.
   the lane with no successor; default cadence now arms frozen while `Paused`
   and `Resume` recomputes `due_at` (`REQ-SESS-76`).
 - Pre-existing structured-output follow-up (noted in `0d738db` approval, not
-  caused by the timer remediations): `ApplyDecisionEffect` returns
-  `NotAttempted` when overall `ValidationOutcome` is rejected, so an
-  independently valid requested action is not effected. `SESS-DEC-35` and
-  `AC-SESS-43` require independent item effect. Track on the envelope/runtime
-  follow-up list; do not treat as a timer-slice defect.
+  caused by the timer remediations): closed in this working tree.
+  `ApplyDecisionEffect` now effects an independently accepted next-timer
+  action when overall `ValidationOutcome` is rejected. Decision-level
+  `EffectOutcome` stays `not_attempted`; the timer item is `applied`.
+  Empty `respond` is still not `no_action`.
 - External review of `e2f9cf0` (2026-08-15): **approved**, 0 P0 / 0 P1 / 0 P2 /
   0 P3 (sequence with `de58503`; `2aa0718` Voice TODO only). Original-command
   retry at `V` reconciles; digest mismatch is distinct from `StaleVersion`;
@@ -1877,6 +1897,7 @@ surfaces.
 | ADR-011 rolling validation, frozen-bound backpressure, and worker content-phase (`SESS-DEC-13`, `REQ-SESS-8`, `REQ-SESS-55`–`60`, `AC-SESS-32`) | passed; **approved** `303a11f` | Red (2026-08-15): compile failed for missing bound/validation outcome codes, `ProviderContentNormalizer`, and `EnqueueContent`. Green: oversized/count/assembled/in-flight/rate bounds fail closed without mutation; split `<script` keeps the safe prefix; tab/LF/CR recordable; duplicate reconcile does not consume rate; cumulative suffix/skip/prefix-divergence; worker publishes deltas then seals, skips content on `no_action`. External review of `0c04987`: request changes (2 P1 / 2 P2). Remediations in `2fc033e`: zero-fragment `Completed` cancels claimed turn/slot; post-visibility redelivery seals `Incomplete` without streaming; `InFlightExceeded` retries before first fragment. External review of `2fc033e`: request changes (1 P2). Remediation in `303a11f`: post-visibility cancel seals with `EffectiveClaimCleanupTimeout`; test cancels a real CTS after first delta. External review of `303a11f` (2026-08-15): **approved** 0 P0 / 0 P1 / 0 P2 / 0 P3. Closes `0c04987` → `2fc033e` → `303a11f`. GitHub exposed no combined CI status for `303a11f` at review time. Residual: idle Worker host; processor commits on the loaded aggregate; HTTP SSE/`REQ-SESS-59` host work. Eventual coordinator wiring must keep post-visibility terminalization. |
 | `5b2a3db` persist/due-claim remediations (budget poison row, populated `0016` backfill) | passed; **approved** `bcd9ac8` | Red (2026-08-16): successor still armed at `MaxTimerTriggeredInvocationsPerSession = 1` (`PendingTimerCount` 1); recovered due successor stayed `pending`. Green: no successor when another timer Invocation is not permitted; `BudgetExhausted` expires the revision and the coordinator persists it; populated `0015→0016` reconstructs ~10-minute remaining and `agent_recommendation` from `source_decision_id`. Confirmation: Sessions 344/344; architecture 29/29; timer persist+upgrade 25/25; `git diff --check` and `python3 scripts/check_docs.py` passed. Frozen `0005`–`0015` unchanged. External review of `bcd9ac8` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. GitHub exposed no combined CI status for `bcd9ac8` at review time. Host wiring must ACK `timer_fire.budget_exhausted` and not retry. |
 | Timer-lane cutoff persist and fire ACK (`SESS-DEC-5`, `SESS-DEC-26`, `REQ-SESS-60`, `REQ-SESS-75`) | passed; **approved** `1c11744` | Red (2026-08-16): compile failed for missing `ChangeSessionLifecycleCommand`, `DurableTimerFireProcessor`, and `PostgresSessionLifecycleCoordinator`. Green: begin-completing/abort cancel the timer and seal a visible prefix; original-command cutoff retry reconciles; resume on never-paused Active is ineligible; stale Resume after later Active work is `StaleVersion`; `BudgetExhausted` is `acknowledged` not `retry_later`; persist writes cancelled `lane_state` plus `session.agent.message.sealed`; outbox failure leaves `open`+pending; duplicate cutoff emits one seal wake-up. Confirmation after consistency review: Sessions 359/359; architecture 29/29; Postgres 148/148. External review of `1c11744` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Combined CI not claimed green (Documentation seen green; Implementation in progress at review time; `gh` unauthenticated here). Harmless abort-query duplicate `lane_state` predicate folded. Frozen `0005`–`0016` unchanged. Worker host stays idle. |
+| Independent requested-action effect (`SESS-DEC-35`, `AC-SESS-43`) | passed; domain+repository | Red (2026-08-16): empty `respond` plus accepted `PT2M` left the timer item `not_attempted` and schedule revision `1`. Consistency review red: staged validate then `BeginCompleting` then apply rearmed a cancelled lane (`PendingTimerCount` 1). Green: empty and voice-only `respond` apply the timer without `no_action` or a publication claim; duplicate apply/revalidation keep one replacement; timer Invocation installs the accepted successor instead of default; cutoff apply leaves the cancelled default and does not add an agent recommendation. Confirmation: Sessions 364/364; architecture 29/29; `SessionRuntimeRepositoryTests` 21/21 including persist/reload of rejected communication plus applied timer. Frozen `0005`–`0016` unchanged. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
@@ -1890,12 +1911,11 @@ surfaces.
 
 # Blockers
 
-None for the one-lane scheduler **cutoff persist / timer-fire ACK** slice
-(`1c11744`). Next is the pre-existing independent-action follow-up or the
-synthetic adapter. Host Worker still does not poll due timers. When that
-polling is wired, design poison-row/backoff/terminalization for permanent
-`timer_fire.lifecycle_ineligible` instead of default `RetryLater`. HTTP
-production SSE subscription, ADR-002 kernel enforcement, and 60-second
+None for the independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`).
+Next is the synthetic adapter. Host Worker still does not poll due timers.
+When that polling is wired, design poison-row/backoff/terminalization for
+permanent `timer_fire.lifecycle_ineligible` instead of default `RetryLater`.
+HTTP production SSE subscription, ADR-002 kernel enforcement, and 60-second
 revocation revalidation wait on API host wiring and do not complete
 `REQ-SESS-59`. PostgreSQL fragment persist still goes through
 `PostgresPublishAgentResponseCoordinator`; wiring that coordinator into the

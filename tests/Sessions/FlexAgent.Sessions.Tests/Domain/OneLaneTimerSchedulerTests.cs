@@ -347,6 +347,47 @@ public sealed class OneLaneTimerSchedulerTests
     }
 
     [Fact]
+    public void Empty_respond_on_a_timer_invocation_still_installs_an_accepted_successor()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var fired = session.FireDueTimer(1, SessionRuntimeTestFixtures.T0.AddMinutes(5));
+        var invocationId = fired.Admission!.Invocation!.AgentInvocationId;
+        var completeAt = SessionRuntimeTestFixtures.T0.AddMinutes(5).AddSeconds(2);
+        var envelope = SessionRuntimeTestFixtures.Envelope(
+            invocationId,
+            outputs: [],
+            requestedActions:
+            [
+                new RequestedActionRecommendation(
+                    AgentRequestedActionKinds.NextTimerRequest,
+                    "act.timer.primary",
+                    "PT2M",
+                    "1"),
+            ]);
+
+        var result = session.CompleteInvocation(invocationId, envelope, completeAt);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(DecisionValidationOutcomes.Rejected, result.ValidationEffect!.ValidationOutcome);
+        Assert.Equal(DecisionEffectOutcomes.NotAttempted, result.ValidationEffect.EffectOutcome);
+        Assert.Equal(TimerValidationOutcomes.Accepted, result.ValidationEffect.TimerValidationOutcome);
+        Assert.Equal(
+            DecisionEffectOutcomes.Applied,
+            Assert.Single(result.ValidationEffect.RequestedActionValidations).EffectOutcome);
+        Assert.Empty(session.Turns);
+        Assert.False(result.PublicationPathClaimed);
+        Assert.Equal(1, session.PendingTimerCount);
+        var successor = session.CurrentTimerLane!;
+        Assert.Equal(2, successor.ScheduleRevision);
+        Assert.Equal("PT2M", successor.RelativeDelay);
+        Assert.Equal(TimerRequestedByCategories.AgentRecommendation, successor.RequestedByCategory);
+        Assert.Equal(completeAt.AddMinutes(2), successor.DueAt);
+        Assert.DoesNotContain(
+            session.TimerSchedules,
+            revision => revision.RequestedByCategory == TimerRequestedByCategories.SuccessorAfterFire);
+    }
+
+    [Fact]
     public void Concurrent_non_timer_replacement_during_long_running_timer_wins_expected_revision()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession(

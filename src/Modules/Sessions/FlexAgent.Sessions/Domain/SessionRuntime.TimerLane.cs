@@ -140,6 +140,7 @@ public sealed partial class SessionRuntime
         if (validation is null
             || nextTimer is null
             || validation.TimerValidationOutcome != TimerValidationOutcomes.Accepted
+            || HasCutoff()
             || !Iso8601PositiveDuration.TryParse(nextTimer.RelativeDelay, out var delay))
         {
             validation?.BindTimerActionEffect(applied: false);
