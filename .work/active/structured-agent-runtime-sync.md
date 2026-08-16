@@ -878,7 +878,9 @@ and test reviews have no unresolved blocking findings.
     `confirmed_not_committed`; while still uncertain, allow a deliberate
     exact retry of the same command envelope (`UI-SESS-DEC-5`, `REQ-SESS-26`).
     External review of `889286e` (2026-08-17): **approved**, 0 P0 / 0 P1 /
-    0 P2. Closes `e007a28`. Playwright MCP remains next.
+    0 P2. Closes `e007a28`. External review of `dea1477` (2026-08-17):
+    **approved**, 0 P0 / 0 P1 / 0 P2. Implementation and Documentation
+    push workflows succeeded at `dea1477`. Playwright MCP remains next.
 - [ ] Exercise the changed journey through real API/SSE interactions with
   Playwright MCP. Inspect accessibility snapshots and screenshots at desktop
   and narrow viewports; cover keyboard/focus, no-action, timer-triggered message
@@ -930,10 +932,12 @@ claimed green: GitHub exposed no status checks or PR-triggered workflow
 runs for `71a7721` at review time. Trimmed `" 1 "` and `"1"` are the
 same revision identity. Text Session UI command admission / lost-response /
 reconciliation (`UI-SESS-DEC-5`, `REQ-SESS-26`, `AC-SESS-4`) is **approved**
-at `889286e` (2026-08-17): 0 P0 / 0 P1 / 0 P2. Closes `c53afa2` → `cd73929`
-→ `8ae8457` → `e007a28`. Combined CI is not claimed green: GitHub exposed
-no status checks or PR-triggered workflow runs for `889286e` at review
-time. Playwright MCP remains next.
+and **CI-green** at `dea1477` (2026-08-17): 0 P0 / 0 P1 / 0 P2. Closes
+`c53afa2` → `cd73929` → `8ae8457` → `e007a28` → `889286e`. Implementation
+and Documentation push workflows succeeded for
+`dea14774931733d70a01332855c12084d76aeb33`. Production-code delta from
+`889286e` through `dea1477` is lint-only. Do not iterate this code slice
+unless Playwright exposes a defect. Playwright MCP remains next.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0016`
@@ -1606,8 +1610,11 @@ surfaces.
   `confirmed_not_committed` retires the command identity; **Retry this send**
   resubmits the same unresolved envelope, including the original
   `expected_version`. External review of `889286e` (2026-08-17):
-  **approved**, 0 P0 / 0 P1 / 0 P2. Closes `e007a28`. Playwright MCP
-  remains next.
+  **approved**, 0 P0 / 0 P1 / 0 P2. Closes `e007a28`. External review of
+  `dea1477` (2026-08-17): **approved**, 0 P0 / 0 P1 / 0 P2. Implementation
+  and Documentation push workflows succeeded. Command admission /
+  reconciliation is code-reviewed and CI-green. Playwright MCP remains
+  next.
 - Timer due-claim (2026-08-16, `bcd9ac8`): `timer_fire.budget_exhausted`
   returns `Succeeded=false` after committing `Expired`.
   `DurableTimerFireProcessor` now acknowledges that outcome (`acknowledged`)
@@ -2085,7 +2092,7 @@ surfaces.
 | Timer-lane cutoff persist and fire ACK (`SESS-DEC-5`, `SESS-DEC-26`, `REQ-SESS-60`, `REQ-SESS-75`) | passed; **approved** `1c11744` | Red (2026-08-16): compile failed for missing `ChangeSessionLifecycleCommand`, `DurableTimerFireProcessor`, and `PostgresSessionLifecycleCoordinator`. Green: begin-completing/abort cancel the timer and seal a visible prefix; original-command cutoff retry reconciles; resume on never-paused Active is ineligible; stale Resume after later Active work is `StaleVersion`; `BudgetExhausted` is `acknowledged` not `retry_later`; persist writes cancelled `lane_state` plus `session.agent.message.sealed`; outbox failure leaves `open`+pending; duplicate cutoff emits one seal wake-up. Confirmation after consistency review: Sessions 359/359; architecture 29/29; Postgres 148/148. External review of `1c11744` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Combined CI not claimed green (Documentation seen green; Implementation in progress at review time; `gh` unauthenticated here). Harmless abort-query duplicate `lane_state` predicate folded. Frozen `0005`–`0016` unchanged. Worker host stays idle. |
 | Independent requested-action effect (`SESS-DEC-35`, `AC-SESS-43`) | passed; **approved** `053de74` | Red (2026-08-16): `effect_failed` plus accepted timer had `HasPendingIndependentActionEffect`; cutoff left the accepted timer item `not_attempted`. Green: pending work requires rejected+`not_attempted`; cutoff item is `no_domain_effect`; coordinator retry after cutoff/`effect_failed` writes no second complete audit/outbox. Confirmation: Sessions 367/367; architecture 29/29; `SessionRuntimeRepositoryTests` 24/24. External review of `053de74` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Closes `83cc0dc`. GitHub exposed no status checks or PR-triggered workflow runs for `053de74` at review time. Frozen `0005`–`0016` unchanged. |
 | Synthetic browser runtime adapter (`UI-SESS-DEC-13`–`15`) | passed; focused runtime | Red (2026-08-16): active SSE without a trigger emitted fragment+complete; new scenario grants returned 400. Green: `SyntheticSessionRuntimeAdapterTests` 19/19; `SyntheticBrowserRuntimeTests` 27/27; full `FlexAgent.Runtime.Tests` 56/56. SSE read is replay-only; participant reply, opening/closing, no-action, suppressed/execution failure, default/timer visible work, replacement silence, duplicate revision, pause/resume (paused fire suppressed; resume then fire publishes), reconnect cursor, and cutoff are scenario-scripted. Consistency pass: `session-pause-resume` now admits timer work after resume. Harness timer fire requires the API key. |
-| Text Session UI (`UI-SESS-DEC-13`–`15`) | passed focused web unit; **approved** `889286e` | Red (2026-08-16): composer **Message**, ignored `work_state`, empty Agent rows. Green through `889286e` closed reconnect, lost-send, identity-reconcile, dead-key, and never-arrived POST races. External review of `889286e` (2026-08-17): **approved** 0 P0 / 0 P1 / 0 P2. Closes `c53afa2` → `cd73929` → `8ae8457` → `e007a28`. Confirmation: `sessionRuntimeView.test.ts` 21/21; `SessionPage.test.tsx` 30/30; full web `vitest` 55/55; `tsc -b --noEmit` passed. Lost 409 then identity non-commit mints a new key; a POST that never arrived recovers via **Retry this send** with the same key and original `expected_version`. GitHub exposed no status checks or PR-triggered workflow runs for `889286e` at review time. Playwright MCP remains the next plan item. |
+| Text Session UI (`UI-SESS-DEC-13`–`15`) | passed focused web unit; **approved** and **CI-green** `dea1477` | Red (2026-08-16): composer **Message**, ignored `work_state`, empty Agent rows. Green through `889286e` closed reconnect, lost-send, identity-reconcile, dead-key, and never-arrived POST races. Lint-only follow-up `dea1477` cleared unnecessary `??` / exhaustiveness checks. External review of `dea1477` (2026-08-17): **approved** 0 P0 / 0 P1 / 0 P2. Closes `c53afa2` → `cd73929` → `8ae8457` → `e007a28` → `889286e`. Confirmation: Implementation and Documentation push workflows succeeded at `dea1477`. Local: `sessionRuntimeView.test.ts` 21/21; `SessionPage.test.tsx` 30/30; full web `vitest` 55/55; `tsc -b --noEmit` passed. Stop iterating this slice unless Playwright exposes a defect. Playwright MCP remains the next plan item. |
 | `a1dc86f` P2 `revision_id` required | passed; **approved** `71a7721` | Red (2026-08-16): null/empty/whitespace `revision_id` returned 204 and defaulted to `"1"`. Green: those three cases return 400 and a later `"1"` fire still publishes; closing from paused emits closing then terminal. External review of `71a7721` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Non-blocking trim identity folded: `" 1 "` then `"1"` is one stream. Confirmation: `SyntheticSessionRuntimeAdapterTests` 24/24; `FlexAgent.Runtime.Tests` 61/61. GitHub exposed no status checks or PR-triggered workflow runs for `71a7721` at review time. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
@@ -2109,8 +2116,10 @@ revocation revalidation wait on API host wiring and do not complete
 `REQ-SESS-59`. PostgreSQL fragment persist still goes through
 `PostgresPublishAgentResponseCoordinator`; wiring that coordinator into the
 worker content loop is residual. Live provider wiring and frozen-policy
-rehydration remain later gates. Playwright MCP for the Text Session UI is
-the next plan item; this UI slice did not claim visual completion.
+rehydration remain later gates. Text Session command admission /
+reconciliation is code-reviewed and CI-green at `dea1477`. Playwright MCP
+for the Text Session UI is the next plan item; this UI slice did not claim
+visual completion.
 Do not treat `352b5da` as approved until the P1/P2 remediations are
 reviewed. Dump-once synthetic SSE can still cause native reconnect
 cycles in a live browser until the adapter holds the stream.
