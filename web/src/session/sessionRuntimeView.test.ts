@@ -4,11 +4,11 @@ import {
   commandsEnabled,
   containsForbiddenControlCopy,
   createSessionRuntimeView,
+  evaluateProjectionCommit,
   markConnected,
   markOffline,
   markReconciling,
   markReconnecting,
-  shouldCommitProjection,
   transcriptStatusLabel,
 } from "./sessionRuntimeView";
 import type { SseSessionEventV1 } from "../contracts/v1";
@@ -34,6 +34,15 @@ function workEvent(
 }
 
 describe("sessionRuntimeView", () => {
+  it("does not treat SSE payloads as a live connection while the stream is still connecting", () => {
+    let view = createSessionRuntimeView("active");
+    view = applySseEvent(view, workEvent("1", "queued"));
+
+    expect(view.connectionState).toBe("connecting");
+    expect(commandsEnabled(view.connectionState)).toBe(false);
+    expect(view.turnPhase).toBe("queued");
+  });
+
   it("treats queued and working as Agent presence processing without a transcript message", () => {
     let view = createSessionRuntimeView("active");
     view = applySseEvent(view, workEvent("1", "queued"));
@@ -281,32 +290,49 @@ describe("sessionRuntimeView", () => {
     expect(transcriptStatusLabel({ streaming: false, status: "confirmed" })).toBe("Complete");
   });
 
-  it("commits only the latest projection request that is not older than the committed version", () => {
-    const committed = { session_version: 5, last_sequence: "9" };
+  it("commits only the latest same-Session projection that is not older than the committed version", () => {
+    const committed = { session_id: "sess.synthetic.0001", session_version: 5, last_sequence: "9" };
+    const incomingNewer = {
+      session_id: "sess.synthetic.0001",
+      session_version: 5,
+      last_sequence: "10",
+    };
     expect(
-      shouldCommitProjection({
+      evaluateProjectionCommit({
         requestId: 2,
         latestRequestId: 2,
-        incoming: { session_version: 5, last_sequence: "10" },
+        requestedSessionId: "sess.synthetic.0001",
+        incoming: incomingNewer,
         committed,
       }),
-    ).toBe(true);
+    ).toBe("commit");
     expect(
-      shouldCommitProjection({
+      evaluateProjectionCommit({
         requestId: 1,
         latestRequestId: 2,
-        incoming: { session_version: 4, last_sequence: "8" },
+        requestedSessionId: "sess.synthetic.0001",
+        incoming: { session_id: "sess.synthetic.0001", session_version: 4, last_sequence: "8" },
         committed,
       }),
-    ).toBe(false);
+    ).toBe("superseded");
     expect(
-      shouldCommitProjection({
+      evaluateProjectionCommit({
         requestId: 3,
         latestRequestId: 3,
-        incoming: { session_version: 4, last_sequence: "20" },
+        requestedSessionId: "sess.synthetic.0001",
+        incoming: { session_id: "sess.synthetic.0001", session_version: 4, last_sequence: "20" },
         committed,
       }),
-    ).toBe(false);
+    ).toBe("stale");
+    expect(
+      evaluateProjectionCommit({
+        requestId: 4,
+        latestRequestId: 4,
+        requestedSessionId: "sess.synthetic.0002",
+        incoming: { session_id: "sess.synthetic.0001", session_version: 9, last_sequence: "30" },
+        committed: null,
+      }),
+    ).toBe("superseded");
   });
 
   it("marks connected after reconcile only when the same EventSource epoch is still open", () => {

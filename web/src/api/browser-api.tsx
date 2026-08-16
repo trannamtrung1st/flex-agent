@@ -24,7 +24,7 @@ interface BrowserApiContextValue {
   errorMessage: string | null;
   refresh: () => Promise<void>;
   executeCommand: (command: Omit<BrowserCommandEnvelopeV1, "schema_version">) => Promise<BrowserCommandResultV1>;
-  fetchJson: <T>(path: string) => Promise<T>;
+  fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>;
 }
 
 const BrowserApiContext = createContext<BrowserApiContextValue | null>(null);
@@ -70,7 +70,7 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
     });
   }, [refresh]);
 
-  const fetchJson = useCallback(<T,>(path: string) => apiFetch<T>(path), []);
+  const fetchJson = useCallback(<T,>(path: string, init?: RequestInit) => apiFetch<T>(path, init), []);
 
   const executeCommand = useCallback(
     async (command: Omit<BrowserCommandEnvelopeV1, "schema_version">) => {

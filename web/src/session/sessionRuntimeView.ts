@@ -99,13 +99,36 @@ export function isProjectionAtLeastAsNew(
   return compareSessionSequence(incoming.last_sequence, committed.last_sequence) >= 0;
 }
 
+export type ProjectionCommitDecision = "commit" | "superseded" | "stale";
+
+export function evaluateProjectionCommit(input: {
+  requestId: number;
+  latestRequestId: number;
+  requestedSessionId: string;
+  incoming: { session_id: string; session_version: number; last_sequence?: string | null };
+  committed: { session_id: string; session_version: number; last_sequence?: string | null } | null;
+}): ProjectionCommitDecision {
+  if (input.incoming.session_id !== input.requestedSessionId || input.requestId !== input.latestRequestId) {
+    return "superseded";
+  }
+
+  const committed =
+    input.committed?.session_id === input.requestedSessionId ? input.committed : null;
+  if (!isProjectionAtLeastAsNew(input.incoming, committed)) {
+    return "stale";
+  }
+
+  return "commit";
+}
+
 export function shouldCommitProjection(input: {
   requestId: number;
   latestRequestId: number;
-  incoming: { session_version: number; last_sequence?: string | null };
-  committed: { session_version: number; last_sequence?: string | null } | null;
+  requestedSessionId: string;
+  incoming: { session_id: string; session_version: number; last_sequence?: string | null };
+  committed: { session_id: string; session_version: number; last_sequence?: string | null } | null;
 }): boolean {
-  return input.requestId === input.latestRequestId && isProjectionAtLeastAsNew(input.incoming, input.committed);
+  return evaluateProjectionCommit(input) === "commit";
 }
 
 export function canMarkConnectedAfterReconcile(input: {
@@ -186,7 +209,6 @@ export function applySseEvent(view: SessionRuntimeView, event: SseSessionEventV1
     ...view,
     seenSequences,
     politeAnnouncement: null,
-    connectionState: view.connectionState === "connecting" ? "connected" : view.connectionState,
   };
 
   switch (event.event_type) {

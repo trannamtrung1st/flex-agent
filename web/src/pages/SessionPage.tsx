@@ -21,6 +21,7 @@ import {
   canMarkConnectedAfterReconcile,
   commandsEnabled,
   createSessionRuntimeView,
+  evaluateProjectionCommit,
   isSessionAccessLoss,
   markConnected,
   markOffline,
@@ -28,12 +29,19 @@ import {
   markReconnecting,
   presenceForLifecycle,
   requiresSessionProjectionReconcile,
-  shouldCommitProjection,
   transcriptStatusLabel,
   type AgentPresenceState,
   type SessionRuntimeView,
 } from "../session/sessionRuntimeView";
 import { createIdempotencyKey, mapActionToCommand } from "../utils/commands";
+
+function isAbortError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "name" in error && (error as { name: string }).name === "AbortError";
+}
+
+function isTerminalLifecycle(lifecycleState: string): boolean {
+  return lifecycleState === "completed" || lifecycleState === "terminated" || lifecycleState === "aborted";
+}
 
 const SESSION_UNAVAILABLE_COPY =
   "This Session is not available. Return to My work or use the provided support route.";
@@ -139,14 +147,19 @@ export function SessionPage() {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [projectionError, setProjectionError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const eventSourceEpochRef = useRef(0);
   const projectionRequestIdRef = useRef(0);
-  const committedProjectionRef = useRef<{ session_version: number; last_sequence?: string | null } | null>(
-    null,
-  );
+  const committedProjectionRef = useRef<{
+    session_id: string;
+    session_version: number;
+    last_sequence?: string | null;
+  } | null>(null);
   const hasLoadedSessionRef = useRef(false);
   const hasConnectedOnceRef = useRef(false);
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
   const [streamRetryKey, setStreamRetryKey] = useState(0);
   const runtimeRef = useRef(runtime);
   runtimeRef.current = runtime;
@@ -156,25 +169,35 @@ export function SessionPage() {
       return null;
     }
 
+    const requestedSessionId = sessionId;
     const requestId = ++projectionRequestIdRef.current;
     if (!hasLoadedSessionRef.current) {
       setLoading(true);
     }
 
     try {
-      const projection = await fetchJson<SessionProjectionV1>(`/browser/sessions/${sessionId}`);
-      if (
-        !shouldCommitProjection({
-          requestId,
-          latestRequestId: projectionRequestIdRef.current,
-          incoming: projection,
-          committed: committedProjectionRef.current,
-        })
-      ) {
+      const projection = await fetchJson<SessionProjectionV1>(`/browser/sessions/${requestedSessionId}`, {
+        signal: abortControllerRef.current?.signal,
+      });
+      const decision = evaluateProjectionCommit({
+        requestId,
+        latestRequestId: projectionRequestIdRef.current,
+        requestedSessionId: sessionIdRef.current ?? requestedSessionId,
+        incoming: projection,
+        committed: committedProjectionRef.current,
+      });
+      if (decision === "superseded") {
+        return null;
+      }
+      if (decision === "stale") {
+        if (hasLoadedSessionRef.current) {
+          setProjectionError(PROJECTION_RETRY_COPY);
+        }
         return null;
       }
 
       committedProjectionRef.current = {
+        session_id: projection.session_id,
         session_version: projection.session_version,
         last_sequence: projection.last_sequence,
       };
@@ -184,7 +207,7 @@ export function SessionPage() {
       setProjectionError(null);
       return projection;
     } catch (err: unknown) {
-      if (requestId !== projectionRequestIdRef.current) {
+      if (isAbortError(err) || requestId !== projectionRequestIdRef.current) {
         return null;
       }
 
@@ -235,19 +258,35 @@ export function SessionPage() {
   }, [loadSession]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     hasLoadedSessionRef.current = false;
     hasConnectedOnceRef.current = false;
-    projectionRequestIdRef.current = 0;
     committedProjectionRef.current = null;
+    setSession(null);
+    setMessageText("");
+    setActionError(null);
+    setError(null);
+    setProjectionError(null);
+    setPending(false);
+    setLoading(true);
     setRuntime(createSessionRuntimeView("active"));
+
+    return () => {
+      controller.abort();
+    };
   }, [sessionId]);
 
   useEffect(() => {
     void loadSession();
   }, [loadSession]);
 
+  const streamIsTerminal = Boolean(
+    session && session.session_id === sessionId && isTerminalLifecycle(session.lifecycle_state),
+  );
+
   useEffect(() => {
-    if (!sessionId || !session || session.lifecycle_state === "completed" || session.lifecycle_state === "terminated" || session.lifecycle_state === "aborted") {
+    if (!sessionId || !session || session.session_id !== sessionId || streamIsTerminal) {
       return;
     }
 
@@ -310,14 +349,19 @@ export function SessionPage() {
         eventSourceRef.current = null;
       }
     };
-    // Reconnect when identity, lifecycle, version, or an explicit retry changes.
+    // Keep a healthy EventSource across projection version updates; recreate only for Session identity or explicit retry.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- session object identity is not the subscription key
-  }, [sessionId, session?.lifecycle_state, session?.session_version, streamRetryKey, reconcileSession]);
+  }, [sessionId, session?.session_id, streamIsTerminal, streamRetryKey, reconcileSession]);
 
   const sendAction = session?.permitted_actions.find((action) => action.action_id === "send_message");
 
   const runAction = async (action: PermittedActionV1) => {
-    if (!session || !sessionId || !commandsEnabled(runtimeRef.current.connectionState)) {
+    if (
+      !session ||
+      !sessionId ||
+      session.session_id !== sessionId ||
+      !commandsEnabled(runtimeRef.current.connectionState)
+    ) {
       return;
     }
 
@@ -337,7 +381,7 @@ export function SessionPage() {
         command_id: action.action_id,
         idempotency_key: createIdempotencyKey(),
         command_type: commandType,
-        resource_id: session.session_id,
+        resource_id: sessionId,
         expected_version: session.session_version,
         payload,
       });

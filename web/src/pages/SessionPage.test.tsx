@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, RouterProvider, Routes, createMemoryRouter } from "react-router-dom";
 import { BrowserApiProvider } from "../api/browser-api";
 import type {
   ActorContextV1,
@@ -67,7 +67,7 @@ class MockEventSource {
   onmessage: ((event: MessageEvent<string>) => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
   onopen: (() => void) | null = null;
-  readyState = MockEventSource.OPEN;
+  readyState = MockEventSource.CONNECTING;
 
   constructor(url: string) {
     this.url = url;
@@ -134,6 +134,7 @@ async function openSessionStream(minimumInstances = 1): Promise<MockEventSource>
   });
   const source = MockEventSource.instances[MockEventSource.instances.length - 1];
   act(() => {
+    source.readyState = MockEventSource.OPEN;
     source.onopen?.();
   });
   return source;
@@ -376,6 +377,7 @@ describe("SessionPage Decision presentation", () => {
     });
 
     expect(await screen.findByText(/^session paused$/i)).toBeInTheDocument();
+    expect(MockEventSource.instances).toHaveLength(1);
     expect(screen.queryByRole("button", { name: /send message/i })).not.toBeInTheDocument();
     expect(screen.getByText(/sending is unavailable until the session resumes/i)).toBeInTheDocument();
   });
@@ -693,5 +695,129 @@ describe("SessionPage Decision presentation", () => {
     expect(await screen.findByText(/^incomplete$/i)).toBeInTheDocument();
     expect(screen.queryByText(/^agent is responding$/i)).not.toBeInTheDocument();
     expect(screen.getByText(/visible prefix/i)).toBeInTheDocument();
+  });
+
+  it("keeps Send disabled until the EventSource reports OPEN", async () => {
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Draft that must be kept." } });
+
+    expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
+    await waitFor(() => {
+      expect(MockEventSource.instances[0]?.readyState).toBe(MockEventSource.CONNECTING);
+    });
+
+    await openSessionStream();
+    expect(screen.getByRole("button", { name: /send message/i })).toBeEnabled();
+  });
+
+  it("does not commit a late projection from Session A onto Session B", async () => {
+    const sessionB: SessionProjectionV1 = {
+      ...activeSession,
+      session_id: "sess.synthetic.0002",
+      transcript: [
+        {
+          item_id: "msg.synthetic.participant.b",
+          role: "participant",
+          content: "Session B only.",
+          status: "accepted",
+          occurred_at: "2026-08-16T00:00:00Z",
+        },
+      ],
+    };
+    const pendingA: { resolve: (value: SessionProjectionV1) => void } = {
+      resolve: () => undefined,
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/sessions/sess.synthetic.0001")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              new Promise<SessionProjectionV1>((resolve) => {
+                pendingA.resolve = resolve;
+              }),
+          });
+        }
+        if (url.includes("/browser/sessions/sess.synthetic.0002")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(sessionB) });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    const router = createMemoryRouter(
+      [{ path: "/sessions/:sessionId", element: <SessionPage /> }],
+      { initialEntries: ["/sessions/sess.synthetic.0001"] },
+    );
+    render(
+      <BrowserApiProvider>
+        <RouterProvider router={router} />
+      </BrowserApiProvider>,
+    );
+
+    expect(await screen.findByText(/loading session/i)).toBeInTheDocument();
+
+    await act(async () => {
+      await router.navigate("/sessions/sess.synthetic.0002");
+    });
+
+    expect(await screen.findByText(/session b only/i)).toBeInTheDocument();
+
+    await act(async () => {
+      pendingA.resolve(activeSession);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(/session b only/i)).toBeInTheDocument();
+    expect(screen.queryByText(/ready for the session/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /send message/i })).toBeInTheDocument();
+  });
+
+  it("exposes retry when the latest projection response is older than the committed Session", async () => {
+    let sessionLoads = 0;
+    vi.stubGlobal(
+      "fetch",
+      mockFetch(() => {
+        sessionLoads += 1;
+        if (sessionLoads === 1) {
+          return activeSession;
+        }
+        return {
+          ...activeSession,
+          session_version: 2,
+          last_sequence: "1",
+        };
+      }),
+    );
+
+    renderSession();
+    const source = await openSessionStream();
+
+    act(() => {
+      source.emit({
+        schema_version: "v1",
+        event_type: "session.state.changed.v1",
+        session_id: "sess.synthetic.0001",
+        session_sequence: "19",
+        occurred_at: "2026-08-16T00:00:19Z",
+        payload: { summary: "Session paused." },
+      }, "19");
+    });
+
+    expect(await screen.findByRole("button", { name: /try again/i })).toBeInTheDocument();
+    expect(screen.getByText(/^active$/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
+    expect(screen.queryByText(/^session paused$/i)).not.toBeInTheDocument();
   });
 });
