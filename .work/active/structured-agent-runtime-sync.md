@@ -820,11 +820,13 @@ and test reviews have no unresolved blocking findings.
 - [x] Follow-up (pre-existing, not the timer domain slice): when
   communication/output validation fails, still effect independently valid
   requested actions (`SESS-DEC-35`, `AC-SESS-43`). External review of
-  `83cc0dc` requested changes (1 Medium): pending independent work requires
-  rejected communication, decision-level `not_attempted`, and an accepted
-  timer item that is still `not_attempted`. Cutoff suppression records the
+  `053de74` (2026-08-16): **approved**, 0 High / 0 Medium / 0 Low. Closes
+  `83cc0dc`. Pending independent work is rejected communication whose
+  decision effect is still `not_attempted`; cutoff suppression records the
   accepted timer item as `no_domain_effect`. Prior `da0ea7a` Mediums remain
-  resolved. Frozen `0005`–`0016` unchanged.
+  resolved. GitHub exposed no status checks or PR-triggered workflow runs
+  for `053de74` at review time, so combined CI is not claimed green here.
+  Frozen `0005`–`0016` unchanged.
 - [ ] Extend the non-production synthetic adapter to mirror the browser-safe
   semantics without becoming runtime authority. Add deterministic scenarios for
   Participant reply, Agent opening/closing, Participant and timer no-action,
@@ -889,13 +891,12 @@ and test reviews have no unresolved blocking findings.
 
 # Current state
 
-Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remediates
-`83cc0dc` (1 Medium) in this working tree. Pending independent work is
-rejected communication whose decision effect is still `not_attempted`.
-`effect_failed` with an accepted timer is terminal, not pending. Cutoff
-leaves the accepted timer item as `no_domain_effect` so a completion retry
-reconciles without another save/audit/outbox. Frozen `0005`–`0016`
-unchanged. Worker host stays idle. Next is the synthetic adapter.
+Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) is **approved**
+at `053de74`. External review (2026-08-16) **approved: 0 High / 0 Medium /
+0 Low.** Closes `83cc0dc`. Combined CI is not claimed green: GitHub
+exposed no status checks or PR-triggered workflow runs for `053de74` at
+review time. Frozen `0005`–`0016` unchanged. Worker host stays idle. Next
+is the synthetic adapter.
 
 One-lane scheduler **cutoff/terminal lifecycle persist and timer-fire ACK**
 is **approved** at `1c11744`. External review (2026-08-16) **approved:
@@ -1092,6 +1093,12 @@ surfaces.
   `not_attempted`. Cutoff or other explicit non-apply records the accepted
   timer item as `no_domain_effect` instead of leaving `not_attempted`.
   Frozen `0005`–`0016` unchanged.
+- Independent requested-action effect **approved** (2026-08-16, `053de74`):
+  external review 0 High / 0 Medium / 0 Low; closes `83cc0dc`. Pending
+  independent work requires rejected validation and decision-level
+  `not_attempted`. Cutoff-suppressed accepted timers are item
+  `no_domain_effect`. GitHub exposed no status checks or PR-triggered
+  workflow runs for `053de74` at review time. Next is the synthetic adapter.
 - Timer-lane persist (2026-08-15): additive `0016` stores contract `lane_state`
   and maps `superseded`→`replaced`, `expired`→`cancelled` on the frozen `0005`
   `state` column. `FireDueTimer` skips remaining-delay checks for `Claimed`
@@ -1465,9 +1472,11 @@ surfaces.
   Empty `respond` is still not `no_action`. Review of `da0ea7a` (2 Medium)
   is folded: executable timer is the accepted `LocalRef`; rejected
   validation with a pending accepted timer stays `decision_recorded`
-  until effect. Review of `83cc0dc` (1 Medium) is folded: pending independent
-  work is not `effect_failed` or cutoff-suppressed `not_attempted`; cutoff
-  uses item `no_domain_effect`.
+  until effect. Review of `83cc0dc` (1 Medium) is folded in `053de74`.
+  External review of `053de74` (2026-08-16): **approved**, 0 High / 0 Medium /
+  0 Low. Pending independent work is not `effect_failed` or cutoff-suppressed
+  `not_attempted`; cutoff uses item `no_domain_effect`. GitHub exposed no
+  status checks or PR-triggered workflow runs for `053de74` at review time.
 - External review of `e2f9cf0` (2026-08-15): **approved**, 0 P0 / 0 P1 / 0 P2 /
   0 P3 (sequence with `de58503`; `2aa0718` Voice TODO only). Original-command
   retry at `V` reconciles; digest mismatch is distinct from `StaleVersion`;
@@ -1910,7 +1919,7 @@ surfaces.
 | ADR-011 rolling validation, frozen-bound backpressure, and worker content-phase (`SESS-DEC-13`, `REQ-SESS-8`, `REQ-SESS-55`–`60`, `AC-SESS-32`) | passed; **approved** `303a11f` | Red (2026-08-15): compile failed for missing bound/validation outcome codes, `ProviderContentNormalizer`, and `EnqueueContent`. Green: oversized/count/assembled/in-flight/rate bounds fail closed without mutation; split `<script` keeps the safe prefix; tab/LF/CR recordable; duplicate reconcile does not consume rate; cumulative suffix/skip/prefix-divergence; worker publishes deltas then seals, skips content on `no_action`. External review of `0c04987`: request changes (2 P1 / 2 P2). Remediations in `2fc033e`: zero-fragment `Completed` cancels claimed turn/slot; post-visibility redelivery seals `Incomplete` without streaming; `InFlightExceeded` retries before first fragment. External review of `2fc033e`: request changes (1 P2). Remediation in `303a11f`: post-visibility cancel seals with `EffectiveClaimCleanupTimeout`; test cancels a real CTS after first delta. External review of `303a11f` (2026-08-15): **approved** 0 P0 / 0 P1 / 0 P2 / 0 P3. Closes `0c04987` → `2fc033e` → `303a11f`. GitHub exposed no combined CI status for `303a11f` at review time. Residual: idle Worker host; processor commits on the loaded aggregate; HTTP SSE/`REQ-SESS-59` host work. Eventual coordinator wiring must keep post-visibility terminalization. |
 | `5b2a3db` persist/due-claim remediations (budget poison row, populated `0016` backfill) | passed; **approved** `bcd9ac8` | Red (2026-08-16): successor still armed at `MaxTimerTriggeredInvocationsPerSession = 1` (`PendingTimerCount` 1); recovered due successor stayed `pending`. Green: no successor when another timer Invocation is not permitted; `BudgetExhausted` expires the revision and the coordinator persists it; populated `0015→0016` reconstructs ~10-minute remaining and `agent_recommendation` from `source_decision_id`. Confirmation: Sessions 344/344; architecture 29/29; timer persist+upgrade 25/25; `git diff --check` and `python3 scripts/check_docs.py` passed. Frozen `0005`–`0015` unchanged. External review of `bcd9ac8` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. GitHub exposed no combined CI status for `bcd9ac8` at review time. Host wiring must ACK `timer_fire.budget_exhausted` and not retry. |
 | Timer-lane cutoff persist and fire ACK (`SESS-DEC-5`, `SESS-DEC-26`, `REQ-SESS-60`, `REQ-SESS-75`) | passed; **approved** `1c11744` | Red (2026-08-16): compile failed for missing `ChangeSessionLifecycleCommand`, `DurableTimerFireProcessor`, and `PostgresSessionLifecycleCoordinator`. Green: begin-completing/abort cancel the timer and seal a visible prefix; original-command cutoff retry reconciles; resume on never-paused Active is ineligible; stale Resume after later Active work is `StaleVersion`; `BudgetExhausted` is `acknowledged` not `retry_later`; persist writes cancelled `lane_state` plus `session.agent.message.sealed`; outbox failure leaves `open`+pending; duplicate cutoff emits one seal wake-up. Confirmation after consistency review: Sessions 359/359; architecture 29/29; Postgres 148/148. External review of `1c11744` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Combined CI not claimed green (Documentation seen green; Implementation in progress at review time; `gh` unauthenticated here). Harmless abort-query duplicate `lane_state` predicate folded. Frozen `0005`–`0016` unchanged. Worker host stays idle. |
-| Independent requested-action effect (`SESS-DEC-35`, `AC-SESS-43`) | passed; domain+repository; remediates `83cc0dc` | Red (2026-08-16): `effect_failed` plus accepted timer had `HasPendingIndependentActionEffect`; cutoff left the accepted timer item `not_attempted`. Green: pending work requires rejected+`not_attempted`; cutoff item is `no_domain_effect`; coordinator retry after cutoff/`effect_failed` writes no second complete audit/outbox. Confirmation: Sessions 367/367; architecture 29/29; `SessionRuntimeRepositoryTests` 24/24. Frozen `0005`–`0016` unchanged. |
+| Independent requested-action effect (`SESS-DEC-35`, `AC-SESS-43`) | passed; **approved** `053de74` | Red (2026-08-16): `effect_failed` plus accepted timer had `HasPendingIndependentActionEffect`; cutoff left the accepted timer item `not_attempted`. Green: pending work requires rejected+`not_attempted`; cutoff item is `no_domain_effect`; coordinator retry after cutoff/`effect_failed` writes no second complete audit/outbox. Confirmation: Sessions 367/367; architecture 29/29; `SessionRuntimeRepositoryTests` 24/24. External review of `053de74` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Closes `83cc0dc`. GitHub exposed no status checks or PR-triggered workflow runs for `053de74` at review time. Frozen `0005`–`0016` unchanged. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
@@ -1924,8 +1933,8 @@ surfaces.
 
 # Blockers
 
-None for the independent-action follow-up remediations of `83cc0dc`
-(`SESS-DEC-35`, `AC-SESS-43`). Next is the synthetic adapter. Host Worker still does not poll due timers.
+None for the independent-action follow-up **approved** at `053de74`
+(`SESS-DEC-35`, `AC-SESS-43`; closes `83cc0dc`). Next is the synthetic adapter. Host Worker still does not poll due timers.
 When that polling is wired, design poison-row/backoff/terminalization for
 permanent `timer_fire.lifecycle_ineligible` instead of default `RetryLater`.
 HTTP production SSE subscription, ADR-002 kernel enforcement, and 60-second
