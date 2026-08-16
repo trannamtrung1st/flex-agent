@@ -1,4 +1,13 @@
-import { applySseEvent, containsForbiddenControlCopy, createSessionRuntimeView } from "./sessionRuntimeView";
+import {
+  applySseEvent,
+  commandsEnabled,
+  containsForbiddenControlCopy,
+  createSessionRuntimeView,
+  markConnected,
+  markOffline,
+  markReconciling,
+  markReconnecting,
+} from "./sessionRuntimeView";
 import type { SseSessionEventV1 } from "../contracts/v1";
 
 function workEvent(
@@ -197,7 +206,39 @@ describe("sessionRuntimeView", () => {
     });
 
     expect(view.agentPresence).toBe("dormant");
+    expect(view.turnPhase).toBe("cancelled");
     expect(view.assertiveAnnouncement).toBe("Session completed.");
+
+    const reconciled = markConnected(markReconciling(view));
+    expect(reconciled.connectionState).toBe("connected");
+    expect(reconciled.assertiveAnnouncement).toBe("Session completed.");
+    expect(commandsEnabled(markReconciling(view).connectionState)).toBe(false);
+  });
+
+  it("clears only connectivity announcements when the stream is connected again", () => {
+    const reconnecting = markReconnecting({
+      ...createSessionRuntimeView("active"),
+      connectionState: "connected",
+    });
+    const recovered = markConnected(markReconciling(reconnecting));
+    expect(recovered.connectionState).toBe("connected");
+    expect(recovered.assertiveAnnouncement).toBeNull();
+  });
+
+  it("enables mutating commands only while the stream is connected", () => {
+    expect(commandsEnabled("connected")).toBe(true);
+    expect(commandsEnabled("connecting")).toBe(false);
+    expect(commandsEnabled("reconnecting")).toBe(false);
+    expect(commandsEnabled("reconciling")).toBe(false);
+    expect(commandsEnabled("offline")).toBe(false);
+  });
+
+  it("treats CONNECTING recovery as reconnecting and CLOSED as offline", () => {
+    const connected = { ...createSessionRuntimeView("active"), connectionState: "connected" as const };
+    expect(markReconnecting(connected).connectionState).toBe("reconnecting");
+    expect(markOffline(connected).connectionState).toBe("offline");
+    expect(commandsEnabled(markReconnecting(connected).connectionState)).toBe(false);
+    expect(commandsEnabled(markOffline(connected).connectionState)).toBe(false);
   });
 });
 

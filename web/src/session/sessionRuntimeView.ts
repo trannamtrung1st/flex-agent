@@ -10,9 +10,10 @@ export type AgentTurnPhase =
   | "complete"
   | "intentional_no_reply"
   | "suppressed_failure"
-  | "execution_failure";
+  | "execution_failure"
+  | "cancelled";
 
-export type ConnectionState = "connecting" | "connected" | "reconnecting" | "offline";
+export type ConnectionState = "connecting" | "connected" | "reconnecting" | "reconciling" | "offline";
 
 export interface StreamedAgentMessage {
   id: string;
@@ -43,6 +44,16 @@ export const SUPPRESSED_TURN_STATUS = "This turn could not be completed.";
 export const EXECUTION_FAILURE_TURN_STATUS = "The Agent could not finish this response.";
 export const RECONNECTING_COPY =
   "Reconnecting. Your Session and time have not been paused by this connection issue.";
+export const RECONCILING_COPY = "Updating Session state.";
+export const OFFLINE_COPY = "You cannot continue while disconnected.";
+
+export function requiresSessionProjectionReconcile(eventType: string): boolean {
+  return eventType === "session.state.changed.v1" || eventType === "session.terminal.v1";
+}
+
+export function commandsEnabled(connectionState: ConnectionState): boolean {
+  return connectionState === "connected";
+}
 
 const FORBIDDEN_CONTROL_PATTERNS = [
   /\bno_action\b/i,
@@ -107,10 +118,7 @@ export function applySseEvent(view: SessionRuntimeView, event: SseSessionEventV1
     case "session.state.changed.v1":
       return announceAssertive(next, event.payload.summary);
     case "session.terminal.v1":
-      return {
-        ...announceAssertive(next, event.payload.summary),
-        agentPresence: "dormant",
-      };
+      return applyTerminalEvent(next, event.payload.summary);
     default:
       return next;
   }
@@ -128,11 +136,34 @@ export function markReconnecting(view: SessionRuntimeView): SessionRuntimeView {
   };
 }
 
+export function markReconciling(view: SessionRuntimeView): SessionRuntimeView {
+  return {
+    ...view,
+    connectionState: "reconciling",
+    politeAnnouncement: RECONCILING_COPY,
+  };
+}
+
+export function markOffline(view: SessionRuntimeView): SessionRuntimeView {
+  if (view.connectionState === "offline") {
+    return view;
+  }
+
+  return {
+    ...view,
+    connectionState: "offline",
+    assertiveAnnouncement: OFFLINE_COPY,
+  };
+}
+
 export function markConnected(view: SessionRuntimeView): SessionRuntimeView {
+  const connectivityAnnouncement =
+    view.assertiveAnnouncement === RECONNECTING_COPY || view.assertiveAnnouncement === OFFLINE_COPY;
+
   return {
     ...view,
     connectionState: "connected",
-    assertiveAnnouncement: view.connectionState === "reconnecting" ? null : view.assertiveAnnouncement,
+    assertiveAnnouncement: connectivityAnnouncement ? null : view.assertiveAnnouncement,
   };
 }
 
@@ -288,6 +319,20 @@ function applyCompleteEvent(view: SessionRuntimeView, event: SseSessionEventV1):
     streamedMessages,
     announcedMilestones,
     politeAnnouncement: alreadyAnnounced ? null : AGENT_COMPLETE_COPY,
+  };
+}
+
+function applyTerminalEvent(view: SessionRuntimeView, summary: string): SessionRuntimeView {
+  const inFlight =
+    view.turnPhase === "queued" || view.turnPhase === "working" || view.turnPhase === "streaming";
+
+  return {
+    ...announceAssertive(view, summary),
+    agentPresence: "dormant",
+    turnPhase: inFlight ? "cancelled" : view.turnPhase,
+    streamedMessages: view.streamedMessages.map((item) =>
+      item.status === "streaming" ? { ...item, status: "incomplete" } : item,
+    ),
   };
 }
 

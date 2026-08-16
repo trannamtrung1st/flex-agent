@@ -13,11 +13,18 @@ import type { SseSessionEventV1 } from "../contracts/v1";
 import {
   AGENT_PREPARING_COPY,
   AGENT_RESPONDING_COPY,
+  OFFLINE_COPY,
+  RECONNECTING_COPY,
+  RECONCILING_COPY,
   applySseEvent,
+  commandsEnabled,
   createSessionRuntimeView,
   markConnected,
+  markOffline,
+  markReconciling,
   markReconnecting,
   presenceForLifecycle,
+  requiresSessionProjectionReconcile,
   type AgentPresenceState,
   type SessionRuntimeView,
 } from "../session/sessionRuntimeView";
@@ -90,6 +97,9 @@ function transcriptStatusLabel(item: { streaming: boolean; status: string }): st
 }
 
 function activityLabelFor(view: SessionRuntimeView): string | null {
+  if (view.agentPresence === "dormant" || view.turnPhase === "cancelled") {
+    return null;
+  }
   if (view.turnPhase === "queued" || view.turnPhase === "working") {
     return AGENT_PREPARING_COPY;
   }
@@ -136,10 +146,14 @@ export function SessionPage() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const eventSourceEpochRef = useRef(0);
   const hasLoadedSessionRef = useRef(false);
+  const hasConnectedOnceRef = useRef(false);
+  const [streamRetryKey, setStreamRetryKey] = useState(0);
+  const runtimeRef = useRef(runtime);
+  runtimeRef.current = runtime;
 
-  const loadSession = useCallback(async () => {
+  const loadSession = useCallback(async (): Promise<SessionProjectionV1 | null> => {
     if (!sessionId) {
-      return;
+      return null;
     }
 
     if (!hasLoadedSessionRef.current) {
@@ -151,6 +165,7 @@ export function SessionPage() {
       const projection = await fetchJson<SessionProjectionV1>(`/browser/sessions/${sessionId}`);
       hasLoadedSessionRef.current = true;
       setSession(projection);
+      return projection;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load session";
       if (message === "protected" || message === "Access denied" || message.includes("Access")) {
@@ -159,13 +174,22 @@ export function SessionPage() {
         setError(message);
       }
       setSession(null);
+      return null;
     } finally {
       setLoading(false);
     }
   }, [sessionId, fetchJson]);
 
+  const reconcileSession = useCallback(async () => {
+    const projection = await loadSession();
+    if (projection) {
+      setRuntime((current) => markConnected(current));
+    }
+  }, [loadSession]);
+
   useEffect(() => {
     hasLoadedSessionRef.current = false;
+    hasConnectedOnceRef.current = false;
     setRuntime(createSessionRuntimeView("active"));
   }, [sessionId]);
 
@@ -186,7 +210,15 @@ export function SessionPage() {
       if (eventSourceEpochRef.current !== epoch) {
         return;
       }
-      setRuntime((current) => markConnected(current));
+
+      if (!hasConnectedOnceRef.current) {
+        hasConnectedOnceRef.current = true;
+        setRuntime((current) => markConnected(current));
+        return;
+      }
+
+      setRuntime((current) => markReconciling(current));
+      void reconcileSession();
     };
 
     source.onmessage = (event: MessageEvent<string>) => {
@@ -196,7 +228,13 @@ export function SessionPage() {
 
       try {
         const payload = JSON.parse(event.data) as SseSessionEventV1;
-        setRuntime((current) => applySseEvent(current, payload));
+        setRuntime((current) => {
+          const next = applySseEvent(current, payload);
+          return requiresSessionProjectionReconcile(payload.event_type) ? markReconciling(next) : next;
+        });
+        if (requiresSessionProjectionReconcile(payload.event_type)) {
+          void reconcileSession();
+        }
       } catch {
         // Ignore malformed SSE payloads in synthetic adapter.
       }
@@ -206,8 +244,12 @@ export function SessionPage() {
       if (eventSourceEpochRef.current !== epoch) {
         return;
       }
-      if (source.readyState === EventSource.CLOSED) {
+      if (source.readyState === EventSource.CONNECTING) {
         setRuntime((current) => markReconnecting(current));
+        return;
+      }
+      if (source.readyState === EventSource.CLOSED) {
+        setRuntime((current) => markOffline(current));
       }
     };
 
@@ -217,14 +259,14 @@ export function SessionPage() {
         eventSourceRef.current = null;
       }
     };
-    // Reconnect when identity, lifecycle, or version changes; ignore transcript-only projection refreshes.
+    // Reconnect when identity, lifecycle, version, or an explicit retry changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- session object identity is not the subscription key
-  }, [sessionId, session?.lifecycle_state, session?.session_version]);
+  }, [sessionId, session?.lifecycle_state, session?.session_version, streamRetryKey, reconcileSession]);
 
   const sendAction = session?.permitted_actions.find((action) => action.action_id === "send_message");
 
   const runAction = async (action: PermittedActionV1) => {
-    if (!session || !sessionId) {
+    if (!session || !sessionId || !commandsEnabled(runtimeRef.current.connectionState)) {
       return;
     }
 
@@ -270,7 +312,7 @@ export function SessionPage() {
     }
 
     event.preventDefault();
-    if (!pending && messageText.trim()) {
+    if (!pending && messageText.trim() && commandsEnabled(runtime.connectionState)) {
       void runAction(sendAction);
     }
   };
@@ -296,6 +338,7 @@ export function SessionPage() {
   }
 
   const canSend = Boolean(sendAction);
+  const mutationsEnabled = commandsEnabled(runtime.connectionState);
   const presence = visiblePresence(session.lifecycle_state, runtime);
   const activityLabel = activityLabelFor(runtime);
 
@@ -334,7 +377,28 @@ export function SessionPage() {
 
       {runtime.connectionState === "reconnecting" ? (
         <Alert variant="warning" title="Reconnecting">
-          Reconnecting. Your Session and time have not been paused by this connection issue.
+          {RECONNECTING_COPY}
+        </Alert>
+      ) : null}
+
+      {runtime.connectionState === "reconciling" ? (
+        <Alert variant="info" title="Updating Session">
+          {RECONCILING_COPY}
+        </Alert>
+      ) : null}
+
+      {runtime.connectionState === "offline" ? (
+        <Alert variant="warning" title="Disconnected">
+          <p>{OFFLINE_COPY}</p>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setRuntime((current) => markReconnecting(current));
+              setStreamRetryKey((current) => current + 1);
+            }}
+          >
+            Try reconnecting
+          </Button>
         </Alert>
       ) : null}
 
@@ -391,7 +455,11 @@ export function SessionPage() {
                 placeholder="Not sent. The Agent cannot see this draft."
                 rows={3}
               />
-              <p className="field-hint">Enter adds a new line. Ctrl+Enter or Command+Enter sends.</p>
+              <p className="field-hint">
+                {mutationsEnabled
+                  ? "Enter adds a new line. Ctrl+Enter or Command+Enter sends."
+                  : "Draft is kept locally. Sending is unavailable until the Session connection is restored."}
+              </p>
             </div>
           ) : (
             <p className="composer-disabled-reason">{composerDisabledReason(session.lifecycle_state)}</p>
@@ -403,7 +471,11 @@ export function SessionPage() {
                 key={action.action_id}
                 variant={action.is_destructive ? "danger" : "primary"}
                 onClick={() => void runAction(action)}
-                disabled={pending || (action.action_id === "send_message" && !messageText.trim())}
+                disabled={
+                  pending ||
+                  !mutationsEnabled ||
+                  (action.action_id === "send_message" && !messageText.trim())
+                }
               >
                 {action.label}
               </Button>
