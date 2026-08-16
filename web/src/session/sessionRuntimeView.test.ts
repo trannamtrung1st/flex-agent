@@ -1,5 +1,6 @@
 import {
   applySseEvent,
+  canMarkConnectedAfterReconcile,
   commandsEnabled,
   containsForbiddenControlCopy,
   createSessionRuntimeView,
@@ -7,6 +8,8 @@ import {
   markOffline,
   markReconciling,
   markReconnecting,
+  shouldCommitProjection,
+  transcriptStatusLabel,
 } from "./sessionRuntimeView";
 import type { SseSessionEventV1 } from "../contracts/v1";
 
@@ -239,6 +242,98 @@ describe("sessionRuntimeView", () => {
     expect(markOffline(connected).connectionState).toBe("offline");
     expect(commandsEnabled(markReconnecting(connected).connectionState)).toBe(false);
     expect(commandsEnabled(markOffline(connected).connectionState)).toBe(false);
+  });
+
+  it("records Incomplete when a streaming Agent message is terminalized", () => {
+    let view = createSessionRuntimeView("active");
+    view = applySseEvent(view, {
+      schema_version: "v1",
+      event_type: "session.agent.fragment.v1",
+      session_id: "sess.synthetic.0001",
+      session_sequence: "4",
+      occurred_at: "2026-08-16T00:00:00Z",
+      payload: {
+        summary: "Agent response fragment.",
+        agent_message_id: "msg.synthetic.agent.1",
+        text_delta: "Visible prefix. ",
+        turn_id: "turn.synthetic.0001",
+      },
+    });
+    view = applySseEvent(view, {
+      schema_version: "v1",
+      event_type: "session.terminal.v1",
+      session_id: "sess.synthetic.0001",
+      session_sequence: "5",
+      occurred_at: "2026-08-16T00:00:01Z",
+      payload: { summary: "Session completed." },
+    });
+
+    expect(view.streamedMessages).toEqual([
+      {
+        id: "msg.synthetic.agent.1",
+        turnId: "turn.synthetic.0001",
+        content: "Visible prefix. ",
+        status: "incomplete",
+      },
+    ]);
+    expect(view.turnPhase).toBe("cancelled");
+    expect(transcriptStatusLabel({ streaming: false, status: "incomplete" })).toBe("Incomplete");
+    expect(transcriptStatusLabel({ streaming: false, status: "confirmed" })).toBe("Complete");
+  });
+
+  it("commits only the latest projection request that is not older than the committed version", () => {
+    const committed = { session_version: 5, last_sequence: "9" };
+    expect(
+      shouldCommitProjection({
+        requestId: 2,
+        latestRequestId: 2,
+        incoming: { session_version: 5, last_sequence: "10" },
+        committed,
+      }),
+    ).toBe(true);
+    expect(
+      shouldCommitProjection({
+        requestId: 1,
+        latestRequestId: 2,
+        incoming: { session_version: 4, last_sequence: "8" },
+        committed,
+      }),
+    ).toBe(false);
+    expect(
+      shouldCommitProjection({
+        requestId: 3,
+        latestRequestId: 3,
+        incoming: { session_version: 4, last_sequence: "20" },
+        committed,
+      }),
+    ).toBe(false);
+  });
+
+  it("marks connected after reconcile only when the same EventSource epoch is still open", () => {
+    expect(
+      canMarkConnectedAfterReconcile({
+        reconcileEpoch: 2,
+        currentEpoch: 2,
+        readyState: 1,
+        openReadyState: 1,
+      }),
+    ).toBe(true);
+    expect(
+      canMarkConnectedAfterReconcile({
+        reconcileEpoch: 2,
+        currentEpoch: 2,
+        readyState: 2,
+        openReadyState: 1,
+      }),
+    ).toBe(false);
+    expect(
+      canMarkConnectedAfterReconcile({
+        reconcileEpoch: 2,
+        currentEpoch: 3,
+        readyState: 1,
+        openReadyState: 1,
+      }),
+    ).toBe(false);
   });
 });
 

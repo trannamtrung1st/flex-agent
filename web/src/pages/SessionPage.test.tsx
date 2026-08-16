@@ -86,7 +86,7 @@ class MockEventSource {
   }
 }
 
-function mockFetch(getSession: () => SessionProjectionV1 = () => activeSession, status = 200) {
+function mockFetch(getSession: () => SessionProjectionV1 | Promise<SessionProjectionV1> = () => activeSession, status = 200) {
   return vi.fn((input: RequestInfo | URL) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
 
@@ -335,6 +335,7 @@ describe("SessionPage Decision presentation", () => {
 
     expect(await screen.findByRole("button", { name: /try reconnecting/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
+    expect(screen.getAllByText(/session time may continue/i).length).toBeGreaterThan(0);
     expect(composer).not.toBeDisabled();
 
     act(() => {
@@ -410,5 +411,287 @@ describe("SessionPage Decision presentation", () => {
     expect(screen.queryByRole("button", { name: /send message/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/the agent is preparing a response/i)).not.toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(/session completed/i);
+  });
+
+  it("does not re-enable commands when a reconcile GET succeeds after the stream has closed", async () => {
+    const pendingSession: { resolve: (value: SessionProjectionV1) => void } = {
+      resolve: () => undefined,
+    };
+    let sessionLoads = 0;
+    vi.stubGlobal(
+      "fetch",
+      mockFetch(() => {
+        sessionLoads += 1;
+        if (sessionLoads === 1) {
+          return activeSession;
+        }
+        return new Promise<SessionProjectionV1>((resolve) => {
+          pendingSession.resolve = resolve;
+        });
+      }),
+    );
+
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Draft that must be kept." } });
+    const source = await openSessionStream();
+
+    source.readyState = MockEventSource.CONNECTING;
+    act(() => {
+      source.onerror?.(new Event("error"));
+    });
+    act(() => {
+      source.readyState = MockEventSource.OPEN;
+      source.onopen?.();
+    });
+
+    await waitFor(() => {
+      expect(sessionLoads).toBeGreaterThanOrEqual(2);
+    });
+
+    source.readyState = MockEventSource.CLOSED;
+    act(() => {
+      source.onerror?.(new Event("error"));
+    });
+
+    await act(async () => {
+      pendingSession.resolve(activeSession);
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByRole("button", { name: /try reconnecting/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
+    expect(composer).toHaveValue("Draft that must be kept.");
+  });
+
+  it("does not let a slower older projection overwrite a newer Session", async () => {
+    const queued: Array<(value: SessionProjectionV1) => void> = [];
+    let sessionLoads = 0;
+    vi.stubGlobal(
+      "fetch",
+      mockFetch(() => {
+        sessionLoads += 1;
+        if (sessionLoads === 1) {
+          return activeSession;
+        }
+        return new Promise<SessionProjectionV1>((resolve) => {
+          queued.push(resolve);
+        });
+      }),
+    );
+
+    renderSession();
+    const source = await openSessionStream();
+
+    act(() => {
+      source.emit({
+        schema_version: "v1",
+        event_type: "session.state.changed.v1",
+        session_id: "sess.synthetic.0001",
+        session_sequence: "19",
+        occurred_at: "2026-08-16T00:00:19Z",
+        payload: { summary: "Session paused." },
+      }, "19");
+    });
+    act(() => {
+      source.emit({
+        schema_version: "v1",
+        event_type: "session.terminal.v1",
+        session_id: "sess.synthetic.0001",
+        session_sequence: "20",
+        occurred_at: "2026-08-16T00:00:20Z",
+        payload: { summary: "Session completed." },
+      }, "20");
+    });
+
+    await waitFor(() => {
+      expect(queued).toHaveLength(2);
+    });
+
+    await act(async () => {
+      queued[1]({
+        ...activeSession,
+        lifecycle_state: "completed",
+        remaining_time: null,
+        permitted_actions: [],
+        session_version: 5,
+        last_sequence: "20",
+      });
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText(/^session completed$/i)).toBeInTheDocument();
+
+    await act(async () => {
+      queued[0]({
+        ...activeSession,
+        lifecycle_state: "active",
+        permitted_actions: activeSession.permitted_actions,
+        session_version: 4,
+        last_sequence: "19",
+      });
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(/^session completed$/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^active$/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /send message/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps the Session after a transient reconcile failure", async () => {
+    let sessionLoads = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/sessions/")) {
+          sessionLoads += 1;
+          if (sessionLoads === 1) {
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(activeSession) });
+          }
+          return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Draft that must be kept." } });
+    const source = await openSessionStream();
+
+    act(() => {
+      source.emit({
+        schema_version: "v1",
+        event_type: "session.state.changed.v1",
+        session_id: "sess.synthetic.0001",
+        session_sequence: "19",
+        occurred_at: "2026-08-16T00:00:19Z",
+        payload: { summary: "Session paused." },
+      }, "19");
+    });
+
+    expect(await screen.findByRole("button", { name: /try again/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/could not update session/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/ready for the session/i)).toBeInTheDocument();
+    expect(composer).toHaveValue("Draft that must be kept.");
+    expect(screen.queryByText(/session unavailable/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
+  });
+
+  it("retries the stream instead of staying reconciling when Try again runs while disconnected", async () => {
+    let sessionLoads = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/sessions/")) {
+          sessionLoads += 1;
+          if (sessionLoads === 1) {
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(activeSession) });
+          }
+          if (sessionLoads === 2) {
+            return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+          }
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(activeSession) });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Draft that must be kept." } });
+    const source = await openSessionStream();
+
+    act(() => {
+      source.emit({
+        schema_version: "v1",
+        event_type: "session.state.changed.v1",
+        session_id: "sess.synthetic.0001",
+        session_sequence: "19",
+        occurred_at: "2026-08-16T00:00:19Z",
+        payload: { summary: "Session paused." },
+      }, "19");
+    });
+
+    expect(await screen.findByRole("button", { name: /try again/i })).toBeInTheDocument();
+
+    source.readyState = MockEventSource.CLOSED;
+    act(() => {
+      source.onerror?.(new Event("error"));
+    });
+
+    act(() => {
+      screen.getByRole("button", { name: /try again/i }).click();
+    });
+
+    const retried = await openSessionStream(2);
+    expect(retried).not.toBe(source);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /send message/i })).toBeEnabled();
+    });
+    expect(composer).toHaveValue("Draft that must be kept.");
+  });
+
+  it("shows Incomplete when a streaming Agent message is cut off by a terminal event", async () => {
+    let current: SessionProjectionV1 = activeSession;
+    vi.stubGlobal("fetch", mockFetch(() => current));
+    renderSession();
+    const source = await openSessionStream();
+
+    act(() => {
+      source.emit({
+        schema_version: "v1",
+        event_type: "session.agent.fragment.v1",
+        session_id: "sess.synthetic.0001",
+        session_sequence: "8",
+        occurred_at: "2026-08-16T00:00:08Z",
+        payload: {
+          summary: "Agent response fragment.",
+          agent_message_id: "msg.synthetic.agent.cutoff",
+          text_delta: "Visible prefix. ",
+          turn_id: "turn.synthetic.0009",
+        },
+      }, "8");
+    });
+
+    expect(await screen.findByText(/visible prefix/i)).toBeInTheDocument();
+    expect(screen.getByText(/^agent is responding$/i)).toBeInTheDocument();
+
+    current = {
+      ...activeSession,
+      lifecycle_state: "completed",
+      remaining_time: null,
+      permitted_actions: [],
+      session_version: 4,
+    };
+
+    act(() => {
+      source.emit({
+        schema_version: "v1",
+        event_type: "session.terminal.v1",
+        session_id: "sess.synthetic.0001",
+        session_sequence: "9",
+        occurred_at: "2026-08-16T00:00:09Z",
+        payload: { summary: "Session completed." },
+      }, "9");
+    });
+
+    expect(await screen.findByText(/^incomplete$/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^agent is responding$/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/visible prefix/i)).toBeInTheDocument();
   });
 });

@@ -858,6 +858,11 @@ and test reviews have no unresolved blocking findings.
     reconnecting → reconciling → connected (`UI-SESS-DEC-8`); treat native
     EventSource `CONNECTING` as reconnecting and `CLOSED` as offline with an
     explicit retry; terminalize in-flight Agent turn presentation.
+  - [x] Remediate `f0401ed` P1/P2: fence reconcile by EventSource epoch and
+    `OPEN` before `markConnected`; latest-request-wins plus reject older
+    `session_version`/sequence; keep last good projection on transient
+    reconcile failure; render Incomplete for cutoff streams; offline copy
+    states that Session time may continue.
 - [ ] Exercise the changed journey through real API/SSE interactions with
   Playwright MCP. Inspect accessibility snapshots and screenshots at desktop
   and narrow viewports; cover keyboard/focus, no-action, timer-triggered message
@@ -908,11 +913,15 @@ Synthetic adapter slice is **approved** at `71a7721` (2026-08-16):
 claimed green: GitHub exposed no status checks or PR-triggered workflow
 runs for `71a7721` at review time. Trimmed `" 1 "` and `"1"` are the
 same revision identity. Text Session UI (`UI-SESS-DEC-13`–`15`) is in
-client code at `94d752d`. Review of that SHA requested changes (2 P1 / 2
-P2). Confirmation pass folded: lifecycle announcements survive
-reconcile; Send and Complete both gate on `connected`. Next is Playwright
-MCP. Do not treat `94d752d` as approved until this remediation is
-reviewed.
+client code at `94d752d`, remediations `f0401ed` then this working tree.
+External review of `f0401ed` requested changes (2 P1 / 2 P2): reconnect
+GET can mark connected after the stream is already down; overlapping
+projection loads can roll `session_version` backward; transient GET
+failure wiped the Session; Incomplete stream cutoff was not visible.
+Those races and recovery items are implemented. Confirmation pass:
+**Try again** while the EventSource is not `OPEN` reconnects the stream
+instead of leaving the UI stuck reconciling. Next is Playwright MCP.
+Do not treat `f0401ed` as approved until this remediation is reviewed.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0016`
@@ -1114,6 +1123,12 @@ surfaces.
   `loadSession()` before re-enabling. Native `CONNECTING` is reconnecting;
   `CLOSED` is offline with an explicit retry. Terminal events cancel
   in-flight turn presentation.
+- Text Session UI review remediations (2026-08-16, `UI-SESS-DEC-6`/`8`, `f0401ed`):
+  projection commits are latest-request-wins and reject older
+  `session_version`/sequence. `markConnected` after reconcile requires the
+  same EventSource epoch to still be `OPEN`. Transient GET failures keep the
+  last authorized projection and draft. Cutoff streams show **Incomplete**.
+  Offline copy states that Session time may continue.
 - Independent requested-action effect (2026-08-16, `SESS-DEC-35`,
   `AC-SESS-43`): when communication/output validation is rejected,
   `ApplyDecisionEffect` still applies an independently accepted
@@ -1514,6 +1529,14 @@ surfaces.
   HTTP response, so a live browser will cycle native reconnect; keep-alive
   or a held stream belongs with Playwright/adapter follow-up, not as a
   production `SessionPage` quirk. Playwright MCP remains next.
+- Text Session UI review remediations (2026-08-16, `f0401ed` P1/P2):
+  reconcile success no longer implies connected; the live EventSource must
+  still be `OPEN` on the same epoch. Overlapping GETs cannot commit an older
+  projection. 500/network reconcile failures keep transcript/draft and offer
+  **Try again**; 403/404 still clear to Session unavailable. Streaming cutoff
+  renders **Incomplete**. Offline copy includes that Session time may
+  continue. Confirmation: **Try again** while not `OPEN` reconnects the
+  stream instead of staying reconciling. Playwright MCP remains next.
 - Timer due-claim (2026-08-16, `bcd9ac8`): `timer_fire.budget_exhausted`
   returns `Succeeded=false` after committing `Expired`.
   `DurableTimerFireProcessor` now acknowledges that outcome (`acknowledged`)
@@ -1991,7 +2014,7 @@ surfaces.
 | Timer-lane cutoff persist and fire ACK (`SESS-DEC-5`, `SESS-DEC-26`, `REQ-SESS-60`, `REQ-SESS-75`) | passed; **approved** `1c11744` | Red (2026-08-16): compile failed for missing `ChangeSessionLifecycleCommand`, `DurableTimerFireProcessor`, and `PostgresSessionLifecycleCoordinator`. Green: begin-completing/abort cancel the timer and seal a visible prefix; original-command cutoff retry reconciles; resume on never-paused Active is ineligible; stale Resume after later Active work is `StaleVersion`; `BudgetExhausted` is `acknowledged` not `retry_later`; persist writes cancelled `lane_state` plus `session.agent.message.sealed`; outbox failure leaves `open`+pending; duplicate cutoff emits one seal wake-up. Confirmation after consistency review: Sessions 359/359; architecture 29/29; Postgres 148/148. External review of `1c11744` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Combined CI not claimed green (Documentation seen green; Implementation in progress at review time; `gh` unauthenticated here). Harmless abort-query duplicate `lane_state` predicate folded. Frozen `0005`–`0016` unchanged. Worker host stays idle. |
 | Independent requested-action effect (`SESS-DEC-35`, `AC-SESS-43`) | passed; **approved** `053de74` | Red (2026-08-16): `effect_failed` plus accepted timer had `HasPendingIndependentActionEffect`; cutoff left the accepted timer item `not_attempted`. Green: pending work requires rejected+`not_attempted`; cutoff item is `no_domain_effect`; coordinator retry after cutoff/`effect_failed` writes no second complete audit/outbox. Confirmation: Sessions 367/367; architecture 29/29; `SessionRuntimeRepositoryTests` 24/24. External review of `053de74` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Closes `83cc0dc`. GitHub exposed no status checks or PR-triggered workflow runs for `053de74` at review time. Frozen `0005`–`0016` unchanged. |
 | Synthetic browser runtime adapter (`UI-SESS-DEC-13`–`15`) | passed; focused runtime | Red (2026-08-16): active SSE without a trigger emitted fragment+complete; new scenario grants returned 400. Green: `SyntheticSessionRuntimeAdapterTests` 19/19; `SyntheticBrowserRuntimeTests` 27/27; full `FlexAgent.Runtime.Tests` 56/56. SSE read is replay-only; participant reply, opening/closing, no-action, suppressed/execution failure, default/timer visible work, replacement silence, duplicate revision, pause/resume (paused fire suppressed; resume then fire publishes), reconnect cursor, and cutoff are scenario-scripted. Consistency pass: `session-pause-resume` now admits timer work after resume. Harness timer fire requires the API key. |
-| Text Session UI (`UI-SESS-DEC-13`–`15`) | passed focused web unit; `94d752d` not approved | Red (2026-08-16): `SessionPage` labeled composer **Message**, ignored `work_state`, and turned work events into empty Agent transcript items. Green at `94d752d`: `sessionRuntimeView.test.ts` 10/10; `SessionPage.test.tsx` 6/6; full web `vitest` 20/20. External review of `94d752d`: **request changes** (2 P1 / 2 P2): stale projection after state/terminal SSE; reconnect banner without mutation gate; inverted `CONNECTING`/`CLOSED`; terminal left turn phase in-flight. Remediation green after confirmation pass (2026-08-16): `sessionRuntimeView.test.ts` 13/13; `SessionPage.test.tsx` 7/7; full web `vitest` 24/24; `tsc -b --noEmit` passed. Terminal/pause SSE wait for the refreshed projection (no Dormant+Active, Send removed). Terminal assertive copy survives reconcile. `CONNECTING` disables Send and Complete with draft kept; `CLOSED` is offline until **Try reconnecting** then reconcile. Playwright MCP remains the next plan item. |
+| Text Session UI (`UI-SESS-DEC-13`–`15`) | passed focused web unit; `f0401ed` not approved | Red (2026-08-16): `SessionPage` labeled composer **Message**, ignored `work_state`, and turned work events into empty Agent transcript items. Green at `94d752d`: 10/10 + 6/6 + vitest 20/20. External review of `94d752d`: **request changes** (2 P1 / 2 P2). Remediation `f0401ed` green then confirmation: 13/13 + 7/7 + vitest 24/24. External review of `f0401ed`: **request changes** (2 P1 / 2 P2): reconcile GET can `markConnected` after CLOSED; overlapping GETs can roll version backward; transient GET wiped Session; Incomplete cutoff not rendered. Remediation green after confirmation pass (2026-08-16): `sessionRuntimeView.test.ts` 16/16; `SessionPage.test.tsx` 12/12; full web `vitest` 32/32; `tsc -b --noEmit` passed. Reconcile after CLOSED leaves Send disabled; older v4 cannot overwrite completed v5; 500 keeps transcript/draft with **Try again**; **Try again** while disconnected opens a new stream; fragment→terminal shows **Incomplete**. Playwright MCP remains the next plan item. |
 | `a1dc86f` P2 `revision_id` required | passed; **approved** `71a7721` | Red (2026-08-16): null/empty/whitespace `revision_id` returned 204 and defaulted to `"1"`. Green: those three cases return 400 and a later `"1"` fire still publishes; closing from paused emits closing then terminal. External review of `71a7721` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Non-blocking trim identity folded: `" 1 "` then `"1"` is one stream. Confirmation: `SyntheticSessionRuntimeAdapterTests` 24/24; `FlexAgent.Runtime.Tests` 61/61. GitHub exposed no status checks or PR-triggered workflow runs for `71a7721` at review time. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
@@ -2017,7 +2040,7 @@ revocation revalidation wait on API host wiring and do not complete
 worker content loop is residual. Live provider wiring and frozen-policy
 rehydration remain later gates. Playwright MCP for the Text Session UI is
 the next plan item; this UI slice did not claim visual completion.
-Do not treat `94d752d` as approved until the P1/P2 remediations are
+Do not treat `f0401ed` as approved until the P1/P2 remediations are
 reviewed. Dump-once synthetic SSE can still cause native reconnect
 cycles in a live browser until the adapter holds the stream.
 

@@ -45,7 +45,12 @@ export const EXECUTION_FAILURE_TURN_STATUS = "The Agent could not finish this re
 export const RECONNECTING_COPY =
   "Reconnecting. Your Session and time have not been paused by this connection issue.";
 export const RECONCILING_COPY = "Updating Session state.";
-export const OFFLINE_COPY = "You cannot continue while disconnected.";
+export const OFFLINE_COPY =
+  "You cannot continue while disconnected. Session time may continue.";
+export const AGENT_COMPLETE_STATUS = "Complete";
+export const AGENT_INCOMPLETE_STATUS = "Incomplete";
+export const AGENT_CANCELLED_STATUS = "Cancelled";
+export const PROJECTION_RETRY_COPY = "Could not update Session. Your draft and transcript are still here.";
 
 export function requiresSessionProjectionReconcile(eventType: string): boolean {
   return eventType === "session.state.changed.v1" || eventType === "session.terminal.v1";
@@ -53,6 +58,82 @@ export function requiresSessionProjectionReconcile(eventType: string): boolean {
 
 export function commandsEnabled(connectionState: ConnectionState): boolean {
   return connectionState === "connected";
+}
+
+export function isSessionAccessLoss(message: string): boolean {
+  return (
+    message === "protected" ||
+    message === "unauthenticated" ||
+    message === "Access denied" ||
+    message.includes("Access")
+  );
+}
+
+export function compareSessionSequence(left?: string | null, right?: string | null): number {
+  if (left == null || left === "") {
+    return 0;
+  }
+  if (right == null || right === "") {
+    return 1;
+  }
+
+  const leftNumber = Number(left);
+  const rightNumber = Number(right);
+  if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+    return leftNumber === rightNumber ? 0 : leftNumber > rightNumber ? 1 : -1;
+  }
+
+  return left === right ? 0 : left > right ? 1 : -1;
+}
+
+export function isProjectionAtLeastAsNew(
+  incoming: { session_version: number; last_sequence?: string | null },
+  committed: { session_version: number; last_sequence?: string | null } | null,
+): boolean {
+  if (!committed) {
+    return true;
+  }
+  if (incoming.session_version !== committed.session_version) {
+    return incoming.session_version > committed.session_version;
+  }
+  return compareSessionSequence(incoming.last_sequence, committed.last_sequence) >= 0;
+}
+
+export function shouldCommitProjection(input: {
+  requestId: number;
+  latestRequestId: number;
+  incoming: { session_version: number; last_sequence?: string | null };
+  committed: { session_version: number; last_sequence?: string | null } | null;
+}): boolean {
+  return input.requestId === input.latestRequestId && isProjectionAtLeastAsNew(input.incoming, input.committed);
+}
+
+export function canMarkConnectedAfterReconcile(input: {
+  reconcileEpoch: number;
+  currentEpoch: number;
+  readyState: number;
+  openReadyState: number;
+}): boolean {
+  return input.reconcileEpoch === input.currentEpoch && input.readyState === input.openReadyState;
+}
+
+export function transcriptStatusLabel(item: { streaming: boolean; status: string }): string | null {
+  if (item.streaming) {
+    return AGENT_RESPONDING_COPY;
+  }
+  if (item.status === "accepted") {
+    return "Message accepted";
+  }
+  if (item.status === "confirmed") {
+    return AGENT_COMPLETE_STATUS;
+  }
+  if (item.status === "incomplete") {
+    return AGENT_INCOMPLETE_STATUS;
+  }
+  if (item.status === "cancelled") {
+    return AGENT_CANCELLED_STATUS;
+  }
+  return null;
 }
 
 const FORBIDDEN_CONTROL_PATTERNS = [

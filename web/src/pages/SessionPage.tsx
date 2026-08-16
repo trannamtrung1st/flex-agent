@@ -14,17 +14,22 @@ import {
   AGENT_PREPARING_COPY,
   AGENT_RESPONDING_COPY,
   OFFLINE_COPY,
+  PROJECTION_RETRY_COPY,
   RECONNECTING_COPY,
   RECONCILING_COPY,
   applySseEvent,
+  canMarkConnectedAfterReconcile,
   commandsEnabled,
   createSessionRuntimeView,
+  isSessionAccessLoss,
   markConnected,
   markOffline,
   markReconciling,
   markReconnecting,
   presenceForLifecycle,
   requiresSessionProjectionReconcile,
+  shouldCommitProjection,
+  transcriptStatusLabel,
   type AgentPresenceState,
   type SessionRuntimeView,
 } from "../session/sessionRuntimeView";
@@ -86,16 +91,6 @@ function visiblePresence(lifecycleState: string, view: SessionRuntimeView): Agen
   return presenceForLifecycle(lifecycleState, view.turnPhase);
 }
 
-function transcriptStatusLabel(item: { streaming: boolean; status: string }): string | null {
-  if (item.streaming) {
-    return AGENT_RESPONDING_COPY;
-  }
-  if (item.status === "accepted") {
-    return "Message accepted";
-  }
-  return null;
-}
-
 function activityLabelFor(view: SessionRuntimeView): string | null {
   if (view.agentPresence === "dormant" || view.turnPhase === "cancelled") {
     return null;
@@ -143,8 +138,13 @@ export function SessionPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
+  const [projectionError, setProjectionError] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const eventSourceEpochRef = useRef(0);
+  const projectionRequestIdRef = useRef(0);
+  const committedProjectionRef = useRef<{ session_version: number; last_sequence?: string | null } | null>(
+    null,
+  );
   const hasLoadedSessionRef = useRef(false);
   const hasConnectedOnceRef = useRef(false);
   const [streamRetryKey, setStreamRetryKey] = useState(0);
@@ -156,40 +156,89 @@ export function SessionPage() {
       return null;
     }
 
+    const requestId = ++projectionRequestIdRef.current;
     if (!hasLoadedSessionRef.current) {
       setLoading(true);
     }
-    setError(null);
 
     try {
       const projection = await fetchJson<SessionProjectionV1>(`/browser/sessions/${sessionId}`);
+      if (
+        !shouldCommitProjection({
+          requestId,
+          latestRequestId: projectionRequestIdRef.current,
+          incoming: projection,
+          committed: committedProjectionRef.current,
+        })
+      ) {
+        return null;
+      }
+
+      committedProjectionRef.current = {
+        session_version: projection.session_version,
+        last_sequence: projection.last_sequence,
+      };
       hasLoadedSessionRef.current = true;
       setSession(projection);
+      setError(null);
+      setProjectionError(null);
       return projection;
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to load session";
-      if (message === "protected" || message === "Access denied" || message.includes("Access")) {
-        setError(SESSION_UNAVAILABLE_COPY);
-      } else {
-        setError(message);
+      if (requestId !== projectionRequestIdRef.current) {
+        return null;
       }
+
+      const message = err instanceof Error ? err.message : "Failed to load session";
+      if (isSessionAccessLoss(message)) {
+        setError(SESSION_UNAVAILABLE_COPY);
+        setSession(null);
+        committedProjectionRef.current = null;
+        return null;
+      }
+
+      if (hasLoadedSessionRef.current) {
+        setProjectionError(PROJECTION_RETRY_COPY);
+        return null;
+      }
+
+      setError(message);
       setSession(null);
       return null;
     } finally {
-      setLoading(false);
+      if (requestId === projectionRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [sessionId, fetchJson]);
 
   const reconcileSession = useCallback(async () => {
+    const epoch = eventSourceEpochRef.current;
+    const source = eventSourceRef.current;
     const projection = await loadSession();
-    if (projection) {
-      setRuntime((current) => markConnected(current));
+    if (!projection) {
+      return;
     }
+
+    if (
+      eventSourceRef.current !== source ||
+      !canMarkConnectedAfterReconcile({
+        reconcileEpoch: epoch,
+        currentEpoch: eventSourceEpochRef.current,
+        readyState: source?.readyState ?? -1,
+        openReadyState: EventSource.OPEN,
+      })
+    ) {
+      return;
+    }
+
+    setRuntime((current) => markConnected(current));
   }, [loadSession]);
 
   useEffect(() => {
     hasLoadedSessionRef.current = false;
     hasConnectedOnceRef.current = false;
+    projectionRequestIdRef.current = 0;
+    committedProjectionRef.current = null;
     setRuntime(createSessionRuntimeView("active"));
   }, [sessionId]);
 
@@ -213,7 +262,9 @@ export function SessionPage() {
 
       if (!hasConnectedOnceRef.current) {
         hasConnectedOnceRef.current = true;
-        setRuntime((current) => markConnected(current));
+        if (source.readyState === EventSource.OPEN) {
+          setRuntime((current) => markConnected(current));
+        }
         return;
       }
 
@@ -398,6 +449,28 @@ export function SessionPage() {
             }}
           >
             Try reconnecting
+          </Button>
+        </Alert>
+      ) : null}
+
+      {projectionError ? (
+        <Alert variant="warning" title="Could not update Session">
+          <p>{projectionError}</p>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              const source = eventSourceRef.current;
+              if (!source || source.readyState !== EventSource.OPEN) {
+                setRuntime((current) => markReconnecting(current));
+                setStreamRetryKey((current) => current + 1);
+                return;
+              }
+
+              setRuntime((current) => markReconciling(current));
+              void reconcileSession();
+            }}
+          >
+            Try again
           </Button>
         </Alert>
       ) : null}
