@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { Dialog } from "./Dialog";
 
@@ -31,5 +32,51 @@ describe("Dialog", () => {
     fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
     expect(document.activeElement).toBe(confirm);
     expect(document.activeElement).not.toBe(outside);
+  });
+
+  it("clears inert before restoring the trigger's focus", () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>Complete Session</button>
+          <Dialog
+            open={open}
+            title="Complete this Session?"
+            confirmLabel="Complete Session"
+            cancelLabel="Continue Session"
+            initialFocus="title"
+            onConfirm={() => undefined}
+            onCancel={() => setOpen(false)}
+          >
+            <p>After completion begins, you cannot send more messages.</p>
+          </Dialog>
+        </>
+      );
+    }
+
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: /^complete session$/i });
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    const dialog = screen.getByRole("dialog");
+    const originalFocus = HTMLElement.prototype.focus;
+    const restorations: boolean[] = [];
+    const spy = vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (
+      this: HTMLElement,
+      options?: FocusOptions,
+    ) {
+      if (this === trigger) {
+        restorations.push(this.closest("[inert]") !== null);
+      }
+      return originalFocus.call(this, options);
+    });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /continue session/i }));
+    spy.mockRestore();
+
+    expect(restorations).toEqual([false]);
+    expect(document.activeElement).toBe(trigger);
   });
 });

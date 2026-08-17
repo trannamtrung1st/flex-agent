@@ -45,6 +45,8 @@ export function Dialog({
   const panelRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const confirmIsDisabled = isConfirming || confirmDisabled;
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
 
   useEffect(() => {
     if (!open) {
@@ -56,16 +58,6 @@ export function Dialog({
       titleRef.current?.focus();
     } else {
       cancelRef.current?.focus();
-    }
-
-    return () => {
-      previousFocus?.focus();
-    };
-  }, [open, initialFocus]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
     }
 
     const host = hostRef.current;
@@ -85,7 +77,7 @@ export function Dialog({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onCancel();
+        onCancelRef.current();
         return;
       }
 
@@ -118,6 +110,21 @@ export function Dialog({
     };
 
     document.addEventListener("keydown", handleKeyDown, true);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown, true);
+      for (const element of inerted) {
+        element.removeAttribute("inert");
+      }
+      previousFocus?.focus();
+    };
+  }, [open, initialFocus]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
     const active = document.activeElement;
     if (
       active instanceof HTMLElement &&
@@ -126,14 +133,7 @@ export function Dialog({
     ) {
       cancelRef.current?.focus();
     }
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown, true);
-      for (const element of inerted) {
-        element.removeAttribute("inert");
-      }
-    };
-  }, [open, onCancel, confirmIsDisabled]);
+  }, [open, confirmIsDisabled]);
 
   if (!open) {
     return null;
