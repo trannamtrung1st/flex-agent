@@ -2170,7 +2170,10 @@ one-step Complete confirmation is implemented on the synthetic Participant
 surface (2026-08-17). `ea91b1c` P2 remediations (completion connectivity
 race and modal focus containment) are implemented locally (2026-08-17).
 `29cde55` P2 (restore focus after clearing `inert`) is implemented
-locally (2026-08-17).
+locally (2026-08-17). Implementation `web` lint failed on `87471fc`
+(`react-hooks/refs` during render, Dialog test void-expression /
+unbound-method). Local `verify-web.sh` is green after those ESLint
+fixes (warning-only `react-refresh/only-export-components`).
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.

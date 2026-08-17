@@ -46,7 +46,10 @@ export function Dialog({
   const hostRef = useRef<HTMLDivElement>(null);
   const confirmIsDisabled = isConfirming || confirmDisabled;
   const onCancelRef = useRef(onCancel);
-  onCancelRef.current = onCancel;
+
+  useEffect(() => {
+    onCancelRef.current = onCancel;
+  }, [onCancel]);
 
   useEffect(() => {
     if (!open) {

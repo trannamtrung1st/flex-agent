@@ -39,7 +39,7 @@ describe("Dialog", () => {
       const [open, setOpen] = useState(false);
       return (
         <>
-          <button type="button" onClick={() => setOpen(true)}>Complete Session</button>
+          <button type="button" onClick={() => { setOpen(true); }}>Complete Session</button>
           <Dialog
             open={open}
             title="Complete this Session?"
@@ -47,7 +47,7 @@ describe("Dialog", () => {
             cancelLabel="Continue Session"
             initialFocus="title"
             onConfirm={() => undefined}
-            onCancel={() => setOpen(false)}
+            onCancel={() => { setOpen(false); }}
           >
             <p>After completion begins, you cannot send more messages.</p>
           </Dialog>
@@ -61,7 +61,12 @@ describe("Dialog", () => {
     fireEvent.click(trigger);
 
     const dialog = screen.getByRole("dialog");
-    const originalFocus = HTMLElement.prototype.focus;
+    const originalFocus = Function.prototype.call.bind(
+      Object.getOwnPropertyDescriptor(HTMLElement.prototype, "focus")?.value as (
+        this: HTMLElement,
+        options?: FocusOptions,
+      ) => void,
+    ) as (element: HTMLElement, options?: FocusOptions) => void;
     const restorations: boolean[] = [];
     const spy = vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (
       this: HTMLElement,
@@ -70,7 +75,7 @@ describe("Dialog", () => {
       if (this === trigger) {
         restorations.push(this.closest("[inert]") !== null);
       }
-      return originalFocus.call(this, options);
+      originalFocus(this, options);
     });
 
     fireEvent.click(within(dialog).getByRole("button", { name: /continue session/i }));
