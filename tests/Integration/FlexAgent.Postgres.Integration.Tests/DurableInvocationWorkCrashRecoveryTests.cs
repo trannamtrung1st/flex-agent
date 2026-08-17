@@ -190,6 +190,159 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     }
 
     [Fact]
+    public async Task Crash_after_fragment_persist_keeps_the_fragment_and_does_not_complete_the_claim()
+    {
+        var prepared = await PrepareRespondWorkAsync("msg.crash.frag", "turn.crash.frag");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
+        var persist = new FaultInjectingPublicationPersistPort(CreatePublicationPersist())
+        {
+            ThrowAfterNextFragmentPersist = 1,
+        };
+        var adapter = new CountingModelExecutionPort(EnqueueRespond(prepared.InvocationId, "adec.crash.frag000001"));
+        var processor = CreateProcessor(
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            CreateGateway(prepared),
+            adapter,
+            prepared,
+            persist);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            processor.TryProcessNextAsync(CancellationToken));
+        var crashed = await LoadSessionAsync(prepared);
+        var crashedMessage = Assert.Single(crashed.AgentMessages);
+        Assert.Equal("Hi", crashedMessage.AssembleExactText());
+        Assert.False(crashedMessage.IsTerminal);
+        Assert.Equal(DurableSessionWorkStates.Claimed, await ReadWorkStateAsync(prepared.Binding.Ownership));
+        Assert.Equal(1, adapter.ExecuteCount);
+
+        await ExpireLeaseAsync(prepared.Binding.Ownership);
+        var recovered = await processor.TryProcessNextAsync(CancellationToken);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.PublicationIncomplete, recovered.Outcome);
+        Assert.Equal(DurableSessionWorkStates.Completed, await ReadWorkStateAsync(prepared.Binding.Ownership));
+        Assert.Equal(1, adapter.ExecuteCount);
+        var recoveredSession = await LoadSessionAsync(prepared);
+        var message = Assert.Single(recoveredSession.AgentMessages);
+        Assert.Equal("Hi", message.AssembleExactText());
+        Assert.Equal(AgentMessageCompletionStates.Incomplete, message.CompletionState);
+        Assert.Single(message.Fragments);
+    }
+
+    [Fact]
+    public async Task Crash_after_seal_persist_reconciles_without_rewriting_the_message()
+    {
+        var prepared = await PrepareRespondWorkAsync("msg.crash.seal", "turn.crash.seal");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
+        var persist = new FaultInjectingPublicationPersistPort(CreatePublicationPersist())
+        {
+            ThrowAfterNextSealPersist = 1,
+        };
+        var adapter = new CountingModelExecutionPort(EnqueueRespond(prepared.InvocationId, "adec.crash.seal000001"));
+        var processor = CreateProcessor(
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            CreateGateway(prepared),
+            adapter,
+            prepared,
+            persist);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            processor.TryProcessNextAsync(CancellationToken));
+        var crashed = await LoadSessionAsync(prepared);
+        var crashedMessage = Assert.Single(crashed.AgentMessages);
+        Assert.Equal("Hi", crashedMessage.AssembleExactText());
+        Assert.Equal(AgentMessageCompletionStates.Complete, crashedMessage.CompletionState);
+        Assert.Equal(DurableSessionWorkStates.Claimed, await ReadWorkStateAsync(prepared.Binding.Ownership));
+        Assert.Equal(1, adapter.ExecuteCount);
+
+        await ExpireLeaseAsync(prepared.Binding.Ownership);
+        var recovered = await processor.TryProcessNextAsync(CancellationToken);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.Reconciled, recovered.Outcome);
+        Assert.Equal(InvocationCompletionOutcomeCodes.AlreadyTerminal, recovered.CompletionOutcomeCode);
+        Assert.Equal(DurableSessionWorkStates.Completed, await ReadWorkStateAsync(prepared.Binding.Ownership));
+        Assert.Equal(1, adapter.ExecuteCount);
+        var recoveredSession = await LoadSessionAsync(prepared);
+        var message = Assert.Single(recoveredSession.AgentMessages);
+        Assert.Equal("Hi", message.AssembleExactText());
+        Assert.Equal(AgentMessageCompletionStates.Complete, message.CompletionState);
+        Assert.Single(message.Fragments);
+    }
+
+    [Fact]
+    public async Task Failed_lease_renewal_after_fragment_persist_releases_the_claim_and_keeps_the_fragment()
+    {
+        var prepared = await PrepareRespondWorkAsync("msg.crash.renew", "turn.crash.renew");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
+        var store = new FaultInjectingWorkStore(
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor))
+        {
+            FailNextRenew = 1,
+        };
+        var adapter = new CountingModelExecutionPort(EnqueueRespond(prepared.InvocationId, "adec.crash.renew00001"));
+        var processor = CreateProcessor(store, CreateGateway(prepared), adapter, prepared);
+
+        var first = await processor.TryProcessNextAsync(CancellationToken);
+        var afterRenew = await LoadSessionAsync(prepared);
+        var open = Assert.Single(afterRenew.AgentMessages);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.RetryLater, first.Outcome);
+        Assert.Equal(DurableSessionWorkStates.Pending, await ReadWorkStateAsync(prepared.Binding.Ownership));
+        Assert.Equal("Hi", open.AssembleExactText());
+        Assert.False(open.IsTerminal);
+        Assert.Equal(1, adapter.ExecuteCount);
+
+        var recovered = await processor.TryProcessNextAsync(CancellationToken);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.PublicationIncomplete, recovered.Outcome);
+        Assert.Equal(DurableSessionWorkStates.Completed, await ReadWorkStateAsync(prepared.Binding.Ownership));
+        Assert.Equal(1, adapter.ExecuteCount);
+        var recoveredSession = await LoadSessionAsync(prepared);
+        var message = Assert.Single(recoveredSession.AgentMessages);
+        Assert.Equal("Hi", message.AssembleExactText());
+        Assert.Equal(AgentMessageCompletionStates.Incomplete, message.CompletionState);
+        Assert.Single(message.Fragments);
+    }
+
+    [Fact]
+    public async Task Failed_fragment_persist_does_not_keep_the_in_memory_handler_mutation()
+    {
+        var prepared = await PrepareRespondWorkAsync("msg.crash.mem", "turn.crash.mem");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
+        var persist = new FaultInjectingPublicationPersistPort(CreatePublicationPersist())
+        {
+            FailNextFragmentPersist = 1,
+        };
+        var adapter = EnqueueRespond(prepared.InvocationId, "adec.crash.mem0000001");
+        adapter.EnqueueContent(new ModelContentTextDelta("Hi"), new ModelContentCompleted());
+        var counting = new CountingModelExecutionPort(adapter);
+        var processor = CreateProcessor(
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            CreateGateway(prepared),
+            counting,
+            prepared,
+            persist);
+
+        var first = await processor.TryProcessNextAsync(CancellationToken);
+        var afterFail = await LoadSessionAsync(prepared);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.RetryLater, first.Outcome);
+        Assert.Equal(DurableSessionWorkStates.Pending, await ReadWorkStateAsync(prepared.Binding.Ownership));
+        Assert.Empty(afterFail.AgentMessages);
+        Assert.Equal(1, counting.ExecuteCount);
+
+        var recovered = await processor.TryProcessNextAsync(CancellationToken);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.Published, recovered.Outcome);
+        Assert.Equal(DurableSessionWorkStates.Completed, await ReadWorkStateAsync(prepared.Binding.Ownership));
+        Assert.Equal(1, counting.ExecuteCount);
+        var recoveredSession = await LoadSessionAsync(prepared);
+        var message = Assert.Single(recoveredSession.AgentMessages);
+        Assert.Equal("Hi", message.AssembleExactText());
+        Assert.Equal(AgentMessageCompletionStates.Complete, message.CompletionState);
+        Assert.Single(message.Fragments);
+    }
+
+    [Fact]
     public async Task Concurrent_workers_complete_two_independent_sessions()
     {
         var first = await PrepareAdmittedWorkAsync("trig.crash.w1", "idem.crash.w1");
@@ -229,14 +382,21 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         IDurableInvocationWorkStore store,
         IInvocationWorkSessionGateway gateway,
         IModelExecutionPort adapter,
-        PreparedWork prepared) =>
+        PreparedWork prepared,
+        IAgentResponsePublicationPersistPort? publicationPersist = null) =>
         new(
             store,
             gateway,
             adapter,
             new CompleteInvocationHandler(),
             CreateWorkerSettings(prepared.Organization.ActorId),
-            PassThroughAgentResponsePublicationPersistPort.Succeed);
+            publicationPersist ?? CreatePublicationPersist());
+
+    private PostgresPublishAgentResponseCoordinator CreatePublicationPersist() =>
+        new(
+            Fixture.Services.ConnectionAccessor,
+            new PostgresSessionRuntimeRepository(),
+            new PublishAgentResponseFragmentHandler());
 
     private PostgresInvocationWorkSessionGateway CreateGateway(params PreparedWork[] prepared)
     {
@@ -439,6 +599,86 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
                 false,
                 false));
 
+    private async Task<PreparedWork> PrepareRespondWorkAsync(string messageId, string turnId)
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+        await using (var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var accepted = await new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler()).AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                binding.Ownership,
+                0,
+                messageId,
+                turnId,
+                "slot." + turnId,
+                "trig." + turnId,
+                "idem." + turnId,
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(accepted.Succeeded, accepted.OutcomeCode);
+        return new PreparedWork(organization, binding, accepted.Invocation!.AgentInvocationId);
+    }
+
+    private async Task<SessionRuntime> LoadSessionAsync(PreparedWork prepared)
+    {
+        await using var loadScope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken);
+        var loaded = await new PostgresSessionRuntimeRepository().LoadForUpdateAsync(
+            prepared.Binding.Ownership,
+            prepared.Binding,
+            loadScope.Transaction,
+            CancellationToken);
+        await loadScope.CommitAsync(CancellationToken);
+        Assert.NotNull(loaded);
+        return loaded!;
+    }
+
+    private static DeterministicFakeModelExecutionAdapter EnqueueRespond(
+        string invocationId,
+        string decisionId)
+    {
+        var adapter = new DeterministicFakeModelExecutionAdapter();
+        adapter.EnqueueEnvelope(
+            new EnvelopeRecommendation(
+                decisionId,
+                invocationId,
+                new DateTimeOffset(2026, 8, 13, 0, 0, 2, TimeSpan.Zero),
+                DecisionDispositions.Respond,
+                [
+                    new OutputRecommendation(
+                        AgentOutputKinds.Message,
+                        "out.message.primary",
+                        "participant_reply",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                ],
+                [],
+                null,
+                null));
+        adapter.EnqueueContent(new ModelContentTextDelta("Hi"), new ModelContentCompleted());
+        return adapter;
+    }
+
     private static DeterministicFakeModelExecutionAdapter EnqueueNoAction(
         string invocationId,
         string decisionId,
@@ -526,6 +766,8 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     {
         public int FailNextMarkCompleted { get; set; }
 
+        public int FailNextRenew { get; set; }
+
         public Task<DurableInvocationWorkItem?> TryClaimExecuteInvocationAsync(
             TimeSpan lease,
             CancellationToken cancellationToken) =>
@@ -547,8 +789,81 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             return inner.MarkCompletedAsync(work, cancellationToken);
         }
 
+        public Task<DateTimeOffset?> TryRenewClaimLeaseAsync(
+            DurableInvocationWorkItem work,
+            TimeSpan lease,
+            CancellationToken cancellationToken)
+        {
+            if (FailNextRenew > 0)
+            {
+                FailNextRenew--;
+                return Task.FromResult<DateTimeOffset?>(null);
+            }
+
+            return inner.TryRenewClaimLeaseAsync(work, lease, cancellationToken);
+        }
+
         public Task<DurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(CancellationToken cancellationToken) =>
             inner.ReadClaimableSnapshotAsync(cancellationToken);
+    }
+
+    private sealed class FaultInjectingPublicationPersistPort(IAgentResponsePublicationPersistPort inner)
+        : IAgentResponsePublicationPersistPort
+    {
+        public int FailNextFragmentPersist { get; set; }
+
+        public int ThrowAfterNextFragmentPersist { get; set; }
+
+        public int ThrowAfterNextSealPersist { get; set; }
+
+        public async Task<AgentResponseFragmentCommitResult> PersistFragmentAsync(
+            PublishAgentResponseFragmentCommand command,
+            TrustedSessionBinding binding,
+            CancellationToken cancellationToken)
+        {
+            if (FailNextFragmentPersist > 0)
+            {
+                FailNextFragmentPersist--;
+                return new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.StaleVersion);
+            }
+
+            var persisted = await inner.PersistFragmentAsync(command, binding, cancellationToken);
+            if (ThrowAfterNextFragmentPersist > 0)
+            {
+                ThrowAfterNextFragmentPersist--;
+                throw new InvalidOperationException("Injected crash after fragment persist.");
+            }
+
+            return persisted;
+        }
+
+        public async Task<AgentResponseFragmentCommitResult> PersistSealAsync(
+            SealAgentResponseCommand command,
+            TrustedSessionBinding binding,
+            CancellationToken cancellationToken)
+        {
+            var persisted = await inner.PersistSealAsync(command, binding, cancellationToken);
+            if (ThrowAfterNextSealPersist > 0)
+            {
+                ThrowAfterNextSealPersist--;
+                throw new InvalidOperationException("Injected crash after seal persist.");
+            }
+
+            return persisted;
+        }
+
+        public Task<bool> TryPersistUnpublishedFailureAsync(
+            SessionOwnership ownership,
+            TrustedSessionBinding binding,
+            long expectedSessionVersion,
+            SessionRuntime session,
+            CancellationToken cancellationToken) =>
+            inner.TryPersistUnpublishedFailureAsync(
+                ownership,
+                binding,
+                expectedSessionVersion,
+                session,
+                cancellationToken);
     }
 
     private sealed class CountingModelExecutionPort(IModelExecutionPort inner) : IModelExecutionPort

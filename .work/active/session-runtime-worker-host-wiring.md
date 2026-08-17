@@ -66,6 +66,9 @@ fragment and seal.
 - [x] Green: persist-through-coordinator then allow real processor registration
 - [x] Due-timer poll with poison-row ACK for permanent lifecycle ineligible
 - [x] Ready-copy and composition tests; focused then proportionate regression
+- [x] P2 follow-up: crash/recovery coverage over the real publication persist
+      boundary (fragment/seal persist then crash, lease-renew fail, persist fail
+      after in-memory handler mutation)
 
 # Current state
 
@@ -110,8 +113,10 @@ Content-phase complete is blocked until fragment and seal persist succeed.
   `ExecuteAsync` call. Fail-closed Execute returns immediately; a future live
   provider still needs Execute-duration heartbeat or a longer lease.
 - In-memory unit tests use `PassThroughAgentResponsePublicationPersistPort`;
-  PostgreSQL proof uses the coordinator. The processor still applies domain
-  handlers locally, then persists through the port.
+  PostgreSQL crash/recovery and publication proof use
+  `PostgresPublishAgentResponseCoordinator`. The processor still applies domain
+  handlers locally, then persists through the port. Mid-stream reclaim after a
+  durable fragment seals `Incomplete` rather than restarting the delta stream.
 
 # Verification
 
@@ -124,7 +129,7 @@ Content-phase complete is blocked until fragment and seal persist succeed.
 | Focused Sessions | passed | `FlexAgent.Sessions.Tests` 413/413 |
 | Architecture | passed | `FlexAgent.Architecture.Tests` 30/30 |
 | Runtime | passed | `FlexAgent.Runtime.Tests` 74/74 |
-| Crash/recovery claim | passed | `DurableInvocationWorkCrashRecoveryTests` 8/8 (with claim+timer classes: 31/31 after High remediations rebuild) |
+| Crash/recovery claim | passed | `DurableInvocationWorkCrashRecoveryTests` 12/12 after P2 persist-boundary tests. Red: pass-through persist left `AgentMessages` empty after crash (`Persisted_fragment_survives_crash_before_work_acknowledgement`). Green: coordinator-backed fragment/seal crash, lease-renew fail, and persist-fail-after-local-mutation. |
 | Whitespace | passed | `git diff --check` clean |
 
 # Blockers
