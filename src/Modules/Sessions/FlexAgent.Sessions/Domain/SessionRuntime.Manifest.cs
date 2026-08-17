@@ -27,6 +27,31 @@ public sealed partial class SessionRuntime
             return false;
         }
 
+        if (EvaluationHandoff is not null
+            && (EvaluationHandoff.TerminalRecordId != TerminalRecord.TerminalRecordId
+                || EvaluationHandoff.TerminalState != TerminalRecord.LifecycleState
+                || EvaluationHandoff.CutoffSequence != TerminalRecord.CutoffSequence
+                || !string.Equals(
+                    EvaluationHandoff.SealDigest,
+                    TerminalRecord.SealDigest,
+                    StringComparison.Ordinal)
+                || !string.Equals(
+                    EvaluationHandoff.ProcedureId,
+                    TerminalRecord.ProcedureId,
+                    StringComparison.Ordinal)
+                || (string.Equals(
+                        EvaluationHandoff.Eligibility,
+                        EvaluationHandoffEligibilities.Eligible,
+                        StringComparison.Ordinal)
+                    && (TerminalRecord.LifecycleState != SessionLifecycleState.Completed
+                        || !string.Equals(
+                            EvaluationHandoff.ProcedureId,
+                            ManifestSealProcedures.ManifestJcsSha256V2,
+                            StringComparison.Ordinal)))))
+        {
+            return false;
+        }
+
         return ManifestTerminalSealComputer.Verify(
             BuildSealDocument(TerminalRecord),
             TerminalRecord.SealDigest!);
@@ -156,6 +181,8 @@ public sealed partial class SessionRuntime
             sealDigest);
         EvaluationHandoff = new EvaluationHandoff(
             $"eho.{terminalRecordId.ToString("N").ToLowerInvariant()}",
+            terminalRecordId,
+            ManifestSealProcedures.ManifestJcsSha256V2,
             terminalState == SessionLifecycleState.Completed
                 ? EvaluationHandoffEligibilities.Eligible
                 : EvaluationHandoffEligibilities.Ineligible,

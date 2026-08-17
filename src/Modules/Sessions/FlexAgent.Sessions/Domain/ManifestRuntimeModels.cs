@@ -105,6 +105,8 @@ public sealed record SessionTerminalRecord(
 
 public sealed record EvaluationHandoff(
     string HandoffId,
+    Guid TerminalRecordId,
+    string ProcedureId,
     string Eligibility,
     SessionLifecycleState TerminalState,
     long? CutoffSequence,

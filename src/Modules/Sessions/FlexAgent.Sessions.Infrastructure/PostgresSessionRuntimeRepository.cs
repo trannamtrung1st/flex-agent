@@ -184,6 +184,8 @@ public sealed class PostgresSessionRuntimeRepository
     private const string LoadEvaluationHandoffSql = """
         SELECT
             handoff_id,
+            terminal_record_id,
+            procedure_id,
             eligibility,
             terminal_state,
             cutoff_sequence,
@@ -236,12 +238,12 @@ public sealed class PostgresSessionRuntimeRepository
     private const string InsertEvaluationHandoffSql = """
         INSERT INTO session_evaluation_handoffs (
             organization_id, activity_id, participant_id, attempt_id, session_id,
-            handoff_id, eligibility, terminal_state, cutoff_sequence,
-            configuration_id, configuration_digest, manifest_id, seal_digest)
+            handoff_id, terminal_record_id, procedure_id, eligibility, terminal_state,
+            cutoff_sequence, configuration_id, configuration_digest, manifest_id, seal_digest)
         VALUES (
             @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
-            @HandoffId, @Eligibility, @TerminalState, @CutoffSequence,
-            @ConfigurationId, @ConfigurationDigest, @ManifestId, @SealDigest)
+            @HandoffId, @TerminalRecordId, @ProcedureId, @Eligibility, @TerminalState,
+            @CutoffSequence, @ConfigurationId, @ConfigurationDigest, @ManifestId, @SealDigest)
         ON CONFLICT (organization_id, session_id) DO NOTHING;
         """;
 
@@ -1664,6 +1666,8 @@ public sealed class PostgresSessionRuntimeRepository
                         ownership.AttemptId,
                         ownership.SessionId,
                         handoff.HandoffId,
+                        handoff.TerminalRecordId,
+                        handoff.ProcedureId,
                         handoff.Eligibility,
                         TerminalState = ToDbLifecycle(handoff.TerminalState),
                         handoff.CutoffSequence,
@@ -1701,6 +1705,8 @@ public sealed class PostgresSessionRuntimeRepository
     private EvaluationHandoff ToEvaluationHandoff(SessionEvaluationHandoffRow row) =>
         new(
             row.handoff_id,
+            row.terminal_record_id,
+            row.procedure_id,
             row.eligibility,
             FromDbLifecycle(row.terminal_state),
             row.cutoff_sequence,
@@ -2277,6 +2283,8 @@ public sealed class PostgresSessionRuntimeRepository
 
     private sealed record SessionEvaluationHandoffRow(
         string handoff_id,
+        Guid terminal_record_id,
+        string procedure_id,
         string eligibility,
         string terminal_state,
         long? cutoff_sequence,

@@ -31,6 +31,7 @@ public sealed class MigrationUpgradeTests
     private const string Current0015ScriptName = "0015_session_message_seal_sequence.sql";
     private const string Current0016ScriptName = "0016_session_timer_schedule_contract_states.sql";
     private const string Current0017ScriptName = "0017_session_manifest_runtime_and_handoff.sql";
+    private const string Current0018ScriptName = "0018_session_evaluation_handoff_terminal_binding.sql";
 
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
@@ -70,7 +71,8 @@ public sealed class MigrationUpgradeTests
             Current0014ScriptName,
             Current0015ScriptName,
             Current0016ScriptName,
-            Current0017ScriptName);
+            Current0017ScriptName,
+            Current0018ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -111,7 +113,8 @@ public sealed class MigrationUpgradeTests
             Current0014ScriptName,
             Current0015ScriptName,
             Current0016ScriptName,
-            Current0017ScriptName);
+            Current0017ScriptName,
+            Current0018ScriptName);
     }
 
     [Fact]
@@ -150,7 +153,8 @@ public sealed class MigrationUpgradeTests
             Current0014ScriptName,
             Current0015ScriptName,
             Current0016ScriptName,
-            Current0017ScriptName);
+            Current0017ScriptName,
+            Current0018ScriptName);
     }
 
     [Fact]
@@ -189,7 +193,8 @@ public sealed class MigrationUpgradeTests
             Current0014ScriptName,
             Current0015ScriptName,
             Current0016ScriptName,
-            Current0017ScriptName);
+            Current0017ScriptName,
+            Current0018ScriptName);
     }
 
     [Fact]
@@ -228,7 +233,8 @@ public sealed class MigrationUpgradeTests
             Current0014ScriptName,
             Current0015ScriptName,
             Current0016ScriptName,
-            Current0017ScriptName);
+            Current0017ScriptName,
+            Current0018ScriptName);
     }
 
     [Fact]
@@ -267,7 +273,8 @@ public sealed class MigrationUpgradeTests
             Current0014ScriptName,
             Current0015ScriptName,
             Current0016ScriptName,
-            Current0017ScriptName);
+            Current0017ScriptName,
+            Current0018ScriptName);
     }
 
     [Fact]
@@ -306,7 +313,8 @@ public sealed class MigrationUpgradeTests
             Current0014ScriptName,
             Current0015ScriptName,
             Current0016ScriptName,
-            Current0017ScriptName);
+            Current0017ScriptName,
+            Current0018ScriptName);
     }
 
     [Fact]
@@ -345,7 +353,8 @@ public sealed class MigrationUpgradeTests
             Current0014ScriptName,
             Current0015ScriptName,
             Current0016ScriptName,
-            Current0017ScriptName);
+            Current0017ScriptName,
+            Current0018ScriptName);
     }
 
     [Fact]
@@ -448,7 +457,8 @@ public sealed class MigrationUpgradeTests
             Current0014ScriptName,
             Current0015ScriptName,
             Current0016ScriptName,
-            Current0017ScriptName);
+            Current0017ScriptName,
+            Current0018ScriptName);
     }
 
     [Fact]
@@ -487,7 +497,8 @@ public sealed class MigrationUpgradeTests
             Current0014ScriptName,
             Current0015ScriptName,
             Current0016ScriptName,
-            Current0017ScriptName);
+            Current0017ScriptName,
+            Current0018ScriptName);
     }
 
     [Fact]
@@ -526,7 +537,8 @@ public sealed class MigrationUpgradeTests
             Current0014ScriptName,
             Current0015ScriptName,
             Current0016ScriptName,
-            Current0017ScriptName);
+            Current0017ScriptName,
+            Current0018ScriptName);
     }
 
     [Fact]
@@ -640,6 +652,104 @@ public sealed class MigrationUpgradeTests
         Assert.Null(upgraded.ReasonCategory);
         Assert.Null(upgraded.AttemptMapping);
         Assert.Equal(12, upgraded.CutoffSequence);
+
+        await AssertAppliedScriptsAsync(
+            connectionString,
+            "0001_initial_authorization_configuration_schema.sql",
+            Historical0002ScriptName,
+            Historical0003ScriptName,
+            Current0004ScriptName,
+            Current0005ScriptName,
+            Current0006ScriptName,
+            Current0007ScriptName,
+            Current0008ScriptName,
+            Current0009ScriptName,
+            Current0010ScriptName,
+            Current0011ScriptName,
+            Current0012ScriptName,
+            Current0013ScriptName,
+            Current0014ScriptName,
+            Current0015ScriptName,
+            Current0016ScriptName,
+            Current0017ScriptName,
+            Current0018ScriptName);
+    }
+
+    [Fact]
+    public async Task Upgrade_from_frozen_0017_applies_0018_handoff_terminal_binding()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0017ScriptName);
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
+
+        await AssertAppliedScriptsAsync(
+            connectionString,
+            "0001_initial_authorization_configuration_schema.sql",
+            Historical0002ScriptName,
+            Historical0003ScriptName,
+            Current0004ScriptName,
+            Current0005ScriptName,
+            Current0006ScriptName,
+            Current0007ScriptName,
+            Current0008ScriptName,
+            Current0009ScriptName,
+            Current0010ScriptName,
+            Current0011ScriptName,
+            Current0012ScriptName,
+            Current0013ScriptName,
+            Current0014ScriptName,
+            Current0015ScriptName,
+            Current0016ScriptName,
+            Current0017ScriptName,
+            Current0018ScriptName);
+    }
+
+    [Fact]
+    public async Task Recorded_aa424f3_0017_fails_closed_against_frozen_0017()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+        var historical0017Sql = await ReadHistoricalFixtureAsync(
+            "0017_session_manifest_runtime_and_handoff_aa424f3.sql");
+
+        Assert.NotEqual(
+            GrateMigrationRunner.ComputeScriptHash(historical0017Sql),
+            GrateMigrationRunner.ComputeScriptHash(
+                await File.ReadAllTextAsync(
+                    Path.Combine(migrationsDirectory, "up", Current0017ScriptName),
+                    TestContext.Current.CancellationToken)));
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0016ScriptName);
+
+        await GrateMigrationRunner.ApplyRecordedMigrationForTestsAsync(
+            connectionString,
+            Current0017ScriptName,
+            historical0017Sql,
+            TestContext.Current.CancellationToken);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+                connectionString,
+                migrationsDirectory,
+                TestContext.Current.CancellationToken));
+        Assert.Contains(Current0017ScriptName, error.Message, StringComparison.Ordinal);
+        Assert.Contains("changed after it was applied", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -720,7 +830,8 @@ public sealed class MigrationUpgradeTests
             Current0014ScriptName,
             Current0015ScriptName,
             Current0016ScriptName,
-            Current0017ScriptName);
+            Current0017ScriptName,
+            Current0018ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -786,7 +897,8 @@ public sealed class MigrationUpgradeTests
             Current0014ScriptName,
             Current0015ScriptName,
             Current0016ScriptName,
-            Current0017ScriptName);
+            Current0017ScriptName,
+            Current0018ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }

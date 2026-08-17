@@ -226,9 +226,15 @@ public sealed class SessionRuntimeEndToEndProofTests(PostgresIntegrationFixture 
         Assert.Equal(TriggerAdmissionOutcomeCodes.LifecycleIneligible, postCutoff.OutcomeCode);
 
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
-        var handoff = await connection.QuerySingleAsync<(string Eligibility, string TerminalState, string SealDigest)>(
+        var handoff = await connection.QuerySingleAsync<(
+            string Eligibility,
+            string TerminalState,
+            string SealDigest,
+            Guid TerminalRecordId,
+            string ProcedureId,
+            long? CutoffSequence)>(
             """
-            SELECT eligibility, terminal_state, seal_digest
+            SELECT eligibility, terminal_state, seal_digest, terminal_record_id, procedure_id, cutoff_sequence
             FROM session_evaluation_handoffs
             WHERE organization_id = @OrganizationId
               AND session_id = @SessionId;
@@ -237,6 +243,9 @@ public sealed class SessionRuntimeEndToEndProofTests(PostgresIntegrationFixture 
         Assert.Equal("eligible", handoff.Eligibility);
         Assert.Equal("completed", handoff.TerminalState);
         Assert.Equal(loaded.TerminalRecord.SealDigest, handoff.SealDigest);
+        Assert.Equal(loaded.TerminalRecord.TerminalRecordId, handoff.TerminalRecordId);
+        Assert.Equal(ManifestSealProcedures.ManifestJcsSha256V2, handoff.ProcedureId);
+        Assert.Equal(loaded.TerminalRecord.CutoffSequence, handoff.CutoffSequence);
         Assert.Equal(
             1,
             await connection.ExecuteScalarAsync<int>(
@@ -398,11 +407,12 @@ public sealed class SessionRuntimeEndToEndProofTests(PostgresIntegrationFixture 
                 """
                 INSERT INTO session_evaluation_handoffs (
                     organization_id, activity_id, participant_id, attempt_id, session_id,
-                    handoff_id, eligibility, terminal_state, cutoff_sequence,
-                    configuration_id, configuration_digest, manifest_id, seal_digest)
+                    handoff_id, terminal_record_id, procedure_id, eligibility, terminal_state,
+                    cutoff_sequence, configuration_id, configuration_digest, manifest_id, seal_digest)
                 VALUES (
                     @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
-                    'eho.forged000000000000000000000000', 'eligible', 'terminated', 1,
+                    'eho.forged000000000000000000000000', @TerminalRecordId,
+                    'manifest-jcs-sha256-v2', 'eligible', 'terminated', 1,
                     @ConfigurationId, @ConfigurationDigest, @ManifestId, @SealDigest);
                 """,
                 new
@@ -412,6 +422,7 @@ public sealed class SessionRuntimeEndToEndProofTests(PostgresIntegrationFixture 
                     ready.Binding.Ownership.ParticipantId,
                     ready.Binding.Ownership.AttemptId,
                     ready.Binding.Ownership.SessionId,
+                    TerminalRecordId = Guid.NewGuid(),
                     ready.Binding.ConfigurationId,
                     ready.Binding.ConfigurationDigest,
                     ready.Binding.ManifestId,
@@ -450,6 +461,72 @@ public sealed class SessionRuntimeEndToEndProofTests(PostgresIntegrationFixture 
         Assert.Contains("chk_session_terminal_records_seal", error.ConstraintName, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Eligible_completed_handoff_cannot_be_recorded_for_an_active_session_without_a_terminal_record()
+    {
+        var ready = await PrepareActiveAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var error = await Assert.ThrowsAsync<PostgresException>(() =>
+            connection.ExecuteAsync(
+                """
+                INSERT INTO session_evaluation_handoffs (
+                    organization_id, activity_id, participant_id, attempt_id, session_id,
+                    handoff_id, terminal_record_id, procedure_id, eligibility, terminal_state,
+                    cutoff_sequence, configuration_id, configuration_digest, manifest_id, seal_digest)
+                VALUES (
+                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                    'eho.forged000000000000000000000000', @TerminalRecordId,
+                    'manifest-jcs-sha256-v2', 'eligible', 'completed', 1,
+                    @ConfigurationId, @ConfigurationDigest, @ManifestId, @SealDigest);
+                """,
+                new
+                {
+                    ready.Binding.Ownership.OrganizationId,
+                    ready.Binding.Ownership.ActivityId,
+                    ready.Binding.Ownership.ParticipantId,
+                    ready.Binding.Ownership.AttemptId,
+                    ready.Binding.Ownership.SessionId,
+                    TerminalRecordId = Guid.NewGuid(),
+                    ready.Binding.ConfigurationId,
+                    ready.Binding.ConfigurationDigest,
+                    ready.Binding.ManifestId,
+                    SealDigest = new string('a', 64),
+                }));
+        Assert.True(
+            error.ConstraintName is not null
+            && (error.ConstraintName.Contains("handoffs_terminal", StringComparison.OrdinalIgnoreCase)
+                || error.ConstraintName.Contains("runtime_lifecycle", StringComparison.OrdinalIgnoreCase)),
+            error.ConstraintName);
+    }
+
+    [Fact]
+    public async Task Eligible_handoff_cutoff_must_match_the_sealed_terminal_record()
+    {
+        var forged = await PrepareCompletedRuntimeWithTerminalAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var error = await Assert.ThrowsAsync<PostgresException>(() =>
+            InsertEligibleHandoffAsync(
+                connection,
+                forged,
+                cutoffSequence: forged.CutoffSequence + 1,
+                sealDigest: forged.SealDigest));
+        Assert.Contains("handoffs_terminal", error.ConstraintName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Eligible_handoff_seal_digest_must_match_the_sealed_terminal_record()
+    {
+        var forged = await PrepareCompletedRuntimeWithTerminalAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var error = await Assert.ThrowsAsync<PostgresException>(() =>
+            InsertEligibleHandoffAsync(
+                connection,
+                forged,
+                cutoffSequence: forged.CutoffSequence,
+                sealDigest: new string('b', 64)));
+        Assert.Contains("handoffs_terminal", error.ConstraintName, StringComparison.OrdinalIgnoreCase);
+    }
+
     private async Task<Prepared> PrepareActiveAsync()
     {
         var organization = await Fixture.SeedOrganizationAsync();
@@ -466,6 +543,76 @@ public sealed class SessionRuntimeEndToEndProofTests(PostgresIntegrationFixture 
 
         return new Prepared(binding, SessionPersistenceFixtures.Actor(organization.ActorId), repository);
     }
+
+    private async Task<ForgedCompletedTerminal> PrepareCompletedRuntimeWithTerminalAsync()
+    {
+        var ready = await PrepareActiveAsync();
+        var terminalRecordId = Guid.NewGuid();
+        const long cutoffSequence = 7;
+        var sealDigest = new string('a', 64);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO session_terminal_records (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                terminal_record_id, lifecycle_state, reason_category, attempt_mapping,
+                cutoff_sequence, procedure_id, seal_digest)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                @TerminalRecordId, 'completed', 'participant_completed', 'completed',
+                @CutoffSequence, 'manifest-jcs-sha256-v2', @SealDigest);
+
+            UPDATE session_runtimes
+            SET lifecycle_state = 'completed'
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId;
+            """,
+            new
+            {
+                ready.Binding.Ownership.OrganizationId,
+                ready.Binding.Ownership.ActivityId,
+                ready.Binding.Ownership.ParticipantId,
+                ready.Binding.Ownership.AttemptId,
+                ready.Binding.Ownership.SessionId,
+                TerminalRecordId = terminalRecordId,
+                CutoffSequence = cutoffSequence,
+                SealDigest = sealDigest,
+            });
+
+        return new ForgedCompletedTerminal(ready.Binding, terminalRecordId, cutoffSequence, sealDigest);
+    }
+
+    private static Task InsertEligibleHandoffAsync(
+        NpgsqlConnection connection,
+        ForgedCompletedTerminal forged,
+        long cutoffSequence,
+        string sealDigest) =>
+        connection.ExecuteAsync(
+            """
+            INSERT INTO session_evaluation_handoffs (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                handoff_id, terminal_record_id, procedure_id, eligibility, terminal_state,
+                cutoff_sequence, configuration_id, configuration_digest, manifest_id, seal_digest)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'eho.forged000000000000000000000000', @TerminalRecordId,
+                'manifest-jcs-sha256-v2', 'eligible', 'completed', @CutoffSequence,
+                @ConfigurationId, @ConfigurationDigest, @ManifestId, @SealDigest);
+            """,
+            new
+            {
+                forged.Binding.Ownership.OrganizationId,
+                forged.Binding.Ownership.ActivityId,
+                forged.Binding.Ownership.ParticipantId,
+                forged.Binding.Ownership.AttemptId,
+                forged.Binding.Ownership.SessionId,
+                forged.TerminalRecordId,
+                CutoffSequence = cutoffSequence,
+                forged.Binding.ConfigurationId,
+                forged.Binding.ConfigurationDigest,
+                forged.Binding.ManifestId,
+                SealDigest = sealDigest,
+            });
 
     private PostgresAdmitTrustedTriggerCoordinator CreateAdmit(Prepared ready) =>
         new(Fixture.Services.ConnectionAccessor, ready.Repository, new AdmitTrustedTriggerHandler());
@@ -500,6 +647,12 @@ public sealed class SessionRuntimeEndToEndProofTests(PostgresIntegrationFixture 
             """,
             ownership);
     }
+
+    private sealed record ForgedCompletedTerminal(
+        TrustedSessionBinding Binding,
+        Guid TerminalRecordId,
+        long CutoffSequence,
+        string SealDigest);
 
     private sealed record Prepared(
         TrustedSessionBinding Binding,

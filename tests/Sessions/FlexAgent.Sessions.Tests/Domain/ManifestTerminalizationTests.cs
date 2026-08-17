@@ -257,6 +257,8 @@ public sealed class ManifestTerminalizationTests
         Assert.True(session.VerifyTerminalSeal());
         Assert.NotNull(session.EvaluationHandoff);
         Assert.Equal(EvaluationHandoffEligibilities.Eligible, session.EvaluationHandoff!.Eligibility);
+        Assert.Equal(session.TerminalRecord.TerminalRecordId, session.EvaluationHandoff.TerminalRecordId);
+        Assert.Equal(session.TerminalRecord.ProcedureId, session.EvaluationHandoff.ProcedureId);
         Assert.Equal(session.TerminalRecord.SealDigest, session.EvaluationHandoff.SealDigest);
         Assert.Equal(session.CutoffSequence, session.EvaluationHandoff.CutoffSequence);
     }
@@ -374,6 +376,74 @@ public sealed class ManifestTerminalizationTests
         Assert.Equal(live.ManifestRuntimeRecords.Count, restored.ManifestRuntimeRecords.Count);
         Assert.Equal(live.TerminalRecord!.SealDigest, restored.TerminalRecord!.SealDigest);
         Assert.Equal(EvaluationHandoffEligibilities.Eligible, restored.EvaluationHandoff!.Eligibility);
+        Assert.Equal(live.TerminalRecord.TerminalRecordId, restored.EvaluationHandoff.TerminalRecordId);
         Assert.True(restored.VerifyTerminalSeal());
+    }
+
+    [Fact]
+    public void Eligible_handoff_without_a_terminal_record_fails_seal_verification()
+    {
+        var live = SessionRuntimeTestFixtures.CreateActiveSession();
+        live.BeginCompleting(SessionRuntimeTestFixtures.T0.AddSeconds(1));
+        live.Complete(SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        var restored = SessionRuntime.Rehydrate(
+            live.Binding,
+            SessionLifecycleState.Active,
+            live.SessionVersion,
+            live.SessionSequence,
+            live.CutoffSequence,
+            live.LastCommittedAt,
+            manifestRecords: live.ManifestRuntimeRecords,
+            evaluationHandoff: live.EvaluationHandoff);
+
+        Assert.False(restored.VerifyTerminalSeal());
+    }
+
+    [Fact]
+    public void Eligible_handoff_cutoff_mismatch_fails_seal_verification()
+    {
+        var live = SessionRuntimeTestFixtures.CreateActiveSession();
+        live.BeginCompleting(SessionRuntimeTestFixtures.T0.AddSeconds(1));
+        live.Complete(SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        var restored = SessionRuntime.Rehydrate(
+            live.Binding,
+            live.LifecycleState,
+            live.SessionVersion,
+            live.SessionSequence,
+            live.CutoffSequence,
+            live.LastCommittedAt,
+            manifestRecords: live.ManifestRuntimeRecords,
+            terminalRecord: live.TerminalRecord,
+            evaluationHandoff: live.EvaluationHandoff! with
+            {
+                CutoffSequence = live.EvaluationHandoff.CutoffSequence + 1,
+            });
+
+        Assert.NotEqual(live.TerminalRecord!.CutoffSequence, restored.EvaluationHandoff!.CutoffSequence);
+        Assert.False(restored.VerifyTerminalSeal());
+    }
+
+    [Fact]
+    public void Eligible_handoff_seal_mismatch_fails_seal_verification()
+    {
+        var live = SessionRuntimeTestFixtures.CreateActiveSession();
+        live.BeginCompleting(SessionRuntimeTestFixtures.T0.AddSeconds(1));
+        live.Complete(SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        var restored = SessionRuntime.Rehydrate(
+            live.Binding,
+            live.LifecycleState,
+            live.SessionVersion,
+            live.SessionSequence,
+            live.CutoffSequence,
+            live.LastCommittedAt,
+            manifestRecords: live.ManifestRuntimeRecords,
+            terminalRecord: live.TerminalRecord,
+            evaluationHandoff: live.EvaluationHandoff! with
+            {
+                SealDigest = new string('a', 64),
+            });
+
+        Assert.NotEqual(live.TerminalRecord!.SealDigest, restored.EvaluationHandoff!.SealDigest);
+        Assert.False(restored.VerifyTerminalSeal());
     }
 }

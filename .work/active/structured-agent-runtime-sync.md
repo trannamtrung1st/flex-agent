@@ -954,6 +954,18 @@ and test reviews have no unresolved blocking findings.
         Postgres 159/159; Node JCS 8/8.
   - [x] Confirmation pass (2026-08-17): v2 CHECK now requires cutoff;
         verification fails closed when v2 cutoff is missing. No new blockers.
+  - [x] Remediate external request-changes on `f1122dc`: freeze rewritten
+        `0017` (do not edit it again) and add forward `0018` so eligible
+        Evaluation handoff is FK-bound to the sealed terminal record, the
+        Session lifecycle, cutoff, digest, and v2 procedure. Document that
+        `aa424f3`'s earlier `0017` hash cannot upgrade in place.
+        Red: eligible+completed handoff inserted against Active with no
+        terminal row; mismatched cutoff/seal hydrated as valid. Green:
+        `0018` composite FKs plus eligible⇒v2 CHECK; `VerifyTerminalSeal`
+        requires handoff identity/state/cutoff/digest/procedure to match
+        the terminal record. Sessions 384/384; architecture 29/29;
+        Postgres 164/164 including `0016→0018` legacy-unsealed,
+        frozen `0017→0018`, and recorded `aa424f3` `0017` checksum fail-closed.
 - [>] Add and verify bounded observability and performance coverage: admission/
   rejection and effect categories, no-action, duplicate/stale/late work,
   fragment latency/integrity, backlog/claims, timer drift/outcomes/budgets,
@@ -1026,11 +1038,15 @@ outcome append, pause/resume/expire timer provenance, pending-flag seal
 audit, and Terminate persist. External P1s on `aa424f3` (2026-08-17):
 `0017` keeps pre-seal terminal rows as NULL-column legacy-unsealed because
 the table is append-only; new terminals use `manifest-jcs-sha256-v2` so
-cutoff is bound by the seal. Next is bounded observability.
+cutoff is bound by the seal. External request-changes on `f1122dc`
+(2026-08-17): `0017` is frozen (not rewritten again); additive `0018`
+binds eligible Evaluation handoff to the sealed terminal record. Databases
+that recorded `aa424f3`'s earlier `0017` hash cannot apply frozen `0017`
+and must be rebuilt. Next is bounded observability.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
-**approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0016`
-unchanged; additive `0017` is the manifest/handoff schema.
+**approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0017`
+unchanged; additive `0018` binds Evaluation handoff to the terminal seal.
 
 One-lane scheduler **cutoff/terminal lifecycle persist and timer-fire ACK**
 is **approved** at `1c11744`. External review (2026-08-16) **approved:
@@ -2190,7 +2206,7 @@ surfaces.
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
-| Provider credential/no-fallback and manifest append/seal/handoff tests | partial; E2E plus `aa424f3` P1 remediations | Credential no-fallback remains the earlier domain/port evidence. Manifest append/seal/handoff (2026-08-17): `ManifestTerminalizationTests` 14/14; Sessions 381/381; contracts 135/135 including `manifest-jcs-sha256-v2`; architecture 29/29; Postgres 159/159 including populated `0016→0017` legacy-unsealed upgrade and `SessionRuntimeEndToEndProofTests` 6/6; Node JCS 8/8. Additive `0017` (frozen `0005`–`0016` unchanged). Honest gap: full ADR-005 Attempt/Submission start and `REQ-RSC-30` initial-manifest field set are still out of this Sessions slice; InsertActive plus binding refs is the committed-readiness stand-in. Repeated pause/resume on the same revision records the first `.paused`/`.resumed` only (append-if-absent protected ref). Pre-0017 terminal rows remain NULL-procedure/unsealed and are not evaluation-eligible. |
+| Provider credential/no-fallback and manifest append/seal/handoff tests | partial; E2E plus `f1122dc` request-changes | Credential no-fallback remains the earlier domain/port evidence. Manifest append/seal/handoff (2026-08-17): `ManifestTerminalizationTests` 17/17; Sessions 384/384; architecture 29/29; Postgres 164/164 including populated `0016→0018` legacy-unsealed, frozen `0017→0018`, recorded `aa424f3` `0017` checksum fail-closed, and eligible handoff FK mismatch tests; Node JCS 8/8 unchanged. Additive `0018` (frozen `0005`–`0017` unchanged). Honest gap: full ADR-005 Attempt/Submission start and `REQ-RSC-30` initial-manifest field set are still out of this Sessions slice; InsertActive plus binding refs is the committed-readiness stand-in. Repeated pause/resume on the same revision records the first `.paused`/`.resumed` only (append-if-absent protected ref). Pre-0017 terminal rows remain NULL-procedure/unsealed and are not evaluation-eligible. Databases that applied `aa424f3`'s unfrozen `0017` cannot migrate in place. |
 | Web lint/type/unit/build/e2e | local web CI script passed; Playwright e2e not in GitHub web job | `bash build/scripts/verify-web.sh` (2026-08-17): frozen install, boundary check, contracts JCS 8/8, eslint warning-only `react-refresh/only-export-components` in `web/src/api/browser-api.tsx`, `tsc -b --noEmit`, vitest 55/55, production build. GitHub Implementation `web` job matches this script and does not run Playwright e2e. |
 | Playwright accessibility/responsive/visual evaluation | passed live MCP | Prior journey set plus 2026-08-17 confirmation/disabled-button, trap, and `29cde55` restore: desktop/390 Complete trigger focus after Continue and Escape. Artifact dir `.playwright-mcp/`. |
 | Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | local CI-equivalent passed (2026-08-17); GitHub push not claimed | `git diff --check` clean; `python3 scripts/check_docs.py` passed. `verify-web.sh` as above. `verify-dotnet.sh`: 775/775, Release publish, no `appsettings.Development.json`. `gitleaks detect` no leaks. NuGet `--vulnerable --include-transitive` none. `pnpm audit --audit-level=high` exit 0 (2 moderate). Native OCI `flex-agent-oci-{api,worker,spa}:local`. CI-shaped `linux/amd64` `flex-agent-{api,worker,spa}:linux-amd64`. `scan-oci-image-sboms.sh` exit 0 (`--fail-on critical`; SPA Alpine `tiff` High recorded, not critical). GitHub Implementation/Documentation workflows are not claimed from this machine. |
@@ -2225,7 +2241,8 @@ Unbounded synthetic SSE remains P3. Do not iterate this Text Session UI
 slice. Production-shaped internal end-to-end proof is implemented
 (2026-08-17), including consistency remediations and `aa424f3` P1s
 (legacy-unsealed `0017` upgrade; `manifest-jcs-sha256-v2` cutoff seal).
-Bounded observability is next.
+`f1122dc` request-changes: freeze `0017`, additive `0018` handoff↔terminal
+binding. Bounded observability is next.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
