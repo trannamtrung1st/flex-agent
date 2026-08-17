@@ -446,4 +446,60 @@ public sealed class ManifestTerminalizationTests
         Assert.NotEqual(live.TerminalRecord!.SealDigest, restored.EvaluationHandoff!.SealDigest);
         Assert.False(restored.VerifyTerminalSeal());
     }
+
+    [Fact]
+    public void Eligible_handoff_configuration_id_mismatch_fails_seal_verification()
+    {
+        var live = CompleteEligibleSession();
+        var restored = RehydrateWithHandoff(
+            live,
+            live.EvaluationHandoff! with { ConfigurationId = "cfg.forged" });
+
+        Assert.NotEqual(live.Binding.ConfigurationId, restored.EvaluationHandoff!.ConfigurationId);
+        Assert.False(restored.VerifyTerminalSeal());
+    }
+
+    [Fact]
+    public void Eligible_handoff_configuration_digest_mismatch_fails_seal_verification()
+    {
+        var live = CompleteEligibleSession();
+        var restored = RehydrateWithHandoff(
+            live,
+            live.EvaluationHandoff! with { ConfigurationDigest = new string('c', 64) });
+
+        Assert.NotEqual(live.Binding.ConfigurationDigest, restored.EvaluationHandoff!.ConfigurationDigest);
+        Assert.False(restored.VerifyTerminalSeal());
+    }
+
+    [Fact]
+    public void Eligible_handoff_manifest_id_mismatch_fails_seal_verification()
+    {
+        var live = CompleteEligibleSession();
+        var restored = RehydrateWithHandoff(
+            live,
+            live.EvaluationHandoff! with { ManifestId = "man.forged" });
+
+        Assert.NotEqual(live.Binding.ManifestId, restored.EvaluationHandoff!.ManifestId);
+        Assert.False(restored.VerifyTerminalSeal());
+    }
+
+    private static SessionRuntime CompleteEligibleSession()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        session.BeginCompleting(SessionRuntimeTestFixtures.T0.AddSeconds(1));
+        session.Complete(SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        return session;
+    }
+
+    private static SessionRuntime RehydrateWithHandoff(SessionRuntime live, EvaluationHandoff handoff) =>
+        SessionRuntime.Rehydrate(
+            live.Binding,
+            live.LifecycleState,
+            live.SessionVersion,
+            live.SessionSequence,
+            live.CutoffSequence,
+            live.LastCommittedAt,
+            manifestRecords: live.ManifestRuntimeRecords,
+            terminalRecord: live.TerminalRecord,
+            evaluationHandoff: handoff);
 }

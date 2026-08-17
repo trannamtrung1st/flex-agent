@@ -39,6 +39,18 @@ public sealed partial class SessionRuntime
                     EvaluationHandoff.ProcedureId,
                     TerminalRecord.ProcedureId,
                     StringComparison.Ordinal)
+                || !string.Equals(
+                    EvaluationHandoff.ConfigurationId,
+                    Binding.ConfigurationId,
+                    StringComparison.Ordinal)
+                || !string.Equals(
+                    EvaluationHandoff.ConfigurationDigest,
+                    Binding.ConfigurationDigest,
+                    StringComparison.Ordinal)
+                || !string.Equals(
+                    EvaluationHandoff.ManifestId,
+                    Binding.ManifestId,
+                    StringComparison.Ordinal)
                 || (string.Equals(
                         EvaluationHandoff.Eligibility,
                         EvaluationHandoffEligibilities.Eligible,

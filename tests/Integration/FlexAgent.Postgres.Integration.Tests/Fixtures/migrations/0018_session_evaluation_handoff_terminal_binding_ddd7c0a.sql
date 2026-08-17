@@ -1,27 +1,13 @@
--- Bind Evaluation handoff to the sealed terminal record and Session
--- configuration/manifest. Do not rewrite 0017.
+-- Bind Evaluation handoff to the sealed terminal record. Do not rewrite 0017.
 -- 0017 is frozen at f1122dc (legacy-unsealed CHECK plus v2 cutoff). Databases
 -- that recorded aa424f3's earlier 0017 hash cannot apply this frozen 0017 and
 -- must be rebuilt; that script was unfrozen and replaced before any intended
 -- persistent environment freeze.
--- ddd7c0a's 0018 is unfrozen: it UPDATE-backfilled append-only handoff rows
--- without suspending trg_session_evaluation_handoffs_no_update, so any
--- populated session_evaluation_handoffs table failed closed. Databases that
--- recorded that earlier 0018 hash cannot apply this script and must be rebuilt.
 -- UTC-ordered; additive after frozen 0017.
 
 ALTER TABLE session_runtimes
     ADD CONSTRAINT uq_session_runtimes_org_session_lifecycle
     UNIQUE (organization_id, session_id, lifecycle_state);
-
-ALTER TABLE session_runtimes
-    ADD CONSTRAINT uq_session_runtimes_org_session_configuration
-    UNIQUE (
-        organization_id,
-        session_id,
-        configuration_id,
-        configuration_digest,
-        manifest_id);
 
 ALTER TABLE session_terminal_records
     ADD CONSTRAINT uq_session_terminal_records_handoff_identity
@@ -39,12 +25,6 @@ ALTER TABLE session_evaluation_handoffs
 
 ALTER TABLE session_evaluation_handoffs
     ADD COLUMN procedure_id TEXT NULL;
-
--- Controlled schema expansion of new nullable columns only. Do not rewrite
--- already-committed handoff values; re-enable the append-only trigger before
--- the migration ends.
-ALTER TABLE session_evaluation_handoffs
-    DISABLE TRIGGER trg_session_evaluation_handoffs_no_update;
 
 UPDATE session_evaluation_handoffs AS handoff
 SET
@@ -77,9 +57,6 @@ ALTER TABLE session_evaluation_handoffs
 
 ALTER TABLE session_evaluation_handoffs
     ALTER COLUMN procedure_id SET NOT NULL;
-
-ALTER TABLE session_evaluation_handoffs
-    ENABLE TRIGGER trg_session_evaluation_handoffs_no_update;
 
 ALTER TABLE session_evaluation_handoffs
     ADD CONSTRAINT chk_session_evaluation_handoffs_procedure
@@ -116,18 +93,3 @@ ALTER TABLE session_evaluation_handoffs
     ADD CONSTRAINT fk_session_evaluation_handoffs_runtime_lifecycle
         FOREIGN KEY (organization_id, session_id, terminal_state)
         REFERENCES session_runtimes (organization_id, session_id, lifecycle_state);
-
-ALTER TABLE session_evaluation_handoffs
-    ADD CONSTRAINT fk_session_evaluation_handoffs_runtime_configuration
-        FOREIGN KEY (
-            organization_id,
-            session_id,
-            configuration_id,
-            configuration_digest,
-            manifest_id)
-        REFERENCES session_runtimes (
-            organization_id,
-            session_id,
-            configuration_id,
-            configuration_digest,
-            manifest_id);

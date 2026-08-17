@@ -527,6 +527,51 @@ public sealed class SessionRuntimeEndToEndProofTests(PostgresIntegrationFixture 
         Assert.Contains("handoffs_terminal", error.ConstraintName, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Eligible_handoff_configuration_id_must_match_the_session_binding()
+    {
+        var forged = await PrepareCompletedRuntimeWithTerminalAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var error = await Assert.ThrowsAsync<PostgresException>(() =>
+            InsertEligibleHandoffAsync(
+                connection,
+                forged,
+                cutoffSequence: forged.CutoffSequence,
+                sealDigest: forged.SealDigest,
+                configurationId: "cfg.forged"));
+        Assert.Contains("runtime_configuration", error.ConstraintName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Eligible_handoff_configuration_digest_must_match_the_session_binding()
+    {
+        var forged = await PrepareCompletedRuntimeWithTerminalAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var error = await Assert.ThrowsAsync<PostgresException>(() =>
+            InsertEligibleHandoffAsync(
+                connection,
+                forged,
+                cutoffSequence: forged.CutoffSequence,
+                sealDigest: forged.SealDigest,
+                configurationDigest: new string('c', 64)));
+        Assert.Contains("runtime_configuration", error.ConstraintName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Eligible_handoff_manifest_id_must_match_the_session_binding()
+    {
+        var forged = await PrepareCompletedRuntimeWithTerminalAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var error = await Assert.ThrowsAsync<PostgresException>(() =>
+            InsertEligibleHandoffAsync(
+                connection,
+                forged,
+                cutoffSequence: forged.CutoffSequence,
+                sealDigest: forged.SealDigest,
+                manifestId: "man.forged"));
+        Assert.Contains("runtime_configuration", error.ConstraintName, StringComparison.OrdinalIgnoreCase);
+    }
+
     private async Task<Prepared> PrepareActiveAsync()
     {
         var organization = await Fixture.SeedOrganizationAsync();
@@ -586,7 +631,10 @@ public sealed class SessionRuntimeEndToEndProofTests(PostgresIntegrationFixture 
         NpgsqlConnection connection,
         ForgedCompletedTerminal forged,
         long cutoffSequence,
-        string sealDigest) =>
+        string sealDigest,
+        string? configurationId = null,
+        string? configurationDigest = null,
+        string? manifestId = null) =>
         connection.ExecuteAsync(
             """
             INSERT INTO session_evaluation_handoffs (
@@ -608,9 +656,9 @@ public sealed class SessionRuntimeEndToEndProofTests(PostgresIntegrationFixture 
                 forged.Binding.Ownership.SessionId,
                 forged.TerminalRecordId,
                 CutoffSequence = cutoffSequence,
-                forged.Binding.ConfigurationId,
-                forged.Binding.ConfigurationDigest,
-                forged.Binding.ManifestId,
+                ConfigurationId = configurationId ?? forged.Binding.ConfigurationId,
+                ConfigurationDigest = configurationDigest ?? forged.Binding.ConfigurationDigest,
+                ManifestId = manifestId ?? forged.Binding.ManifestId,
                 SealDigest = sealDigest,
             });
 

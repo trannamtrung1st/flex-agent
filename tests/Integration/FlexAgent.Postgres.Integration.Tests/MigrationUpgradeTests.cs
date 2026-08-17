@@ -716,6 +716,59 @@ public sealed class MigrationUpgradeTests
     }
 
     [Fact]
+    public async Task Upgrade_from_populated_0017_backfills_existing_evaluation_handoff_binding()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0017ScriptName);
+
+        var seeded = await SeedPopulated0017EvaluationHandoffAsync(connectionString);
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var upgraded = await connection.QuerySingleAsync<(
+            Guid TerminalRecordId,
+            string ProcedureId,
+            string ConfigurationId,
+            string ConfigurationDigest,
+            string ManifestId)>(
+            """
+            SELECT terminal_record_id, procedure_id, configuration_id, configuration_digest, manifest_id
+            FROM session_evaluation_handoffs
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId;
+            """,
+            seeded);
+        Assert.Equal(seeded.TerminalRecordId, upgraded.TerminalRecordId);
+        Assert.Equal("manifest-jcs-sha256-v2", upgraded.ProcedureId);
+        Assert.Equal("cfg-1", upgraded.ConfigurationId);
+        Assert.Equal(new string('a', 64), upgraded.ConfigurationDigest);
+        Assert.Equal("man-1", upgraded.ManifestId);
+
+        var appendOnly = await Assert.ThrowsAsync<PostgresException>(() =>
+            connection.ExecuteAsync(
+                """
+                UPDATE session_evaluation_handoffs
+                SET eligibility = eligibility
+                WHERE organization_id = @OrganizationId
+                  AND session_id = @SessionId;
+                """,
+                seeded));
+        Assert.Contains("append-only", appendOnly.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Recorded_aa424f3_0017_fails_closed_against_frozen_0017()
     {
         await using var container = await StartContainerAsync();
@@ -749,6 +802,43 @@ public sealed class MigrationUpgradeTests
                 migrationsDirectory,
                 TestContext.Current.CancellationToken));
         Assert.Contains(Current0017ScriptName, error.Message, StringComparison.Ordinal);
+        Assert.Contains("changed after it was applied", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Recorded_ddd7c0a_0018_fails_closed_against_current_0018()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+        var historical0018Sql = await ReadHistoricalFixtureAsync(
+            "0018_session_evaluation_handoff_terminal_binding_ddd7c0a.sql");
+
+        Assert.NotEqual(
+            GrateMigrationRunner.ComputeScriptHash(historical0018Sql),
+            GrateMigrationRunner.ComputeScriptHash(
+                await File.ReadAllTextAsync(
+                    Path.Combine(migrationsDirectory, "up", Current0018ScriptName),
+                    TestContext.Current.CancellationToken)));
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0017ScriptName);
+
+        await GrateMigrationRunner.ApplyRecordedMigrationForTestsAsync(
+            connectionString,
+            Current0018ScriptName,
+            historical0018Sql,
+            TestContext.Current.CancellationToken);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+                connectionString,
+                migrationsDirectory,
+                TestContext.Current.CancellationToken));
+        Assert.Contains(Current0018ScriptName, error.Message, StringComparison.Ordinal);
         Assert.Contains("changed after it was applied", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -1232,6 +1322,61 @@ public sealed class MigrationUpgradeTests
         return new Populated0016TerminalSeed(organizationId, sessionId);
     }
 
+    private static async Task<Populated0017HandoffSeed> SeedPopulated0017EvaluationHandoffAsync(
+        string connectionString)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var organizationId = Guid.NewGuid();
+        var activityId = Guid.NewGuid();
+        var participantId = Guid.NewGuid();
+        var attemptId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var terminalRecordId = Guid.NewGuid();
+        var digest = new string('a', 64);
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO organizations (id, created_at) VALUES (@OrganizationId, @CreatedAt);
+            INSERT INTO session_runtimes (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                configuration_id, configuration_digest, manifest_id, lifecycle_state,
+                cutoff_sequence)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'cfg-1', @Digest, 'man-1', 'completed', 12);
+            INSERT INTO session_terminal_records (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                terminal_record_id, lifecycle_state, reason_category, attempt_mapping,
+                cutoff_sequence, procedure_id, seal_digest)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                @TerminalRecordId, 'completed', 'participant_completed', 'completed',
+                12, 'manifest-jcs-sha256-v2', @Digest);
+            INSERT INTO session_evaluation_handoffs (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                handoff_id, eligibility, terminal_state, cutoff_sequence,
+                configuration_id, configuration_digest, manifest_id, seal_digest)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'eho.upgrade000000000000000000000000', 'eligible', 'completed', 12,
+                'cfg-1', @Digest, 'man-1', @Digest);
+            """,
+            new
+            {
+                OrganizationId = organizationId,
+                ActivityId = activityId,
+                ParticipantId = participantId,
+                AttemptId = attemptId,
+                SessionId = sessionId,
+                TerminalRecordId = terminalRecordId,
+                Digest = digest,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+
+        return new Populated0017HandoffSeed(organizationId, sessionId, terminalRecordId);
+    }
+
     private static async Task<LegacyVersionSeed> SeedLegacyVersionAsync(string connectionString)
     {
         var organizationId = Guid.NewGuid();
@@ -1436,6 +1581,11 @@ public sealed class MigrationUpgradeTests
         Guid ReplacedSessionId);
 
     private sealed record Populated0016TerminalSeed(Guid OrganizationId, Guid SessionId);
+
+    private sealed record Populated0017HandoffSeed(
+        Guid OrganizationId,
+        Guid SessionId,
+        Guid TerminalRecordId);
 
     private sealed record Populated0012PublicationSeed(
         Guid OrganizationId,
