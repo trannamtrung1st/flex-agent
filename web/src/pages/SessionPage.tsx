@@ -495,6 +495,11 @@ export function SessionPage() {
       return;
     }
 
+    if (action.action_id === "complete_session") {
+      setCompleteConfirmOpen(false);
+      setRequestingCompletion(true);
+    }
+
     const startedSessionId = sessionId;
     const startedGeneration = actionGenerationRef.current;
     const actionStillCurrent = () =>
@@ -847,12 +852,11 @@ export function SessionPage() {
         confirmVariant="primary"
         initialFocus="title"
         describedBy="complete-session-description"
+        confirmDisabled={!mutationsEnabled}
         onConfirm={() => {
           if (!completeAction) {
             return;
           }
-          setCompleteConfirmOpen(false);
-          setRequestingCompletion(true);
           void runAction(completeAction);
         }}
         onCancel={() => {

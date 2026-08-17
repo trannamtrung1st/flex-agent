@@ -441,6 +441,81 @@ describe("SessionPage Decision presentation", () => {
     expect(commandBodies.some((body) => body.includes("session.complete"))).toBe(false);
   });
 
+  it("does not stick Requesting completion if Complete is confirmed while reconnecting", async () => {
+    const commandBodies: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands")) {
+          commandBodies.push(typeof init?.body === "string" ? init.body : "");
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ schema_version: "v1", outcome: "succeeded" }),
+          });
+        }
+        if (url.includes("/browser/sessions/")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                ...activeSession,
+                permitted_actions: [
+                  ...activeSession.permitted_actions,
+                  { action_id: "complete_session", label: "Complete Session", is_destructive: true },
+                ],
+              }),
+          });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Draft that must be kept." } });
+    const source = await openSessionStream();
+    fireEvent.click(screen.getByRole("button", { name: /complete session/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    source.readyState = MockEventSource.CONNECTING;
+    act(() => {
+      source.onerror?.(new Event("error"));
+    });
+
+    expect(screen.getAllByText(/your session and time have not been paused/i).length).toBeGreaterThan(0);
+    expect(within(dialog).getByRole("button", { name: /^complete session$/i })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole("button", { name: /^complete session$/i }));
+
+    expect(screen.queryByText(/requesting completion/i)).not.toBeInTheDocument();
+    expect(commandBodies).toHaveLength(0);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    act(() => {
+      source.readyState = MockEventSource.OPEN;
+      source.onopen?.();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /send message/i })).toBeEnabled();
+    });
+    expect(screen.queryByText(/requesting completion/i)).not.toBeInTheDocument();
+    expect(composer).toHaveValue("Draft that must be kept.");
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /continue session/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /complete session/i })).toBeEnabled();
+  });
+
   it("treats a closed EventSource as offline until an explicit retry reconnects", async () => {
     renderSession();
     const composer = await screen.findByLabelText(/your message/i);

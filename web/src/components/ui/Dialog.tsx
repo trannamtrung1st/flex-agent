@@ -1,5 +1,9 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "./Button";
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 interface DialogProps {
   open: boolean;
@@ -13,6 +17,13 @@ interface DialogProps {
   onConfirm: () => void;
   onCancel: () => void;
   isConfirming?: boolean;
+  confirmDisabled?: boolean;
+}
+
+function focusableElements(container: HTMLElement): HTMLElement[] {
+  return [...container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)].filter(
+    (element) => !element.hasAttribute("disabled") && element.tabIndex !== -1,
+  );
 }
 
 export function Dialog({
@@ -27,9 +38,13 @@ export function Dialog({
   onConfirm,
   onCancel,
   isConfirming = false,
+  confirmDisabled = false,
 }: DialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const confirmIsDisabled = isConfirming || confirmDisabled;
 
   useEffect(() => {
     if (!open) {
@@ -53,23 +68,81 @@ export function Dialog({
       return;
     }
 
+    const host = hostRef.current;
+    const inerted: HTMLElement[] = [];
+    if (host) {
+      for (const child of Array.from(document.body.children)) {
+        if (child === host || !(child instanceof HTMLElement)) {
+          continue;
+        }
+        if (child.hasAttribute("inert")) {
+          continue;
+        }
+        child.setAttribute("inert", "");
+        inerted.push(child);
+      }
+    }
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         onCancel();
+        return;
+      }
+
+      if (event.key !== "Tab" || !panelRef.current) {
+        return;
+      }
+
+      const focusable = focusableElements(panelRef.current);
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      const activeIsDisabledControl =
+        active instanceof HTMLElement &&
+        panelRef.current.contains(active) &&
+        (active.hasAttribute("disabled") || active.getAttribute("aria-disabled") === "true");
+      if (event.shiftKey) {
+        if (active === first || !panelRef.current.contains(active) || activeIsDisabledControl) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !panelRef.current.contains(active) || activeIsDisabledControl) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => { document.removeEventListener("keydown", handleKeyDown); };
-  }, [open, onCancel]);
+    document.addEventListener("keydown", handleKeyDown, true);
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLElement &&
+      panelRef.current?.contains(active) &&
+      (active.hasAttribute("disabled") || active.getAttribute("aria-disabled") === "true")
+    ) {
+      cancelRef.current?.focus();
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown, true);
+      for (const element of inerted) {
+        element.removeAttribute("inert");
+      }
+    };
+  }, [open, onCancel, confirmIsDisabled]);
 
   if (!open) {
     return null;
   }
 
-  return (
-    <div className="dialog-backdrop" role="presentation" onClick={onCancel}>
+  return createPortal(
+    <div ref={hostRef} className="dialog-backdrop" role="presentation" onClick={onCancel}>
       <div
+        ref={panelRef}
         className="dialog-panel"
         role="dialog"
         aria-modal="true"
@@ -88,13 +161,14 @@ export function Dialog({
           <Button
             variant={confirmVariant}
             onClick={onConfirm}
-            disabled={isConfirming}
+            disabled={confirmIsDisabled}
             aria-busy={isConfirming}
           >
             {isConfirming ? "Working…" : confirmLabel}
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
