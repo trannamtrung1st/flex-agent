@@ -1037,6 +1037,12 @@ and test reviews have no unresolved blocking findings.
         `827298a`); OTLP/Collector export remains later. `0020` `CREATE INDEX` is
         maintenance-windowed. A concurrent timer-storm load lab remains
         later composition-root work.
+  - [x] External review of `88e7d4b` (2026-08-17): **approved**, no blocking
+        findings. Closes `d7ff8a5` → `827298a` → `88e7d4b`. Do not iterate
+        this history-scale claim/`0020`/sampled-backlog slice. When OTLP is
+        added later, subscribe explicitly to meter
+        `FlexAgent.Sessions.Runtime`. GitHub Implementation and Documentation
+        workflows completed successfully at `88e7d4b`.
 - [>] Integrate focused and aggregate verification: contract/catalog/OpenAPI
   parity, architecture tests, Sessions domain tests, PostgreSQL 18 migration/
   isolation/concurrency/fault tests, API/worker runtime tests, locked web
@@ -1137,9 +1143,12 @@ at a 30-second minimum interval. Worker host samples independently of
 claim polling; invocation processing stays idle. `0020` is a
 maintenance-window `CREATE INDEX`. Worker host telemetry uses a
 `Meter`-backed sink so sampled backlog gauges are observable without a
-Noop discard. Host OTLP export through
-the OpenTelemetry Collector and a concurrent timer-storm load lab remain
-later. Next is aggregate verification.
+Noop discard. External review of `88e7d4b` (2026-08-17): **approved**,
+no blocking findings. Closes `d7ff8a5` → `827298a` → `88e7d4b`. Stop
+iterating this history-scale/`0020`/sampled-backlog slice. When OTLP is
+added, subscribe explicitly to `FlexAgent.Sessions.Runtime`. Host OTLP
+export through the OpenTelemetry Collector and a concurrent timer-storm
+load lab remain later. Next is aggregate verification.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker invocation processing stays idle.
@@ -1351,7 +1360,10 @@ surfaces.
   is used. Sanitized points are written to a host
   `MeterSessionRuntimeTelemetrySink` (`FlexAgent.Sessions.Runtime`); OTLP
   Collector export and a concurrent timer-storm load lab remain later
-  composition-root work.
+  composition-root work. When OTLP is added, the exporter must subscribe
+  explicitly to meter `FlexAgent.Sessions.Runtime`. External review of
+  `88e7d4b` (2026-08-17): **approved**, no blocking findings. Closes
+  `d7ff8a5` → `827298a` → `88e7d4b`.
 - Text Session UI (2026-08-16, `UI-SESS-DEC-13`–`15`): Participant copy is
   derived from browser-safe `work_state` / `resolution_category`, never
   rendered as those tokens. `no_action` persistent status is
@@ -2337,7 +2349,7 @@ surfaces.
 | Web lint/type/unit/build/e2e | local web CI script passed; Playwright e2e not in GitHub web job | `bash build/scripts/verify-web.sh` (2026-08-17): frozen install, boundary check, contracts JCS 8/8, eslint warning-only `react-refresh/only-export-components` in `web/src/api/browser-api.tsx`, `tsc -b --noEmit`, vitest 55/55, production build. GitHub Implementation `web` job matches this script and does not run Playwright e2e. |
 | Playwright accessibility/responsive/visual evaluation | passed live MCP | Prior journey set plus 2026-08-17 confirmation/disabled-button, trap, and `29cde55` restore: desktop/390 Complete trigger focus after Continue and Escape. Artifact dir `.playwright-mcp/`. |
 | Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | local CI-equivalent passed (2026-08-17); GitHub push not claimed | `git diff --check` clean; `python3 scripts/check_docs.py` passed. `verify-web.sh`: vitest 60/60, production build. `verify-dotnet.sh`: 856/856, Release publish, no `appsettings.Development.json`. `verify-supply-chain.sh` and `verify-oci.sh` passed; SPA Alpine `tiff` High recorded, not critical. GitHub Implementation/Documentation workflows are not claimed from this machine. Backup/restore lab remains later. |
-| Bounded observability and fair claiming (`AC-SESS-27`, `QA-6`, `QA-12`, `REQ-OPS-23`) | passed; **approved** `da5a848`; performance follow-up local | External review of `da5a848` (2026-08-17): **approved**, no blocking findings. Closes `f4f248c` → `c861da6` → `e15ed80`. Freeze `0019` at `da5a848`; do not rewrite it. History-scale claim (2026-08-17): red compile for missing `DurableWorkBacklogSampler`; green additive `0020` `ix_session_durable_work_claimable`. `EXPLAIN (ANALYZE)` of the claim candidate against 10_000 completed rows uses that index and does not Seq Scan `session_durable_work`. Sampler unit tests 4/4; claim tests 12/12 including sampled gauge without GUIDs or invocation ids; Worker runtime 10/10 plus Meter sink 1/1: samples with the claim gate closed; sampling faults leave live/ready healthy; Sessions connection string binds `PostgresDurableInvocationWorkStore` while the processor stays idle; `RecordGauge` is observed on `FlexAgent.Sessions.Runtime` rather than a Noop sink. Architecture 30/30. Residual: Collector/OTLP export and timer-storm remain later. `0020` `CREATE INDEX` is maintenance-windowed (not `CONCURRENTLY`). |
+| Bounded observability and fair claiming (`AC-SESS-27`, `QA-6`, `QA-12`, `REQ-OPS-23`) | passed; **approved** `da5a848`; history-scale **approved** `88e7d4b` | External review of `da5a848` (2026-08-17): **approved**, no blocking findings. Closes `f4f248c` → `c861da6` → `e15ed80`. Freeze `0019` at `da5a848`; do not rewrite it. History-scale claim (2026-08-17): red compile for missing `DurableWorkBacklogSampler`; green additive `0020` `ix_session_durable_work_claimable`. `EXPLAIN (ANALYZE)` of the claim candidate against 10_000 completed rows uses that index and does not Seq Scan `session_durable_work`. Sampler unit tests 4/4; claim tests 12/12 including sampled gauge without GUIDs or invocation ids; Worker runtime 10/10 plus Meter sink 1/1: samples with the claim gate closed; sampling faults leave live/ready healthy; Sessions connection string binds `PostgresDurableInvocationWorkStore` while the processor stays idle; `RecordGauge` is observed on `FlexAgent.Sessions.Runtime` rather than a Noop sink. Architecture 30/30. External review of `88e7d4b` (2026-08-17): **approved**, no blocking findings. Closes `d7ff8a5` → `827298a` → `88e7d4b`. GitHub Implementation and Documentation workflows completed successfully at `88e7d4b`. Residual: Collector/OTLP export (subscribe to `FlexAgent.Sessions.Runtime`) and timer-storm remain later. `0020` `CREATE INDEX` is maintenance-windowed (not `CONCURRENTLY`). |
 | Performance, observability, lifecycle/export, backup/restore verification | observability passed locally; lifecycle/export/backup still pending | See bounded observability row. Lifecycle/export/backup remain the later aggregate gate. |
 | Architecture/backend/frontend/security/privacy/QA review | pending | |
 | Final specification and repository consistency audit | pending | |
