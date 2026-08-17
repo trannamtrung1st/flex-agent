@@ -323,6 +323,124 @@ describe("SessionPage Decision presentation", () => {
     expect(document.activeElement).toBe(composer);
   });
 
+  it("opens one Complete Session confirmation and posts only after confirm", async () => {
+    const commandBodies: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands")) {
+          commandBodies.push(typeof init?.body === "string" ? init.body : "");
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ schema_version: "v1", outcome: "succeeded" }),
+          });
+        }
+        if (url.includes("/browser/sessions/")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                ...activeSession,
+                permitted_actions: [
+                  ...activeSession.permitted_actions,
+                  { action_id: "complete_session", label: "Complete Session", is_destructive: true },
+                ],
+              }),
+          });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    renderSession();
+    await openSessionStream();
+    const completeTrigger = screen.getByRole("button", { name: /complete session/i });
+    completeTrigger.focus();
+    fireEvent.click(completeTrigger);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: /complete this session\?/i })).toBeInTheDocument();
+    expect(dialog).toHaveTextContent(/after completion begins, you cannot send more messages/i);
+    expect(dialog).toHaveTextContent(/completion does not show a score or result/i);
+    expect(document.activeElement).toBe(within(dialog).getByRole("heading", { name: /complete this session\?/i }));
+    expect(commandBodies).toHaveLength(0);
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /continue session/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(commandBodies).toHaveLength(0);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /complete session/i }));
+
+    fireEvent.click(screen.getByRole("button", { name: /complete session/i }));
+    const confirmDialog = await screen.findByRole("dialog");
+    fireEvent.click(within(confirmDialog).getByRole("button", { name: /^complete session$/i }));
+
+    await waitFor(() => {
+      expect(commandBodies.some((body) => body.includes("session.complete"))).toBe(true);
+    });
+  });
+
+  it("does not complete the Session from the composer shortcut", async () => {
+    const commandBodies: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/browser/actor-context")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(actorContext) });
+        }
+        if (url.includes("/browser/navigation")) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(navigation) });
+        }
+        if (url.includes("/browser/commands")) {
+          commandBodies.push(typeof init?.body === "string" ? init.body : "");
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ schema_version: "v1", outcome: "succeeded" }),
+          });
+        }
+        if (url.includes("/browser/sessions/")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                ...activeSession,
+                permitted_actions: [
+                  ...activeSession.permitted_actions,
+                  { action_id: "complete_session", label: "Complete Session", is_destructive: true },
+                ],
+              }),
+          });
+        }
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }),
+    );
+
+    renderSession();
+    const composer = await screen.findByLabelText(/your message/i);
+    fireEvent.change(composer, { target: { value: "Still drafting." } });
+    await openSessionStream();
+    fireEvent.keyDown(composer, { key: "Enter", ctrlKey: true });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(commandBodies.some((body) => body.includes("session.send_message"))).toBe(true);
+    });
+    expect(commandBodies.some((body) => body.includes("session.complete"))).toBe(false);
+  });
+
   it("treats a closed EventSource as offline until an explicit retry reconnects", async () => {
     renderSession();
     const composer = await screen.findByLabelText(/your message/i);

@@ -6,6 +6,7 @@ import { AgentPresence } from "../components/session/AgentPresence";
 import { Alert } from "../components/ui/Alert";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
+import { Dialog } from "../components/ui/Dialog";
 import { ErrorSummary } from "../components/ui/ErrorSummary";
 import { ProtectedLoading } from "../components/ui/ProtectedLoading";
 import { SafeContent } from "../components/ui/SafeContent";
@@ -53,6 +54,10 @@ function isTerminalLifecycle(lifecycleState: string): boolean {
 
 const SESSION_UNAVAILABLE_COPY =
   "This Session is not available. Return to My work or use the provided support route.";
+const COMPLETE_SESSION_HEADING = "Complete this Session?";
+const COMPLETE_SESSION_CONSEQUENCE = "After completion begins, you cannot send more messages.";
+const COMPLETE_SESSION_NO_RESULT = "Completion does not show a score or Result.";
+const REQUESTING_COMPLETION_COPY = "Requesting completion. Sending is unavailable until this is resolved.";
 
 function authorLabel(role: string): string {
   if (role === "participant") {
@@ -92,6 +97,16 @@ function composerDisabledReason(lifecycleState: string): string {
     return "This Session is no longer accepting messages.";
   }
   return "Sending is unavailable in the current Session state.";
+}
+
+function pendingTurnDisposition(turnPhase: SessionRuntimeView["turnPhase"]): string | null {
+  if (turnPhase === "queued" || turnPhase === "working") {
+    return "The Agent is still preparing a response for the current turn.";
+  }
+  if (turnPhase === "streaming") {
+    return "The Agent is still responding.";
+  }
+  return null;
 }
 
 function visiblePresence(lifecycleState: string, view: SessionRuntimeView): AgentPresenceState {
@@ -178,6 +193,8 @@ export function SessionPage() {
   sessionIdRef.current = sessionId;
   const [streamRetryKey, setStreamRetryKey] = useState(0);
   const [checkingMessage, setCheckingMessage] = useState(false);
+  const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false);
+  const [requestingCompletion, setRequestingCompletion] = useState(false);
   const runtimeRef = useRef(runtime);
   runtimeRef.current = runtime;
 
@@ -358,6 +375,8 @@ export function SessionPage() {
     setMessageText("");
     setActionError(null);
     setCheckingMessage(false);
+    setCompleteConfirmOpen(false);
+    setRequestingCompletion(false);
     setError(null);
     setProjectionError(null);
     setPending(false);
@@ -447,6 +466,8 @@ export function SessionPage() {
   }, [sessionId, session?.session_id, streamIsTerminal, streamRetryKey, reconcileSession]);
 
   const sendAction = session?.permitted_actions.find((action) => action.action_id === "send_message");
+  const completeAction = session?.permitted_actions.find((action) => action.action_id === "complete_session");
+  const pendingTurnCopy = pendingTurnDisposition(runtime.turnPhase);
 
   const runAction = async (action: PermittedActionV1) => {
     if (
@@ -584,6 +605,7 @@ export function SessionPage() {
     } finally {
       if (actionStillCurrent()) {
         setPending(false);
+        setRequestingCompletion(false);
       }
     }
   };
@@ -723,6 +745,12 @@ export function SessionPage() {
 
       {actionError ? <ErrorSummary errors={[actionError]} /> : null}
 
+      {requestingCompletion ? (
+        <Alert variant="info" title="Requesting completion">
+          {REQUESTING_COMPLETION_COPY}
+        </Alert>
+      ) : null}
+
       <div className="session-layout">
         <section aria-labelledby="transcript-heading">
           <h2 id="transcript-heading">Transcript</h2>
@@ -790,9 +818,16 @@ export function SessionPage() {
               <Button
                 key={action.action_id}
                 variant={action.is_destructive ? "danger" : "primary"}
-                onClick={() => void runAction(action)}
+                onClick={() => {
+                  if (action.action_id === "complete_session") {
+                    setCompleteConfirmOpen(true);
+                    return;
+                  }
+                  void runAction(action);
+                }}
                 disabled={
                   pending ||
+                  requestingCompletion ||
                   !mutationsEnabled ||
                   (action.action_id === "send_message" && !messageText.trim())
                 }
@@ -803,6 +838,34 @@ export function SessionPage() {
           </div>
         </aside>
       </div>
+
+      <Dialog
+        open={completeConfirmOpen}
+        title={COMPLETE_SESSION_HEADING}
+        confirmLabel="Complete Session"
+        cancelLabel="Continue Session"
+        confirmVariant="primary"
+        initialFocus="title"
+        describedBy="complete-session-description"
+        onConfirm={() => {
+          if (!completeAction) {
+            return;
+          }
+          setCompleteConfirmOpen(false);
+          setRequestingCompletion(true);
+          void runAction(completeAction);
+        }}
+        onCancel={() => {
+          setCompleteConfirmOpen(false);
+        }}
+        isConfirming={pending || requestingCompletion}
+      >
+        <div id="complete-session-description">
+          <p>{COMPLETE_SESSION_CONSEQUENCE}</p>
+          {pendingTurnCopy ? <p>{pendingTurnCopy}</p> : null}
+          <p>{COMPLETE_SESSION_NO_RESULT}</p>
+        </div>
+      </Dialog>
 
       <p className="page-section">
         <Link to="/my-work">Back to my work</Link>

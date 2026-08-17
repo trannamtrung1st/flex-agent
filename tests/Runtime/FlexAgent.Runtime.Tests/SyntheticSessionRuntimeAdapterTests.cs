@@ -83,7 +83,10 @@ public sealed class SyntheticSessionRuntimeAdapterTests : IClassFixture<WebAppli
         var replay = await ReadSseUntilReplayCompleteAsync(reader, cancellationToken);
         Assert.Contains(": replay-complete", replay, StringComparison.Ordinal);
 
-        var liveRead = ReadNextSseEventAsync(reader, cancellationToken);
+        var liveRead = ReadLiveSseEventsUntilAsync(
+            reader,
+            evt => evt.EventType == "session.agent.complete.v1",
+            cancellationToken);
         await PostCommandAsync(
             participant,
             "session.send_message",
@@ -92,8 +95,60 @@ public sealed class SyntheticSessionRuntimeAdapterTests : IClassFixture<WebAppli
             sessionVersion: 1,
             payload: new Dictionary<string, string> { ["message_text"] = "Hold the stream." });
 
-        var liveEvent = await liveRead.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
-        Assert.Equal("session.agent.work.v1", liveEvent.EventType);
+        var liveEvents = await liveRead.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+        Assert.Equal(
+            [
+                ("session.agent.work.v1", "queued"),
+                ("session.agent.work.v1", "working"),
+                ("session.agent.fragment.v1", null),
+                ("session.agent.complete.v1", null),
+            ],
+            liveEvents.Select(evt => (evt.EventType, evt.Payload.WorkState)).ToArray());
+        Assert.Contains(liveEvents, evt => evt.Payload.TextDelta == "Thank you for your response. ");
+    }
+
+    [Fact]
+    public async Task Held_session_sse_delivers_timer_triggered_turn_on_the_same_connection()
+    {
+        var instanceId = NewInstanceId();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var participant = await PrepareActiveSessionAsync(
+            instanceId,
+            cancellationToken,
+            SyntheticScenarioIds.SessionTimerVisibleWork);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/browser/sessions/{SessionId}/events");
+        using var response = await participant.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+
+        var replay = await ReadSseUntilReplayCompleteAsync(reader, cancellationToken);
+        Assert.Contains(": replay-complete", replay, StringComparison.Ordinal);
+
+        var liveRead = ReadLiveSseEventsUntilAsync(
+            reader,
+            evt => evt.EventType == "session.agent.complete.v1",
+            cancellationToken);
+        (await FireTimerAsync(instanceId, "1", cancellationToken, SyntheticScenarioIds.SessionTimerVisibleWork))
+            .EnsureSuccessStatusCode();
+
+        var liveEvents = await liveRead.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+        Assert.Equal(
+            [
+                ("session.agent.work.v1", "queued"),
+                ("session.agent.work.v1", "working"),
+                ("session.agent.fragment.v1", null),
+                ("session.agent.complete.v1", null),
+            ],
+            liveEvents.Select(evt => (evt.EventType, evt.Payload.WorkState)).ToArray());
+        Assert.Contains(liveEvents, evt => evt.Payload.TextDelta == "Checking in on your progress. ");
+        Assert.DoesNotContain(
+            liveEvents,
+            evt => evt.Payload.Summary.Contains("timer", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -815,6 +870,23 @@ public sealed class SyntheticSessionRuntimeAdapterTests : IClassFixture<WebAppli
 
             body.Append(line);
             body.Append('\n');
+        }
+    }
+
+    private static async Task<List<SseDto>> ReadLiveSseEventsUntilAsync(
+        StreamReader reader,
+        Func<SseDto, bool> isTerminal,
+        CancellationToken cancellationToken)
+    {
+        var events = new List<SseDto>();
+        while (true)
+        {
+            var evt = await ReadNextSseEventAsync(reader, cancellationToken);
+            events.Add(evt);
+            if (isTerminal(evt))
+            {
+                return events;
+            }
         }
     }
 

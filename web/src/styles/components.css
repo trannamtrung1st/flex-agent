@@ -17,11 +17,6 @@
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
 .btn-primary {
   color: var(--fg-on-accent);
   border-color: var(--border-focus);
@@ -62,6 +57,20 @@
 
 .btn-ghost:hover:not(:disabled) {
   background: var(--surface-hover);
+}
+
+.btn:disabled,
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled,
+.btn-ghost:disabled {
+  cursor: not-allowed;
+  color: var(--fg-disabled);
+  background: var(--surface-disabled);
+  border-color: var(--border-subtle);
+  box-shadow: none;
+  filter: none;
+  opacity: 1;
 }
 
 .btn-sm {
@@ -243,6 +252,15 @@
   margin: 0;
   font-size: 1.0625rem;
   color: var(--fg-strong);
+}
+
+.dialog-title:focus {
+  outline: none;
+}
+
+.dialog-title:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
 }
 
 .dialog-body {

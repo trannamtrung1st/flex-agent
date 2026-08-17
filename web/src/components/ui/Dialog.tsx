@@ -8,6 +8,8 @@ interface DialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   confirmVariant?: "primary" | "danger";
+  initialFocus?: "title" | "cancel";
+  describedBy?: string;
   onConfirm: () => void;
   onCancel: () => void;
   isConfirming?: boolean;
@@ -20,11 +22,14 @@ export function Dialog({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   confirmVariant = "primary",
+  initialFocus = "cancel",
+  describedBy,
   onConfirm,
   onCancel,
   isConfirming = false,
 }: DialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     if (!open) {
@@ -32,12 +37,16 @@ export function Dialog({
     }
 
     const previousFocus = document.activeElement as HTMLElement | null;
-    cancelRef.current?.focus();
+    if (initialFocus === "title") {
+      titleRef.current?.focus();
+    } else {
+      cancelRef.current?.focus();
+    }
 
     return () => {
       previousFocus?.focus();
     };
-  }, [open]);
+  }, [open, initialFocus]);
 
   useEffect(() => {
     if (!open) {
@@ -65,10 +74,11 @@ export function Dialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="dialog-title"
+        aria-describedby={describedBy}
         onClick={(event) => { event.stopPropagation(); }}
       >
         <div className="dialog-header">
-          <h2 id="dialog-title" className="dialog-title">{title}</h2>
+          <h2 id="dialog-title" className="dialog-title" tabIndex={-1} ref={titleRef}>{title}</h2>
         </div>
         <div className="dialog-body">{children}</div>
         <div className="dialog-footer">
