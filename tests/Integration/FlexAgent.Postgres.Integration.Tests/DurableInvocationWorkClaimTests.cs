@@ -109,6 +109,8 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
     [Fact]
     public async Task Claim_via_direct_row_update_advances_partition_state_for_the_next_poll()
     {
+        // Legacy UPDATE still stamps scheduler state; a compatible claimer then
+        // respects it. This does not make two pre-partition claimers fair.
         var firstOrg = await Fixture.SeedOrganizationAsync("-fair-trigger-a");
         var activityA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa02");
         var first = await AdmitPreparedWorkAsync(
@@ -157,6 +159,42 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         var claimedSecond = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
 
         Assert.Equal(second.InvocationId, claimedSecond!.AgentInvocationId);
+    }
+
+    [Fact]
+    public async Task Pre_partition_claim_sql_can_take_two_heads_from_the_same_busy_activity()
+    {
+        // Historical f4f248c selection ignores session_durable_work_claim_partitions,
+        // so two overlapping legacy claimers can still drain A while B waits.
+        var firstOrg = await Fixture.SeedOrganizationAsync("-fair-legacy-a");
+        var activityA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa03");
+        var first = await AdmitPreparedWorkAsync(
+            firstOrg,
+            SessionPersistenceFixtures.CreateBinding(firstOrg.OrganizationId, cooldownSeconds: 0, activityId: activityA),
+            "trig.claim.legacy.a1",
+            "idem.claim.legacy.a1");
+        var firstSibling = await AdmitPreparedWorkAsync(
+            firstOrg,
+            SessionPersistenceFixtures.CreateBinding(firstOrg.OrganizationId, cooldownSeconds: 0, activityId: activityA),
+            "trig.claim.legacy.a2",
+            "idem.claim.legacy.a2");
+        var secondOrg = await Fixture.SeedOrganizationAsync("-fair-legacy-b");
+        var second = await AdmitPreparedWorkAsync(
+            secondOrg,
+            SessionPersistenceFixtures.CreateBinding(secondOrg.OrganizationId, cooldownSeconds: 0),
+            "trig.claim.legacy.b1",
+            "idem.claim.legacy.b1");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(
+            first.Binding.Ownership,
+            firstSibling.Binding.Ownership,
+            second.Binding.Ownership);
+
+        var firstLegacy = await ClaimWithPrePartitionSqlAsync();
+        var secondLegacy = await ClaimWithPrePartitionSqlAsync();
+
+        Assert.Equal(first.InvocationId, firstLegacy);
+        Assert.Equal(firstSibling.InvocationId, secondLegacy);
+        Assert.NotEqual(second.InvocationId, secondLegacy);
     }
 
     [Fact]
@@ -420,6 +458,91 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
                 ownership.SessionId,
                 WorkType = DurableSessionWorkTypes.ExecuteInvocation,
             }) ?? string.Empty;
+    }
+
+    private async Task<string?> ClaimWithPrePartitionSqlAsync()
+    {
+        await using var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken);
+        try
+        {
+            var invocationId = await scope.Connection.ExecuteScalarAsync<string?>(
+                new CommandDefinition(
+                    """
+                    WITH partition_served AS (
+                        SELECT organization_id, activity_id,
+                               MAX(last_committed_at) FILTER (WHERE state = @Completed) AS last_served_at
+                        FROM session_durable_work
+                        WHERE work_type = @WorkType
+                        GROUP BY organization_id, activity_id
+                    ),
+                    candidate AS MATERIALIZED (
+                        SELECT work.organization_id, work.activity_id, work.participant_id, work.attempt_id,
+                               work.session_id, work.work_id
+                        FROM session_durable_work AS work
+                        LEFT JOIN partition_served AS served
+                          ON served.organization_id = work.organization_id
+                         AND served.activity_id = work.activity_id
+                        WHERE work.work_type = @WorkType
+                          AND (
+                                work.state = @Pending
+                                OR (
+                                    work.state = @Claimed
+                                    AND work.claim_lease_until IS NOT NULL
+                                    AND work.claim_lease_until < clock_timestamp()
+                                )
+                              )
+                          AND NOT EXISTS (
+                                SELECT 1
+                                FROM session_durable_work AS older
+                                WHERE older.work_type = work.work_type
+                                  AND older.organization_id = work.organization_id
+                                  AND older.activity_id = work.activity_id
+                                  AND (
+                                        older.state = @Pending
+                                        OR (
+                                            older.state = @Claimed
+                                            AND older.claim_lease_until IS NOT NULL
+                                            AND older.claim_lease_until < clock_timestamp()
+                                        )
+                                      )
+                                  AND (older.last_committed_at, older.work_id) < (work.last_committed_at, work.work_id)
+                          )
+                        ORDER BY COALESCE(served.last_served_at, TIMESTAMPTZ '-infinity') ASC,
+                                 work.last_committed_at ASC,
+                                 work.work_id ASC
+                        FOR UPDATE OF work SKIP LOCKED
+                        LIMIT 1
+                    )
+                    UPDATE session_durable_work AS work
+                    SET
+                        state = @Claimed,
+                        claim_lease_until = clock_timestamp() + (@LeaseSeconds * INTERVAL '1 second')
+                    FROM candidate
+                    WHERE work.organization_id = candidate.organization_id
+                      AND work.session_id = candidate.session_id
+                      AND work.work_id = candidate.work_id
+                    RETURNING work.business_key;
+                    """,
+                    new
+                    {
+                        WorkType = DurableSessionWorkTypes.ExecuteInvocation,
+                        Pending = DurableSessionWorkStates.Pending,
+                        Claimed = DurableSessionWorkStates.Claimed,
+                        Completed = DurableSessionWorkStates.Completed,
+                        LeaseSeconds = 30d,
+                    },
+                    scope.Transaction,
+                    cancellationToken: CancellationToken));
+            await scope.CommitAsync(CancellationToken);
+            return invocationId;
+        }
+        catch
+        {
+            await scope.RollbackAsync(CancellationToken);
+            throw;
+        }
     }
 
     private static DurableInvocationWorkSettings CreateWorkerSettings(Guid actorId) =>
