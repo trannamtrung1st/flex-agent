@@ -718,6 +718,31 @@ public sealed class DurableInvocationWorkProcessorTests
     }
 
     [Fact]
+    public async Task Fair_claim_serves_another_organization_while_the_oldest_partition_is_still_claimed()
+    {
+        var organizationA = SessionRuntimeTestFixtures.CreateOwnership();
+        var organizationB = organizationA with
+        {
+            OrganizationId = Guid.Parse("99999999-9999-9999-9999-999999999999"),
+            ActivityId = Guid.Parse("88888888-8888-8888-8888-888888888888"),
+            SessionId = Guid.Parse("77777777-7777-7777-7777-777777777777"),
+        };
+        var store = new MemoryWorkStore();
+        store.Enqueue(organizationA, "ainv.fair.outstanding.a1");
+        store.Enqueue(organizationA, "ainv.fair.outstanding.a2");
+        store.Enqueue(organizationA, "ainv.fair.outstanding.a3");
+        store.Enqueue(organizationB, "ainv.fair.outstanding.b1");
+
+        var first = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken.None);
+        var second = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken.None);
+
+        Assert.Equal("ainv.fair.outstanding.a1", first!.AgentInvocationId);
+        Assert.Equal("ainv.fair.outstanding.b1", second!.AgentInvocationId);
+        Assert.Equal(DurableSessionWorkStates.Claimed, first.State);
+        Assert.Equal(DurableSessionWorkStates.Claimed, second.State);
+    }
+
+    [Fact]
     public async Task Idle_claim_records_bounded_backlog_and_claim_labels()
     {
         var sink = new CapturingSessionRuntimeTelemetrySink();
@@ -732,10 +757,9 @@ public sealed class DurableInvocationWorkProcessorTests
             sink.Counters,
             item => item.Instrument == SessionRuntimeTelemetryInstruments.WorkClaim
                 && item.Labels[SessionRuntimeTelemetryLabelKeys.Outcome] == SessionRuntimeTelemetryValues.Idle);
-        Assert.Contains(
+        Assert.DoesNotContain(
             sink.Points,
-            item => item.Instrument == SessionRuntimeTelemetryInstruments.WorkBacklog
-                && item.Labels[SessionRuntimeTelemetryLabelKeys.BacklogBucket] == "n0");
+            item => item.Instrument == SessionRuntimeTelemetryInstruments.WorkBacklog);
         Assert.DoesNotContain(sink.AllLabelValues(), value => Guid.TryParse(value, out _));
     }
 
@@ -882,6 +906,9 @@ public sealed class DurableInvocationWorkProcessorTests
             candidate.Item = candidate.Item with { State = DurableSessionWorkStates.Claimed };
             candidate.LeaseExpired = false;
             candidate.QueueOrder = _queueClock++;
+            _lastServed[new DurableWorkClaimPartitionKey(
+                candidate.Item.Ownership.OrganizationId,
+                candidate.Item.Ownership.ActivityId)] = DateTimeOffset.UnixEpoch.AddTicks(++_servedClock);
             return Task.FromResult<DurableInvocationWorkItem?>(candidate.Item);
         }
 
@@ -917,9 +944,6 @@ public sealed class DurableInvocationWorkProcessorTests
             slot.Item = work with { State = DurableSessionWorkStates.Completed };
             slot.LeaseExpired = false;
             slot.QueueOrder = _queueClock++;
-            _lastServed[new DurableWorkClaimPartitionKey(
-                work.Ownership.OrganizationId,
-                work.Ownership.ActivityId)] = DateTimeOffset.UnixEpoch.AddTicks(++_servedClock);
             return Task.CompletedTask;
         }
 

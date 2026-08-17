@@ -32,6 +32,7 @@ public sealed class MigrationUpgradeTests
     private const string Current0016ScriptName = "0016_session_timer_schedule_contract_states.sql";
     private const string Current0017ScriptName = "0017_session_manifest_runtime_and_handoff.sql";
     private const string Current0018ScriptName = "0018_session_evaluation_handoff_terminal_binding.sql";
+    private const string Current0019ScriptName = "0019_session_durable_work_claim_partitions.sql";
 
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
@@ -72,7 +73,8 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -114,7 +116,8 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
     }
 
     [Fact]
@@ -154,7 +157,8 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
     }
 
     [Fact]
@@ -194,7 +198,8 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
     }
 
     [Fact]
@@ -234,7 +239,8 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
     }
 
     [Fact]
@@ -274,7 +280,8 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
     }
 
     [Fact]
@@ -314,7 +321,8 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
     }
 
     [Fact]
@@ -354,7 +362,8 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
     }
 
     [Fact]
@@ -458,7 +467,8 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
     }
 
     [Fact]
@@ -498,7 +508,8 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
     }
 
     [Fact]
@@ -538,7 +549,8 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
     }
 
     [Fact]
@@ -672,7 +684,8 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
     }
 
     [Fact]
@@ -712,7 +725,54 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
+    }
+
+    [Fact]
+    public async Task Upgrade_from_frozen_0018_applies_0019_claim_partitions()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0018ScriptName);
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var table = await connection.ExecuteScalarAsync<string?>(
+            "SELECT to_regclass('public.session_durable_work_claim_partitions')::text;");
+        Assert.Equal("session_durable_work_claim_partitions", table);
+        await AssertAppliedScriptsAsync(
+            connectionString,
+            "0001_initial_authorization_configuration_schema.sql",
+            Historical0002ScriptName,
+            Historical0003ScriptName,
+            Current0004ScriptName,
+            Current0005ScriptName,
+            Current0006ScriptName,
+            Current0007ScriptName,
+            Current0008ScriptName,
+            Current0009ScriptName,
+            Current0010ScriptName,
+            Current0011ScriptName,
+            Current0012ScriptName,
+            Current0013ScriptName,
+            Current0014ScriptName,
+            Current0015ScriptName,
+            Current0016ScriptName,
+            Current0017ScriptName,
+            Current0018ScriptName,
+            Current0019ScriptName);
     }
 
     [Fact]
@@ -921,7 +981,8 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -988,7 +1049,8 @@ public sealed class MigrationUpgradeTests
             Current0015ScriptName,
             Current0016ScriptName,
             Current0017ScriptName,
-            Current0018ScriptName);
+            Current0018ScriptName,
+            Current0019ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }

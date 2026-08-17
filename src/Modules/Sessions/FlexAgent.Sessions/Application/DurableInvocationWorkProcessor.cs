@@ -110,8 +110,6 @@ public sealed class DurableInvocationWorkProcessor(
     public async Task<DurableInvocationWorkProcessResult> TryProcessNextAsync(
         CancellationToken cancellationToken)
     {
-        var backlog = await workStore.ReadClaimableSnapshotAsync(cancellationToken);
-        RecordBacklog(backlog);
         var claimed = await workStore.TryClaimExecuteInvocationAsync(
             TimeSpan.FromSeconds(30),
             cancellationToken);
@@ -579,22 +577,6 @@ public sealed class DurableInvocationWorkProcessor(
             SessionRuntimeTelemetryRecording.Labels(
                 (SessionRuntimeTelemetryLabelKeys.Outcome, outcome),
                 (SessionRuntimeTelemetryLabelKeys.WorkType, DurableSessionWorkTypes.ExecuteInvocation)));
-
-    private void RecordBacklog(DurableWorkBacklogSnapshot snapshot)
-    {
-        if (!snapshot.IsKnown)
-        {
-            return;
-        }
-
-        _telemetry.RecordGauge(
-            SessionRuntimeTelemetryInstruments.WorkBacklog,
-            snapshot.ClaimableCount,
-            SessionRuntimeTelemetryRecording.Labels(
-                (SessionRuntimeTelemetryLabelKeys.WorkType, DurableSessionWorkTypes.ExecuteInvocation),
-                (SessionRuntimeTelemetryLabelKeys.BacklogBucket, SessionRuntimeTelemetryBuckets.Count(snapshot.ClaimableCount)),
-                (SessionRuntimeTelemetryLabelKeys.PartitionBucket, SessionRuntimeTelemetryBuckets.Count(snapshot.ClaimablePartitionCount))));
-    }
 
     private DurableInvocationWorkProcessResult RecordProcess(DurableInvocationWorkProcessResult result)
     {

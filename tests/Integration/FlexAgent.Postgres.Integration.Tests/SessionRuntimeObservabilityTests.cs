@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Dapper;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Audit;
 using FlexAgent.Postgres.Integration.Tests.Support;
@@ -206,6 +207,101 @@ public sealed class SessionRuntimeObservabilityTests(PostgresIntegrationFixture 
             item => item.Labels.GetValueOrDefault(SessionRuntimeTelemetryLabelKeys.Outcome)
                 == SessionRuntimeTelemetryValues.Recovered);
         Assert.DoesNotContain(sink.AllLabelValues(), value => Guid.TryParse(value, out _));
+    }
+
+    [Fact]
+    public async Task Throwing_telemetry_sink_does_not_roll_back_a_successful_admission()
+    {
+        var organization = await Fixture.SeedOrganizationAsync("-obs-throw-sink");
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var telemetry = new SessionRuntimeTelemetry(new ThrowingSessionRuntimeTelemetrySink());
+        var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AdmitTrustedTriggerHandler(telemetry),
+            telemetry: telemetry);
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+        await using (var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var admitted = await coordinator.AdmitAsync(
+            new AdmitTrustedTriggerCommand(
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                binding.Ownership,
+                0,
+                SessionPersistenceFixtures.OpeningTrigger("trig.opening.obs.throw"),
+                "idem.opening.obs.throw",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var invocationCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM session_invocations
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId;
+            """,
+            new
+            {
+                binding.Ownership.OrganizationId,
+                binding.Ownership.SessionId,
+            });
+        Assert.Equal(1, invocationCount);
+    }
+
+    [Fact]
+    public async Task Throwing_telemetry_sink_preserves_the_original_audit_failure()
+    {
+        var organization = await Fixture.SeedOrganizationAsync("-obs-throw-audit");
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId);
+        var repository = new PostgresSessionRuntimeRepository();
+        var telemetry = new SessionRuntimeTelemetry(new ThrowingSessionRuntimeTelemetrySink());
+        var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AdmitTrustedTriggerHandler(telemetry),
+            new FaultInjectingAuditEventWriter(),
+            new PostgresOutboxItemWriter(),
+            telemetry);
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+        await using (var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            coordinator.AdmitAsync(
+                new AdmitTrustedTriggerCommand(
+                    SessionPersistenceFixtures.Actor(organization.ActorId),
+                    binding.Ownership,
+                    0,
+                    SessionPersistenceFixtures.OpeningTrigger("trig.opening.obs.throw.audit"),
+                    "idem.opening.obs.throw.audit",
+                    Guid.NewGuid(),
+                    "integration.test"),
+                binding,
+                CancellationToken));
+
+        Assert.Equal("Injected audit failure.", error.Message);
+    }
+
+    private sealed class ThrowingSessionRuntimeTelemetrySink : ISessionRuntimeTelemetrySink
+    {
+        public void Write(SessionRuntimeTelemetryPoint point) =>
+            throw new InvalidOperationException("telemetry sink failed");
     }
 
     private sealed class FaultInjectingAuditEventWriter : IAuditEventWriter

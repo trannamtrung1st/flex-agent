@@ -65,6 +65,48 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
     }
 
     [Fact]
+    public async Task Claim_interleaves_a_waiting_organization_while_outstanding_work_remains_claimed()
+    {
+        var firstOrg = await Fixture.SeedOrganizationAsync("-fair-outstanding-a");
+        var activityA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa01");
+        var first = await AdmitPreparedWorkAsync(
+            firstOrg,
+            SessionPersistenceFixtures.CreateBinding(firstOrg.OrganizationId, cooldownSeconds: 0, activityId: activityA),
+            "trig.claim.outstanding.a1",
+            "idem.claim.outstanding.a1");
+        var firstSibling = await AdmitPreparedWorkAsync(
+            firstOrg,
+            SessionPersistenceFixtures.CreateBinding(firstOrg.OrganizationId, cooldownSeconds: 0, activityId: activityA),
+            "trig.claim.outstanding.a2",
+            "idem.claim.outstanding.a2");
+        var firstTail = await AdmitPreparedWorkAsync(
+            firstOrg,
+            SessionPersistenceFixtures.CreateBinding(firstOrg.OrganizationId, cooldownSeconds: 0, activityId: activityA),
+            "trig.claim.outstanding.a3",
+            "idem.claim.outstanding.a3");
+        var secondOrg = await Fixture.SeedOrganizationAsync("-fair-outstanding-b");
+        var second = await AdmitPreparedWorkAsync(
+            secondOrg,
+            SessionPersistenceFixtures.CreateBinding(secondOrg.OrganizationId, cooldownSeconds: 0),
+            "trig.claim.outstanding.b1",
+            "idem.claim.outstanding.b1");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(
+            first.Binding.Ownership,
+            firstSibling.Binding.Ownership,
+            firstTail.Binding.Ownership,
+            second.Binding.Ownership);
+        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+
+        var claimedFirst = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
+        var claimedSecond = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
+
+        Assert.Equal(first.InvocationId, claimedFirst!.AgentInvocationId);
+        Assert.Equal(second.InvocationId, claimedSecond!.AgentInvocationId);
+        Assert.Equal(DurableSessionWorkStates.Claimed, claimedFirst.State);
+        Assert.Equal(DurableSessionWorkStates.Claimed, claimedSecond.State);
+    }
+
+    [Fact]
     public async Task Unexpired_claimed_work_is_not_taken_by_another_poll()
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.claim.held", "idem.claim.held");

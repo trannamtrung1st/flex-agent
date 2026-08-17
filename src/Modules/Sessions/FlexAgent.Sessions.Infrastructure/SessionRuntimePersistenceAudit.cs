@@ -49,7 +49,7 @@ internal static class SessionRuntimePersistenceAudit
         }
         catch
         {
-            RecordFault(signals, SessionRuntimeTelemetryValues.Audit, SessionRuntimeTelemetryValues.Failed);
+            TryRecordFault(signals, SessionRuntimeTelemetryValues.Audit, SessionRuntimeTelemetryValues.Failed);
             throw;
         }
 
@@ -70,20 +70,28 @@ internal static class SessionRuntimePersistenceAudit
         }
         catch
         {
-            RecordFault(signals, SessionRuntimeTelemetryValues.Outbox, SessionRuntimeTelemetryValues.Failed);
+            TryRecordFault(signals, SessionRuntimeTelemetryValues.Outbox, SessionRuntimeTelemetryValues.Failed);
             throw;
         }
 
         var faultKind = action == SessionRuntimeAuditActions.SealManifest
             ? SessionRuntimeTelemetryValues.Manifest
             : SessionRuntimeTelemetryValues.Audit;
-        RecordFault(signals, faultKind, SessionRuntimeTelemetryValues.Succeeded);
+        TryRecordFault(signals, faultKind, SessionRuntimeTelemetryValues.Succeeded);
     }
 
-    private static void RecordFault(ISessionRuntimeTelemetry telemetry, string kind, string outcome) =>
-        telemetry.RecordCounter(
-            SessionRuntimeTelemetryInstruments.Fault,
-            SessionRuntimeTelemetryRecording.Labels(
-                (SessionRuntimeTelemetryLabelKeys.FaultKind, kind),
-                (SessionRuntimeTelemetryLabelKeys.Outcome, outcome)));
+    private static void TryRecordFault(ISessionRuntimeTelemetry telemetry, string kind, string outcome)
+    {
+        try
+        {
+            telemetry.RecordCounter(
+                SessionRuntimeTelemetryInstruments.Fault,
+                SessionRuntimeTelemetryRecording.Labels(
+                    (SessionRuntimeTelemetryLabelKeys.FaultKind, kind),
+                    (SessionRuntimeTelemetryLabelKeys.Outcome, outcome)));
+        }
+        catch
+        {
+        }
+    }
 }

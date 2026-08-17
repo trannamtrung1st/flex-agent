@@ -122,6 +122,129 @@ public sealed class SessionRuntimeTelemetryTests
     }
 
     [Fact]
+    public void Sanitizer_rejects_unbounded_values_under_allowed_keys()
+    {
+        var sink = new CapturingSessionRuntimeTelemetrySink();
+        var telemetry = new SessionRuntimeTelemetry(sink);
+
+        telemetry.RecordCounter(
+            SessionRuntimeTelemetryInstruments.TriggerAdmission,
+            new Dictionary<string, string>
+            {
+                [SessionRuntimeTelemetryLabelKeys.Outcome] = "hello",
+                [SessionRuntimeTelemetryLabelKeys.TriggerFamily] = RuntimeTriggerIdentifiers.WorkflowEventFamily,
+            });
+        telemetry.RecordCounter(
+            SessionRuntimeTelemetryInstruments.TriggerAdmission,
+            new Dictionary<string, string>
+            {
+                [SessionRuntimeTelemetryLabelKeys.Outcome] = TriggerAdmissionOutcomeCodes.Succeeded,
+                [SessionRuntimeTelemetryLabelKeys.TriggerFamily] = "participant_name",
+            });
+        telemetry.RecordCounter(
+            SessionRuntimeTelemetryInstruments.Fault,
+            new Dictionary<string, string>
+            {
+                [SessionRuntimeTelemetryLabelKeys.Outcome] = "password",
+                [SessionRuntimeTelemetryLabelKeys.FaultKind] = SessionRuntimeTelemetryValues.Audit,
+            });
+        telemetry.RecordCounter(
+            SessionRuntimeTelemetryInstruments.WorkProcess,
+            new Dictionary<string, string>
+            {
+                [SessionRuntimeTelemetryLabelKeys.Outcome] = "ghp_pat_not_openai",
+                [SessionRuntimeTelemetryLabelKeys.WorkType] = DurableSessionWorkTypes.ExecuteInvocation,
+            });
+        telemetry.RecordCounter(
+            SessionRuntimeTelemetryInstruments.WorkProcess,
+            new Dictionary<string, string>
+            {
+                [SessionRuntimeTelemetryLabelKeys.Outcome] = "aws_secret_access_key",
+                [SessionRuntimeTelemetryLabelKeys.WorkType] = DurableSessionWorkTypes.ExecuteInvocation,
+            });
+
+        for (var index = 0; index < 1000; index++)
+        {
+            telemetry.RecordCounter(
+                SessionRuntimeTelemetryInstruments.TriggerAdmission,
+                new Dictionary<string, string>
+                {
+                    [SessionRuntimeTelemetryLabelKeys.Outcome] = $"hello_{index}",
+                    [SessionRuntimeTelemetryLabelKeys.TriggerFamily] = RuntimeTriggerIdentifiers.WorkflowEventFamily,
+                });
+        }
+
+        Assert.DoesNotContain(
+            sink.Counters,
+            item => item.Instrument == SessionRuntimeTelemetryInstruments.TriggerAdmission
+                && item.Labels.GetValueOrDefault(SessionRuntimeTelemetryLabelKeys.Outcome) == "hello");
+        Assert.DoesNotContain(
+            sink.Counters,
+            item => item.Labels.GetValueOrDefault(SessionRuntimeTelemetryLabelKeys.TriggerFamily)
+                == "participant_name");
+        Assert.Equal(1005, sink.Counters.Count(item => item.Instrument == SessionRuntimeTelemetryInstruments.Rejected));
+        Assert.DoesNotContain(sink.AllLabelValues(), value => value.StartsWith("hello_", StringComparison.Ordinal));
+        Assert.DoesNotContain(sink.AllLabelValues(), value => value.Contains("ghp_pat", StringComparison.Ordinal));
+        Assert.DoesNotContain(sink.AllLabelValues(), value => value.Contains("aws_secret", StringComparison.Ordinal));
+        Assert.DoesNotContain(sink.AllLabelValues(), value => value == "password");
+    }
+
+    [Fact]
+    public void Admission_coerces_unknown_trigger_family_to_a_bounded_token()
+    {
+        var sink = new CapturingSessionRuntimeTelemetrySink();
+        var telemetry = new SessionRuntimeTelemetry(sink);
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var command = new AdmitTrustedTriggerCommand(
+            SessionRuntimeTestFixtures.CreateActor(),
+            session.Ownership,
+            session.SessionVersion,
+            new TrustedTrigger(
+                "participant_name",
+                RuntimeTriggerIdentifiers.AgentOpeningType,
+                "trig.unknown.family",
+                InvocationPurposes.AgentOpening,
+                null,
+                null),
+            "idem.open.unknown.family",
+            Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            "application.test");
+
+        var result = new AdmitTrustedTriggerHandler(telemetry).Handle(
+            command,
+            session,
+            SessionRuntimeTestFixtures.T0);
+
+        Assert.False(result.Succeeded);
+        var point = Assert.Single(sink.Counters, item => item.Instrument == SessionRuntimeTelemetryInstruments.TriggerAdmission);
+        Assert.Equal(TriggerAdmissionOutcomeCodes.UnknownTrigger, point.Labels[SessionRuntimeTelemetryLabelKeys.Outcome]);
+        Assert.Equal(SessionRuntimeTelemetryValues.Unknown, point.Labels[SessionRuntimeTelemetryLabelKeys.TriggerFamily]);
+        Assert.DoesNotContain(sink.AllLabelValues(), value => value == "participant_name");
+    }
+
+    [Fact]
+    public void Sink_exceptions_do_not_escape_the_telemetry_boundary()
+    {
+        var telemetry = new SessionRuntimeTelemetry(new ThrowingSessionRuntimeTelemetrySink());
+
+        var exception = Record.Exception(() =>
+            telemetry.RecordCounter(
+                SessionRuntimeTelemetryInstruments.TriggerAdmission,
+                new Dictionary<string, string>
+                {
+                    [SessionRuntimeTelemetryLabelKeys.Outcome] = TriggerAdmissionOutcomeCodes.Succeeded,
+                    [SessionRuntimeTelemetryLabelKeys.TriggerFamily] = RuntimeTriggerIdentifiers.WorkflowEventFamily,
+                }));
+
+        Assert.Null(exception);
+        Assert.Null(
+            Record.Exception(() =>
+                telemetry.RecordCounter(
+                    SessionRuntimeTelemetryInstruments.TriggerAdmission,
+                    new Dictionary<string, string> { ["text"] = "hello" })));
+    }
+
+    [Fact]
     public void Duplicate_stale_and_late_completion_outcomes_are_distinct_categories()
     {
         var sink = new CapturingSessionRuntimeTelemetrySink();
@@ -158,10 +281,22 @@ public sealed class SessionRuntimeTelemetryTests
     [Fact]
     public void Delay_and_count_buckets_are_bounded_label_values()
     {
-        Assert.True(SessionRuntimeTelemetry.IsAllowedValue(SessionRuntimeTelemetryBuckets.Count(0)));
-        Assert.True(SessionRuntimeTelemetry.IsAllowedValue(SessionRuntimeTelemetryBuckets.Count(3)));
-        Assert.True(SessionRuntimeTelemetry.IsAllowedValue(SessionRuntimeTelemetryBuckets.Delay(TimeSpan.FromMilliseconds(200))));
-        Assert.True(SessionRuntimeTelemetry.IsAllowedValue(SessionRuntimeTelemetryBuckets.Delay(TimeSpan.FromMinutes(8))));
+        Assert.True(
+            SessionRuntimeTelemetry.IsAllowedLabel(
+                SessionRuntimeTelemetryLabelKeys.BacklogBucket,
+                SessionRuntimeTelemetryBuckets.Count(0)));
+        Assert.True(
+            SessionRuntimeTelemetry.IsAllowedLabel(
+                SessionRuntimeTelemetryLabelKeys.BacklogBucket,
+                SessionRuntimeTelemetryBuckets.Count(3)));
+        Assert.True(
+            SessionRuntimeTelemetry.IsAllowedLabel(
+                SessionRuntimeTelemetryLabelKeys.DelayBucket,
+                SessionRuntimeTelemetryBuckets.Delay(TimeSpan.FromMilliseconds(200))));
+        Assert.True(
+            SessionRuntimeTelemetry.IsAllowedLabel(
+                SessionRuntimeTelemetryLabelKeys.DelayBucket,
+                SessionRuntimeTelemetryBuckets.Delay(TimeSpan.FromMinutes(8))));
         Assert.Equal("n0", SessionRuntimeTelemetryBuckets.Count(0));
         Assert.Equal("over_5m", SessionRuntimeTelemetryBuckets.Delay(TimeSpan.FromMinutes(8)));
     }
@@ -183,5 +318,11 @@ public sealed class SessionRuntimeTelemetryTests
         var point = Assert.Single(sink.Counters, item => item.Instrument == SessionRuntimeTelemetryInstruments.EventReplay);
         Assert.Equal(SessionEventReplayOutcomeCodes.Succeeded, point.Labels["outcome"]);
         Assert.DoesNotContain(point.Labels.Keys, key => key.Contains("text", StringComparison.Ordinal));
+    }
+
+    private sealed class ThrowingSessionRuntimeTelemetrySink : ISessionRuntimeTelemetrySink
+    {
+        public void Write(SessionRuntimeTelemetryPoint point) =>
+            throw new InvalidOperationException("telemetry sink failed");
     }
 }

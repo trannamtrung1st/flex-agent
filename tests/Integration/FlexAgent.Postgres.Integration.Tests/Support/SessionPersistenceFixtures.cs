@@ -63,13 +63,14 @@ internal static class SessionPersistenceFixtures
     internal static TrustedSessionBinding CreateBinding(
         Guid organizationId,
         int cooldownSeconds = 5,
-        int maxTimerTriggeredInvocations = 8)
+        int maxTimerTriggeredInvocations = 8,
+        Guid? activityId = null)
     {
         var policy = ResolveEnabledTimerPolicy(cooldownSeconds, maxTimerTriggeredInvocations);
         return new TrustedSessionBinding(
             new SessionOwnership(
                 organizationId,
-                Guid.NewGuid(),
+                activityId ?? Guid.NewGuid(),
                 Guid.NewGuid(),
                 Guid.NewGuid(),
                 Guid.NewGuid()),

@@ -1,3 +1,5 @@
+using FlexAgent.Sessions.Domain;
+
 namespace FlexAgent.Sessions.Application;
 
 public static class SessionRuntimeTelemetryInstruments
@@ -52,6 +54,7 @@ public static class SessionRuntimeTelemetryValues
     public const string Audit = "audit";
     public const string Outbox = "outbox";
     public const string Manifest = "manifest";
+    public const string Unknown = "unknown";
     public const string UnknownInstrument = "unknown_instrument";
     public const string UnknownLabelKey = "unknown_label_key";
     public const string InvalidLabelValue = "invalid_label_value";
@@ -200,7 +203,7 @@ public sealed class SessionRuntimeTelemetry(ISessionRuntimeTelemetrySink? sink =
                 return;
             }
 
-            if (!IsAllowedValue(pair.Value))
+            if (!SessionRuntimeTelemetryVocabularies.IsAllowed(pair.Key, pair.Value))
             {
                 WriteRejected(SessionRuntimeTelemetryValues.InvalidLabelValue);
                 return;
@@ -209,11 +212,11 @@ public sealed class SessionRuntimeTelemetry(ISessionRuntimeTelemetrySink? sink =
             sanitized[pair.Key] = pair.Value;
         }
 
-        _sink.Write(new SessionRuntimeTelemetryPoint(instrument, kind, value, sanitized));
+        Emit(new SessionRuntimeTelemetryPoint(instrument, kind, value, sanitized));
     }
 
     private void WriteRejected(string reason) =>
-        _sink.Write(
+        Emit(
             new SessionRuntimeTelemetryPoint(
                 SessionRuntimeTelemetryInstruments.Rejected,
                 SessionRuntimeTelemetryKinds.Counter,
@@ -223,44 +226,19 @@ public sealed class SessionRuntimeTelemetry(ISessionRuntimeTelemetrySink? sink =
                     [SessionRuntimeTelemetryLabelKeys.Reason] = reason,
                 }));
 
-    internal static bool IsAllowedValue(string value)
+    private void Emit(SessionRuntimeTelemetryPoint point)
     {
-        if (string.IsNullOrEmpty(value) || value.Length > 64)
+        try
         {
-            return false;
+            _sink.Write(point);
         }
-
-        if (Guid.TryParse(value, out _))
+        catch
         {
-            return false;
         }
-
-        if (value.Contains("sk-", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("bearer", StringComparison.OrdinalIgnoreCase)
-            || value.Contains(' ')
-            || value.Contains('@'))
-        {
-            return false;
-        }
-
-        if (value[0] is < 'a' or > 'z')
-        {
-            return false;
-        }
-
-        for (var index = 1; index < value.Length; index++)
-        {
-            var character = value[index];
-            if (character is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '.' or '_')
-            {
-                continue;
-            }
-
-            return false;
-        }
-
-        return true;
     }
+
+    internal static bool IsAllowedLabel(string key, string value) =>
+        SessionRuntimeTelemetryVocabularies.IsAllowed(key, value);
 }
 
 public static class SessionRuntimeTelemetryBuckets
@@ -333,12 +311,202 @@ internal static class SessionRuntimeTelemetryRecording
         var labels = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var (key, value) in pairs)
         {
-            if (!string.IsNullOrWhiteSpace(value))
+            if (string.IsNullOrWhiteSpace(value))
             {
-                labels[key] = value;
+                continue;
             }
+
+            labels[key] = key == SessionRuntimeTelemetryLabelKeys.TriggerFamily
+                ? SessionRuntimeTelemetryVocabularies.CanonicalTriggerFamily(value)
+                : value;
         }
 
         return labels;
     }
+}
+
+internal static class SessionRuntimeTelemetryVocabularies
+{
+    private static readonly HashSet<string> TriggerFamilies = new(StringComparer.Ordinal)
+    {
+        RuntimeTriggerIdentifiers.ParticipantInputFamily,
+        RuntimeTriggerIdentifiers.WorkflowEventFamily,
+        RuntimeTriggerIdentifiers.TimerEventFamily,
+        SessionRuntimeTelemetryValues.Unknown,
+    };
+
+    private static readonly HashSet<string> Outcomes =
+    [
+        TriggerAdmissionOutcomeCodes.Succeeded,
+        TriggerAdmissionOutcomeCodes.Reconciled,
+        TriggerAdmissionOutcomeCodes.UnknownTrigger,
+        TriggerAdmissionOutcomeCodes.ProhibitedTrigger,
+        TriggerAdmissionOutcomeCodes.LifecycleIneligible,
+        TriggerAdmissionOutcomeCodes.BudgetExhausted,
+        TriggerAdmissionOutcomeCodes.CooldownActive,
+        TriggerAdmissionOutcomeCodes.IdempotencyConflict,
+        TriggerAdmissionOutcomeCodes.OwnershipMismatch,
+        TriggerAdmissionOutcomeCodes.StaleVersion,
+        TriggerAdmissionOutcomeCodes.NonUtcClock,
+        TriggerAdmissionOutcomeCodes.StaleClock,
+        TriggerAdmissionOutcomeCodes.MissingTurn,
+        TriggerAdmissionOutcomeCodes.Denied,
+        InvocationCompletionOutcomeCodes.Decided,
+        InvocationCompletionOutcomeCodes.ExecutionFailed,
+        InvocationCompletionOutcomeCodes.AttemptsExhausted,
+        InvocationCompletionOutcomeCodes.LateResult,
+        InvocationCompletionOutcomeCodes.AlreadyTerminal,
+        InvocationCompletionOutcomeCodes.EffectFailed,
+        InvocationCompletionOutcomeCodes.AttemptRecorded,
+        InvocationCompletionOutcomeCodes.IdentityMismatch,
+        InvocationCompletionOutcomeCodes.NonUtcClock,
+        InvocationCompletionOutcomeCodes.StaleClock,
+        InvocationCompletionOutcomeCodes.StaleVersion,
+        InvocationCompletionOutcomeCodes.Denied,
+        InvocationCompletionOutcomeCodes.OwnershipMismatch,
+        TimerFireOutcomeCodes.Succeeded,
+        TimerFireOutcomeCodes.Reconciled,
+        TimerFireOutcomeCodes.Idle,
+        TimerFireOutcomeCodes.NotDue,
+        TimerFireOutcomeCodes.LifecycleIneligible,
+        TimerFireOutcomeCodes.BudgetExhausted,
+        TimerFireOutcomeCodes.NonUtcClock,
+        TimerFireOutcomeCodes.StaleClock,
+        TimerFireOutcomeCodes.StaleRevision,
+        SessionLifecycleOutcomeCodes.Succeeded,
+        SessionLifecycleOutcomeCodes.Reconciled,
+        SessionLifecycleOutcomeCodes.Denied,
+        SessionLifecycleOutcomeCodes.OwnershipMismatch,
+        SessionLifecycleOutcomeCodes.StaleVersion,
+        SessionLifecycleOutcomeCodes.LifecycleIneligible,
+        FragmentCommitOutcomeCodes.Succeeded,
+        FragmentCommitOutcomeCodes.Reconciled,
+        FragmentCommitOutcomeCodes.Gap,
+        FragmentCommitOutcomeCodes.DigestMismatch,
+        FragmentCommitOutcomeCodes.CompetingAttempt,
+        FragmentCommitOutcomeCodes.Cutoff,
+        FragmentCommitOutcomeCodes.PublicationNotClaimed,
+        FragmentCommitOutcomeCodes.EmptyDelta,
+        FragmentCommitOutcomeCodes.AlreadyTerminal,
+        FragmentCommitOutcomeCodes.NonUtcClock,
+        FragmentCommitOutcomeCodes.StaleClock,
+        FragmentCommitOutcomeCodes.StaleVersion,
+        FragmentCommitOutcomeCodes.Denied,
+        FragmentCommitOutcomeCodes.OwnershipMismatch,
+        FragmentCommitOutcomeCodes.FragmentTooLarge,
+        FragmentCommitOutcomeCodes.FragmentCountExceeded,
+        FragmentCommitOutcomeCodes.AssembledSizeExceeded,
+        FragmentCommitOutcomeCodes.InFlightExceeded,
+        FragmentCommitOutcomeCodes.RateExceeded,
+        FragmentCommitOutcomeCodes.ValidationFailed,
+        FragmentCommitOutcomeCodes.UnpublishedFailed,
+        SessionEventReplayOutcomeCodes.Succeeded,
+        SessionEventReplayOutcomeCodes.Reconcile,
+        SessionEventReplayOutcomeCodes.Denied,
+        SessionEventReplayOutcomeCodes.OwnershipMismatch,
+        DurableInvocationWorkOutcomes.Idle,
+        DurableInvocationWorkOutcomes.Decided,
+        DurableInvocationWorkOutcomes.ExecutionFailed,
+        DurableInvocationWorkOutcomes.Reconciled,
+        DurableInvocationWorkOutcomes.RetryLater,
+        DurableInvocationWorkOutcomes.Published,
+        DurableInvocationWorkOutcomes.PublicationIncomplete,
+        DurableInvocationWorkOutcomes.PublicationFailed,
+        DecisionEffectOutcomes.Applied,
+        DecisionEffectOutcomes.NoDomainEffect,
+        DecisionEffectOutcomes.EffectFailed,
+        DecisionEffectOutcomes.NotAttempted,
+        TimerValidationOutcomes.Accepted,
+        TimerValidationOutcomes.Rejected,
+        TimerValidationOutcomes.Omitted,
+        TimerValidationOutcomes.NotPresent,
+        SessionRuntimeTelemetryValues.Claimed,
+        SessionRuntimeTelemetryValues.Succeeded,
+        SessionRuntimeTelemetryValues.Failed,
+    ];
+
+    private static readonly HashSet<string> DecisionTypes =
+    [
+        RuntimeDecisionTypes.EmitMessage,
+        RuntimeDecisionTypes.NoAction,
+        RuntimeDecisionTypes.RequestTool,
+        RuntimeDecisionTypes.ProposeTransition,
+        RuntimeDecisionTypes.Escalate,
+    ];
+
+    private static readonly HashSet<string> YesNo =
+    [
+        SessionRuntimeTelemetryValues.Yes,
+        SessionRuntimeTelemetryValues.No,
+    ];
+
+    private static readonly HashSet<string> WorkTypes =
+    [
+        DurableSessionWorkTypes.ExecuteInvocation,
+    ];
+
+    private static readonly HashSet<string> DelayBuckets =
+    [
+        "lt_1s",
+        "s1_to_10",
+        "s10_to_60",
+        "m1_to_5",
+        "over_5m",
+    ];
+
+    private static readonly HashSet<string> CountBuckets =
+    [
+        "n0",
+        "n1",
+        "n2_to_5",
+        "n6_to_20",
+        "n21_to_100",
+        "n_over_100",
+    ];
+
+    private static readonly HashSet<string> FaultKinds =
+    [
+        SessionRuntimeTelemetryValues.Audit,
+        SessionRuntimeTelemetryValues.Outbox,
+        SessionRuntimeTelemetryValues.Manifest,
+    ];
+
+    private static readonly HashSet<string> RejectionReasons =
+    [
+        SessionRuntimeTelemetryValues.UnknownInstrument,
+        SessionRuntimeTelemetryValues.UnknownLabelKey,
+        SessionRuntimeTelemetryValues.InvalidLabelValue,
+        SessionRuntimeTelemetryValues.ExcessiveLabels,
+    ];
+
+    private static readonly HashSet<string> Transitions =
+    [
+        SessionLifecycleTransitions.Pause,
+        SessionLifecycleTransitions.Resume,
+        SessionLifecycleTransitions.BeginCompleting,
+        SessionLifecycleTransitions.Complete,
+        SessionLifecycleTransitions.Terminate,
+        SessionLifecycleTransitions.Abort,
+    ];
+
+    private static readonly Dictionary<string, HashSet<string>> ByKey = new(StringComparer.Ordinal)
+    {
+        [SessionRuntimeTelemetryLabelKeys.Outcome] = Outcomes,
+        [SessionRuntimeTelemetryLabelKeys.TriggerFamily] = TriggerFamilies,
+        [SessionRuntimeTelemetryLabelKeys.DecisionType] = DecisionTypes,
+        [SessionRuntimeTelemetryLabelKeys.FirstFragment] = YesNo,
+        [SessionRuntimeTelemetryLabelKeys.WorkType] = WorkTypes,
+        [SessionRuntimeTelemetryLabelKeys.DelayBucket] = DelayBuckets,
+        [SessionRuntimeTelemetryLabelKeys.BacklogBucket] = CountBuckets,
+        [SessionRuntimeTelemetryLabelKeys.PartitionBucket] = CountBuckets,
+        [SessionRuntimeTelemetryLabelKeys.FaultKind] = FaultKinds,
+        [SessionRuntimeTelemetryLabelKeys.Reason] = RejectionReasons,
+        [SessionRuntimeTelemetryLabelKeys.Transition] = Transitions,
+    };
+
+    internal static bool IsAllowed(string key, string value) =>
+        ByKey.TryGetValue(key, out var allowed) && allowed.Contains(value);
+
+    internal static string CanonicalTriggerFamily(string family) =>
+        TriggerFamilies.Contains(family) ? family : SessionRuntimeTelemetryValues.Unknown;
 }
