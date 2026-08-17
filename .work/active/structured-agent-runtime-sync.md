@@ -976,6 +976,11 @@ and test reviews have no unresolved blocking findings.
         `VerifyTerminalSeal` compares all three Binding fields. Sessions
         387/387; architecture 29/29; Postgres 169/169 including populated
         `0017→0018` and recorded `ddd7c0a` `0018` checksum fail-closed.
+  - [x] External review of `8db143c` (2026-08-17): **approved**, no blocking
+        findings. Closes `aa424f3` → `f1122dc` → `ddd7c0a` P1 remediations.
+        Freeze `0018` at this version; any further schema correction is
+        `0019`. GitHub exposed no commit statuses or PR-triggered workflow
+        runs for `8db143c` at review time.
 - [>] Add and verify bounded observability and performance coverage: admission/
   rejection and effect categories, no-action, duplicate/stale/late work,
   fragment latency/integrity, backlog/claims, timer drift/outcomes/budgets,
@@ -1056,12 +1061,13 @@ and must be rebuilt. External request-changes on `ddd7c0a` (2026-08-17):
 `0018` suspends the handoff no-update trigger only to backfill new binding
 columns, then re-enables it; configuration/manifest are FK-bound to the
 Session. Databases that recorded `ddd7c0a`'s earlier `0018` hash cannot
-apply current `0018` and must be rebuilt. Next is bounded observability.
+apply current `0018` and must be rebuilt. External review of `8db143c`
+(2026-08-17): **approved**, no blocking findings. Freeze `0018` at
+`8db143c`; do not edit it. Next is bounded observability.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
-**approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0017`
-unchanged; current `0018` binds Evaluation handoff to the terminal seal
-and Session configuration/manifest.
+**approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0018`
+unchanged.
 
 One-lane scheduler **cutoff/terminal lifecycle persist and timer-fire ACK**
 is **approved** at `1c11744`. External review (2026-08-16) **approved:
@@ -2221,7 +2227,7 @@ surfaces.
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
-| Provider credential/no-fallback and manifest append/seal/handoff tests | partial; E2E plus `ddd7c0a` request-changes | Credential no-fallback remains the earlier domain/port evidence. Manifest append/seal/handoff (2026-08-17): `ManifestTerminalizationTests` 20/20; Sessions 387/387; architecture 29/29; Postgres 169/169 including populated `0017→0018` handoff backfill (append-only trigger re-enabled), recorded `ddd7c0a` `0018` checksum fail-closed, and configuration/manifest tamper FKs; Node JCS 8/8 unchanged. Additive current `0018` (frozen `0005`–`0017` unchanged). Honest gap: full ADR-005 Attempt/Submission start and `REQ-RSC-30` initial-manifest field set are still out of this Sessions slice; InsertActive plus binding refs is the committed-readiness stand-in. Repeated pause/resume on the same revision records the first `.paused`/`.resumed` only (append-if-absent protected ref). Pre-0017 terminal rows remain NULL-procedure/unsealed and are not evaluation-eligible. Databases that applied `aa424f3`'s unfrozen `0017` or `ddd7c0a`'s unfrozen `0018` cannot migrate in place. |
+| Provider credential/no-fallback and manifest append/seal/handoff tests | passed E2E; **approved** `8db143c` | Credential no-fallback remains the earlier domain/port evidence. Manifest append/seal/handoff (2026-08-17): `ManifestTerminalizationTests` 20/20; Sessions 387/387; architecture 29/29; Postgres 169/169 including populated `0017→0018` handoff backfill (append-only trigger re-enabled), recorded `ddd7c0a` `0018` checksum fail-closed, and configuration/manifest tamper FKs; Node JCS 8/8 unchanged. External review of `8db143c` (2026-08-17): **approved**, no blocking findings. Closes `aa424f3` → `f1122dc` → `ddd7c0a`. Freeze `0018` at this version; further schema is `0019`. GitHub exposed no commit statuses or PR-triggered workflow runs for `8db143c` at review time. Honest gap: full ADR-005 Attempt/Submission start and `REQ-RSC-30` initial-manifest field set are still out of this Sessions slice; InsertActive plus binding refs is the committed-readiness stand-in. Repeated pause/resume on the same revision records the first `.paused`/`.resumed` only (append-if-absent protected ref). Pre-0017 terminal rows remain NULL-procedure/unsealed and are not evaluation-eligible. Databases that applied `aa424f3`'s unfrozen `0017` or `ddd7c0a`'s unfrozen `0018` cannot migrate in place. |
 | Web lint/type/unit/build/e2e | local web CI script passed; Playwright e2e not in GitHub web job | `bash build/scripts/verify-web.sh` (2026-08-17): frozen install, boundary check, contracts JCS 8/8, eslint warning-only `react-refresh/only-export-components` in `web/src/api/browser-api.tsx`, `tsc -b --noEmit`, vitest 55/55, production build. GitHub Implementation `web` job matches this script and does not run Playwright e2e. |
 | Playwright accessibility/responsive/visual evaluation | passed live MCP | Prior journey set plus 2026-08-17 confirmation/disabled-button, trap, and `29cde55` restore: desktop/390 Complete trigger focus after Continue and Escape. Artifact dir `.playwright-mcp/`. |
 | Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | local CI-equivalent passed (2026-08-17); GitHub push not claimed | `git diff --check` clean; `python3 scripts/check_docs.py` passed. `verify-web.sh` as above. `verify-dotnet.sh`: 775/775, Release publish, no `appsettings.Development.json`. `gitleaks detect` no leaks. NuGet `--vulnerable --include-transitive` none. `pnpm audit --audit-level=high` exit 0 (2 moderate). Native OCI `flex-agent-oci-{api,worker,spa}:local`. CI-shaped `linux/amd64` `flex-agent-{api,worker,spa}:linux-amd64`. `scan-oci-image-sboms.sh` exit 0 (`--fail-on critical`; SPA Alpine `tiff` High recorded, not critical). GitHub Implementation/Documentation workflows are not claimed from this machine. |
@@ -2258,7 +2264,9 @@ slice. Production-shaped internal end-to-end proof is implemented
 (legacy-unsealed `0017` upgrade; `manifest-jcs-sha256-v2` cutoff seal).
 `f1122dc` request-changes: freeze `0017`, additive `0018` handoff↔terminal
 binding. `ddd7c0a` request-changes: populated `0017→0018` backfill and
-configuration/manifest binding. Bounded observability is next.
+configuration/manifest binding. External review of `8db143c` (2026-08-17):
+**approved**, no blocking findings. Freeze `0018`. Bounded observability
+is next.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
