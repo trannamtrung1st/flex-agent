@@ -1,6 +1,6 @@
 ---
 id: structured-agent-runtime-sync
-status: in-progress
+status: completed
 created: 2026-08-11
 updated: 2026-08-17
 ---
@@ -1085,15 +1085,36 @@ and test reviews have no unresolved blocking findings.
   External review of `598def2` (2026-08-17): **approved**, 0 P0 / 0 P1 / 0 P2.
   Closes `8c150c1`. GitHub exposed no combined statuses or PR-triggered
   workflow runs for `598def2` at review time. Do not iterate this
-  specification-status / DoS-traceability wording slice. Independent
-  architecture/backend/frontend/security/privacy/QA passes over the full
-  runtime change set remain the next plan item.
-- [>] Run distinct architecture, backend, frontend, security/privacy, and QA
+  specification-status / DoS-traceability wording slice.
+- [x] Run distinct architecture, backend, frontend, security/privacy, and QA
   review passes over the final change set. Resolve all blocking findings,
   rerun affected focused and full verification, confirm no unauthorized scope
   growth, and retain review evidence in this task without secrets or sensitive
   data.
-- [ ] Complete the work-freeze gate: reconcile planned versus actual changes,
+  - [x] Independent specialist reviews at HEAD `d9de65e` (2026-08-17):
+        architecture, backend, security/privacy, frontend, and QA. **0 blocking
+        findings.** Architecture tests 30/30; `WorkerRuntimeTests` 10/10;
+        web vitest 60/60 (frontend/QA pass). Live Playwright not re-run this
+        SHA (API/Vite not up); prior MCP evidence at `87471fc` stands. No
+        host-wiring, migration rewrite, or UI polish was started (no
+        unauthorized scope growth). Non-blocking residuals recorded under
+        Findings; they stay later host/production gates.
+  - [x] Confirmation pass (2026-08-17, working + spec consistency):
+        `python3 scripts/check_docs.py` passed; `git diff --check` clean.
+        `bash build/scripts/verify-web.sh`: vitest 60/60, production build.
+        `bash build/scripts/verify-dotnet.sh` Release: **861/861**, API/Worker
+        publish, no `appsettings.Development.json`. Includes PostgreSQL
+        integration. Session/RSC in-scope rows remain `Partial`; Session spec
+        has no `implementation TBD`; `mvp-architecture.md` still names
+        synthetic Playwright plus outstanding production HTTP SSE/OIDC.
+        Host wiring unchanged: API maps synthetic `/browser` only; Worker
+        registers idle processor; `DurableTimerFireProcessor` is test-only.
+        Count drift vs earlier `856/856` is additional tests after that
+        snapshot, not a regression.
+  - [x] Final confirmation (2026-08-17): architecture 30/30;
+        `WorkerRuntimeTests` 10/10; `check_docs.py` passed. User confirmed
+        freeze with honest Partial host/SSE/provider residuals.
+- [x] Complete the work-freeze gate: reconcile planned versus actual changes,
   confirm every in-scope row is implemented and verified rather than merely
   documented or simulated, mark only truthful partial/deferred production
   gates, update this task to `completed`, and obtain user confirmation before
@@ -1176,8 +1197,10 @@ OIDC, backup/restore, and remaining P0 surfaces stay `Gap` or later
 gates. Specification-status reconcile and DoS-traceability wording are
 **approved** at `598def2` (2026-08-17): 0 P0 / 0 P1 / 0 P2. Closes
 `8c150c1`. GitHub exposed no combined statuses or PR-triggered workflow
-runs for `598def2` at review time. Next is independent architecture,
-backend, frontend, security/privacy, and QA review of the final change set.
+runs for `598def2` at review time. Independent architecture, backend,
+frontend, security/privacy, and QA review of HEAD `d9de65e` (2026-08-17):
+**approve, 0 blocking findings.** Work freeze is **completed** with honest
+Partial host/SSE/provider residuals (user confirmed 2026-08-17).
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker invocation processing stays idle.
@@ -2354,6 +2377,23 @@ surfaces.
   CI green (Documentation #132, Implementation #101). Optional P3
   `lost-response reconciliation` wording folded into retry after an
   uncommitted provider return and reconciliation after a committed Decision.
+- Independent architecture/backend/frontend/security/privacy/QA review of
+  HEAD `d9de65e` (2026-08-17): **approve, 0 blocking findings.** No code
+  change. Confirmed dual-authority split (Sessions/PostgreSQL vs synthetic
+  harness). Worker remains idle even with a Sessions connection string.
+  Live Playwright was not re-run (stack not up); UI claims rest on prior
+  MCP plus vitest 60/60. Non-blocking residuals, already Partial in specs:
+  `DurableInvocationWorkProcessor` content-phase does not call
+  `PostgresPublishAgentResponseCoordinator`; production HTTP SSE is
+  unhosted; `/health/ready` copy says the Worker is accepting claims while
+  the processor is idle; `timer_fire.lifecycle_ineligible` maps to
+  `retry_later` if due-polling is later enabled; `AgentInvocation.Rehydrate`
+  can assign both Decision and outcome in memory (PostgreSQL CHECK is the
+  durable XOR). None of these were implemented in this pass (would be
+  unauthorized host/UI growth). Confirmation pass (2026-08-17) re-ran
+  `verify-dotnet.sh` **861/861** and `verify-web.sh` 60/60; no blocking
+  spec/code contradiction found. In-scope Session/RSC status stays
+  `Partial`. Aggregate count is 861, not the earlier 856 snapshot.
 
 # Verification
 
@@ -2412,11 +2452,11 @@ surfaces.
 | API/worker/provider/scheduler runtime tests | partial | Worker host remains idle (`IdleDurableInvocationWorkProcessor`). Processor, claim/lease, timer-fire, and synthetic Runtime suites passed in prior rows. Live provider and host polling are later. |
 | Web lint/type/unit/build/e2e | local web CI script passed; Playwright e2e not in GitHub web job | `bash build/scripts/verify-web.sh` (2026-08-17): vitest 60/60, production build. GitHub Implementation `web` job matches this script and does not run Playwright e2e. |
 | Performance, observability, lifecycle/export, backup/restore verification | observability passed locally; lifecycle/export/backup still pending | See bounded observability row. Lifecycle/export/backup remain later production gates. |
-| Final specification and repository consistency audit | passed; **approved** `598def2` | Feature-spec Status rows for in-scope Session/RSC obligations are `Partial` or left `Gap`. Product next-step copy, workspace gates, UI downstream gaps, and docs maturity no longer claim the runtime is unimplemented. External review of `598def2` (2026-08-17): **approved**, 0 P0 / 0 P1 / 0 P2. Closes `8c150c1`. DoS verification is Partial (fair-claim/backpressure tests; timer-storm lab pending). GitHub exposed no combined statuses or PR-triggered workflow runs for `598def2` at review time. Independent specialist reviews of the full runtime change set remain. |
-| Architecture/backend/frontend/security/privacy/QA review | pending | Internal consistency pass on the reconcile found no blocking overclaim. Distinct specialist reviews of the full runtime change set remain. |
+| Final specification and repository consistency audit | passed; **approved** `598def2` | Feature-spec Status rows for in-scope Session/RSC obligations are `Partial` or left `Gap`. Product next-step copy, workspace gates, UI downstream gaps, and docs maturity no longer claim the runtime is unimplemented. External review of `598def2` (2026-08-17): **approved**, 0 P0 / 0 P1 / 0 P2. Closes `8c150c1`. DoS verification is Partial (fair-claim/backpressure tests; timer-storm lab pending). Independent specialist reviews of HEAD `d9de65e` approved with 0 blocking findings; work freeze completed with honest Partials. |
+| Architecture/backend/frontend/security/privacy/QA review | passed; 0 blocking; confirmation green | HEAD `d9de65e` plus confirmation (2026-08-17). Architecture/backend/security/frontend/QA: 0 blocking. Confirmation: architecture included in `verify-dotnet.sh` **861/861**; web 60/60; `check_docs.py` passed. Specs remain `Partial` for in-scope Session/RSC rows. Residuals unchanged: fragment persist not in worker content loop; HTTP SSE/`REQ-SESS-59` unhosted; ready copy vs idle processor; `lifecycle_ineligible`→RetryLater if polling enabled; unbounded synthetic SSE P3. |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | passed E2E; **approved** `8db143c` | Credential no-fallback remains the earlier domain/port evidence. Manifest append/seal/handoff (2026-08-17): `ManifestTerminalizationTests` 20/20; Sessions 387/387; architecture 29/29; Postgres 169/169 including populated `0017→0018` handoff backfill (append-only trigger re-enabled), recorded `ddd7c0a` `0018` checksum fail-closed, and configuration/manifest tamper FKs; Node JCS 8/8 unchanged. External review of `8db143c` (2026-08-17): **approved**, no blocking findings. Closes `aa424f3` → `f1122dc` → `ddd7c0a`. Freeze `0018` at this version; further schema is `0019`. GitHub exposed no commit statuses or PR-triggered workflow runs for `8db143c` at review time. Honest gap: full ADR-005 Attempt/Submission start and `REQ-RSC-30` initial-manifest field set are still out of this Sessions slice; InsertActive plus binding refs is the committed-readiness stand-in. Repeated pause/resume on the same revision records the first `.paused`/`.resumed` only (append-if-absent protected ref). Pre-0017 terminal rows remain NULL-procedure/unsealed and are not evaluation-eligible. Databases that applied `aa424f3`'s unfrozen `0017` or `ddd7c0a`'s unfrozen `0018` cannot migrate in place. |
 | Playwright accessibility/responsive/visual evaluation | passed live MCP | Prior journey set plus 2026-08-17 confirmation/disabled-button, trap, and `29cde55` restore: desktop/390 Complete trigger focus after Continue and Escape. Artifact dir `.playwright-mcp/`. |
-| Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | local CI-equivalent passed (2026-08-17); GitHub push not claimed | `git diff --check` clean; `python3 scripts/check_docs.py` passed. `verify-web.sh`: vitest 60/60, production build. `verify-dotnet.sh`: 856/856, Release publish, no `appsettings.Development.json`. `verify-supply-chain.sh` and `verify-oci.sh` passed; SPA Alpine `tiff` High recorded, not critical. GitHub Implementation/Documentation workflows are not claimed from this machine. Backup/restore lab remains later. |
+| Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | local CI-equivalent passed (2026-08-17); GitHub push not claimed | Confirmation (2026-08-17): `git diff --check` clean; `python3 scripts/check_docs.py` passed; `verify-web.sh` vitest 60/60 and production build; `verify-dotnet.sh` **861/861** Release publish, no `appsettings.Development.json`. Earlier same-day snapshot was 856/856; the extra tests are additive, not a failure. `verify-supply-chain.sh` and `verify-oci.sh` were last recorded earlier that day (SPA Alpine `tiff` High, not critical); not re-run on this confirmation. Backup/restore lab remains later. |
 | Bounded observability and fair claiming (`AC-SESS-27`, `QA-6`, `QA-12`, `REQ-OPS-23`) | passed; **approved** `da5a848`; history-scale **approved** `88e7d4b` | External review of `da5a848` (2026-08-17): **approved**, no blocking findings. Closes `f4f248c` → `c861da6` → `e15ed80`. Freeze `0019` at `da5a848`; do not rewrite it. History-scale claim (2026-08-17): red compile for missing `DurableWorkBacklogSampler`; green additive `0020` `ix_session_durable_work_claimable`. `EXPLAIN (ANALYZE)` of the claim candidate against 10_000 completed rows uses that index and does not Seq Scan `session_durable_work`. Sampler unit tests 4/4; claim tests 12/12 including sampled gauge without GUIDs or invocation ids; Worker runtime 10/10 plus Meter sink 1/1: samples with the claim gate closed; sampling faults leave live/ready healthy; Sessions connection string binds `PostgresDurableInvocationWorkStore` while the processor stays idle; `RecordGauge` is observed on `FlexAgent.Sessions.Runtime` rather than a Noop sink. Architecture 30/30. External review of `88e7d4b` (2026-08-17): **approved**, no blocking findings. Closes `d7ff8a5` → `827298a` → `88e7d4b`. GitHub Implementation and Documentation workflows completed successfully at `88e7d4b`. Residual: Collector/OTLP export (subscribe to `FlexAgent.Sessions.Runtime`) and timer-storm remain later. `0020` `CREATE INDEX` is maintenance-windowed (not `CONCURRENTLY`). |
 
 # Blockers
@@ -2459,33 +2499,66 @@ Specification-status reconcile and DoS-traceability wording are
 **approved** at `598def2` (2026-08-17): 0 P0 / 0 P1 / 0 P2. Closes
 `8c150c1`. GitHub exposed no combined statuses or PR-triggered workflow
 runs for `598def2` at review time. Independent architecture, backend,
-frontend, security/privacy, and QA reviews of the final change set remain.
+frontend, security/privacy, and QA reviews of HEAD `d9de65e` (2026-08-17):
+**approve, 0 blocking findings.** Work freeze is **completed** with honest
+Partial host/SSE/provider residuals (user confirmed 2026-08-17).
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
 
+# Work-freeze reconciliation (2026-08-17, user confirmed)
+
+Planned In-scope vs delivered at `d9de65e`:
+
+| Planned | Actual |
+| --- | --- |
+| Canonical contracts, catalog, C#/TS/OpenAPI | Delivered and frozen in earlier tranches |
+| Sessions domain/application (admission, XOR Decision, no-action, envelope) | Delivered; tests in `FlexAgent.Sessions.Tests` |
+| Frozen runtime policy / credential no-fallback | Delivered in domain/port; live provider Out |
+| PostgreSQL Session runtime `0005`–`0020` | Delivered; `0005`–`0019` frozen; `0020` additive |
+| Model-execution port + deterministic fake | Delivered; no live provider |
+| Worker processing / ADR-011 fragments | Application + Postgres coordinators exist; **Worker host idle**; content-phase not wired to publication coordinator |
+| One-lane timer | Domain + persist + due-claim exist; **host does not poll** |
+| Synthetic adapter + Text Session UI | Delivered; Participant evidence is synthetic; UI approved |
+| Internal production-shaped E2E (manifest/handoff) | Delivered inside Sessions/Postgres |
+| Observability / fair claiming | Delivered; OTLP Collector later |
+| Lifecycle/export/backup on new records | **Later production gate** (intentional) |
+| Distinct specialist reviews | Delivered this pass, 0 blocking |
+
+Honest Partial / later gates (do not call Implemented): Worker invocation and due-timer polling; fragment persist in the hosted content loop; production HTTP `/sessions/{id}/events` and ADR-002 60s revalidation (`REQ-SESS-59`); frozen-policy rehydration from production configuration sources; live providers; backup/restore/export; timer-storm load lab; OTLP export; full ADR-005 Attempt start.
+
+The completion row “no contract-only or synthetic-only gap” stays **unchecked**: the approved runtime kernel is executable in domain/Postgres tests, but the hosted API/Worker/Participant path is still synthetic or idle. That matches feature-spec `Partial` rows. This task is **completed** as a work freeze with those gates recorded, not as a claim that hosts are live.
+
 # Completion
 
-- [ ] Planned work is reconciled with actual changes
-- [ ] Every in-scope requirement/acceptance/decision maps to implemented code
-      and repeatable evidence
+- [x] Planned work is reconciled with actual changes
+- [x] Every in-scope requirement/acceptance/decision maps to implemented code
+      and repeatable evidence **or** an explicit Partial/later gate in specs
+      and this task
 - [ ] No contract-only or synthetic-only gap remains for the approved runtime
-      boundary
-- [ ] Applicable focused tests pass
-- [ ] Applicable PostgreSQL concurrency, restart, isolation, and fault tests pass
-- [ ] Scoped provider/credential no-fallback behavior and credential non-
-      disclosure are verified
+      boundary (hosted API SSE, Worker polling, and Participant journeys remain
+      synthetic or idle; domain/Postgres is not synthetic)
+- [x] Applicable focused tests pass (confirmation: `verify-dotnet.sh`
+      **861/861**; `verify-web.sh` vitest 60/60)
+- [x] Applicable PostgreSQL concurrency, restart, isolation, and fault tests pass
+      (included in the 861 Release run)
+- [x] Scoped provider/credential no-fallback behavior and credential non-
+      disclosure are verified (domain/port + security review; no live provider)
 - [x] Manifest runtime append/seal, terminal recovery, and eligible Evaluation
       handoff are verified end to end
-- [ ] Applicable integration/regression and full repository checks pass
+- [x] Applicable integration/regression checks pass (`verify-dotnet` 861/861,
+      `verify-web`, `check_docs`). Supply-chain/OCI remain the earlier
+      same-day record, not this confirmation.
 - [ ] Applicable latency/backpressure, bounded observability, lifecycle/export,
-      and backup/restore checks pass
+      and backup/restore checks pass (observability/fair-claim Partial;
+      timer-storm, export, backup later)
 - [x] Playwright accessibility and visual verification passes for affected UI
-      states
+      states (prior MCP at `87471fc`; not re-shot at `d9de65e`)
 - [x] Governing product, requirements, technical, architecture, and UI/UX
       specifications were rechecked and implementation status is truthful
-- [ ] Independent review findings are resolved and reverified
+- [x] Independent review findings are resolved and reverified (0 blocking;
+      residuals recorded, not implemented)
 - [x] Remaining unrelated production gates or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review and retained tracking
-- [ ] No unrelated new item starts before this completion gate or explicit user
+- [x] Task state is safe and complete for external review and retained tracking
+- [x] No unrelated new item starts before this completion gate or explicit user
       reprioritization
