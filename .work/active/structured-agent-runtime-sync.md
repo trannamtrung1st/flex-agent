@@ -913,7 +913,11 @@ and test reviews have no unresolved blocking findings.
   synthetic SSE as P3.
 - [x] Remediate `29cde55` P2: restore trigger focus only after clearing
   `inert`. Leave unbounded synthetic SSE as P3.
-- [ ] Complete the production-shaped internal end-to-end proof from committed
+- [x] Record external approval of `87471fc` (0 P0 / 0 P1 / 0 P2) for the
+  Text Session UI chain `f7e0f99` → `ea91b1c` → `29cde55` → `87471fc`.
+  Lint-only follow-up `66a07e5`. Stop iterating this UI slice; unbounded
+  synthetic SSE stays P3.
+- [>] Complete the production-shaped internal end-to-end proof from committed
   readiness and immutable Session binding through `Active`, trusted Participant
   and Agent-initiated triggers, no-action/message effects, timer replacement,
   pause/cutoff/terminalization, manifest runtime append and terminal seal, and
@@ -976,9 +980,13 @@ after admission; confirm is disabled while mutations are off; Dialog
 portals with inert background and Tab wrap. External review of `29cde55`
 requested one remaining P2: restore trigger focus while `#root` was still
 `inert`. Dialog now clears `inert` then restores focus in the same
-cleanup. Unbounded synthetic SSE
-channels stay a P3 harness residual. Do not start a visual overhaul.
-Production-shaped internal end-to-end proof is next.
+cleanup. External review of `87471fc` (2026-08-17): **approved**, 0 P0 /
+0 P1 / 0 P2. Closes `f7e0f99` → `ea91b1c` → `29cde55` → `87471fc`.
+Lint-only follow-up `66a07e5` moved `onCancelRef` updates into an effect
+so Implementation `web` eslint can pass (`react-hooks/refs`). Combined
+GitHub statuses are not claimed for `87471fc`. Unbounded synthetic SSE
+channels stay a P3 harness residual. Stop polishing this Text Session
+slice; production-shaped internal end-to-end proof is next.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0016`
@@ -2137,7 +2145,7 @@ surfaces.
 | Playwright MCP Text Session journeys (`UI-SESS-DEC-8`, `UI-SESS-DEC-13`–`15`) | passed live browser; held synthetic SSE | Red (2026-08-17): live Session stayed **Reconnecting** because dump-once SSE closed; focused test `Held_session_sse_emits_replay_complete_then_later_events_on_the_same_connection` failed (`: replay-complete` absent). Green: stream holds after replay-complete and later send/timer events arrive on the same connection. Consistency review red: `Held_session_sse_completes_when_scenario_access_is_revoked` timed out; green: revoke completes listeners and a revoked subscribe does not hold. Held-SSE tests 2/2; `verify-dotnet.sh` 775/775. Live Playwright (desktop 1280×800, narrow 390×844, 320×256 reflow, light/dark, `prefers-reduced-motion: reduce`): empty Active, Ctrl+Enter send + Agent reply, pause/resume, reload replay, complete/terminal/Dormant, participant no-action (You kept, no Agent row, announced once), timer-triggered Agent check-in without a You row, timer no-action (announce, no persistent status, no You/Agent), execution-failure turn status, permission revoke **Access denied**, SSE abort **Reconnecting** with send disabled. Artifacts under `.playwright-mcp/` including `page-2026-08-16T17-34-31-992Z.png` (connected empty), `...17-35-14-105Z.png` (populated), `...17-35-42-980Z.png` (paused light), `...17-36-15-115Z.png` (paused dark), `...17-36-40-729Z.png` (narrow), `...17-36-59-477Z.png` (400% reflow), `...17-38-50-453Z.png` (no-action), `...17-39-26-400Z.png` (timer message), `...17-39-56-918Z.png` (timer no-action), `...17-40-22-584Z.png` (execution failure), `...17-41-33-242Z.png` (permission loss), `...17-42-13-806Z.png` (reconnecting). Residual after `f7e0f99` remediations: synthetic unbounded SSE channel remains P3 harness residual; dedicated spaceship visual pass is deferred. |
 | `f7e0f99` Text Session follow-ups (`UI-SESS-DEC-10`, disabled buttons, held-SSE depth) | passed focused tests + live MCP | External review of `f7e0f99` approved SSE/runtime and asked not to call Text Session UI finished. Red: `opens one Complete Session confirmation and posts only after confirm` found no dialog. Green: held-SSE live sequence is queued/working/fragment/complete on the same connection, plus timer-triggered check-in (`Held_session_sse_delivers_timer_triggered_turn_on_the_same_connection`). Disabled buttons use `surface-disabled` / `fg-disabled` / `border-subtle` with no emission. One confirmation dialog (`Complete this Session?`, Continue Session, Complete Session); composer shortcut does not complete. `SessionPage.test.tsx` 32/32; web vitest 57/57; Runtime 69/69. Playwright: `.playwright-mcp/page-2026-08-17T01-41-34-318Z.png` (disabled Send, no brand glow), `...01-41-54-351Z.png` (light dialog, heading focused), `...01-42-52-964Z.png` (dark dialog), `...01-43-07-591Z.png` (390px dialog). Unbounded synthetic SSE channel left as P3. |
 | `ea91b1c` P2 Complete confirmation race and modal trap | passed focused web unit + live MCP keyboard | External review of `ea91b1c` requested changes (2 P2). Red: `does not stick Requesting completion if Complete is confirmed while reconnecting` (ambiguous reconnect copy) then Dialog Tab wrap left the modal. Green: dialog confirm stays disabled while reconnecting; click posts no command; reconnect leaves Send/Complete usable; Dialog portals to `document.body`, marks siblings `inert`, wraps Tab/Shift+Tab. `SessionPage.test.tsx` + `Dialog.test.tsx` 34/34; web vitest 59/59; `tsc -b --noEmit` passed. Playwright (desktop 1280×800, narrow 390×844): Tab heading→Continue→Complete→wrap Continue; Shift+Tab wrap to Complete; `#root` inert. Artifacts `.playwright-mcp/page-2026-08-17T01-59-23-313Z.png` (desktop dark dialog), `...02-01-49-922Z.png` (390px). Context `setOffline(true)` did not fire native EventSource `onerror` on the held idle stream; reconnect-while-dialog is covered by the unit test. GitHub combined statuses are not claimed. Unbounded synthetic SSE remains P3. |
-| `29cde55` P2 inert/focus-restore ordering | passed focused web unit + live MCP | External review of `29cde55` requested changes (1 P2). Red: `clears inert before restoring the trigger's focus` saw `closest("[inert]")` still true when `.focus()` ran. Green: one Dialog lifecycle effect removes `inert` then restores `previousFocus`. Live: Complete Session → Continue Session / Escape → trigger focused, `#root` not inert. `Dialog.test.tsx` 2/2; SessionPage+Dialog 35/35; web vitest 60/60; `tsc -b --noEmit` passed. Artifacts `.playwright-mcp/page-2026-08-17T02-14-31-052Z.png` (desktop restored focus ring) and `...02-14-50-393Z.png` (390px). GitHub combined statuses are not claimed. Unbounded synthetic SSE remains P3. |
+| `29cde55` P2 inert/focus-restore ordering | passed; **approved** `87471fc` | External review of `29cde55` requested changes (1 P2). Red: `clears inert before restoring the trigger's focus` saw `closest("[inert]")` still true when `.focus()` ran. Green: one Dialog lifecycle effect removes `inert` then restores `previousFocus`. Live: Complete Session → Continue Session / Escape → trigger focused, `#root` not inert. `Dialog.test.tsx` 2/2; SessionPage+Dialog 35/35; web vitest 60/60; `tsc -b --noEmit` passed. Artifacts `.playwright-mcp/page-2026-08-17T02-14-31-052Z.png` (desktop restored focus ring) and `...02-14-50-393Z.png` (390px). External review of `87471fc` (2026-08-17): **approved** 0 P0 / 0 P1 / 0 P2. Closes `f7e0f99` → `ea91b1c` → `29cde55` → `87471fc`. Lint-only `66a07e5` satisfies Implementation `web` eslint. GitHub combined statuses were not exposed for `87471fc` at review time. Unbounded synthetic SSE remains P3. Stop iterating this UI slice. |
 | `a1dc86f` P2 `revision_id` required | passed; **approved** `71a7721` | Red (2026-08-16): null/empty/whitespace `revision_id` returned 204 and defaulted to `"1"`. Green: those three cases return 400 and a later `"1"` fire still publishes; closing from paused emits closing then terminal. External review of `71a7721` (2026-08-16): **approved** 0 High / 0 Medium / 0 Low. Non-blocking trim identity folded: `" 1 "` then `"1"` is one stream. Confirmation: `SyntheticSessionRuntimeAdapterTests` 24/24; `FlexAgent.Runtime.Tests` 61/61. GitHub exposed no status checks or PR-triggered workflow runs for `71a7721` at review time. |
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
@@ -2169,11 +2177,12 @@ reconciliation is code-reviewed and CI-green at `dea1477`. `UI-SESS-DEC-10`
 one-step Complete confirmation is implemented on the synthetic Participant
 surface (2026-08-17). `ea91b1c` P2 remediations (completion connectivity
 race and modal focus containment) are implemented locally (2026-08-17).
-`29cde55` P2 (restore focus after clearing `inert`) is implemented
-locally (2026-08-17). Implementation `web` lint failed on `87471fc`
-(`react-hooks/refs` during render, Dialog test void-expression /
-unbound-method). Local `verify-web.sh` is green after those ESLint
-fixes (warning-only `react-refresh/only-export-components`).
+`29cde55` P2 (restore focus after clearing `inert`) is **approved** at
+`87471fc` (2026-08-17): 0 P0 / 0 P1 / 0 P2. Closes `f7e0f99` → `ea91b1c`
+→ `29cde55` → `87471fc`. Lint-only `66a07e5` is the Implementation `web`
+eslint follow-up. Combined GitHub statuses were not claimed for `87471fc`.
+Unbounded synthetic SSE remains P3. Do not iterate this Text Session UI
+slice; production-shaped internal end-to-end proof is next.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
