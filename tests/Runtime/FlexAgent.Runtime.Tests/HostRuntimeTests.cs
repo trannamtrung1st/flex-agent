@@ -1,5 +1,6 @@
 using System.Net;
 using FlexAgent.Sessions.Application;
+using FlexAgent.Sessions.Infrastructure;
 using FlexAgent.Worker;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -112,6 +113,33 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         var processor = _factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>();
 
         Assert.IsType<IdleDurableInvocationWorkProcessor>(processor);
+        Assert.IsType<UnknownDurableInvocationWorkStore>(
+            _factory.Services.GetRequiredService<IDurableInvocationWorkStore>());
+        Assert.IsType<DurableWorkBacklogSampler>(
+            _factory.Services.GetRequiredService<IDurableWorkBacklogSampler>());
+    }
+
+    [Fact]
+    public async Task Worker_samples_backlog_independently_of_claim_polling()
+    {
+        var sampler = new CountingDurableWorkBacklogSampler();
+        await using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IDurableWorkBacklogSampler>(sampler);
+            });
+        });
+        var gate = factory.Services.GetRequiredService<WorkClaimGate>();
+        gate.StopAcceptingWork();
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/live", cancellationToken)).StatusCode);
+        await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
+
+        Assert.False(gate.TryClaimWork());
+        Assert.True(sampler.Calls > 0);
     }
 
     [Fact]
@@ -125,8 +153,10 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         });
 
         var processor = factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>();
+        var store = factory.Services.GetRequiredService<IDurableInvocationWorkStore>();
 
         Assert.IsType<IdleDurableInvocationWorkProcessor>(processor);
+        Assert.IsType<PostgresDurableInvocationWorkStore>(store);
     }
 
     [Fact]
@@ -169,6 +199,25 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/ready", cancellationToken)).StatusCode);
     }
 
+    [Fact]
+    public async Task Worker_stays_live_when_backlog_sampling_throws()
+    {
+        await using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IDurableWorkBacklogSampler, ThrowingDurableWorkBacklogSampler>();
+            });
+        });
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/live", cancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/ready", cancellationToken)).StatusCode);
+    }
+
     private sealed class ThrowingDurableInvocationWorkProcessor : IDurableInvocationWorkProcessor
     {
         public Task<DurableInvocationWorkProcessResult> TryProcessNextAsync(CancellationToken cancellationToken) =>
@@ -186,5 +235,24 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
             Interlocked.Increment(ref _calls);
             return Task.FromResult(DurableInvocationWorkProcessResult.Idle);
         }
+    }
+
+    private sealed class CountingDurableWorkBacklogSampler : IDurableWorkBacklogSampler
+    {
+        private int _calls;
+
+        public int Calls => Volatile.Read(ref _calls);
+
+        public Task SampleIfDueAsync(CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _calls);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingDurableWorkBacklogSampler : IDurableWorkBacklogSampler
+    {
+        public Task SampleIfDueAsync(CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("synthetic sampling fault");
     }
 }

@@ -5,7 +5,9 @@ WORKDIR /src
 
 COPY FlexAgent.slnx global.json Directory.Build.props Directory.Build.targets Directory.Packages.props nuget.config ./
 COPY src/BuildingBlocks/FlexAgent.CanonicalJson/ src/BuildingBlocks/FlexAgent.CanonicalJson/
+COPY src/Infrastructure/FlexAgent.Postgres/ src/Infrastructure/FlexAgent.Postgres/
 COPY src/Modules/Sessions/FlexAgent.Sessions/ src/Modules/Sessions/FlexAgent.Sessions/
+COPY src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/ src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/
 COPY src/Hosts/FlexAgent.Worker/ src/Hosts/FlexAgent.Worker/
 COPY contracts/schemas/v1/common/primitives.v1.schema.json contracts/schemas/v1/common/primitives.v1.schema.json
 COPY contracts/schemas/v2/session/agent-decision.v2.schema.json contracts/schemas/v2/session/agent-decision.v2.schema.json

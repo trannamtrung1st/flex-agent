@@ -26,7 +26,7 @@ public sealed class CompositionRootTests
     }
 
     [Fact]
-    public void Host_assemblies_do_not_depend_on_persistence_or_provider_packages_yet()
+    public void Api_host_does_not_depend_on_persistence_or_provider_packages_yet()
     {
         var forbiddenPrefixes = new[]
         {
@@ -37,20 +37,22 @@ public sealed class CompositionRootTests
             "JsonSchema",
         };
 
-        var hostAssemblies = new[]
-        {
-            typeof(FlexAgent.Api.Program).Assembly,
-            typeof(FlexAgent.Worker.Program).Assembly,
-        };
+        var result = Types.InAssembly(typeof(FlexAgent.Api.Program).Assembly)
+            .ShouldNot()
+            .HaveDependencyOnAny(forbiddenPrefixes)
+            .GetResult();
 
-        foreach (var assembly in hostAssemblies)
-        {
-            var result = Types.InAssembly(assembly)
-                .ShouldNot()
-                .HaveDependencyOnAny(forbiddenPrefixes)
-                .GetResult();
+        Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));
+    }
 
-            Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));
-        }
+    [Fact]
+    public void Worker_host_does_not_depend_on_provider_packages()
+    {
+        var result = Types.InAssembly(typeof(FlexAgent.Worker.Program).Assembly)
+            .ShouldNot()
+            .HaveDependencyOnAny("OpenAI", "AWSSDK")
+            .GetResult();
+
+        Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));
     }
 }

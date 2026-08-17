@@ -6,7 +6,8 @@ namespace FlexAgent.Worker;
 public sealed class WorkerBackgroundService(
     ILogger<WorkerBackgroundService> logger,
     WorkClaimGate workClaimGate,
-    IDurableInvocationWorkProcessor workProcessor) : BackgroundService
+    IDurableInvocationWorkProcessor workProcessor,
+    IDurableWorkBacklogSampler backlogSampler) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -16,6 +17,19 @@ public sealed class WorkerBackgroundService(
         {
             while (!stoppingToken.IsCancellationRequested)
             {
+                try
+                {
+                    await backlogSampler.SampleIfDueAsync(stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    logger.LogError(exception, "Durable work backlog sampling failed.");
+                }
+
                 if (workClaimGate.TryClaimWork())
                 {
                     try

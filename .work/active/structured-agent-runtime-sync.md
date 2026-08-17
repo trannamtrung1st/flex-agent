@@ -1031,7 +1031,9 @@ and test reviews have no unresolved blocking findings.
         `ix_session_durable_work_claimable`; 10_000 completed rows do not
         Seq Scan `session_durable_work`. `DurableWorkBacklogSampler`
         records bucketed gauges at a 30s minimum interval; idle claim
-        polls still do not `COUNT(*)`. Host OTLP/Collector export and a
+        polls still do not `COUNT(*)`. Worker host samples independently of
+        claim polling (`d7ff8a5` P1). `0020` `CREATE INDEX` is
+        maintenance-windowed (P2). Host OTLP/Collector export and a
         concurrent timer-storm load lab remain later composition-root work.
 - [>] Integrate focused and aggregate verification: contract/catalog/OpenAPI
   parity, architecture tests, Sessions domain tests, PostgreSQL 18 migration/
@@ -1129,13 +1131,17 @@ apply current `0018` and must be rebuilt. External review of `8db143c`
 rewrite it. Stop iterating this correctness slice. History-scale claim
 `EXPLAIN`/index and sampled backlog gauges are implemented (2026-08-17):
 additive `0020` (frozen `0019` unchanged); `DurableWorkBacklogSampler`
-at a 30-second minimum interval. Host OTLP export through
+at a 30-second minimum interval. Worker host samples independently of
+claim polling; invocation processing stays idle. `0020` is a
+maintenance-window `CREATE INDEX`. Host OTLP export through
 the OpenTelemetry Collector and a concurrent timer-storm load lab remain
 later. Next is aggregate verification.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
-**approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0019`
-unchanged; additive `0020` is the claimable-work index.
+**approved** at `053de74`. Worker invocation processing stays idle.
+Backlog sampling runs on the Worker loop independently of claims.
+Frozen `0005`–`0019` unchanged; additive `0020` is the claimable-work
+index and is a maintenance-window `CREATE INDEX`.
 
 One-lane scheduler **cutoff/terminal lifecycle persist and timer-fire ACK**
 is **approved** at `1c11744`. External review (2026-08-16) **approved:
@@ -1332,11 +1338,14 @@ surfaces.
   `DurableWorkBacklogSampler` may `COUNT(*)` at most once per 30-second
   interval and records only bucketed labels plus a numeric gauge value.
   Additive `0020` indexes claimable `pending`/`claimed` rows so completed
-  history is not Seq Scanned. Admission
-  and reconnect p95 use sequential in-process PostgreSQL samples with
-  provider and end-user network excluded. Host OTLP Collector export and
-  a concurrent timer-storm load lab remain later composition-root work.
-  The idle Worker host still does not call the sampler.
+  history is not Seq Scanned. `0020` uses transactional `CREATE INDEX`
+  and is a maintenance-window migration (it can block writes while the
+  index builds). The Worker host calls `SampleIfDueAsync` every loop,
+  independent of claim polling, even while the invocation processor stays
+  idle. Without `ConnectionStrings:Sessions` the store is unknown and no
+  gauge is recorded; with that connection string the Postgres work store
+  is used. Host OTLP Collector export and a concurrent timer-storm load
+  lab remain later composition-root work.
 - Text Session UI (2026-08-16, `UI-SESS-DEC-13`–`15`): Participant copy is
   derived from browser-safe `work_state` / `resolution_category`, never
   rendered as those tokens. `no_action` persistent status is
@@ -2322,7 +2331,7 @@ surfaces.
 | Web lint/type/unit/build/e2e | local web CI script passed; Playwright e2e not in GitHub web job | `bash build/scripts/verify-web.sh` (2026-08-17): frozen install, boundary check, contracts JCS 8/8, eslint warning-only `react-refresh/only-export-components` in `web/src/api/browser-api.tsx`, `tsc -b --noEmit`, vitest 55/55, production build. GitHub Implementation `web` job matches this script and does not run Playwright e2e. |
 | Playwright accessibility/responsive/visual evaluation | passed live MCP | Prior journey set plus 2026-08-17 confirmation/disabled-button, trap, and `29cde55` restore: desktop/390 Complete trigger focus after Continue and Escape. Artifact dir `.playwright-mcp/`. |
 | Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | local CI-equivalent passed (2026-08-17); GitHub push not claimed | `git diff --check` clean; `python3 scripts/check_docs.py` passed. `verify-web.sh`: vitest 60/60, production build. `verify-dotnet.sh`: 856/856, Release publish, no `appsettings.Development.json`. `verify-supply-chain.sh` and `verify-oci.sh` passed; SPA Alpine `tiff` High recorded, not critical. GitHub Implementation/Documentation workflows are not claimed from this machine. Backup/restore lab remains later. |
-| Bounded observability and fair claiming (`AC-SESS-27`, `QA-6`, `QA-12`, `REQ-OPS-23`) | passed; **approved** `da5a848`; performance follow-up local | External review of `da5a848` (2026-08-17): **approved**, no blocking findings. Closes `f4f248c` → `c861da6` → `e15ed80`. Freeze `0019` at `da5a848`; do not rewrite it. History-scale claim (2026-08-17): red compile for missing `DurableWorkBacklogSampler`; green additive `0020` `ix_session_durable_work_claimable`. `EXPLAIN (ANALYZE)` of the claim candidate against 10_000 completed rows uses that index and does not Seq Scan `session_durable_work`. Sampler unit tests 4/4; claim tests 12/12 including sampled gauge without GUIDs or invocation ids; Sessions 411/411; architecture 29/29; Postgres 187/187; Grate 12/12 (20 one-time scripts); `0019→0020` upgrade. Residual: Worker host does not call the sampler; Collector/OTLP and timer-storm remain later. |
+| Bounded observability and fair claiming (`AC-SESS-27`, `QA-6`, `QA-12`, `REQ-OPS-23`) | passed; **approved** `da5a848`; performance follow-up local | External review of `da5a848` (2026-08-17): **approved**, no blocking findings. Closes `f4f248c` → `c861da6` → `e15ed80`. Freeze `0019` at `da5a848`; do not rewrite it. History-scale claim (2026-08-17): red compile for missing `DurableWorkBacklogSampler`; green additive `0020` `ix_session_durable_work_claimable`. `EXPLAIN (ANALYZE)` of the claim candidate against 10_000 completed rows uses that index and does not Seq Scan `session_durable_work`. Sampler unit tests 4/4; claim tests 12/12 including sampled gauge without GUIDs or invocation ids; Worker runtime 9/9: samples with the claim gate closed; sampling faults leave live/ready healthy; Sessions connection string binds `PostgresDurableInvocationWorkStore` while the processor stays idle. Architecture 30/30. Residual: Collector/OTLP and timer-storm remain later. `0020` `CREATE INDEX` is maintenance-windowed (not `CONCURRENTLY`). |
 | Performance, observability, lifecycle/export, backup/restore verification | observability passed locally; lifecycle/export/backup still pending | See bounded observability row. Lifecycle/export/backup remain the later aggregate gate. |
 | Architecture/backend/frontend/security/privacy/QA review | pending | |
 | Final specification and repository consistency audit | pending | |

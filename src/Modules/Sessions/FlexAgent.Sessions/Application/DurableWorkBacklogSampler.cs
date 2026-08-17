@@ -2,11 +2,16 @@ using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.Application;
 
+public interface IDurableWorkBacklogSampler
+{
+    Task SampleIfDueAsync(CancellationToken cancellationToken);
+}
+
 public sealed class DurableWorkBacklogSampler(
     IDurableInvocationWorkStore workStore,
     ISessionRuntimeTelemetry telemetry,
     TimeProvider? timeProvider = null,
-    TimeSpan minInterval = default)
+    TimeSpan minInterval = default) : IDurableWorkBacklogSampler
 {
     public static TimeSpan DefaultMinInterval { get; } = TimeSpan.FromSeconds(30);
 

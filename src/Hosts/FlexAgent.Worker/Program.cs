@@ -7,6 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<WorkClaimGate>();
 builder.Services.AddSingleton<IDurableInvocationWorkProcessor, IdleDurableInvocationWorkProcessor>();
+builder.Services.AddDurableWorkSampling(builder.Configuration);
 builder.Services.AddHostedService<WorkerBackgroundService>();
 builder.Services.AddHealthChecks()
     .AddCheck<WorkerReadinessCheck>("worker", tags: ["ready"])
