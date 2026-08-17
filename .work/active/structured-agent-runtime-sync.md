@@ -1082,8 +1082,12 @@ and test reviews have no unresolved blocking findings.
   `8c150c1` (2026-08-17): one P2 — DoS verification cell must not read as a
   completed load harness. Remediated: intro no longer treats verification
   cells as implemented; DoS row is Partial with timer-storm/load lab pending.
-  Independent architecture/backend/frontend/security/privacy/QA passes remain
-  the next plan item.
+  External review of `598def2` (2026-08-17): **approved**, 0 P0 / 0 P1 / 0 P2.
+  Closes `8c150c1`. GitHub exposed no combined statuses or PR-triggered
+  workflow runs for `598def2` at review time. Do not iterate this
+  specification-status / DoS-traceability wording slice. Independent
+  architecture/backend/frontend/security/privacy/QA passes over the full
+  runtime change set remain the next plan item.
 - [>] Run distinct architecture, backend, frontend, security/privacy, and QA
   review passes over the final change set. Resolve all blocking findings,
   rerun affected focused and full verification, confirm no unauthorized scope
@@ -1169,8 +1173,11 @@ backup/restore is an intentional later production gate. Specification
 status reconciliation is recorded: in-scope rows that have working
 code and tests are `Partial`, not `Implemented`, while host, provider,
 OIDC, backup/restore, and remaining P0 surfaces stay `Gap` or later
-gates. Next is independent architecture, backend, frontend,
-security/privacy, and QA review of the final change set.
+gates. Specification-status reconcile and DoS-traceability wording are
+**approved** at `598def2` (2026-08-17): 0 P0 / 0 P1 / 0 P2. Closes
+`8c150c1`. GitHub exposed no combined statuses or PR-triggered workflow
+runs for `598def2` at review time. Next is independent architecture,
+backend, frontend, security/privacy, and QA review of the final change set.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker invocation processing stays idle.
@@ -1362,6 +1369,9 @@ surfaces.
   pre-start acknowledgment, production configuration freeze, export/
   reconstruction UI, and other P0 features this task did not implement.
   Do not mark feature-spec or ADR document Status as `Implemented`.
+  External review of `598def2` (2026-08-17): **approved**, 0 P0 / 0 P1 /
+  0 P2. Closes `8c150c1`. Verification cells are not completion claims.
+  DoS evidence is Partial until the timer-storm/load lab exists.
 - Bounded Session runtime telemetry (2026-08-17, `AC-SESS-27`, `QA-6`/`QA-12`,
   `REQ-OPS-23`; remediations after `f4f248c` review): application-owned
   sanitizing port, not an OpenTelemetry SDK in Sessions. Each label key has
@@ -1844,6 +1854,9 @@ surfaces.
   `Partial — bounded backpressure/fair-claim tests; timer-storm/load lab
   pending`. Confirmation pass: no remaining `Load/backpressure harness`
   completion wording; residual risks still name the timer-storm lab as later.
+  External review of `598def2` (2026-08-17): **approved**, 0 P0 / 0 P1 / 0 P2.
+  Closes `8c150c1`. GitHub exposed no combined statuses or PR-triggered
+  workflow runs for `598def2` at review time.
 - Text Session UI (2026-08-16): first-pass dump-once CONNECTING handling was
   inverted and is superseded by the `94d752d` P1/P2 remediations below.
   Refresh after send does not remount the loading panel. Playwright MCP
@@ -2399,7 +2412,7 @@ surfaces.
 | API/worker/provider/scheduler runtime tests | partial | Worker host remains idle (`IdleDurableInvocationWorkProcessor`). Processor, claim/lease, timer-fire, and synthetic Runtime suites passed in prior rows. Live provider and host polling are later. |
 | Web lint/type/unit/build/e2e | local web CI script passed; Playwright e2e not in GitHub web job | `bash build/scripts/verify-web.sh` (2026-08-17): vitest 60/60, production build. GitHub Implementation `web` job matches this script and does not run Playwright e2e. |
 | Performance, observability, lifecycle/export, backup/restore verification | observability passed locally; lifecycle/export/backup still pending | See bounded observability row. Lifecycle/export/backup remain later production gates. |
-| Final specification and repository consistency audit | passed for status honesty (2026-08-17); independent reviews pending | Feature-spec Status rows for in-scope Session/RSC obligations are `Partial` or left `Gap`. Product next-step copy, workspace gates, UI downstream gaps, and docs maturity no longer claim the runtime is unimplemented. `python3 scripts/check_docs.py` passed. Second pass: `ManifestTerminalizationTests` 20/20; Worker `IdleDurableInvocationWorkProcessor` confirmed; task-file duplicate review item and Completion nesting fixed. External `8c150c1` P2: DoS verification is Partial (fair-claim/backpressure tests; timer-storm lab pending). |
+| Final specification and repository consistency audit | passed; **approved** `598def2` | Feature-spec Status rows for in-scope Session/RSC obligations are `Partial` or left `Gap`. Product next-step copy, workspace gates, UI downstream gaps, and docs maturity no longer claim the runtime is unimplemented. External review of `598def2` (2026-08-17): **approved**, 0 P0 / 0 P1 / 0 P2. Closes `8c150c1`. DoS verification is Partial (fair-claim/backpressure tests; timer-storm lab pending). GitHub exposed no combined statuses or PR-triggered workflow runs for `598def2` at review time. Independent specialist reviews of the full runtime change set remain. |
 | Architecture/backend/frontend/security/privacy/QA review | pending | Internal consistency pass on the reconcile found no blocking overclaim. Distinct specialist reviews of the full runtime change set remain. |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | passed E2E; **approved** `8db143c` | Credential no-fallback remains the earlier domain/port evidence. Manifest append/seal/handoff (2026-08-17): `ManifestTerminalizationTests` 20/20; Sessions 387/387; architecture 29/29; Postgres 169/169 including populated `0017→0018` handoff backfill (append-only trigger re-enabled), recorded `ddd7c0a` `0018` checksum fail-closed, and configuration/manifest tamper FKs; Node JCS 8/8 unchanged. External review of `8db143c` (2026-08-17): **approved**, no blocking findings. Closes `aa424f3` → `f1122dc` → `ddd7c0a`. Freeze `0018` at this version; further schema is `0019`. GitHub exposed no commit statuses or PR-triggered workflow runs for `8db143c` at review time. Honest gap: full ADR-005 Attempt/Submission start and `REQ-RSC-30` initial-manifest field set are still out of this Sessions slice; InsertActive plus binding refs is the committed-readiness stand-in. Repeated pause/resume on the same revision records the first `.paused`/`.resumed` only (append-if-absent protected ref). Pre-0017 terminal rows remain NULL-procedure/unsealed and are not evaluation-eligible. Databases that applied `aa424f3`'s unfrozen `0017` or `ddd7c0a`'s unfrozen `0018` cannot migrate in place. |
 | Playwright accessibility/responsive/visual evaluation | passed live MCP | Prior journey set plus 2026-08-17 confirmation/disabled-button, trap, and `29cde55` restore: desktop/390 Complete trigger focus after Continue and Escape. Artifact dir `.playwright-mcp/`. |
@@ -2442,9 +2455,11 @@ configuration/manifest binding. External review of `8db143c` (2026-08-17):
 rewrite it. History-scale claim `EXPLAIN`/index and sampled backlog
 gauges are implemented (2026-08-17) as additive `0020`. GitHub exposed
 no PR-triggered Actions runs for `da5a848` at review time.
-Specification status reconciliation is recorded (2026-08-17). Independent
-architecture, backend, frontend, security/privacy, and QA reviews of the
-final change set remain.
+Specification-status reconcile and DoS-traceability wording are
+**approved** at `598def2` (2026-08-17): 0 P0 / 0 P1 / 0 P2. Closes
+`8c150c1`. GitHub exposed no combined statuses or PR-triggered workflow
+runs for `598def2` at review time. Independent architecture, backend,
+frontend, security/privacy, and QA reviews of the final change set remain.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
