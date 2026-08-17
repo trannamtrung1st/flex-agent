@@ -69,12 +69,15 @@ fragment and seal.
 
 # Current state
 
-Foundation is complete in `structured-agent-runtime-sync`. Worker host still
+Foundation is complete in `structured-agent-runtime-sync` (`e966390`
+**approved**, 0 P0 / 0 P1 / 0 P2). This file is the future Worker host
+boundary; do not start until explicitly prioritized. Worker host still
 registers `IdleDurableInvocationWorkProcessor`.
 `DurableInvocationWorkProcessor.PublishDeltaAsync` mutates in-memory
 `SessionRuntime` only. `DurableTimerFireProcessor` is test-composed, not
 hosted. `/health/ready` says the Worker is accepting work claims when the
-claim gate is open.
+claim gate is open. 30-second claim lease vs long Execute/stream needs a
+heartbeat design before live claiming.
 
 # Decisions
 

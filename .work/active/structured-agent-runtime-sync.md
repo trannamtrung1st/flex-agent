@@ -1151,6 +1151,12 @@ Closed-milestone evidence for the rows above is domain, PostgreSQL, coordinators
   - [x] Review P2 on `6689b6a` (2026-08-17): `completed` contradicted the
         original host-wiring completion gate. Reconciled Goal/Scope/Completion
         to the foundation milestone; successor tasks named. No runtime change.
+  - [x] External review of `e966390` (2026-08-17): **approved**, 0 P0 / 0 P1 /
+        0 P2. Closes `6689b6a` P2. Stop iterating this freeze-record slice.
+        GitHub exposed no combined statuses for `e966390` at review time.
+        Successors `session-runtime-worker-host-wiring` and
+        `session-runtime-production-http-sse` are the future implementation
+        boundaries (30s lease/heartbeat remains on the Worker successor).
 - [x] Complete the work-freeze gate: reconcile planned versus actual changes,
   confirm every **closed-milestone** row is implemented and verified rather
   than merely documented, mark host/SSE/provider wiring as successor tasks,
@@ -1159,8 +1165,10 @@ Closed-milestone evidence for the rows above is domain, PostgreSQL, coordinators
 
 # Current state
 
-This task is **completed** on the narrowed foundation milestone. Next
-unrelated product work may start. Host wiring is **not** implied: start
+This task is **completed** on the narrowed foundation milestone. External
+review of `e966390` (2026-08-17): **approved**, 0 P0 / 0 P1 / 0 P2. Closes
+`6689b6a` P2. Stop iterating this freeze-record. Next unrelated product
+work may start. Host wiring is **not** implied: start
 `.work/active/session-runtime-worker-host-wiring.md` or
 `.work/active/session-runtime-production-http-sse.md` only when prioritized.
 
@@ -1242,8 +1250,9 @@ gates. Specification-status reconcile and DoS-traceability wording are
 runs for `598def2` at review time. Independent architecture, backend,
 frontend, security/privacy, and QA review of HEAD `d9de65e` (2026-08-17):
 **approve, 0 blocking findings.** Work freeze is **completed** on the
-narrowed foundation milestone (P2 on `6689b6a` reconciled). Host/SSE
-wiring lives in successor tasks.
+narrowed foundation milestone. External review of `e966390` (2026-08-17):
+**approved**, 0 P0 / 0 P1 / 0 P2. Closes `6689b6a` P2. Host/SSE wiring
+lives in successor tasks. Do not iterate this freeze-record.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker invocation processing stays idle.
@@ -2443,6 +2452,12 @@ surfaces.
   was actually delivered. Hosted Worker/content-loop/timer-poll and
   production HTTP SSE are successor tasks, not silent Partials inside a
   completed original contract.
+- External review of `e966390` (2026-08-17): **approved**, 0 P0 / 0 P1 /
+  0 P2. Closes `6689b6a` P2. Original `## In` retained as history under
+  Closed-milestone boundary is accepted. GitHub exposed no combined
+  statuses for `e966390`. Do not iterate this freeze-record. 30-second
+  claim lease vs long Execute/stream remains a Worker-successor heartbeat
+  design item.
 
 # Verification
 
@@ -2501,7 +2516,7 @@ surfaces.
 | API/worker/provider/scheduler runtime tests | partial | Worker host remains idle (`IdleDurableInvocationWorkProcessor`). Processor, claim/lease, timer-fire, and synthetic Runtime suites passed in prior rows. Live provider and host polling are later. |
 | Web lint/type/unit/build/e2e | local web CI script passed; Playwright e2e not in GitHub web job | `bash build/scripts/verify-web.sh` (2026-08-17): vitest 60/60, production build. GitHub Implementation `web` job matches this script and does not run Playwright e2e. |
 | Performance, observability, lifecycle/export, backup/restore verification | observability passed locally; lifecycle/export/backup still pending | See bounded observability row. Lifecycle/export/backup remain later production gates. |
-| Final specification and repository consistency audit | passed; **approved** `598def2`; freeze P2 reconciled | Feature-spec Status rows for in-scope Session/RSC obligations are `Partial` or left `Gap`. Independent specialist reviews of HEAD `d9de65e` approved with 0 blocking findings. `6689b6a` P2: `completed` now means the foundation milestone; hosted Worker/SSE moved to successor tasks. |
+| Final specification and repository consistency audit | passed; freeze **approved** `e966390` | Feature-spec Status rows for in-scope Session/RSC obligations are `Partial` or left `Gap`. Independent specialist reviews of HEAD `d9de65e` approved with 0 blocking findings. External review of `e966390` (2026-08-17): **approved**, 0 P0 / 0 P1 / 0 P2. Closes `6689b6a` P2. GitHub exposed no combined statuses for `e966390`. Stop iterating this freeze-record. |
 | Architecture/backend/frontend/security/privacy/QA review | passed; 0 blocking; confirmation green | HEAD `d9de65e` plus confirmation (2026-08-17). Architecture/backend/security/frontend/QA: 0 blocking. Confirmation: architecture included in `verify-dotnet.sh` **861/861**; web 60/60; `check_docs.py` passed. Specs remain `Partial` for in-scope Session/RSC rows. Residuals unchanged: fragment persist not in worker content loop; HTTP SSE/`REQ-SESS-59` unhosted; ready copy vs idle processor; `lifecycle_ineligible`→RetryLater if polling enabled; unbounded synthetic SSE P3. |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | passed E2E; **approved** `8db143c` | Credential no-fallback remains the earlier domain/port evidence. Manifest append/seal/handoff (2026-08-17): `ManifestTerminalizationTests` 20/20; Sessions 387/387; architecture 29/29; Postgres 169/169 including populated `0017→0018` handoff backfill (append-only trigger re-enabled), recorded `ddd7c0a` `0018` checksum fail-closed, and configuration/manifest tamper FKs; Node JCS 8/8 unchanged. External review of `8db143c` (2026-08-17): **approved**, no blocking findings. Closes `aa424f3` → `f1122dc` → `ddd7c0a`. Freeze `0018` at this version; further schema is `0019`. GitHub exposed no commit statuses or PR-triggered workflow runs for `8db143c` at review time. Honest gap: full ADR-005 Attempt/Submission start and `REQ-RSC-30` initial-manifest field set are still out of this Sessions slice; InsertActive plus binding refs is the committed-readiness stand-in. Repeated pause/resume on the same revision records the first `.paused`/`.resumed` only (append-if-absent protected ref). Pre-0017 terminal rows remain NULL-procedure/unsealed and are not evaluation-eligible. Databases that applied `aa424f3`'s unfrozen `0017` or `ddd7c0a`'s unfrozen `0018` cannot migrate in place. |
 | Playwright accessibility/responsive/visual evaluation | passed live MCP | Prior journey set plus 2026-08-17 confirmation/disabled-button, trap, and `29cde55` restore: desktop/390 Complete trigger focus after Continue and Escape. Artifact dir `.playwright-mcp/`. |
@@ -2550,13 +2565,14 @@ Specification-status reconcile and DoS-traceability wording are
 runs for `598def2` at review time. Independent architecture, backend,
 frontend, security/privacy, and QA reviews of HEAD `d9de65e` (2026-08-17):
 **approve, 0 blocking findings.** Work freeze is **completed** on the
-narrowed foundation milestone (P2 on `6689b6a` reconciled). Host/SSE
-wiring lives in successor tasks.
+narrowed foundation milestone. External review of `e966390` (2026-08-17):
+**approved**, 0 P0 / 0 P1 / 0 P2. Closes `6689b6a` P2. Host/SSE wiring
+lives in successor tasks. Do not iterate this freeze-record.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
 
-# Work-freeze reconciliation (2026-08-17, P2 boundary reconciled)
+# Work-freeze reconciliation (2026-08-17, **approved** `e966390`)
 
 Planned original In vs delivered foundation at `d9de65e` / freeze `6689b6a`:
 
@@ -2611,7 +2627,7 @@ The original completion row “no contract-only or synthetic-only gap remains fo
       specifications were rechecked and implementation status is truthful
       (`Partial` for Session/RSC while hosts stay unwired)
 - [x] Independent review findings are resolved and reverified (0 runtime
-      blockers; `6689b6a` P2 work-state inconsistency remediated here)
+      blockers; `6689b6a` P2 remediated in `e966390` and **approved**)
 - [x] Remaining unrelated production gates or unverified behavior are recorded
       as successor tasks or later gates
 - [x] Task state is safe and complete for external review and retained tracking

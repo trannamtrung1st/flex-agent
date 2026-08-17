@@ -61,6 +61,8 @@ with ADR-002 kernel enforcement and 60-second revocation revalidation.
 
 # Current state
 
+Predecessor freeze `e966390` is **approved**. This file is the future
+production HTTP SSE boundary; do not start until explicitly prioritized.
 `FlexAgent.Api` maps synthetic browser endpoints only. Sessions replay exists
 in application + PostgreSQL tests. Feature spec marks `REQ-SESS-59` Partial.
 
