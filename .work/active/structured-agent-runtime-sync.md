@@ -981,7 +981,7 @@ and test reviews have no unresolved blocking findings.
         Freeze `0018` at this version; any further schema correction is
         `0019`. GitHub exposed no commit statuses or PR-triggered workflow
         runs for `8db143c` at review time.
-- [>] Add and verify bounded observability and performance coverage: admission/
+- [x] Add and verify bounded observability and performance coverage: admission/
   rejection and effect categories, no-action, duplicate/stale/late work,
   fragment latency/integrity, backlog/claims, timer drift/outcomes/budgets,
   cutoff attempts, audit/manifest faults, alert recovery, and Organization/
@@ -1023,12 +1023,15 @@ and test reviews have no unresolved blocking findings.
         findings. Closes `f4f248c` → `c861da6` → `e15ed80` request-changes.
         Freeze `0019` at this version; do not rewrite it. Do not iterate this
         observability/fair-claiming correctness slice. History-scale claim
-        `EXPLAIN`/index remains a later performance gate, not a reason to
-        reopen `0019`. GitHub exposed no PR-triggered Actions runs for
+        `EXPLAIN`/index is additive `0020`, not a reason to reopen `0019`. GitHub exposed no PR-triggered Actions runs for
         `da5a848` at review time; local evidence was `CI=true` Release
         849/849.
-  - [ ] History-scale claim `EXPLAIN`/index and sampled backlog gauges
-        (`QA-6`/`QA-12` performance). Host OTLP/Collector export and a
+  - [x] History-scale claim `EXPLAIN`/index and sampled backlog gauges
+        (`QA-6`/`QA-12` performance). Additive `0020` partial index
+        `ix_session_durable_work_claimable`; 10_000 completed rows do not
+        Seq Scan `session_durable_work`. `DurableWorkBacklogSampler`
+        records bucketed gauges at a 30s minimum interval; idle claim
+        polls still do not `COUNT(*)`. Host OTLP/Collector export and a
         concurrent timer-storm load lab remain later composition-root work.
 - [>] Integrate focused and aggregate verification: contract/catalog/OpenAPI
   parity, architecture tests, Sessions domain tests, PostgreSQL 18 migration/
@@ -1037,6 +1040,21 @@ and test reviews have no unresolved blocking findings.
   checks, backup/restore and authorized-reconstruction exercises, and
   documentation validation. Add proportionate blocking CI coverage and record
   exact commands, counts, results, environments, and artifact paths here.
+  - [x] `python3 scripts/check_docs.py` passed; `git diff --check` clean
+        (2026-08-17).
+  - [x] `bash build/scripts/verify-dotnet.sh` Release: 856/856, API/Worker
+        publish, no `appsettings.Development.json`.
+  - [x] `bash build/scripts/verify-web.sh` frozen install, contracts JCS,
+        eslint, `tsc -b --noEmit`, vitest 60/60, production build
+        (2026-08-17).
+  - [x] `bash build/scripts/verify-supply-chain.sh` and
+        `bash build/scripts/verify-oci.sh` passed (2026-08-17). NuGet
+        `--vulnerable --include-transitive` none; `pnpm audit --audit-level=high`
+        exit 0; gitleaks no leaks; OCI health/ready for api/worker/spa;
+        SPA Alpine `tiff` High recorded, not critical (`--fail-on critical`
+        for image scan).
+  - [ ] Backup/restore and authorized-reconstruction exercises remain a
+        later production gate (no pg_dump/restore lab in this slice).
 - [ ] Reconcile code against every mapped requirement and governing document.
   Update authoritative implementation-status/traceability tables only where
   evidence supports the new state; record any remaining unrelated production
@@ -1109,13 +1127,15 @@ apply current `0018` and must be rebuilt. External review of `8db143c`
 **approved** at `da5a848` (2026-08-17): no blocking findings. Closes
 `f4f248c` → `c861da6` → `e15ed80`. Freeze `0019` at `da5a848`; do not
 rewrite it. Stop iterating this correctness slice. History-scale claim
-`EXPLAIN`/index is a later performance gate. Host OTLP export through
+`EXPLAIN`/index and sampled backlog gauges are implemented (2026-08-17):
+additive `0020` (frozen `0019` unchanged); `DurableWorkBacklogSampler`
+at a 30-second minimum interval. Host OTLP export through
 the OpenTelemetry Collector and a concurrent timer-storm load lab remain
 later. Next is aggregate verification.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0019`
-unchanged.
+unchanged; additive `0020` is the claimable-work index.
 
 One-lane scheduler **cutoff/terminal lifecycle persist and timer-fire ACK**
 is **approved** at `1c11744`. External review (2026-08-16) **approved:
@@ -1309,10 +1329,14 @@ surfaces.
   worker selects its next head.
   Open-set labels (`trigger_family`, `transition`, `decision_type`) coerce
   to `unknown`. Worker polls do not `COUNT(*)` the claimable backlog.
-  Admission
+  `DurableWorkBacklogSampler` may `COUNT(*)` at most once per 30-second
+  interval and records only bucketed labels plus a numeric gauge value.
+  Additive `0020` indexes claimable `pending`/`claimed` rows so completed
+  history is not Seq Scanned. Admission
   and reconnect p95 use sequential in-process PostgreSQL samples with
   provider and end-user network excluded. Host OTLP Collector export and
-  sampled backlog gauges remain later composition-root work.
+  a concurrent timer-storm load lab remain later composition-root work.
+  The idle Worker host still does not call the sampler.
 - Text Session UI (2026-08-16, `UI-SESS-DEC-13`–`15`): Participant copy is
   derived from browser-safe `work_state` / `resolution_category`, never
   rendered as those tokens. `no_action` persistent status is
@@ -2297,8 +2321,8 @@ surfaces.
 | Provider credential/no-fallback and manifest append/seal/handoff tests | passed E2E; **approved** `8db143c` | Credential no-fallback remains the earlier domain/port evidence. Manifest append/seal/handoff (2026-08-17): `ManifestTerminalizationTests` 20/20; Sessions 387/387; architecture 29/29; Postgres 169/169 including populated `0017→0018` handoff backfill (append-only trigger re-enabled), recorded `ddd7c0a` `0018` checksum fail-closed, and configuration/manifest tamper FKs; Node JCS 8/8 unchanged. External review of `8db143c` (2026-08-17): **approved**, no blocking findings. Closes `aa424f3` → `f1122dc` → `ddd7c0a`. Freeze `0018` at this version; further schema is `0019`. GitHub exposed no commit statuses or PR-triggered workflow runs for `8db143c` at review time. Honest gap: full ADR-005 Attempt/Submission start and `REQ-RSC-30` initial-manifest field set are still out of this Sessions slice; InsertActive plus binding refs is the committed-readiness stand-in. Repeated pause/resume on the same revision records the first `.paused`/`.resumed` only (append-if-absent protected ref). Pre-0017 terminal rows remain NULL-procedure/unsealed and are not evaluation-eligible. Databases that applied `aa424f3`'s unfrozen `0017` or `ddd7c0a`'s unfrozen `0018` cannot migrate in place. |
 | Web lint/type/unit/build/e2e | local web CI script passed; Playwright e2e not in GitHub web job | `bash build/scripts/verify-web.sh` (2026-08-17): frozen install, boundary check, contracts JCS 8/8, eslint warning-only `react-refresh/only-export-components` in `web/src/api/browser-api.tsx`, `tsc -b --noEmit`, vitest 55/55, production build. GitHub Implementation `web` job matches this script and does not run Playwright e2e. |
 | Playwright accessibility/responsive/visual evaluation | passed live MCP | Prior journey set plus 2026-08-17 confirmation/disabled-button, trap, and `29cde55` restore: desktop/390 Complete trigger focus after Continue and Escape. Artifact dir `.playwright-mcp/`. |
-| Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | local CI-equivalent passed (2026-08-17); GitHub push not claimed | `git diff --check` clean; `python3 scripts/check_docs.py` passed. `verify-web.sh` as above. `verify-dotnet.sh`: 775/775, Release publish, no `appsettings.Development.json`. `gitleaks detect` no leaks. NuGet `--vulnerable --include-transitive` none. `pnpm audit --audit-level=high` exit 0 (2 moderate). Native OCI `flex-agent-oci-{api,worker,spa}:local`. CI-shaped `linux/amd64` `flex-agent-{api,worker,spa}:linux-amd64`. `scan-oci-image-sboms.sh` exit 0 (`--fail-on critical`; SPA Alpine `tiff` High recorded, not critical). GitHub Implementation/Documentation workflows are not claimed from this machine. |
-| Bounded observability and fair claiming (`AC-SESS-27`, `QA-6`, `QA-12`, `REQ-OPS-23`) | passed; **approved** `da5a848` | External review of `da5a848` (2026-08-17): **approved**, no blocking findings. Closes `f4f248c` → `c861da6` → `e15ed80`. Freeze `0019` at `da5a848`; do not rewrite it. Do not iterate this correctness slice. Local evidence at `da5a848`: `CI=true` Release 849/849. GitHub exposed no PR-triggered Actions runs for that SHA at review time. Residual performance gate: history-scale claim `EXPLAIN`/index, sampled backlog, Collector/OTLP, timer-storm. Databases that applied earlier `0019` hashes cannot migrate in place. |
+| Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | local CI-equivalent passed (2026-08-17); GitHub push not claimed | `git diff --check` clean; `python3 scripts/check_docs.py` passed. `verify-web.sh`: vitest 60/60, production build. `verify-dotnet.sh`: 856/856, Release publish, no `appsettings.Development.json`. `verify-supply-chain.sh` and `verify-oci.sh` passed; SPA Alpine `tiff` High recorded, not critical. GitHub Implementation/Documentation workflows are not claimed from this machine. Backup/restore lab remains later. |
+| Bounded observability and fair claiming (`AC-SESS-27`, `QA-6`, `QA-12`, `REQ-OPS-23`) | passed; **approved** `da5a848`; performance follow-up local | External review of `da5a848` (2026-08-17): **approved**, no blocking findings. Closes `f4f248c` → `c861da6` → `e15ed80`. Freeze `0019` at `da5a848`; do not rewrite it. History-scale claim (2026-08-17): red compile for missing `DurableWorkBacklogSampler`; green additive `0020` `ix_session_durable_work_claimable`. `EXPLAIN (ANALYZE)` of the claim candidate against 10_000 completed rows uses that index and does not Seq Scan `session_durable_work`. Sampler unit tests 4/4; claim tests 12/12 including sampled gauge without GUIDs or invocation ids; Sessions 411/411; architecture 29/29; Postgres 187/187; Grate 12/12 (20 one-time scripts); `0019→0020` upgrade. Residual: Worker host does not call the sampler; Collector/OTLP and timer-storm remain later. |
 | Performance, observability, lifecycle/export, backup/restore verification | observability passed locally; lifecycle/export/backup still pending | See bounded observability row. Lifecycle/export/backup remain the later aggregate gate. |
 | Architecture/backend/frontend/security/privacy/QA review | pending | |
 | Final specification and repository consistency audit | pending | |
@@ -2336,9 +2360,9 @@ configuration/manifest binding. External review of `8db143c` (2026-08-17):
 **approved**, no blocking findings. Freeze `0018`. External review of
 `da5a848` (2026-08-17): **approved**, no blocking findings. Closes
 `f4f248c` → `c861da6` → `e15ed80`. Freeze `0019` at `da5a848`; do not
-rewrite it. Stop iterating this observability/fair-claiming correctness
-slice. History-scale claim `EXPLAIN`/index is a later performance gate.
-GitHub exposed no PR-triggered Actions runs for `da5a848` at review time.
+rewrite it. History-scale claim `EXPLAIN`/index and sampled backlog
+gauges are implemented (2026-08-17) as additive `0020`. GitHub exposed
+no PR-triggered Actions runs for `da5a848` at review time.
 Aggregate verification is next.
 
 Exact production timer durations remain intentional policy inputs. Voice and

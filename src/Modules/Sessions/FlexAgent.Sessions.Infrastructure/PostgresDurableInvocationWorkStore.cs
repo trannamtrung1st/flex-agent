@@ -8,44 +8,50 @@ namespace FlexAgent.Sessions.Infrastructure;
 public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccessor connectionAccessor)
     : IDurableInvocationWorkStore
 {
+    public const string ClaimableIndexName = "ix_session_durable_work_claimable";
+
+    internal const string ClaimCandidateSql = """
+        SELECT work.organization_id, work.activity_id, work.participant_id, work.attempt_id,
+               work.session_id, work.work_id
+        FROM session_durable_work AS work
+        LEFT JOIN session_durable_work_claim_partitions AS served
+          ON served.organization_id = work.organization_id
+         AND served.activity_id = work.activity_id
+        WHERE work.work_type = @WorkType
+          AND (
+                work.state = @Pending
+                OR (
+                    work.state = @Claimed
+                    AND work.claim_lease_until IS NOT NULL
+                    AND work.claim_lease_until < clock_timestamp()
+                )
+              )
+          AND NOT EXISTS (
+                SELECT 1
+                FROM session_durable_work AS older
+                WHERE older.work_type = work.work_type
+                  AND older.organization_id = work.organization_id
+                  AND older.activity_id = work.activity_id
+                  AND (
+                        older.state = @Pending
+                        OR (
+                            older.state = @Claimed
+                            AND older.claim_lease_until IS NOT NULL
+                            AND older.claim_lease_until < clock_timestamp()
+                        )
+                      )
+                  AND (older.last_committed_at, older.work_id) < (work.last_committed_at, work.work_id)
+          )
+        ORDER BY COALESCE(served.last_claimed_at, TIMESTAMPTZ '-infinity') ASC,
+                 work.last_committed_at ASC,
+                 work.work_id ASC
+        FOR UPDATE OF work SKIP LOCKED
+        LIMIT 1
+        """;
+
     private const string ClaimSql = """
         WITH candidate AS MATERIALIZED (
-            SELECT work.organization_id, work.activity_id, work.participant_id, work.attempt_id,
-                   work.session_id, work.work_id
-            FROM session_durable_work AS work
-            LEFT JOIN session_durable_work_claim_partitions AS served
-              ON served.organization_id = work.organization_id
-             AND served.activity_id = work.activity_id
-            WHERE work.work_type = @WorkType
-              AND (
-                    work.state = @Pending
-                    OR (
-                        work.state = @Claimed
-                        AND work.claim_lease_until IS NOT NULL
-                        AND work.claim_lease_until < clock_timestamp()
-                    )
-                  )
-              AND NOT EXISTS (
-                    SELECT 1
-                    FROM session_durable_work AS older
-                    WHERE older.work_type = work.work_type
-                      AND older.organization_id = work.organization_id
-                      AND older.activity_id = work.activity_id
-                      AND (
-                            older.state = @Pending
-                            OR (
-                                older.state = @Claimed
-                                AND older.claim_lease_until IS NOT NULL
-                                AND older.claim_lease_until < clock_timestamp()
-                            )
-                          )
-                      AND (older.last_committed_at, older.work_id) < (work.last_committed_at, work.work_id)
-              )
-            ORDER BY COALESCE(served.last_claimed_at, TIMESTAMPTZ '-infinity') ASC,
-                     work.last_committed_at ASC,
-                     work.work_id ASC
-            FOR UPDATE OF work SKIP LOCKED
-            LIMIT 1
+        """ + ClaimCandidateSql + """
         )
         UPDATE session_durable_work AS work
         SET

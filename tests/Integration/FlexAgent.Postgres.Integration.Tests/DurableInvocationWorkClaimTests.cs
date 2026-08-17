@@ -315,6 +315,102 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         Assert.Equal(AgentInvocationStatuses.Decided, invocation.Status);
     }
 
+    [Fact]
+    public async Task History_scale_claim_uses_the_claimable_partial_index()
+    {
+        var prepared = await PrepareAdmittedWorkAsync("trig.claim.history", "idem.claim.history");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
+        await InsertCompletedHistoryAsync(prepared.Binding.Ownership, rowCount: 10_000);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await connection.ExecuteAsync(
+            new CommandDefinition("ANALYZE session_durable_work;", cancellationToken: CancellationToken));
+
+        var index = await connection.ExecuteScalarAsync<string?>(
+            """
+            SELECT indexname
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND tablename = 'session_durable_work'
+              AND indexname = @IndexName;
+            """,
+            new { IndexName = PostgresDurableInvocationWorkStore.ClaimableIndexName });
+        Assert.Equal(PostgresDurableInvocationWorkStore.ClaimableIndexName, index);
+
+        await using var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken);
+        var planJson = await scope.Connection.ExecuteScalarAsync<string>(
+            new CommandDefinition(
+                "EXPLAIN (ANALYZE, FORMAT JSON) " + PostgresDurableInvocationWorkStore.ClaimCandidateSql,
+                new
+                {
+                    WorkType = DurableSessionWorkTypes.ExecuteInvocation,
+                    Pending = DurableSessionWorkStates.Pending,
+                    Claimed = DurableSessionWorkStates.Claimed,
+                },
+                scope.Transaction,
+                cancellationToken: CancellationToken));
+        await scope.RollbackAsync(CancellationToken);
+
+        Assert.False(string.IsNullOrWhiteSpace(planJson));
+        Assert.Contains(PostgresDurableInvocationWorkStore.ClaimableIndexName, planJson, StringComparison.Ordinal);
+        using var document = System.Text.Json.JsonDocument.Parse(planJson);
+        var usedClaimableIndex = false;
+        var seqScannedWork = false;
+        WalkPlans(document.RootElement, node =>
+        {
+            var nodeType = node.TryGetProperty("Node Type", out var type) ? type.GetString() : null;
+            var relation = node.TryGetProperty("Relation Name", out var rel) ? rel.GetString() : null;
+            var indexName = node.TryGetProperty("Index Name", out var idx) ? idx.GetString() : null;
+            if (string.Equals(indexName, PostgresDurableInvocationWorkStore.ClaimableIndexName, StringComparison.Ordinal))
+            {
+                usedClaimableIndex = true;
+            }
+
+            if (string.Equals(nodeType, "Seq Scan", StringComparison.Ordinal)
+                && string.Equals(relation, "session_durable_work", StringComparison.Ordinal))
+            {
+                seqScannedWork = true;
+            }
+        });
+        Assert.True(usedClaimableIndex, planJson);
+        Assert.False(seqScannedWork, planJson);
+
+        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var claimed = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
+        Assert.Equal(prepared.InvocationId, claimed!.AgentInvocationId);
+    }
+
+    [Fact]
+    public async Task Sampled_backlog_gauge_reads_claimable_depth_once_per_interval()
+    {
+        var prepared = await PrepareAdmittedWorkAsync("trig.claim.backlog", "idem.claim.backlog");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
+        var sink = new CapturingSessionRuntimeTelemetrySink();
+        var clock = new MutableTimeProvider(new DateTimeOffset(2026, 8, 17, 9, 0, 0, TimeSpan.Zero));
+        var sampler = new DurableWorkBacklogSampler(
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            new SessionRuntimeTelemetry(sink),
+            clock);
+
+        await sampler.SampleIfDueAsync(CancellationToken);
+        await sampler.SampleIfDueAsync(CancellationToken);
+
+        var gauge = Assert.Single(sink.Gauges);
+        Assert.Equal(SessionRuntimeTelemetryInstruments.WorkBacklog, gauge.Instrument);
+        Assert.True(gauge.Value >= 1);
+        Assert.Equal(
+            DurableSessionWorkTypes.ExecuteInvocation,
+            gauge.Labels[SessionRuntimeTelemetryLabelKeys.WorkType]);
+        Assert.Contains(
+            gauge.Labels[SessionRuntimeTelemetryLabelKeys.BacklogBucket],
+            (IReadOnlyList<string>)["n1", "n2_to_5", "n6_to_20", "n21_to_100", "n_over_100"]);
+        Assert.DoesNotContain(sink.AllLabelValues(), value => Guid.TryParse(value, out _));
+        Assert.DoesNotContain(
+            sink.AllLabelValues(),
+            value => value.Contains(prepared.InvocationId, StringComparison.Ordinal));
+    }
+
     private async Task<PreparedWork> PrepareAdmittedWorkAsync(string triggerId, string idempotencyKey)
     {
         var organization = await Fixture.SeedOrganizationAsync();
@@ -420,6 +516,67 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
                 transaction,
                 cancellationToken: CancellationToken));
         return new HeldWorkScope(connection, transaction);
+    }
+
+    private static void WalkPlans(System.Text.Json.JsonElement node, Action<System.Text.Json.JsonElement> visit)
+    {
+        if (node.ValueKind == System.Text.Json.JsonValueKind.Array)
+        {
+            foreach (var child in node.EnumerateArray())
+            {
+                WalkPlans(child, visit);
+            }
+
+            return;
+        }
+
+        if (node.ValueKind != System.Text.Json.JsonValueKind.Object)
+        {
+            return;
+        }
+
+        if (node.TryGetProperty("Plan", out var plan))
+        {
+            WalkPlans(plan, visit);
+        }
+
+        visit(node);
+        if (node.TryGetProperty("Plans", out var plans))
+        {
+            WalkPlans(plans, visit);
+        }
+    }
+
+    private async Task InsertCompletedHistoryAsync(SessionOwnership ownership, int rowCount)
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var inserted = await connection.ExecuteAsync(
+            """
+            INSERT INTO session_durable_work (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                work_id, work_type, business_key, state)
+            SELECT
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                gen_random_uuid(), @WorkType, 'hist.claim.' || gs, @Completed
+            FROM generate_series(1, @RowCount) AS gs;
+            """,
+            new
+            {
+                ownership.OrganizationId,
+                ownership.ActivityId,
+                ownership.ParticipantId,
+                ownership.AttemptId,
+                ownership.SessionId,
+                WorkType = DurableSessionWorkTypes.ExecuteInvocation,
+                Completed = DurableSessionWorkStates.Completed,
+                RowCount = rowCount,
+            });
+        Assert.Equal(rowCount, inserted);
+    }
+
+    private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 
     private async Task<double> ReadLeaseRemainingSecondsAsync(SessionOwnership ownership)

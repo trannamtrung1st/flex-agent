@@ -119,6 +119,9 @@ public sealed class CapturingSessionRuntimeTelemetrySink : ISessionRuntimeTeleme
     public IEnumerable<SessionRuntimeTelemetryPoint> Durations =>
         _points.Where(point => point.Kind == SessionRuntimeTelemetryKinds.Histogram);
 
+    public IEnumerable<SessionRuntimeTelemetryPoint> Gauges =>
+        _points.Where(point => point.Kind == SessionRuntimeTelemetryKinds.Gauge);
+
     public IEnumerable<string> AllLabelValues() =>
         _points.SelectMany(point => point.Labels.Values);
 
