@@ -61,10 +61,77 @@ public sealed class DurableTimerFireProcessorTests
         Assert.Equal(TimerFireOutcomeCodes.StaleRevision, result.TimerOutcomeCode);
     }
 
-    private static DurableTimerFireProcessor CreateProcessor(IDueTimerFirePort port) =>
+    [Fact]
+    public async Task Fire_outcomes_are_recorded_with_bounded_timer_labels()
+    {
+        var sink = new CapturingSessionRuntimeTelemetrySink();
+        var telemetry = new SessionRuntimeTelemetry(sink);
+        var port = new ScriptedDueTimerFirePort(
+            new TimerFireResult(false, TimerFireOutcomeCodes.BudgetExhausted));
+        var processor = CreateProcessor(port, telemetry);
+
+        await processor.TryProcessNextAsync(CancellationToken.None);
+
+        var point = Assert.Single(sink.Counters, item => item.Instrument == SessionRuntimeTelemetryInstruments.TimerFire);
+        Assert.Equal(TimerFireOutcomeCodes.BudgetExhausted, point.Labels[SessionRuntimeTelemetryLabelKeys.Outcome]);
+    }
+
+    [Fact]
+    public async Task Idle_fire_uses_the_timer_fire_outcome_code()
+    {
+        var sink = new CapturingSessionRuntimeTelemetrySink();
+        var telemetry = new SessionRuntimeTelemetry(sink);
+        var processor = CreateProcessor(
+            new ScriptedDueTimerFirePort(new TimerFireResult(false, TimerFireOutcomeCodes.Idle)),
+            telemetry);
+
+        await processor.TryProcessNextAsync(CancellationToken.None);
+
+        var point = Assert.Single(sink.Counters, item => item.Instrument == SessionRuntimeTelemetryInstruments.TimerFire);
+        Assert.Equal(TimerFireOutcomeCodes.Idle, point.Labels[SessionRuntimeTelemetryLabelKeys.Outcome]);
+    }
+
+    [Fact]
+    public async Task Observed_due_clock_records_a_bounded_drift_bucket()
+    {
+        var sink = new CapturingSessionRuntimeTelemetrySink();
+        var telemetry = new SessionRuntimeTelemetry(sink);
+        var dueAt = SessionRuntimeTestFixtures.T0;
+        var revision = TimerScheduleRevision.Rehydrate(
+            "tsr.obs.1",
+            1,
+            TimerLaneStates.Fired,
+            "PT5M",
+            0,
+            dueAt,
+            dueAt,
+            TimerRequestedByCategories.DefaultCadence,
+            null,
+            null,
+            dueAt);
+        var processor = CreateProcessor(
+            new ScriptedDueTimerFirePort(
+                new TimerFireResult(
+                    true,
+                    TimerFireOutcomeCodes.Succeeded,
+                    revision,
+                    ObservedAt: dueAt.AddSeconds(2))),
+            telemetry);
+
+        await processor.TryProcessNextAsync(CancellationToken.None);
+
+        var drift = Assert.Single(sink.Counters, item => item.Instrument == SessionRuntimeTelemetryInstruments.TimerDrift);
+        Assert.Equal(TimerFireOutcomeCodes.Succeeded, drift.Labels[SessionRuntimeTelemetryLabelKeys.Outcome]);
+        Assert.Equal("s1_to_10", drift.Labels[SessionRuntimeTelemetryLabelKeys.DelayBucket]);
+    }
+
+    private static DurableTimerFireProcessor CreateProcessor(
+        IDueTimerFirePort port,
+        ISessionRuntimeTelemetry? telemetry = null) =>
         new(
             port,
-            new DurableTimerFireSettings(SessionRuntimeTestFixtures.CreateActor(), "application.test"));
+            new DurableTimerFireSettings(SessionRuntimeTestFixtures.CreateActor(), "application.test"),
+            telemetry);
 
     private sealed class ScriptedDueTimerFirePort(params TimerFireResult[] results) : IDueTimerFirePort
     {

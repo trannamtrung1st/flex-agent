@@ -9,20 +9,49 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
     : IDurableInvocationWorkStore
 {
     private const string ClaimSql = """
-        WITH candidate AS (
-            SELECT organization_id, activity_id, participant_id, attempt_id, session_id, work_id
+        WITH partition_served AS (
+            SELECT organization_id, activity_id,
+                   MAX(last_committed_at) FILTER (WHERE state = @Completed) AS last_served_at
             FROM session_durable_work
             WHERE work_type = @WorkType
+            GROUP BY organization_id, activity_id
+        ),
+        candidate AS MATERIALIZED (
+            SELECT work.organization_id, work.activity_id, work.participant_id, work.attempt_id,
+                   work.session_id, work.work_id
+            FROM session_durable_work AS work
+            LEFT JOIN partition_served AS served
+              ON served.organization_id = work.organization_id
+             AND served.activity_id = work.activity_id
+            WHERE work.work_type = @WorkType
               AND (
-                    state = @Pending
+                    work.state = @Pending
                     OR (
-                        state = @Claimed
-                        AND claim_lease_until IS NOT NULL
-                        AND claim_lease_until < clock_timestamp()
+                        work.state = @Claimed
+                        AND work.claim_lease_until IS NOT NULL
+                        AND work.claim_lease_until < clock_timestamp()
                     )
                   )
-            ORDER BY last_committed_at ASC, work_id ASC
-            FOR UPDATE SKIP LOCKED
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM session_durable_work AS older
+                    WHERE older.work_type = work.work_type
+                      AND older.organization_id = work.organization_id
+                      AND older.activity_id = work.activity_id
+                      AND (
+                            older.state = @Pending
+                            OR (
+                                older.state = @Claimed
+                                AND older.claim_lease_until IS NOT NULL
+                                AND older.claim_lease_until < clock_timestamp()
+                            )
+                          )
+                      AND (older.last_committed_at, older.work_id) < (work.last_committed_at, work.work_id)
+              )
+            ORDER BY COALESCE(served.last_served_at, TIMESTAMPTZ '-infinity') ASC,
+                     work.last_committed_at ASC,
+                     work.work_id ASC
+            FOR UPDATE OF work SKIP LOCKED
             LIMIT 1
         )
         UPDATE session_durable_work AS work
@@ -43,6 +72,21 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
             work.business_key,
             work.state,
             work.claim_lease_until;
+        """;
+
+    private const string BacklogSql = """
+        SELECT COUNT(*)::INT AS claimable_count,
+               COUNT(DISTINCT (organization_id, activity_id))::INT AS partition_count
+        FROM session_durable_work
+        WHERE work_type = @WorkType
+          AND (
+                state = @Pending
+                OR (
+                    state = @Claimed
+                    AND claim_lease_until IS NOT NULL
+                    AND claim_lease_until < clock_timestamp()
+                )
+              );
         """;
 
     private const string ReleaseSql = """
@@ -89,6 +133,7 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
                         WorkType = DurableSessionWorkTypes.ExecuteInvocation,
                         Pending = DurableSessionWorkStates.Pending,
                         Claimed = DurableSessionWorkStates.Claimed,
+                        Completed = DurableSessionWorkStates.Completed,
                         LeaseSeconds = lease.TotalSeconds,
                     },
                     scope.Transaction,
@@ -128,6 +173,32 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
         DurableInvocationWorkItem work,
         CancellationToken cancellationToken) =>
         UpdateOwnedClaimAsync(CompleteSql, work, cancellationToken);
+
+    public async Task<DurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(CancellationToken cancellationToken)
+    {
+        await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
+        try
+        {
+            var row = await scope.Connection.QuerySingleAsync<BacklogRow>(
+                new CommandDefinition(
+                    BacklogSql,
+                    new
+                    {
+                        WorkType = DurableSessionWorkTypes.ExecuteInvocation,
+                        Pending = DurableSessionWorkStates.Pending,
+                        Claimed = DurableSessionWorkStates.Claimed,
+                    },
+                    scope.Transaction,
+                    cancellationToken: cancellationToken));
+            await scope.CommitAsync(cancellationToken);
+            return new DurableWorkBacklogSnapshot(row.claimable_count, row.partition_count);
+        }
+        catch
+        {
+            await scope.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
 
     private async Task UpdateOwnedClaimAsync(
         string sql,
@@ -177,6 +248,8 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
         };
         return new DateTimeOffset(utc, TimeSpan.Zero);
     }
+
+    private sealed record BacklogRow(int claimable_count, int partition_count);
 
     private sealed record ClaimedWorkRow(
         Guid work_id,

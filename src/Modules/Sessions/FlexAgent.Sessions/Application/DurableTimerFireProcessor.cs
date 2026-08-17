@@ -30,15 +30,18 @@ public interface IDueTimerFirePort
 
 public sealed class DurableTimerFireProcessor(
     IDueTimerFirePort dueTimerFirePort,
-    DurableTimerFireSettings settings)
+    DurableTimerFireSettings settings,
+    ISessionRuntimeTelemetry? telemetry = null)
 {
+    private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
+
     public async Task<DurableTimerFireProcessResult> TryProcessNextAsync(
         CancellationToken cancellationToken)
     {
         var result = await dueTimerFirePort.TryFireNextDueAsync(
             new FireDueTimerCommand(settings.ServiceActor, Guid.NewGuid(), settings.SourceChannel),
             cancellationToken);
-        return result.OutcomeCode switch
+        var processed = result.OutcomeCode switch
         {
             TimerFireOutcomeCodes.Idle => DurableTimerFireProcessResult.Idle,
             TimerFireOutcomeCodes.BudgetExhausted => new DurableTimerFireProcessResult(
@@ -51,5 +54,18 @@ public sealed class DurableTimerFireProcessor(
                 DurableTimerFireOutcomes.RetryLater,
                 result.OutcomeCode),
         };
+        var labels = SessionRuntimeTelemetryRecording.Labels(
+            (SessionRuntimeTelemetryLabelKeys.Outcome, result.OutcomeCode));
+        _telemetry.RecordCounter(SessionRuntimeTelemetryInstruments.TimerFire, labels);
+        if (result.Revision?.DueAt is { } dueAt && result.ObservedAt is { } observedAt)
+        {
+            _telemetry.RecordCounter(
+                SessionRuntimeTelemetryInstruments.TimerDrift,
+                SessionRuntimeTelemetryRecording.Labels(
+                    (SessionRuntimeTelemetryLabelKeys.Outcome, result.OutcomeCode),
+                    (SessionRuntimeTelemetryLabelKeys.DelayBucket, SessionRuntimeTelemetryBuckets.Delay(observedAt - dueAt))));
+        }
+
+        return processed;
     }
 }

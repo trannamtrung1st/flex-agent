@@ -34,6 +34,13 @@ public sealed record DurableInvocationWorkProcessResult(
     public static DurableInvocationWorkProcessResult Idle { get; } = new(DurableInvocationWorkOutcomes.Idle);
 }
 
+public sealed record DurableWorkBacklogSnapshot(int ClaimableCount, int ClaimablePartitionCount)
+{
+    public static DurableWorkBacklogSnapshot Unknown { get; } = new(-1, -1);
+
+    public bool IsKnown => ClaimableCount >= 0;
+}
+
 public interface IDurableInvocationWorkStore
 {
     Task<DurableInvocationWorkItem?> TryClaimExecuteInvocationAsync(
@@ -47,6 +54,9 @@ public interface IDurableInvocationWorkStore
     Task MarkCompletedAsync(
         DurableInvocationWorkItem work,
         CancellationToken cancellationToken);
+
+    Task<DurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(DurableWorkBacklogSnapshot.Unknown);
 }
 
 public interface IInvocationWorkSessionGateway
@@ -89,57 +99,65 @@ public sealed class DurableInvocationWorkProcessor(
     IInvocationWorkSessionGateway sessionGateway,
     IModelExecutionPort modelExecutionPort,
     ICompleteInvocationHandler completionHandler,
-    DurableInvocationWorkSettings settings) : IDurableInvocationWorkProcessor
+    DurableInvocationWorkSettings settings,
+    ISessionRuntimeTelemetry? telemetry = null) : IDurableInvocationWorkProcessor
 {
-    private readonly IPublishAgentResponseFragmentHandler _publicationHandler = new PublishAgentResponseFragmentHandler();
+    private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
+    private readonly IPublishAgentResponseFragmentHandler _publicationHandler =
+        new PublishAgentResponseFragmentHandler(telemetry);
     private readonly ISealAgentResponseHandler _sealHandler = new SealAgentResponseHandler();
 
     public async Task<DurableInvocationWorkProcessResult> TryProcessNextAsync(
         CancellationToken cancellationToken)
     {
+        var backlog = await workStore.ReadClaimableSnapshotAsync(cancellationToken);
+        RecordBacklog(backlog);
         var claimed = await workStore.TryClaimExecuteInvocationAsync(
             TimeSpan.FromSeconds(30),
             cancellationToken);
         if (claimed is null)
         {
+            RecordClaim(SessionRuntimeTelemetryValues.Idle);
             return DurableInvocationWorkProcessResult.Idle;
         }
 
+        RecordClaim(SessionRuntimeTelemetryValues.Claimed);
+
         if (cancellationToken.IsCancellationRequested)
         {
-            return await ReleaseForRetryAsync(claimed);
+            return RecordProcess(await ReleaseForRetryAsync(claimed));
         }
 
         var loaded = await sessionGateway.LoadAsync(claimed.Ownership, cancellationToken);
         if (loaded is null)
         {
-            return await ReleaseForRetryAsync(claimed);
+            return RecordProcess(await ReleaseForRetryAsync(claimed));
         }
 
         var invocation = loaded.Session.Invocations.FirstOrDefault(item =>
             string.Equals(item.AgentInvocationId, claimed.AgentInvocationId, StringComparison.Ordinal));
         if (invocation is null)
         {
-            return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+            return RecordProcess(await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId));
         }
 
         if (invocation.IsTerminal)
         {
             if (loaded.Session.HasOpenAgentContentPublication(invocation.AgentInvocationId))
             {
-                return await PublishContentAsync(claimed, loaded, invocation, cancellationToken);
+                return RecordProcess(await PublishContentAsync(claimed, loaded, invocation, cancellationToken));
             }
 
             await workStore.MarkCompletedAsync(claimed, cancellationToken);
-            return new DurableInvocationWorkProcessResult(
+            return RecordProcess(new DurableInvocationWorkProcessResult(
                 DurableInvocationWorkOutcomes.Reconciled,
                 claimed.AgentInvocationId,
-                InvocationCompletionOutcomeCodes.AlreadyTerminal);
+                InvocationCompletionOutcomeCodes.AlreadyTerminal));
         }
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+            return RecordProcess(await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId));
         }
 
         var bindingRequest = settings.CreateBindingRequest(claimed.Ownership);
@@ -169,7 +187,7 @@ public sealed class DurableInvocationWorkProcessor(
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+            return RecordProcess(await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId));
         }
 
         var authoritativeUtc = await sessionGateway.ReadAuthoritativeUtcAsync(cancellationToken);
@@ -198,27 +216,27 @@ public sealed class DurableInvocationWorkProcessor(
         if (completion.OutcomeCode == InvocationCompletionOutcomeCodes.AlreadyTerminal)
         {
             await workStore.MarkCompletedAsync(claimed, cancellationToken);
-            return new DurableInvocationWorkProcessResult(
+            return RecordProcess(new DurableInvocationWorkProcessResult(
                 DurableInvocationWorkOutcomes.Reconciled,
                 claimed.AgentInvocationId,
-                completion.OutcomeCode);
+                completion.OutcomeCode));
         }
 
         if (!completion.Succeeded
             && completion.OutcomeCode != InvocationCompletionOutcomeCodes.EffectFailed)
         {
-            return await ReleaseForRetryAsync(
+            return RecordProcess(await ReleaseForRetryAsync(
                 claimed,
                 claimed.AgentInvocationId,
-                completion.OutcomeCode);
+                completion.OutcomeCode));
         }
 
         if (completion.Invocation is null || !completion.Invocation.IsTerminal)
         {
-            return await ReleaseForRetryAsync(
+            return RecordProcess(await ReleaseForRetryAsync(
                 claimed,
                 claimed.AgentInvocationId,
-                completion.OutcomeCode);
+                completion.OutcomeCode));
         }
 
         var saved = await sessionGateway.TrySaveCompletionAsync(
@@ -230,33 +248,33 @@ public sealed class DurableInvocationWorkProcessor(
             cancellationToken);
         if (!saved)
         {
-            return await ReleaseForRetryAsync(
+            return RecordProcess(await ReleaseForRetryAsync(
                 claimed,
                 claimed.AgentInvocationId,
-                InvocationCompletionOutcomeCodes.StaleVersion);
+                InvocationCompletionOutcomeCodes.StaleVersion));
         }
 
         if (completion.OutcomeCode == InvocationCompletionOutcomeCodes.ExecutionFailed)
         {
             await workStore.MarkCompletedAsync(claimed, cancellationToken);
-            return new DurableInvocationWorkProcessResult(
+            return RecordProcess(new DurableInvocationWorkProcessResult(
                 DurableInvocationWorkOutcomes.ExecutionFailed,
                 claimed.AgentInvocationId,
-                completion.OutcomeCode);
+                completion.OutcomeCode));
         }
 
         invocation = completion.Invocation;
         loaded = loaded with { ObservedSessionVersion = loaded.Session.SessionVersion };
         if (loaded.Session.HasOpenAgentContentPublication(invocation.AgentInvocationId))
         {
-            return await PublishContentAsync(claimed, loaded, invocation, cancellationToken);
+            return RecordProcess(await PublishContentAsync(claimed, loaded, invocation, cancellationToken));
         }
 
         await workStore.MarkCompletedAsync(claimed, cancellationToken);
-        return new DurableInvocationWorkProcessResult(
+        return RecordProcess(new DurableInvocationWorkProcessResult(
             DurableInvocationWorkOutcomes.Decided,
             claimed.AgentInvocationId,
-            completion.OutcomeCode);
+            completion.OutcomeCode));
     }
 
     private async Task<DurableInvocationWorkProcessResult> PublishContentAsync(
@@ -554,4 +572,37 @@ public sealed class DurableInvocationWorkProcessor(
         attemptResult is ModelExecutionFailed failed
             ? failed.ReasonCategory
             : ExecutionFailureReasons.MalformedControl;
+
+    private void RecordClaim(string outcome) =>
+        _telemetry.RecordCounter(
+            SessionRuntimeTelemetryInstruments.WorkClaim,
+            SessionRuntimeTelemetryRecording.Labels(
+                (SessionRuntimeTelemetryLabelKeys.Outcome, outcome),
+                (SessionRuntimeTelemetryLabelKeys.WorkType, DurableSessionWorkTypes.ExecuteInvocation)));
+
+    private void RecordBacklog(DurableWorkBacklogSnapshot snapshot)
+    {
+        if (!snapshot.IsKnown)
+        {
+            return;
+        }
+
+        _telemetry.RecordGauge(
+            SessionRuntimeTelemetryInstruments.WorkBacklog,
+            snapshot.ClaimableCount,
+            SessionRuntimeTelemetryRecording.Labels(
+                (SessionRuntimeTelemetryLabelKeys.WorkType, DurableSessionWorkTypes.ExecuteInvocation),
+                (SessionRuntimeTelemetryLabelKeys.BacklogBucket, SessionRuntimeTelemetryBuckets.Count(snapshot.ClaimableCount)),
+                (SessionRuntimeTelemetryLabelKeys.PartitionBucket, SessionRuntimeTelemetryBuckets.Count(snapshot.ClaimablePartitionCount))));
+    }
+
+    private DurableInvocationWorkProcessResult RecordProcess(DurableInvocationWorkProcessResult result)
+    {
+        _telemetry.RecordCounter(
+            SessionRuntimeTelemetryInstruments.WorkProcess,
+            SessionRuntimeTelemetryRecording.Labels(
+                (SessionRuntimeTelemetryLabelKeys.Outcome, result.Outcome),
+                (SessionRuntimeTelemetryLabelKeys.WorkType, DurableSessionWorkTypes.ExecuteInvocation)));
+        return result;
+    }
 }

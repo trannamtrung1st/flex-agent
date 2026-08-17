@@ -694,32 +694,80 @@ public sealed class DurableInvocationWorkProcessorTests
         Assert.True(store.Completed);
     }
 
+    [Fact]
+    public async Task Fair_claim_serves_another_organization_after_completing_the_oldest_partition()
+    {
+        var organizationA = SessionRuntimeTestFixtures.CreateOwnership();
+        var organizationB = organizationA with
+        {
+            OrganizationId = Guid.Parse("99999999-9999-9999-9999-999999999999"),
+            ActivityId = Guid.Parse("88888888-8888-8888-8888-888888888888"),
+            SessionId = Guid.Parse("77777777-7777-7777-7777-777777777777"),
+        };
+        var store = new MemoryWorkStore();
+        store.Enqueue(organizationA, "ainv.fair.a1");
+        store.Enqueue(organizationA, "ainv.fair.a2");
+        store.Enqueue(organizationB, "ainv.fair.b1");
+
+        var first = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken.None);
+        await store.MarkCompletedAsync(first!, CancellationToken.None);
+        var second = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken.None);
+
+        Assert.Equal("ainv.fair.a1", first!.AgentInvocationId);
+        Assert.Equal("ainv.fair.b1", second!.AgentInvocationId);
+    }
+
+    [Fact]
+    public async Task Idle_claim_records_bounded_backlog_and_claim_labels()
+    {
+        var sink = new CapturingSessionRuntimeTelemetrySink();
+        var telemetry = new SessionRuntimeTelemetry(sink);
+        var adapter = new DeterministicFakeModelExecutionAdapter();
+        var processor = CreateProcessor(adapter, pending: false, telemetry: telemetry);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.Idle, result.Outcome);
+        Assert.Contains(
+            sink.Counters,
+            item => item.Instrument == SessionRuntimeTelemetryInstruments.WorkClaim
+                && item.Labels[SessionRuntimeTelemetryLabelKeys.Outcome] == SessionRuntimeTelemetryValues.Idle);
+        Assert.Contains(
+            sink.Points,
+            item => item.Instrument == SessionRuntimeTelemetryInstruments.WorkBacklog
+                && item.Labels[SessionRuntimeTelemetryLabelKeys.BacklogBucket] == "n0");
+        Assert.DoesNotContain(sink.AllLabelValues(), value => Guid.TryParse(value, out _));
+    }
+
     private static DurableInvocationWorkProcessor CreateProcessor(
         DeterministicFakeModelExecutionAdapter adapter,
-        bool pending)
+        bool pending,
+        ISessionRuntimeTelemetry? telemetry = null)
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
         var store = new MemoryWorkStore(session.Ownership, "ainv.missing", enqueue: pending);
-        return CreateProcessor(adapter, session, store);
+        return CreateProcessor(adapter, session, store, telemetry: telemetry);
     }
 
     private static DurableInvocationWorkProcessor CreateProcessor(
         IModelExecutionPort adapter,
         SessionRuntime session,
         IDurableInvocationWorkStore store,
-        Func<SessionOwnership, ModelDeploymentCredentialBindingRequest>? bindingRequest = null) =>
-        CreateProcessor(adapter, new MemorySessionGateway(session), store, bindingRequest);
+        Func<SessionOwnership, ModelDeploymentCredentialBindingRequest>? bindingRequest = null,
+        ISessionRuntimeTelemetry? telemetry = null) =>
+        CreateProcessor(adapter, new MemorySessionGateway(session), store, bindingRequest, telemetry);
 
     private static DurableInvocationWorkProcessor CreateProcessor(
         IModelExecutionPort adapter,
         IInvocationWorkSessionGateway gateway,
         IDurableInvocationWorkStore store,
-        Func<SessionOwnership, ModelDeploymentCredentialBindingRequest>? bindingRequest = null) =>
+        Func<SessionOwnership, ModelDeploymentCredentialBindingRequest>? bindingRequest = null,
+        ISessionRuntimeTelemetry? telemetry = null) =>
         new(
             store,
             gateway,
             adapter,
-            new CompleteInvocationHandler(),
+            new CompleteInvocationHandler(telemetry),
             new DurableInvocationWorkSettings(
                 SessionRuntimeTestFixtures.CreateActor(),
                 "synthetic.provider",
@@ -734,7 +782,8 @@ public sealed class DurableInvocationWorkProcessorTests
                     null,
                     false,
                     false,
-                    false))));
+                    false))),
+            telemetry);
 
     private static DeterministicFakeModelExecutionAdapter EnqueueNoAction(
         string invocationId,
@@ -760,7 +809,9 @@ public sealed class DurableInvocationWorkProcessorTests
     private sealed class MemoryWorkStore : IDurableInvocationWorkStore
     {
         private readonly List<WorkSlot> _slots = [];
+        private readonly Dictionary<DurableWorkClaimPartitionKey, DateTimeOffset> _lastServed = [];
         private long _queueClock;
+        private long _servedClock;
 
         public MemoryWorkStore()
         {
@@ -804,23 +855,48 @@ public sealed class DurableInvocationWorkProcessorTests
             TimeSpan lease,
             CancellationToken cancellationToken)
         {
-            var candidate = _slots
+            var claimable = _slots
                 .Where(slot =>
                     slot.Item.State == DurableSessionWorkStates.Pending
                     || (slot.Item.State == DurableSessionWorkStates.Claimed && slot.LeaseExpired))
-                .OrderBy(slot => slot.QueueOrder)
-                .ThenBy(slot => slot.Item.WorkId)
-                .FirstOrDefault();
-            if (candidate is null)
+                .Select(slot => (
+                    Slot: slot,
+                    Candidate: new DurableWorkClaimCandidate(
+                        new DurableWorkClaimPartitionKey(
+                            slot.Item.Ownership.OrganizationId,
+                            slot.Item.Ownership.ActivityId),
+                        slot.Item.WorkId,
+                        DateTimeOffset.UnixEpoch.AddTicks(slot.QueueOrder))))
+                .ToArray();
+            var selected = DurableWorkFairClaimSelector.SelectHead(
+                claimable.Select(item => item.Candidate).ToArray(),
+                _lastServed);
+            if (selected is null)
             {
                 return Task.FromResult<DurableInvocationWorkItem?>(null);
             }
+
+            var candidate = claimable.Single(item => item.Candidate.WorkId == selected.WorkId).Slot;
 
             ClaimCount++;
             candidate.Item = candidate.Item with { State = DurableSessionWorkStates.Claimed };
             candidate.LeaseExpired = false;
             candidate.QueueOrder = _queueClock++;
             return Task.FromResult<DurableInvocationWorkItem?>(candidate.Item);
+        }
+
+        public Task<DurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(CancellationToken cancellationToken)
+        {
+            var claimable = _slots
+                .Where(slot =>
+                    slot.Item.State == DurableSessionWorkStates.Pending
+                    || (slot.Item.State == DurableSessionWorkStates.Claimed && slot.LeaseExpired))
+                .ToArray();
+            var partitions = claimable
+                .Select(slot => (slot.Item.Ownership.OrganizationId, slot.Item.Ownership.ActivityId))
+                .Distinct()
+                .Count();
+            return Task.FromResult(new DurableWorkBacklogSnapshot(claimable.Length, partitions));
         }
 
         public Task ReleaseToPendingAsync(DurableInvocationWorkItem work, CancellationToken cancellationToken)
@@ -841,6 +917,9 @@ public sealed class DurableInvocationWorkProcessorTests
             slot.Item = work with { State = DurableSessionWorkStates.Completed };
             slot.LeaseExpired = false;
             slot.QueueOrder = _queueClock++;
+            _lastServed[new DurableWorkClaimPartitionKey(
+                work.Ownership.OrganizationId,
+                work.Ownership.ActivityId)] = DateTimeOffset.UnixEpoch.AddTicks(++_servedClock);
             return Task.CompletedTask;
         }
 
@@ -947,6 +1026,9 @@ public sealed class DurableInvocationWorkProcessorTests
 
             return inner.MarkCompletedAsync(work, cancellationToken);
         }
+
+        public Task<DurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(CancellationToken cancellationToken) =>
+            inner.ReadClaimableSnapshotAsync(cancellationToken);
     }
 
     private sealed class CountingModelExecutionPort(IModelExecutionPort inner) : IModelExecutionPort

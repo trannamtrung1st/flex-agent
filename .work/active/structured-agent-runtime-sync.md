@@ -981,14 +981,28 @@ and test reviews have no unresolved blocking findings.
         Freeze `0018` at this version; any further schema correction is
         `0019`. GitHub exposed no commit statuses or PR-triggered workflow
         runs for `8db143c` at review time.
-- [>] Add and verify bounded observability and performance coverage: admission/
+- [x] Add and verify bounded observability and performance coverage: admission/
   rejection and effect categories, no-action, duplicate/stale/late work,
   fragment latency/integrity, backlog/claims, timer drift/outcomes/budgets,
   cutoff attempts, audit/manifest faults, alert recovery, and Organization/
   Activity fair claiming. Exercise applicable p95 objectives and load/
   backpressure profiles; prove labels and telemetry contain no sensitive or
   unbounded identifiers/content.
-- [ ] Integrate focused and aggregate verification: contract/catalog/OpenAPI
+  - [x] Application-owned sanitizing telemetry port (`SESS-DEC` quality
+        matrix, `AC-SESS-27`, `REQ-OPS-23`, `QA-6`/`QA-12`): bounded
+        instruments and labels; GUIDs, credentials, and transcript text
+        cannot be recorded. Red: compile failed for missing
+        `SessionRuntimeTelemetry` / `DurableWorkFairClaimSelector`. Green:
+        Sessions 400/400 including admission/no-action/stale/replay
+        recording, sanitizer rejects, fair-claim selector, idle
+        backlog/claim labels, timer `budget_exhausted`/`idle` codes, and
+        bounded drift buckets; architecture 29/29 with `OpenTelemetry`
+        forbidden on Sessions; Postgres 174/174 including Org/Activity
+        interleave after complete, 20-sample admission and replay p95 ≤ 2s,
+        and audit-fault `failed` then later `succeeded` without scope
+        identifiers. Host OTLP/Collector export and a concurrent
+        timer-storm load lab remain later.
+- [>] Integrate focused and aggregate verification: contract/catalog/OpenAPI
   parity, architecture tests, Sessions domain tests, PostgreSQL 18 migration/
   isolation/concurrency/fault tests, API/worker runtime tests, locked web
   lint/type/unit/build/e2e, OCI/runtime checks, supply-chain/SBOM/license/secret
@@ -1063,7 +1077,11 @@ columns, then re-enables it; configuration/manifest are FK-bound to the
 Session. Databases that recorded `ddd7c0a`'s earlier `0018` hash cannot
 apply current `0018` and must be rebuilt. External review of `8db143c`
 (2026-08-17): **approved**, no blocking findings. Freeze `0018` at
-`8db143c`; do not edit it. Next is bounded observability.
+`8db143c`; do not edit it. Bounded observability is implemented
+(2026-08-17): sanitizing application telemetry, Org/Activity fair
+durable-work claiming, and 20-sample admission/replay p95 evidence.
+Host OTLP export through the OpenTelemetry Collector and a concurrent
+timer-storm load lab remain later. Next is aggregate verification.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0018`
@@ -1246,6 +1264,14 @@ surfaces.
 
 # Decisions
 
+- Bounded Session runtime telemetry (2026-08-17, `AC-SESS-27`, `QA-6`/`QA-12`,
+  `REQ-OPS-23`): application-owned sanitizing port, not an OpenTelemetry SDK
+  in Sessions. Labels are allowlisted categories and buckets only; GUIDs,
+  credentials, and transcript text are rejected. Durable-work claiming is
+  fair across Organization/Activity partitions by least-recently-served
+  partition head. Admission and reconnect p95 use sequential in-process
+  PostgreSQL samples with provider and end-user network excluded. Host OTLP
+  Collector export is later composition-root work.
 - Text Session UI (2026-08-16, `UI-SESS-DEC-13`–`15`): Participant copy is
   derived from browser-safe `work_state` / `resolution_category`, never
   rendered as those tokens. `no_action` persistent status is
@@ -2231,7 +2257,8 @@ surfaces.
 | Web lint/type/unit/build/e2e | local web CI script passed; Playwright e2e not in GitHub web job | `bash build/scripts/verify-web.sh` (2026-08-17): frozen install, boundary check, contracts JCS 8/8, eslint warning-only `react-refresh/only-export-components` in `web/src/api/browser-api.tsx`, `tsc -b --noEmit`, vitest 55/55, production build. GitHub Implementation `web` job matches this script and does not run Playwright e2e. |
 | Playwright accessibility/responsive/visual evaluation | passed live MCP | Prior journey set plus 2026-08-17 confirmation/disabled-button, trap, and `29cde55` restore: desktop/390 Complete trigger focus after Continue and Escape. Artifact dir `.playwright-mcp/`. |
 | Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | local CI-equivalent passed (2026-08-17); GitHub push not claimed | `git diff --check` clean; `python3 scripts/check_docs.py` passed. `verify-web.sh` as above. `verify-dotnet.sh`: 775/775, Release publish, no `appsettings.Development.json`. `gitleaks detect` no leaks. NuGet `--vulnerable --include-transitive` none. `pnpm audit --audit-level=high` exit 0 (2 moderate). Native OCI `flex-agent-oci-{api,worker,spa}:local`. CI-shaped `linux/amd64` `flex-agent-{api,worker,spa}:linux-amd64`. `scan-oci-image-sboms.sh` exit 0 (`--fail-on critical`; SPA Alpine `tiff` High recorded, not critical). GitHub Implementation/Documentation workflows are not claimed from this machine. |
-| Performance, observability, lifecycle/export, backup/restore verification | pending | |
+| Bounded observability and fair claiming (`AC-SESS-27`, `QA-6`, `QA-12`, `REQ-OPS-23`) | passed locally | Red (2026-08-17): compile failed for `SessionRuntimeTelemetry` / `DurableWorkFairClaimSelector`. Green: Sessions 400/400; architecture 29/29 (`OpenTelemetry` forbidden on Sessions); Postgres claim/observability tests including Org/Activity interleave, n=20 admission and replay p95 ≤ 2s, audit-fault `failed` then `succeeded`. Timer fire labels use `timer_fire.*`; drift uses database-stamped `ObservedAt` vs `DueAt`. Residual: Collector/OTLP host export; concurrent timer-storm load lab. |
+| Performance, observability, lifecycle/export, backup/restore verification | observability passed locally; lifecycle/export/backup still pending | See bounded observability row. Lifecycle/export/backup remain the later aggregate gate. |
 | Architecture/backend/frontend/security/privacy/QA review | pending | |
 | Final specification and repository consistency audit | pending | |
 
@@ -2266,7 +2293,7 @@ slice. Production-shaped internal end-to-end proof is implemented
 binding. `ddd7c0a` request-changes: populated `0017→0018` backfill and
 configuration/manifest binding. External review of `8db143c` (2026-08-17):
 **approved**, no blocking findings. Freeze `0018`. Bounded observability
-is next.
+is implemented (2026-08-17). Aggregate verification is next.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.

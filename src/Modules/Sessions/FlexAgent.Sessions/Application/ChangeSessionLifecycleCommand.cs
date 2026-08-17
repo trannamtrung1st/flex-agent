@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.Application;
@@ -18,8 +19,11 @@ public interface IChangeSessionLifecycleHandler
         DateTimeOffset authoritativeUtc);
 }
 
-public sealed class ChangeSessionLifecycleHandler : IChangeSessionLifecycleHandler
+public sealed class ChangeSessionLifecycleHandler(ISessionRuntimeTelemetry? telemetry = null)
+    : IChangeSessionLifecycleHandler
 {
+    private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
+
     public SessionLifecycleChangeResult Handle(
         ChangeSessionLifecycleCommand command,
         SessionRuntime session,
@@ -27,91 +31,110 @@ public sealed class ChangeSessionLifecycleHandler : IChangeSessionLifecycleHandl
     {
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(session);
+        var started = Stopwatch.GetTimestamp();
 
+        SessionLifecycleChangeResult result;
         if (command.Actor.ActorId == Guid.Empty || string.IsNullOrWhiteSpace(command.Actor.ActorType))
         {
-            return Failure(SessionLifecycleOutcomeCodes.Denied, session);
+            result = Failure(SessionLifecycleOutcomeCodes.Denied, session);
         }
-
-        if (command.Ownership != session.Ownership)
+        else if (command.Ownership != session.Ownership)
         {
-            return Failure(SessionLifecycleOutcomeCodes.OwnershipMismatch, session);
+            result = Failure(SessionLifecycleOutcomeCodes.OwnershipMismatch, session);
         }
-
-        if (command.ExpectedSessionVersion != session.SessionVersion)
+        else if (command.ExpectedSessionVersion != session.SessionVersion)
         {
-            if (command.Transition == SessionLifecycleTransitions.Resume
-                || !AlreadyApplied(command.Transition, session.LifecycleState))
-            {
-                return Failure(SessionLifecycleOutcomeCodes.StaleVersion, session);
-            }
-
-            return Success(SessionLifecycleOutcomeCodes.Reconciled, session);
+            result = command.Transition == SessionLifecycleTransitions.Resume
+                || !AlreadyApplied(command.Transition, session.LifecycleState)
+                ? Failure(SessionLifecycleOutcomeCodes.StaleVersion, session)
+                : Success(SessionLifecycleOutcomeCodes.Reconciled, session);
         }
-
-        if (AlreadyApplied(command.Transition, session.LifecycleState)
+        else if (AlreadyApplied(command.Transition, session.LifecycleState)
             && command.Transition != SessionLifecycleTransitions.Resume)
         {
-            return Success(SessionLifecycleOutcomeCodes.Reconciled, session);
+            result = Success(SessionLifecycleOutcomeCodes.Reconciled, session);
         }
-
-        switch (command.Transition)
+        else
         {
-            case SessionLifecycleTransitions.Pause:
-                if (session.LifecycleState != SessionLifecycleState.Active)
-                {
-                    return Failure(SessionLifecycleOutcomeCodes.LifecycleIneligible, session);
-                }
+            switch (command.Transition)
+            {
+                case SessionLifecycleTransitions.Pause:
+                    if (session.LifecycleState != SessionLifecycleState.Active)
+                    {
+                        result = Failure(SessionLifecycleOutcomeCodes.LifecycleIneligible, session);
+                        break;
+                    }
 
-                session.Pause(authoritativeUtc);
-                break;
-            case SessionLifecycleTransitions.Resume:
-                if (session.LifecycleState != SessionLifecycleState.Paused)
-                {
-                    return Failure(SessionLifecycleOutcomeCodes.LifecycleIneligible, session);
-                }
+                    session.Pause(authoritativeUtc);
+                    result = Success(SessionLifecycleOutcomeCodes.Succeeded, session);
+                    break;
+                case SessionLifecycleTransitions.Resume:
+                    if (session.LifecycleState != SessionLifecycleState.Paused)
+                    {
+                        result = Failure(SessionLifecycleOutcomeCodes.LifecycleIneligible, session);
+                        break;
+                    }
 
-                session.Resume(authoritativeUtc);
-                break;
-            case SessionLifecycleTransitions.BeginCompleting:
-                if (session.LifecycleState is not (SessionLifecycleState.Active or SessionLifecycleState.Paused))
-                {
-                    return Failure(SessionLifecycleOutcomeCodes.LifecycleIneligible, session);
-                }
+                    session.Resume(authoritativeUtc);
+                    result = Success(SessionLifecycleOutcomeCodes.Succeeded, session);
+                    break;
+                case SessionLifecycleTransitions.BeginCompleting:
+                    if (session.LifecycleState is not (SessionLifecycleState.Active or SessionLifecycleState.Paused))
+                    {
+                        result = Failure(SessionLifecycleOutcomeCodes.LifecycleIneligible, session);
+                        break;
+                    }
 
-                session.BeginCompleting(authoritativeUtc);
-                break;
-            case SessionLifecycleTransitions.Complete:
-                if (session.LifecycleState != SessionLifecycleState.Completing)
-                {
-                    return Failure(SessionLifecycleOutcomeCodes.LifecycleIneligible, session);
-                }
+                    session.BeginCompleting(authoritativeUtc);
+                    result = Success(SessionLifecycleOutcomeCodes.Succeeded, session);
+                    break;
+                case SessionLifecycleTransitions.Complete:
+                    if (session.LifecycleState != SessionLifecycleState.Completing)
+                    {
+                        result = Failure(SessionLifecycleOutcomeCodes.LifecycleIneligible, session);
+                        break;
+                    }
 
-                session.Complete(authoritativeUtc);
-                break;
-            case SessionLifecycleTransitions.Terminate:
-                if (session.LifecycleState != SessionLifecycleState.Completing)
-                {
-                    return Failure(SessionLifecycleOutcomeCodes.LifecycleIneligible, session);
-                }
+                    session.Complete(authoritativeUtc);
+                    result = Success(SessionLifecycleOutcomeCodes.Succeeded, session);
+                    break;
+                case SessionLifecycleTransitions.Terminate:
+                    if (session.LifecycleState != SessionLifecycleState.Completing)
+                    {
+                        result = Failure(SessionLifecycleOutcomeCodes.LifecycleIneligible, session);
+                        break;
+                    }
 
-                session.Terminate(authoritativeUtc);
-                break;
-            case SessionLifecycleTransitions.Abort:
-                if (session.LifecycleState is SessionLifecycleState.Completed
-                    or SessionLifecycleState.Terminated
-                    or SessionLifecycleState.Aborted)
-                {
-                    return Success(SessionLifecycleOutcomeCodes.Reconciled, session);
-                }
+                    session.Terminate(authoritativeUtc);
+                    result = Success(SessionLifecycleOutcomeCodes.Succeeded, session);
+                    break;
+                case SessionLifecycleTransitions.Abort:
+                    if (session.LifecycleState is SessionLifecycleState.Completed
+                        or SessionLifecycleState.Terminated
+                        or SessionLifecycleState.Aborted)
+                    {
+                        result = Success(SessionLifecycleOutcomeCodes.Reconciled, session);
+                        break;
+                    }
 
-                session.Abort(authoritativeUtc);
-                break;
-            default:
-                return Failure(SessionLifecycleOutcomeCodes.Denied, session);
+                    session.Abort(authoritativeUtc);
+                    result = Success(SessionLifecycleOutcomeCodes.Succeeded, session);
+                    break;
+                default:
+                    result = Failure(SessionLifecycleOutcomeCodes.Denied, session);
+                    break;
+            }
         }
 
-        return Success(SessionLifecycleOutcomeCodes.Succeeded, session);
+        var labels = SessionRuntimeTelemetryRecording.Labels(
+            (SessionRuntimeTelemetryLabelKeys.Outcome, result.OutcomeCode),
+            (SessionRuntimeTelemetryLabelKeys.Transition, command.Transition));
+        _telemetry.RecordCounter(SessionRuntimeTelemetryInstruments.LifecycleChange, labels);
+        _telemetry.RecordDuration(
+            SessionRuntimeTelemetryInstruments.LifecycleChange,
+            Stopwatch.GetElapsedTime(started),
+            labels);
+        return result;
     }
 
     private static bool AlreadyApplied(string transition, SessionLifecycleState state) =>

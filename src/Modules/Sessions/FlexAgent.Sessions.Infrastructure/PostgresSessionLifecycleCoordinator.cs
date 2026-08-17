@@ -11,10 +11,12 @@ public sealed class PostgresSessionLifecycleCoordinator(
     PostgresSessionRuntimeRepository runtimeRepository,
     IChangeSessionLifecycleHandler lifecycleHandler,
     IAuditEventWriter? auditEventWriter = null,
-    IOutboxItemWriter? outboxItemWriter = null)
+    IOutboxItemWriter? outboxItemWriter = null,
+    ISessionRuntimeTelemetry? telemetry = null)
 {
     private readonly IAuditEventWriter _auditEventWriter = auditEventWriter ?? new PostgresAuditEventWriter();
     private readonly IOutboxItemWriter _outboxItemWriter = outboxItemWriter ?? new PostgresOutboxItemWriter();
+    private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
 
     public async Task<SessionLifecycleChangeResult> ChangeAsync(
         ChangeSessionLifecycleCommand command,
@@ -100,7 +102,8 @@ public sealed class PostgresSessionLifecycleCoordinator(
                 $"{command.Transition}:{session.LifecycleState}:{session.SessionVersion}",
                 authoritativeUtc,
                 scope.Transaction,
-                cancellationToken);
+                cancellationToken,
+                _telemetry);
 
             foreach (var message in pendingSeals)
             {

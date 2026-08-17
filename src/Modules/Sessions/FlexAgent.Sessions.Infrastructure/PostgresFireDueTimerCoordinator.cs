@@ -12,7 +12,8 @@ public sealed class PostgresFireDueTimerCoordinator(
     PostgresSessionRuntimeRepository runtimeRepository,
     ITrustedSessionBindingSource bindingSource,
     IAuditEventWriter? auditEventWriter = null,
-    IOutboxItemWriter? outboxItemWriter = null) : IDueTimerFirePort
+    IOutboxItemWriter? outboxItemWriter = null,
+    ISessionRuntimeTelemetry? telemetry = null) : IDueTimerFirePort
 {
     private const string ClaimDueSql = """
         WITH candidate AS MATERIALIZED (
@@ -59,6 +60,7 @@ public sealed class PostgresFireDueTimerCoordinator(
 
     private readonly IAuditEventWriter _auditEventWriter = auditEventWriter ?? new PostgresAuditEventWriter();
     private readonly IOutboxItemWriter _outboxItemWriter = outboxItemWriter ?? new PostgresOutboxItemWriter();
+    private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
 
     public async Task<TimerFireResult> TryFireNextDueAsync(
         FireDueTimerCommand command,
@@ -108,10 +110,12 @@ public sealed class PostgresFireDueTimerCoordinator(
             if (due.schedule_revision_ordinal is null or <= 0)
             {
                 await scope.RollbackAsync(cancellationToken);
-                return new TimerFireResult(false, TimerFireOutcomeCodes.StaleRevision);
+                return new TimerFireResult(false, TimerFireOutcomeCodes.StaleRevision, ObservedAt: authoritativeUtc);
             }
 
-            var result = session.FireDueTimer(due.schedule_revision_ordinal.Value, authoritativeUtc);
+            var result = WithObservedAt(
+                session.FireDueTimer(due.schedule_revision_ordinal.Value, authoritativeUtc),
+                authoritativeUtc);
             if (result.OutcomeCode == TimerFireOutcomeCodes.BudgetExhausted)
             {
                 // Durable terminal mutation: persist Expired and commit. Hosts must
@@ -125,7 +129,11 @@ public sealed class PostgresFireDueTimerCoordinator(
                 if (!expired)
                 {
                     await scope.RollbackAsync(cancellationToken);
-                    return new TimerFireResult(false, TimerFireOutcomeCodes.StaleRevision, result.Revision);
+                    return new TimerFireResult(
+                        false,
+                        TimerFireOutcomeCodes.StaleRevision,
+                        result.Revision,
+                        ObservedAt: result.ObservedAt);
                 }
 
                 await scope.CommitAsync(cancellationToken);
@@ -147,7 +155,11 @@ public sealed class PostgresFireDueTimerCoordinator(
             if (result.Admission?.Invocation is null)
             {
                 await scope.RollbackAsync(cancellationToken);
-                return new TimerFireResult(false, TimerFireOutcomeCodes.LifecycleIneligible, result.Revision);
+                return new TimerFireResult(
+                    false,
+                    TimerFireOutcomeCodes.LifecycleIneligible,
+                    result.Revision,
+                    ObservedAt: result.ObservedAt);
             }
 
             var saved = await runtimeRepository.TrySaveAdmissionAsync(
@@ -160,7 +172,11 @@ public sealed class PostgresFireDueTimerCoordinator(
             if (!saved)
             {
                 await scope.RollbackAsync(cancellationToken);
-                return new TimerFireResult(false, TimerFireOutcomeCodes.StaleRevision, result.Revision);
+                return new TimerFireResult(
+                    false,
+                    TimerFireOutcomeCodes.StaleRevision,
+                    result.Revision,
+                    ObservedAt: result.ObservedAt);
             }
 
             await SessionRuntimePersistenceAudit.WriteAsync(
@@ -175,7 +191,8 @@ public sealed class PostgresFireDueTimerCoordinator(
                 result.Admission.Invocation.AgentInvocationId,
                 authoritativeUtc,
                 scope.Transaction,
-                cancellationToken);
+                cancellationToken,
+                _telemetry);
 
             await scope.CommitAsync(cancellationToken);
             return result;
@@ -194,4 +211,7 @@ public sealed class PostgresFireDueTimerCoordinator(
         Guid attempt_id,
         Guid session_id,
         long? schedule_revision_ordinal);
+
+    private static TimerFireResult WithObservedAt(TimerFireResult result, DateTimeOffset observedAt) =>
+        result with { ObservedAt = observedAt };
 }

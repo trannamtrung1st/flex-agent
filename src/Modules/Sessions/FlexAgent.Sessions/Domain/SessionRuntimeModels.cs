@@ -128,7 +128,8 @@ public sealed record TimerFireResult(
     bool Succeeded,
     string OutcomeCode,
     TimerScheduleRevision? Revision = null,
-    TriggerAdmissionResult? Admission = null);
+    TriggerAdmissionResult? Admission = null,
+    DateTimeOffset? ObservedAt = null);
 
 public static class SessionLifecycleTransitions
 {

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.Application;
@@ -20,8 +21,11 @@ public interface ICompleteInvocationHandler
         DateTimeOffset authoritativeUtc);
 }
 
-public sealed class CompleteInvocationHandler : ICompleteInvocationHandler
+public sealed class CompleteInvocationHandler(ISessionRuntimeTelemetry? telemetry = null)
+    : ICompleteInvocationHandler
 {
+    private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
+
     public InvocationCompletionResult Handle(
         CompleteInvocationCommand command,
         SessionRuntime session,
@@ -29,44 +33,72 @@ public sealed class CompleteInvocationHandler : ICompleteInvocationHandler
     {
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(session);
+        var started = Stopwatch.GetTimestamp();
 
+        InvocationCompletionResult result;
         if (command.Actor.ActorId == Guid.Empty || string.IsNullOrWhiteSpace(command.Actor.ActorType))
         {
-            return new InvocationCompletionResult(false, InvocationCompletionOutcomeCodes.Denied, null);
+            result = new InvocationCompletionResult(false, InvocationCompletionOutcomeCodes.Denied, null);
         }
-
-        if (command.Ownership != session.Ownership)
+        else if (command.Ownership != session.Ownership)
         {
-            return new InvocationCompletionResult(false, InvocationCompletionOutcomeCodes.OwnershipMismatch, null);
+            result = new InvocationCompletionResult(false, InvocationCompletionOutcomeCodes.OwnershipMismatch, null);
         }
-
-        if (command.Decision is not null && command.ExecutionFailure is not null)
+        else if (command.Decision is not null && command.ExecutionFailure is not null)
         {
-            return new InvocationCompletionResult(false, InvocationCompletionOutcomeCodes.IdentityMismatch, null);
+            result = new InvocationCompletionResult(false, InvocationCompletionOutcomeCodes.IdentityMismatch, null);
         }
-
-        if (command.Decision is null && command.ExecutionFailure is null)
+        else if (command.Decision is null && command.ExecutionFailure is null)
         {
-            return new InvocationCompletionResult(false, InvocationCompletionOutcomeCodes.IdentityMismatch, null);
+            result = new InvocationCompletionResult(false, InvocationCompletionOutcomeCodes.IdentityMismatch, null);
         }
-
-        var invocation = session.Invocations.FirstOrDefault(item =>
-            string.Equals(item.AgentInvocationId, command.AgentInvocationId, StringComparison.Ordinal));
-        if (invocation is null)
+        else
         {
-            return new InvocationCompletionResult(false, InvocationCompletionOutcomeCodes.AlreadyTerminal, null);
+            var invocation = session.Invocations.FirstOrDefault(item =>
+                string.Equals(item.AgentInvocationId, command.AgentInvocationId, StringComparison.Ordinal));
+            if (invocation is null)
+            {
+                result = new InvocationCompletionResult(false, InvocationCompletionOutcomeCodes.AlreadyTerminal, null);
+            }
+            else if (!invocation.IsTerminal && command.ExpectedSessionVersion != session.SessionVersion)
+            {
+                result = new InvocationCompletionResult(
+                    false,
+                    InvocationCompletionOutcomeCodes.StaleVersion,
+                    invocation);
+            }
+            else
+            {
+                result = command.Decision is not null
+                    ? session.CompleteInvocation(command.AgentInvocationId, command.Decision, authoritativeUtc)
+                    : session.CompleteInvocation(command.AgentInvocationId, command.ExecutionFailure!, authoritativeUtc);
+            }
         }
 
-        if (!invocation.IsTerminal && command.ExpectedSessionVersion != session.SessionVersion)
+        Record(result, Stopwatch.GetElapsedTime(started));
+        return result;
+    }
+
+    private void Record(InvocationCompletionResult result, TimeSpan duration)
+    {
+        var completionLabels = SessionRuntimeTelemetryRecording.Labels(
+            (SessionRuntimeTelemetryLabelKeys.Outcome, result.OutcomeCode),
+            (SessionRuntimeTelemetryLabelKeys.DecisionType, result.Decision?.DecisionType));
+        _telemetry.RecordCounter(SessionRuntimeTelemetryInstruments.InvocationCompletion, completionLabels);
+        _telemetry.RecordDuration(
+            SessionRuntimeTelemetryInstruments.InvocationCompletion,
+            duration,
+            completionLabels);
+        if (result.ValidationEffect is not null)
         {
-            return new InvocationCompletionResult(
-                false,
-                InvocationCompletionOutcomeCodes.StaleVersion,
-                invocation);
+            _telemetry.RecordCounter(
+                SessionRuntimeTelemetryInstruments.DecisionEffect,
+                SessionRuntimeTelemetryRecording.Labels(
+                    (SessionRuntimeTelemetryLabelKeys.Outcome, result.ValidationEffect.EffectOutcome)));
+            _telemetry.RecordCounter(
+                SessionRuntimeTelemetryInstruments.TimerRecommendation,
+                SessionRuntimeTelemetryRecording.Labels(
+                    (SessionRuntimeTelemetryLabelKeys.Outcome, result.ValidationEffect.TimerValidationOutcome)));
         }
-
-        return command.Decision is not null
-            ? session.CompleteInvocation(command.AgentInvocationId, command.Decision, authoritativeUtc)
-            : session.CompleteInvocation(command.AgentInvocationId, command.ExecutionFailure!, authoritativeUtc);
     }
 }

@@ -46,6 +46,25 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
     }
 
     [Fact]
+    public async Task Claim_interleaves_a_waiting_organization_after_the_oldest_partition_completes()
+    {
+        var first = await PrepareAdmittedWorkAsync("trig.claim.fair.a", "idem.claim.fair.a");
+        var secondOrg = await Fixture.SeedOrganizationAsync("-b");
+        var secondBinding = SessionPersistenceFixtures.CreateBinding(secondOrg.OrganizationId, cooldownSeconds: 0);
+        var second = await AdmitPreparedWorkAsync(secondOrg, secondBinding, "trig.claim.fair.b", "idem.claim.fair.b");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(first.Binding.Ownership, second.Binding.Ownership);
+        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+
+        var claimedFirst = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
+        Assert.Equal(first.InvocationId, claimedFirst!.AgentInvocationId);
+        await store.MarkCompletedAsync(claimedFirst, CancellationToken);
+        var claimedSecond = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
+
+        Assert.Equal(second.InvocationId, claimedSecond!.AgentInvocationId);
+        Assert.Equal(second.Binding.Ownership.OrganizationId, claimedSecond.Ownership.OrganizationId);
+    }
+
+    [Fact]
     public async Task Unexpired_claimed_work_is_not_taken_by_another_poll()
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.claim.held", "idem.claim.held");
@@ -197,7 +216,42 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         return new PreparedWork(organization, binding, admitted.Invocation!.AgentInvocationId);
     }
 
-    private async Task<IAsyncDisposable> HoldOtherClaimableWorkAsync(SessionOwnership ownership)
+    private async Task<PreparedWork> AdmitPreparedWorkAsync(
+        SeededOrganization organization,
+        TrustedSessionBinding binding,
+        string triggerId,
+        string idempotencyKey)
+    {
+        var repository = new PostgresSessionRuntimeRepository();
+        var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AdmitTrustedTriggerHandler());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+        await using (var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var admitted = await coordinator.AdmitAsync(
+            new AdmitTrustedTriggerCommand(
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                binding.Ownership,
+                0,
+                SessionPersistenceFixtures.OpeningTrigger(triggerId),
+                idempotencyKey,
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+        return new PreparedWork(organization, binding, admitted.Invocation!.AgentInvocationId);
+    }
+
+    private async Task<IAsyncDisposable> HoldOtherClaimableWorkAsync(params SessionOwnership[] keep)
     {
         var connection = new NpgsqlConnection(Fixture.ConnectionString);
         await connection.OpenAsync(CancellationToken);
@@ -207,7 +261,12 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
                 """
                 SELECT work_id
                 FROM session_durable_work
-                WHERE NOT (organization_id = @OrganizationId AND session_id = @SessionId)
+                WHERE NOT EXISTS (
+                        SELECT 1
+                        FROM unnest(@OrganizationIds, @SessionIds) AS keep(organization_id, session_id)
+                        WHERE keep.organization_id = session_durable_work.organization_id
+                          AND keep.session_id = session_durable_work.session_id
+                      )
                   AND (
                         state = @Pending
                         OR (
@@ -220,8 +279,8 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
                 """,
                 new
                 {
-                    ownership.OrganizationId,
-                    ownership.SessionId,
+                    OrganizationIds = keep.Select(item => item.OrganizationId).ToArray(),
+                    SessionIds = keep.Select(item => item.SessionId).ToArray(),
                     Pending = DurableSessionWorkStates.Pending,
                     Claimed = DurableSessionWorkStates.Claimed,
                 },

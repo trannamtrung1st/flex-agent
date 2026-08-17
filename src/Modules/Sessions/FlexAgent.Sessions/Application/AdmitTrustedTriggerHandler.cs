@@ -1,9 +1,13 @@
+using System.Diagnostics;
 using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.Application;
 
-public sealed class AdmitTrustedTriggerHandler : IAdmitTrustedTriggerHandler
+public sealed class AdmitTrustedTriggerHandler(ISessionRuntimeTelemetry? telemetry = null)
+    : IAdmitTrustedTriggerHandler
 {
+    private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
+
     public TriggerAdmissionResult Handle(
         AdmitTrustedTriggerCommand command,
         SessionRuntime session,
@@ -11,25 +15,38 @@ public sealed class AdmitTrustedTriggerHandler : IAdmitTrustedTriggerHandler
     {
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(session);
+        var started = Stopwatch.GetTimestamp();
 
+        TriggerAdmissionResult result;
         if (command.Actor.ActorId == Guid.Empty || string.IsNullOrWhiteSpace(command.Actor.ActorType))
         {
-            return new TriggerAdmissionResult(false, TriggerAdmissionOutcomeCodes.Denied, null, null);
+            result = new TriggerAdmissionResult(false, TriggerAdmissionOutcomeCodes.Denied, null, null);
         }
-
-        if (command.Ownership != session.Ownership)
+        else if (command.Ownership != session.Ownership)
         {
-            return new TriggerAdmissionResult(
+            result = new TriggerAdmissionResult(
                 false,
                 TriggerAdmissionOutcomeCodes.OwnershipMismatch,
                 null,
                 null);
         }
+        else
+        {
+            result = session.AdmitTrustedTrigger(
+                command.Trigger,
+                command.IdempotencyKey,
+                authoritativeUtc,
+                command.ExpectedSessionVersion);
+        }
 
-        return session.AdmitTrustedTrigger(
-            command.Trigger,
-            command.IdempotencyKey,
-            authoritativeUtc,
-            command.ExpectedSessionVersion);
+        var labels = SessionRuntimeTelemetryRecording.Labels(
+            (SessionRuntimeTelemetryLabelKeys.Outcome, result.OutcomeCode),
+            (SessionRuntimeTelemetryLabelKeys.TriggerFamily, command.Trigger.TriggerFamily));
+        _telemetry.RecordCounter(SessionRuntimeTelemetryInstruments.TriggerAdmission, labels);
+        _telemetry.RecordDuration(
+            SessionRuntimeTelemetryInstruments.TriggerAdmission,
+            Stopwatch.GetElapsedTime(started),
+            labels);
+        return result;
     }
 }

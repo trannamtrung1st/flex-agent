@@ -545,6 +545,9 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
 
             return inner.MarkCompletedAsync(work, cancellationToken);
         }
+
+        public Task<DurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(CancellationToken cancellationToken) =>
+            inner.ReadClaimableSnapshotAsync(cancellationToken);
     }
 
     private sealed class CountingModelExecutionPort(IModelExecutionPort inner) : IModelExecutionPort

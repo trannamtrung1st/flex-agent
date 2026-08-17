@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.Application;
@@ -21,8 +22,11 @@ public interface IPublishAgentResponseFragmentHandler
         DateTimeOffset authoritativeUtc);
 }
 
-public sealed class PublishAgentResponseFragmentHandler : IPublishAgentResponseFragmentHandler
+public sealed class PublishAgentResponseFragmentHandler(ISessionRuntimeTelemetry? telemetry = null)
+    : IPublishAgentResponseFragmentHandler
 {
+    private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
+
     public AgentResponseFragmentCommitResult Handle(
         PublishAgentResponseFragmentCommand command,
         SessionRuntime session,
@@ -30,33 +34,50 @@ public sealed class PublishAgentResponseFragmentHandler : IPublishAgentResponseF
     {
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(session);
+        var started = Stopwatch.GetTimestamp();
 
+        AgentResponseFragmentCommitResult result;
         if (command.Actor.ActorId == Guid.Empty || string.IsNullOrWhiteSpace(command.Actor.ActorType))
         {
-            return new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.Denied);
+            result = new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.Denied);
         }
-
-        if (command.Ownership != session.Ownership)
+        else if (command.Ownership != session.Ownership)
         {
-            return new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.OwnershipMismatch);
+            result = new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.OwnershipMismatch);
         }
-
-        var existing = session.AgentMessages.FirstOrDefault(message =>
-            string.Equals(message.DrivingInvocationId, command.AgentInvocationId, StringComparison.Ordinal));
-        var ordinalAlreadyPresent = existing?.Fragments.Any(fragment =>
-            fragment.FragmentOrdinal == command.FragmentOrdinal) == true;
-        if (!ordinalAlreadyPresent && command.ExpectedSessionVersion != session.SessionVersion)
+        else
         {
-            return new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.StaleVersion);
+            var existing = session.AgentMessages.FirstOrDefault(message =>
+                string.Equals(message.DrivingInvocationId, command.AgentInvocationId, StringComparison.Ordinal));
+            var ordinalAlreadyPresent = existing?.Fragments.Any(fragment =>
+                fragment.FragmentOrdinal == command.FragmentOrdinal) == true;
+            if (!ordinalAlreadyPresent && command.ExpectedSessionVersion != session.SessionVersion)
+            {
+                result = new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.StaleVersion);
+            }
+            else
+            {
+                result = session.CommitAgentResponseFragment(
+                    new AgentResponseFragmentCommit(
+                        command.AgentInvocationId,
+                        command.FragmentOrdinal,
+                        command.ExactUtf8Text,
+                        command.GenerationAttemptId),
+                    authoritativeUtc);
+            }
         }
 
-        return session.CommitAgentResponseFragment(
-            new AgentResponseFragmentCommit(
-                command.AgentInvocationId,
-                command.FragmentOrdinal,
-                command.ExactUtf8Text,
-                command.GenerationAttemptId),
-            authoritativeUtc);
+        var labels = SessionRuntimeTelemetryRecording.Labels(
+            (SessionRuntimeTelemetryLabelKeys.Outcome, result.OutcomeCode),
+            (
+                SessionRuntimeTelemetryLabelKeys.FirstFragment,
+                command.FragmentOrdinal == 1 ? SessionRuntimeTelemetryValues.Yes : SessionRuntimeTelemetryValues.No));
+        _telemetry.RecordCounter(SessionRuntimeTelemetryInstruments.FragmentCommit, labels);
+        _telemetry.RecordDuration(
+            SessionRuntimeTelemetryInstruments.FragmentCommit,
+            Stopwatch.GetElapsedTime(started),
+            labels);
+        return result;
     }
 }
 

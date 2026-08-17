@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using FlexAgent.Sessions.Domain;
 
@@ -15,43 +16,55 @@ public interface IReplayAuthorizedSessionEventsHandler
         SessionRuntime session);
 }
 
-public sealed class ReplayAuthorizedSessionEventsHandler : IReplayAuthorizedSessionEventsHandler
+public sealed class ReplayAuthorizedSessionEventsHandler(ISessionRuntimeTelemetry? telemetry = null)
+    : IReplayAuthorizedSessionEventsHandler
 {
+    private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
+
     public AuthorizedSessionEventReplayResult Handle(
         ReplayAuthorizedSessionEventsCommand command,
         SessionRuntime session)
     {
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(session);
+        var started = Stopwatch.GetTimestamp();
 
+        AuthorizedSessionEventReplayResult result;
         if (command.Actor.ActorId == Guid.Empty || string.IsNullOrWhiteSpace(command.Actor.ActorType))
         {
-            return Denied(SessionEventReplayOutcomeCodes.Denied);
+            result = Denied(SessionEventReplayOutcomeCodes.Denied);
         }
-
-        if (command.Ownership != session.Ownership)
+        else if (command.Ownership != session.Ownership)
         {
-            return Denied(SessionEventReplayOutcomeCodes.OwnershipMismatch);
+            result = Denied(SessionEventReplayOutcomeCodes.OwnershipMismatch);
         }
-
-        if (!TryParseCursor(command.UntrustedLastEventId, out var afterSequence, out var malformed))
+        else if (!TryParseCursor(command.UntrustedLastEventId, out var afterSequence, out var malformed))
         {
-            return malformed
+            result = malformed
                 ? Denied(SessionEventReplayOutcomeCodes.Reconcile)
                 : AuthorizedSessionEventProjector.Project(session, afterSequence: 0);
         }
-
-        if (afterSequence < 1 || afterSequence > session.SessionSequence)
+        else if (afterSequence < 1 || afterSequence > session.SessionSequence)
         {
-            return Denied(SessionEventReplayOutcomeCodes.Reconcile);
+            result = Denied(SessionEventReplayOutcomeCodes.Reconcile);
+        }
+        else if (!AuthorizedSessionEventProjector.IsIssuedStreamCursor(session, afterSequence))
+        {
+            result = Denied(SessionEventReplayOutcomeCodes.Reconcile);
+        }
+        else
+        {
+            result = AuthorizedSessionEventProjector.Project(session, afterSequence);
         }
 
-        if (!AuthorizedSessionEventProjector.IsIssuedStreamCursor(session, afterSequence))
-        {
-            return Denied(SessionEventReplayOutcomeCodes.Reconcile);
-        }
-
-        return AuthorizedSessionEventProjector.Project(session, afterSequence);
+        var labels = SessionRuntimeTelemetryRecording.Labels(
+            (SessionRuntimeTelemetryLabelKeys.Outcome, result.OutcomeCode));
+        _telemetry.RecordCounter(SessionRuntimeTelemetryInstruments.EventReplay, labels);
+        _telemetry.RecordDuration(
+            SessionRuntimeTelemetryInstruments.EventReplay,
+            Stopwatch.GetElapsedTime(started),
+            labels);
+        return result;
     }
 
     private static bool TryParseCursor(string? untrustedLastEventId, out long afterSequence, out bool malformed)
