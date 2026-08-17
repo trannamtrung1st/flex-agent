@@ -30,11 +30,17 @@ FlexAgent.slnx
 global.json
 src/Hosts/FlexAgent.Api/
 src/Hosts/FlexAgent.Worker/
+src/Modules/Sessions/
+src/Modules/SyntheticBrowser/
 web/
 tests/Architecture/
 tests/Runtime/
+tests/Sessions/
+tests/Integration/
 deploy/docker/
 build/scripts/
+database/migrations/
+contracts/
 ```
 
 The workspace grows by implemented capability. Do not create placeholder
@@ -137,12 +143,16 @@ deploy them.
 | Gate | Status |
 | --- | --- |
 | `GATE-STACK-RUNTIME` | Partial — local/API/worker/SPA build, health endpoints, publish, and OCI runtime inspection verified locally; blocking CI enforces **linux/amd64** OCI builds; **linux/arm64** is deferred to non-blocking architecture certification |
-| `GATE-STACK-MODULES` | Partial — composition-root, browser/backend, and `FlexAgent.CanonicalJson` dependency-boundary checks |
+| `GATE-STACK-MODULES` | Partial — composition-root, browser/backend, Sessions ownership, and `FlexAgent.CanonicalJson` dependency-boundary checks |
 | `GATE-STACK-SUPPLY` | Partial — lock files, checksum-verified scanner install, shipped-artifact SBOM/Grype/Gitleaks, and license inventory |
 | `GATE-STACK-OPERABILITY` | Partial — liveness/readiness and graceful work-claim stop only |
-| `GATE-STACK-SCHEMA` | Partial — **artifact 3 in progress**: canonical Draft 2020-12 catalog (7 representative + 4 digest schemas), fixtures, C#/TypeScript mappings, OpenAPI projection, and contract tests; HTTP runtime validation remains deferred |
-| `GATE-STACK-JCS` | Partial — **artifact 3 in progress**: language-neutral ADR-001/ADR-004/Evidence-set fixtures with independent .NET and Node verification; production normalization builders remain deferred |
-| `GATE-STACK-HTTP`, `GATE-STACK-POSTGRES`, `GATE-STACK-ISOLATION`, `GATE-STACK-PROVIDERS`, `GATE-STACK-ARTIFACTS`, `GATE-STACK-SESSION`, `GATE-STACK-BROWSER` | Deferred — later sequenced artifacts |
+| `GATE-STACK-SCHEMA` | Partial — canonical Draft 2020-12 catalog including Session runtime, Decision v1/v2, digest, Evidence locator, audit, and SSE schemas, with fixtures, C#/TypeScript mappings, OpenAPI projection, and contract tests; HTTP runtime request validation remains deferred |
+| `GATE-STACK-JCS` | Partial — language-neutral ADR-001/ADR-004/Evidence-set and manifest-seal fixtures with independent .NET and Node verification; production normalization builders remain deferred |
+| `GATE-STACK-POSTGRES` | Partial — Grate empty/repeat/changed-script plus Session runtime migrations `0005`–`0020` and scoped repository isolation/concurrency tests against PostgreSQL 18; backup/restore and full-module isolation remain later |
+| `GATE-STACK-ISOLATION` | Partial — Sessions protected repositories require complete ownership tuples and have wrong-scope/guessed-id tests; organization-wide kernel, list/count, and background-work matrices remain later |
+| `GATE-STACK-SESSION` | Partial — synthetic SSE reconnect/replay preserves Session sequence; production opaque application-session rotation/revocation and HTTP SSE host wiring remain later |
+| `GATE-STACK-BROWSER` | Partial — static SPA build plus Playwright MCP on the synthetic Participant Text Session; authenticated production journey and NGINX-hosted e2e in CI remain later |
+| `GATE-STACK-HTTP`, `GATE-STACK-PROVIDERS`, `GATE-STACK-ARTIFACTS` | Deferred — OIDC/HTTP contract suite, live provider adapters, and SeaweedFS remain later sequenced artifacts |
 
 Focused verification for schema/JCS infrastructure:
 

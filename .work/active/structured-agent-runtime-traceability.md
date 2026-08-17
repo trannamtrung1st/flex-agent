@@ -3,7 +3,7 @@ id: structured-agent-runtime-traceability
 parent_task: structured-agent-runtime-sync
 status: in-progress
 created: 2026-08-11
-updated: 2026-08-15
+updated: 2026-08-17
 ---
 
 # Structured Agent runtime — executable traceability and threat model
@@ -11,8 +11,9 @@ updated: 2026-08-15
 Companion matrix for `.work/active/structured-agent-runtime-sync.md`. Maps each
 in-scope obligation to authoritative aggregates, transaction boundaries,
 authorization, idempotency keys, browser-safe projections, tests, and security
-controls. Implementation surfaces are **planned targets** until linked evidence
-exists in this task's verification table.
+controls. Surfaces below are implemented unless a residual is named. Authoritative
+feature-spec Status remains `Partial` or `Gap` where host, provider, or
+production-UI gates are open.
 
 ## Multi-channel output decision dependency
 
@@ -68,7 +69,7 @@ Examples: `PT30S`, `PT5M`, `PT1H`, `PT24H`. Wire shape is validated by
 | `REQ-SESS-63`, `69`, `SESS-DEC-16`, `21` | Invocation + execution attempts | Claim → provider (ext) → outcome TX | Worker service identity | Invocation id + attempt ordinal | None | One Decision on success | Timeout/malformed → outcome, no Decision |
 | `REQ-SESS-64`–`67`, `70`, `78`–`85`, `AC-SESS-42`–`48`, `SESS-DEC-17`–`19`, `23`, `29`–`35` | Successor Decision envelope + validation/effect; v1 dual-read | Decision commit; independent per-item output vs action validation; separate effect TX | Reauth at effect | Decision id + output id + effect idempotency | `session.agent.work.v1` resolved state | `respond`+one message / `no_action`+zero outputs; timer action independent; mixed valid message + rejected voice | Schema-invalid → execution outcome, no Decision; schema-valid `respond` + zero valid outputs → Decision rejection, not `no_action`; typed `voice` parses then fails P0 profile; extra message/audience/id rejected per item without voiding siblings |
 | `REQ-SESS-55`–`60`, `AC-SESS-32`, ADR-011 | Fragments + completion linked to output id | Per-fragment TX; completion TX; replay hydration Repeatable Read; worker content-phase after accepted `message` | Service at publish; production HTTP SSE / ADR-002 kernel / 60s revalidation remain host work (`REQ-SESS-59` not complete until then) | `(agent_output_id, agent_message_id, fragment_sequence)`; reconnect `Last-Event-ID` only if it matches a persisted fragment or seal sequence (not delivery acknowledgement) | `session.agent.fragment.v1`, `session.agent.complete.v1` | Ordered replay; delta and cumulative suffix publication; bound and split-markup rejection | Gap/duplicate/cutoff; client “shown” facts ignored; in-range non-stream sequence reconciles; oversized/rate/count/assembled/in-flight reject without mutation; prefix divergence / post-visibility crash or cancel seals incomplete (cancel uses independent cleanup token); zero-fragment `Completed` cancels claimed path; unpaired surrogates fail closed |
-| `REQ-SESS-71`–`77`, `AC-SESS-38`–`41`, `SESS-DEC-24`–`28` | `TimerScheduleRevision` on `SessionRuntime` (in-memory); PostgreSQL `session_timer_schedules` persist remains later | Domain replacement/fire; persist TX later | Scheduler service (later worker) | `expected_schedule_revision` | None (UI-SESS-DEC-14) | `OneLaneTimerSchedulerTests` default arm, replace, fire once, successor | Two pending / double fire / stale revision / pause fire / cutoff rearm |
+| `REQ-SESS-71`–`77`, `AC-SESS-38`–`41`, `SESS-DEC-24`–`28` | `TimerScheduleRevision` on `SessionRuntime`; PostgreSQL `session_timer_schedules` via `0016` | Domain replacement/fire plus `PostgresFireDueTimerCoordinator` / lifecycle persist | Scheduler service (Worker due-claim polling remains idle) | `expected_schedule_revision` | None (UI-SESS-DEC-14) | `OneLaneTimerSchedulerTests` and persist/due-claim tests | Two pending / double fire / stale revision / pause fire / cutoff rearm; `BudgetExhausted` ACK |
 | `UI-SESS-DEC-13` | Turn + work projection | Effect commit couples turn terminalization | N/A | Turn/slot id | Work SSE + optional neutral status | No-action resolves without Agent message | No raw `no_action` in DOM |
 | `UI-SESS-DEC-14` | Timer lane internal | Schedule TX | Scheduler | Revision + session order | Agent work states only when visible work | Timer-triggered message path | No synthetic Participant message |
 | `UI-SESS-DEC-15` | Browser-safe projection | Effect/SSE only | N/A | Session cursor | Existing message/no-action states | Envelope internals hidden | No voice/shared-workspace/reviewer UI |
@@ -110,20 +111,20 @@ projections remain in `web/src/contracts/v1.ts`.
 ## Residual risks (tracked)
 
 - Production OIDC and live provider adapters remain out of scope; deterministic
-  fake adapter proves boundary only.
+  fake adapter proves the model-execution boundary only.
 - Numeric timer policy values come from frozen configuration fixtures in tests,
   not from code constants.
-- Successor `agent-decision.v2` schema, C#/TS DTOs, and v1 dual-read mapping
-  landed 2026-08-14. Additive migrations `0010`/`0011` persist per-item
-  output/action validation and accepted-item effect ownership; hydrated
-  PostgreSQL Decisions still reconstruct the P0 v1 discriminator
-  (`emit_message`/`no_action`) alongside v2 envelope JSON.
-- Voice, Interaction Controller, TTS, and rich-content UI remain P2 authoring
-  work after the MVP slice works end to end.
-- Worker content-phase currently commits fragments on the loaded Session
-  aggregate. `PostgresPublishAgentResponseCoordinator` is the durable persist
-  path and is not yet invoked from `DurableInvocationWorkProcessor`. The idle
-  Worker host is unchanged. Provider-cursor stream resume is not implemented;
-  after first visibility, interrupted delta generation seals `Incomplete`.
-  External review of `303a11f` (2026-08-15) approved the in-memory processor
-  recovery semantics; coordinator wiring must retain them.
+- Worker host registers `IdleDurableInvocationWorkProcessor`. Durable claim,
+  Decision, fragment, timer, and manifest coordinators exist but are not the
+  production Worker loop. `PostgresPublishAgentResponseCoordinator` is not
+  invoked from that idle host.
+- Production HTTP `/sessions/{id}/events`, ADR-002 kernel enforcement, and
+  60-second revocation revalidation remain host work (`REQ-SESS-59` incomplete).
+- Organization-wide in-flight stream caps, buffered-uncommitted provider byte
+  caps beyond assembled size, and generation-timeout content cancellation remain
+  later.
+- Host OTLP/Collector export and a concurrent timer-storm load lab remain later.
+- Backup/restore and authorized reconstruction labs have not been run.
+- Voice, Interaction Controller, TTS, and rich-content UI remain P2.
+- When due-timer polling is wired, design poison-row/backoff for permanent
+  `LifecycleIneligible` instead of default `RetryLater`.

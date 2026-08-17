@@ -964,12 +964,18 @@ journey.
 
 ## Verification notes
 
-This documentation-only change does not have a meaningful red/green TDD phase
-and does not claim browser or visual verification. After implementation exists,
-verification must combine component tests, server contract tests, negative
+The Participant live surface is implemented against the non-authoritative
+synthetic browser adapter. Component tests, Runtime SSE tests, and Playwright
+MCP journeys cover send, fragments, no-action, timer-triggered work, pause,
+reconnect, complete confirmation, permission loss, and reconnecting at desktop
+and narrow widths. That evidence does not satisfy production HTTP SSE,
+OIDC application-session, administrator control, pre-start acknowledgment, or
+the 60-second revocation target.
+
+Remaining verification must still combine server contract tests, negative
 authorization/isolation tests, concurrency and idempotency tests, fault
-injection, accessibility checks, and the project Playwright MCP workflow through
-real interactions.
+injection, accessibility checks, and Playwright through real interactions on
+any newly hosted production path.
 
 Playwright evidence must use synthetic data, remain under `.playwright-mcp/`,
 and cover desktop and narrow layouts for at least:
@@ -1020,9 +1026,13 @@ no-action journeys.
 
 ## Downstream gaps and review needed
 
-- Frontend implementation, backend/UI state contracts, automated tests, and
-  Playwright evidence remain delivery gaps; preparation of this specification
-  does not imply implementation or release readiness.
+- Participant Text Session UI, browser-safe work/message contracts, focused
+  tests, and Playwright MCP evidence exist on the synthetic adapter. Remaining
+  delivery gaps are production HTTP SSE and ADR-002 kernel wiring, OIDC
+  application-session, pre-start acknowledgment, administrator Session control,
+  assigned-review terminal history, 60-second revocation, and warning-schedule
+  presentation. This specification remains the interaction authority; synthetic
+  coverage is not production release readiness.
 - The approved [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md)
   consumes only the authorized immutable terminal transcript/cutoff and does
   not add live-Session controls or expose review state to the Participant.

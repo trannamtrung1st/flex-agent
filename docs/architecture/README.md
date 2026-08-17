@@ -36,9 +36,9 @@ Session publication boundary is revised by
 upload, application-session, lifecycle, and recovery-placement policy. The
 approved [Result and Release interaction specification](../ui-ux/result-release.md)
 completes the P0 surface interaction set. The shared
-[design system](../ui-ux/design-system/README.md) is approved. ADR-008 component
-compatibility evidence, machine-readable contract
-schemas/fixtures, and production evidence remain staged work as mapped in the
+[design system](../ui-ux/design-system/README.md) is approved. Session runtime
+machine-readable schemas and fixtures exist. ADR-008 provider qualification
+and remaining production evidence remain staged work as mapped in the
 approved overview.
 
 [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md)

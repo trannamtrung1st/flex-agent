@@ -199,21 +199,22 @@ defaults are approved — see
 [ADR-009](../architecture/decisions/ADR-009-mvp-session-evaluation-review-contracts.md).
 The P0 Activity journey and all five P0 surface interaction specifications,
 including [Result and Release](../ui-ux/result-release.md), are also approved.
-Continue provider-independent scaffold work and the first
-authorization/configuration vertical slice defined by
+Continue remaining production gates after the Sessions runtime slice defined by
 [ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#traceability-and-downstream-work).
 Structured Agent Invocation/Decision, next-timer, and P0-compatible output
-envelope implementation may now proceed against approved Concept model v0.5,
-MVP scope v0.4, current approved feature specifications,
+envelope behavior exists in Sessions, contracts, PostgreSQL, and the synthetic
+Participant path; live providers, production HTTP SSE, and Worker polling
+remain host gates against approved Concept model v0.5, MVP scope v0.4, current
+approved feature specifications,
 [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md),
 [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md),
 and
-[ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md),
-subject to their machine-readable contract and verification gates.
+[ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md).
 In parallel, complete ADR-008's applicable compatibility and
-provider-credential evidence, qualify at least one concrete provider deployment
-profile for each claimed execution profile without making its model a product
-dependency, and complete the remaining machine-readable schemas/fixtures. An
+provider-credential evidence and qualify at least one concrete provider
+deployment profile for each claimed execution profile without making its model
+a product dependency. Canonical Session runtime schemas and fixtures exist;
+HTTP runtime validation and live-provider contract suites remain open. An
 affected integration must pass its gates before acceptance or real use; the
 production pilot must pass the broader evidence gates in
 [MVP architecture implementation readiness](../architecture/mvp-architecture.md#implementation-readiness).
