@@ -68,7 +68,7 @@ fragment and seal.
 - [x] Ready-copy and composition tests; focused then proportionate regression
 - [x] P2 follow-up: crash/recovery coverage over the real publication persist
       boundary (fragment/seal persist then crash, lease-renew fail, persist fail
-      after in-memory handler mutation)
+      after in-memory handler mutation, unpublished-failure persist then crash)
 
 # Current state
 
@@ -117,6 +117,14 @@ Content-phase complete is blocked until fragment and seal persist succeed.
   `PostgresPublishAgentResponseCoordinator`. The processor still applies domain
   handlers locally, then persists through the port. Mid-stream reclaim after a
   durable fragment seals `Incomplete` rather than restarting the delta stream.
+  Zero-fragment `Completed` persist-cancels the claimed turn/slot as unpublished
+  failure; crash after that persist reconciles the work row on reclaim.
+
+# External review
+
+- `53280d1` (2026-08-17): approve with P2 — crash/recovery still used pass-through persist.
+- `09cdf37` (2026-08-17): **approved**. P2 resolved. Optional leftover:
+  unpublished-failure persist crash/reclaim; closed in this follow-up.
 
 # Verification
 
@@ -129,7 +137,7 @@ Content-phase complete is blocked until fragment and seal persist succeed.
 | Focused Sessions | passed | `FlexAgent.Sessions.Tests` 413/413 |
 | Architecture | passed | `FlexAgent.Architecture.Tests` 30/30 |
 | Runtime | passed | `FlexAgent.Runtime.Tests` 74/74 |
-| Crash/recovery claim | passed | `DurableInvocationWorkCrashRecoveryTests` 12/12 after P2 persist-boundary tests. Red: pass-through persist left `AgentMessages` empty after crash (`Persisted_fragment_survives_crash_before_work_acknowledgement`). Green: coordinator-backed fragment/seal crash, lease-renew fail, and persist-fail-after-local-mutation. |
+| Crash/recovery claim | passed | `DurableInvocationWorkCrashRecoveryTests` 13/13. Red: pass-through persist left `AgentMessages` empty after crash. Green: coordinator-backed fragment/seal/unpublished-failure crash, lease-renew fail, and persist-fail-after-local-mutation. External review of `09cdf37` (2026-08-17): **approved**; optional unpublished-failure crash case added here. |
 | Whitespace | passed | `git diff --check` clean |
 
 # Blockers

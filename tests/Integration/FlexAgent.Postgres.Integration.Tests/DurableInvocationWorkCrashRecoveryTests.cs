@@ -343,6 +343,51 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     }
 
     [Fact]
+    public async Task Crash_after_unpublished_failure_persist_reconciles_without_a_second_provider_call()
+    {
+        var prepared = await PrepareRespondWorkAsync("msg.crash.unpub", "turn.crash.unpub");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
+        var persist = new FaultInjectingPublicationPersistPort(CreatePublicationPersist())
+        {
+            ThrowAfterNextUnpublishedFailurePersist = 1,
+        };
+        var adapter = new CountingModelExecutionPort(
+            EnqueueRespond(
+                prepared.InvocationId,
+                "adec.crash.unpub00001",
+                new ModelContentCompleted()));
+        var processor = CreateProcessor(
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            CreateGateway(prepared),
+            adapter,
+            prepared,
+            persist);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            processor.TryProcessNextAsync(CancellationToken));
+        var crashed = await LoadSessionAsync(prepared);
+        Assert.Empty(crashed.AgentMessages);
+        Assert.False(crashed.HasOpenAgentContentPublication(prepared.InvocationId));
+        Assert.Equal(TurnStates.Cancelled, crashed.Turns[0].State);
+        Assert.Equal(ResponseSlotStates.Cancelled, crashed.Turns[0].ResponseSlot.State);
+        Assert.Equal(DurableSessionWorkStates.Claimed, await ReadWorkStateAsync(prepared.Binding.Ownership));
+        Assert.Equal(1, adapter.ExecuteCount);
+
+        await ExpireLeaseAsync(prepared.Binding.Ownership);
+        var recovered = await processor.TryProcessNextAsync(CancellationToken);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.Reconciled, recovered.Outcome);
+        Assert.Equal(InvocationCompletionOutcomeCodes.AlreadyTerminal, recovered.CompletionOutcomeCode);
+        Assert.Equal(DurableSessionWorkStates.Completed, await ReadWorkStateAsync(prepared.Binding.Ownership));
+        Assert.Equal(1, adapter.ExecuteCount);
+        var recoveredSession = await LoadSessionAsync(prepared);
+        Assert.Empty(recoveredSession.AgentMessages);
+        Assert.False(recoveredSession.HasOpenAgentContentPublication(prepared.InvocationId));
+        Assert.Equal(TurnStates.Cancelled, recoveredSession.Turns[0].State);
+        Assert.Equal(ResponseSlotStates.Cancelled, recoveredSession.Turns[0].ResponseSlot.State);
+    }
+
+    [Fact]
     public async Task Concurrent_workers_complete_two_independent_sessions()
     {
         var first = await PrepareAdmittedWorkAsync("trig.crash.w1", "idem.crash.w1");
@@ -651,7 +696,8 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
 
     private static DeterministicFakeModelExecutionAdapter EnqueueRespond(
         string invocationId,
-        string decisionId)
+        string decisionId,
+        params ModelContentEvent[] content)
     {
         var adapter = new DeterministicFakeModelExecutionAdapter();
         adapter.EnqueueEnvelope(
@@ -675,7 +721,10 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
                 [],
                 null,
                 null));
-        adapter.EnqueueContent(new ModelContentTextDelta("Hi"), new ModelContentCompleted());
+        adapter.EnqueueContent(
+            content.Length == 0
+                ? [new ModelContentTextDelta("Hi"), new ModelContentCompleted()]
+                : content);
         return adapter;
     }
 
@@ -816,6 +865,8 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
 
         public int ThrowAfterNextSealPersist { get; set; }
 
+        public int ThrowAfterNextUnpublishedFailurePersist { get; set; }
+
         public async Task<AgentResponseFragmentCommitResult> PersistFragmentAsync(
             PublishAgentResponseFragmentCommand command,
             TrustedSessionBinding binding,
@@ -857,13 +908,37 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             TrustedSessionBinding binding,
             long expectedSessionVersion,
             SessionRuntime session,
-            CancellationToken cancellationToken) =>
-            inner.TryPersistUnpublishedFailureAsync(
+            CancellationToken cancellationToken)
+        {
+            return PersistUnpublishedFailureThenMaybeThrowAsync(
                 ownership,
                 binding,
                 expectedSessionVersion,
                 session,
                 cancellationToken);
+        }
+
+        private async Task<bool> PersistUnpublishedFailureThenMaybeThrowAsync(
+            SessionOwnership ownership,
+            TrustedSessionBinding binding,
+            long expectedSessionVersion,
+            SessionRuntime session,
+            CancellationToken cancellationToken)
+        {
+            var persisted = await inner.TryPersistUnpublishedFailureAsync(
+                ownership,
+                binding,
+                expectedSessionVersion,
+                session,
+                cancellationToken);
+            if (ThrowAfterNextUnpublishedFailurePersist > 0)
+            {
+                ThrowAfterNextUnpublishedFailurePersist--;
+                throw new InvalidOperationException("Injected crash after unpublished-failure persist.");
+            }
+
+            return persisted;
+        }
     }
 
     private sealed class CountingModelExecutionPort(IModelExecutionPort inner) : IModelExecutionPort
