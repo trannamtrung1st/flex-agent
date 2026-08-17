@@ -1019,6 +1019,17 @@ and test reviews have no unresolved blocking findings.
         fail-closed. CI red: `Session_runtime_tables_exist_with_session_prefix`
         omitted `session_durable_work_claim_partitions`. Residual:
         history-scale `EXPLAIN`/index.
+  - [x] External review of `da5a848` (2026-08-17): **approved**, no blocking
+        findings. Closes `f4f248c` → `c861da6` → `e15ed80` request-changes.
+        Freeze `0019` at this version; do not rewrite it. Do not iterate this
+        observability/fair-claiming correctness slice. History-scale claim
+        `EXPLAIN`/index remains a later performance gate, not a reason to
+        reopen `0019`. GitHub exposed no PR-triggered Actions runs for
+        `da5a848` at review time; local evidence was `CI=true` Release
+        849/849.
+  - [ ] History-scale claim `EXPLAIN`/index and sampled backlog gauges
+        (`QA-6`/`QA-12` performance). Host OTLP/Collector export and a
+        concurrent timer-storm load lab remain later composition-root work.
 - [>] Integrate focused and aggregate verification: contract/catalog/OpenAPI
   parity, architecture tests, Sessions domain tests, PostgreSQL 18 migration/
   isolation/concurrency/fault tests, API/worker runtime tests, locked web
@@ -1094,14 +1105,16 @@ columns, then re-enables it; configuration/manifest are FK-bound to the
 Session. Databases that recorded `ddd7c0a`'s earlier `0018` hash cannot
 apply current `0018` and must be rebuilt. External review of `8db143c`
 (2026-08-17): **approved**, no blocking findings. Freeze `0018` at
-`8db143c`; do not edit it. Bounded observability is implemented
-(2026-08-17): sanitizing application telemetry, Org/Activity fair
-durable-work claiming, and 20-sample admission/replay p95 evidence.
-Host OTLP export through the OpenTelemetry Collector and a concurrent
-timer-storm load lab remain later. Next is aggregate verification.
+`8db143c`; do not edit it. Bounded observability and fair claiming are
+**approved** at `da5a848` (2026-08-17): no blocking findings. Closes
+`f4f248c` → `c861da6` → `e15ed80`. Freeze `0019` at `da5a848`; do not
+rewrite it. Stop iterating this correctness slice. History-scale claim
+`EXPLAIN`/index is a later performance gate. Host OTLP export through
+the OpenTelemetry Collector and a concurrent timer-storm load lab remain
+later. Next is aggregate verification.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
-**approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0018`
+**approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0019`
 unchanged.
 
 One-lane scheduler **cutoff/terminal lifecycle persist and timer-fire ACK**
@@ -1289,10 +1302,11 @@ surfaces.
   Organization/Activity partitions by least-recently-**claimed** compact
   `session_durable_work_claim_partitions` state (`0019`), seeded from
   in-flight claimed work after the claim-boundary trigger is installed.
-  `0019` is a claim-worker compatibility boundary: drain completed-history
-  (`f4f248c`) claim workers before enabling this scheduler. The trigger
-  records claims from any UPDATE to `claimed` so **new** workers respect
-  them; it cannot change how a legacy worker selects its next head.
+  `0019` is frozen at `da5a848` and is a claim-worker compatibility
+  boundary: drain completed-history (`f4f248c`) claim workers before
+  enabling this scheduler. The trigger records claims from any UPDATE to
+  `claimed` so **new** workers respect them; it cannot change how a legacy
+  worker selects its next head.
   Open-set labels (`trigger_family`, `transition`, `decision_type`) coerce
   to `unknown`. Worker polls do not `COUNT(*)` the claimable backlog.
   Admission
@@ -2284,7 +2298,7 @@ surfaces.
 | Web lint/type/unit/build/e2e | local web CI script passed; Playwright e2e not in GitHub web job | `bash build/scripts/verify-web.sh` (2026-08-17): frozen install, boundary check, contracts JCS 8/8, eslint warning-only `react-refresh/only-export-components` in `web/src/api/browser-api.tsx`, `tsc -b --noEmit`, vitest 55/55, production build. GitHub Implementation `web` job matches this script and does not run Playwright e2e. |
 | Playwright accessibility/responsive/visual evaluation | passed live MCP | Prior journey set plus 2026-08-17 confirmation/disabled-button, trap, and `29cde55` restore: desktop/390 Complete trigger focus after Continue and Escape. Artifact dir `.playwright-mcp/`. |
 | Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | local CI-equivalent passed (2026-08-17); GitHub push not claimed | `git diff --check` clean; `python3 scripts/check_docs.py` passed. `verify-web.sh` as above. `verify-dotnet.sh`: 775/775, Release publish, no `appsettings.Development.json`. `gitleaks detect` no leaks. NuGet `--vulnerable --include-transitive` none. `pnpm audit --audit-level=high` exit 0 (2 moderate). Native OCI `flex-agent-oci-{api,worker,spa}:local`. CI-shaped `linux/amd64` `flex-agent-{api,worker,spa}:linux-amd64`. `scan-oci-image-sboms.sh` exit 0 (`--fail-on critical`; SPA Alpine `tiff` High recorded, not critical). GitHub Implementation/Documentation workflows are not claimed from this machine. |
-| Bounded observability and fair claiming (`AC-SESS-27`, `QA-6`, `QA-12`, `REQ-OPS-23`) | remediating `e15ed80` locally | Telemetry P2 from `c861da6` remains resolved (`unknown` not `rejected`). `e15ed80` review: seed-before-trigger race (P1) and overstated mixed-version fairness (P2). Green: trigger-before-seed plus `SHARE ROW EXCLUSIVE` lock; held-claim `0018→0019` captures A1 then new claimer takes B; `f4f248c` claim SQL twice takes A1 then A2; recorded `c861da6` and `e15ed80` `0019` fail-closed. Schema inventory includes `session_durable_work_claim_partitions`. Confirm (2026-08-17): `CI=true` Release restore/build 0/0; `dotnet test --solution FlexAgent.slnx --no-build -c Release` 849/849. Drain pre-partition claim workers before enabling `0019`. Residual: sampled backlog; history-scale `EXPLAIN`/index; Collector/OTLP; timer-storm. Databases that applied earlier `0019` hashes cannot migrate in place. |
+| Bounded observability and fair claiming (`AC-SESS-27`, `QA-6`, `QA-12`, `REQ-OPS-23`) | passed; **approved** `da5a848` | External review of `da5a848` (2026-08-17): **approved**, no blocking findings. Closes `f4f248c` → `c861da6` → `e15ed80`. Freeze `0019` at `da5a848`; do not rewrite it. Do not iterate this correctness slice. Local evidence at `da5a848`: `CI=true` Release 849/849. GitHub exposed no PR-triggered Actions runs for that SHA at review time. Residual performance gate: history-scale claim `EXPLAIN`/index, sampled backlog, Collector/OTLP, timer-storm. Databases that applied earlier `0019` hashes cannot migrate in place. |
 | Performance, observability, lifecycle/export, backup/restore verification | observability passed locally; lifecycle/export/backup still pending | See bounded observability row. Lifecycle/export/backup remain the later aggregate gate. |
 | Architecture/backend/frontend/security/privacy/QA review | pending | |
 | Final specification and repository consistency audit | pending | |
@@ -2320,13 +2334,12 @@ slice. Production-shaped internal end-to-end proof is implemented
 binding. `ddd7c0a` request-changes: populated `0017→0018` backfill and
 configuration/manifest binding. External review of `8db143c` (2026-08-17):
 **approved**, no blocking findings. Freeze `0018`. External review of
-`e15ed80` requested changes: install `0019` trigger before seed (P1) and
-constrain mixed-version overlap (P2). `0019` now locks `session_durable_work`,
-creates the trigger, then seeds with `ON CONFLICT`. Drain pre-partition
-claim workers; the trigger records legacy claims for compatible claimers
-only. Databases that applied `c861da6` or `e15ed80` `0019` cannot migrate
-in place. History-scale claim `EXPLAIN`/index remains residual. Aggregate
-verification is next after this slice is reviewed.
+`da5a848` (2026-08-17): **approved**, no blocking findings. Closes
+`f4f248c` → `c861da6` → `e15ed80`. Freeze `0019` at `da5a848`; do not
+rewrite it. Stop iterating this observability/fair-claiming correctness
+slice. History-scale claim `EXPLAIN`/index is a later performance gate.
+GitHub exposed no PR-triggered Actions runs for `da5a848` at review time.
+Aggregate verification is next.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
