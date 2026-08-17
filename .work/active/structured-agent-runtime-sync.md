@@ -7,21 +7,33 @@ updated: 2026-08-17
 
 # Goal
 
-Bring every currently executable Flex Agent surface into conformance with the
-approved structured Agent Invocation/Decision and one-lane next-timer contracts
-before unrelated product work starts. Deliver a production-shaped, durable
-Session runtime slice plus matching canonical contracts, synthetic-browser
-behavior, Participant UI states, and repeatable evidence for trusted trigger
-admission, exactly-one successful Decision envelope or execution outcome, explicit
-`no_action`, durable P0 `message` output, historical v1 reconstruction, and
-optional bounded timer replacement.
+Closed milestone (reconciled 2026-08-17 after review P2 on `6689b6a`): a
+**production-shaped Session runtime foundation**, not a live Worker/API host.
+Deliver canonical contracts, Sessions domain/application, PostgreSQL `0005`–
+`0020`, a deterministic model-execution port, durable claim/lease stores,
+ADR-011 persist/replay **coordinators**, one-lane timer persist/due-claim,
+synthetic-browser Participant behavior, Text Session UI on that harness,
+internal manifest seal/handoff proof, and bounded observability. Independent
+reviews of that foundation have 0 blocking findings.
 
-Completion is an implementation gate, not a contract-only milestone: DTOs,
-schemas, or synthetic UI changes alone do not satisfy this task. The task is
-complete only when all in-scope requirements are mapped to working code and
-tests, the existing implementation surfaces no longer contradict the approved
-documents, and independent backend, frontend, architecture, security/privacy,
-and test reviews have no unresolved blocking findings.
+Host composition is **out of this closed milestone**. Successor tasks own:
+
+- `.work/active/session-runtime-worker-host-wiring.md` — leave Idle until
+  `DurableInvocationWorkProcessor` persists fragments through
+  `PostgresPublishAgentResponseCoordinator`; then claim polling, due-timer
+  fire with poison-row ACK, and honest `/health/ready` copy
+- `.work/active/session-runtime-production-http-sse.md` — production HTTP
+  `/sessions/{id}/events`, ADR-002 kernel, 60-second revalidation (`REQ-SESS-59`)
+
+Live providers, OIDC, backup/restore/export labs, OTLP Collector export, and
+timer-storm load remain later production gates, not this file.
+
+Original planning goal (history only): bring every currently executable
+surface into conformance, including hosted worker processing and ADR-011
+publication/replay on the running Worker/API. That host wiring was deferred
+(Idle processor, unwired content loop) and is no longer a completion gate
+here. DTOs or synthetic UI alone still do not satisfy the **foundation**
+milestone; domain, PostgreSQL, and tested coordinators must exist.
 
 # Governing sources
 
@@ -279,6 +291,26 @@ and test reviews have no unresolved blocking findings.
 - Commits, pushes, pull requests, deployments, or releases unless separately
   requested.
 
+## Closed-milestone boundary (2026-08-17)
+
+The In list above is the original plan. This file **closes** on the tested
+foundation (domain, PostgreSQL, coordinators, synthetic Participant surface).
+These original In bullets are **not** completion gates here; they moved to
+successor tasks or later production gates:
+
+- Hosted Worker processing of `invocation.execute` (processor stays Idle)
+- Wiring ADR-011 fragment persist/publication into the hosted content loop
+- Hosted due-timer polling and `lifecycle_ineligible` poison-row ACK
+- Production HTTP `/sessions/{id}/events` and ADR-002 60-second revalidation
+- Honest Worker `/health/ready` copy while the processor is idle
+- Applying lifecycle/export/backup labs to new records
+- Hosted p95/timer-storm load labs and OTLP Collector export
+- Frozen-policy rehydration from production configuration sources
+- Live model providers (already Out)
+
+Successors: `session-runtime-worker-host-wiring`,
+`session-runtime-production-http-sse`.
+
 # Acceptance and verification mapping
 
 | Obligation | Implementation surface | Planned verification |
@@ -295,6 +327,8 @@ and test reviews have no unresolved blocking findings.
 | Security/privacy and operations | Composite scope constraints, server-derived context, minimized records/logs/metrics, authorization/audit, bounded worker/scheduler, lifecycle/export controls | Guessed-ID and cross-scope query/cache/event/work/replay matrix; prompt/content cannot establish authority/timing; service authorization and revocation; current authorization for SSE/replay and the approved 60-second access-narrowing target; retention/export/backup and sensitive-data/log snapshots; timer storm/backpressure; database-time/clock-skew/restart fault injection; bounded metric labels; append-only history |
 | Performance and observability | Metrics/traces/alerts, claim fairness, load and failure harnesses | Applicable admission/reconnect p95 objective; time-to-first durable fragment and commit-to-display latency; Organization/Activity fair claiming; backlog, scheduler drift, restart, provider slowness, and post-cutoff alerts without sensitive/high-cardinality labels |
 | Repository and documentation consistency | Schema catalog, C#/TS/OpenAPI parity, module/architecture rules, docs status tables | Contract fixture/parity suites; architecture dependency tests; `check_docs.py`; no stale `implementation TBD` or false implementation claim; reviewer traceability audit |
+
+Closed-milestone evidence for the rows above is domain, PostgreSQL, coordinators, and synthetic UI. Hosted Worker claim/content-loop persist, due-timer poll, production HTTP SSE, 60-second revalidation, timer-storm, and backup/restore labs are successor or later-gate evidence, not this file's completion gates.
 
 # Plan
 
@@ -1114,13 +1148,21 @@ and test reviews have no unresolved blocking findings.
   - [x] Final confirmation (2026-08-17): architecture 30/30;
         `WorkerRuntimeTests` 10/10; `check_docs.py` passed. User confirmed
         freeze with honest Partial host/SSE/provider residuals.
+  - [x] Review P2 on `6689b6a` (2026-08-17): `completed` contradicted the
+        original host-wiring completion gate. Reconciled Goal/Scope/Completion
+        to the foundation milestone; successor tasks named. No runtime change.
 - [x] Complete the work-freeze gate: reconcile planned versus actual changes,
-  confirm every in-scope row is implemented and verified rather than merely
-  documented or simulated, mark only truthful partial/deferred production
-  gates, update this task to `completed`, and obtain user confirmation before
+  confirm every **closed-milestone** row is implemented and verified rather
+  than merely documented, mark host/SSE/provider wiring as successor tasks,
+  update this task to `completed`, and obtain user confirmation before
   moving to an unrelated new item.
 
 # Current state
+
+This task is **completed** on the narrowed foundation milestone. Next
+unrelated product work may start. Host wiring is **not** implied: start
+`.work/active/session-runtime-worker-host-wiring.md` or
+`.work/active/session-runtime-production-http-sse.md` only when prioritized.
 
 Synthetic adapter slice is **approved** at `71a7721` (2026-08-16):
 0 High / 0 Medium / 0 Low. Closes `a1dc86f` P2. Combined CI is not
@@ -1199,8 +1241,9 @@ gates. Specification-status reconcile and DoS-traceability wording are
 `8c150c1`. GitHub exposed no combined statuses or PR-triggered workflow
 runs for `598def2` at review time. Independent architecture, backend,
 frontend, security/privacy, and QA review of HEAD `d9de65e` (2026-08-17):
-**approve, 0 blocking findings.** Work freeze is **completed** with honest
-Partial host/SSE/provider residuals (user confirmed 2026-08-17).
+**approve, 0 blocking findings.** Work freeze is **completed** on the
+narrowed foundation milestone (P2 on `6689b6a` reconciled). Host/SSE
+wiring lives in successor tasks.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker invocation processing stays idle.
@@ -2394,6 +2437,12 @@ surfaces.
   `verify-dotnet.sh` **861/861** and `verify-web.sh` 60/60; no blocking
   spec/code contradiction found. In-scope Session/RSC status stays
   `Partial`. Aggregate count is 861, not the earlier 856 snapshot.
+- Review P2 on `6689b6a` (2026-08-17): `status: completed` contradicted the
+  original In-scope host-wiring gate. Remediation is work-state only: Goal,
+  closed-milestone boundary, and Completion now match the foundation that
+  was actually delivered. Hosted Worker/content-loop/timer-poll and
+  production HTTP SSE are successor tasks, not silent Partials inside a
+  completed original contract.
 
 # Verification
 
@@ -2452,7 +2501,7 @@ surfaces.
 | API/worker/provider/scheduler runtime tests | partial | Worker host remains idle (`IdleDurableInvocationWorkProcessor`). Processor, claim/lease, timer-fire, and synthetic Runtime suites passed in prior rows. Live provider and host polling are later. |
 | Web lint/type/unit/build/e2e | local web CI script passed; Playwright e2e not in GitHub web job | `bash build/scripts/verify-web.sh` (2026-08-17): vitest 60/60, production build. GitHub Implementation `web` job matches this script and does not run Playwright e2e. |
 | Performance, observability, lifecycle/export, backup/restore verification | observability passed locally; lifecycle/export/backup still pending | See bounded observability row. Lifecycle/export/backup remain later production gates. |
-| Final specification and repository consistency audit | passed; **approved** `598def2` | Feature-spec Status rows for in-scope Session/RSC obligations are `Partial` or left `Gap`. Product next-step copy, workspace gates, UI downstream gaps, and docs maturity no longer claim the runtime is unimplemented. External review of `598def2` (2026-08-17): **approved**, 0 P0 / 0 P1 / 0 P2. Closes `8c150c1`. DoS verification is Partial (fair-claim/backpressure tests; timer-storm lab pending). Independent specialist reviews of HEAD `d9de65e` approved with 0 blocking findings; work freeze completed with honest Partials. |
+| Final specification and repository consistency audit | passed; **approved** `598def2`; freeze P2 reconciled | Feature-spec Status rows for in-scope Session/RSC obligations are `Partial` or left `Gap`. Independent specialist reviews of HEAD `d9de65e` approved with 0 blocking findings. `6689b6a` P2: `completed` now means the foundation milestone; hosted Worker/SSE moved to successor tasks. |
 | Architecture/backend/frontend/security/privacy/QA review | passed; 0 blocking; confirmation green | HEAD `d9de65e` plus confirmation (2026-08-17). Architecture/backend/security/frontend/QA: 0 blocking. Confirmation: architecture included in `verify-dotnet.sh` **861/861**; web 60/60; `check_docs.py` passed. Specs remain `Partial` for in-scope Session/RSC rows. Residuals unchanged: fragment persist not in worker content loop; HTTP SSE/`REQ-SESS-59` unhosted; ready copy vs idle processor; `lifecycle_ineligible`→RetryLater if polling enabled; unbounded synthetic SSE P3. |
 | Provider credential/no-fallback and manifest append/seal/handoff tests | passed E2E; **approved** `8db143c` | Credential no-fallback remains the earlier domain/port evidence. Manifest append/seal/handoff (2026-08-17): `ManifestTerminalizationTests` 20/20; Sessions 387/387; architecture 29/29; Postgres 169/169 including populated `0017→0018` handoff backfill (append-only trigger re-enabled), recorded `ddd7c0a` `0018` checksum fail-closed, and configuration/manifest tamper FKs; Node JCS 8/8 unchanged. External review of `8db143c` (2026-08-17): **approved**, no blocking findings. Closes `aa424f3` → `f1122dc` → `ddd7c0a`. Freeze `0018` at this version; further schema is `0019`. GitHub exposed no commit statuses or PR-triggered workflow runs for `8db143c` at review time. Honest gap: full ADR-005 Attempt/Submission start and `REQ-RSC-30` initial-manifest field set are still out of this Sessions slice; InsertActive plus binding refs is the committed-readiness stand-in. Repeated pause/resume on the same revision records the first `.paused`/`.resumed` only (append-if-absent protected ref). Pre-0017 terminal rows remain NULL-procedure/unsealed and are not evaluation-eligible. Databases that applied `aa424f3`'s unfrozen `0017` or `ddd7c0a`'s unfrozen `0018` cannot migrate in place. |
 | Playwright accessibility/responsive/visual evaluation | passed live MCP | Prior journey set plus 2026-08-17 confirmation/disabled-button, trap, and `29cde55` restore: desktop/390 Complete trigger focus after Continue and Escape. Artifact dir `.playwright-mcp/`. |
@@ -2500,15 +2549,16 @@ Specification-status reconcile and DoS-traceability wording are
 `8c150c1`. GitHub exposed no combined statuses or PR-triggered workflow
 runs for `598def2` at review time. Independent architecture, backend,
 frontend, security/privacy, and QA reviews of HEAD `d9de65e` (2026-08-17):
-**approve, 0 blocking findings.** Work freeze is **completed** with honest
-Partial host/SSE/provider residuals (user confirmed 2026-08-17).
+**approve, 0 blocking findings.** Work freeze is **completed** on the
+narrowed foundation milestone (P2 on `6689b6a` reconciled). Host/SSE
+wiring lives in successor tasks.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
 
-# Work-freeze reconciliation (2026-08-17, user confirmed)
+# Work-freeze reconciliation (2026-08-17, P2 boundary reconciled)
 
-Planned In-scope vs delivered at `d9de65e`:
+Planned original In vs delivered foundation at `d9de65e` / freeze `6689b6a`:
 
 | Planned | Actual |
 | --- | --- |
@@ -2517,9 +2567,9 @@ Planned In-scope vs delivered at `d9de65e`:
 | Frozen runtime policy / credential no-fallback | Delivered in domain/port; live provider Out |
 | PostgreSQL Session runtime `0005`–`0020` | Delivered; `0005`–`0019` frozen; `0020` additive |
 | Model-execution port + deterministic fake | Delivered; no live provider |
-| Worker processing / ADR-011 fragments | Application + Postgres coordinators exist; **Worker host idle**; content-phase not wired to publication coordinator |
-| One-lane timer | Domain + persist + due-claim exist; **host does not poll** |
-| Synthetic adapter + Text Session UI | Delivered; Participant evidence is synthetic; UI approved |
+| Worker processing / ADR-011 fragments | Application + Postgres coordinators exist; **Worker host idle**; content-phase not wired. Successor: `session-runtime-worker-host-wiring` |
+| One-lane timer | Domain + persist + due-claim exist; **host does not poll**. Successor: `session-runtime-worker-host-wiring` |
+| Synthetic adapter + Text Session UI | Delivered; Participant evidence is synthetic; UI approved. Production HTTP SSE successor: `session-runtime-production-http-sse` |
 | Internal production-shaped E2E (manifest/handoff) | Delivered inside Sessions/Postgres |
 | Observability / fair claiming | Delivered; OTLP Collector later |
 | Lifecycle/export/backup on new records | **Later production gate** (intentional) |
@@ -2527,17 +2577,20 @@ Planned In-scope vs delivered at `d9de65e`:
 
 Honest Partial / later gates (do not call Implemented): Worker invocation and due-timer polling; fragment persist in the hosted content loop; production HTTP `/sessions/{id}/events` and ADR-002 60s revalidation (`REQ-SESS-59`); frozen-policy rehydration from production configuration sources; live providers; backup/restore/export; timer-storm load lab; OTLP export; full ADR-005 Attempt start.
 
-The completion row “no contract-only or synthetic-only gap” stays **unchecked**: the approved runtime kernel is executable in domain/Postgres tests, but the hosted API/Worker/Participant path is still synthetic or idle. That matches feature-spec `Partial` rows. This task is **completed** as a work freeze with those gates recorded, not as a claim that hosts are live.
+The original completion row “no contract-only or synthetic-only gap remains for the approved runtime boundary” is **out of this closed milestone**. Hosted API SSE, Worker polling, and production Participant journeys are successor work. This file is **completed** as the foundation freeze, not as a claim that hosts are live.
 
 # Completion
 
-- [x] Planned work is reconciled with actual changes
-- [x] Every in-scope requirement/acceptance/decision maps to implemented code
-      and repeatable evidence **or** an explicit Partial/later gate in specs
-      and this task
-- [ ] No contract-only or synthetic-only gap remains for the approved runtime
-      boundary (hosted API SSE, Worker polling, and Participant journeys remain
-      synthetic or idle; domain/Postgres is not synthetic)
+- [x] Planned work is reconciled with actual changes (original host-wiring
+      In bullets moved to successor tasks; Goal/Completion match the
+      foundation that was delivered)
+- [x] Every **closed-milestone** requirement maps to implemented code and
+      repeatable evidence (contracts, Sessions domain, PostgreSQL `0005`–
+      `0020`, coordinators, synthetic Participant UI, seal/handoff,
+      observability)
+- [x] Closed-milestone verification is not contract-only: domain, PostgreSQL,
+      and synthetic UI have tests. Hosted Worker/SSE remain successor tasks,
+      not hidden as completed In-scope
 - [x] Applicable focused tests pass (confirmation: `verify-dotnet.sh`
       **861/861**; `verify-web.sh` vitest 60/60)
 - [x] Applicable PostgreSQL concurrency, restart, isolation, and fault tests pass
@@ -2548,17 +2601,19 @@ The completion row “no contract-only or synthetic-only gap” stays **unchecke
       handoff are verified end to end
 - [x] Applicable integration/regression checks pass (`verify-dotnet` 861/861,
       `verify-web`, `check_docs`). Supply-chain/OCI remain the earlier
-      same-day record, not this confirmation.
-- [ ] Applicable latency/backpressure, bounded observability, lifecycle/export,
-      and backup/restore checks pass (observability/fair-claim Partial;
-      timer-storm, export, backup later)
+      same-day record, not this confirmation. GitHub statuses are not claimed
+      for `6689b6a`
+- [ ] Successor/later: latency/timer-storm, OTLP Collector, lifecycle/export,
+      and backup/restore labs
 - [x] Playwright accessibility and visual verification passes for affected UI
       states (prior MCP at `87471fc`; not re-shot at `d9de65e`)
 - [x] Governing product, requirements, technical, architecture, and UI/UX
       specifications were rechecked and implementation status is truthful
-- [x] Independent review findings are resolved and reverified (0 blocking;
-      residuals recorded, not implemented)
+      (`Partial` for Session/RSC while hosts stay unwired)
+- [x] Independent review findings are resolved and reverified (0 runtime
+      blockers; `6689b6a` P2 work-state inconsistency remediated here)
 - [x] Remaining unrelated production gates or unverified behavior are recorded
+      as successor tasks or later gates
 - [x] Task state is safe and complete for external review and retained tracking
 - [x] No unrelated new item starts before this completion gate or explicit user
-      reprioritization
+      reprioritization (successors named; do not start them from this file)
