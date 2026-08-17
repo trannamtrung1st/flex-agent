@@ -704,6 +704,10 @@ public sealed class OneLaneTimerSchedulerTests
         Assert.Equal(TimerLaneStates.Expired, session.TimerSchedules[0].LaneState);
         Assert.Equal(0, session.PendingTimerCount);
         Assert.Equal("ainv.timer.1", Assert.Single(session.Invocations).AgentInvocationId);
+        Assert.Contains(
+            session.ManifestRuntimeRecords,
+            record => record.RecordType == ManifestRuntimeRecordTypes.TimerEventV1
+                && record.PayloadRef.ProtectedRef == "tsrev.poison.expired");
     }
 
     private static FrozenTextSessionRuntimePolicy ResolveTimerPolicy(

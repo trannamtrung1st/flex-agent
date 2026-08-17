@@ -45,7 +45,10 @@ public sealed partial class SessionRuntime
         IReadOnlyList<VisibleTranscriptItemRef> transcript,
         IReadOnlyDictionary<string, DateTimeOffset> lastAdmittedAtByFamily,
         IReadOnlyList<AgentResponseMessage> agentMessages,
-        IReadOnlyList<TimerScheduleRevision> timerSchedules)
+        IReadOnlyList<TimerScheduleRevision> timerSchedules,
+        IReadOnlyList<ManifestRuntimeRecord> manifestRecords,
+        SessionTerminalRecord? terminalRecord,
+        EvaluationHandoff? evaluationHandoff)
     {
         Binding = binding;
         Ownership = binding.Ownership;
@@ -59,6 +62,9 @@ public sealed partial class SessionRuntime
         _visibleTranscript.AddRange(transcript);
         _agentMessages.AddRange(agentMessages);
         _timerSchedules.AddRange(timerSchedules);
+        _manifestRuntimeRecords.AddRange(manifestRecords);
+        TerminalRecord = terminalRecord;
+        EvaluationHandoff = evaluationHandoff;
         foreach (var pair in lastAdmittedAtByFamily)
         {
             _lastAdmittedAtByFamily[pair.Key] = pair.Value;
@@ -132,7 +138,10 @@ public sealed partial class SessionRuntime
         IReadOnlyList<VisibleTranscriptItemRef>? transcript = null,
         IReadOnlyDictionary<string, DateTimeOffset>? lastAdmittedAtByFamily = null,
         IReadOnlyList<AgentResponseMessage>? agentMessages = null,
-        IReadOnlyList<TimerScheduleRevision>? timerSchedules = null)
+        IReadOnlyList<TimerScheduleRevision>? timerSchedules = null,
+        IReadOnlyList<ManifestRuntimeRecord>? manifestRecords = null,
+        SessionTerminalRecord? terminalRecord = null,
+        EvaluationHandoff? evaluationHandoff = null)
     {
         ArgumentNullException.ThrowIfNull(binding);
         if (!IsUtc(lastCommittedAt))
@@ -152,7 +161,10 @@ public sealed partial class SessionRuntime
             transcript ?? [],
             lastAdmittedAtByFamily ?? new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal),
             agentMessages ?? [],
-            timerSchedules ?? []);
+            timerSchedules ?? [],
+            manifestRecords ?? [],
+            terminalRecord,
+            evaluationHandoff);
     }
 
     internal void ReplaceLastCommittedAtFromDatabase(DateTimeOffset lastCommittedAt)
@@ -240,6 +252,7 @@ public sealed partial class SessionRuntime
         {
             TrackTurn(_turns.First(turn => string.Equals(turn.TurnId, turnId, StringComparison.Ordinal)));
             TrackTranscript(participantTranscript);
+            AppendTranscript(participantMessageId, TranscriptAuthorTypes.Participant, authoritativeUtc);
         }
 
         return result;
@@ -331,6 +344,7 @@ public sealed partial class SessionRuntime
             NextSequence(authoritativeUtc));
         _invocations.Add(invocation);
         _lastAdmittedAtByFamily[trigger.TriggerFamily] = authoritativeUtc;
+        AppendInvocationAdmission(invocation, authoritativeUtc);
         SessionVersion++;
 
         return new TriggerAdmissionResult(
@@ -350,6 +364,11 @@ public sealed partial class SessionRuntime
         }
 
         FreezeOpenTimerRemaining(authoritativeUtc, wasActive: true);
+        foreach (var revision in _timerSchedules.Where(item => item.LaneState == TimerLaneStates.Pending))
+        {
+            AppendTimerEvent(revision, "paused", authoritativeUtc);
+        }
+
         LifecycleState = SessionLifecycleState.Paused;
         Touch(authoritativeUtc);
     }
@@ -366,6 +385,7 @@ public sealed partial class SessionRuntime
         foreach (var revision in _timerSchedules.Where(item => item.LaneState == TimerLaneStates.Pending))
         {
             revision.ResumeRemaining(authoritativeUtc);
+            AppendTimerEvent(revision, "resumed", authoritativeUtc);
         }
 
         Touch(authoritativeUtc);
@@ -383,7 +403,7 @@ public sealed partial class SessionRuntime
 
         LifecycleState = SessionLifecycleState.Completing;
         CutoffSequence = SessionSequence;
-        CancelOpenTimerLane();
+        CancelOpenTimerLane(authoritativeUtc);
         SealOpenAgentMessagesIncomplete(authoritativeUtc);
         foreach (var turn in _turns)
         {
@@ -402,8 +422,11 @@ public sealed partial class SessionRuntime
             return;
         }
 
-        LifecycleState = SessionLifecycleState.Completed;
-        Touch(authoritativeUtc);
+        CommitTerminal(
+            SessionLifecycleState.Completed,
+            TerminalReasonCategories.ParticipantCompleted,
+            AttemptTerminalMappings.Completed,
+            authoritativeUtc);
     }
 
     public void Terminate(DateTimeOffset authoritativeUtc)
@@ -414,8 +437,11 @@ public sealed partial class SessionRuntime
             return;
         }
 
-        LifecycleState = SessionLifecycleState.Terminated;
-        Touch(authoritativeUtc);
+        CommitTerminal(
+            SessionLifecycleState.Terminated,
+            TerminalReasonCategories.AuthorizedTermination,
+            AttemptTerminalMappings.Aborted,
+            authoritativeUtc);
     }
 
     public void Abort(DateTimeOffset authoritativeUtc)
@@ -428,9 +454,8 @@ public sealed partial class SessionRuntime
             return;
         }
 
-        LifecycleState = SessionLifecycleState.Aborted;
         CutoffSequence ??= SessionSequence;
-        CancelOpenTimerLane();
+        CancelOpenTimerLane(authoritativeUtc);
         SealOpenAgentMessagesIncomplete(authoritativeUtc);
         foreach (var turn in _turns)
         {
@@ -438,7 +463,11 @@ public sealed partial class SessionRuntime
             TrackTurn(turn);
         }
 
-        Touch(authoritativeUtc);
+        CommitTerminal(
+            SessionLifecycleState.Aborted,
+            TerminalReasonCategories.UnrecoverableFailure,
+            AttemptTerminalMappings.Aborted,
+            authoritativeUtc);
     }
 
     public InvocationCompletionResult CompleteInvocation(
@@ -490,6 +519,7 @@ public sealed partial class SessionRuntime
         ValidateDecision(agentInvocationId, authoritativeUtc);
         var applied = ApplyDecisionEffect(agentInvocationId, authoritativeUtc);
         invocation.MarkPipelineComplete();
+        AppendInvocationOutcome(invocation, authoritativeUtc);
         ArmDefaultSuccessorIfTimerTerminal(invocation, authoritativeUtc);
         if (applied.OutcomeCode == InvocationCompletionOutcomeCodes.EffectFailed)
         {
@@ -549,6 +579,7 @@ public sealed partial class SessionRuntime
         invocation.AttachExecutionOutcome(outcome, NextSequence(authoritativeUtc), AgentInvocationStatuses.ExecutionFailed);
         SessionVersion++;
         outcome.BindCommitState(SessionVersion, invocation.SessionSequence);
+        AppendInvocationOutcome(invocation, authoritativeUtc);
         ArmDefaultSuccessorIfTimerTerminal(invocation, authoritativeUtc);
         return new InvocationCompletionResult(
             true,
@@ -595,6 +626,7 @@ public sealed partial class SessionRuntime
         invocation.AttachExecutionOutcome(outcome, NextSequence(authoritativeUtc), AgentInvocationStatuses.ExecutionFailed);
         SessionVersion++;
         outcome.BindCommitState(SessionVersion, invocation.SessionSequence);
+        AppendInvocationOutcome(invocation, authoritativeUtc);
         ArmDefaultSuccessorIfTimerTerminal(invocation, authoritativeUtc);
         return new InvocationCompletionResult(
             true,
@@ -1360,6 +1392,7 @@ public sealed partial class SessionRuntime
         invocation.AttachExecutionOutcome(outcome, NextSequence(authoritativeUtc), AgentInvocationStatuses.Cancelled);
         SessionVersion++;
         outcome.BindCommitState(SessionVersion, invocation.SessionSequence);
+        AppendInvocationOutcome(invocation, authoritativeUtc);
         return new InvocationCompletionResult(
             true,
             InvocationCompletionOutcomeCodes.LateResult,
@@ -1546,6 +1579,7 @@ public sealed partial class SessionRuntime
         var sealedSessionSequence = NextSequence(authoritativeUtc);
         message.Seal(completionState, sealedSessionSequence, authoritativeUtc);
         TrackPublication(message);
+        AppendTranscript(message.MessageId, TranscriptAuthorTypes.Agent, authoritativeUtc);
         var turn = FindTurn(message.TurnId);
         if (turn is { State: TurnStates.WorkQueued })
         {

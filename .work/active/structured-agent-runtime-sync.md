@@ -917,13 +917,32 @@ and test reviews have no unresolved blocking findings.
   Text Session UI chain `f7e0f99` → `ea91b1c` → `29cde55` → `87471fc`.
   Lint-only follow-up `66a07e5`. Stop iterating this UI slice; unbounded
   synthetic SSE stays P3.
-- [>] Complete the production-shaped internal end-to-end proof from committed
+- [x] Complete the production-shaped internal end-to-end proof from committed
   readiness and immutable Session binding through `Active`, trusted Participant
   and Agent-initiated triggers, no-action/message effects, timer replacement,
   pause/cutoff/terminalization, manifest runtime append and terminal seal, and
   eligible Evaluation handoff. Inject audit/manifest/seal failures and prove an
   honest recoverable state with no post-cutoff publication or false handoff.
-- [ ] Add and verify bounded observability and performance coverage: admission/
+  - [x] Red — `ManifestTerminalizationTests` failed to compile for missing
+        seal/handoff types (2026-08-17).
+  - [x] Green — append-only `model.invocation.v1` / `transcript.append.v1` /
+        `timer.event.v1` records; `manifest-jcs-sha256-v1` matches the ADR-001
+        fixture digest; Completed is eligible; Terminated/Aborted seal as
+        ineligible; altered records fail verification; additive `0017`;
+        PostgreSQL E2E from InsertActive through eligible handoff; audit-fault
+        Complete remains `completing` with no handoff row.
+  - [x] Consistency review remediations (2026-08-17): outcome records use
+        stable `DecisionType` (not CLR type names); execution-failure,
+        attempts-exhausted, and late-result paths append `.outcome`;
+        pause/resume/budget-expire append `timer.event.v1`; lifecycle
+        seal/handoff audit is keyed off pending-insert flags captured
+  - [x] Confirmation pass (2026-08-17): no new blockers. Re-ran Sessions
+        378/378, architecture 29/29, and Postgres 157/157. Seal audit still
+        captures pending flags before persist; outcome/timer provenance
+        paths remain wired. Residuals unchanged: ADR-005/`REQ-RSC-30`
+        stand-in; first pause/resume per revision only; Abort cancels
+        timers before seal compute.
+- [>] Add and verify bounded observability and performance coverage: admission/
   rejection and effect categories, no-action, duplicate/stale/late work,
   fragment latency/integrity, backlog/claims, timer drift/outcomes/budgets,
   cutoff attempts, audit/manifest faults, alert recovery, and Organization/
@@ -986,11 +1005,17 @@ Lint-only follow-up `66a07e5` moved `onCancelRef` updates into an effect
 so Implementation `web` eslint can pass (`react-hooks/refs`). Combined
 GitHub statuses are not claimed for `87471fc`. Unbounded synthetic SSE
 channels stay a P3 harness residual. Stop polishing this Text Session
-slice; production-shaped internal end-to-end proof is next.
+slice. Production-shaped internal end-to-end proof is implemented
+(2026-08-17): additive `0017` persist, `manifest-jcs-sha256-v1` seal,
+eligible handoff only for `Completed`, and audit-fault recovery that
+leaves `completing` with no handoff. Consistency review remediations
+(2026-08-17) closed DecisionType digest, execution-failure/late/exhausted
+outcome append, pause/resume/expire timer provenance, pending-flag seal
+audit, and Terminate persist. Next is bounded observability.
 
 Independent-action follow-up (`SESS-DEC-35`, `AC-SESS-43`) remains
 **approved** at `053de74`. Worker host stays idle. Frozen `0005`–`0016`
-unchanged.
+unchanged; additive `0017` is the manifest/handoff schema.
 
 One-lane scheduler **cutoff/terminal lifecycle persist and timer-fire ACK**
 is **approved** at `1c11744`. External review (2026-08-16) **approved:
@@ -2150,7 +2175,7 @@ surfaces.
 | Concurrent empty-database Grate `pg_type` collision | passed; postgres; bundled in **approved** `18c9193` | Red (2026-08-15): `RunAsync_retries_transient_pg_type_catalog_collision` threw without retry. Green: retry classification 4/4; concurrent empty+migrated `RunAsync` 2/2; `GrateToolMigrationTests` 12/12. Frozen `0001` unchanged. `RunAsync` holds `pg_advisory_lock(727001, 1)` and retries `pg_type_typname_nsp_index` / `pg_class_relname_nsp_index`. Application unique violations are not retried. Reviewed with `18c9193`: no blocking issue. |
 | Worker OCI COPY of Sessions graph | passed; deploy | Red: `HostOciDockerfileTests` failed because `worker.Dockerfile` did not COPY Sessions, CanonicalJson, or embedded Decision schemas (2026-08-14). Green: architecture 29/29; local `docker build -f deploy/docker/worker.Dockerfile` restored/published Worker without skipping Sessions. |
 | API/worker/provider/scheduler runtime tests | pending | |
-| Provider credential/no-fallback and manifest append/seal/handoff tests | pending | |
+| Provider credential/no-fallback and manifest append/seal/handoff tests | partial; E2E proof green after consistency remediations | Credential no-fallback remains the earlier domain/port evidence. Manifest append/seal/handoff (2026-08-17): `ManifestTerminalizationTests` 11/11; Sessions 378/378; architecture 29/29; Postgres 157/157 including `SessionRuntimeEndToEndProofTests` 5/5 and Grate one-time script count 17. Additive `0017` (frozen `0005`–`0016` unchanged). Honest gap: full ADR-005 Attempt/Submission start and `REQ-RSC-30` initial-manifest field set are still out of this Sessions slice; InsertActive plus binding refs is the committed-readiness stand-in. Repeated pause/resume on the same revision records the first `.paused`/`.resumed` only (append-if-absent protected ref). |
 | Web lint/type/unit/build/e2e | local web CI script passed; Playwright e2e not in GitHub web job | `bash build/scripts/verify-web.sh` (2026-08-17): frozen install, boundary check, contracts JCS 8/8, eslint warning-only `react-refresh/only-export-components` in `web/src/api/browser-api.tsx`, `tsc -b --noEmit`, vitest 55/55, production build. GitHub Implementation `web` job matches this script and does not run Playwright e2e. |
 | Playwright accessibility/responsive/visual evaluation | passed live MCP | Prior journey set plus 2026-08-17 confirmation/disabled-button, trap, and `29cde55` restore: desktop/390 Complete trigger focus after Continue and Escape. Artifact dir `.playwright-mcp/`. |
 | Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | local CI-equivalent passed (2026-08-17); GitHub push not claimed | `git diff --check` clean; `python3 scripts/check_docs.py` passed. `verify-web.sh` as above. `verify-dotnet.sh`: 775/775, Release publish, no `appsettings.Development.json`. `gitleaks detect` no leaks. NuGet `--vulnerable --include-transitive` none. `pnpm audit --audit-level=high` exit 0 (2 moderate). Native OCI `flex-agent-oci-{api,worker,spa}:local`. CI-shaped `linux/amd64` `flex-agent-{api,worker,spa}:linux-amd64`. `scan-oci-image-sboms.sh` exit 0 (`--fail-on critical`; SPA Alpine `tiff` High recorded, not critical). GitHub Implementation/Documentation workflows are not claimed from this machine. |
@@ -2182,7 +2207,9 @@ race and modal focus containment) are implemented locally (2026-08-17).
 → `29cde55` → `87471fc`. Lint-only `66a07e5` is the Implementation `web`
 eslint follow-up. Combined GitHub statuses were not claimed for `87471fc`.
 Unbounded synthetic SSE remains P3. Do not iterate this Text Session UI
-slice; production-shaped internal end-to-end proof is next.
+slice. Production-shaped internal end-to-end proof is implemented
+(2026-08-17), including consistency remediations for outcome/timer
+provenance and pending-flag seal audit. Bounded observability is next.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.
@@ -2198,7 +2225,7 @@ other deferred channels remain out of scope.
 - [ ] Applicable PostgreSQL concurrency, restart, isolation, and fault tests pass
 - [ ] Scoped provider/credential no-fallback behavior and credential non-
       disclosure are verified
-- [ ] Manifest runtime append/seal, terminal recovery, and eligible Evaluation
+- [x] Manifest runtime append/seal, terminal recovery, and eligible Evaluation
       handoff are verified end to end
 - [ ] Applicable integration/regression and full repository checks pass
 - [ ] Applicable latency/backpressure, bounded observability, lifecycle/export,

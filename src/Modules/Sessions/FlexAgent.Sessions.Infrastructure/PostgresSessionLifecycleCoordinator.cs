@@ -70,6 +70,8 @@ public sealed class PostgresSessionLifecycleCoordinator(
             var pendingSeals = session.PendingPublicationWork
                 .Where(message => message.SealDirty)
                 .ToArray();
+            var terminalPendingInsert = session.TerminalRecordPendingInsert;
+            var handoffPendingInsert = session.EvaluationHandoffPendingInsert;
             var saved = await runtimeRepository.TrySaveLifecycleAsync(
                 command.Ownership,
                 command.ExpectedSessionVersion,
@@ -115,6 +117,40 @@ public sealed class PostgresSessionLifecycleCoordinator(
                         message.MessageId,
                         message.CompletionState,
                         message.AssembledContentDigest),
+                    authoritativeUtc,
+                    scope.Transaction,
+                    cancellationToken);
+            }
+
+            if (terminalPendingInsert && session.TerminalRecord is { } terminal)
+            {
+                await SessionRuntimePersistenceAudit.WriteAsync(
+                    _auditEventWriter,
+                    _outboxItemWriter,
+                    command.Actor,
+                    command.Ownership,
+                    command.CorrelationId,
+                    command.SourceChannel,
+                    SessionRuntimeAuditActions.SealManifest,
+                    SessionRuntimeOutboxEventTypes.ManifestSealed,
+                    terminal.SealDigest,
+                    authoritativeUtc,
+                    scope.Transaction,
+                    cancellationToken);
+            }
+
+            if (handoffPendingInsert && session.EvaluationHandoff is { } handoff)
+            {
+                await SessionRuntimePersistenceAudit.WriteAsync(
+                    _auditEventWriter,
+                    _outboxItemWriter,
+                    command.Actor,
+                    command.Ownership,
+                    command.CorrelationId,
+                    command.SourceChannel,
+                    SessionRuntimeAuditActions.RecordEvaluationHandoff,
+                    SessionRuntimeOutboxEventTypes.EvaluationHandoffRecorded,
+                    $"{handoff.Eligibility}:{handoff.HandoffId}",
                     authoritativeUtc,
                     scope.Transaction,
                     cancellationToken);

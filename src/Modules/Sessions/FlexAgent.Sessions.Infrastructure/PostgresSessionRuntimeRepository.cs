@@ -146,6 +146,105 @@ public sealed class PostgresSessionRuntimeRepository
         ORDER BY schedule_revision_ordinal, schedule_revision;
         """;
 
+    private const string LoadManifestRuntimeSql = """
+        SELECT
+            manifest_sequence,
+            record_type,
+            service_actor,
+            occurred_at,
+            protected_ref,
+            content_digest,
+            session_sequence
+        FROM session_manifest_runtime_records
+        WHERE organization_id = @OrganizationId
+          AND activity_id = @ActivityId
+          AND participant_id = @ParticipantId
+          AND attempt_id = @AttemptId
+          AND session_id = @SessionId
+        ORDER BY manifest_sequence;
+        """;
+
+    private const string LoadTerminalRecordSql = """
+        SELECT
+            terminal_record_id,
+            lifecycle_state,
+            reason_category,
+            attempt_mapping,
+            cutoff_sequence,
+            procedure_id,
+            seal_digest
+        FROM session_terminal_records
+        WHERE organization_id = @OrganizationId
+          AND activity_id = @ActivityId
+          AND participant_id = @ParticipantId
+          AND attempt_id = @AttemptId
+          AND session_id = @SessionId;
+        """;
+
+    private const string LoadEvaluationHandoffSql = """
+        SELECT
+            handoff_id,
+            eligibility,
+            terminal_state,
+            cutoff_sequence,
+            configuration_id,
+            configuration_digest,
+            manifest_id,
+            seal_digest
+        FROM session_evaluation_handoffs
+        WHERE organization_id = @OrganizationId
+          AND activity_id = @ActivityId
+          AND participant_id = @ParticipantId
+          AND attempt_id = @AttemptId
+          AND session_id = @SessionId;
+        """;
+
+    private const string InsertManifestRuntimeSql = """
+        INSERT INTO session_manifest_runtime_records (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            manifest_sequence, record_type, service_actor, occurred_at,
+            protected_ref, content_digest, session_sequence)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @ManifestSequence, @RecordType, @ServiceActor, @OccurredAt,
+            @ProtectedRef, @ContentDigest, @SessionSequence)
+        ON CONFLICT (organization_id, session_id, record_type, protected_ref) DO NOTHING;
+        """;
+
+    private const string InsertManifestRefSql = """
+        INSERT INTO session_manifest_refs (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            ref_kind, protected_ref, content_digest)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @RefKind, @ProtectedRef, @ContentDigest)
+        ON CONFLICT (organization_id, session_id, ref_kind, protected_ref) DO NOTHING;
+        """;
+
+    private const string InsertTerminalRecordSql = """
+        INSERT INTO session_terminal_records (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            terminal_record_id, lifecycle_state, reason_category, attempt_mapping,
+            cutoff_sequence, procedure_id, seal_digest)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @TerminalRecordId, @LifecycleState, @ReasonCategory, @AttemptMapping,
+            @CutoffSequence, @ProcedureId, @SealDigest)
+        ON CONFLICT (organization_id, session_id) DO NOTHING;
+        """;
+
+    private const string InsertEvaluationHandoffSql = """
+        INSERT INTO session_evaluation_handoffs (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            handoff_id, eligibility, terminal_state, cutoff_sequence,
+            configuration_id, configuration_digest, manifest_id, seal_digest)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @HandoffId, @Eligibility, @TerminalState, @CutoffSequence,
+            @ConfigurationId, @ConfigurationDigest, @ManifestId, @SealDigest)
+        ON CONFLICT (organization_id, session_id) DO NOTHING;
+        """;
+
     private const string InsertTimerScheduleSql = """
         INSERT INTO session_timer_schedules (
             organization_id, activity_id, participant_id, attempt_id, session_id,
@@ -613,6 +712,8 @@ public sealed class PostgresSessionRuntimeRepository
 
         session.ReplaceLastCommittedAtFromDatabase(lastCommittedAt);
         await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
+        await PersistBindingManifestRefsAsync(ownership, session, transaction, cancellationToken);
+        await PersistManifestAndTerminalAsync(ownership, session, transaction, cancellationToken);
     }
 
     public Task<SessionRuntime?> LoadForUpdateAsync(
@@ -694,6 +795,12 @@ public sealed class PostgresSessionRuntimeRepository
             new CommandDefinition(LoadAgentFragmentsSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
         var timerRows = (await connection.QueryAsync<SessionTimerScheduleRow>(
             new CommandDefinition(LoadTimerSchedulesSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
+        var manifestRows = (await connection.QueryAsync<SessionManifestRuntimeRow>(
+            new CommandDefinition(LoadManifestRuntimeSql, commandArgs, transaction, cancellationToken: cancellationToken))).AsList();
+        var terminalRow = await connection.QuerySingleOrDefaultAsync<SessionTerminalRow>(
+            new CommandDefinition(LoadTerminalRecordSql, commandArgs, transaction, cancellationToken: cancellationToken));
+        var handoffRow = await connection.QuerySingleOrDefaultAsync<SessionEvaluationHandoffRow>(
+            new CommandDefinition(LoadEvaluationHandoffSql, commandArgs, transaction, cancellationToken: cancellationToken));
 
         var invocations = invocationRows
             .Select(item => AgentInvocation.Rehydrate(
@@ -813,7 +920,10 @@ public sealed class PostgresSessionRuntimeRepository
             transcript,
             lastAdmittedAtByFamily,
             agentMessages,
-            timerRows.Select(ToTimerSchedule).ToArray());
+            timerRows.Select(ToTimerSchedule).ToArray(),
+            manifestRows.Select(ToManifestRecord).ToArray(),
+            terminalRow is null ? null : ToTerminalRecord(terminalRow),
+            handoffRow is null ? null : ToEvaluationHandoff(handoffRow));
     }
 
     public async Task<bool> TrySaveAdmissionAsync(
@@ -886,6 +996,7 @@ public sealed class PostgresSessionRuntimeRepository
                 transaction,
                 cancellationToken: cancellationToken));
         await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
+        await PersistManifestAndTerminalAsync(ownership, session, transaction, cancellationToken);
         return true;
     }
 
@@ -918,6 +1029,7 @@ public sealed class PostgresSessionRuntimeRepository
 
         await PersistTurnsAndTranscriptAsync(ownership, session, transaction, cancellationToken);
         await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
+        await PersistManifestAndTerminalAsync(ownership, session, transaction, cancellationToken);
         foreach (var attempt in invocation.Attempts)
         {
             await connection.ExecuteAsync(
@@ -1226,6 +1338,7 @@ public sealed class PostgresSessionRuntimeRepository
         await PersistTurnsAndTranscriptAsync(ownership, session, transaction, cancellationToken);
         await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
         await PersistAgentMessagesAsync(ownership, session, transaction, cancellationToken);
+        await PersistManifestAndTerminalAsync(ownership, session, transaction, cancellationToken);
         return true;
     }
 
@@ -1255,6 +1368,7 @@ public sealed class PostgresSessionRuntimeRepository
         await PersistTurnsAndTranscriptAsync(ownership, session, transaction, cancellationToken);
         await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
         await PersistAgentMessagesAsync(ownership, session, transaction, cancellationToken);
+        await PersistManifestAndTerminalAsync(ownership, session, transaction, cancellationToken);
         return true;
     }
 
@@ -1393,6 +1507,207 @@ public sealed class PostgresSessionRuntimeRepository
             revision.MarkPersisted();
         }
     }
+
+    private async Task PersistBindingManifestRefsAsync(
+        SessionOwnership ownership,
+        SessionRuntime session,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var connection = RequireConnection(transaction);
+        await InsertManifestRefAsync(
+            connection,
+            transaction,
+            cancellationToken,
+            ownership,
+            "configuration",
+            session.Binding.ConfigurationId,
+            session.Binding.ConfigurationDigest);
+        await InsertManifestRefAsync(
+            connection,
+            transaction,
+            cancellationToken,
+            ownership,
+            "manifest",
+            session.Binding.ManifestId,
+            ProtectedContentRef.DigestForReference(session.Binding.ManifestId));
+        foreach (var reference in session.Binding.PermittedSubmissionRefs)
+        {
+            await InsertManifestRefAsync(
+                connection,
+                transaction,
+                cancellationToken,
+                ownership,
+                "submission",
+                reference.ProtectedRef,
+                reference.ContentDigest);
+        }
+
+        foreach (var reference in session.Binding.PermittedKnowledgeRefs)
+        {
+            await InsertManifestRefAsync(
+                connection,
+                transaction,
+                cancellationToken,
+                ownership,
+                "knowledge",
+                reference.ProtectedRef,
+                reference.ContentDigest);
+        }
+
+        foreach (var reference in session.Binding.PermittedMemoryReadRefs)
+        {
+            await InsertManifestRefAsync(
+                connection,
+                transaction,
+                cancellationToken,
+                ownership,
+                "memory_read",
+                reference.ProtectedRef,
+                reference.ContentDigest);
+        }
+    }
+
+    private async Task InsertManifestRefAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken,
+        SessionOwnership ownership,
+        string refKind,
+        string protectedRef,
+        string contentDigest)
+    {
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                InsertManifestRefSql,
+                new
+                {
+                    ownership.OrganizationId,
+                    ownership.ActivityId,
+                    ownership.ParticipantId,
+                    ownership.AttemptId,
+                    ownership.SessionId,
+                    RefKind = refKind,
+                    ProtectedRef = protectedRef,
+                    ContentDigest = contentDigest,
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+    }
+
+    private async Task PersistManifestAndTerminalAsync(
+        SessionOwnership ownership,
+        SessionRuntime session,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var connection = RequireConnection(transaction);
+        foreach (var record in session.PendingManifestRecords)
+        {
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    InsertManifestRuntimeSql,
+                    new
+                    {
+                        ownership.OrganizationId,
+                        ownership.ActivityId,
+                        ownership.ParticipantId,
+                        ownership.AttemptId,
+                        ownership.SessionId,
+                        record.ManifestSequence,
+                        record.RecordType,
+                        record.ServiceActor,
+                        OccurredAt = record.OccurredAt.UtcDateTime,
+                        record.PayloadRef.ProtectedRef,
+                        record.PayloadRef.ContentDigest,
+                        record.SessionSequence,
+                    },
+                    transaction,
+                    cancellationToken: cancellationToken));
+            record.MarkPersisted();
+        }
+
+        if (session.TerminalRecordPendingInsert && session.TerminalRecord is { } terminal)
+        {
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    InsertTerminalRecordSql,
+                    new
+                    {
+                        ownership.OrganizationId,
+                        ownership.ActivityId,
+                        ownership.ParticipantId,
+                        ownership.AttemptId,
+                        ownership.SessionId,
+                        terminal.TerminalRecordId,
+                        LifecycleState = ToDbLifecycle(terminal.LifecycleState),
+                        terminal.ReasonCategory,
+                        terminal.AttemptMapping,
+                        terminal.CutoffSequence,
+                        terminal.ProcedureId,
+                        terminal.SealDigest,
+                    },
+                    transaction,
+                    cancellationToken: cancellationToken));
+        }
+
+        if (session.EvaluationHandoffPendingInsert && session.EvaluationHandoff is { } handoff)
+        {
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    InsertEvaluationHandoffSql,
+                    new
+                    {
+                        ownership.OrganizationId,
+                        ownership.ActivityId,
+                        ownership.ParticipantId,
+                        ownership.AttemptId,
+                        ownership.SessionId,
+                        handoff.HandoffId,
+                        handoff.Eligibility,
+                        TerminalState = ToDbLifecycle(handoff.TerminalState),
+                        handoff.CutoffSequence,
+                        handoff.ConfigurationId,
+                        handoff.ConfigurationDigest,
+                        handoff.ManifestId,
+                        handoff.SealDigest,
+                    },
+                    transaction,
+                    cancellationToken: cancellationToken));
+        }
+
+        session.MarkTerminalArtifactsPersisted();
+    }
+
+    private static ManifestRuntimeRecord ToManifestRecord(SessionManifestRuntimeRow row) =>
+        ManifestRuntimeRecord.Rehydrate(
+            row.manifest_sequence,
+            row.record_type,
+            row.service_actor,
+            ToUtc(row.occurred_at),
+            new ProtectedContentRef(row.protected_ref, row.content_digest),
+            row.session_sequence);
+
+    private SessionTerminalRecord ToTerminalRecord(SessionTerminalRow row) =>
+        new(
+            row.terminal_record_id,
+            FromDbLifecycle(row.lifecycle_state),
+            row.reason_category,
+            row.attempt_mapping,
+            row.cutoff_sequence,
+            row.procedure_id,
+            row.seal_digest);
+
+    private EvaluationHandoff ToEvaluationHandoff(SessionEvaluationHandoffRow row) =>
+        new(
+            row.handoff_id,
+            row.eligibility,
+            FromDbLifecycle(row.terminal_state),
+            row.cutoff_sequence,
+            row.configuration_id,
+            row.configuration_digest,
+            row.manifest_id,
+            row.seal_digest);
 
     private static object TimerScheduleParameters(SessionOwnership ownership, TimerScheduleRevision revision) => new
     {
@@ -1941,4 +2256,32 @@ public sealed class PostgresSessionRuntimeRepository
         int revision_ordinal,
         int item_ordinal,
         string effect_outcome);
+
+    private sealed record SessionManifestRuntimeRow(
+        long manifest_sequence,
+        string record_type,
+        string service_actor,
+        DateTime occurred_at,
+        string protected_ref,
+        string content_digest,
+        long session_sequence);
+
+    private sealed record SessionTerminalRow(
+        Guid terminal_record_id,
+        string lifecycle_state,
+        string reason_category,
+        string attempt_mapping,
+        long? cutoff_sequence,
+        string procedure_id,
+        string seal_digest);
+
+    private sealed record SessionEvaluationHandoffRow(
+        string handoff_id,
+        string eligibility,
+        string terminal_state,
+        long? cutoff_sequence,
+        string configuration_id,
+        string configuration_digest,
+        string manifest_id,
+        string seal_digest);
 }

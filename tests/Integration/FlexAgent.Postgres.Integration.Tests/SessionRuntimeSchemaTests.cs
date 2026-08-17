@@ -29,7 +29,9 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         "session_terminal_intents",
         "session_terminal_records",
         "session_durable_work",
+        "session_evaluation_handoffs",
         "session_manifest_refs",
+        "session_manifest_runtime_records",
     ];
 
     [Fact]

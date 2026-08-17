@@ -56,6 +56,7 @@ public sealed partial class SessionRuntime
             // is a safe acknowledgement for at-least-once scheduler polls, not a
             // retryable error. The coordinator must persist and commit this state.
             targeted.Expire();
+            AppendTimerEvent(targeted, "expired", authoritativeUtc);
             Touch(authoritativeUtc);
             return new TimerFireResult(false, TimerFireOutcomeCodes.BudgetExhausted, targeted);
         }
@@ -89,6 +90,7 @@ public sealed partial class SessionRuntime
         }
 
         targeted.Fire(admitted.Invocation.AgentInvocationId);
+        AppendTimerEvent(targeted, "fired", authoritativeUtc);
         return new TimerFireResult(true, TimerFireOutcomeCodes.Succeeded, targeted, admitted);
     }
 
@@ -106,17 +108,18 @@ public sealed partial class SessionRuntime
         DateTimeOffset? dueAt = LifecycleState == SessionLifecycleState.Active
             ? utc.AddSeconds(delay.TotalSeconds)
             : null;
-        _timerSchedules.Add(
-            new TimerScheduleRevision(
-                $"tsrev.{Guid.NewGuid():N}",
-                NextScheduleRevision(),
-                delay.WireValue,
-                delay.TotalSeconds,
-                dueAt,
-                utc,
-                requestedByCategory,
-                drivingDecisionId: null,
-                utc));
+        var revision = new TimerScheduleRevision(
+            $"tsrev.{Guid.NewGuid():N}",
+            NextScheduleRevision(),
+            delay.WireValue,
+            delay.TotalSeconds,
+            dueAt,
+            utc,
+            requestedByCategory,
+            drivingDecisionId: null,
+            utc);
+        _timerSchedules.Add(revision);
+        AppendTimerEvent(revision, string.Empty, utc);
     }
 
     private void ArmDefaultSuccessorIfTimerTerminal(AgentInvocation invocation, DateTimeOffset utc)
@@ -154,18 +157,25 @@ public sealed partial class SessionRuntime
             return;
         }
 
-        OpenTimerLane()?.Supersede();
-        _timerSchedules.Add(
-            new TimerScheduleRevision(
-                $"tsrev.{Guid.NewGuid():N}",
-                NextScheduleRevision(),
-                delay.WireValue,
-                delay.TotalSeconds,
-                utc.AddSeconds(delay.TotalSeconds),
-                utc,
-                TimerRequestedByCategories.AgentRecommendation,
-                invocation.Decision!.DecisionId,
-                utc));
+        var current = OpenTimerLane();
+        current?.Supersede();
+        if (current is not null)
+        {
+            AppendTimerEvent(current, "superseded", utc);
+        }
+
+        var successor = new TimerScheduleRevision(
+            $"tsrev.{Guid.NewGuid():N}",
+            NextScheduleRevision(),
+            delay.WireValue,
+            delay.TotalSeconds,
+            utc.AddSeconds(delay.TotalSeconds),
+            utc,
+            TimerRequestedByCategories.AgentRecommendation,
+            invocation.Decision!.DecisionId,
+            utc);
+        _timerSchedules.Add(successor);
+        AppendTimerEvent(successor, string.Empty, utc);
         validation.BindTimerActionEffect(applied: true);
     }
 
@@ -177,11 +187,12 @@ public sealed partial class SessionRuntime
         }
     }
 
-    private void CancelOpenTimerLane()
+    private void CancelOpenTimerLane(DateTimeOffset utc)
     {
         foreach (var revision in _timerSchedules.Where(item => item.IsOpen))
         {
             revision.Cancel();
+            AppendTimerEvent(revision, "cancelled", utc);
         }
     }
 

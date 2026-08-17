@@ -215,6 +215,11 @@ public sealed class InvocationExecutionTests
         Assert.Equal(ExecutionOutcomeCategories.AttemptsExhausted, second.ExecutionOutcome!.OutcomeCategory);
         Assert.Null(second.Decision);
         Assert.Equal(2, session.Invocations[0].Attempts.Count);
+        Assert.Contains(
+            session.ManifestRuntimeRecords,
+            record => record.PayloadRef.ProtectedRef == $"{invocationId}.outcome"
+                && record.PayloadRef.ContentDigest
+                    == ProtectedContentRef.DigestUtf8($"failed:{ExecutionOutcomeCategories.AttemptsExhausted}"));
     }
 
     [Fact]

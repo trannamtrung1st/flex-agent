@@ -165,6 +165,8 @@ public static class SessionRuntimeAuditActions
     public const string PublishAgentResponseFragment = "session.agent_response.publish";
     public const string SealAgentResponse = "session.agent_response.seal";
     public const string ChangeLifecycle = "session.lifecycle.change";
+    public const string SealManifest = "session.manifest.seal";
+    public const string RecordEvaluationHandoff = "session.evaluation_handoff.record";
 }
 
 public static class SessionRuntimeResourceTypes
@@ -181,6 +183,8 @@ public static class SessionRuntimeOutboxEventTypes
     public const string AgentFragmentCommitted = "session.agent.fragment.committed";
     public const string AgentMessageSealed = "session.agent.message.sealed";
     public const string LifecycleChanged = "session.lifecycle.changed";
+    public const string ManifestSealed = "session.manifest.sealed";
+    public const string EvaluationHandoffRecorded = "session.evaluation_handoff.recorded";
 }
 
 public static class DurableSessionWorkTypes
