@@ -122,7 +122,7 @@ public sealed class PostgresSessionLifecycleCoordinator(
                     cancellationToken);
             }
 
-            if (terminalPendingInsert && session.TerminalRecord is { } terminal)
+            if (terminalPendingInsert && session.TerminalRecord is { SealDigest: { } sealDigest } terminal)
             {
                 await SessionRuntimePersistenceAudit.WriteAsync(
                     _auditEventWriter,
@@ -133,7 +133,7 @@ public sealed class PostgresSessionLifecycleCoordinator(
                     command.SourceChannel,
                     SessionRuntimeAuditActions.SealManifest,
                     SessionRuntimeOutboxEventTypes.ManifestSealed,
-                    terminal.SealDigest,
+                    sealDigest,
                     authoritativeUtc,
                     scope.Transaction,
                     cancellationToken);

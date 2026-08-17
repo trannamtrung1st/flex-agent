@@ -601,6 +601,48 @@ public sealed class MigrationUpgradeTests
     }
 
     [Fact]
+    public async Task Upgrade_from_populated_0016_marks_pre_seal_terminal_records_legacy_unsealed()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0016ScriptName);
+
+        var seeded = await SeedPopulated0016TerminalRecordAsync(connectionString);
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var upgraded = await connection.QuerySingleAsync<(
+            string ProcedureId,
+            string? SealDigest,
+            string? ReasonCategory,
+            string? AttemptMapping,
+            long? CutoffSequence)>(
+            """
+            SELECT procedure_id, seal_digest, reason_category, attempt_mapping, cutoff_sequence
+            FROM session_terminal_records
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId;
+            """,
+            seeded);
+        Assert.Null(upgraded.ProcedureId);
+        Assert.Null(upgraded.SealDigest);
+        Assert.Null(upgraded.ReasonCategory);
+        Assert.Null(upgraded.AttemptMapping);
+        Assert.Equal(12, upgraded.CutoffSequence);
+    }
+
+    [Fact]
     public async Task Upgrade_from_populated_0005_runtime_fails_closed()
     {
         await using var container = await StartContainerAsync();
@@ -1034,6 +1076,50 @@ public sealed class MigrationUpgradeTests
         return new Populated0015TimerSeed(organizationId, defaultSessionId, recommendedSessionId, replacedSessionId);
     }
 
+    private static async Task<Populated0016TerminalSeed> SeedPopulated0016TerminalRecordAsync(
+        string connectionString)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var organizationId = Guid.NewGuid();
+        var activityId = Guid.NewGuid();
+        var participantId = Guid.NewGuid();
+        var attemptId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var digest = new string('a', 64);
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO organizations (id, created_at) VALUES (@OrganizationId, @CreatedAt);
+            INSERT INTO session_runtimes (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                configuration_id, configuration_digest, manifest_id, lifecycle_state,
+                cutoff_sequence)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'cfg-1', @Digest, 'man-1', 'completed', 12);
+            INSERT INTO session_terminal_records (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                terminal_record_id, lifecycle_state, cutoff_sequence)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                @TerminalRecordId, 'completed', 12);
+            """,
+            new
+            {
+                OrganizationId = organizationId,
+                ActivityId = activityId,
+                ParticipantId = participantId,
+                AttemptId = attemptId,
+                SessionId = sessionId,
+                TerminalRecordId = Guid.NewGuid(),
+                Digest = digest,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+
+        return new Populated0016TerminalSeed(organizationId, sessionId);
+    }
+
     private static async Task<LegacyVersionSeed> SeedLegacyVersionAsync(string connectionString)
     {
         var organizationId = Guid.NewGuid();
@@ -1236,6 +1322,8 @@ public sealed class MigrationUpgradeTests
         Guid DefaultSessionId,
         Guid RecommendedSessionId,
         Guid ReplacedSessionId);
+
+    private sealed record Populated0016TerminalSeed(Guid OrganizationId, Guid SessionId);
 
     private sealed record Populated0012PublicationSeed(
         Guid OrganizationId,

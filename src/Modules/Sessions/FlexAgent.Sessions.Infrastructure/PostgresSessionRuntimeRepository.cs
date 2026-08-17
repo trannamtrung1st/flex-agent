@@ -1695,7 +1695,7 @@ public sealed class PostgresSessionRuntimeRepository
             row.reason_category,
             row.attempt_mapping,
             row.cutoff_sequence,
-            row.procedure_id,
+            row.procedure_id ?? ManifestSealProcedures.LegacyUnsealed,
             row.seal_digest);
 
     private EvaluationHandoff ToEvaluationHandoff(SessionEvaluationHandoffRow row) =>
@@ -2269,11 +2269,11 @@ public sealed class PostgresSessionRuntimeRepository
     private sealed record SessionTerminalRow(
         Guid terminal_record_id,
         string lifecycle_state,
-        string reason_category,
-        string attempt_mapping,
+        string? reason_category,
+        string? attempt_mapping,
         long? cutoff_sequence,
-        string procedure_id,
-        string seal_digest);
+        string? procedure_id,
+        string? seal_digest);
 
     private sealed record SessionEvaluationHandoffRow(
         string handoff_id,

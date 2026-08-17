@@ -26,19 +26,38 @@ ALTER TABLE session_terminal_records
 
 ALTER TABLE session_terminal_records
     ADD CONSTRAINT chk_session_terminal_records_attempt_mapping
-        CHECK (attempt_mapping IN ('completed', 'aborted'));
+        CHECK (attempt_mapping IS NULL OR attempt_mapping IN ('completed', 'aborted'));
 
 ALTER TABLE session_terminal_records
     DROP CONSTRAINT IF EXISTS chk_session_terminal_records_seal;
 
+-- Pre-0017 rows stay NULL on the new columns. Those tables are append-only, so
+-- this migration must not fabricate a seal or rewrite historical terminal rows.
+-- NULL procedure_id + NULL seal fields is the legacy-unsealed representation.
 ALTER TABLE session_terminal_records
     ADD CONSTRAINT chk_session_terminal_records_seal
         CHECK (
-            procedure_id = 'manifest-jcs-sha256-v1'
-            AND seal_digest = lower(seal_digest)
-            AND char_length(seal_digest) = 64
-            AND reason_category IS NOT NULL
-            AND attempt_mapping IS NOT NULL);
+            (
+                procedure_id IS NULL
+                AND seal_digest IS NULL
+                AND reason_category IS NULL
+                AND attempt_mapping IS NULL
+            )
+            OR (
+                procedure_id = 'manifest-jcs-sha256-v1'
+                AND seal_digest = lower(seal_digest)
+                AND char_length(seal_digest) = 64
+                AND reason_category IS NOT NULL
+                AND attempt_mapping IS NOT NULL
+            )
+            OR (
+                procedure_id = 'manifest-jcs-sha256-v2'
+                AND cutoff_sequence IS NOT NULL
+                AND seal_digest = lower(seal_digest)
+                AND char_length(seal_digest) = 64
+                AND reason_category IS NOT NULL
+                AND attempt_mapping IS NOT NULL
+            ));
 
 CREATE TABLE session_manifest_runtime_records (
     organization_id UUID NOT NULL,

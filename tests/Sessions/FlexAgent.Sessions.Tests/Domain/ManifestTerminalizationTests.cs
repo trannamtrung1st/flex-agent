@@ -34,6 +34,36 @@ public sealed class ManifestTerminalizationTests
     }
 
     [Fact]
+    public void Fixture_seal_document_v2_binds_cutoff_sequence()
+    {
+        var digest = ManifestTerminalSealComputer.ComputeDigest(
+            new ManifestSealDocument(
+                ProcedureId: ManifestSealProcedures.ManifestJcsSha256V2,
+                SchemaVersion: "v2",
+                CanonicalizationVersion: "rfc8785",
+                ManifestSchemaVersion: "v1",
+                ConfigurationId: "rsc.synthetic.0001",
+                ConfigurationDigest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                RuntimeRecords:
+                [
+                    new ManifestSealRuntimeRecord(
+                        Sequence: 1,
+                        RecordType: ManifestRuntimeRecordTypes.ModelInvocationV1,
+                        PayloadDigest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+                ],
+                TerminalState: "completed",
+                TerminalReason: TerminalReasonCategories.ParticipantCompleted,
+                OrganizationId: "org.synthetic.0001",
+                ActivityId: "act.synthetic.0001",
+                ParticipantId: "part.synthetic.0001",
+                AttemptId: "att.synthetic.0001",
+                SessionId: "sess.synthetic.0001",
+                CutoffSequence: 42));
+
+        Assert.Equal("88af584e1981d1327a0bb76073651ab14e9a68539f001f229e85ed5cfc40f1a5", digest);
+    }
+
+    [Fact]
     public void Create_active_appends_default_timer_provenance_without_a_seal()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
@@ -223,7 +253,7 @@ public sealed class ManifestTerminalizationTests
         Assert.NotNull(session.TerminalRecord);
         Assert.Equal(TerminalReasonCategories.ParticipantCompleted, session.TerminalRecord!.ReasonCategory);
         Assert.Equal(AttemptTerminalMappings.Completed, session.TerminalRecord.AttemptMapping);
-        Assert.Equal(ManifestSealProcedures.ManifestJcsSha256V1, session.TerminalRecord.ProcedureId);
+        Assert.Equal(ManifestSealProcedures.ManifestJcsSha256V2, session.TerminalRecord.ProcedureId);
         Assert.True(session.VerifyTerminalSeal());
         Assert.NotNull(session.EvaluationHandoff);
         Assert.Equal(EvaluationHandoffEligibilities.Eligible, session.EvaluationHandoff!.Eligibility);
@@ -272,6 +302,39 @@ public sealed class ManifestTerminalizationTests
                 original.SessionSequence));
 
         Assert.False(session.VerifyTerminalSeal());
+    }
+
+    [Fact]
+    public void Changing_only_cutoff_sequence_fails_seal_verification()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        session.BeginCompleting(SessionRuntimeTestFixtures.T0.AddSeconds(1));
+        session.Complete(SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        var sealedCutoff = Assert.NotNull(session.CutoffSequence);
+        session.ReplaceTerminalCutoffForVerification(sealedCutoff + 1);
+
+        Assert.Equal(ManifestSealProcedures.ManifestJcsSha256V2, session.TerminalRecord!.ProcedureId);
+        Assert.NotEqual(sealedCutoff, session.TerminalRecord.CutoffSequence);
+        Assert.False(session.VerifyTerminalSeal());
+    }
+
+    [Fact]
+    public void Missing_v2_cutoff_fails_seal_verification_without_throwing()
+    {
+        var live = SessionRuntimeTestFixtures.CreateActiveSession();
+        live.BeginCompleting(SessionRuntimeTestFixtures.T0.AddSeconds(1));
+        live.Complete(SessionRuntimeTestFixtures.T0.AddSeconds(2));
+        var restored = SessionRuntime.Rehydrate(
+            live.Binding,
+            live.LifecycleState,
+            live.SessionVersion,
+            live.SessionSequence,
+            live.CutoffSequence,
+            live.LastCommittedAt,
+            manifestRecords: live.ManifestRuntimeRecords,
+            terminalRecord: live.TerminalRecord! with { CutoffSequence = null });
+
+        Assert.False(restored.VerifyTerminalSeal());
     }
 
     [Fact]

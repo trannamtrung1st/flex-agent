@@ -18,7 +18,7 @@ public sealed class ContractCatalogTests
     {
         Assert.Equal("https://json-schema.org/draft/2020-12/schema", _catalog.SchemaDialect);
         Assert.Equal(16, _catalog.RepresentativeSchemas.Count);
-        Assert.Equal(4, _catalog.DigestSchemas.Count);
+        Assert.Equal(5, _catalog.DigestSchemas.Count);
         Assert.All(_catalog.RepresentativeSchemas, entry =>
             Assert.StartsWith(_catalog.IdNamespace, entry.SchemaId, StringComparison.Ordinal));
     }
@@ -28,7 +28,7 @@ public sealed class ContractCatalogTests
     {
         ContractSchemaRegistry.AssertReferenceClosure(ContractsRoot, _catalog);
         var schemas = ContractSchemaRegistry.BuildCatalogSchemas(ContractsRoot, _catalog, AllowedKeywords);
-        Assert.Equal(21, schemas.Count);
+        Assert.Equal(22, schemas.Count);
     }
 
     [Theory]

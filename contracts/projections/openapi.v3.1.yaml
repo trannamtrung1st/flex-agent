@@ -367,7 +367,9 @@ components:
       properties:
         procedure_id:
           type: string
-          const: manifest-jcs-sha256-v1
+          enum:
+            - manifest-jcs-sha256-v1
+            - manifest-jcs-sha256-v2
         seal_digest:
           type: string
           pattern: '^[0-9a-f]{64}$'

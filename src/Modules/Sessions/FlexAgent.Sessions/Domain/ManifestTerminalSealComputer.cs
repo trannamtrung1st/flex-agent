@@ -33,6 +33,20 @@ public static class ManifestTerminalSealComputer
             writer.WriteString("configuration_digest", document.ConfigurationDigest);
             writer.WriteString("configuration_id", document.ConfigurationId);
             writer.WriteEndObject();
+            if (string.Equals(
+                    document.ProcedureId,
+                    ManifestSealProcedures.ManifestJcsSha256V2,
+                    StringComparison.Ordinal))
+            {
+                if (document.CutoffSequence is null)
+                {
+                    throw new InvalidOperationException(
+                        "manifest-jcs-sha256-v2 requires cutoff_sequence.");
+                }
+
+                writer.WriteNumber("cutoff_sequence", document.CutoffSequence.Value);
+            }
+
             writer.WriteString("manifest_schema_version", document.ManifestSchemaVersion);
             writer.WriteStartObject("ownership");
             writer.WriteString("activity_id", document.ActivityId);

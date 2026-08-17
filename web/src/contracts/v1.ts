@@ -116,7 +116,7 @@ export interface ResolvedExecutionManifestV1 {
   runtime_records: ManifestRuntimeRecordV1[];
   terminal_state: string;
   terminal_seal?: {
-    procedure_id: 'manifest-jcs-sha256-v1';
+    procedure_id: 'manifest-jcs-sha256-v1' | 'manifest-jcs-sha256-v2';
     seal_digest: string;
   };
 }

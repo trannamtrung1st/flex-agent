@@ -130,7 +130,7 @@
       "properties": {
         "procedure_id": {
           "type": "string",
-          "const": "manifest-jcs-sha256-v1"
+          "enum": ["manifest-jcs-sha256-v1", "manifest-jcs-sha256-v2"]
         },
         "seal_digest": {
           "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/sha256_hex"

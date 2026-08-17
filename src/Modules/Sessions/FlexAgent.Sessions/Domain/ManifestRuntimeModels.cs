@@ -10,6 +10,8 @@ public static class ManifestRuntimeRecordTypes
 public static class ManifestSealProcedures
 {
     public const string ManifestJcsSha256V1 = "manifest-jcs-sha256-v1";
+    public const string ManifestJcsSha256V2 = "manifest-jcs-sha256-v2";
+    public const string LegacyUnsealed = "legacy-unsealed";
 }
 
 public static class ManifestRuntimeActors
@@ -95,11 +97,11 @@ public sealed class ManifestRuntimeRecord
 public sealed record SessionTerminalRecord(
     Guid TerminalRecordId,
     SessionLifecycleState LifecycleState,
-    string ReasonCategory,
-    string AttemptMapping,
+    string? ReasonCategory,
+    string? AttemptMapping,
     long? CutoffSequence,
     string ProcedureId,
-    string SealDigest);
+    string? SealDigest);
 
 public sealed record EvaluationHandoff(
     string HandoffId,
@@ -127,4 +129,5 @@ public sealed record ManifestSealDocument(
     string ActivityId,
     string ParticipantId,
     string AttemptId,
-    string SessionId);
+    string SessionId,
+    long? CutoffSequence = null);

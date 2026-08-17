@@ -420,6 +420,36 @@ public sealed class SessionRuntimeEndToEndProofTests(PostgresIntegrationFixture 
         Assert.Contains("eligible_completed", error.ConstraintName, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task V2_terminal_seal_cannot_omit_cutoff_sequence()
+    {
+        var ready = await PrepareActiveAsync();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var error = await Assert.ThrowsAsync<PostgresException>(() =>
+            connection.ExecuteAsync(
+                """
+                INSERT INTO session_terminal_records (
+                    organization_id, activity_id, participant_id, attempt_id, session_id,
+                    terminal_record_id, lifecycle_state, reason_category, attempt_mapping,
+                    cutoff_sequence, procedure_id, seal_digest)
+                VALUES (
+                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                    @TerminalRecordId, 'completed', 'participant_completed', 'completed',
+                    NULL, 'manifest-jcs-sha256-v2', @SealDigest);
+                """,
+                new
+                {
+                    ready.Binding.Ownership.OrganizationId,
+                    ready.Binding.Ownership.ActivityId,
+                    ready.Binding.Ownership.ParticipantId,
+                    ready.Binding.Ownership.AttemptId,
+                    ready.Binding.Ownership.SessionId,
+                    TerminalRecordId = Guid.NewGuid(),
+                    SealDigest = new string('a', 64),
+                }));
+        Assert.Contains("chk_session_terminal_records_seal", error.ConstraintName, StringComparison.OrdinalIgnoreCase);
+    }
+
     private async Task<Prepared> PrepareActiveAsync()
     {
         var organization = await Fixture.SeedOrganizationAsync();

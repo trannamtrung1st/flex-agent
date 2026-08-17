@@ -12,12 +12,24 @@ public sealed partial class SessionRuntime
 
     public bool VerifyTerminalSeal()
     {
-        if (TerminalRecord is null)
+        if (TerminalRecord is null
+            || string.Equals(
+                TerminalRecord.ProcedureId,
+                ManifestSealProcedures.LegacyUnsealed,
+                StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(TerminalRecord.SealDigest)
+            || (string.Equals(
+                    TerminalRecord.ProcedureId,
+                    ManifestSealProcedures.ManifestJcsSha256V2,
+                    StringComparison.Ordinal)
+                && TerminalRecord.CutoffSequence is null))
         {
             return false;
         }
 
-        return ManifestTerminalSealComputer.Verify(BuildSealDocument(TerminalRecord), TerminalRecord.SealDigest);
+        return ManifestTerminalSealComputer.Verify(
+            BuildSealDocument(TerminalRecord),
+            TerminalRecord.SealDigest!);
     }
 
     internal IEnumerable<ManifestRuntimeRecord> PendingManifestRecords =>
@@ -30,6 +42,16 @@ public sealed partial class SessionRuntime
     internal void ReplaceManifestRecordForVerification(int index, ManifestRuntimeRecord record)
     {
         _manifestRuntimeRecords[index] = record;
+    }
+
+    internal void ReplaceTerminalCutoffForVerification(long cutoffSequence)
+    {
+        if (TerminalRecord is null)
+        {
+            throw new InvalidOperationException("A terminal record is required to replace the cutoff.");
+        }
+
+        TerminalRecord = TerminalRecord with { CutoffSequence = cutoffSequence };
     }
 
     internal void MarkTerminalArtifactsPersisted()
@@ -110,11 +132,17 @@ public sealed partial class SessionRuntime
             return;
         }
 
+        if (CutoffSequence is null)
+        {
+            throw new InvalidOperationException("Terminal seal requires a cutoff sequence.");
+        }
+
         var sealDigest = ManifestTerminalSealComputer.ComputeDigest(
             BuildSealDocument(
+                ManifestSealProcedures.ManifestJcsSha256V2,
+                "v2",
                 terminalState,
                 reasonCategory,
-                attemptMapping,
                 CutoffSequence));
         var terminalRecordId = Guid.NewGuid();
         LifecycleState = terminalState;
@@ -124,7 +152,7 @@ public sealed partial class SessionRuntime
             reasonCategory,
             attemptMapping,
             CutoffSequence,
-            ManifestSealProcedures.ManifestJcsSha256V1,
+            ManifestSealProcedures.ManifestJcsSha256V2,
             sealDigest);
         EvaluationHandoff = new EvaluationHandoff(
             $"eho.{terminalRecordId.ToString("N").ToLowerInvariant()}",
@@ -144,22 +172,23 @@ public sealed partial class SessionRuntime
 
     private ManifestSealDocument BuildSealDocument(SessionTerminalRecord terminal) =>
         BuildSealDocument(
+            terminal.ProcedureId,
+            string.Equals(terminal.ProcedureId, ManifestSealProcedures.ManifestJcsSha256V2, StringComparison.Ordinal)
+                ? "v2"
+                : "v1",
             terminal.LifecycleState,
-            terminal.ReasonCategory,
-            terminal.AttemptMapping,
+            terminal.ReasonCategory ?? string.Empty,
             terminal.CutoffSequence);
 
     private ManifestSealDocument BuildSealDocument(
+        string procedureId,
+        string schemaVersion,
         SessionLifecycleState terminalState,
         string reasonCategory,
-        string attemptMapping,
-        long? cutoffSequence)
-    {
-        _ = attemptMapping;
-        _ = cutoffSequence;
-        return new ManifestSealDocument(
-            ManifestSealProcedures.ManifestJcsSha256V1,
-            "v1",
+        long? cutoffSequence) =>
+        new(
+            procedureId,
+            schemaVersion,
             "rfc8785",
             "v1",
             Binding.ConfigurationId,
@@ -176,8 +205,8 @@ public sealed partial class SessionRuntime
             SessionOwnershipStableIds.Activity(Ownership.ActivityId),
             SessionOwnershipStableIds.Participant(Ownership.ParticipantId),
             SessionOwnershipStableIds.Attempt(Ownership.AttemptId),
-            SessionOwnershipStableIds.Session(Ownership.SessionId));
-    }
+            SessionOwnershipStableIds.Session(Ownership.SessionId),
+            cutoffSequence);
 
     private static string ToSealLifecycle(SessionLifecycleState state) => state switch
     {
