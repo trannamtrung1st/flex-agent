@@ -11,9 +11,11 @@ updated: 2026-08-17
 Companion matrix for `.work/active/structured-agent-runtime-sync.md`. Maps each
 in-scope obligation to authoritative aggregates, transaction boundaries,
 authorization, idempotency keys, browser-safe projections, tests, and security
-controls. Surfaces below are implemented unless a residual is named. Authoritative
-feature-spec Status remains `Partial` or `Gap` where host, provider, or
-production-UI gates are open.
+controls. Implementation surfaces below exist unless a residual is named.
+Verification cells are not a completion claim: they name the current evidence
+and must stay aligned with outstanding labs. Authoritative feature-spec Status
+remains `Partial` or `Gap` where host, provider, or production-UI gates are
+open.
 
 ## Multi-channel output decision dependency
 
@@ -55,7 +57,7 @@ Examples: `PT30S`, `PT5M`, `PT1H`, `PT24H`. Wire shape is validated by
 | Tampering (stale order, duplicate effect) | Retries, concurrent workers | `session_sequence`, expected version, scoped idempotency, at-most-one effect constraints | Concurrency/restart PostgreSQL tests |
 | Repudiation | Sensitive mutations | Durable audit + manifest append with correlation | Audit failure injection |
 | Information disclosure | SSE, logs, metrics, exports | Browser-safe projections; bounded labels; no credentials in records | Log/telemetry snapshot tests; DOM/storage inspection |
-| Denial of service | Timer storms, fragment floods | Positive budgets, backpressure, fair claiming | Load/backpressure harness |
+| Denial of service | Timer storms, fragment floods | Positive budgets, backpressure, fair claiming | Partial — bounded backpressure/fair-claim tests; timer-storm/load lab pending |
 | Elevation (prohibited Decision) | Model output | Independent validation; frozen capability matrix | Policy rejection tests |
 | Privacy misuse (cross-tenant retrieval) | Guessed IDs | Composite scope on every query | Isolation matrix |
 
