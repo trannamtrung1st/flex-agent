@@ -1,6 +1,6 @@
 ---
 id: session-runtime-production-http-sse
-status: planned
+status: completed
 created: 2026-08-17
 updated: 2026-08-17
 predecessor: structured-agent-runtime-sync
@@ -18,7 +18,7 @@ with ADR-002 kernel enforcement and 60-second revocation revalidation.
 - `.work/active/structured-agent-runtime-sync.md` — completed foundation;
   replay command and Repeatable Read coordinator exist and are tested
 - `docs/requirements/features/session-text-lifecycle.md` — `REQ-SESS-59`,
-  `AC-SESS-32` (Partial until this host path exists)
+  `AC-SESS-32` (combined row remains Partial: UI still synthetic, OIDC deferred)
 - `docs/architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md`
 - `docs/architecture/decisions/ADR-011-participant-visible-agent-response-streaming.md`
 - `docs/architecture/session-runtime-contract.md` — `SESS-DEC-7`, `SESS-DEC-10`,
@@ -30,70 +30,94 @@ with ADR-002 kernel enforcement and 60-second revocation revalidation.
 
 ## In
 
-- API inbound adapter: `GET /sessions/{id}/events` (or the approved contract
-  path) mapping trusted actor + ownership + untrusted `Last-Event-ID` to
+- API inbound adapter: `GET /sessions/{id}/events` mapping trusted actor +
+  server-side ownership + untrusted `Last-Event-ID` to
   `ReplayAuthorizedSessionEventsCommand`
 - Deny by default; never treat `Last-Event-ID` as identity or authorization
 - ADR-002 kernel at subscribe and at least every 60 seconds while held
 - Held connection completes on revoke; no cross-session leak
 - Compose Sessions on the API host without promoting SyntheticBrowser to
   domain authority
-- Negative tests: guessed Session ID, stolen cursor without cookie/actor,
-  wrong ownership, reviewer vs participant, malformed/future cursor
-- When the Participant UI is pointed at this host path, Playwright evidence
-  for reconnect; until then keep synthetic as the non-authoritative harness
+- Negative tests: guessed Session ID, stolen cursor without actor, wrong
+  ownership, reviewer vs participant, malformed/future cursor
+- Keep synthetic `/browser` as the Participant UI harness (no UI switch)
 
 ## Out
 
 - Worker claim/content-loop wiring (see `session-runtime-worker-host-wiring`)
-- Live providers, OIDC product login if still deferred (use trusted test
-  actors until identity work is in scope)
+- Live providers, OIDC product login (trusted test actors only)
 - Backup/restore/export labs
 - Rewriting frozen migrations `0005`–`0019`
 - Treating synthetic `/browser/.../events` as `REQ-SESS-59` complete
+- Pointing `SessionPage` at production SSE (Playwright reconnect evidence)
 
 # Plan
 
-- [ ] Confirm replay command/coordinator contracts and SSE event catalog
-- [ ] Red: API has no production Session events route / kernel
-- [ ] Green: authorized subscribe + replay + 60s revalidation + revoke
-- [ ] Isolation and cursor tests; Playwright if UI is switched to this path
+- [x] Confirm replay command/coordinator contracts and SSE event catalog
+- [x] Red: API has no production Session events route / kernel
+- [x] Green: authorized subscribe + replay + 60s revalidation + revoke
+- [x] Isolation and cursor tests; Playwright skipped (UI not switched)
 
 # Current state
 
-Predecessor freeze `e966390` is **approved**. This file is the future
-production HTTP SSE boundary; do not start until explicitly prioritized.
-`FlexAgent.Api` maps synthetic browser endpoints only. Sessions replay exists
-in application + PostgreSQL tests. Feature spec marks `REQ-SESS-59` Partial.
+`GET /sessions/{id}/events` is hosted on `FlexAgent.Api`. When
+`ConnectionStrings:Sessions` is set, the host composes PostgreSQL replay,
+`PostgresAuthorizationKernel` (`session.events.subscribe`), and
+`SubscribeAuthorizedSessionEventsHandler`. Without that connection string the
+route exists and fails closed (401 without a trusted actor, 404 when the
+actor is known but subscription is not permitted).
+
+Trusted test-actor header `X-Flex-Test-Actor-Id` maps through a server-side
+directory (organization, relationship, participant id). `Last-Event-ID` is a
+cursor only. Participant UI remains on `/browser`. Combined spec rows stay
+Partial because OIDC and production UI wiring are still later.
 
 # Decisions
 
 - Synthetic `/browser` remains a harness. Production SSE is a distinct host
   adapter over the existing replay command.
+- Until OIDC, identity is a server-registered test actor, not client-supplied
+  organization or ownership fields.
+- Hosted binding lookup uses `ITrustedSessionBindingSource` keyed by trusted
+  organization + untrusted session id. An empty memory source fails closed
+  until frozen-policy rehydration exists.
 
 # Findings / deviations
 
-- None yet.
+- Red was compile-fail for missing `SubscribeAuthorizedSessionEventsCommand`
+  (`dotnet test` Sessions subscribe class, 2026-08-17).
+- Self-review: `ReplayAsync` also calls the kernel so a poll cannot disclose
+  after revoke even if the 60s timer has not fired; HTTP maps deny vs
+  reconcile to `: access-revoked` vs `: reconcile`.
+- Self-review: actor directory uses `ConcurrentDictionary`.
+- Second review (2026-08-17): held-loop poll now drains `HasMore` and closes
+  on reconcile/deny, matching the initial replay path. Tests send
+  `SessionEventEndpointExtensions.TestActorHeaderName`.
+- Confirmation pass (2026-08-18): Runtime tests csproj ItemGroup was repaired
+  after a concatenated close-tag; subscribe 7/7, production SSE+API 12/12,
+  composition/Dockerfile 6/6, `git diff --check` and `check_docs.py` passed.
 
 # Verification
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Production route uses replay command + PostgreSQL | pending | |
-| Last-Event-ID is not authorization | pending | |
-| 60s revocation revalidation | pending | |
-| Cross-session leak tests | pending | |
+| Production route uses replay command + PostgreSQL | passed | `SessionRuntimeProductionSubscribeTests` 2/2; API composition when `ConnectionStrings:Sessions` is set |
+| Last-Event-ID is not authorization | passed | Stolen cursor without actor → 401; malformed cursor reconciles with no fragment text |
+| 60s revocation revalidation | passed | Held SSE completes after kernel deny; Postgres grant revoke then `AuthorizeAsync` denies |
+| Cross-session leak tests | passed | Guessed session / reviewer / wrong participant leak no events |
+| Locked .NET regression | passed | `bash build/scripts/verify-dotnet.sh` **890/890** |
+| Docs | passed | `python3 scripts/check_docs.py`; `git diff --check` clean |
 
 # Blockers
 
-None. Do not start until this task is explicitly prioritized. Prefer completing
-or sequencing with worker-host wiring so hosted fragments exist to replay.
+None.
 
 # Completion
 
-- [ ] Planned work is reconciled with actual changes
-- [ ] Applicable focused tests pass
-- [ ] Applicable integration/regression checks pass
-- [ ] Governing specifications were rechecked (`REQ-SESS-59` status truthful)
-- [ ] Remaining gaps or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review
+- [x] Planned work is reconciled with actual changes
+- [x] Applicable focused tests pass
+- [x] Applicable integration/regression checks pass
+- [x] Governing specifications were rechecked (`REQ-SESS-59` API path hosted;
+      combined Session row remains Partial)
+- [x] Remaining gaps or unverified behavior are recorded
+- [x] Task state is safe and complete for external review

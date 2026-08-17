@@ -442,6 +442,10 @@
       "flexagent.api": {
         "type": "Project",
         "dependencies": {
+          "FlexAgent.Contracts": "[1.0.0, )",
+          "FlexAgent.IdentityAccess": "[1.0.0, )",
+          "FlexAgent.Sessions": "[1.0.0, )",
+          "FlexAgent.Sessions.Infrastructure": "[1.0.0, )",
           "FlexAgent.SyntheticBrowser": "[1.0.0, )"
         }
       },
@@ -450,6 +454,12 @@
       },
       "flexagent.contracts": {
         "type": "Project"
+      },
+      "flexagent.identityaccess": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.Postgres": "[1.0.0, )"
+        }
       },
       "flexagent.postgres": {
         "type": "Project",

@@ -28,4 +28,17 @@ public sealed class MemoryTrustedSessionBindingSource : ITrustedSessionBindingSo
 
         return Task.FromResult<TrustedSessionBinding?>(binding);
     }
+
+    public Task<TrustedSessionBinding?> GetForOrganizationSessionAsync(
+        Guid organizationId,
+        Guid sessionId,
+        CancellationToken cancellationToken)
+    {
+        if (!_bindings.TryGetValue((organizationId, sessionId), out var binding))
+        {
+            return Task.FromResult<TrustedSessionBinding?>(null);
+        }
+
+        return Task.FromResult<TrustedSessionBinding?>(binding);
+    }
 }

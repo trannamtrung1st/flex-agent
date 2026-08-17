@@ -9,6 +9,14 @@ public sealed record ReplayAuthorizedSessionEventsCommand(
     SessionOwnership Ownership,
     string? UntrustedLastEventId);
 
+public interface IReplayAuthorizedSessionEventsCoordinator
+{
+    Task<AuthorizedSessionEventReplayResult> ReplayAsync(
+        ReplayAuthorizedSessionEventsCommand command,
+        TrustedSessionBinding binding,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IReplayAuthorizedSessionEventsHandler
 {
     AuthorizedSessionEventReplayResult Handle(

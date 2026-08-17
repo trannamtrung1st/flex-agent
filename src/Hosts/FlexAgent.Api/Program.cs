@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using FlexAgent.Api;
 using FlexAgent.SyntheticBrowser;
 using System.Text.Json;
 
@@ -14,6 +15,7 @@ builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy("API process is running."), tags: ["live", "ready"]);
 
 builder.Services.AddSyntheticBrowser(builder.Configuration);
+builder.Services.AddProductionSessionEvents(builder.Configuration);
 
 var app = builder.Build();
 
@@ -35,5 +37,6 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 
 app.MapSyntheticBrowserEndpoints();
+app.MapProductionSessionEventEndpoints();
 
 app.Run();

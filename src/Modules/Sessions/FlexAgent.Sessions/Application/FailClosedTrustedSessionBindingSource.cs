@@ -13,4 +13,14 @@ public sealed class FailClosedTrustedSessionBindingSource : ITrustedSessionBindi
         ArgumentNullException.ThrowIfNull(ownership);
         return Task.FromResult<TrustedSessionBinding?>(null);
     }
+
+    public Task<TrustedSessionBinding?> GetForOrganizationSessionAsync(
+        Guid organizationId,
+        Guid sessionId,
+        CancellationToken cancellationToken)
+    {
+        _ = organizationId;
+        _ = sessionId;
+        return Task.FromResult<TrustedSessionBinding?>(null);
+    }
 }

@@ -7,16 +7,27 @@ public sealed class HostOciDockerfileTests
     [Fact]
     public void Worker_dockerfile_copies_referenced_projects_and_embedded_contracts()
     {
-        var root = FindRepositoryRoot();
-        var dockerfile = File.ReadAllText(Path.Combine(root, "deploy", "docker", "worker.Dockerfile"));
-        var copiedSources = ParseCopySources(dockerfile);
-        var workerCsproj = Path.Combine(root, "src", "Hosts", "FlexAgent.Worker", "FlexAgent.Worker.csproj");
+        AssertDockerfileCopiesPublishInputs("deploy/docker/worker.Dockerfile", "src/Hosts/FlexAgent.Worker/FlexAgent.Worker.csproj");
+    }
 
-        foreach (var required in CollectPublishInputs(root, workerCsproj))
+    [Fact]
+    public void Api_dockerfile_copies_referenced_projects_and_embedded_contracts()
+    {
+        AssertDockerfileCopiesPublishInputs("deploy/docker/api.Dockerfile", "src/Hosts/FlexAgent.Api/FlexAgent.Api.csproj");
+    }
+
+    private static void AssertDockerfileCopiesPublishInputs(string dockerfileRelativePath, string csprojRelativePath)
+    {
+        var root = FindRepositoryRoot();
+        var dockerfile = File.ReadAllText(Path.Combine(root, dockerfileRelativePath));
+        var copiedSources = ParseCopySources(dockerfile);
+        var csproj = Path.Combine(root, csprojRelativePath);
+
+        foreach (var required in CollectPublishInputs(root, csproj))
         {
             Assert.True(
                 copiedSources.Any(copied => IsCoveredByCopy(required, copied)),
-                $"worker.Dockerfile must COPY '{required}' so OCI restore/publish can find it.");
+                $"{dockerfileRelativePath} must COPY '{required}' so OCI restore/publish can find it.");
         }
     }
 

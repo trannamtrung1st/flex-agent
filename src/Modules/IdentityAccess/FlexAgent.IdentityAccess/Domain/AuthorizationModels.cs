@@ -3,12 +3,14 @@ namespace FlexAgent.IdentityAccess.Domain;
 public static class AuthorizationActions
 {
     public const string RegisterConfigurationSourceVersion = "configuration_source_version.register";
+    public const string SubscribeSessionEvents = "session.events.subscribe";
 }
 
 public static class AuthorizationResourceTypes
 {
     public const string ConfigurationSource = "configuration_source";
     public const string ConfigurationSourceVersion = "configuration_source_version";
+    public const string Session = "session";
 }
 
 public static class AuthorizationReasonCodes

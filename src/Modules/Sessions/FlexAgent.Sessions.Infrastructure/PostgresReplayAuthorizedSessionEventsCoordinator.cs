@@ -9,6 +9,7 @@ public sealed class PostgresReplayAuthorizedSessionEventsCoordinator(
     PostgresConnectionAccessor connectionAccessor,
     PostgresSessionRuntimeRepository runtimeRepository,
     IReplayAuthorizedSessionEventsHandler replayHandler)
+    : IReplayAuthorizedSessionEventsCoordinator
 {
     public async Task<AuthorizedSessionEventReplayResult> ReplayAsync(
         ReplayAuthorizedSessionEventsCommand command,

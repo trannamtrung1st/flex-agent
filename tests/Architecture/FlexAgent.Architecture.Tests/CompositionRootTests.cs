@@ -26,20 +26,11 @@ public sealed class CompositionRootTests
     }
 
     [Fact]
-    public void Api_host_does_not_depend_on_persistence_or_provider_packages_yet()
+    public void Api_host_does_not_depend_on_provider_packages()
     {
-        var forbiddenPrefixes = new[]
-        {
-            "Npgsql",
-            "Dapper",
-            "OpenAI",
-            "AWSSDK",
-            "JsonSchema",
-        };
-
         var result = Types.InAssembly(typeof(FlexAgent.Api.Program).Assembly)
             .ShouldNot()
-            .HaveDependencyOnAny(forbiddenPrefixes)
+            .HaveDependencyOnAny("OpenAI", "AWSSDK")
             .GetResult();
 
         Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));

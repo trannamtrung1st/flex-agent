@@ -103,6 +103,11 @@ public interface ITrustedSessionBindingSource
     Task<TrustedSessionBinding?> GetAsync(
         SessionOwnership ownership,
         CancellationToken cancellationToken);
+
+    Task<TrustedSessionBinding?> GetForOrganizationSessionAsync(
+        Guid organizationId,
+        Guid sessionId,
+        CancellationToken cancellationToken);
 }
 
 public sealed class IdleDurableInvocationWorkProcessor : IDurableInvocationWorkProcessor

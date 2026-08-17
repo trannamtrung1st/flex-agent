@@ -56,6 +56,34 @@ public sealed class ApiRuntimeTests : IClassFixture<WebApplicationFactory<ApiPro
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         Assert.Contains("development-smoke", body, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Api_defaults_to_unhosted_session_event_subscription()
+    {
+        var handler = _factory.Services.GetRequiredService<ISubscribeAuthorizedSessionEventsHandler>();
+
+        Assert.IsType<UnhostedSubscribeAuthorizedSessionEventsHandler>(handler);
+    }
+
+    [Fact]
+    public void Api_registers_postgres_replay_and_kernel_when_a_sessions_connection_string_is_set()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+        });
+
+        Assert.IsType<SubscribeAuthorizedSessionEventsHandler>(
+            factory.Services.GetRequiredService<ISubscribeAuthorizedSessionEventsHandler>());
+        Assert.IsType<PostgresReplayAuthorizedSessionEventsCoordinator>(
+            factory.Services.GetRequiredService<IReplayAuthorizedSessionEventsCoordinator>());
+        Assert.IsType<MemoryTrustedSessionBindingSource>(
+            factory.Services.GetRequiredService<ITrustedSessionBindingSource>());
+        Assert.IsType<FlexAgent.IdentityAccess.Infrastructure.PostgresAuthorizationKernel>(
+            factory.Services.GetRequiredService<FlexAgent.IdentityAccess.Application.IAuthorizationKernel>());
+    }
 }
 
 public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<WorkerProgram>>
