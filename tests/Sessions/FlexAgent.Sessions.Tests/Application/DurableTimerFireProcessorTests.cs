@@ -36,6 +36,23 @@ public sealed class DurableTimerFireProcessorTests
     }
 
     [Fact]
+    public async Task Lifecycle_ineligible_is_a_durable_acknowledgement_and_is_not_retried()
+    {
+        var port = new ScriptedDueTimerFirePort(
+            new TimerFireResult(false, TimerFireOutcomeCodes.LifecycleIneligible));
+        var processor = CreateProcessor(port);
+
+        var first = await processor.TryProcessNextAsync(CancellationToken.None);
+        var second = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableTimerFireOutcomes.Acknowledged, first.Outcome);
+        Assert.Equal(TimerFireOutcomeCodes.LifecycleIneligible, first.TimerOutcomeCode);
+        Assert.NotEqual(DurableTimerFireOutcomes.RetryLater, first.Outcome);
+        Assert.Equal(DurableTimerFireOutcomes.Idle, second.Outcome);
+        Assert.Equal(2, port.CallCount);
+    }
+
+    [Fact]
     public async Task Successful_fire_is_processed()
     {
         var port = new ScriptedDueTimerFirePort(

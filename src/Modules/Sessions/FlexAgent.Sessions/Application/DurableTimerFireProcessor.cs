@@ -28,10 +28,21 @@ public interface IDueTimerFirePort
         CancellationToken cancellationToken = default);
 }
 
+public interface IDurableTimerFireProcessor
+{
+    Task<DurableTimerFireProcessResult> TryProcessNextAsync(CancellationToken cancellationToken);
+}
+
+public sealed class IdleDurableTimerFireProcessor : IDurableTimerFireProcessor
+{
+    public Task<DurableTimerFireProcessResult> TryProcessNextAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(DurableTimerFireProcessResult.Idle);
+}
+
 public sealed class DurableTimerFireProcessor(
     IDueTimerFirePort dueTimerFirePort,
     DurableTimerFireSettings settings,
-    ISessionRuntimeTelemetry? telemetry = null)
+    ISessionRuntimeTelemetry? telemetry = null) : IDurableTimerFireProcessor
 {
     private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
 
@@ -44,9 +55,10 @@ public sealed class DurableTimerFireProcessor(
         var processed = result.OutcomeCode switch
         {
             TimerFireOutcomeCodes.Idle => DurableTimerFireProcessResult.Idle,
-            TimerFireOutcomeCodes.BudgetExhausted => new DurableTimerFireProcessResult(
-                DurableTimerFireOutcomes.Acknowledged,
-                result.OutcomeCode),
+            TimerFireOutcomeCodes.BudgetExhausted or TimerFireOutcomeCodes.LifecycleIneligible =>
+                new DurableTimerFireProcessResult(
+                    DurableTimerFireOutcomes.Acknowledged,
+                    result.OutcomeCode),
             TimerFireOutcomeCodes.Succeeded or TimerFireOutcomeCodes.Reconciled => new DurableTimerFireProcessResult(
                 DurableTimerFireOutcomes.Fired,
                 result.OutcomeCode),

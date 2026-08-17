@@ -2,12 +2,23 @@ using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.Application;
 
-public sealed record DurableInvocationWorkItem(
-    Guid WorkId,
-    SessionOwnership Ownership,
-    string AgentInvocationId,
-    string State,
-    DateTimeOffset? ClaimLeaseUntil = null);
+public sealed class DurableInvocationWorkItem(
+    Guid workId,
+    SessionOwnership ownership,
+    string agentInvocationId,
+    string state,
+    DateTimeOffset? claimLeaseUntil = null)
+{
+    public Guid WorkId { get; } = workId;
+
+    public SessionOwnership Ownership { get; } = ownership;
+
+    public string AgentInvocationId { get; } = agentInvocationId;
+
+    public string State { get; set; } = state;
+
+    public DateTimeOffset? ClaimLeaseUntil { get; set; } = claimLeaseUntil;
+}
 
 public sealed record LoadedInvocationWorkSession(
     SessionRuntime Session,
@@ -55,6 +66,12 @@ public interface IDurableInvocationWorkStore
         DurableInvocationWorkItem work,
         CancellationToken cancellationToken);
 
+    Task<DateTimeOffset?> TryRenewClaimLeaseAsync(
+        DurableInvocationWorkItem work,
+        TimeSpan lease,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<DateTimeOffset?>(work.ClaimLeaseUntil ?? DateTimeOffset.UnixEpoch);
+
     Task<DurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(CancellationToken cancellationToken) =>
         Task.FromResult(DurableWorkBacklogSnapshot.Unknown);
 }
@@ -100,12 +117,15 @@ public sealed class DurableInvocationWorkProcessor(
     IModelExecutionPort modelExecutionPort,
     ICompleteInvocationHandler completionHandler,
     DurableInvocationWorkSettings settings,
+    IAgentResponsePublicationPersistPort publicationPersist,
     ISessionRuntimeTelemetry? telemetry = null) : IDurableInvocationWorkProcessor
 {
     private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
     private readonly IPublishAgentResponseFragmentHandler _publicationHandler =
         new PublishAgentResponseFragmentHandler(telemetry);
     private readonly ISealAgentResponseHandler _sealHandler = new SealAgentResponseHandler();
+    private readonly IAgentResponsePublicationPersistPort _publicationPersist =
+        publicationPersist ?? throw new ArgumentNullException(nameof(publicationPersist));
 
     public async Task<DurableInvocationWorkProcessResult> TryProcessNextAsync(
         CancellationToken cancellationToken)
@@ -342,9 +362,14 @@ public sealed class DurableInvocationWorkProcessor(
                             delta.ExactUtf8Text,
                             generationAttemptId,
                             cancellationToken);
-                        if (!published.Succeeded)
+                        if (published.PersistFailed)
                         {
-                            if (ShouldRetryPublication(published.OutcomeCode, session, invocation.AgentInvocationId))
+                            return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+                        }
+
+                        if (!published.Result.Succeeded)
+                        {
+                            if (ShouldRetryPublication(published.Result.OutcomeCode, session, invocation.AgentInvocationId))
                             {
                                 return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
                             }
@@ -357,7 +382,7 @@ public sealed class DurableInvocationWorkProcessor(
                                 cancellationToken);
                         }
 
-                        if (published.OutcomeCode != FragmentCommitOutcomeCodes.Reconciled)
+                        if (published.Result.OutcomeCode != FragmentCommitOutcomeCodes.Reconciled)
                         {
                             nextOrdinal++;
                             assembled += delta.ExactUtf8Text;
@@ -391,7 +416,11 @@ public sealed class DurableInvocationWorkProcessor(
             cancellationToken);
     }
 
-    private async Task<AgentResponseFragmentCommitResult> PublishDeltaAsync(
+    private readonly record struct PublishedDelta(
+        AgentResponseFragmentCommitResult Result,
+        bool PersistFailed);
+
+    private async Task<PublishedDelta> PublishDeltaAsync(
         DurableInvocationWorkItem claimed,
         LoadedInvocationWorkSession loaded,
         string agentInvocationId,
@@ -401,19 +430,42 @@ public sealed class DurableInvocationWorkProcessor(
         CancellationToken cancellationToken)
     {
         var utc = await sessionGateway.ReadAuthoritativeUtcAsync(cancellationToken);
-        return _publicationHandler.Handle(
-            new PublishAgentResponseFragmentCommand(
-                settings.ServiceActor,
-                claimed.Ownership,
-                loaded.ObservedSessionVersion,
-                agentInvocationId,
-                fragmentOrdinal,
-                exactUtf8Text,
-                generationAttemptId,
-                Guid.NewGuid(),
-                settings.SourceChannel),
-            loaded.Session,
-            utc);
+        var command = new PublishAgentResponseFragmentCommand(
+            settings.ServiceActor,
+            claimed.Ownership,
+            loaded.ObservedSessionVersion,
+            agentInvocationId,
+            fragmentOrdinal,
+            exactUtf8Text,
+            generationAttemptId,
+            Guid.NewGuid(),
+            settings.SourceChannel);
+        var published = _publicationHandler.Handle(command, loaded.Session, utc);
+        if (!published.Succeeded)
+        {
+            return new PublishedDelta(published, PersistFailed: false);
+        }
+
+        var persisted = await _publicationPersist.PersistFragmentAsync(
+            command,
+            loaded.Binding,
+            cancellationToken);
+        if (!persisted.Succeeded)
+        {
+            return new PublishedDelta(persisted, PersistFailed: true);
+        }
+
+        var renewed = await workStore.TryRenewClaimLeaseAsync(
+            claimed,
+            TimeSpan.FromSeconds(30),
+            cancellationToken);
+        if (renewed is null)
+        {
+            return new PublishedDelta(published, PersistFailed: true);
+        }
+
+        claimed.ClaimLeaseUntil = renewed;
+        return new PublishedDelta(published, PersistFailed: false);
     }
 
     private async Task<DurableInvocationWorkProcessResult> FinishContentAsync(
@@ -434,30 +486,36 @@ public sealed class DurableInvocationWorkProcessor(
                 return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
             }
 
-            await workStore.MarkCompletedAsync(claimed, cancellationToken);
-            return new DurableInvocationWorkProcessResult(
+            return await PersistUnpublishedFailureAndCompleteAsync(
+                claimed,
+                loaded,
                 DurableInvocationWorkOutcomes.PublicationFailed,
-                claimed.AgentInvocationId);
+                cancellationToken);
         }
 
         if (!message.IsTerminal)
         {
             var utc = await sessionGateway.ReadAuthoritativeUtcAsync(cancellationToken);
-            var sealedResult = _sealHandler.Handle(
-                new SealAgentResponseCommand(
-                    settings.ServiceActor,
-                    claimed.Ownership,
-                    loaded.Session.SessionVersion,
-                    agentInvocationId,
-                    AgentMessageCompletionStates.Complete,
-                    Guid.NewGuid(),
-                    settings.SourceChannel),
-                loaded.Session,
-                utc);
+            var command = new SealAgentResponseCommand(
+                settings.ServiceActor,
+                claimed.Ownership,
+                loaded.Session.SessionVersion,
+                agentInvocationId,
+                AgentMessageCompletionStates.Complete,
+                Guid.NewGuid(),
+                settings.SourceChannel);
+            var sealedResult = _sealHandler.Handle(command, loaded.Session, utc);
             if (!sealedResult.Succeeded)
             {
                 return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
             }
+
+            return await PersistSealAndCompleteAsync(
+                claimed,
+                loaded,
+                command,
+                DurableInvocationWorkOutcomes.Published,
+                cancellationToken);
         }
 
         await workStore.MarkCompletedAsync(claimed, cancellationToken);
@@ -478,25 +536,29 @@ public sealed class DurableInvocationWorkProcessor(
         if (message is { Fragments.Count: > 0, IsTerminal: false })
         {
             var utc = await sessionGateway.ReadAuthoritativeUtcAsync(cancellationToken);
-            var sealedResult = _sealHandler.Handle(
-                new SealAgentResponseCommand(
-                    settings.ServiceActor,
-                    claimed.Ownership,
-                    loaded.Session.SessionVersion,
-                    agentInvocationId,
-                    AgentMessageCompletionStates.Incomplete,
-                    Guid.NewGuid(),
-                    settings.SourceChannel),
-                loaded.Session,
-                utc);
+            var command = new SealAgentResponseCommand(
+                settings.ServiceActor,
+                claimed.Ownership,
+                loaded.Session.SessionVersion,
+                agentInvocationId,
+                AgentMessageCompletionStates.Incomplete,
+                Guid.NewGuid(),
+                settings.SourceChannel);
+            var sealedResult = _sealHandler.Handle(command, loaded.Session, utc);
             if (!sealedResult.Succeeded)
             {
                 return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
             }
 
-            outcome = DurableInvocationWorkOutcomes.PublicationIncomplete;
+            return await PersistSealAndCompleteAsync(
+                claimed,
+                loaded,
+                command,
+                DurableInvocationWorkOutcomes.PublicationIncomplete,
+                cancellationToken);
         }
-        else if (message is null || message.Fragments.Count == 0)
+
+        if (message is null || message.Fragments.Count == 0)
         {
             var utc = await sessionGateway.ReadAuthoritativeUtcAsync(cancellationToken);
             var failed = loaded.Session.FailUnpublishedAgentResponse(agentInvocationId, utc);
@@ -506,7 +568,52 @@ public sealed class DurableInvocationWorkProcessor(
                 return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
             }
 
-            outcome = DurableInvocationWorkOutcomes.PublicationFailed;
+            return await PersistUnpublishedFailureAndCompleteAsync(
+                claimed,
+                loaded,
+                DurableInvocationWorkOutcomes.PublicationFailed,
+                cancellationToken);
+        }
+
+        await workStore.MarkCompletedAsync(claimed, cancellationToken);
+        return new DurableInvocationWorkProcessResult(outcome, claimed.AgentInvocationId);
+    }
+
+    private async Task<DurableInvocationWorkProcessResult> PersistSealAndCompleteAsync(
+        DurableInvocationWorkItem claimed,
+        LoadedInvocationWorkSession loaded,
+        SealAgentResponseCommand command,
+        string outcome,
+        CancellationToken cancellationToken)
+    {
+        var persisted = await _publicationPersist.PersistSealAsync(
+            command,
+            loaded.Binding,
+            cancellationToken);
+        if (!persisted.Succeeded)
+        {
+            return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+        }
+
+        await workStore.MarkCompletedAsync(claimed, cancellationToken);
+        return new DurableInvocationWorkProcessResult(outcome, claimed.AgentInvocationId);
+    }
+
+    private async Task<DurableInvocationWorkProcessResult> PersistUnpublishedFailureAndCompleteAsync(
+        DurableInvocationWorkItem claimed,
+        LoadedInvocationWorkSession loaded,
+        string outcome,
+        CancellationToken cancellationToken)
+    {
+        var persisted = await _publicationPersist.TryPersistUnpublishedFailureAsync(
+            claimed.Ownership,
+            loaded.Binding,
+            loaded.ObservedSessionVersion,
+            loaded.Session,
+            cancellationToken);
+        if (!persisted)
+        {
+            return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
         }
 
         await workStore.MarkCompletedAsync(claimed, cancellationToken);

@@ -112,6 +112,18 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
           AND claim_lease_until IS NOT DISTINCT FROM @ClaimLeaseUntil;
         """;
 
+    private const string RenewLeaseSql = """
+        UPDATE session_durable_work
+        SET
+            claim_lease_until = clock_timestamp() + (@LeaseSeconds * INTERVAL '1 second')
+        WHERE organization_id = @OrganizationId
+          AND session_id = @SessionId
+          AND work_id = @WorkId
+          AND state = @Claimed
+          AND claim_lease_until IS NOT DISTINCT FROM @ClaimLeaseUntil
+        RETURNING claim_lease_until;
+        """;
+
     public async Task<DurableInvocationWorkItem?> TryClaimExecuteInvocationAsync(
         TimeSpan lease,
         CancellationToken cancellationToken)
@@ -171,6 +183,44 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
         DurableInvocationWorkItem work,
         CancellationToken cancellationToken) =>
         UpdateOwnedClaimAsync(CompleteSql, work, cancellationToken);
+
+    public async Task<DateTimeOffset?> TryRenewClaimLeaseAsync(
+        DurableInvocationWorkItem work,
+        TimeSpan lease,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        if (lease <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(lease));
+        }
+
+        await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
+        try
+        {
+            var renewed = await scope.Connection.QuerySingleOrDefaultAsync<DateTime?>(
+                new CommandDefinition(
+                    RenewLeaseSql,
+                    new
+                    {
+                        work.Ownership.OrganizationId,
+                        work.Ownership.SessionId,
+                        work.WorkId,
+                        Claimed = DurableSessionWorkStates.Claimed,
+                        ClaimLeaseUntil = work.ClaimLeaseUntil?.UtcDateTime,
+                        LeaseSeconds = lease.TotalSeconds,
+                    },
+                    scope.Transaction,
+                    cancellationToken: cancellationToken));
+            await scope.CommitAsync(cancellationToken);
+            return renewed is null ? null : ToUtc(renewed);
+        }
+        catch
+        {
+            await scope.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
 
     public async Task<DurableWorkBacklogSnapshot> ReadClaimableSnapshotAsync(CancellationToken cancellationToken)
     {

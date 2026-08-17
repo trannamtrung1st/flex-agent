@@ -669,6 +669,32 @@ public sealed class DurableInvocationWorkProcessorTests
     }
 
     [Fact]
+    public async Task Content_phase_does_not_complete_the_claim_when_fragment_persist_fails()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.persist", "idem.p.persist", SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var adapter = new DeterministicFakeModelExecutionAdapter();
+        adapter.EnqueueEnvelope(
+            SessionRuntimeTestFixtures.Envelope(
+                invocationId,
+                outputs: [SessionRuntimeTestFixtures.MessageOutput(turnId: null, responseSlotId: null)],
+                decisionId: "adec.worker.persist001"));
+        adapter.EnqueueContent(new ModelContentTextDelta("Hi"), new ModelContentCompleted());
+        var store = new MemoryWorkStore(session.Ownership, invocationId);
+        var persist = new PassThroughAgentResponsePublicationPersistPort(persistSucceeded: false);
+        var processor = CreateProcessor(adapter, session, store, publicationPersist: persist);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.RetryLater, result.Outcome);
+        Assert.False(store.Completed);
+        Assert.True(persist.FragmentPersists > 0);
+        Assert.Equal(0, persist.SealPersists);
+    }
+
+    [Fact]
     public async Task Unprocessable_oldest_item_does_not_block_later_pending_work_on_the_next_claim()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
@@ -778,15 +804,17 @@ public sealed class DurableInvocationWorkProcessorTests
         SessionRuntime session,
         IDurableInvocationWorkStore store,
         Func<SessionOwnership, ModelDeploymentCredentialBindingRequest>? bindingRequest = null,
-        ISessionRuntimeTelemetry? telemetry = null) =>
-        CreateProcessor(adapter, new MemorySessionGateway(session), store, bindingRequest, telemetry);
+        ISessionRuntimeTelemetry? telemetry = null,
+        IAgentResponsePublicationPersistPort? publicationPersist = null) =>
+        CreateProcessor(adapter, new MemorySessionGateway(session), store, bindingRequest, telemetry, publicationPersist);
 
     private static DurableInvocationWorkProcessor CreateProcessor(
         IModelExecutionPort adapter,
         IInvocationWorkSessionGateway gateway,
         IDurableInvocationWorkStore store,
         Func<SessionOwnership, ModelDeploymentCredentialBindingRequest>? bindingRequest = null,
-        ISessionRuntimeTelemetry? telemetry = null) =>
+        ISessionRuntimeTelemetry? telemetry = null,
+        IAgentResponsePublicationPersistPort? publicationPersist = null) =>
         new(
             store,
             gateway,
@@ -807,6 +835,7 @@ public sealed class DurableInvocationWorkProcessorTests
                     false,
                     false,
                     false))),
+            publicationPersist ?? PassThroughAgentResponsePublicationPersistPort.Succeed,
             telemetry);
 
     private static DeterministicFakeModelExecutionAdapter EnqueueNoAction(
@@ -903,7 +932,7 @@ public sealed class DurableInvocationWorkProcessorTests
             var candidate = claimable.Single(item => item.Candidate.WorkId == selected.WorkId).Slot;
 
             ClaimCount++;
-            candidate.Item = candidate.Item with { State = DurableSessionWorkStates.Claimed };
+            candidate.Item.State = DurableSessionWorkStates.Claimed;
             candidate.LeaseExpired = false;
             candidate.QueueOrder = _queueClock++;
             _lastServed[new DurableWorkClaimPartitionKey(
@@ -930,7 +959,7 @@ public sealed class DurableInvocationWorkProcessorTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             var slot = Require(work);
-            slot.Item = work with { State = DurableSessionWorkStates.Pending };
+            slot.Item.State = DurableSessionWorkStates.Pending;
             slot.LeaseExpired = false;
             slot.QueueOrder = _queueClock++;
             return Task.CompletedTask;
@@ -941,7 +970,7 @@ public sealed class DurableInvocationWorkProcessorTests
             cancellationToken.ThrowIfCancellationRequested();
             var slot = Require(work);
             Completed = true;
-            slot.Item = work with { State = DurableSessionWorkStates.Completed };
+            slot.Item.State = DurableSessionWorkStates.Completed;
             slot.LeaseExpired = false;
             slot.QueueOrder = _queueClock++;
             return Task.CompletedTask;

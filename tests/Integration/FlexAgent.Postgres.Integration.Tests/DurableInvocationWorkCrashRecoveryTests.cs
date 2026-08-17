@@ -235,7 +235,8 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             gateway,
             adapter,
             new CompleteInvocationHandler(),
-            CreateWorkerSettings(prepared.Organization.ActorId));
+            CreateWorkerSettings(prepared.Organization.ActorId),
+            PassThroughAgentResponsePublicationPersistPort.Succeed);
 
     private PostgresInvocationWorkSessionGateway CreateGateway(params PreparedWork[] prepared)
     {

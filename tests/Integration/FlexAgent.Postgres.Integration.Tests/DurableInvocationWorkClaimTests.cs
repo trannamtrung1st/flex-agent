@@ -293,7 +293,8 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
                 settings),
             adapter,
             new CompleteInvocationHandler(),
-            settings);
+            settings,
+            PassThroughAgentResponsePublicationPersistPort.Succeed);
 
         var result = await processor.TryProcessNextAsync(CancellationToken);
 
@@ -313,6 +314,102 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         Assert.NotNull(invocation.Decision);
         Assert.Null(invocation.ExecutionOutcome);
         Assert.Equal(AgentInvocationStatuses.Decided, invocation.Status);
+    }
+
+    [Fact]
+    public async Task Processor_persists_fragments_through_the_publication_coordinator_before_completing_work()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+        await using (var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var accepted = await new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler()).AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                binding.Ownership,
+                0,
+                "msg.claim.persist",
+                "turn.claim.persist",
+                "slot.claim.persist",
+                "trig.claim.persist",
+                "idem.claim.persist",
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(accepted.Succeeded, accepted.OutcomeCode);
+        var invocationId = accepted.Invocation!.AgentInvocationId;
+        await using var otherWork = await HoldOtherClaimableWorkAsync(binding.Ownership);
+        var adapter = new DeterministicFakeModelExecutionAdapter();
+        adapter.EnqueueEnvelope(
+            new EnvelopeRecommendation(
+                "adec.worker.persist0001",
+                invocationId,
+                new DateTimeOffset(2026, 8, 13, 0, 0, 2, TimeSpan.Zero),
+                DecisionDispositions.Respond,
+                [
+                    new OutputRecommendation(
+                        AgentOutputKinds.Message,
+                        "out.message.primary",
+                        "participant_reply",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                ],
+                [],
+                null,
+                null));
+        adapter.EnqueueContent(new ModelContentTextDelta("Hi"), new ModelContentCompleted());
+        var bindingSource = new MemoryTrustedSessionBindingSource();
+        bindingSource.Register(binding);
+        var settings = CreateWorkerSettings(organization.ActorId);
+        var persist = new PostgresPublishAgentResponseCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new PublishAgentResponseFragmentHandler());
+        var processor = new DurableInvocationWorkProcessor(
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            new PostgresInvocationWorkSessionGateway(
+                Fixture.Services.ConnectionAccessor,
+                repository,
+                bindingSource,
+                settings),
+            adapter,
+            new CompleteInvocationHandler(),
+            settings,
+            persist);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.Published, result.Outcome);
+        Assert.Equal(DurableSessionWorkStates.Completed, await ReadWorkStateAsync(binding.Ownership));
+        await using var loadScope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken);
+        var loaded = await repository.LoadForUpdateAsync(
+            binding.Ownership,
+            binding,
+            loadScope.Transaction,
+            CancellationToken);
+        await loadScope.CommitAsync(CancellationToken);
+        var message = Assert.Single(loaded!.AgentMessages);
+        Assert.Equal("Hi", message.AssembleExactText());
+        Assert.Equal(AgentMessageCompletionStates.Complete, message.CompletionState);
+        Assert.Single(message.Fragments);
     }
 
     [Fact]

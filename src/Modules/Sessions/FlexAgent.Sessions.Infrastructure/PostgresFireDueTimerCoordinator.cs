@@ -89,7 +89,7 @@ public sealed class PostgresFireDueTimerCoordinator(
             if (binding is null || binding.Ownership != ownership)
             {
                 await scope.RollbackAsync(cancellationToken);
-                return new TimerFireResult(false, TimerFireOutcomeCodes.LifecycleIneligible);
+                return new TimerFireResult(false, TimerFireOutcomeCodes.StaleRevision);
             }
 
             var session = await runtimeRepository.LoadForUpdateAsync(
@@ -100,7 +100,7 @@ public sealed class PostgresFireDueTimerCoordinator(
             if (session is null)
             {
                 await scope.RollbackAsync(cancellationToken);
-                return new TimerFireResult(false, TimerFireOutcomeCodes.LifecycleIneligible);
+                return new TimerFireResult(false, TimerFireOutcomeCodes.StaleRevision);
             }
 
             var authoritativeUtc = await runtimeRepository.ReadAuthoritativeUtcAsync(
@@ -127,6 +127,31 @@ public sealed class PostgresFireDueTimerCoordinator(
                     scope.Transaction,
                     cancellationToken);
                 if (!expired)
+                {
+                    await scope.RollbackAsync(cancellationToken);
+                    return new TimerFireResult(
+                        false,
+                        TimerFireOutcomeCodes.StaleRevision,
+                        result.Revision,
+                        ObservedAt: result.ObservedAt);
+                }
+
+                await scope.CommitAsync(cancellationToken);
+                return result;
+            }
+
+            if (result.OutcomeCode == TimerFireOutcomeCodes.LifecycleIneligible)
+            {
+                var targeted = session.TimerSchedules.FirstOrDefault(item =>
+                    item.ScheduleRevision == due.schedule_revision_ordinal.Value);
+                targeted?.Cancel();
+                var cancelled = await runtimeRepository.TrySaveLifecycleAsync(
+                    ownership,
+                    expectedVersion,
+                    session,
+                    scope.Transaction,
+                    cancellationToken);
+                if (!cancelled)
                 {
                     await scope.RollbackAsync(cancellationToken);
                     return new TimerFireResult(

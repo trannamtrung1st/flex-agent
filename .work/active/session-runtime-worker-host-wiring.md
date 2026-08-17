@@ -1,6 +1,6 @@
 ---
 id: session-runtime-worker-host-wiring
-status: planned
+status: completed
 created: 2026-08-17
 updated: 2026-08-17
 predecessor: structured-agent-runtime-sync
@@ -60,52 +60,82 @@ fragment and seal.
 
 # Plan
 
-- [ ] Inventory current Worker composition (`IdleDurableInvocationWorkProcessor`,
+- [x] Inventory current Worker composition (`IdleDurableInvocationWorkProcessor`,
       sampling store, missing timer processor, ready copy)
-- [ ] Red: hosted content-phase complete without fragment persist must fail
-- [ ] Green: persist-through-coordinator then allow real processor registration
-- [ ] Due-timer poll with poison-row ACK for permanent lifecycle ineligible
-- [ ] Ready-copy and composition tests; focused then proportionate regression
+- [x] Red: hosted content-phase complete without fragment persist must fail
+- [x] Green: persist-through-coordinator then allow real processor registration
+- [x] Due-timer poll with poison-row ACK for permanent lifecycle ineligible
+- [x] Ready-copy and composition tests; focused then proportionate regression
 
 # Current state
 
-Foundation is complete in `structured-agent-runtime-sync` (`e966390`
-**approved**, 0 P0 / 0 P1 / 0 P2). This file is the future Worker host
-boundary; do not start until explicitly prioritized. Worker host still
-registers `IdleDurableInvocationWorkProcessor`.
-`DurableInvocationWorkProcessor.PublishDeltaAsync` mutates in-memory
-`SessionRuntime` only. `DurableTimerFireProcessor` is test-composed, not
-hosted. `/health/ready` says the Worker is accepting work claims when the
-claim gate is open. 30-second claim lease vs long Execute/stream needs a
-heartbeat design before live claiming.
+Worker host registers `IdleDurableInvocationWorkProcessor` and
+`IdleDurableTimerFireProcessor` when `ConnectionStrings:Sessions` is absent.
+When that connection string is present, the same composition graph registers
+`DurableInvocationWorkProcessor` together with
+`PostgresPublishAgentResponseCoordinator` as `IAgentResponsePublicationPersistPort`,
+`PostgresDurableInvocationWorkStore`, `FailClosedModelExecutionPort`, and
+`FailClosedTrustedSessionBindingSource`. Hosted due-timer polling stays
+`IdleDurableTimerFireProcessor` until a real binding source exists.
+Content-phase complete is blocked until fragment and seal persist succeed.
+`/health/ready` reports loop running and whether durable claiming is enabled.
 
 # Decisions
 
-- Keep Idle until publication persist is in the hosted content loop (review
-  High residual from the foundation pass).
+- Register the live invocation processor only in the same host graph as
+  `PostgresPublishAgentResponseCoordinator` persist.
+- Heartbeat: renew the 30-second `invocation.execute` lease after each
+  persisted fragment (`TryRenewClaimLeaseAsync`). A failed renew does not
+  `MarkCompleted`.
+- Hosted model port is fail-closed (`provider_unavailable`); live OpenAI/Azure
+  remain out of scope. Credential binding is resolved from Worker configuration
+  opaque refs only, never from Session rows or logs.
+- `timer_fire.lifecycle_ineligible` is acknowledged after a loaded Session
+  returns that outcome and the due revision is persist-cancelled. Missing
+  binding does not cancel the schedule. Hosted due-timer polling stays Idle
+  while `FailClosedTrustedSessionBindingSource` is the Worker binding source,
+  so fail-closed rehydration cannot HOL-block or destroy due timers.
 
 # Findings / deviations
 
-- None yet.
+- Frozen-policy rehydration from configuration source payloads is still
+  fail-closed: `ITrustedSessionBindingSource` on the Worker returns null, so
+  `LoadAsync` cannot reconstruct `TrustedSessionBinding.Policy` from PostgreSQL
+  identity rows alone. Invocation claims then `retry_later`. Hosted due-timer
+  polling stays Idle until a real binding source exists. Missing binding on a
+  test-composed due-claim rolls back as `stale_revision` and leaves the
+  schedule pending. True `timer_fire.lifecycle_ineligible` after a loaded
+  Session still persist-cancels the due revision.
+- Lease heartbeat covers content-phase fragment persist, not a long control
+  `ExecuteAsync` call. Fail-closed Execute returns immediately; a future live
+  provider still needs Execute-duration heartbeat or a longer lease.
+- In-memory unit tests use `PassThroughAgentResponsePublicationPersistPort`;
+  PostgreSQL proof uses the coordinator. The processor still applies domain
+  handlers locally, then persists through the port.
 
 # Verification
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Host stays Idle until persist is wired | pending | |
-| Fragment/seal persist before work complete | pending | |
-| Timer `lifecycle_ineligible` is not infinite retry | pending | |
-| Ready copy matches actual claiming | pending | |
+| Host stays Idle until persist is wired | passed | No Sessions CS: `IdleDurableInvocationWorkProcessor` + idle timer. With CS: live processor and `PostgresPublishAgentResponseCoordinator` as persist (`WorkerRuntimeTests` 11/11 including composition). |
+| Fragment/seal persist before work complete | passed | Red: `Content_phase_does_not_complete_the_claim_when_fragment_persist_fails` (RetryLater, claim not completed). Green: Postgres `Processor_persists_fragments_through_the_publication_coordinator_before_completing_work` (Published, fragment+seal in PostgreSQL, work completed). Sessions processor tests 27/27; claim tests included in 23/23 with timer class. |
+| Timer `lifecycle_ineligible` is not infinite retry | passed | Processor ACK for loaded-session `lifecycle_ineligible`. Missing binding no longer cancels: `Missing_binding_does_not_cancel_the_due_schedule`. Hosted due-timer processor stays Idle with fail-closed bindings. |
+| Ready copy matches actual claiming | passed | Idle: "Worker loop is running. Durable work claiming is not enabled." Live graph: "...claiming is enabled." Shutdown: "Worker is shutting down." No "accepting work claims". |
+| Focused Sessions | passed | `FlexAgent.Sessions.Tests` 413/413 |
+| Architecture | passed | `FlexAgent.Architecture.Tests` 30/30 |
+| Runtime | passed | `FlexAgent.Runtime.Tests` 74/74 |
+| Crash/recovery claim | passed | `DurableInvocationWorkCrashRecoveryTests` 8/8 (with claim+timer classes: 31/31 after High remediations rebuild) |
+| Whitespace | passed | `git diff --check` clean |
 
 # Blockers
 
-None. Do not start until this task is explicitly prioritized.
+None.
 
 # Completion
 
-- [ ] Planned work is reconciled with actual changes
-- [ ] Applicable focused tests pass
-- [ ] Applicable integration/regression checks pass
-- [ ] Governing specifications were rechecked
-- [ ] Remaining gaps or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review
+- [x] Planned work is reconciled with actual changes
+- [x] Applicable focused tests pass
+- [x] Applicable integration/regression checks pass
+- [x] Governing specifications were rechecked
+- [x] Remaining gaps or unverified behavior are recorded
+- [x] Task state is safe and complete for external review

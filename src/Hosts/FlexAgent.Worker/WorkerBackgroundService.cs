@@ -7,6 +7,7 @@ public sealed class WorkerBackgroundService(
     ILogger<WorkerBackgroundService> logger,
     WorkClaimGate workClaimGate,
     IDurableInvocationWorkProcessor workProcessor,
+    IDurableTimerFireProcessor timerFireProcessor,
     IDurableWorkBacklogSampler backlogSampler) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -48,6 +49,23 @@ public sealed class WorkerBackgroundService(
                     {
                         logger.LogError(exception, "Durable invocation work processing failed.");
                     }
+
+                    try
+                    {
+                        var timerProcessed = await timerFireProcessor.TryProcessNextAsync(stoppingToken);
+                        if (timerProcessed.Outcome == DurableTimerFireOutcomes.Idle)
+                        {
+                            logger.LogDebug("Worker timer lane idle at {Timestamp}", DateTimeOffset.UtcNow);
+                        }
+                    }
+                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception exception)
+                    {
+                        logger.LogError(exception, "Durable timer-fire processing failed.");
+                    }
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
@@ -62,7 +80,7 @@ public sealed class WorkerBackgroundService(
     public override Task StopAsync(CancellationToken cancellationToken)
     {
         workClaimGate.StopAcceptingWork();
-        logger.LogInformation("Worker stopped accepting new work claims.");
+        logger.LogInformation("Worker stopped accepting new durable work.");
         return base.StopAsync(cancellationToken);
     }
 }

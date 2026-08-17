@@ -81,6 +81,25 @@ public static class ModelExecutionPreflight
     }
 }
 
+public sealed class FailClosedModelExecutionPort : IModelExecutionPort
+{
+    public static FailClosedModelExecutionPort Instance { get; } = new();
+
+    public Task<ModelExecutionAttemptResult> ExecuteAsync(
+        ModelExecutionAttemptRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return Task.FromResult<ModelExecutionAttemptResult>(
+            new ModelExecutionFailed(ExecutionFailureReasons.ProviderUnavailable));
+    }
+
+    public IAsyncEnumerable<ModelContentEvent> StreamParticipantVisibleContentAsync(
+        ModelContentStreamRequest request,
+        CancellationToken cancellationToken) =>
+        AsyncEnumerable.Empty<ModelContentEvent>();
+}
+
 public sealed class DeterministicFakeModelExecutionAdapter : IModelExecutionPort
 {
     private readonly Queue<Func<ModelExecutionAttemptRequest, CancellationToken, ModelExecutionAttemptResult>> _scripted =

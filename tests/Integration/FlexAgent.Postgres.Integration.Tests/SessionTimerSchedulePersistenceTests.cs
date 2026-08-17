@@ -372,6 +372,39 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
     }
 
     [Fact]
+    public async Task Missing_binding_does_not_cancel_the_due_schedule()
+    {
+        var prepared = await InsertActiveSessionAsync();
+        await using var otherDue = await HoldOtherDueSchedulesAsync(prepared.Binding.Ownership);
+        await MarkScheduleDueAsync(prepared.Binding.Ownership);
+        var coordinator = new PostgresFireDueTimerCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            prepared.Repository,
+            new MemoryTrustedSessionBindingSource());
+        var command = new FireDueTimerCommand(
+            SessionPersistenceFixtures.Actor(prepared.Organization.ActorId),
+            Guid.NewGuid(),
+            "integration.test");
+
+        var first = await coordinator.TryFireNextDueAsync(command, CancellationToken);
+        var second = await coordinator.TryFireNextDueAsync(command, CancellationToken);
+
+        Assert.False(first.Succeeded);
+        Assert.Equal(TimerFireOutcomeCodes.StaleRevision, first.OutcomeCode);
+        Assert.Equal(TimerFireOutcomeCodes.StaleRevision, second.OutcomeCode);
+        await using var loadScope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken);
+        var loaded = await prepared.Repository.LoadForUpdateAsync(
+            prepared.Binding.Ownership,
+            prepared.Binding,
+            loadScope.Transaction,
+            CancellationToken);
+        await loadScope.CommitAsync(CancellationToken);
+        Assert.Equal(TimerLaneStates.Pending, loaded!.TimerSchedules[0].LaneState);
+    }
+
+    [Fact]
     public async Task Paused_session_is_not_claimed_even_when_fire_at_is_past()
     {
         var prepared = await InsertActiveSessionAsync();

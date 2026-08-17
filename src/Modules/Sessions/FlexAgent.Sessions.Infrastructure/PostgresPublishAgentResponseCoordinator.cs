@@ -12,6 +12,7 @@ public sealed class PostgresPublishAgentResponseCoordinator(
     IPublishAgentResponseFragmentHandler publicationHandler,
     IAuditEventWriter? auditEventWriter = null,
     IOutboxItemWriter? outboxItemWriter = null)
+    : IAgentResponsePublicationPersistPort
 {
     private readonly ISealAgentResponseHandler _sealHandler = new SealAgentResponseHandler();
     private readonly IAuditEventWriter _auditEventWriter = auditEventWriter ?? new PostgresAuditEventWriter();
@@ -224,5 +225,57 @@ public sealed class PostgresPublishAgentResponseCoordinator(
 
         await scope.CommitAsync(cancellationToken);
         return result;
+    }
+
+    public Task<AgentResponseFragmentCommitResult> PersistFragmentAsync(
+        PublishAgentResponseFragmentCommand command,
+        TrustedSessionBinding binding,
+        CancellationToken cancellationToken) =>
+        PublishFragmentAsync(command, binding, cancellationToken);
+
+    public Task<AgentResponseFragmentCommitResult> PersistSealAsync(
+        SealAgentResponseCommand command,
+        TrustedSessionBinding binding,
+        CancellationToken cancellationToken) =>
+        SealAsync(command, binding, cancellationToken);
+
+    public async Task<bool> TryPersistUnpublishedFailureAsync(
+        SessionOwnership ownership,
+        TrustedSessionBinding binding,
+        long expectedSessionVersion,
+        SessionRuntime session,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ownership);
+        ArgumentNullException.ThrowIfNull(binding);
+        ArgumentNullException.ThrowIfNull(session);
+        if (ownership != binding.Ownership || ownership != session.Ownership)
+        {
+            return false;
+        }
+
+        await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
+        try
+        {
+            var saved = await runtimeRepository.TrySaveLifecycleAsync(
+                ownership,
+                expectedSessionVersion,
+                session,
+                scope.Transaction,
+                cancellationToken);
+            if (!saved)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return false;
+            }
+
+            await scope.CommitAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            await scope.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 }
