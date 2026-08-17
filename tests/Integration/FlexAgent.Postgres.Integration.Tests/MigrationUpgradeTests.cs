@@ -5,9 +5,11 @@ using FlexAgent.Configuration;
 using FlexAgent.Configuration.Application;
 using FlexAgent.Configuration.Domain;
 using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.Postgres;
 using FlexAgent.Postgres.Integration.Tests.Support;
 using FlexAgent.Postgres.Migrations;
 using FlexAgent.Sessions.Domain;
+using FlexAgent.Sessions.Infrastructure;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
@@ -776,6 +778,87 @@ public sealed class MigrationUpgradeTests
     }
 
     [Fact]
+    public async Task Upgrade_from_populated_0018_seeds_claimed_partitions_so_fairness_skips_busy_activity()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0018ScriptName);
+
+        var seeded = await SeedPopulated0018ClaimedWorkAsync(connectionString);
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var seededPartition = await connection.QuerySingleAsync<(Guid OrganizationId, Guid WorkId)>(
+            """
+            SELECT organization_id, last_claimed_work_id
+            FROM session_durable_work_claim_partitions
+            WHERE organization_id = @OrganizationId
+              AND activity_id = @ActivityId;
+            """,
+            new { OrganizationId = seeded.OrganizationA, ActivityId = seeded.ActivityA });
+        Assert.Equal(seeded.OrganizationA, seededPartition.OrganizationId);
+        Assert.Equal(seeded.ClaimedWorkId, seededPartition.WorkId);
+
+        await using var dataSource = NpgsqlDataSource.Create(connectionString);
+        var store = new PostgresDurableInvocationWorkStore(new PostgresConnectionAccessor(dataSource));
+        var claimed = await store.TryClaimExecuteInvocationAsync(
+            TimeSpan.FromSeconds(30),
+            TestContext.Current.CancellationToken);
+
+        Assert.NotNull(claimed);
+        Assert.Equal(seeded.PendingBWorkId, claimed!.WorkId);
+        Assert.Equal(seeded.OrganizationB, claimed.Ownership.OrganizationId);
+    }
+
+    [Fact]
+    public async Task Recorded_c861da6_0019_fails_closed_against_current_0019()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+        var historical0019Sql = await ReadHistoricalFixtureAsync(
+            "0019_session_durable_work_claim_partitions_c861da6.sql");
+
+        Assert.NotEqual(
+            GrateMigrationRunner.ComputeScriptHash(historical0019Sql),
+            GrateMigrationRunner.ComputeScriptHash(
+                await File.ReadAllTextAsync(
+                    Path.Combine(migrationsDirectory, "up", Current0019ScriptName),
+                    TestContext.Current.CancellationToken)));
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0018ScriptName);
+
+        await GrateMigrationRunner.ApplyRecordedMigrationForTestsAsync(
+            connectionString,
+            Current0019ScriptName,
+            historical0019Sql,
+            TestContext.Current.CancellationToken);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+                connectionString,
+                migrationsDirectory,
+                TestContext.Current.CancellationToken));
+        Assert.Contains(Current0019ScriptName, error.Message, StringComparison.Ordinal);
+        Assert.Contains("changed after it was applied", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Upgrade_from_populated_0017_backfills_existing_evaluation_handoff_binding()
     {
         await using var container = await StartContainerAsync();
@@ -1439,6 +1522,78 @@ public sealed class MigrationUpgradeTests
         return new Populated0017HandoffSeed(organizationId, sessionId, terminalRecordId);
     }
 
+    private static async Task<Populated0018ClaimedWorkSeed> SeedPopulated0018ClaimedWorkAsync(
+        string connectionString)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var organizationA = Guid.NewGuid();
+        var organizationB = Guid.NewGuid();
+        var activityA = Guid.NewGuid();
+        var activityB = Guid.NewGuid();
+        var claimedWorkId = Guid.Parse("00000000-0000-0000-0000-0000000000a1");
+        var pendingAWorkId = Guid.Parse("00000000-0000-0000-0000-0000000000a2");
+        var pendingBWorkId = Guid.Parse("00000000-0000-0000-0000-0000000000b1");
+        var digest = new string('a', 64);
+        var createdAt = DateTimeOffset.UtcNow;
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO organizations (id, created_at) VALUES
+                (@OrganizationA, @CreatedAt),
+                (@OrganizationB, @CreatedAt);
+            INSERT INTO session_runtimes (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                configuration_id, configuration_digest, manifest_id, lifecycle_state)
+            VALUES
+                (@OrganizationA, @ActivityA, @ParticipantA1, @AttemptA1, @SessionA1,
+                 'cfg-1', @Digest, 'man-1', 'active'),
+                (@OrganizationA, @ActivityA, @ParticipantA2, @AttemptA2, @SessionA2,
+                 'cfg-1', @Digest, 'man-1', 'active'),
+                (@OrganizationB, @ActivityB, @ParticipantB, @AttemptB, @SessionB,
+                 'cfg-1', @Digest, 'man-1', 'active');
+            INSERT INTO session_durable_work (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                work_id, work_type, business_key, state, claim_lease_until)
+            VALUES
+                (@OrganizationA, @ActivityA, @ParticipantA1, @AttemptA1, @SessionA1,
+                 @ClaimedWorkId, 'invocation.execute', 'ainv.upgrade.a1', 'claimed',
+                 clock_timestamp() + INTERVAL '30 minutes'),
+                (@OrganizationA, @ActivityA, @ParticipantA2, @AttemptA2, @SessionA2,
+                 @PendingAWorkId, 'invocation.execute', 'ainv.upgrade.a2', 'pending', NULL),
+                (@OrganizationB, @ActivityB, @ParticipantB, @AttemptB, @SessionB,
+                 @PendingBWorkId, 'invocation.execute', 'ainv.upgrade.b1', 'pending', NULL);
+            """,
+            new
+            {
+                OrganizationA = organizationA,
+                OrganizationB = organizationB,
+                ActivityA = activityA,
+                ActivityB = activityB,
+                ParticipantA1 = Guid.NewGuid(),
+                ParticipantA2 = Guid.NewGuid(),
+                ParticipantB = Guid.NewGuid(),
+                AttemptA1 = Guid.NewGuid(),
+                AttemptA2 = Guid.NewGuid(),
+                AttemptB = Guid.NewGuid(),
+                SessionA1 = Guid.NewGuid(),
+                SessionA2 = Guid.NewGuid(),
+                SessionB = Guid.NewGuid(),
+                ClaimedWorkId = claimedWorkId,
+                PendingAWorkId = pendingAWorkId,
+                PendingBWorkId = pendingBWorkId,
+                Digest = digest,
+                CreatedAt = createdAt,
+            });
+
+        return new Populated0018ClaimedWorkSeed(
+            organizationA,
+            organizationB,
+            activityA,
+            claimedWorkId,
+            pendingBWorkId);
+    }
+
     private static async Task<LegacyVersionSeed> SeedLegacyVersionAsync(string connectionString)
     {
         var organizationId = Guid.NewGuid();
@@ -1648,6 +1803,13 @@ public sealed class MigrationUpgradeTests
         Guid OrganizationId,
         Guid SessionId,
         Guid TerminalRecordId);
+
+    private sealed record Populated0018ClaimedWorkSeed(
+        Guid OrganizationA,
+        Guid OrganizationB,
+        Guid ActivityA,
+        Guid ClaimedWorkId,
+        Guid PendingBWorkId);
 
     private sealed record Populated0012PublicationSeed(
         Guid OrganizationId,

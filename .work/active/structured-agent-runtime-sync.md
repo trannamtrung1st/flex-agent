@@ -998,13 +998,18 @@ and test reviews have no unresolved blocking findings.
         timer-storm load lab remain later.
   - [x] Remediate `f4f248c` P1/P2: per-key finite label vocabularies; advance
         fairness on claim via `0019` partition rows; telemetry Write is
-        no-throw; stop per-poll claimable `COUNT(*)`. Red: compile failed for
-        `IsAllowedLabel` / `Unknown`. Green: Sessions 405/405; architecture
-        29/29; Postgres claim+observability 14/14 including outstanding A
-        jobs then B without complete, throwing-sink admission commit and
-        original audit exception preserved; Grate 12/12 (`0019` count 19);
-        frozen `0018→0019` 1/1. Residual: sampled backlog export; claim/
-        backlog history benchmark; Collector/OTLP.
+        no-throw; stop per-poll claimable `COUNT(*)`. Green at `c861da6`:
+        Sessions 405/405; architecture 29/29; Postgres claim+observability
+        14/14; Grate 12/12; frozen `0018→0019` 1/1.
+  - [x] Remediate `c861da6` P2: seed `0019` from in-flight claimed work and
+        maintain partition rows at the durable-work claim boundary so mixed-
+        version claimers cannot starve another Organization/Activity; coerce
+        open-set `transition` and `decision_type` labels to `unknown`. Red:
+        unknown lifecycle/decision telemetry recorded only `rejected`. Green:
+        Sessions 407/407; architecture 29/29; claim tests 9/9 including
+        direct-row-update mixed-version fairness; populated `0018` claimed
+        work upgrades to skip busy A and claim B; recorded `c861da6` `0019`
+        checksum fail-closed. Residual: claim-history `EXPLAIN`/index gate.
 - [>] Integrate focused and aggregate verification: contract/catalog/OpenAPI
   parity, architecture tests, Sessions domain tests, PostgreSQL 18 migration/
   isolation/concurrency/fault tests, API/worker runtime tests, locked web
@@ -1273,8 +1278,11 @@ surfaces.
   a finite vocabulary (unknown trigger families coerce to `unknown`). The
   sink never throws into domain work. Durable-work claiming is fair across
   Organization/Activity partitions by least-recently-**claimed** compact
-  `session_durable_work_claim_partitions` state (`0019`), not completed-work
-  history. Worker polls do not `COUNT(*)` the claimable backlog. Admission
+  `session_durable_work_claim_partitions` state (`0019`), seeded from
+  in-flight claimed work and maintained by a table trigger so older claim
+  SQL still advances fairness. Open-set labels (`trigger_family`,
+  `transition`, `decision_type`) coerce to `unknown`. Worker polls do not
+  `COUNT(*)` the claimable backlog. Admission
   and reconnect p95 use sequential in-process PostgreSQL samples with
   provider and end-user network excluded. Host OTLP Collector export and
   sampled backlog gauges remain later composition-root work.
@@ -2263,7 +2271,7 @@ surfaces.
 | Web lint/type/unit/build/e2e | local web CI script passed; Playwright e2e not in GitHub web job | `bash build/scripts/verify-web.sh` (2026-08-17): frozen install, boundary check, contracts JCS 8/8, eslint warning-only `react-refresh/only-export-components` in `web/src/api/browser-api.tsx`, `tsc -b --noEmit`, vitest 55/55, production build. GitHub Implementation `web` job matches this script and does not run Playwright e2e. |
 | Playwright accessibility/responsive/visual evaluation | passed live MCP | Prior journey set plus 2026-08-17 confirmation/disabled-button, trap, and `29cde55` restore: desktop/390 Complete trigger focus after Continue and Escape. Artifact dir `.playwright-mcp/`. |
 | Aggregate `.NET`, web, OCI, supply-chain, secret, and docs verification | local CI-equivalent passed (2026-08-17); GitHub push not claimed | `git diff --check` clean; `python3 scripts/check_docs.py` passed. `verify-web.sh` as above. `verify-dotnet.sh`: 775/775, Release publish, no `appsettings.Development.json`. `gitleaks detect` no leaks. NuGet `--vulnerable --include-transitive` none. `pnpm audit --audit-level=high` exit 0 (2 moderate). Native OCI `flex-agent-oci-{api,worker,spa}:local`. CI-shaped `linux/amd64` `flex-agent-{api,worker,spa}:linux-amd64`. `scan-oci-image-sboms.sh` exit 0 (`--fail-on critical`; SPA Alpine `tiff` High recorded, not critical). GitHub Implementation/Documentation workflows are not claimed from this machine. |
-| Bounded observability and fair claiming (`AC-SESS-27`, `QA-6`, `QA-12`, `REQ-OPS-23`) | remediating `f4f248c` locally | External review of `f4f248c` requested changes. Red: compile failed for `IsAllowedLabel` / `Unknown`. Green: Sessions 405/405; architecture 29/29; Postgres claim+observability 14/14 (claim-time Org/Activity interleave; throwing sink does not roll back admission; audit failure message preserved); Grate 12/12; `0018→0019` 1/1. Frozen `0005`–`0018` unchanged. Residual: sampled backlog export; history-scale claim benchmark; Collector/OTLP; timer-storm load lab. |
+| Bounded observability and fair claiming (`AC-SESS-27`, `QA-6`, `QA-12`, `REQ-OPS-23`) | remediating `c861da6` locally | External review of `c861da6` requested two P2s. Red: unknown lifecycle/decision telemetry was only `rejected`. Green: Sessions 407/407; architecture 29/29; claim tests 9/9 (including old UPDATE claimer); populated `0018→0019` seeds claimed partitions then claims B; recorded `c861da6` `0019` fail-closed. Frozen `0005`–`0018` unchanged; unfrozen `0019` rewritten. Residual: sampled backlog; history-scale `EXPLAIN`/index; Collector/OTLP; timer-storm. Databases that applied `c861da6`'s empty `0019` cannot migrate in place. |
 | Performance, observability, lifecycle/export, backup/restore verification | observability passed locally; lifecycle/export/backup still pending | See bounded observability row. Lifecycle/export/backup remain the later aggregate gate. |
 | Architecture/backend/frontend/security/privacy/QA review | pending | |
 | Final specification and repository consistency audit | pending | |
@@ -2299,10 +2307,12 @@ slice. Production-shaped internal end-to-end proof is implemented
 binding. `ddd7c0a` request-changes: populated `0017→0018` backfill and
 configuration/manifest binding. External review of `8db143c` (2026-08-17):
 **approved**, no blocking findings. Freeze `0018`. External review of
-`f4f248c` requested changes on telemetry vocabularies, claim-time
-fairness, sink isolation, and per-poll aggregation; remediations are
-implemented locally (additive `0019`). Aggregate verification is next
-after this slice is reviewed.
+`c861da6` requested two P2s (upgrade seed/mixed-version fairness; open-set
+label canonicalization). Remediations rewrite unfrozen `0019` (seed plus
+claim-boundary trigger) and coerce `transition`/`decision_type` to
+`unknown`. Databases that applied `c861da6`'s empty `0019` cannot migrate
+in place. History-scale claim `EXPLAIN`/index remains residual. Aggregate
+verification is next after this slice is reviewed.
 
 Exact production timer durations remain intentional policy inputs. Voice and
 other deferred channels remain out of scope.

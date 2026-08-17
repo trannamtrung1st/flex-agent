@@ -46,51 +46,25 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
                      work.work_id ASC
             FOR UPDATE OF work SKIP LOCKED
             LIMIT 1
-        ),
-        claimed AS (
-            UPDATE session_durable_work AS work
-            SET
-                state = @Claimed,
-                claim_lease_until = clock_timestamp() + (@LeaseSeconds * INTERVAL '1 second')
-            FROM candidate
-            WHERE work.organization_id = candidate.organization_id
-              AND work.session_id = candidate.session_id
-              AND work.work_id = candidate.work_id
-            RETURNING
-                work.work_id,
-                work.organization_id,
-                work.activity_id,
-                work.participant_id,
-                work.attempt_id,
-                work.session_id,
-                work.business_key,
-                work.state,
-                work.claim_lease_until
-        ),
-        touched AS (
-            INSERT INTO session_durable_work_claim_partitions (
-                organization_id, activity_id, last_claimed_at, last_claimed_work_id)
-            SELECT claimed.organization_id, claimed.activity_id, clock_timestamp(), claimed.work_id
-            FROM claimed
-            ON CONFLICT (organization_id, activity_id) DO UPDATE
-            SET last_claimed_at = EXCLUDED.last_claimed_at,
-                last_claimed_work_id = EXCLUDED.last_claimed_work_id
-            RETURNING organization_id, activity_id
         )
-        SELECT
-            claimed.work_id,
-            claimed.organization_id,
-            claimed.activity_id,
-            claimed.participant_id,
-            claimed.attempt_id,
-            claimed.session_id,
-            claimed.business_key,
-            claimed.state,
-            claimed.claim_lease_until
-        FROM claimed
-        INNER JOIN touched
-          ON touched.organization_id = claimed.organization_id
-         AND touched.activity_id = claimed.activity_id;
+        UPDATE session_durable_work AS work
+        SET
+            state = @Claimed,
+            claim_lease_until = clock_timestamp() + (@LeaseSeconds * INTERVAL '1 second')
+        FROM candidate
+        WHERE work.organization_id = candidate.organization_id
+          AND work.session_id = candidate.session_id
+          AND work.work_id = candidate.work_id
+        RETURNING
+            work.work_id,
+            work.organization_id,
+            work.activity_id,
+            work.participant_id,
+            work.attempt_id,
+            work.session_id,
+            work.business_key,
+            work.state,
+            work.claim_lease_until;
         """;
 
     private const string BacklogSql = """

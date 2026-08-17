@@ -107,6 +107,59 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
     }
 
     [Fact]
+    public async Task Claim_via_direct_row_update_advances_partition_state_for_the_next_poll()
+    {
+        var firstOrg = await Fixture.SeedOrganizationAsync("-fair-trigger-a");
+        var activityA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa02");
+        var first = await AdmitPreparedWorkAsync(
+            firstOrg,
+            SessionPersistenceFixtures.CreateBinding(firstOrg.OrganizationId, cooldownSeconds: 0, activityId: activityA),
+            "trig.claim.trigger.a1",
+            "idem.claim.trigger.a1");
+        var firstSibling = await AdmitPreparedWorkAsync(
+            firstOrg,
+            SessionPersistenceFixtures.CreateBinding(firstOrg.OrganizationId, cooldownSeconds: 0, activityId: activityA),
+            "trig.claim.trigger.a2",
+            "idem.claim.trigger.a2");
+        var secondOrg = await Fixture.SeedOrganizationAsync("-fair-trigger-b");
+        var second = await AdmitPreparedWorkAsync(
+            secondOrg,
+            SessionPersistenceFixtures.CreateBinding(secondOrg.OrganizationId, cooldownSeconds: 0),
+            "trig.claim.trigger.b1",
+            "idem.claim.trigger.b1");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(
+            first.Binding.Ownership,
+            firstSibling.Binding.Ownership,
+            second.Binding.Ownership);
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            var updated = await connection.ExecuteAsync(
+                """
+                UPDATE session_durable_work
+                SET
+                    state = @Claimed,
+                    claim_lease_until = clock_timestamp() + INTERVAL '30 seconds'
+                WHERE organization_id = @OrganizationId
+                  AND session_id = @SessionId
+                  AND work_type = @WorkType;
+                """,
+                new
+                {
+                    first.Binding.Ownership.OrganizationId,
+                    first.Binding.Ownership.SessionId,
+                    WorkType = DurableSessionWorkTypes.ExecuteInvocation,
+                    Claimed = DurableSessionWorkStates.Claimed,
+                });
+            Assert.Equal(1, updated);
+        }
+
+        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var claimedSecond = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
+
+        Assert.Equal(second.InvocationId, claimedSecond!.AgentInvocationId);
+    }
+
+    [Fact]
     public async Task Unexpired_claimed_work_is_not_taken_by_another_poll()
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.claim.held", "idem.claim.held");

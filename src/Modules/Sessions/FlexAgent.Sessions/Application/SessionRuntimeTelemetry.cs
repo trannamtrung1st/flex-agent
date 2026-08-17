@@ -316,9 +316,7 @@ internal static class SessionRuntimeTelemetryRecording
                 continue;
             }
 
-            labels[key] = key == SessionRuntimeTelemetryLabelKeys.TriggerFamily
-                ? SessionRuntimeTelemetryVocabularies.CanonicalTriggerFamily(value)
-                : value;
+            labels[key] = SessionRuntimeTelemetryVocabularies.CanonicalOpenSet(key, value);
         }
 
         return labels;
@@ -432,6 +430,7 @@ internal static class SessionRuntimeTelemetryVocabularies
         RuntimeDecisionTypes.RequestTool,
         RuntimeDecisionTypes.ProposeTransition,
         RuntimeDecisionTypes.Escalate,
+        SessionRuntimeTelemetryValues.Unknown,
     ];
 
     private static readonly HashSet<string> YesNo =
@@ -487,6 +486,7 @@ internal static class SessionRuntimeTelemetryVocabularies
         SessionLifecycleTransitions.Complete,
         SessionLifecycleTransitions.Terminate,
         SessionLifecycleTransitions.Abort,
+        SessionRuntimeTelemetryValues.Unknown,
     ];
 
     private static readonly Dictionary<string, HashSet<string>> ByKey = new(StringComparer.Ordinal)
@@ -507,6 +507,15 @@ internal static class SessionRuntimeTelemetryVocabularies
     internal static bool IsAllowed(string key, string value) =>
         ByKey.TryGetValue(key, out var allowed) && allowed.Contains(value);
 
-    internal static string CanonicalTriggerFamily(string family) =>
-        TriggerFamilies.Contains(family) ? family : SessionRuntimeTelemetryValues.Unknown;
+    private static readonly HashSet<string> OpenSetKeys = new(StringComparer.Ordinal)
+    {
+        SessionRuntimeTelemetryLabelKeys.TriggerFamily,
+        SessionRuntimeTelemetryLabelKeys.DecisionType,
+        SessionRuntimeTelemetryLabelKeys.Transition,
+    };
+
+    internal static string CanonicalOpenSet(string key, string value) =>
+        OpenSetKeys.Contains(key) && !IsAllowed(key, value)
+            ? SessionRuntimeTelemetryValues.Unknown
+            : value;
 }

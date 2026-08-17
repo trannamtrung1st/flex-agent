@@ -223,6 +223,78 @@ public sealed class SessionRuntimeTelemetryTests
     }
 
     [Fact]
+    public void Unknown_lifecycle_transition_records_denied_with_a_bounded_token()
+    {
+        var sink = new CapturingSessionRuntimeTelemetrySink();
+        var telemetry = new SessionRuntimeTelemetry(sink);
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var command = new ChangeSessionLifecycleCommand(
+            SessionRuntimeTestFixtures.CreateActor(),
+            session.Ownership,
+            session.SessionVersion,
+            "destroy_everything",
+            Guid.Parse("44444444-4444-4444-4444-444444444444"),
+            "application.test");
+
+        var result = new ChangeSessionLifecycleHandler(telemetry).Handle(
+            command,
+            session,
+            SessionRuntimeTestFixtures.T0.AddSeconds(1));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(SessionLifecycleOutcomeCodes.Denied, result.OutcomeCode);
+        var point = Assert.Single(sink.Counters, item => item.Instrument == SessionRuntimeTelemetryInstruments.LifecycleChange);
+        Assert.Equal(SessionLifecycleOutcomeCodes.Denied, point.Labels[SessionRuntimeTelemetryLabelKeys.Outcome]);
+        Assert.Equal(SessionRuntimeTelemetryValues.Unknown, point.Labels[SessionRuntimeTelemetryLabelKeys.Transition]);
+        Assert.DoesNotContain(sink.Counters, item => item.Instrument == SessionRuntimeTelemetryInstruments.Rejected);
+        Assert.DoesNotContain(sink.AllLabelValues(), value => value == "destroy_everything");
+    }
+
+    [Fact]
+    public void Prohibited_open_set_decision_type_records_a_bounded_token()
+    {
+        var sink = new CapturingSessionRuntimeTelemetrySink();
+        var telemetry = new SessionRuntimeTelemetry(sink);
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.prohibited.telemetry",
+            "turn.1",
+            "slot.1",
+            "trig.participant.prohibited.telemetry",
+            "idem.p.prohibited.telemetry",
+            SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var command = new CompleteInvocationCommand(
+            SessionRuntimeTestFixtures.CreateActor(),
+            session.Ownership,
+            session.SessionVersion,
+            invocationId,
+            new ProhibitedDecisionRecommendation(
+                Guid.NewGuid().ToString("N"),
+                invocationId,
+                SessionRuntimeTestFixtures.T0.AddSeconds(2),
+                "customer_secret_action",
+                null),
+            null,
+            Guid.Parse("55555555-5555-5555-5555-555555555555"),
+            "application.test");
+
+        var result = new CompleteInvocationHandler(telemetry).Handle(
+            command,
+            session,
+            SessionRuntimeTestFixtures.T0.AddSeconds(2));
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        var completion = Assert.Single(
+            sink.Counters,
+            item => item.Instrument == SessionRuntimeTelemetryInstruments.InvocationCompletion);
+        Assert.Equal(InvocationCompletionOutcomeCodes.Decided, completion.Labels[SessionRuntimeTelemetryLabelKeys.Outcome]);
+        Assert.Equal(SessionRuntimeTelemetryValues.Unknown, completion.Labels[SessionRuntimeTelemetryLabelKeys.DecisionType]);
+        Assert.DoesNotContain(sink.Counters, item => item.Instrument == SessionRuntimeTelemetryInstruments.Rejected);
+        Assert.DoesNotContain(sink.AllLabelValues(), value => value == "customer_secret_action");
+    }
+
+    [Fact]
     public void Sink_exceptions_do_not_escape_the_telemetry_boundary()
     {
         var telemetry = new SessionRuntimeTelemetry(new ThrowingSessionRuntimeTelemetrySink());
