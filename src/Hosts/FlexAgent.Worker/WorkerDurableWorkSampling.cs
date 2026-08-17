@@ -12,7 +12,9 @@ internal static class WorkerDurableWorkSampling
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        services.AddSingleton<ISessionRuntimeTelemetry>(_ => new SessionRuntimeTelemetry());
+        services.AddSingleton<ISessionRuntimeTelemetrySink, MeterSessionRuntimeTelemetrySink>();
+        services.AddSingleton<ISessionRuntimeTelemetry>(sp =>
+            new SessionRuntimeTelemetry(sp.GetRequiredService<ISessionRuntimeTelemetrySink>()));
         var connectionString = configuration.GetConnectionString("Sessions");
         if (string.IsNullOrWhiteSpace(connectionString))
         {

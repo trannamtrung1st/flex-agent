@@ -1,5 +1,7 @@
+using System.Diagnostics.Metrics;
 using System.Net;
 using FlexAgent.Sessions.Application;
+using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
 using FlexAgent.Worker;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -117,6 +119,47 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
             _factory.Services.GetRequiredService<IDurableInvocationWorkStore>());
         Assert.IsType<DurableWorkBacklogSampler>(
             _factory.Services.GetRequiredService<IDurableWorkBacklogSampler>());
+        Assert.IsType<MeterSessionRuntimeTelemetrySink>(
+            _factory.Services.GetRequiredService<ISessionRuntimeTelemetrySink>());
+    }
+
+    [Fact]
+    public void Worker_publishes_session_runtime_gauges_to_a_meter()
+    {
+        var observed = new List<double>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Meter.Name == MeterSessionRuntimeTelemetrySink.MeterName
+                && instrument.Name == SessionRuntimeTelemetryInstruments.WorkBacklog)
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<double>((_, value, _, _) =>
+        {
+            lock (observed)
+            {
+                observed.Add(value);
+            }
+        });
+        listener.Start();
+
+        var telemetry = _factory.Services.GetRequiredService<ISessionRuntimeTelemetry>();
+        telemetry.RecordGauge(
+            SessionRuntimeTelemetryInstruments.WorkBacklog,
+            42,
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [SessionRuntimeTelemetryLabelKeys.WorkType] = DurableSessionWorkTypes.ExecuteInvocation,
+                [SessionRuntimeTelemetryLabelKeys.BacklogBucket] = "n21_to_100",
+                [SessionRuntimeTelemetryLabelKeys.PartitionBucket] = "n1",
+            });
+
+        lock (observed)
+        {
+            Assert.Contains(42d, observed);
+        }
     }
 
     [Fact]
