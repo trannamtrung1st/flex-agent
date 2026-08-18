@@ -62,19 +62,19 @@ fail-closed bindings with persistence-backed resolution of the actor's
       Session insert transaction (review P1)
 - [x] Make `SetCurrentAsync` apply only a strictly newer supplied version
       (review P2 stale-set)
-- [x] Make revoke participate in the same monotonic version CAS as
-      `SetCurrentAsync` (review P2 stale-revoke)
+- [x] Advance already-revoked relationship tombstones with a newer revoke
+      version (review P2 delayed-set after out-of-order revoke)
 - [x] Refuse populated `0020`→`0021` upgrades that cannot backfill snapshots
       (review P2)
 - [x] Reconcile spec Partial rows when the hosted path is actually usable
 
 # Current state
 
-Completed follow-up to `b94d6fc`. `RevokeCurrentAsync` now takes an
-authoritative `relationshipVersion` and applies only when it is strictly
-newer than the stored version, matching `SetCurrentAsync`. Hosted SSE still
-writes the starting participant at insert, rehydrates frozen policy, and
-revalidates on authorize/replay/hold. Worker bindings remain fail-closed.
+Completed follow-up to `6d01939`. A newer revoke advances the tombstone
+version even when already revoked, scoped to trusted
+`(organization, session, actor)`. Delayed lower `SetCurrentAsync` cannot
+restore access. Hosted SSE still writes the starting participant at insert
+and revalidates on authorize/replay/hold. Worker bindings remain fail-closed.
 `REQ-SESS-59` stays Partial.
 
 # Decisions
@@ -105,7 +105,9 @@ revalidates on authorize/replay/hold. Worker bindings remain fail-closed.
   Later enrollment/reviewer assignment still uses `SetCurrentAsync`.
 - `SetCurrentAsync` and `RevokeCurrentAsync` both apply an authoritative
   supplied `RelationshipVersion` only when it is strictly newer than the
-  stored version. Revoke sets `revoked_at`; it does not invent a version.
+  stored version. Revoke sets or preserves `revoked_at` and can advance an
+  already-revoked tombstone so a delayed lower assignment cannot restore
+  access. Revoke is scoped to trusted `(organization, session, actor)`.
 - Populated `0020` databases cannot reconstruct frozen policy payloads.
   `0021` fails closed when `session_runtimes` already has rows. Empty
   `0020`→`0021` remains the supported upgrade.
@@ -133,6 +135,10 @@ revalidates on authorize/replay/hold. Worker bindings remain fail-closed.
   CAS, and populated `0021` refuse are addressed. Remaining P2: a delayed
   `RevokeCurrentAsync` with no version can still revoke a newer assignment.
 
+- `6d01939` (2026-08-18): **changes requested**. Remaining P2: a newer revoke
+  is ignored on an already-revoked row, so a delayed lower `SetCurrentAsync`
+  can restore access.
+
 # Verification
 
 | Check | Status | Evidence |
@@ -142,9 +148,9 @@ revalidates on authorize/replay/hold. Worker bindings remain fail-closed.
 | Enrollment revoke while org grant remains | passed | `Subscribe_denies_after_enrollment_revoke_while_org_grant_remains` |
 | Hosted bindings no longer fail-closed for authorized participants | passed | `InsertActiveAsync` writes participant v1; subscribe happy path no longer calls `SetCurrentAsync`; API composition registers `PostgresTrustedSessionBindingSource` |
 | Frozen-policy snapshot round-trip | passed | `FrozenRuntimePolicySnapshotTests`; `InsertActiveAsync` writes snapshot; empty upgrade `0020`→`0021` |
-| Relationship version CAS | passed | `Stale_set_current_after_revoke_does_not_restore_access`; `Stale_revoke_after_newer_assignment_does_not_revoke`; newer version reassigns or revokes |
+| Relationship version CAS | passed | `Stale_set_current_after_revoke_does_not_restore_access`; `Stale_revoke_after_newer_assignment_does_not_revoke`; `Newer_revoke_advances_tombstone_so_delayed_lower_set_does_not_restore_access` |
 | Populated `0020`→`0021` fails closed | passed | `Upgrade_from_populated_0020_runtime_fails_closed` |
-| Locked .NET regression | passed | `bash build/scripts/verify-dotnet.sh` **908/908** |
+| Locked .NET regression | passed | `bash build/scripts/verify-dotnet.sh` **909/909** |
 | Docs | passed | `python3 scripts/check_docs.py`; `git diff --check` clean; `REQ-SESS-59` Partial rows updated |
 
 # Blockers

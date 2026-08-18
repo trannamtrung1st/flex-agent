@@ -176,8 +176,8 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
         Assert.True((await handler.AuthorizeAsync(command, CancellationToken)).IsPermitted);
 
         await relationships.RevokeCurrentAsync(
+            ready.Binding.Ownership,
             ready.Actor.ActorId,
-            ready.Binding.Ownership.SessionId,
             2,
             CancellationToken);
 
