@@ -1,5 +1,6 @@
 using System.Diagnostics.Metrics;
 using System.Net;
+using FlexAgent.Api;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
@@ -79,10 +80,29 @@ public sealed class ApiRuntimeTests : IClassFixture<WebApplicationFactory<ApiPro
             factory.Services.GetRequiredService<ISubscribeAuthorizedSessionEventsHandler>());
         Assert.IsType<PostgresReplayAuthorizedSessionEventsCoordinator>(
             factory.Services.GetRequiredService<IReplayAuthorizedSessionEventsCoordinator>());
-        Assert.IsType<MemoryTrustedSessionBindingSource>(
+        Assert.IsType<FailClosedTrustedSessionBindingSource>(
             factory.Services.GetRequiredService<ITrustedSessionBindingSource>());
         Assert.IsType<FlexAgent.IdentityAccess.Infrastructure.PostgresAuthorizationKernel>(
             factory.Services.GetRequiredService<FlexAgent.IdentityAccess.Application.IAuthorizationKernel>());
+        Assert.IsType<DisabledSessionEventIdentityAdapter>(
+            factory.Services.GetRequiredService<ISessionEventIdentityAdapter>());
+    }
+
+    [Fact]
+    public async Task Api_ready_is_unhealthy_when_sessions_store_is_configured_but_unavailable()
+    {
+        await using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=127.0.0.1;Port=1;Database=flexagent;Username=flexagent;Password=unused;Timeout=1;Command Timeout=1");
+        });
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var ready = await client.GetAsync("/health/ready", cancellationToken);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, ready.StatusCode);
     }
 }
 

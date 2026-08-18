@@ -3,6 +3,7 @@ using System.Text;
 using FlexAgent.Api;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using ApiProgram = FlexAgent.Api.Program;
@@ -11,6 +12,8 @@ namespace FlexAgent.Runtime.Tests;
 
 public sealed class ProductionSessionEventRuntimeTests
 {
+    private const string TestHarnessKey = "session-events-test-key";
+
     [Fact]
     public async Task Production_events_route_is_not_the_synthetic_browser_path()
     {
@@ -52,6 +55,46 @@ public sealed class ProductionSessionEventRuntimeTests
     }
 
     [Fact]
+    public async Task Actor_header_without_harness_key_does_not_authenticate()
+    {
+        var harness = CreateHarness();
+        await using var factory = harness.Factory;
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/sessions/{harness.SessionId:D}/events");
+        request.Headers.TryAddWithoutValidation(
+            SessionEventEndpointExtensions.TestActorHeaderName,
+            harness.ActorId.ToString("D"));
+        using var response = await client.SendAsync(request, cancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(0, harness.Handler.AuthorizeCalls);
+    }
+
+    [Fact]
+    public async Task Production_environment_rejects_test_identity_even_when_configured()
+    {
+        var harness = CreateHarness(environmentName: "Production");
+        await using var factory = harness.Factory;
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/sessions/{harness.SessionId:D}/events");
+        AddTestIdentity(request, harness.ActorId);
+        using var response = await client.SendAsync(request, cancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(0, harness.Handler.AuthorizeCalls);
+        Assert.IsType<DisabledSessionEventIdentityAdapter>(
+            factory.Services.GetRequiredService<ISessionEventIdentityAdapter>());
+    }
+
+    [Fact]
     public async Task Guessed_session_id_with_actor_does_not_leak_events()
     {
         var harness = CreateHarness();
@@ -62,7 +105,7 @@ public sealed class ProductionSessionEventRuntimeTests
         var guessed = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff");
 
         using var request = new HttpRequestMessage(HttpMethod.Get, $"/sessions/{guessed:D}/events");
-        request.Headers.TryAddWithoutValidation(SessionEventEndpointExtensions.TestActorHeaderName, harness.ActorId.ToString("D"));
+        AddTestIdentity(request, harness.ActorId);
         request.Headers.TryAddWithoutValidation("Last-Event-ID", "4");
         using var response = await client.SendAsync(request, cancellationToken);
 
@@ -83,7 +126,7 @@ public sealed class ProductionSessionEventRuntimeTests
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
             $"/sessions/{harness.SessionId:D}/events");
-        request.Headers.TryAddWithoutValidation(SessionEventEndpointExtensions.TestActorHeaderName, harness.ActorId.ToString("D"));
+        AddTestIdentity(request, harness.ActorId);
         using var response = await client.SendAsync(request, cancellationToken);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -103,7 +146,7 @@ public sealed class ProductionSessionEventRuntimeTests
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
             $"/sessions/{harness.SessionId:D}/events");
-        request.Headers.TryAddWithoutValidation(SessionEventEndpointExtensions.TestActorHeaderName, harness.ActorId.ToString("D"));
+        AddTestIdentity(request, harness.ActorId);
         using var response = await client.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
@@ -136,7 +179,7 @@ public sealed class ProductionSessionEventRuntimeTests
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
             $"/sessions/{harness.SessionId:D}/events");
-        request.Headers.TryAddWithoutValidation(SessionEventEndpointExtensions.TestActorHeaderName, harness.ActorId.ToString("D"));
+        AddTestIdentity(request, harness.ActorId);
         request.Headers.TryAddWithoutValidation("Last-Event-ID", "not-a-sequence");
         using var response = await client.SendAsync(
             request,
@@ -169,7 +212,7 @@ public sealed class ProductionSessionEventRuntimeTests
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
             $"/sessions/{harness.SessionId:D}/events");
-        request.Headers.TryAddWithoutValidation(SessionEventEndpointExtensions.TestActorHeaderName, harness.ActorId.ToString("D"));
+        AddTestIdentity(request, harness.ActorId);
         using var response = await client.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
@@ -184,12 +227,50 @@ public sealed class ProductionSessionEventRuntimeTests
         Assert.Contains(": access-revoked", body, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Held_connection_completes_after_relationship_narrows_while_grant_remains()
+    {
+        var harness = CreateHarness(
+            revalidation: TimeSpan.FromMilliseconds(80),
+            poll: TimeSpan.FromMilliseconds(40),
+            heartbeat: TimeSpan.FromSeconds(30));
+        await using var factory = harness.Factory;
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/sessions/{harness.SessionId:D}/events");
+        AddTestIdentity(request, harness.ActorId);
+        using var response = await client.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+        var replayed = await ReadUntilReplayCompleteAsync(reader, cancellationToken);
+        Assert.Contains("secret-fragment", replayed, StringComparison.Ordinal);
+
+        harness.Directory.Register(new TrustedInteractiveActor(
+            harness.ActorId,
+            "synthetic.test_actor",
+            harness.OrganizationId,
+            harness.ParticipantId,
+            SessionEventSubscriptionRelationships.Reviewer));
+
+        var rest = await ReadUntilClosedAsync(reader, cancellationToken);
+        Assert.Contains(": access-revoked", rest, StringComparison.Ordinal);
+        Assert.True(harness.Handler.AuthorizeCalls >= 2, $"kernel calls: {harness.Handler.AuthorizeCalls}");
+    }
+
     private static Harness CreateHarness(
         bool reviewer = false,
         string replayOutcome = SessionEventReplayOutcomeCodes.Succeeded,
         TimeSpan? revalidation = null,
         TimeSpan? poll = null,
-        TimeSpan? heartbeat = null)
+        TimeSpan? heartbeat = null,
+        string environmentName = "Development")
     {
         var organizationId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var participantId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
@@ -204,7 +285,7 @@ public sealed class ProductionSessionEventRuntimeTests
             reviewer
                 ? SessionEventSubscriptionRelationships.Reviewer
                 : SessionEventSubscriptionRelationships.Participant));
-        var handler = new FakeSubscribeHandler
+        var handler = new FakeSubscribeHandler(directory)
         {
             PermitSessionId = sessionId,
             Result = replayOutcome == SessionEventReplayOutcomeCodes.Succeeded
@@ -226,10 +307,13 @@ public sealed class ProductionSessionEventRuntimeTests
         };
         var factory = new WebApplicationFactory<ApiProgram>().WithWebHostBuilder(builder =>
         {
+            builder.UseEnvironment(environmentName);
+            builder.UseSetting("SessionEvents:TestIdentity:Enabled", "true");
+            builder.UseSetting("SessionEvents:TestIdentity:HarnessApiKey", TestHarnessKey);
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<ISubscribeAuthorizedSessionEventsHandler>(handler);
-                services.AddSingleton<ITrustedInteractiveActorDirectory>(directory);
+                services.AddSingleton<ISessionEventSubjectSource>(directory);
                 services.AddSingleton(new SessionEventSubscriptionOptions
                 {
                     AuthorizationRevalidationInterval = revalidation ?? TimeSpan.FromSeconds(60),
@@ -239,7 +323,17 @@ public sealed class ProductionSessionEventRuntimeTests
             });
         });
 
-        return new Harness(factory, sessionId, actorId, handler);
+        return new Harness(factory, sessionId, actorId, organizationId, participantId, directory, handler);
+    }
+
+    private static void AddTestIdentity(HttpRequestMessage request, Guid actorId)
+    {
+        request.Headers.TryAddWithoutValidation(
+            SessionEventEndpointExtensions.TestActorHeaderName,
+            actorId.ToString("D"));
+        request.Headers.TryAddWithoutValidation(
+            SessionEventEndpointExtensions.TestHarnessKeyHeaderName,
+            TestHarnessKey);
     }
 
     private static async Task<string> ReadUntilReplayCompleteAsync(StreamReader reader, CancellationToken cancellationToken)
@@ -282,9 +376,13 @@ public sealed class ProductionSessionEventRuntimeTests
         WebApplicationFactory<ApiProgram> Factory,
         Guid SessionId,
         Guid ActorId,
+        Guid OrganizationId,
+        Guid ParticipantId,
+        MemoryTrustedInteractiveActorDirectory Directory,
         FakeSubscribeHandler Handler);
 
-    private sealed class FakeSubscribeHandler : ISubscribeAuthorizedSessionEventsHandler
+    private sealed class FakeSubscribeHandler(MemoryTrustedInteractiveActorDirectory directory)
+        : ISubscribeAuthorizedSessionEventsHandler
     {
         public int AuthorizeCalls { get; private set; }
 
@@ -298,16 +396,18 @@ public sealed class ProductionSessionEventRuntimeTests
 
         public required AuthorizedSessionEventReplayResult Result { get; set; }
 
-        public Task<SessionEventSubscriptionAuthorization> AuthorizeAsync(
+        public async Task<SessionEventSubscriptionAuthorization> AuthorizeAsync(
             SubscribeAuthorizedSessionEventsCommand command,
             CancellationToken cancellationToken = default)
         {
             AuthorizeCalls++;
             LastCommand = command;
+            var subject = await directory.GetCurrentAsync(command.Actor.ActorId, cancellationToken);
             var permitted = command.UntrustedSessionId == PermitSessionId
-                && command.Relationship == SessionEventSubscriptionRelationships.Participant
+                && subject is not null
+                && subject.Relationship == SessionEventSubscriptionRelationships.Participant
                 && (PermitUntilAuthorizeCall is null || AuthorizeCalls <= PermitUntilAuthorizeCall);
-            return Task.FromResult(new SessionEventSubscriptionAuthorization(permitted));
+            return new SessionEventSubscriptionAuthorization(permitted);
         }
 
         public Task<AuthorizedSessionEventReplayResult> ReplayAsync(

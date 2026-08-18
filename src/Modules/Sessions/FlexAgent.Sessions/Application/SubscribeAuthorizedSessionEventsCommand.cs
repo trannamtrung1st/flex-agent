@@ -10,13 +10,24 @@ public static class SessionEventSubscriptionRelationships
 
 public sealed record SubscribeAuthorizedSessionEventsCommand(
     TrustedRuntimeActor Actor,
-    Guid OrganizationId,
-    Guid? ParticipantId,
-    string Relationship,
     Guid UntrustedSessionId,
     string? UntrustedLastEventId);
 
+public sealed record SessionEventSubject(
+    Guid ActorId,
+    string ActorType,
+    Guid OrganizationId,
+    Guid? ParticipantId,
+    string Relationship);
+
 public sealed record SessionEventSubscriptionAuthorization(bool IsPermitted);
+
+public interface ISessionEventSubjectSource
+{
+    Task<SessionEventSubject?> GetCurrentAsync(
+        Guid actorId,
+        CancellationToken cancellationToken = default);
+}
 
 public interface ISessionEventSubscriptionAccess
 {
@@ -65,7 +76,8 @@ public sealed class UnhostedSubscribeAuthorizedSessionEventsHandler : ISubscribe
 public sealed class SubscribeAuthorizedSessionEventsHandler(
     ITrustedSessionBindingSource bindings,
     ISessionEventSubscriptionAccess access,
-    IReplayAuthorizedSessionEventsCoordinator replay)
+    IReplayAuthorizedSessionEventsCoordinator replay,
+    ISessionEventSubjectSource subjects)
     : ISubscribeAuthorizedSessionEventsHandler
 {
     public async Task<SessionEventSubscriptionAuthorization> AuthorizeAsync(
@@ -73,17 +85,19 @@ public sealed class SubscribeAuthorizedSessionEventsHandler(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-        if (!HasTrustedActor(command)
+        var subject = await TryGetCurrentSubjectAsync(command, cancellationToken).ConfigureAwait(false);
+        if (subject is null
             || !await access.HasCurrentSubscribePermissionAsync(
                 command.Actor,
-                command.OrganizationId,
+                subject.OrganizationId,
                 command.UntrustedSessionId,
                 cancellationToken).ConfigureAwait(false))
         {
             return new SessionEventSubscriptionAuthorization(false);
         }
 
-        return new SessionEventSubscriptionAuthorization(await TryResolveParticipantBindingAsync(command, cancellationToken).ConfigureAwait(false) is not null);
+        return new SessionEventSubscriptionAuthorization(
+            await TryResolveParticipantBindingAsync(command, subject, cancellationToken).ConfigureAwait(false) is not null);
     }
 
     public async Task<AuthorizedSessionEventReplayResult> ReplayAsync(
@@ -91,10 +105,11 @@ public sealed class SubscribeAuthorizedSessionEventsHandler(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-        if (!HasTrustedActor(command)
+        var subject = await TryGetCurrentSubjectAsync(command, cancellationToken).ConfigureAwait(false);
+        if (subject is null
             || !await access.HasCurrentSubscribePermissionAsync(
                 command.Actor,
-                command.OrganizationId,
+                subject.OrganizationId,
                 command.UntrustedSessionId,
                 cancellationToken).ConfigureAwait(false))
         {
@@ -104,7 +119,7 @@ public sealed class SubscribeAuthorizedSessionEventsHandler(
                 []);
         }
 
-        var binding = await TryResolveParticipantBindingAsync(command, cancellationToken).ConfigureAwait(false);
+        var binding = await TryResolveParticipantBindingAsync(command, subject, cancellationToken).ConfigureAwait(false);
         if (binding is null)
         {
             return new AuthorizedSessionEventReplayResult(
@@ -122,28 +137,48 @@ public sealed class SubscribeAuthorizedSessionEventsHandler(
             cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<TrustedSessionBinding?> TryResolveParticipantBindingAsync(
+    private async Task<SessionEventSubject?> TryGetCurrentSubjectAsync(
         SubscribeAuthorizedSessionEventsCommand command,
         CancellationToken cancellationToken)
     {
-        if (!HasTrustedActor(command)
-            || !string.Equals(
-                command.Relationship,
+        if (!HasTrustedActor(command))
+        {
+            return null;
+        }
+
+        var subject = await subjects.GetCurrentAsync(command.Actor.ActorId, cancellationToken).ConfigureAwait(false);
+        if (subject is null
+            || subject.ActorId != command.Actor.ActorId
+            || !string.Equals(subject.ActorType, command.Actor.ActorType, StringComparison.Ordinal)
+            || subject.OrganizationId == Guid.Empty)
+        {
+            return null;
+        }
+
+        return subject;
+    }
+
+    private async Task<TrustedSessionBinding?> TryResolveParticipantBindingAsync(
+        SubscribeAuthorizedSessionEventsCommand command,
+        SessionEventSubject subject,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(
+                subject.Relationship,
                 SessionEventSubscriptionRelationships.Participant,
                 StringComparison.Ordinal)
-            || command.ParticipantId is null
-            || command.ParticipantId == Guid.Empty
-            || command.UntrustedSessionId == Guid.Empty
-            || command.OrganizationId == Guid.Empty)
+            || subject.ParticipantId is null
+            || subject.ParticipantId == Guid.Empty
+            || command.UntrustedSessionId == Guid.Empty)
         {
             return null;
         }
 
         var binding = await bindings.GetForOrganizationSessionAsync(
-            command.OrganizationId,
+            subject.OrganizationId,
             command.UntrustedSessionId,
             cancellationToken).ConfigureAwait(false);
-        if (binding is null || binding.Ownership.ParticipantId != command.ParticipantId)
+        if (binding is null || binding.Ownership.ParticipantId != subject.ParticipantId)
         {
             return null;
         }

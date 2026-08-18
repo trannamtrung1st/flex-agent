@@ -6,6 +6,7 @@ using FlexAgent.Postgres;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Npgsql;
 
 namespace FlexAgent.Api;
@@ -26,12 +27,7 @@ public sealed record TrustedInteractiveActor(
     Guid? ParticipantId,
     string Relationship);
 
-public interface ITrustedInteractiveActorDirectory
-{
-    bool TryGet(Guid actorId, out TrustedInteractiveActor actor);
-}
-
-public sealed class MemoryTrustedInteractiveActorDirectory : ITrustedInteractiveActorDirectory
+public sealed class MemoryTrustedInteractiveActorDirectory : ISessionEventSubjectSource
 {
     private readonly ConcurrentDictionary<Guid, TrustedInteractiveActor> _actors = new();
 
@@ -41,8 +37,69 @@ public sealed class MemoryTrustedInteractiveActorDirectory : ITrustedInteractive
         _actors[actor.ActorId] = actor;
     }
 
-    public bool TryGet(Guid actorId, out TrustedInteractiveActor actor) =>
-        _actors.TryGetValue(actorId, out actor!);
+    public Task<SessionEventSubject?> GetCurrentAsync(
+        Guid actorId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_actors.TryGetValue(actorId, out var actor))
+        {
+            return Task.FromResult<SessionEventSubject?>(null);
+        }
+
+        return Task.FromResult<SessionEventSubject?>(new SessionEventSubject(
+            actor.ActorId,
+            actor.ActorType,
+            actor.OrganizationId,
+            actor.ParticipantId,
+            actor.Relationship));
+    }
+}
+
+public interface ISessionEventIdentityAdapter
+{
+    Task<TrustedRuntimeActor?> TryAuthenticateAsync(
+        HttpRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class DisabledSessionEventIdentityAdapter : ISessionEventIdentityAdapter
+{
+    public static DisabledSessionEventIdentityAdapter Instance { get; } = new();
+
+    public Task<TrustedRuntimeActor?> TryAuthenticateAsync(
+        HttpRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return Task.FromResult<TrustedRuntimeActor?>(null);
+    }
+}
+
+public sealed class DevelopmentHarnessSessionEventIdentityAdapter(IConfiguration configuration)
+    : ISessionEventIdentityAdapter
+{
+    public Task<TrustedRuntimeActor?> TryAuthenticateAsync(
+        HttpRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var expected = configuration["SessionEvents:TestIdentity:HarnessApiKey"];
+        var presented = request.Headers[SessionEventEndpointExtensions.TestHarnessKeyHeaderName].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(expected)
+            || !string.Equals(presented, expected, StringComparison.Ordinal))
+        {
+            return Task.FromResult<TrustedRuntimeActor?>(null);
+        }
+
+        var header = request.Headers[SessionEventEndpointExtensions.TestActorHeaderName].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(header) || !Guid.TryParse(header, out var actorId) || actorId == Guid.Empty)
+        {
+            return Task.FromResult<TrustedRuntimeActor?>(null);
+        }
+
+        return Task.FromResult<TrustedRuntimeActor?>(new TrustedRuntimeActor(actorId, "synthetic.test_actor"));
+    }
 }
 
 public sealed class Adr002SessionEventSubscriptionAccess(IAuthorizationKernel authorizationKernel)
@@ -74,17 +131,65 @@ public sealed class Adr002SessionEventSubscriptionAccess(IAuthorizationKernel au
     }
 }
 
+public sealed class SessionsStoreReadinessCheck(NpgsqlDataSource dataSource) : IHealthCheck
+{
+    public async Task<HealthCheckResult> CheckHealthAsync(
+        HealthCheckContext context,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await using var connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT 1";
+            _ = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+            return HealthCheckResult.Healthy("Sessions store is reachable.");
+        }
+        catch (Exception exception)
+        {
+            return HealthCheckResult.Unhealthy("Sessions store is unreachable.", exception);
+        }
+    }
+}
+
+internal static class SessionEventTestIdentity
+{
+    public static bool IsEnabled(IHostEnvironment environment, IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(environment);
+        ArgumentNullException.ThrowIfNull(configuration);
+        if (!(environment.IsDevelopment() || environment.IsEnvironment("Testing")))
+        {
+            return false;
+        }
+
+        return string.Equals(
+                   configuration["SessionEvents:TestIdentity:Enabled"],
+                   "true",
+                   StringComparison.OrdinalIgnoreCase)
+               && !string.IsNullOrWhiteSpace(configuration["SessionEvents:TestIdentity:HarnessApiKey"]);
+    }
+}
+
 internal static class ApiSessionEventComposition
 {
-    public static void AddProductionSessionEvents(this IServiceCollection services, IConfiguration configuration)
+    public static void AddProductionSessionEvents(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(environment);
 
         services.AddSingleton<MemoryTrustedInteractiveActorDirectory>();
-        services.AddSingleton<ITrustedInteractiveActorDirectory>(sp =>
+        services.AddSingleton<ISessionEventSubjectSource>(sp =>
             sp.GetRequiredService<MemoryTrustedInteractiveActorDirectory>());
         services.AddSingleton(new SessionEventSubscriptionOptions());
+        services.AddSingleton<ISessionEventIdentityAdapter>(sp =>
+            SessionEventTestIdentity.IsEnabled(environment, configuration)
+                ? new DevelopmentHarnessSessionEventIdentityAdapter(configuration)
+                : DisabledSessionEventIdentityAdapter.Instance);
 
         var connectionString = configuration.GetConnectionString("Sessions");
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -99,11 +204,11 @@ internal static class ApiSessionEventComposition
         services.AddSingleton<PostgresSessionRuntimeRepository>();
         services.AddSingleton<IReplayAuthorizedSessionEventsHandler, ReplayAuthorizedSessionEventsHandler>();
         services.AddSingleton<IReplayAuthorizedSessionEventsCoordinator, PostgresReplayAuthorizedSessionEventsCoordinator>();
-        services.AddSingleton<MemoryTrustedSessionBindingSource>();
-        services.AddSingleton<ITrustedSessionBindingSource>(sp =>
-            sp.GetRequiredService<MemoryTrustedSessionBindingSource>());
+        services.AddSingleton<ITrustedSessionBindingSource>(_ => FailClosedTrustedSessionBindingSource.Instance);
         services.AddSingleton<IAuthorizationKernel, PostgresAuthorizationKernel>();
         services.AddSingleton<ISessionEventSubscriptionAccess, Adr002SessionEventSubscriptionAccess>();
         services.AddSingleton<ISubscribeAuthorizedSessionEventsHandler, SubscribeAuthorizedSessionEventsHandler>();
+        services.AddHealthChecks()
+            .AddCheck<SessionsStoreReadinessCheck>("sessions-store", tags: ["ready"]);
     }
 }

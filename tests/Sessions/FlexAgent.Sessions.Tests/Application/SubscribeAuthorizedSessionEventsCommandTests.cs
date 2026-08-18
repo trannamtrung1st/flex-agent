@@ -8,7 +8,7 @@ namespace FlexAgent.Sessions.Tests.Application;
 public sealed class SubscribeAuthorizedSessionEventsCommandTests
 {
     [Fact]
-    public void Command_requires_trusted_actor_scope_and_untrusted_cursor_without_client_clocks()
+    public void Command_requires_trusted_actor_and_untrusted_cursor_without_frozen_relationship()
     {
         var ctor = typeof(SubscribeAuthorizedSessionEventsCommand)
             .GetConstructors(BindingFlags.Public | BindingFlags.Instance)
@@ -16,11 +16,9 @@ public sealed class SubscribeAuthorizedSessionEventsCommandTests
         var parameters = ctor.GetParameters();
 
         Assert.Contains(parameters, parameter => parameter.Name == "Actor" && parameter.ParameterType == typeof(TrustedRuntimeActor));
-        Assert.Contains(parameters, parameter => parameter.Name == "OrganizationId" && parameter.ParameterType == typeof(Guid));
-        Assert.Contains(parameters, parameter => parameter.Name == "ParticipantId" && parameter.ParameterType == typeof(Guid?));
-        Assert.Contains(parameters, parameter => parameter.Name == "Relationship" && parameter.ParameterType == typeof(string));
         Assert.Contains(parameters, parameter => parameter.Name == "UntrustedSessionId" && parameter.ParameterType == typeof(Guid));
         Assert.Contains(parameters, parameter => parameter.Name == "UntrustedLastEventId" && parameter.ParameterType == typeof(string));
+        Assert.DoesNotContain(parameters, parameter => parameter.Name is "OrganizationId" or "ParticipantId" or "Relationship");
         Assert.DoesNotContain(parameters, parameter => parameter.Name is "utcNow" or "authoritativeUtc" or "timestamp" or "clock");
         Assert.DoesNotContain(parameters, parameter => parameter.Name is "LastEventId" or "ActorIdHeader" or "Cookie");
         Assert.DoesNotContain(parameters, parameter => parameter.ParameterType.Namespace?.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal) == true);
@@ -32,17 +30,14 @@ public sealed class SubscribeAuthorizedSessionEventsCommandTests
     {
         var ownership = SessionRuntimeTestFixtures.CreateOwnership();
         var binding = SessionRuntimeTestFixtures.CreateBinding(ownership: ownership);
-        var bindings = new MemoryBindingSource(binding);
         var access = new RecordingAccess(permit: true);
         var replay = new RecordingReplay();
-        var handler = new SubscribeAuthorizedSessionEventsHandler(bindings, access, replay);
-        var reviewer = new SubscribeAuthorizedSessionEventsCommand(
-            SessionRuntimeTestFixtures.CreateActor(),
-            ownership.OrganizationId,
-            ownership.ParticipantId,
-            SessionEventSubscriptionRelationships.Reviewer,
-            ownership.SessionId,
-            "12");
+        var handler = CreateHandler(
+            binding,
+            access,
+            replay,
+            Subject(ownership, SessionEventSubscriptionRelationships.Reviewer));
+        var reviewer = ParticipantCommand(ownership, "12");
 
         var authorization = await handler.AuthorizeAsync(reviewer, CancellationToken.None);
 
@@ -56,20 +51,15 @@ public sealed class SubscribeAuthorizedSessionEventsCommandTests
     {
         var ownership = SessionRuntimeTestFixtures.CreateOwnership();
         var binding = SessionRuntimeTestFixtures.CreateBinding(ownership: ownership);
-        var handler = new SubscribeAuthorizedSessionEventsHandler(
-            new MemoryBindingSource(binding),
-            new RecordingAccess(permit: true),
-            new RecordingReplay());
         var otherParticipant = Guid.Parse("99999999-9999-9999-9999-999999999999");
+        var handler = CreateHandler(
+            binding,
+            new RecordingAccess(permit: true),
+            new RecordingReplay(),
+            Subject(ownership, SessionEventSubscriptionRelationships.Participant, otherParticipant));
 
         var authorization = await handler.AuthorizeAsync(
-            new SubscribeAuthorizedSessionEventsCommand(
-                SessionRuntimeTestFixtures.CreateActor(),
-                ownership.OrganizationId,
-                otherParticipant,
-                SessionEventSubscriptionRelationships.Participant,
-                ownership.SessionId,
-                null),
+            ParticipantCommand(ownership, null),
             CancellationToken.None);
 
         Assert.False(authorization.IsPermitted);
@@ -81,17 +71,15 @@ public sealed class SubscribeAuthorizedSessionEventsCommandTests
         var ownership = SessionRuntimeTestFixtures.CreateOwnership();
         var binding = SessionRuntimeTestFixtures.CreateBinding(ownership: ownership);
         var replay = new RecordingReplay();
-        var handler = new SubscribeAuthorizedSessionEventsHandler(
-            new MemoryBindingSource(binding),
+        var handler = CreateHandler(
+            binding,
             new RecordingAccess(permit: true),
-            replay);
+            replay,
+            Subject(ownership, SessionEventSubscriptionRelationships.Participant));
 
         var authorization = await handler.AuthorizeAsync(
             new SubscribeAuthorizedSessionEventsCommand(
                 SessionRuntimeTestFixtures.CreateActor(),
-                ownership.OrganizationId,
-                ownership.ParticipantId,
-                SessionEventSubscriptionRelationships.Participant,
                 Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff"),
                 "1"),
             CancellationToken.None);
@@ -105,16 +93,43 @@ public sealed class SubscribeAuthorizedSessionEventsCommandTests
     {
         var ownership = SessionRuntimeTestFixtures.CreateOwnership();
         var binding = SessionRuntimeTestFixtures.CreateBinding(ownership: ownership);
-        var handler = new SubscribeAuthorizedSessionEventsHandler(
-            new MemoryBindingSource(binding),
+        var handler = CreateHandler(
+            binding,
             new RecordingAccess(permit: false),
-            new RecordingReplay());
+            new RecordingReplay(),
+            Subject(ownership, SessionEventSubscriptionRelationships.Participant));
 
         var authorization = await handler.AuthorizeAsync(
             ParticipantCommand(ownership, "99"),
             CancellationToken.None);
 
         Assert.False(authorization.IsPermitted);
+    }
+
+    [Fact]
+    public async Task Authorize_denies_after_relationship_narrows_while_org_grant_remains()
+    {
+        var ownership = SessionRuntimeTestFixtures.CreateOwnership();
+        var binding = SessionRuntimeTestFixtures.CreateBinding(ownership: ownership);
+        var subjects = new MutableSubjectSource(
+            Subject(ownership, SessionEventSubscriptionRelationships.Participant));
+        var access = new RecordingAccess(permit: true);
+        var replay = new RecordingReplay();
+        var handler = new SubscribeAuthorizedSessionEventsHandler(
+            new MemoryBindingSource(binding),
+            access,
+            replay,
+            subjects);
+        var command = ParticipantCommand(ownership, "4");
+
+        Assert.True((await handler.AuthorizeAsync(command, CancellationToken.None)).IsPermitted);
+
+        subjects.Current = Subject(ownership, SessionEventSubscriptionRelationships.Reviewer);
+        var afterNarrow = await handler.AuthorizeAsync(command, CancellationToken.None);
+
+        Assert.False(afterNarrow.IsPermitted);
+        Assert.Equal(2, access.Calls);
+        Assert.Equal(0, replay.Calls);
     }
 
     [Fact]
@@ -139,10 +154,11 @@ public sealed class SubscribeAuthorizedSessionEventsCommandTests
                         "Hel"),
                 ]),
         };
-        var handler = new SubscribeAuthorizedSessionEventsHandler(
-            new MemoryBindingSource(binding),
+        var handler = CreateHandler(
+            binding,
             new RecordingAccess(permit: true),
-            replay);
+            replay,
+            Subject(ownership, SessionEventSubscriptionRelationships.Participant));
         var command = ParticipantCommand(ownership, "3");
         var authorization = await handler.AuthorizeAsync(command, CancellationToken.None);
 
@@ -169,10 +185,11 @@ public sealed class SubscribeAuthorizedSessionEventsCommandTests
                 SessionEventReplayOutcomeCodes.Reconcile,
                 []),
         };
-        var handler = new SubscribeAuthorizedSessionEventsHandler(
-            new MemoryBindingSource(binding),
+        var handler = CreateHandler(
+            binding,
             new RecordingAccess(permit: true),
-            replay);
+            replay,
+            Subject(ownership, SessionEventSubscriptionRelationships.Participant));
         var stolenCursor = Guid.NewGuid().ToString("D");
         var command = ParticipantCommand(ownership, stolenCursor);
 
@@ -187,16 +204,48 @@ public sealed class SubscribeAuthorizedSessionEventsCommandTests
         Assert.Equal(SessionEventReplayOutcomeCodes.Reconcile, result.OutcomeCode);
     }
 
+    private static SubscribeAuthorizedSessionEventsHandler CreateHandler(
+        TrustedSessionBinding binding,
+        RecordingAccess access,
+        RecordingReplay replay,
+        SessionEventSubject subject) =>
+        new(
+            new MemoryBindingSource(binding),
+            access,
+            replay,
+            new MutableSubjectSource(subject));
+
+    private static SessionEventSubject Subject(
+        SessionOwnership ownership,
+        string relationship,
+        Guid? participantId = null)
+    {
+        var actor = SessionRuntimeTestFixtures.CreateActor();
+        return new SessionEventSubject(
+            actor.ActorId,
+            actor.ActorType,
+            ownership.OrganizationId,
+            participantId ?? ownership.ParticipantId,
+            relationship);
+    }
+
     private static SubscribeAuthorizedSessionEventsCommand ParticipantCommand(
         SessionOwnership ownership,
         string? lastEventId) =>
         new(
             SessionRuntimeTestFixtures.CreateActor(),
-            ownership.OrganizationId,
-            ownership.ParticipantId,
-            SessionEventSubscriptionRelationships.Participant,
             ownership.SessionId,
             lastEventId);
+
+    private sealed class MutableSubjectSource(SessionEventSubject current) : ISessionEventSubjectSource
+    {
+        public SessionEventSubject Current { get; set; } = current;
+
+        public Task<SessionEventSubject?> GetCurrentAsync(
+            Guid actorId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<SessionEventSubject?>(Current.ActorId == actorId ? Current : null);
+    }
 
     private sealed class MemoryBindingSource(TrustedSessionBinding binding) : ITrustedSessionBindingSource
     {

@@ -11,6 +11,8 @@ public static class SessionEventEndpointExtensions
 {
     public const string TestActorHeaderName = "X-Flex-Test-Actor-Id";
 
+    public const string TestHarnessKeyHeaderName = "X-Flex-Session-Events-Test-Key";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -25,13 +27,13 @@ public static class SessionEventEndpointExtensions
 
     private static async Task GetSessionEvents(HttpContext context, string sessionId)
     {
-        var directory = context.RequestServices.GetRequiredService<ITrustedInteractiveActorDirectory>();
+        var identity = context.RequestServices.GetRequiredService<ISessionEventIdentityAdapter>();
         var handler = context.RequestServices.GetRequiredService<ISubscribeAuthorizedSessionEventsHandler>();
         var options = context.RequestServices.GetRequiredService<SessionEventSubscriptionOptions>();
         var cancellationToken = context.RequestAborted;
 
-        if (!TryResolveTrustedActor(context, directory, out var interactive)
-            || interactive is null)
+        var actor = await identity.TryAuthenticateAsync(context.Request, cancellationToken);
+        if (actor is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
@@ -45,10 +47,7 @@ public static class SessionEventEndpointExtensions
 
         var lastEventId = context.Request.Headers["Last-Event-ID"].FirstOrDefault();
         var command = new SubscribeAuthorizedSessionEventsCommand(
-            new TrustedRuntimeActor(interactive.ActorId, interactive.ActorType),
-            interactive.OrganizationId,
-            interactive.ParticipantId,
-            interactive.Relationship,
+            actor,
             untrustedSessionId,
             lastEventId);
 
@@ -191,21 +190,6 @@ public static class SessionEventEndpointExtensions
     private static bool IsDenied(string outcomeCode) =>
         outcomeCode is SessionEventReplayOutcomeCodes.Denied
             or SessionEventReplayOutcomeCodes.OwnershipMismatch;
-
-    private static bool TryResolveTrustedActor(
-        HttpContext context,
-        ITrustedInteractiveActorDirectory directory,
-        out TrustedInteractiveActor? actor)
-    {
-        actor = null;
-        var header = context.Request.Headers[TestActorHeaderName].FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(header) || !Guid.TryParse(header, out var actorId))
-        {
-            return false;
-        }
-
-        return directory.TryGet(actorId, out actor);
-    }
 
     private static async Task WriteEventsAsync(
         HttpContext context,

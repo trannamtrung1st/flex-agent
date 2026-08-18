@@ -42,12 +42,10 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
             new PostgresReplayAuthorizedSessionEventsCoordinator(
                 Fixture.Services.ConnectionAccessor,
                 ready.Repository,
-                new ReplayAuthorizedSessionEventsHandler()));
+                new ReplayAuthorizedSessionEventsHandler()),
+            SubjectSource(ready.Actor, ready.Binding, SessionEventSubscriptionRelationships.Participant));
         var command = new SubscribeAuthorizedSessionEventsCommand(
             ready.Actor,
-            ready.Binding.Ownership.OrganizationId,
-            ready.Binding.Ownership.ParticipantId,
-            SessionEventSubscriptionRelationships.Participant,
             ready.Binding.Ownership.SessionId,
             null);
 
@@ -112,23 +110,18 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
             new PostgresReplayAuthorizedSessionEventsCoordinator(
                 Fixture.Services.ConnectionAccessor,
                 first.Repository,
-                new ReplayAuthorizedSessionEventsHandler()));
+                new ReplayAuthorizedSessionEventsHandler()),
+            SubjectSource(first.Actor, first.Binding, SessionEventSubscriptionRelationships.Participant));
 
         var guessed = await handler.AuthorizeAsync(
             new SubscribeAuthorizedSessionEventsCommand(
                 first.Actor,
-                first.Binding.Ownership.OrganizationId,
-                first.Binding.Ownership.ParticipantId,
-                SessionEventSubscriptionRelationships.Participant,
                 second.Binding.Ownership.SessionId,
                 "4"),
             CancellationToken);
         var scoped = await handler.ReplayAsync(
             new SubscribeAuthorizedSessionEventsCommand(
                 first.Actor,
-                first.Binding.Ownership.OrganizationId,
-                first.Binding.Ownership.ParticipantId,
-                SessionEventSubscriptionRelationships.Participant,
                 first.Binding.Ownership.SessionId,
                 second.Binding.Ownership.SessionId.ToString("D")),
             CancellationToken);
@@ -139,6 +132,17 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
         Assert.DoesNotContain(scoped.Events, evt => evt.TextDelta == "secret-b");
         Assert.DoesNotContain(scoped.Events, evt => evt.TextDelta == "secret-a");
     }
+
+    private static MemorySubjectSource SubjectSource(
+        TrustedRuntimeActor actor,
+        TrustedSessionBinding binding,
+        string relationship) =>
+        new(new SessionEventSubject(
+            actor.ActorId,
+            actor.ActorType,
+            binding.Ownership.OrganizationId,
+            binding.Ownership.ParticipantId,
+            relationship));
 
     private async Task GrantSubscribeAsync(Guid organizationId, Guid actorId)
     {
@@ -258,6 +262,14 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
         long SessionVersion,
         PostgresSessionRuntimeRepository Repository,
         PostgresPublishAgentResponseCoordinator Publisher);
+
+    private sealed class MemorySubjectSource(SessionEventSubject subject) : ISessionEventSubjectSource
+    {
+        public Task<SessionEventSubject?> GetCurrentAsync(
+            Guid actorId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<SessionEventSubject?>(subject.ActorId == actorId ? subject : null);
+    }
 
     private sealed class KernelSubscribeAccess(IAuthorizationKernel authorizationKernel) : ISessionEventSubscriptionAccess
     {
