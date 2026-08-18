@@ -4,6 +4,7 @@ using FlexAgent.Postgres;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
+using FlexAgent.Sessions.OpenAi;
 using Npgsql;
 
 namespace FlexAgent.Worker;
@@ -15,6 +16,10 @@ public sealed class WorkerRuntimeCapabilities
     public bool TimerPollingEnabled { get; init; }
 
     public string WorkloadIdentityProfile { get; init; } = WorkloadIdentityProfiles.SyntheticConfiguredActor;
+
+    public string ModelExecutionAdapter { get; init; } = "fail_closed";
+
+    public bool ModelExecutionQualified { get; init; }
 }
 
 internal static class WorkerDurableWorkSampling
@@ -61,6 +66,7 @@ internal static class WorkerDurableWorkSampling
             && (IsSyntheticHostProfile(environment) || productionAuthenticated);
         var timerPollingEnabled = timerPollingRequested
             && (IsSyntheticHostProfile(environment) || productionAuthenticated);
+        var modelExecution = ComposeModelExecution(configuration);
         RegisterWorkloadIdentitySource(
             services,
             configuration,
@@ -112,7 +118,7 @@ internal static class WorkerDurableWorkSampling
             if (invocationProcessingEnabled)
             {
                 var workerActorId = RequireWorkerServiceActorId(configuration);
-                services.AddSingleton(CreateInvocationWorkSettings(configuration, workerActorId));
+                services.AddSingleton(CreateInvocationWorkSettings(workerActorId, modelExecution));
                 services.AddSingleton<IDurableInvocationWorkStore>(sp =>
                     new PostgresDurableInvocationWorkStore(
                         sp.GetRequiredService<PostgresConnectionAccessor>(),
@@ -123,7 +129,8 @@ internal static class WorkerDurableWorkSampling
                     new PublishAgentResponseFragmentHandler(sp.GetRequiredService<ISessionRuntimeTelemetry>()));
                 services.AddSingleton<ICompleteInvocationHandler>(sp =>
                     new CompleteInvocationHandler(sp.GetRequiredService<ISessionRuntimeTelemetry>()));
-                services.AddSingleton<IModelExecutionPort>(_ => FailClosedModelExecutionPort.Instance);
+                services.AddSingleton<IModelExecutionPort>(_ => modelExecution.Port);
+                services.AddSingleton<IModelProviderAttemptProvenanceWriter, PostgresModelProviderAttemptProvenanceWriter>();
                 services.AddSingleton<PostgresPublishAgentResponseCoordinator>();
                 services.AddSingleton<IAgentResponsePublicationPersistPort>(sp =>
                     sp.GetRequiredService<PostgresPublishAgentResponseCoordinator>());
@@ -153,6 +160,10 @@ internal static class WorkerDurableWorkSampling
                 DurableWorkClaimingEnabled = invocationProcessingEnabled,
                 TimerPollingEnabled = timerPollingEnabled,
                 WorkloadIdentityProfile = identityProfile,
+                ModelExecutionAdapter = invocationProcessingEnabled
+                    ? modelExecution.Adapter
+                    : "fail_closed",
+                ModelExecutionQualified = invocationProcessingEnabled && modelExecution.Qualified,
             });
         }
 
@@ -321,29 +332,63 @@ internal static class WorkerDurableWorkSampling
     }
 
     private static DurableInvocationWorkSettings CreateInvocationWorkSettings(
-        IConfiguration configuration,
-        Guid workerActorId)
+        Guid workerActorId,
+        WorkerModelExecutionComposition modelExecution)
     {
-        var providerId = string.IsNullOrWhiteSpace(configuration["Sessions:ModelDeployment:ProviderId"])
-            ? "unconfigured.provider"
-            : configuration["Sessions:ModelDeployment:ProviderId"]!;
-        var organizationBindingReference = configuration["Sessions:ModelDeployment:OrganizationBindingReference"];
-        var organizationBindingVersion = configuration["Sessions:ModelDeployment:OrganizationBindingVersion"];
         return new DurableInvocationWorkSettings(
             new TrustedRuntimeActor(workerActorId, "worker.session_runtime"),
-            providerId,
             "worker.session_runtime",
             65_536,
-            ownership => new ModelDeploymentCredentialBindingRequest(
-                ownership.OrganizationId,
-                providerId,
-                organizationBindingReference,
-                organizationBindingVersion,
-                null,
-                null,
-                false,
-                false,
-                false));
+            InstalledProfiles: modelExecution.Profiles,
+            CredentialCatalog: modelExecution.Catalog);
+    }
+
+    private static WorkerModelExecutionComposition ComposeModelExecution(IConfiguration configuration)
+    {
+        var adapter = configuration["Sessions:ModelExecution:Adapter"] ?? "fail_closed";
+        var qualified = configuration.GetValue("Sessions:ModelExecution:Qualified", false);
+        if (!string.Equals(adapter, "direct_openai", StringComparison.Ordinal) || !qualified)
+        {
+            return WorkerModelExecutionComposition.FailClosed(adapter);
+        }
+
+        var profilesPath = configuration["Sessions:ModelExecution:InstalledProfilesPath"];
+        var secretDirectory = configuration["Sessions:ModelExecution:SecretDirectory"];
+        var catalogPath = configuration["Sessions:ModelExecution:CredentialCatalogPath"];
+        if (string.IsNullOrWhiteSpace(profilesPath)
+            || string.IsNullOrWhiteSpace(secretDirectory)
+            || string.IsNullOrWhiteSpace(catalogPath)
+            || !File.Exists(profilesPath)
+            || !File.Exists(catalogPath)
+            || !Directory.Exists(secretDirectory))
+        {
+            return WorkerModelExecutionComposition.FailClosed("direct_openai");
+        }
+
+        try
+        {
+            var profiles = InstalledModelDeploymentProfileFile.Load(profilesPath);
+            if (profiles.Length == 0
+                || profiles.Any(profile =>
+                    !string.Equals(profile.AdapterKind, ModelDeploymentAdapterKinds.DirectOpenAi, StringComparison.Ordinal)))
+            {
+                return WorkerModelExecutionComposition.FailClosed("direct_openai");
+            }
+
+            var catalog = InstalledCredentialCatalogFile.Load(catalogPath);
+            var secrets = new MountedFileProviderSecretSource(secretDirectory);
+            var registry = new InMemoryInstalledModelDeploymentProfileRegistry(profiles);
+            return new WorkerModelExecutionComposition(
+                new DirectOpenAiModelExecutionAdapter(registry, catalog, secrets),
+                registry,
+                catalog,
+                "direct_openai",
+                true);
+        }
+        catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException or ArgumentException or FormatException or UriFormatException)
+        {
+            return WorkerModelExecutionComposition.FailClosed("direct_openai");
+        }
     }
 
     private static DurableTimerFireSettings CreateTimerFireSettings(Guid workerActorId) =>
@@ -362,4 +407,20 @@ internal static class WorkerDurableWorkSampling
 
         return parsed;
     }
+}
+
+internal sealed record WorkerModelExecutionComposition(
+    IModelExecutionPort Port,
+    IInstalledModelDeploymentProfileRegistry Profiles,
+    IModelDeploymentCredentialCatalog Catalog,
+    string Adapter,
+    bool Qualified)
+{
+    public static WorkerModelExecutionComposition FailClosed(string adapter) =>
+        new(
+            FailClosedModelExecutionPort.Instance,
+            new InMemoryInstalledModelDeploymentProfileRegistry(),
+            new InMemoryModelDeploymentCredentialCatalog(),
+            string.IsNullOrWhiteSpace(adapter) ? "fail_closed" : adapter,
+            false);
 }

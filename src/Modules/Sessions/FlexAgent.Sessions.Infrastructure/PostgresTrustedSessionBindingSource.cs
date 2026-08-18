@@ -19,7 +19,14 @@ public sealed class PostgresTrustedSessionBindingSource(PostgresConnectionAccess
             runtime.configuration_digest,
             runtime.manifest_id,
             snapshot.policy_digest,
-            snapshot.policy_payload::text AS policy_payload
+            snapshot.policy_payload::text AS policy_payload,
+            frozen.profile_id,
+            frozen.profile_version,
+            frozen.profile_digest,
+            frozen.provider_id,
+            frozen.credential_mode,
+            frozen.credential_binding_reference,
+            frozen.credential_binding_version
         FROM session_runtimes AS runtime
         INNER JOIN session_frozen_policy_snapshots AS snapshot
             ON snapshot.organization_id = runtime.organization_id
@@ -27,6 +34,12 @@ public sealed class PostgresTrustedSessionBindingSource(PostgresConnectionAccess
            AND snapshot.participant_id = runtime.participant_id
            AND snapshot.attempt_id = runtime.attempt_id
            AND snapshot.session_id = runtime.session_id
+        LEFT JOIN session_frozen_model_deployments AS frozen
+            ON frozen.organization_id = runtime.organization_id
+           AND frozen.activity_id = runtime.activity_id
+           AND frozen.participant_id = runtime.participant_id
+           AND frozen.attempt_id = runtime.attempt_id
+           AND frozen.session_id = runtime.session_id
         WHERE runtime.organization_id = @OrganizationId
           AND runtime.session_id = @SessionId
         """;
@@ -111,7 +124,8 @@ public sealed class PostgresTrustedSessionBindingSource(PostgresConnectionAccess
             policy,
             Refs(refs, "submission"),
             Refs(refs, "knowledge"),
-            Refs(refs, "memory_read"));
+            Refs(refs, "memory_read"),
+            ToFrozenDeployment(row));
     }
 
     private static IReadOnlyList<ProtectedContentRef> Refs(IReadOnlyList<ManifestRefRow> rows, string kind) =>
@@ -129,7 +143,37 @@ public sealed class PostgresTrustedSessionBindingSource(PostgresConnectionAccess
         string configuration_digest,
         string manifest_id,
         string policy_digest,
-        string policy_payload);
+        string policy_payload,
+        string? profile_id,
+        string? profile_version,
+        string? profile_digest,
+        string? provider_id,
+        string? credential_mode,
+        string? credential_binding_reference,
+        string? credential_binding_version);
+
+    private static FrozenModelDeploymentBinding? ToFrozenDeployment(SnapshotRow row)
+    {
+        if (string.IsNullOrWhiteSpace(row.profile_id)
+            || string.IsNullOrWhiteSpace(row.profile_version)
+            || string.IsNullOrWhiteSpace(row.profile_digest)
+            || string.IsNullOrWhiteSpace(row.provider_id)
+            || string.IsNullOrWhiteSpace(row.credential_mode)
+            || string.IsNullOrWhiteSpace(row.credential_binding_reference)
+            || string.IsNullOrWhiteSpace(row.credential_binding_version))
+        {
+            return null;
+        }
+
+        return new FrozenModelDeploymentBinding(
+            row.profile_id,
+            row.profile_version,
+            row.profile_digest,
+            row.provider_id,
+            row.credential_mode,
+            row.credential_binding_reference,
+            row.credential_binding_version);
+    }
 
     private sealed record ManifestRefRow(string ref_kind, string protected_ref, string content_digest);
 }

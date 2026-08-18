@@ -30,14 +30,22 @@ public sealed record LoadedInvocationWorkSession(
 
 public sealed record DurableInvocationWorkSettings(
     TrustedRuntimeActor ServiceActor,
-    string ProviderId,
     string SourceChannel,
     int MaxControlUtf8Bytes,
-    Func<SessionOwnership, ModelDeploymentCredentialBindingRequest> CreateBindingRequest,
-    TimeSpan ClaimCleanupTimeout = default)
+    TimeSpan ClaimCleanupTimeout = default,
+    IInstalledModelDeploymentProfileRegistry? InstalledProfiles = null,
+    IModelDeploymentCredentialCatalog? CredentialCatalog = null,
+    TimeSpan ClaimLease = default,
+    TimeSpan ClaimLeaseRenewalPeriod = default)
 {
     public TimeSpan EffectiveClaimCleanupTimeout =>
         ClaimCleanupTimeout > TimeSpan.Zero ? ClaimCleanupTimeout : TimeSpan.FromSeconds(2);
+
+    public TimeSpan EffectiveClaimLease =>
+        ClaimLease > TimeSpan.Zero ? ClaimLease : TimeSpan.FromSeconds(30);
+
+    public TimeSpan EffectiveClaimLeaseRenewalPeriod =>
+        ClaimLeaseRenewalPeriod > TimeSpan.Zero ? ClaimLeaseRenewalPeriod : TimeSpan.FromSeconds(10);
 }
 
 public sealed record DurableInvocationWorkProcessResult(
@@ -148,7 +156,8 @@ public sealed class DurableInvocationWorkProcessor(
     ICompleteInvocationHandler completionHandler,
     DurableInvocationWorkSettings settings,
     IAgentResponsePublicationPersistPort publicationPersist,
-    ISessionRuntimeTelemetry? telemetry = null) : IDurableInvocationWorkProcessor
+    ISessionRuntimeTelemetry? telemetry = null,
+    IModelProviderAttemptProvenanceWriter? provenanceWriter = null) : IDurableInvocationWorkProcessor
 {
     private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
     private readonly IPublishAgentResponseFragmentHandler _publicationHandler =
@@ -161,7 +170,7 @@ public sealed class DurableInvocationWorkProcessor(
         CancellationToken cancellationToken)
     {
         var claimed = await workStore.TryClaimExecuteInvocationAsync(
-            TimeSpan.FromSeconds(30),
+            settings.EffectiveClaimLease,
             cancellationToken);
         if (claimed is null)
         {
@@ -208,9 +217,11 @@ public sealed class DurableInvocationWorkProcessor(
             return RecordProcess(await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId));
         }
 
-        var bindingRequest = settings.CreateBindingRequest(claimed.Ownership);
-        var resolvedBinding = ModelDeploymentCredentialBindingResolver.Resolve(bindingRequest);
-        var preflight = ModelExecutionPreflight.RejectIfBindingUnavailable(resolvedBinding);
+        var frozenResolution = FrozenModelDeploymentResolver.Resolve(
+            loaded.Binding,
+            settings.InstalledProfiles ?? new InMemoryInstalledModelDeploymentProfileRegistry(),
+            settings.CredentialCatalog ?? new InMemoryModelDeploymentCredentialCatalog());
+        var preflight = ModelExecutionPreflight.RejectIfFrozenDeploymentUnavailable(frozenResolution);
         ModelExecutionAttemptResult attemptResult;
         if (preflight is not null)
         {
@@ -218,26 +229,53 @@ public sealed class DurableInvocationWorkProcessor(
         }
         else
         {
-            var binding = resolvedBinding.Binding!;
-            if (!await sessionGateway.TryAuthorizeModelDisclosureAsync(
+            var binding = frozenResolution.Binding!;
+            if (invocation.Attempts.Count >= frozenResolution.Profile!.MaxProviderRequestAttempts)
+            {
+                attemptResult = new ModelExecutionFailed(ExecutionOutcomeCategories.AttemptsExhausted);
+            }
+            else if (!await sessionGateway.TryAuthorizeModelDisclosureAsync(
                 claimed.Ownership,
                 cancellationToken))
             {
                 return RecordProcess(await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId));
             }
-
-            var context = InvocationContextAssembler.Assemble(loaded.Session);
-            attemptResult = await modelExecutionPort.ExecuteAsync(
-                new ModelExecutionAttemptRequest(
-                    claimed.Ownership,
-                    claimed.AgentInvocationId,
-                    binding.ProviderId,
-                    binding.BindingReference,
-                    binding.BindingVersion,
-                    context,
-                    invocation.Attempts.Count + 1,
-                    settings.MaxControlUtf8Bytes),
-                cancellationToken);
+            else
+            {
+                var context = InvocationContextAssembler.Assemble(loaded.Session);
+                var providerAttemptId = $"prat.{claimed.WorkId:N}.{invocation.Attempts.Count + 1}";
+                using var controlHeartbeat = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                await using var heartbeat = ClaimLeaseHeartbeat.Start(
+                    workStore,
+                    claimed,
+                    settings.EffectiveClaimLeaseRenewalPeriod,
+                    settings.EffectiveClaimLease,
+                    controlHeartbeat);
+                attemptResult = await modelExecutionPort.ExecuteAsync(
+                    new ModelExecutionAttemptRequest(
+                        claimed.Ownership,
+                        claimed.AgentInvocationId,
+                        binding.ProviderId,
+                        binding.BindingReference,
+                        binding.BindingVersion,
+                        context,
+                        invocation.Attempts.Count + 1,
+                        settings.MaxControlUtf8Bytes,
+                        frozenResolution.Frozen,
+                        providerAttemptId,
+                        frozenResolution.Profile.RequestedModel,
+                        frozenResolution.Profile.ProfileDigest),
+                    controlHeartbeat.Token);
+                if (attemptResult.Provenance is not null && provenanceWriter is not null)
+                {
+                    await provenanceWriter.WriteAsync(
+                        claimed.Ownership,
+                        claimed.AgentInvocationId,
+                        invocation.Attempts.Count + 1,
+                        attemptResult.Provenance,
+                        cancellationToken);
+                }
+            }
         }
 
         if (cancellationToken.IsCancellationRequested)
@@ -362,12 +400,43 @@ public sealed class DurableInvocationWorkProcessor(
 
         try
         {
+            var frozenResolution = FrozenModelDeploymentResolver.Resolve(
+                loaded.Binding,
+                settings.InstalledProfiles ?? new InMemoryInstalledModelDeploymentProfileRegistry(),
+                settings.CredentialCatalog ?? new InMemoryModelDeploymentCredentialCatalog());
+            if (ModelExecutionPreflight.RejectIfFrozenDeploymentUnavailable(frozenResolution) is not null
+                || frozenResolution.Frozen is null)
+            {
+                return await StopContentAsync(
+                    claimed,
+                    loaded,
+                    invocation.AgentInvocationId,
+                    DurableInvocationWorkOutcomes.PublicationFailed,
+                    cancellationToken);
+            }
+
+            var context = InvocationContextAssembler.Assemble(session);
+            var providerAttemptId = $"prat.{claimed.WorkId:N}.{invocation.Attempts.Count}";
+            using var streamHeartbeat = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            await using var heartbeat = ClaimLeaseHeartbeat.Start(
+                workStore,
+                claimed,
+                settings.EffectiveClaimLeaseRenewalPeriod,
+                settings.EffectiveClaimLease,
+                streamHeartbeat);
             await foreach (var contentEvent in modelExecutionPort.StreamParticipantVisibleContentAsync(
                 new ModelContentStreamRequest(
                     claimed.Ownership,
                     invocation.AgentInvocationId,
-                    generationAttemptId),
-                cancellationToken))
+                    generationAttemptId,
+                    frozenResolution.Frozen,
+                    context,
+                    invocation.Attempts.Count,
+                    providerAttemptId,
+                    frozenResolution.Binding!.ProviderId,
+                    frozenResolution.Binding.BindingReference,
+                    frozenResolution.Binding.BindingVersion),
+                streamHeartbeat.Token))
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
@@ -499,7 +568,7 @@ public sealed class DurableInvocationWorkProcessor(
 
         var renewed = await workStore.TryRenewClaimLeaseAsync(
             claimed,
-            TimeSpan.FromSeconds(30),
+            settings.EffectiveClaimLease,
             cancellationToken);
         if (renewed is null)
         {

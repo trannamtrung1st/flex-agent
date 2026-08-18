@@ -1,0 +1,23 @@
+# Provider deployment profiles
+
+This directory holds **non-secret**, operator-reviewable examples for installed
+model-provider profiles. It does not select a product-default model.
+
+- Runtime composition stays default-off (`Sessions:ModelExecution:Adapter=fail_closed`).
+- A real Session uses the frozen trusted binding, not Worker-global
+  `Sessions:ModelDeployment:*` values, for provider, endpoint, model, and
+  credential-binding identity.
+- Direct OpenAI fake-transport contract tests are the deterministic evidence for
+  the adapter. Live qualification against one exact owner-selected profile is
+  opt-in (`FLEXAGENT_LIVE_OPENAI_QUALIFICATION=1`) and remains a completion
+  blocker until that profile, mounted credential, and data-policy determination
+  are supplied.
+- Do not commit API keys, prompts, participant data, or raw provider payloads
+  here.
+
+Example shape: `direct-openai.profile.example.json`. Copy it outside the
+repository, replace placeholders, and point Worker
+`Sessions:ModelExecution:InstalledProfilesPath` and
+`Sessions:ModelExecution:CredentialCatalogPath` at the operator-managed files.
+Set `Sessions:ModelExecution:Qualified=true` only after the exact profile has
+passed the Direct OpenAI subset of `GATE-STACK-PROVIDERS`.

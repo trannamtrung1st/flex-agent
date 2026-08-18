@@ -433,7 +433,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             gateway,
             adapter,
             new CompleteInvocationHandler(),
-            CreateWorkerSettings(prepared.Organization.ActorId),
+            CreateWorkerSettings(prepared.Organization.ActorId, prepared.Binding.Ownership.OrganizationId),
             publicationPersist ?? CreatePublicationPersist());
 
     private PostgresPublishAgentResponseCoordinator CreatePublicationPersist() =>
@@ -455,7 +455,9 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             Fixture.Services.ConnectionAccessor,
             new PostgresSessionRuntimeRepository(),
             bindingSource,
-            CreateWorkerSettings(prepared[0].Organization.ActorId));
+            CreateWorkerSettings(
+                prepared[0].Organization.ActorId,
+                prepared.Select(item => item.Binding.Ownership.OrganizationId).ToArray()));
     }
 
     private async Task<PreparedWork> PrepareAdmittedWorkAsync(
@@ -623,22 +625,15 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             });
     }
 
-    private static DurableInvocationWorkSettings CreateWorkerSettings(Guid actorId) =>
+    private static DurableInvocationWorkSettings CreateWorkerSettings(Guid actorId, params Guid[] organizationIds) =>
         new(
             SessionPersistenceFixtures.Actor(actorId),
-            "synthetic.provider",
             "worker.session_runtime",
             65_536,
-            ownership => new ModelDeploymentCredentialBindingRequest(
-                ownership.OrganizationId,
-                "synthetic.provider",
-                "bind.opaque.0001",
-                "bind.v1",
-                null,
-                null,
-                false,
-                false,
-                false));
+            InstalledProfiles: new InMemoryInstalledModelDeploymentProfileRegistry(
+                SessionPersistenceFixtures.CreateInstalledProfile()),
+            CredentialCatalog: new InMemoryModelDeploymentCredentialCatalog(
+                organizationIds.Select(SessionPersistenceFixtures.CreateCatalogRecord).ToArray()));
 
     private async Task<PreparedWork> PrepareRespondWorkAsync(string messageId, string turnId)
     {

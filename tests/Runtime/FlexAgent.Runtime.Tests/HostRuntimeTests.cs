@@ -289,6 +289,29 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         Assert.IsType<FailClosedModelExecutionPort>(
             factory.Services.GetRequiredService<IModelExecutionPort>());
         Assert.True(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().DurableWorkClaimingEnabled);
+        Assert.Equal("fail_closed", factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().ModelExecutionAdapter);
+        Assert.False(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().ModelExecutionQualified);
+    }
+
+    [Fact]
+    public void Worker_keeps_fail_closed_execution_when_direct_openai_is_requested_without_a_qualified_profile()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+            builder.UseSetting("Sessions:ModelExecution:Adapter", "direct_openai");
+            builder.UseSetting("Sessions:ModelExecution:Qualified", "true");
+        });
+
+        Assert.IsType<FailClosedModelExecutionPort>(
+            factory.Services.GetRequiredService<IModelExecutionPort>());
+        var capabilities = factory.Services.GetRequiredService<WorkerRuntimeCapabilities>();
+        Assert.Equal("direct_openai", capabilities.ModelExecutionAdapter);
+        Assert.False(capabilities.ModelExecutionQualified);
     }
 
     [Fact]

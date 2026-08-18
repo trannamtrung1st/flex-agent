@@ -17,10 +17,67 @@ internal static class SessionRuntimeTestFixtures
     internal static TrustedRuntimeActor CreateActor() =>
         new(Guid.Parse("11111111-1111-1111-1111-111111111111"), "synthetic.test_actor");
 
+    internal static InstalledModelDeploymentProfile CreateInstalledProfile(
+        string providerId = "synthetic.provider",
+        string credentialMode = ModelDeploymentCredentialModes.OrganizationByok,
+        string requestedModel = "synthetic.model.pinned") =>
+        InstalledModelDeploymentProfile.Create(
+            profileId: "synthetic.fake.v1",
+            profileVersion: "1",
+            adapterKind: ModelDeploymentAdapterKinds.DeterministicFake,
+            adapterContractVersion: "sessions.fake.v1",
+            approvedHttpsOrigin: new Uri("https://api.openai.com/"),
+            requestedModel: requestedModel,
+            resolvedModelVersion: "synthetic.model.pinned.2026-01-01",
+            capabilityProfileId: "p0.text.structured-control",
+            credentialMode: credentialMode,
+            maxOutputTokens: 256,
+            controlTimeout: TimeSpan.FromSeconds(30),
+            contentTimeout: TimeSpan.FromSeconds(60),
+            maxProviderRequestAttempts: 2,
+            providerId: providerId);
+
+    internal static FrozenModelDeploymentBinding CreateFrozenDeployment(
+        string providerId = "synthetic.provider",
+        string credentialMode = ModelDeploymentCredentialModes.OrganizationByok,
+        string bindingReference = "bind.opaque.0001",
+        string bindingVersion = "bind.v1",
+        string requestedModel = "synthetic.model.pinned")
+    {
+        var profile = CreateInstalledProfile(providerId, credentialMode, requestedModel);
+        return new FrozenModelDeploymentBinding(
+            profile.ProfileId,
+            profile.ProfileVersion,
+            profile.ProfileDigest,
+            profile.ProviderId,
+            credentialMode,
+            bindingReference,
+            bindingVersion);
+    }
+
+    internal static ModelDeploymentCredentialCatalogRecord CreateCatalogRecord(
+        Guid organizationId,
+        string providerId = "synthetic.provider",
+        string credentialMode = ModelDeploymentCredentialModes.OrganizationByok,
+        string bindingReference = "bind.opaque.0001",
+        string bindingVersion = "bind.v1",
+        bool revoked = false,
+        string secretName = "org-a-openai") =>
+        new(
+            bindingReference,
+            bindingVersion,
+            organizationId,
+            providerId,
+            credentialMode,
+            revoked,
+            secretName);
+
     internal static TrustedSessionBinding CreateBinding(
         FrozenTextSessionRuntimePolicy? policy = null,
         SessionOwnership? ownership = null,
-        IReadOnlyList<ProtectedContentRef>? memoryReadRefs = null)
+        IReadOnlyList<ProtectedContentRef>? memoryReadRefs = null,
+        FrozenModelDeploymentBinding? frozenModelDeployment = null,
+        bool includeFrozenDeployment = true)
     {
         ownership ??= CreateOwnership();
         policy ??= RuntimePolicyTestFixtures.ResolveEnabledTimerPolicy();
@@ -38,16 +95,24 @@ internal static class SessionRuntimeTestFixtures
             [
                 new ProtectedContentRef("know:bound-v1", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
             ],
-            PermittedMemoryReadRefs: memoryReadRefs ?? []);
+            PermittedMemoryReadRefs: memoryReadRefs ?? [],
+            FrozenModelDeployment: includeFrozenDeployment
+                ? frozenModelDeployment ?? CreateFrozenDeployment()
+                : null);
     }
 
     internal static SessionRuntime CreateActiveSession(
         FrozenTextSessionRuntimePolicy? policy = null,
         SessionOwnership? ownership = null,
         DateTimeOffset? startedAt = null,
-        IReadOnlyList<ProtectedContentRef>? memoryReadRefs = null)
+        IReadOnlyList<ProtectedContentRef>? memoryReadRefs = null,
+        bool includeFrozenDeployment = true)
     {
-        var binding = CreateBinding(policy, ownership, memoryReadRefs);
+        var binding = CreateBinding(
+            policy,
+            ownership,
+            memoryReadRefs,
+            includeFrozenDeployment: includeFrozenDeployment);
         return SessionRuntime.CreateActive(binding, startedAt ?? T0);
     }
 

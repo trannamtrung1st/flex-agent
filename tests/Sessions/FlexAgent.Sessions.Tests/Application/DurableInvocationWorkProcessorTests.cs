@@ -132,9 +132,9 @@ public sealed class DurableInvocationWorkProcessorTests
     }
 
     [Fact]
-    public async Task Missing_credential_binding_fails_closed_without_a_decision()
+    public async Task Missing_frozen_model_deployment_fails_closed_without_a_decision()
     {
-        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var session = SessionRuntimeTestFixtures.CreateActiveSession(includeFrozenDeployment: false);
         var admitted = session.AdmitTrustedTrigger(
             SessionRuntimeTestFixtures.OpeningTrigger("trig.opening.bind"),
             "idem.opening.bind",
@@ -143,20 +143,7 @@ public sealed class DurableInvocationWorkProcessorTests
         var adapter = new DeterministicFakeModelExecutionAdapter();
         adapter.EnqueueEnvelope(SessionRuntimeTestFixtures.Envelope(invocationId));
         var store = new MemoryWorkStore(session.Ownership, invocationId);
-        var processor = CreateProcessor(
-            adapter,
-            session,
-            store,
-            bindingRequest: ownership => new ModelDeploymentCredentialBindingRequest(
-                ownership.OrganizationId,
-                "synthetic.provider",
-                null,
-                null,
-                null,
-                null,
-                false,
-                false,
-                false));
+        var processor = CreateProcessor(adapter, session, store);
 
         var result = await processor.TryProcessNextAsync(CancellationToken.None);
 
@@ -860,16 +847,14 @@ public sealed class DurableInvocationWorkProcessorTests
         IModelExecutionPort adapter,
         SessionRuntime session,
         IDurableInvocationWorkStore store,
-        Func<SessionOwnership, ModelDeploymentCredentialBindingRequest>? bindingRequest = null,
         ISessionRuntimeTelemetry? telemetry = null,
         IAgentResponsePublicationPersistPort? publicationPersist = null) =>
-        CreateProcessor(adapter, new MemorySessionGateway(session), store, bindingRequest, telemetry, publicationPersist);
+        CreateProcessor(adapter, new MemorySessionGateway(session), store, telemetry, publicationPersist);
 
     private static DurableInvocationWorkProcessor CreateProcessor(
         IModelExecutionPort adapter,
         IInvocationWorkSessionGateway gateway,
         IDurableInvocationWorkStore store,
-        Func<SessionOwnership, ModelDeploymentCredentialBindingRequest>? bindingRequest = null,
         ISessionRuntimeTelemetry? telemetry = null,
         IAgentResponsePublicationPersistPort? publicationPersist = null) =>
         new(
@@ -879,19 +864,13 @@ public sealed class DurableInvocationWorkProcessorTests
             new CompleteInvocationHandler(telemetry),
             new DurableInvocationWorkSettings(
                 SessionRuntimeTestFixtures.CreateActor(),
-                "synthetic.provider",
                 "worker.session_runtime",
                 65_536,
-                bindingRequest ?? (ownership => new ModelDeploymentCredentialBindingRequest(
-                    ownership.OrganizationId,
-                    "synthetic.provider",
-                    "bind.opaque.0001",
-                    "bind.v1",
-                    null,
-                    null,
-                    false,
-                    false,
-                    false))),
+                InstalledProfiles: new InMemoryInstalledModelDeploymentProfileRegistry(
+                    SessionRuntimeTestFixtures.CreateInstalledProfile()),
+                CredentialCatalog: new InMemoryModelDeploymentCredentialCatalog(
+                    SessionRuntimeTestFixtures.CreateCatalogRecord(
+                        SessionRuntimeTestFixtures.CreateOwnership().OrganizationId))),
             publicationPersist ?? PassThroughAgentResponsePublicationPersistPort.Succeed,
             telemetry);
 

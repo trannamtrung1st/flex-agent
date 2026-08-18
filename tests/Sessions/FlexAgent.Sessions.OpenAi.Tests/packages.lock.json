@@ -2,15 +2,6 @@
   "version": 2,
   "dependencies": {
     "net10.0": {
-      "NetArchTest.Rules": {
-        "type": "Direct",
-        "requested": "[1.3.2, )",
-        "resolved": "1.3.2",
-        "contentHash": "puPyNXkwJq8/UwXhHV8NrzNzkQl4IxEbcP+3PU0xLRiOedsVpaSdpwHhvOZfI0VwTcRvawCNxYQcSRbD4RUg4w==",
-        "dependencies": {
-          "Mono.Cecil": "0.11.3"
-        }
-      },
       "xunit.v3.mtp-v2": {
         "type": "Direct",
         "requested": "[3.2.2, )",
@@ -150,11 +141,6 @@
         "resolved": "5.0.0",
         "contentHash": "dDoKi0PnDz31yAyETfRntsLArTlVAVzUzCIvvEDsDsucrl33Dl8pIJG06ePTJTI3tGpeyHS9Cq7Foc/s4EeKcg=="
       },
-      "Mono.Cecil": {
-        "type": "Transitive",
-        "resolved": "0.11.3",
-        "contentHash": "DNYE+io5XfEE8+E+5padThTPHJARJHbz1mhbhMPNrrWGKVKKqj/KEeLvbawAmbIcT73NuxLV7itHZaYCZcVWGg=="
-      },
       "System.ClientModel": {
         "type": "Transitive",
         "resolved": "1.14.0",
@@ -228,56 +214,14 @@
           "xunit.v3.runner.common": "[3.2.2]"
         }
       },
-      "flexagent.api": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.Contracts": "[1.0.0, )",
-          "FlexAgent.IdentityAccess": "[1.0.0, )",
-          "FlexAgent.Sessions": "[1.0.0, )",
-          "FlexAgent.Sessions.Infrastructure": "[1.0.0, )",
-          "FlexAgent.SyntheticBrowser": "[1.0.0, )"
-        }
-      },
       "flexagent.canonicaljson": {
         "type": "Project"
-      },
-      "flexagent.configuration": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.CanonicalJson": "[1.0.0, )",
-          "FlexAgent.IdentityAccess": "[1.0.0, )",
-          "FlexAgent.Postgres": "[1.0.0, )"
-        }
-      },
-      "flexagent.contracts": {
-        "type": "Project"
-      },
-      "flexagent.identityaccess": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.Postgres": "[1.0.0, )"
-        }
-      },
-      "flexagent.postgres": {
-        "type": "Project",
-        "dependencies": {
-          "Dapper": "[2.1.79, )",
-          "Npgsql": "[10.0.3, )"
-        }
       },
       "flexagent.sessions": {
         "type": "Project",
         "dependencies": {
           "FlexAgent.CanonicalJson": "[1.0.0, )",
           "JsonSchema.Net": "[9.4.0, )"
-        }
-      },
-      "flexagent.sessions.infrastructure": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.IdentityAccess": "[1.0.0, )",
-          "FlexAgent.Postgres": "[1.0.0, )",
-          "FlexAgent.Sessions": "[1.0.0, )"
         }
       },
       "flexagent.sessions.openai": {
@@ -287,27 +231,6 @@
           "OpenAI": "[2.12.0, )"
         }
       },
-      "flexagent.syntheticbrowser": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.Contracts": "[1.0.0, )"
-        }
-      },
-      "flexagent.worker": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.IdentityAccess": "[1.0.0, )",
-          "FlexAgent.Sessions": "[1.0.0, )",
-          "FlexAgent.Sessions.Infrastructure": "[1.0.0, )",
-          "FlexAgent.Sessions.OpenAi": "[1.0.0, )"
-        }
-      },
-      "Dapper": {
-        "type": "CentralTransitive",
-        "requested": "[2.1.79, )",
-        "resolved": "2.1.79",
-        "contentHash": "8YijbzgTfmqmQOnVNorYM6K++pxqnW3nJ4aC1sRHzxUA2CcuoJ9gsTem3kgBnPRMc38zZHl4Esb6hAezXIEEuw=="
-      },
       "JsonSchema.Net": {
         "type": "CentralTransitive",
         "requested": "[9.4.0, )",
@@ -315,15 +238,6 @@
         "contentHash": "muE4nPuzbD9x5XA1mkXJNqX4mhz47oF3EY8qFLY1pyUY7lhXFKq65t/dSKIHeNSLBV17zwZuq24MD1em90rMNg==",
         "dependencies": {
           "JsonPointer.Net": "7.0.2"
-        }
-      },
-      "Npgsql": {
-        "type": "CentralTransitive",
-        "requested": "[10.0.3, )",
-        "resolved": "10.0.3",
-        "contentHash": "7nb5YzXuvWWJxB0J8DiyL3we+X4FOctZrt0fIBnucOIaIevFEEwGQVZKtiu9olXdlNAK1eNgqSral6r/jlhI4w==",
-        "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "10.0.0"
         }
       },
       "OpenAI": {

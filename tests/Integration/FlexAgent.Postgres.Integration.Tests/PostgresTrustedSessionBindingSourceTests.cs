@@ -23,6 +23,9 @@ public sealed class PostgresTrustedSessionBindingSourceTests(PostgresIntegration
         Assert.Equal(prepared.Binding.ConfigurationDigest, loaded.ConfigurationDigest);
         Assert.Equal(prepared.Binding.ManifestId, loaded.ManifestId);
         Assert.Equal(prepared.Binding.Policy.PolicyDigest, loaded.Policy.PolicyDigest);
+        Assert.NotNull(loaded.FrozenModelDeployment);
+        Assert.Equal(prepared.Binding.FrozenModelDeployment!.ProfileDigest, loaded.FrozenModelDeployment!.ProfileDigest);
+        Assert.Equal(prepared.Binding.FrozenModelDeployment.CredentialBindingReference, loaded.FrozenModelDeployment.CredentialBindingReference);
     }
 
     [Fact]

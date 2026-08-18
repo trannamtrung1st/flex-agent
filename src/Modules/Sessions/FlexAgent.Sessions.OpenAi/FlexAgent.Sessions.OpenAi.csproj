@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FlexAgent.Sessions.OpenAi</RootNamespace>
+    <AssemblyName>FlexAgent.Sessions.OpenAi</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
+    <PackageReference Include="OpenAI" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="FlexAgent.Sessions.OpenAi.Tests" />
+  </ItemGroup>
+</Project>

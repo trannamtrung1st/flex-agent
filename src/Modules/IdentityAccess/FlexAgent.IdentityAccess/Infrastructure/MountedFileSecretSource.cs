@@ -28,6 +28,24 @@ public sealed class MountedFileSecretSource(string rootDirectory) : ISecretSourc
             return null;
         }
 
+        var attributes = File.GetAttributes(path);
+        if ((attributes & FileAttributes.ReparsePoint) != 0
+            || (attributes & FileAttributes.Directory) != 0)
+        {
+            return null;
+        }
+
+        if (File.ResolveLinkTarget(path, returnFinalTarget: true) is not null)
+        {
+            return null;
+        }
+
+        var info = new FileInfo(path);
+        if (info.Length <= 0 || info.Length > 8_192)
+        {
+            return null;
+        }
+
         var value = await File.ReadAllTextAsync(path, cancellationToken);
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }

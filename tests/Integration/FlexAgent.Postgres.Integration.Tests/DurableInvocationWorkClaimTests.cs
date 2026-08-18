@@ -409,7 +409,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
                 null));
         var bindingSource = new MemoryTrustedSessionBindingSource();
         bindingSource.Register(prepared.Binding);
-        var settings = CreateWorkerSettings(prepared.Organization.ActorId);
+        var settings = CreateWorkerSettings(prepared.Organization.ActorId, prepared.Binding.Ownership.OrganizationId);
         var processor = new DurableInvocationWorkProcessor(
             await CreateStoreAsync(),
             new PostgresInvocationWorkSessionGateway(
@@ -501,7 +501,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         adapter.EnqueueContent(new ModelContentTextDelta("Hi"), new ModelContentCompleted());
         var bindingSource = new MemoryTrustedSessionBindingSource();
         bindingSource.Register(binding);
-        var settings = CreateWorkerSettings(workerActorId);
+        var settings = CreateWorkerSettings(workerActorId, binding.Ownership.OrganizationId);
         var persist = new PostgresPublishAgentResponseCoordinator(
             Fixture.Services.ConnectionAccessor,
             repository,
@@ -924,22 +924,15 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         }
     }
 
-    private static DurableInvocationWorkSettings CreateWorkerSettings(Guid actorId) =>
+    private static DurableInvocationWorkSettings CreateWorkerSettings(Guid actorId, Guid organizationId) =>
         new(
             SessionPersistenceFixtures.Actor(actorId),
-            "synthetic.provider",
             "worker.session_runtime",
             65_536,
-            ownership => new ModelDeploymentCredentialBindingRequest(
-                ownership.OrganizationId,
-                "synthetic.provider",
-                "bind.opaque.0001",
-                "bind.v1",
-                null,
-                null,
-                false,
-                false,
-                false));
+            InstalledProfiles: new InMemoryInstalledModelDeploymentProfileRegistry(
+                SessionPersistenceFixtures.CreateInstalledProfile()),
+            CredentialCatalog: new InMemoryModelDeploymentCredentialCatalog(
+                SessionPersistenceFixtures.CreateCatalogRecord(organizationId)));
 
     private sealed class HeldWorkScope(NpgsqlConnection connection, NpgsqlTransaction transaction) : IAsyncDisposable
     {

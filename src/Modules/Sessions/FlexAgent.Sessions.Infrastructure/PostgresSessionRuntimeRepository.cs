@@ -227,6 +227,17 @@ public sealed class PostgresSessionRuntimeRepository
         ON CONFLICT (organization_id, session_id, ref_kind, protected_ref) DO NOTHING;
         """;
 
+    private const string InsertFrozenModelDeploymentSql = """
+        INSERT INTO session_frozen_model_deployments (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            profile_id, profile_version, profile_digest, provider_id, credential_mode,
+            credential_binding_reference, credential_binding_version)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @ProfileId, @ProfileVersion, @ProfileDigest, @ProviderId, @CredentialMode,
+            @CredentialBindingReference, @CredentialBindingVersion);
+        """;
+
     private const string InsertFrozenPolicySnapshotSql = """
         INSERT INTO session_frozen_policy_snapshots (
             organization_id, activity_id, participant_id, attempt_id, session_id,
@@ -812,6 +823,7 @@ public sealed class PostgresSessionRuntimeRepository
             await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
             await PersistBindingManifestRefsAsync(ownership, session, transaction, cancellationToken);
             await PersistFrozenPolicySnapshotAsync(ownership, session, transaction, cancellationToken);
+            await PersistFrozenModelDeploymentAsync(ownership, session, transaction, cancellationToken);
             await PersistStartingParticipantRelationshipAsync(
                 ownership,
                 participantActor,
@@ -1761,6 +1773,40 @@ public sealed class PostgresSessionRuntimeRepository
                     binding.ManifestId,
                     PolicyDigest = binding.Policy.PolicyDigest,
                     PolicyPayload = FrozenRuntimePolicySnapshot.ToCanonicalJson(binding.Policy),
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+    }
+
+    private async Task PersistFrozenModelDeploymentAsync(
+        SessionOwnership ownership,
+        SessionRuntime session,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var frozen = session.Binding.FrozenModelDeployment;
+        if (frozen is null)
+        {
+            return;
+        }
+
+        await RequireConnection(transaction).ExecuteAsync(
+            new CommandDefinition(
+                InsertFrozenModelDeploymentSql,
+                new
+                {
+                    ownership.OrganizationId,
+                    ownership.ActivityId,
+                    ownership.ParticipantId,
+                    ownership.AttemptId,
+                    ownership.SessionId,
+                    frozen.ProfileId,
+                    frozen.ProfileVersion,
+                    frozen.ProfileDigest,
+                    frozen.ProviderId,
+                    frozen.CredentialMode,
+                    frozen.CredentialBindingReference,
+                    frozen.CredentialBindingVersion,
                 },
                 transaction,
                 cancellationToken: cancellationToken));

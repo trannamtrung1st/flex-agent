@@ -80,8 +80,49 @@ internal static class SessionPersistenceFixtures
             policy,
             [],
             [],
-            []);
+            [],
+            CreateFrozenDeployment());
     }
+
+    internal static InstalledModelDeploymentProfile CreateInstalledProfile() =>
+        InstalledModelDeploymentProfile.Create(
+            "synthetic.fake.v1",
+            "1",
+            ModelDeploymentAdapterKinds.DeterministicFake,
+            "sessions.fake.v1",
+            new Uri("https://api.openai.com/"),
+            "synthetic.model.pinned",
+            "synthetic.model.pinned.2026-01-01",
+            "p0.text.structured-control",
+            ModelDeploymentCredentialModes.OrganizationByok,
+            256,
+            TimeSpan.FromSeconds(30),
+            TimeSpan.FromSeconds(60),
+            2,
+            "synthetic.provider");
+
+    internal static FrozenModelDeploymentBinding CreateFrozenDeployment()
+    {
+        var profile = CreateInstalledProfile();
+        return new FrozenModelDeploymentBinding(
+            profile.ProfileId,
+            profile.ProfileVersion,
+            profile.ProfileDigest,
+            profile.ProviderId,
+            ModelDeploymentCredentialModes.OrganizationByok,
+            "bind.opaque.0001",
+            "bind.v1");
+    }
+
+    internal static ModelDeploymentCredentialCatalogRecord CreateCatalogRecord(Guid organizationId) =>
+        new(
+            "bind.opaque.0001",
+            "bind.v1",
+            organizationId,
+            "synthetic.provider",
+            ModelDeploymentCredentialModes.OrganizationByok,
+            false,
+            "org-a-openai");
 
     internal static TrustedTrigger OpeningTrigger(string triggerId = "trig.opening.1") =>
         new(

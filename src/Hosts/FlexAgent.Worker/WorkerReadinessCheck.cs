@@ -30,6 +30,15 @@ public sealed class WorkerReadinessCheck(
                 HealthCheckResult.Degraded($"Worker identity is {identityState}."));
         }
 
+        if (ProtectedLaneEnabled(capabilities)
+            && capabilities.DurableWorkClaimingEnabled
+            && string.Equals(capabilities.ModelExecutionAdapter, "direct_openai", StringComparison.Ordinal)
+            && !capabilities.ModelExecutionQualified)
+        {
+            return Task.FromResult(
+                HealthCheckResult.Degraded("Direct OpenAI adapter is requested but not qualified."));
+        }
+
         var claiming = capabilities.DurableWorkClaimingEnabled
             ? "durable work claiming is enabled"
             : "Durable work claiming is not enabled";

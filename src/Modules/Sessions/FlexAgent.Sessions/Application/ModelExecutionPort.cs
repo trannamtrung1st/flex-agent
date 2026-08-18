@@ -10,9 +10,31 @@ public sealed record ModelExecutionAttemptRequest(
     string CredentialBindingVersion,
     InvocationContext Context,
     int AttemptOrdinal,
-    int MaxControlUtf8Bytes);
+    int MaxControlUtf8Bytes,
+    FrozenModelDeploymentBinding? FrozenDeployment = null,
+    string? ProviderAttemptId = null,
+    string? RequestedModel = null,
+    string? ProfileDigest = null);
 
-public abstract record ModelExecutionAttemptResult;
+public sealed record ModelProviderAttemptProvenance(
+    string AdapterKind,
+    string AdapterContractVersion,
+    string ProfileId,
+    string ProfileVersion,
+    string ProfileDigest,
+    string RequestedModel,
+    string ResolvedModelVersion,
+    string OutcomeCategory,
+    int? InputTokenCount,
+    int? OutputTokenCount,
+    string? ProviderRequestRef,
+    DateTimeOffset StartedAt,
+    DateTimeOffset CompletedAt);
+
+public abstract record ModelExecutionAttemptResult
+{
+    public ModelProviderAttemptProvenance? Provenance { get; init; }
+}
 
 public sealed record ModelExecutionStructuredControl(ValidatedAgentDecisionEnvelope Control)
     : ModelExecutionAttemptResult
@@ -52,7 +74,14 @@ public sealed record ModelContentCompleted : ModelContentEvent;
 public sealed record ModelContentStreamRequest(
     SessionOwnership Ownership,
     string AgentInvocationId,
-    string GenerationAttemptId);
+    string GenerationAttemptId,
+    FrozenModelDeploymentBinding? FrozenDeployment = null,
+    InvocationContext? Context = null,
+    int AttemptOrdinal = 0,
+    string? ProviderAttemptId = null,
+    string? ProviderId = null,
+    string? CredentialBindingReference = null,
+    string? CredentialBindingVersion = null);
 
 public interface IModelExecutionPort
 {
@@ -73,6 +102,18 @@ public static class ModelExecutionPreflight
     {
         ArgumentNullException.ThrowIfNull(binding);
         if (binding.Succeeded && binding.Binding is not null)
+        {
+            return null;
+        }
+
+        return new ModelExecutionFailed(ExecutionFailureReasons.CredentialBindingFailed);
+    }
+
+    public static ModelExecutionFailed? RejectIfFrozenDeploymentUnavailable(
+        FrozenModelDeploymentResolution resolution)
+    {
+        ArgumentNullException.ThrowIfNull(resolution);
+        if (resolution.Succeeded && resolution.Binding is not null && resolution.Profile is not null)
         {
             return null;
         }

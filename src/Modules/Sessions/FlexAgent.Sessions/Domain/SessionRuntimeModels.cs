@@ -374,7 +374,8 @@ public sealed record TrustedSessionBinding(
     FrozenTextSessionRuntimePolicy Policy,
     IReadOnlyList<ProtectedContentRef> PermittedSubmissionRefs,
     IReadOnlyList<ProtectedContentRef> PermittedKnowledgeRefs,
-    IReadOnlyList<ProtectedContentRef> PermittedMemoryReadRefs);
+    IReadOnlyList<ProtectedContentRef> PermittedMemoryReadRefs,
+    FrozenModelDeploymentBinding? FrozenModelDeployment = null);
 
 public sealed record TrustedTrigger(
     string TriggerFamily,

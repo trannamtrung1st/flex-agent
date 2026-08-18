@@ -432,19 +432,8 @@ public sealed class WorkerInvocationExecuteDelegationTests(PostgresIntegrationFi
         bindingSource.Register(sessionBinding);
         var settings = new DurableInvocationWorkSettings(
             SessionPersistenceFixtures.Actor(workerActorId),
-            "synthetic.provider",
             "worker.session_runtime",
-            65_536,
-            ownership => new ModelDeploymentCredentialBindingRequest(
-                ownership.OrganizationId,
-                "synthetic.provider",
-                "bind.opaque.0001",
-                "bind.v1",
-                null,
-                null,
-                false,
-                false,
-                false));
+            65_536);
         var gateway = new PostgresInvocationWorkSessionGateway(
             Fixture.Services.ConnectionAccessor,
             new PostgresSessionRuntimeRepository(),

@@ -230,6 +230,22 @@ public sealed class WorkloadIdentityTests
                 await source.TryReadAsync("client-secret", TestContext.Current.CancellationToken));
             Assert.Null(await source.TryReadAsync("../client-secret", TestContext.Current.CancellationToken));
             Assert.Null(await source.TryReadAsync("missing", TestContext.Current.CancellationToken));
+
+            var outside = Directory.CreateTempSubdirectory("flexagent-secrets-outside");
+            await File.WriteAllTextAsync(
+                Path.Combine(outside.FullName, "escaped"),
+                "escaped-secret",
+                TestContext.Current.CancellationToken);
+            var link = Path.Combine(root.FullName, "linked-secret");
+            File.CreateSymbolicLink(link, Path.Combine(outside.FullName, "escaped"));
+            Assert.Null(await source.TryReadAsync("linked-secret", TestContext.Current.CancellationToken));
+            outside.Delete(true);
+
+            await File.WriteAllTextAsync(
+                Path.Combine(root.FullName, "too-big"),
+                new string('x', 9_000),
+                TestContext.Current.CancellationToken);
+            Assert.Null(await source.TryReadAsync("too-big", TestContext.Current.CancellationToken));
         }
         finally
         {
