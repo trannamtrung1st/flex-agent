@@ -1,0 +1,428 @@
+using Dapper;
+using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.IdentityAccess.Infrastructure;
+using FlexAgent.Postgres;
+using FlexAgent.Postgres.Integration.Tests.Support;
+using FlexAgent.Sessions.Application;
+using FlexAgent.Sessions.Domain;
+using FlexAgent.Sessions.Infrastructure;
+
+namespace FlexAgent.Postgres.Integration.Tests;
+
+public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture fixture)
+    : PostgresIntegrationTest(fixture)
+{
+    [Fact]
+    public async Task Due_timer_with_production_binding_admits_one_invocation()
+    {
+        var prepared = await InsertDelegatedSessionAsync();
+        await using var otherDue = await HoldOtherDueSchedulesAsync(prepared.Ownership);
+        await MarkScheduleDueAsync(prepared.Ownership);
+        var coordinator = CreateCoordinator(new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor));
+
+        var result = await coordinator.TryFireNextDueAsync(FireCommand(prepared.Organization.ActorId), CancellationToken);
+
+        Assert.True(result.Succeeded, result.OutcomeCode);
+        Assert.Equal(TimerFireOutcomeCodes.Succeeded, result.OutcomeCode);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var invocationCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM session_invocations
+            WHERE organization_id = @OrganizationId AND session_id = @SessionId;
+            """,
+            new { prepared.Ownership.OrganizationId, prepared.Ownership.SessionId });
+        var auditCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND resource_id = @SessionId
+              AND action = @Action;
+            """,
+            new
+            {
+                prepared.Ownership.OrganizationId,
+                prepared.Ownership.SessionId,
+                Action = AuthorizationActions.FireSessionTimerLane,
+            });
+        Assert.Equal(1, invocationCount);
+        Assert.Equal(1, auditCount);
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("expired")]
+    [InlineData("revoked")]
+    [InlineData("wrong-service")]
+    [InlineData("wrong-action")]
+    [InlineData("wrong-organization")]
+    [InlineData("wrong-session")]
+    public async Task Invalid_delegation_denies_without_mutating_due_work(string fault)
+    {
+        var prepared = await InsertDelegatedSessionAsync();
+        await using var otherDue = await HoldOtherDueSchedulesAsync(prepared.Ownership);
+        await MarkScheduleDueAsync(prepared.Ownership);
+        var actorId = prepared.Organization.ActorId;
+        await ApplyDelegationFaultAsync(prepared, fault);
+        if (fault == "wrong-service")
+        {
+            actorId = await InsertActorAsync();
+        }
+
+        var before = await CaptureWorkAsync(prepared.Ownership);
+        var result = await CreateCoordinator().TryFireNextDueAsync(FireCommand(actorId), CancellationToken);
+        var after = await CaptureWorkAsync(prepared.Ownership);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(TimerFireOutcomeCodes.Idle, result.OutcomeCode);
+        Assert.Equal(before, after);
+    }
+
+    [Fact]
+    public async Task Revocation_after_admission_and_before_commit_denies_without_invocation()
+    {
+        var prepared = await InsertDelegatedSessionAsync();
+        await using var otherDue = await HoldOtherDueSchedulesAsync(prepared.Ownership);
+        await MarkScheduleDueAsync(prepared.Ownership);
+        var coordinator = CreateCoordinator();
+        coordinator.AfterAdmissionAuthorizedAsync = async () =>
+        {
+            Assert.True(
+                await new PostgresServiceDelegationRepository(Fixture.Services.ConnectionAccessor).RevokeAsync(
+                    prepared.Ownership.OrganizationId,
+                    prepared.Ownership.SessionId,
+                    prepared.DelegationId,
+                    CancellationToken));
+        };
+
+        var before = await CaptureWorkAsync(prepared.Ownership);
+        var result = await coordinator.TryFireNextDueAsync(FireCommand(prepared.Organization.ActorId), CancellationToken);
+        var after = await CaptureWorkAsync(prepared.Ownership);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(TimerFireOutcomeCodes.AuthorityDenied, result.OutcomeCode);
+        Assert.Equal(before, after);
+    }
+
+    [Fact]
+    public async Task Narrowing_after_admission_and_before_commit_denies_without_invocation()
+    {
+        var prepared = await InsertDelegatedSessionAsync();
+        await using var otherDue = await HoldOtherDueSchedulesAsync(prepared.Ownership);
+        await MarkScheduleDueAsync(prepared.Ownership);
+        var coordinator = CreateCoordinator();
+        coordinator.AfterAdmissionAuthorizedAsync = async () =>
+        {
+            Assert.True(
+                await new PostgresServiceDelegationRepository(Fixture.Services.ConnectionAccessor).NarrowAllowedActionAsync(
+                    prepared.Ownership.OrganizationId,
+                    prepared.Ownership.SessionId,
+                    prepared.DelegationId,
+                    AuthorizationActions.SubscribeSessionEvents,
+                    CancellationToken));
+        };
+
+        var before = await CaptureWorkAsync(prepared.Ownership);
+        var result = await coordinator.TryFireNextDueAsync(FireCommand(prepared.Organization.ActorId), CancellationToken);
+        var after = await CaptureWorkAsync(prepared.Ownership);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(TimerFireOutcomeCodes.AuthorityDenied, result.OutcomeCode);
+        Assert.Equal(before, after);
+    }
+
+    [Fact]
+    public async Task Historical_schedule_without_delegation_stays_pending()
+    {
+        var prepared = await InsertDelegatedSessionAsync();
+        await using var otherDue = await HoldOtherDueSchedulesAsync(prepared.Ownership);
+        await MarkScheduleDueAsync(prepared.Ownership);
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            var updated = await connection.ExecuteAsync(
+                """
+                UPDATE session_timer_schedules
+                SET timer_lane_delegation_id = NULL
+                WHERE organization_id = @OrganizationId AND session_id = @SessionId;
+                """,
+                new { prepared.Ownership.OrganizationId, prepared.Ownership.SessionId });
+            Assert.Equal(1, updated);
+        }
+
+        var first = await CreateCoordinator().TryFireNextDueAsync(
+            FireCommand(prepared.Organization.ActorId),
+            CancellationToken);
+        var second = await CreateCoordinator().TryFireNextDueAsync(
+            FireCommand(prepared.Organization.ActorId),
+            CancellationToken);
+
+        Assert.Equal(TimerFireOutcomeCodes.Idle, first.OutcomeCode);
+        Assert.Equal(TimerFireOutcomeCodes.Idle, second.OutcomeCode);
+        var after = await CaptureWorkAsync(prepared.Ownership);
+        Assert.Equal(0, after.InvocationCount);
+        Assert.Equal("pending", after.LaneState);
+    }
+
+    [Fact]
+    public async Task Revoked_due_row_does_not_head_of_line_block_another_session()
+    {
+        var blocked = await InsertDelegatedSessionAsync();
+        var eligible = await InsertDelegatedSessionAsync(blocked.Organization.ActorId);
+        await using var otherDue = await HoldOtherDueSchedulesAsync(blocked.Ownership, eligible.Ownership);
+        await MarkScheduleDueAsync(blocked.Ownership, olderBy: TimeSpan.FromMinutes(2));
+        await MarkScheduleDueAsync(eligible.Ownership);
+        await ApplyDelegationFaultAsync(blocked, "revoked");
+        var coordinator = CreateCoordinator(new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor));
+
+        var first = await coordinator.TryFireNextDueAsync(
+            FireCommand(blocked.Organization.ActorId),
+            CancellationToken);
+        var second = await coordinator.TryFireNextDueAsync(
+            FireCommand(blocked.Organization.ActorId),
+            CancellationToken);
+
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        Assert.Equal(eligible.Ownership.SessionId, first.Admission!.Invocation!.Ownership.SessionId);
+        Assert.Equal(TimerFireOutcomeCodes.Idle, second.OutcomeCode);
+        var blockedAfter = await CaptureWorkAsync(blocked.Ownership);
+        Assert.Equal(0, blockedAfter.InvocationCount);
+        Assert.Equal("pending", blockedAfter.LaneState);
+    }
+
+    private async Task ApplyDelegationFaultAsync(PreparedDelegatedSession prepared, string fault)
+    {
+        var repository = new PostgresServiceDelegationRepository(Fixture.Services.ConnectionAccessor);
+        switch (fault)
+        {
+            case "missing":
+                await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+                {
+                    await connection.ExecuteAsync(
+                        """
+                        UPDATE session_timer_schedules
+                        SET timer_lane_delegation_id = NULL
+                        WHERE organization_id = @OrganizationId AND session_id = @SessionId;
+                        """,
+                        new { prepared.Ownership.OrganizationId, prepared.Ownership.SessionId });
+                }
+
+                break;
+            case "expired":
+                await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+                {
+                    await connection.ExecuteAsync(
+                        """
+                        UPDATE service_delegations
+                        SET
+                            effective_at = clock_timestamp() - INTERVAL '2 minutes',
+                            expires_at = clock_timestamp() - INTERVAL '1 minute'
+                        WHERE delegation_id = @DelegationId;
+                        """,
+                        new { prepared.DelegationId });
+                }
+
+                break;
+            case "revoked":
+                Assert.True(
+                    await repository.RevokeAsync(
+                        prepared.Ownership.OrganizationId,
+                        prepared.Ownership.SessionId,
+                        prepared.DelegationId,
+                        CancellationToken));
+                break;
+            case "wrong-service":
+                break;
+            case "wrong-action":
+                Assert.True(
+                    await repository.NarrowAllowedActionAsync(
+                        prepared.Ownership.OrganizationId,
+                        prepared.Ownership.SessionId,
+                        prepared.DelegationId,
+                        AuthorizationActions.SubscribeSessionEvents,
+                        CancellationToken));
+                break;
+            case "wrong-organization":
+            case "wrong-session":
+                var other = await InsertDelegatedSessionAsync();
+                await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+                {
+                    var updated = await connection.ExecuteAsync(
+                        """
+                        UPDATE session_timer_schedules
+                        SET timer_lane_delegation_id = @OtherDelegationId
+                        WHERE organization_id = @OrganizationId AND session_id = @SessionId;
+                        """,
+                        new
+                        {
+                            prepared.Ownership.OrganizationId,
+                            prepared.Ownership.SessionId,
+                            OtherDelegationId = other.DelegationId,
+                        });
+                    Assert.Equal(1, updated);
+                }
+
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(fault), fault, "Unknown delegation fault.");
+        }
+    }
+
+    private async Task<PreparedDelegatedSession> InsertDelegatedSessionAsync(Guid? timerServiceActorId = null)
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var delegationId = Guid.NewGuid();
+        await using (var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            var startedAt = new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero);
+            var session = SessionRuntime.CreateActive(binding, startedAt);
+            await repository.InsertActiveAsync(
+                binding.Ownership,
+                session,
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                scope.Transaction,
+                CancellationToken,
+                new ServiceDelegationIssue(
+                    delegationId,
+                    timerServiceActorId ?? organization.ActorId,
+                    AuthorizationActions.FireSessionTimerLane,
+                    "session.timer_lane.scheduler",
+                    "system.session_runtime",
+                    startedAt.AddDays(-1)));
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        return new PreparedDelegatedSession(organization, binding.Ownership, binding, delegationId, repository);
+    }
+
+    private async Task MarkScheduleDueAsync(SessionOwnership ownership, TimeSpan? olderBy = null)
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var delay = olderBy ?? TimeSpan.FromSeconds(1);
+        var updated = await connection.ExecuteAsync(
+            """
+            UPDATE session_timer_schedules
+            SET fire_at = clock_timestamp() - @OlderBy
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+              AND state = 'pending';
+            """,
+            new { ownership.OrganizationId, ownership.SessionId, OlderBy = delay });
+        Assert.Equal(1, updated);
+    }
+
+    private Task<IAsyncDisposable> HoldOtherDueSchedulesAsync(SessionOwnership ownership) =>
+        HoldOtherDueSchedulesAsync(ownership, other: null);
+
+    private async Task<IAsyncDisposable> HoldOtherDueSchedulesAsync(
+        SessionOwnership ownership,
+        SessionOwnership? other)
+    {
+        var connection = new Npgsql.NpgsqlConnection(Fixture.ConnectionString);
+        await connection.OpenAsync(CancellationToken);
+        var transaction = await connection.BeginTransactionAsync(CancellationToken);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                SELECT schedule_revision
+                FROM session_timer_schedules
+                WHERE NOT (
+                        (organization_id = @OrganizationId AND session_id = @SessionId)
+                        OR (
+                            @OtherOrganizationId IS NOT NULL
+                            AND organization_id = @OtherOrganizationId
+                            AND session_id = @OtherSessionId
+                        )
+                      )
+                  AND (
+                        (state = 'pending' AND fire_at IS NOT NULL AND fire_at <= clock_timestamp())
+                        OR state = 'claimed'
+                      )
+                FOR UPDATE;
+                """,
+                new
+                {
+                    ownership.OrganizationId,
+                    ownership.SessionId,
+                    OtherOrganizationId = other?.OrganizationId,
+                    OtherSessionId = other?.SessionId,
+                },
+                transaction,
+                cancellationToken: CancellationToken));
+        return new HeldDueScope(connection, transaction);
+    }
+
+    private async Task<WorkSnapshot> CaptureWorkAsync(SessionOwnership ownership)
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var row = await connection.QuerySingleAsync<(long SessionVersion, int InvocationCount, string LaneState, int AuditCount, int OutboxCount)>(
+            """
+            SELECT
+                runtime.session_version,
+                (SELECT COUNT(*) FROM session_invocations i
+                 WHERE i.organization_id = runtime.organization_id AND i.session_id = runtime.session_id)::int,
+                schedule.lane_state,
+                (SELECT COUNT(*) FROM audit_events a
+                 WHERE a.organization_id = runtime.organization_id AND a.resource_id = runtime.session_id)::int,
+                (SELECT COUNT(*) FROM outbox_items o
+                 WHERE o.organization_id = runtime.organization_id AND o.aggregate_id = runtime.session_id)::int
+            FROM session_runtimes AS runtime
+            INNER JOIN session_timer_schedules AS schedule
+                ON schedule.organization_id = runtime.organization_id
+               AND schedule.session_id = runtime.session_id
+               AND schedule.state IN ('pending', 'claimed')
+            WHERE runtime.organization_id = @OrganizationId
+              AND runtime.session_id = @SessionId;
+            """,
+            new { ownership.OrganizationId, ownership.SessionId });
+        return new WorkSnapshot(row.SessionVersion, row.InvocationCount, row.LaneState, row.AuditCount, row.OutboxCount);
+    }
+
+    private async Task<Guid> InsertActorAsync()
+    {
+        var actorId = Guid.NewGuid();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await connection.ExecuteAsync(
+            "INSERT INTO actors (id, created_at) VALUES (@ActorId, clock_timestamp());",
+            new { ActorId = actorId });
+        return actorId;
+    }
+
+    private PostgresFireDueTimerCoordinator CreateCoordinator(ITrustedSessionBindingSource? bindingSource = null) =>
+        new(
+            Fixture.Services.ConnectionAccessor,
+            new PostgresSessionRuntimeRepository(),
+            bindingSource ?? new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor),
+            (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel);
+
+    private FireDueTimerCommand FireCommand(Guid actorId) =>
+        new(SessionPersistenceFixtures.Actor(actorId), Guid.NewGuid(), "integration.test");
+
+    private sealed record PreparedDelegatedSession(
+        SeededOrganization Organization,
+        SessionOwnership Ownership,
+        TrustedSessionBinding Binding,
+        Guid DelegationId,
+        PostgresSessionRuntimeRepository Repository);
+
+    private sealed record WorkSnapshot(
+        long SessionVersion,
+        int InvocationCount,
+        string LaneState,
+        int AuditCount,
+        int OutboxCount);
+
+    private sealed class HeldDueScope(Npgsql.NpgsqlConnection connection, Npgsql.NpgsqlTransaction transaction)
+        : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync()
+        {
+            await transaction.DisposeAsync();
+            await connection.DisposeAsync();
+        }
+    }
+}

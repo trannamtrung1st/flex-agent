@@ -77,6 +77,7 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         Assert.Contains("requested_by_category", columns);
         Assert.Contains("created_at", columns);
         Assert.Contains("fired_invocation_id", columns);
+        Assert.Contains("timer_lane_delegation_id", columns);
     }
 
     [Fact]

@@ -16,9 +16,15 @@ public sealed class WorkerReadinessCheck(
                 HealthCheckResult.Unhealthy("Worker is shutting down."));
         }
 
-        return Task.FromResult(
-            capabilities.DurableWorkClaimingEnabled
-                ? HealthCheckResult.Healthy("Worker loop is running and durable work claiming is enabled.")
-                : HealthCheckResult.Healthy("Worker loop is running. Durable work claiming is not enabled."));
+        var claiming = capabilities.DurableWorkClaimingEnabled
+            ? "durable work claiming is enabled"
+            : "Durable work claiming is not enabled";
+        var timerPolling = capabilities.TimerPollingEnabled
+            ? "Timer polling is enabled"
+            : "Timer polling is not enabled";
+        var description = capabilities.DurableWorkClaimingEnabled
+            ? $"Worker loop is running and {claiming}. {timerPolling}."
+            : $"Worker loop is running. {claiming}. {timerPolling}.";
+        return Task.FromResult(HealthCheckResult.Healthy(description));
     }
 }

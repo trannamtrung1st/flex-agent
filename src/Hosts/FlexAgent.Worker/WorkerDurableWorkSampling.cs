@@ -1,3 +1,5 @@
+using FlexAgent.IdentityAccess.Application;
+using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
@@ -9,11 +11,13 @@ namespace FlexAgent.Worker;
 public sealed class WorkerRuntimeCapabilities
 {
     public bool DurableWorkClaimingEnabled { get; init; }
+
+    public bool TimerPollingEnabled { get; init; }
 }
 
 internal static class WorkerDurableWorkSampling
 {
-    private static readonly Guid WorkerServiceActorId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+    internal static readonly Guid DefaultWorkerServiceActorId = Guid.Parse("11111111-2222-3333-4444-555555555555");
 
     public static void AddDurableWorkSampling(this IServiceCollection services, IConfiguration configuration)
     {
@@ -24,12 +28,17 @@ internal static class WorkerDurableWorkSampling
         services.AddSingleton<ISessionRuntimeTelemetry>(sp =>
             new SessionRuntimeTelemetry(sp.GetRequiredService<ISessionRuntimeTelemetrySink>()));
         var connectionString = configuration.GetConnectionString("Sessions");
+        var timerPollingEnabled = configuration.GetValue("Sessions:TimerPolling:Enabled", false);
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             services.AddSingleton<IDurableInvocationWorkStore>(UnknownDurableInvocationWorkStore.Instance);
             services.AddSingleton<IDurableInvocationWorkProcessor, IdleDurableInvocationWorkProcessor>();
             services.AddSingleton<IDurableTimerFireProcessor, IdleDurableTimerFireProcessor>();
-            services.AddSingleton(new WorkerRuntimeCapabilities { DurableWorkClaimingEnabled = false });
+            services.AddSingleton(new WorkerRuntimeCapabilities
+            {
+                DurableWorkClaimingEnabled = false,
+                TimerPollingEnabled = false,
+            });
         }
         else
         {
@@ -37,7 +46,10 @@ internal static class WorkerDurableWorkSampling
             services.AddSingleton<PostgresConnectionAccessor>();
             services.AddSingleton<PostgresSessionRuntimeRepository>();
             services.AddSingleton<IDurableInvocationWorkStore, PostgresDurableInvocationWorkStore>();
-            services.AddSingleton<ITrustedSessionBindingSource>(_ => FailClosedTrustedSessionBindingSource.Instance);
+            services.AddSingleton<ITrustedSessionBindingSource, PostgresTrustedSessionBindingSource>();
+            services.AddSingleton<IAuthorizationKernel, PostgresAuthorizationKernel>();
+            services.AddSingleton<ICommitAuthorizationKernel>(sp =>
+                (ICommitAuthorizationKernel)sp.GetRequiredService<IAuthorizationKernel>());
             services.AddSingleton<IPublishAgentResponseFragmentHandler>(sp =>
                 new PublishAgentResponseFragmentHandler(sp.GetRequiredService<ISessionRuntimeTelemetry>()));
             services.AddSingleton<ICompleteInvocationHandler>(sp =>
@@ -49,8 +61,22 @@ internal static class WorkerDurableWorkSampling
                 sp.GetRequiredService<PostgresPublishAgentResponseCoordinator>());
             services.AddSingleton<IInvocationWorkSessionGateway, PostgresInvocationWorkSessionGateway>();
             services.AddSingleton<IDurableInvocationWorkProcessor, DurableInvocationWorkProcessor>();
-            services.AddSingleton<IDurableTimerFireProcessor, IdleDurableTimerFireProcessor>();
-            services.AddSingleton(new WorkerRuntimeCapabilities { DurableWorkClaimingEnabled = true });
+            if (timerPollingEnabled)
+            {
+                services.AddSingleton<IDueTimerFirePort, PostgresFireDueTimerCoordinator>();
+                services.AddSingleton(CreateTimerFireSettings(configuration));
+                services.AddSingleton<IDurableTimerFireProcessor, DurableTimerFireProcessor>();
+            }
+            else
+            {
+                services.AddSingleton<IDurableTimerFireProcessor, IdleDurableTimerFireProcessor>();
+            }
+
+            services.AddSingleton(new WorkerRuntimeCapabilities
+            {
+                DurableWorkClaimingEnabled = true,
+                TimerPollingEnabled = timerPollingEnabled,
+            });
         }
 
         services.AddSingleton<IDurableWorkBacklogSampler>(sp =>
@@ -67,7 +93,7 @@ internal static class WorkerDurableWorkSampling
         var organizationBindingReference = configuration["Sessions:ModelDeployment:OrganizationBindingReference"];
         var organizationBindingVersion = configuration["Sessions:ModelDeployment:OrganizationBindingVersion"];
         return new DurableInvocationWorkSettings(
-            new TrustedRuntimeActor(WorkerServiceActorId, "worker.session_runtime"),
+            new TrustedRuntimeActor(ResolveServiceActorId(configuration), "worker.session_runtime"),
             providerId,
             "worker.session_runtime",
             65_536,
@@ -81,5 +107,18 @@ internal static class WorkerDurableWorkSampling
                 false,
                 false,
                 false));
+    }
+
+    private static DurableTimerFireSettings CreateTimerFireSettings(IConfiguration configuration) =>
+        new(
+            new TrustedRuntimeActor(ResolveServiceActorId(configuration), "worker.session_runtime"),
+            "worker.session_runtime");
+
+    private static Guid ResolveServiceActorId(IConfiguration configuration)
+    {
+        var configured = configuration["Sessions:WorkerServiceActorId"];
+        return Guid.TryParse(configured, out var parsed) && parsed != Guid.Empty
+            ? parsed
+            : DefaultWorkerServiceActorId;
     }
 }

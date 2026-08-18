@@ -1,5 +1,7 @@
 using System.Text;
 using Dapper;
+using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using Npgsql;
@@ -272,12 +274,12 @@ public sealed class PostgresSessionRuntimeRepository
             organization_id, activity_id, participant_id, attempt_id, session_id,
             schedule_revision, schedule_revision_ordinal, state, lane_state, relative_delay,
             remaining_active_seconds, remaining_since, fire_at, requested_by_category,
-            source_decision_id, fired_invocation_id, created_at)
+            source_decision_id, fired_invocation_id, created_at, timer_lane_delegation_id)
         VALUES (
             @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
             @ScheduleRevisionId, @ScheduleRevisionOrdinal, @State, @LaneState, @RelativeDelay,
             @RemainingActiveSeconds, @RemainingSince, @FireAt, @RequestedByCategory,
-            @SourceDecisionId, @FiredInvocationId, @CreatedAt);
+            @SourceDecisionId, @FiredInvocationId, @CreatedAt, @TimerLaneDelegationId);
         """;
 
     private const string UpdateTimerScheduleSql = """
@@ -714,12 +716,22 @@ public sealed class PostgresSessionRuntimeRepository
             new CommandDefinition(AuthoritativeUtcSql, transaction: transaction, cancellationToken: cancellationToken)));
     }
 
+    private const string LoadTimerLaneDelegationIdSql = """
+        SELECT delegation_id
+        FROM service_delegations
+        WHERE organization_id = @OrganizationId
+          AND session_id = @SessionId
+          AND allowed_action = @AllowedAction
+          AND revoked_at IS NULL;
+        """;
+
     public async Task InsertActiveAsync(
         SessionOwnership ownership,
         SessionRuntime session,
         TrustedRuntimeActor participantActor,
         NpgsqlTransaction transaction,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ServiceDelegationIssue? timerLaneDelegation = null)
     {
         ArgumentNullException.ThrowIfNull(ownership);
         ArgumentNullException.ThrowIfNull(session);
@@ -739,6 +751,20 @@ public sealed class PostgresSessionRuntimeRepository
                 cancellationToken: cancellationToken)));
 
         session.ReplaceLastCommittedAtFromDatabase(lastCommittedAt);
+        if (timerLaneDelegation is not null)
+        {
+            await PostgresServiceDelegationRepository.InsertInTransactionAsync(
+                new SessionScopedDelegationTarget(
+                    ownership.OrganizationId,
+                    ownership.ActivityId,
+                    ownership.ParticipantId,
+                    ownership.AttemptId,
+                    ownership.SessionId),
+                timerLaneDelegation,
+                transaction,
+                cancellationToken);
+        }
+
         await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
         await PersistBindingManifestRefsAsync(ownership, session, transaction, cancellationToken);
         await PersistFrozenPolicySnapshotAsync(ownership, session, transaction, cancellationToken);
@@ -1511,9 +1537,20 @@ public sealed class PostgresSessionRuntimeRepository
         CancellationToken cancellationToken)
     {
         var connection = RequireConnection(transaction);
+        var timerLaneDelegationId = await connection.ExecuteScalarAsync<Guid?>(
+            new CommandDefinition(
+                LoadTimerLaneDelegationIdSql,
+                new
+                {
+                    ownership.OrganizationId,
+                    ownership.SessionId,
+                    AllowedAction = SessionRuntimeAuditActions.FireDueTimer,
+                },
+                transaction,
+                cancellationToken: cancellationToken));
         foreach (var revision in session.DirtyTimerSchedules)
         {
-            var parameters = TimerScheduleParameters(ownership, revision);
+            var parameters = TimerScheduleParameters(ownership, revision, timerLaneDelegationId);
             if (revision.PendingInsert)
             {
                 await connection.ExecuteAsync(
@@ -1804,7 +1841,10 @@ public sealed class PostgresSessionRuntimeRepository
             row.manifest_id,
             row.seal_digest);
 
-    private static object TimerScheduleParameters(SessionOwnership ownership, TimerScheduleRevision revision) => new
+    private static object TimerScheduleParameters(
+        SessionOwnership ownership,
+        TimerScheduleRevision revision,
+        Guid? timerLaneDelegationId) => new
     {
         ownership.OrganizationId,
         ownership.ActivityId,
@@ -1823,6 +1863,7 @@ public sealed class PostgresSessionRuntimeRepository
         SourceDecisionId = revision.DrivingDecisionId,
         revision.FiredInvocationId,
         CreatedAt = revision.CreatedAt.UtcDateTime,
+        TimerLaneDelegationId = timerLaneDelegationId,
     };
 
     private static string ToDbTimerState(string laneState) => laneState switch

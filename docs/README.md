@@ -101,6 +101,7 @@ Illustrative examples in product documents are not MVP commitments unless captur
 - [ADR-012: structured Agent Invocation and Decision](architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) — approved provider-neutral Invocation/Decision boundary
 - [ADR-013: Agent-requested next-timer replacement](architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md) — approved optional one-lane next-timer replacement
 - [ADR-014: Agent output envelope and P0 compatibility](architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) — approved P0 Decision-output envelope and historical v1 reconstruction
+- [ADR-015: Session timer-lane service delegation](architecture/decisions/ADR-015-session-timer-lane-service-delegation.md) — proposed Worker timer-lane delegation realization of ADR-002
 - [Architecture decisions](architecture/decisions/README.md) — approved ADR catalog, status, and proposal template
 
 ### Contributor guidance

@@ -1,4 +1,6 @@
 using Dapper;
+using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Audit;
 using FlexAgent.Postgres.Outbox;
@@ -11,6 +13,7 @@ public sealed class PostgresFireDueTimerCoordinator(
     PostgresConnectionAccessor connectionAccessor,
     PostgresSessionRuntimeRepository runtimeRepository,
     ITrustedSessionBindingSource bindingSource,
+    ICommitAuthorizationKernel authorizationKernel,
     IAuditEventWriter? auditEventWriter = null,
     IOutboxItemWriter? outboxItemWriter = null,
     ISessionRuntimeTelemetry? telemetry = null) : IDueTimerFirePort
@@ -23,7 +26,8 @@ public sealed class PostgresFireDueTimerCoordinator(
                 schedule.participant_id,
                 schedule.attempt_id,
                 schedule.session_id,
-                schedule.schedule_revision_ordinal
+                schedule.schedule_revision_ordinal,
+                schedule.timer_lane_delegation_id
             FROM session_timer_schedules AS schedule
             INNER JOIN session_runtimes AS runtime
                 ON runtime.organization_id = schedule.organization_id
@@ -31,6 +35,18 @@ public sealed class PostgresFireDueTimerCoordinator(
                AND runtime.participant_id = schedule.participant_id
                AND runtime.attempt_id = schedule.attempt_id
                AND runtime.session_id = schedule.session_id
+            INNER JOIN service_delegations AS delegation
+                ON delegation.delegation_id = schedule.timer_lane_delegation_id
+               AND delegation.organization_id = schedule.organization_id
+               AND delegation.activity_id = schedule.activity_id
+               AND delegation.participant_id = schedule.participant_id
+               AND delegation.attempt_id = schedule.attempt_id
+               AND delegation.session_id = schedule.session_id
+               AND delegation.service_actor_id = @ServiceActorId
+               AND delegation.allowed_action = @AllowedAction
+               AND delegation.revoked_at IS NULL
+               AND delegation.effective_at <= clock_timestamp()
+               AND (delegation.expires_at IS NULL OR delegation.expires_at > clock_timestamp())
             WHERE runtime.lifecycle_state = 'active'
               AND (
                     (
@@ -54,13 +70,18 @@ public sealed class PostgresFireDueTimerCoordinator(
             participant_id,
             attempt_id,
             session_id,
-            schedule_revision_ordinal
+            schedule_revision_ordinal,
+            timer_lane_delegation_id
         FROM candidate;
         """;
 
     private readonly IAuditEventWriter _auditEventWriter = auditEventWriter ?? new PostgresAuditEventWriter();
     private readonly IOutboxItemWriter _outboxItemWriter = outboxItemWriter ?? new PostgresOutboxItemWriter();
     private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
+
+    internal Func<Task>? AfterDueClaimedAsync { get; set; }
+
+    internal Func<Task>? AfterAdmissionAuthorizedAsync { get; set; }
 
     public async Task<TimerFireResult> TryFireNextDueAsync(
         FireDueTimerCommand command,
@@ -72,11 +93,24 @@ public sealed class PostgresFireDueTimerCoordinator(
         try
         {
             var due = await scope.Connection.QuerySingleOrDefaultAsync<DueScheduleRow>(
-                new CommandDefinition(ClaimDueSql, transaction: scope.Transaction, cancellationToken: cancellationToken));
+                new CommandDefinition(
+                    ClaimDueSql,
+                    new
+                    {
+                        ServiceActorId = command.Actor.ActorId,
+                        AllowedAction = AuthorizationActions.FireSessionTimerLane,
+                    },
+                    transaction: scope.Transaction,
+                    cancellationToken: cancellationToken));
             if (due is null)
             {
                 await scope.CommitAsync(cancellationToken);
                 return new TimerFireResult(false, TimerFireOutcomeCodes.Idle);
+            }
+
+            if (AfterDueClaimedAsync is not null)
+            {
+                await AfterDueClaimedAsync();
             }
 
             var ownership = new SessionOwnership(
@@ -85,6 +119,28 @@ public sealed class PostgresFireDueTimerCoordinator(
                 due.participant_id,
                 due.attempt_id,
                 due.session_id);
+            if (due.timer_lane_delegation_id is null || due.timer_lane_delegation_id == Guid.Empty)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return new TimerFireResult(false, TimerFireOutcomeCodes.AuthorityDenied);
+            }
+
+            var authorizationRequest = CreateAuthorizationRequest(command, ownership, due.timer_lane_delegation_id.Value);
+            var admission = await authorizationKernel.AuthorizeInTransactionAsync(
+                authorizationRequest,
+                scope.Transaction,
+                cancellationToken);
+            if (!admission.IsPermitted)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return new TimerFireResult(false, TimerFireOutcomeCodes.AuthorityDenied);
+            }
+
+            if (AfterAdmissionAuthorizedAsync is not null)
+            {
+                await AfterAdmissionAuthorizedAsync();
+            }
+
             var binding = await bindingSource.GetAsync(ownership, cancellationToken);
             if (binding is null || binding.Ownership != ownership)
             {
@@ -116,10 +172,18 @@ public sealed class PostgresFireDueTimerCoordinator(
             var result = WithObservedAt(
                 session.FireDueTimer(due.schedule_revision_ordinal.Value, authoritativeUtc),
                 authoritativeUtc);
+            var commitDecision = await authorizationKernel.ReauthorizeInTransactionAsync(
+                authorizationRequest,
+                scope.Transaction,
+                cancellationToken);
+            if (!commitDecision.IsPermitted)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return new TimerFireResult(false, TimerFireOutcomeCodes.AuthorityDenied, ObservedAt: authoritativeUtc);
+            }
+
             if (result.OutcomeCode == TimerFireOutcomeCodes.BudgetExhausted)
             {
-                // Durable terminal mutation: persist Expired and commit. Hosts must
-                // acknowledge this outcome and must not retry the same due row.
                 var expired = await runtimeRepository.TrySaveLifecycleAsync(
                     ownership,
                     expectedVersion,
@@ -217,7 +281,8 @@ public sealed class PostgresFireDueTimerCoordinator(
                 authoritativeUtc,
                 scope.Transaction,
                 cancellationToken,
-                _telemetry);
+                _telemetry,
+                commitDecision.RelationshipVersion);
 
             await scope.CommitAsync(cancellationToken);
             return result;
@@ -229,13 +294,33 @@ public sealed class PostgresFireDueTimerCoordinator(
         }
     }
 
+    private static AuthorizationRequest CreateAuthorizationRequest(
+        FireDueTimerCommand command,
+        SessionOwnership ownership,
+        Guid delegationId) =>
+        new(
+            new TrustedActor(command.Actor.ActorId, command.Actor.ActorType),
+            new OrganizationScope(ownership.OrganizationId),
+            AuthorizationActions.FireSessionTimerLane,
+            new ResourceScope(
+                new OrganizationScope(ownership.OrganizationId),
+                AuthorizationResourceTypes.Session,
+                ownership.SessionId),
+            command.SourceChannel,
+            command.CorrelationId,
+            delegationId,
+            ownership.ActivityId,
+            ownership.ParticipantId,
+            ownership.AttemptId);
+
     private sealed record DueScheduleRow(
         Guid organization_id,
         Guid activity_id,
         Guid participant_id,
         Guid attempt_id,
         Guid session_id,
-        long? schedule_revision_ordinal);
+        long? schedule_revision_ordinal,
+        Guid? timer_lane_delegation_id);
 
     private static TimerFireResult WithObservedAt(TimerFireResult result, DateTimeOffset observedAt) =>
         result with { ObservedAt = observedAt };

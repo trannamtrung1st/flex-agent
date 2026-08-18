@@ -37,6 +37,12 @@
       "flexagent.canonicaljson": {
         "type": "Project"
       },
+      "flexagent.identityaccess": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.Postgres": "[1.0.0, )"
+        }
+      },
       "flexagent.postgres": {
         "type": "Project",
         "dependencies": {

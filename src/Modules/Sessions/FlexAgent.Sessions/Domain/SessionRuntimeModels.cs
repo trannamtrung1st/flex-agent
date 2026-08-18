@@ -122,6 +122,7 @@ public static class TimerFireOutcomeCodes
     public const string NonUtcClock = "timer_fire.non_utc_clock";
     public const string StaleClock = "timer_fire.stale_clock";
     public const string StaleRevision = "timer_fire.stale_revision";
+    public const string AuthorityDenied = "timer_fire.authority_denied";
 }
 
 public sealed record TimerFireResult(

@@ -216,6 +216,7 @@
       "flexagent.sessions.infrastructure": {
         "type": "Project",
         "dependencies": {
+          "FlexAgent.IdentityAccess": "[1.0.0, )",
           "FlexAgent.Postgres": "[1.0.0, )",
           "FlexAgent.Sessions": "[1.0.0, )"
         }

@@ -79,6 +79,19 @@ public sealed class DurableTimerFireProcessorTests
     }
 
     [Fact]
+    public async Task Authority_denied_retries_later()
+    {
+        var port = new ScriptedDueTimerFirePort(
+            new TimerFireResult(false, TimerFireOutcomeCodes.AuthorityDenied));
+        var processor = CreateProcessor(port);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableTimerFireOutcomes.RetryLater, result.Outcome);
+        Assert.Equal(TimerFireOutcomeCodes.AuthorityDenied, result.TimerOutcomeCode);
+    }
+
+    [Fact]
     public async Task Fire_outcomes_are_recorded_with_bounded_timer_labels()
     {
         var sink = new CapturingSessionRuntimeTelemetrySink();

@@ -21,7 +21,8 @@ internal static class SessionRuntimePersistenceAudit
         DateTimeOffset occurredAt,
         Npgsql.NpgsqlTransaction transaction,
         CancellationToken cancellationToken,
-        ISessionRuntimeTelemetry? telemetry = null)
+        ISessionRuntimeTelemetry? telemetry = null,
+        long? relationshipVersion = null)
     {
         var digest = ProtectedContentRef.DigestForReference(payloadSeed);
         var signals = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
@@ -41,7 +42,7 @@ internal static class SessionRuntimePersistenceAudit
                     ResourceId: ownership.SessionId,
                     Outcome: "succeeded",
                     ReasonCode: null,
-                    RelationshipVersion: null,
+                    RelationshipVersion: relationshipVersion,
                     SourceChannel: sourceChannel,
                     PayloadDigest: digest),
                 transaction,

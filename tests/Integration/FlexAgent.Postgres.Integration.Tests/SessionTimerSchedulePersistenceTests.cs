@@ -1,4 +1,6 @@
 using Dapper;
+using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Integration.Tests.Support;
 using FlexAgent.Sessions.Application;
@@ -268,14 +270,16 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
         await MarkScheduleDueAsync(prepared.Binding.Ownership);
         var bindingSource = new MemoryTrustedSessionBindingSource();
         bindingSource.Register(prepared.Binding);
-        var first = new PostgresFireDueTimerCoordinator(
+        var first =             new PostgresFireDueTimerCoordinator(
             Fixture.Services.ConnectionAccessor,
             prepared.Repository,
-            bindingSource);
-        var second = new PostgresFireDueTimerCoordinator(
+            bindingSource,
+            CommitKernel());
+        var second =             new PostgresFireDueTimerCoordinator(
             Fixture.Services.ConnectionAccessor,
             new PostgresSessionRuntimeRepository(),
-            bindingSource);
+            bindingSource,
+            CommitKernel());
         var command = new FireDueTimerCommand(
             SessionPersistenceFixtures.Actor(prepared.Organization.ActorId),
             Guid.NewGuid(),
@@ -331,10 +335,11 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
 
         var bindingSource = new MemoryTrustedSessionBindingSource();
         bindingSource.Register(prepared.Binding);
-        var coordinator = new PostgresFireDueTimerCoordinator(
+        var coordinator =             new PostgresFireDueTimerCoordinator(
             Fixture.Services.ConnectionAccessor,
             prepared.Repository,
-            bindingSource);
+            bindingSource,
+            CommitKernel());
 
         var result = await coordinator.TryFireNextDueAsync(
             new FireDueTimerCommand(
@@ -355,10 +360,11 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
         await using var otherDue = await HoldOtherDueSchedulesAsync(prepared.Binding.Ownership);
         var bindingSource = new MemoryTrustedSessionBindingSource();
         bindingSource.Register(prepared.Binding);
-        var coordinator = new PostgresFireDueTimerCoordinator(
+        var coordinator =             new PostgresFireDueTimerCoordinator(
             Fixture.Services.ConnectionAccessor,
             prepared.Repository,
-            bindingSource);
+            bindingSource,
+            CommitKernel());
 
         var result = await coordinator.TryFireNextDueAsync(
             new FireDueTimerCommand(
@@ -380,7 +386,8 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
         var coordinator = new PostgresFireDueTimerCoordinator(
             Fixture.Services.ConnectionAccessor,
             prepared.Repository,
-            new MemoryTrustedSessionBindingSource());
+            new MemoryTrustedSessionBindingSource(),
+            CommitKernel());
         var command = new FireDueTimerCommand(
             SessionPersistenceFixtures.Actor(prepared.Organization.ActorId),
             Guid.NewGuid(),
@@ -450,10 +457,11 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
         await using var otherDue = await HoldOtherDueSchedulesAsync(prepared.Binding.Ownership);
         var bindingSource = new MemoryTrustedSessionBindingSource();
         bindingSource.Register(prepared.Binding);
-        var coordinator = new PostgresFireDueTimerCoordinator(
+        var coordinator =             new PostgresFireDueTimerCoordinator(
             Fixture.Services.ConnectionAccessor,
             prepared.Repository,
-            bindingSource);
+            bindingSource,
+            CommitKernel());
 
         var result = await coordinator.TryFireNextDueAsync(
             new FireDueTimerCommand(
@@ -535,12 +543,19 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
                 INSERT INTO session_timer_schedules (
                     organization_id, activity_id, participant_id, attempt_id, session_id,
                     schedule_revision, schedule_revision_ordinal, state, lane_state, relative_delay,
-                    remaining_active_seconds, remaining_since, fire_at, requested_by_category, created_at)
+                    remaining_active_seconds, remaining_since, fire_at, requested_by_category, created_at,
+                    timer_lane_delegation_id)
                 VALUES (
                     @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
                     'tsrev.poison', 2, 'pending', 'pending', 'PT5M',
                     0, clock_timestamp(), clock_timestamp() - INTERVAL '1 minute',
-                    'successor_after_fire', clock_timestamp());
+                    'successor_after_fire', clock_timestamp(),
+                    (SELECT delegation_id
+                     FROM service_delegations
+                     WHERE organization_id = @OrganizationId
+                       AND session_id = @SessionId
+                       AND allowed_action = 'session.timer_lane.fire'
+                       AND revoked_at IS NULL));
                 """,
                 new
                 {
@@ -553,7 +568,7 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
             Assert.Equal(1, inserted);
         }
 
-        var other = await InsertActiveSessionAsync();
+        var other = await InsertActiveSessionAsync(timerServiceActorId: exhausted.Organization.ActorId);
         await MarkScheduleDueAsync(other.Binding.Ownership);
         await using var otherDue = await HoldOtherDueSchedulesAsync(
             exhausted.Binding.Ownership,
@@ -564,7 +579,8 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
         var coordinator = new PostgresFireDueTimerCoordinator(
             Fixture.Services.ConnectionAccessor,
             exhausted.Repository,
-            bindingSource);
+            bindingSource,
+            CommitKernel());
         var command = new FireDueTimerCommand(
             SessionPersistenceFixtures.Actor(exhausted.Organization.ActorId),
             Guid.NewGuid(),
@@ -591,7 +607,8 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
 
     private async Task<PreparedSession> InsertActiveSessionAsync(
         bool armFromDatabaseClock = false,
-        int maxTimerTriggeredInvocations = 8)
+        int maxTimerTriggeredInvocations = 8,
+        Guid? timerServiceActorId = null)
     {
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(
@@ -610,7 +627,20 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
             }
 
             var session = SessionRuntime.CreateActive(binding, startedAt);
-            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
+            var timerLaneDelegation = new ServiceDelegationIssue(
+                Guid.NewGuid(),
+                timerServiceActorId ?? organization.ActorId,
+                AuthorizationActions.FireSessionTimerLane,
+                "session.timer_lane.scheduler",
+                "system.session_runtime",
+                new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+            await repository.InsertActiveAsync(
+                binding.Ownership,
+                session,
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                scope.Transaction,
+                CancellationToken,
+                timerLaneDelegation);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -676,6 +706,9 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
                 cancellationToken: CancellationToken));
         return new HeldDueScope(connection, transaction);
     }
+
+    private ICommitAuthorizationKernel CommitKernel() =>
+        (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel;
 
     private sealed record PreparedSession(
         SeededOrganization Organization,

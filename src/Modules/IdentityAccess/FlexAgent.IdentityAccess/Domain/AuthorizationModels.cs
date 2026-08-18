@@ -4,6 +4,7 @@ public static class AuthorizationActions
 {
     public const string RegisterConfigurationSourceVersion = "configuration_source_version.register";
     public const string SubscribeSessionEvents = "session.events.subscribe";
+    public const string FireSessionTimerLane = "session.timer_lane.fire";
 }
 
 public static class AuthorizationResourceTypes
@@ -22,6 +23,12 @@ public static class AuthorizationReasonCodes
     public const string ScopeMismatch = "auth.scope_mismatch";
     public const string ParentNotFound = "auth.parent_not_found";
     public const string Unavailable = "auth.unavailable";
+    public const string MissingDelegation = "auth.missing_delegation";
+    public const string RevokedDelegation = "auth.revoked_delegation";
+    public const string ExpiredDelegation = "auth.expired_delegation";
+    public const string DelegationNotEffective = "auth.delegation_not_effective";
+    public const string DelegationActorMismatch = "auth.delegation_actor_mismatch";
+    public const string DelegationActionMismatch = "auth.delegation_action_mismatch";
 }
 
 public static class AuthorizationOutcomes
@@ -45,7 +52,20 @@ public sealed record AuthorizationRequest(
     string Action,
     ResourceScope Resource,
     string SourceChannel,
-    Guid CorrelationId);
+    Guid CorrelationId,
+    Guid? DelegationId = null,
+    Guid? ActivityId = null,
+    Guid? ParticipantId = null,
+    Guid? AttemptId = null);
+
+public sealed record ServiceDelegationIssue(
+    Guid DelegationId,
+    Guid ServiceActorId,
+    string AllowedAction,
+    string SystemPurpose,
+    string InitiatingAuthority,
+    DateTimeOffset EffectiveAt,
+    DateTimeOffset? ExpiresAt = null);
 
 public sealed record AuthorizationDecision(
     bool IsPermitted,

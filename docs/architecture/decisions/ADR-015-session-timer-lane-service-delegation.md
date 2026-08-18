@@ -1,0 +1,90 @@
+# ADR-015: Session timer-lane service delegation realization
+
+## Status
+
+Proposed. This records the Worker timer-lane realization of approved
+[ADR-002](ADR-002-authorization-enforcement-and-delegation.md) and
+`REQ-SESS-75`. It does not replace ADR-002. It is working implementation
+guidance until product, architecture, and security/privacy approve it.
+
+## Decision metadata
+
+| Field | Value |
+| --- | --- |
+| **Owner** | Architecture Lead |
+| **Required approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
+| **Consulted perspectives** | Architecture, backend, security/privacy |
+| **Proposed date** | 2026-08-18 |
+| **Governs** | Durable per-Session `session.timer_lane.fire` service delegation, timer-schedule envelope reference, Worker timer-polling capability, and commit-time reauthorization |
+| **Upstream sources** | [ADR-002](ADR-002-authorization-enforcement-and-delegation.md), [auth-resource-isolation](../../requirements/features/auth-resource-isolation.md), [text Session lifecycle](../../requirements/features/session-text-lifecycle.md) `REQ-SESS-75` |
+| **Extends** | ADR-002 delegated service execution |
+| **Preserves** | ADR-001 frozen configuration, ADR-003 mutation-coupled audit, ADR-013 one-lane timer replacement, applied migrations `0001`–`0021` |
+
+## Context
+
+ADR-002 already requires background work to authenticate a service identity,
+load a durable delegation reference and resource scope, and revalidate current
+authorization before protected work and again before a sensitive commit. The
+Organization/action grant kernel does not by itself carry a stable per-resource
+delegation, purpose, expiry, or Session scope. Activating
+`PostgresFireDueTimerCoordinator` with a static Worker actor would therefore
+violate the delayed-work contract.
+
+## Decision drivers
+
+- Deny-by-default delayed timer work (`REQ-AUTH-11`, `REQ-SESS-75`).
+- One authoritative PostgreSQL clock and transaction for due state, lifecycle,
+  cutoff, expected revision, delegation freshness, Invocation, audit, and outbox.
+- No silent backfill of authority for historical timer rows.
+- Database reachability is not authorization or provider qualification.
+
+## Options considered
+
+| Option | Benefits | Costs and risks |
+| --- | --- | --- |
+| Organization-wide Worker grant only | Smallest schema change | Cannot prove resource/action-bound delayed work; static actor becomes permission |
+| Infer delegation from Session id or process location | No new envelope field | Guessed or substituted Sessions would inherit authority |
+| Per-Session durable delegation linked from the timer schedule | Matches ADR-002 envelope + resource locators | Additive table and insert-time issuance |
+| Backfill historical active Sessions from identifiers | Unblocks old due rows | Fabricated authority; silently widens permission |
+
+## Decision
+
+1. Store one durable per-Session service-delegation record for
+   `session.timer_lane.fire` with a stable identifier, Worker service principal,
+   complete Organization/Activity/Participant/Attempt/Session ownership, allowed
+   action, system purpose, initiating authority, effective/expiry bounds,
+   revocation, and monotonic version.
+2. Carry that identifier on `session_timer_schedules` as the trusted work
+   envelope. Do not infer it from Session id, host identity, or a static actor
+   label.
+3. Issue the record in the same Session-insert transaction for new
+   timer-enabled Sessions. Do not backfill historical rows; missing or invalid
+   references stay fail-closed and retryable without cancelling a valid pending
+   timer.
+4. The Worker authenticates as its configured service principal, rehydrates the
+   immutable Session policy snapshot, and authorizes the delegation on the
+   timer-fire transaction before admitting one Invocation. Admission does not
+   take `FOR SHARE`; commit reauthorization does, so a concurrent revoke or
+   narrowing after selection still denies. Due-claim selects only currently
+   valid, ownership-matched envelopes for that service principal so revoked,
+   expired, mismatched, or historical-null rows stay pending without
+   head-of-line blocking another Session.
+5. Hosted timer polling requires an explicit `Sessions:TimerPolling:Enabled`
+   capability, default `false`, in addition to a Sessions connection string,
+   PostgreSQL binding rehydration, and the authorization kernel. The fail-closed
+   model port remains until a later provider-qualification task.
+
+## Consequences
+
+- Timer due-claim can no longer treat process identity as permission.
+- New Sessions must receive a trustworthy Worker service principal at insert.
+- Operators can distinguish invocation claiming from timer polling in readiness
+  copy without protected identifiers.
+- Live model providers, OIDC, and production-pilot certification remain out of
+  scope.
+
+## Related
+
+- Requirements: `REQ-AUTH-11`, `REQ-AUTH-18`–`REQ-AUTH-20`, `REQ-SESS-75`
+- Proposed defaults: `PROP-WBT-1`–`PROP-WBT-4` in
+  `.work/active/session-runtime-worker-binding-timer-activation.md`

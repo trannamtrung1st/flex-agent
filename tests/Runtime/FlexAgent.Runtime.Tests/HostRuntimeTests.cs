@@ -129,7 +129,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         Assert.Equal(HttpStatusCode.OK, live.StatusCode);
         Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
         var readyBody = await ready.Content.ReadAsStringAsync(cancellationToken);
-        Assert.Contains("Worker loop is running. Durable work claiming is not enabled.", readyBody, StringComparison.Ordinal);
+        Assert.Contains("Worker loop is running. Durable work claiming is not enabled. Timer polling is not enabled.", readyBody, StringComparison.Ordinal);
         Assert.DoesNotContain("accepting work claims", readyBody, StringComparison.Ordinal);
     }
 
@@ -263,8 +263,9 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         Assert.IsType<PostgresDurableInvocationWorkStore>(store);
         Assert.IsType<IdleDurableTimerFireProcessor>(timer);
         Assert.IsType<FailClosedModelExecutionPort>(model);
-        Assert.IsType<FailClosedTrustedSessionBindingSource>(bindingSource);
+        Assert.IsType<PostgresTrustedSessionBindingSource>(bindingSource);
         Assert.True(capabilities.DurableWorkClaimingEnabled);
+        Assert.False(capabilities.TimerPollingEnabled);
     }
 
     [Fact]
@@ -283,7 +284,54 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         var readyBody = await ready.Content.ReadAsStringAsync(cancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
-        Assert.Contains("Worker loop is running and durable work claiming is enabled.", readyBody, StringComparison.Ordinal);
+        Assert.Contains("Worker loop is running and durable work claiming is enabled. Timer polling is not enabled.", readyBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("accepting work claims", readyBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Worker_registers_timer_processor_only_when_timer_polling_is_explicitly_enabled()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:TimerPolling:Enabled", "true");
+        });
+
+        Assert.IsType<DurableTimerFireProcessor>(
+            factory.Services.GetRequiredService<IDurableTimerFireProcessor>());
+        Assert.IsType<PostgresFireDueTimerCoordinator>(
+            factory.Services.GetRequiredService<IDueTimerFirePort>());
+        Assert.IsType<PostgresTrustedSessionBindingSource>(
+            factory.Services.GetRequiredService<ITrustedSessionBindingSource>());
+        Assert.IsType<FailClosedModelExecutionPort>(
+            factory.Services.GetRequiredService<IModelExecutionPort>());
+        Assert.IsType<FlexAgent.IdentityAccess.Infrastructure.PostgresAuthorizationKernel>(
+            factory.Services.GetRequiredService<FlexAgent.IdentityAccess.Application.IAuthorizationKernel>());
+        Assert.True(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().TimerPollingEnabled);
+        Assert.True(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().DurableWorkClaimingEnabled);
+    }
+
+    [Fact]
+    public async Task Worker_ready_copy_names_timer_polling_when_the_capability_is_enabled()
+    {
+        await using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:TimerPolling:Enabled", "true");
+        });
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var ready = await client.GetAsync("/health/ready", cancellationToken);
+        var readyBody = await ready.Content.ReadAsStringAsync(cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
+        Assert.Contains("durable work claiming is enabled", readyBody, StringComparison.Ordinal);
+        Assert.Contains("Timer polling is enabled.", readyBody, StringComparison.Ordinal);
         Assert.DoesNotContain("accepting work claims", readyBody, StringComparison.Ordinal);
     }
 
