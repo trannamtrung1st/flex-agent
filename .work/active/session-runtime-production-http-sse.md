@@ -51,6 +51,7 @@ participant UI remain later.
 - Worker claim/content-loop wiring (see `session-runtime-worker-host-wiring`)
 - Live providers, OIDC product login
 - Persistence-backed actor/enrollment/binding rehydration
+  (`.work/active/session-runtime-subject-binding-rehydration.md`)
 - Backup/restore/export labs
 - Rewriting frozen migrations `0005`–`0019`
 - Treating synthetic `/browser/.../events` as `REQ-SESS-59` complete
@@ -67,9 +68,10 @@ participant UI remain later.
 
 # Current state
 
-External review of `0b78ba0` is addressed. `GET /sessions/{id}/events` remains
-a production **adapter seam**, not a usable production identity/binding path.
-`REQ-SESS-59` stays Partial.
+External review of `0b78ba0` is addressed and `5fc6b7f` is approved. `GET
+/sessions/{id}/events` remains a production **adapter seam**. `REQ-SESS-59`
+stays Partial. Session-scoped subject resolution is successor work
+(`.work/active/session-runtime-subject-binding-rehydration.md`).
 
 # Decisions
 
@@ -80,6 +82,9 @@ a production **adapter seam**, not a usable production identity/binding path.
   are loaded from `ISessionEventSubjectSource` on every authorize/replay.
   Enrollment is not a separate store yet; current relationship + participant
   id on that source are the interim stand-in until frozen-policy rehydration.
+  Actor-keyed `GetCurrentAsync(actorId)` is **not** the production model: an
+  actor may have different relationships per Session. Successor:
+  `.work/active/session-runtime-subject-binding-rehydration.md`.
 - Hosted `ITrustedSessionBindingSource` is `FailClosedTrustedSessionBindingSource`.
   Tests that need bindings register `MemoryTrustedSessionBindingSource`
   explicitly.
@@ -101,6 +106,10 @@ a production **adapter seam**, not a usable production identity/binding path.
   on reconcile/deny, matching the initial replay path.
 - External review remediations (2026-08-18): current subject revalidation,
   fail-closed hosted bindings, test-identity gate, Sessions readiness.
+- External approval of `5fc6b7f` (2026-08-18): P1s accepted. P2 recorded, not
+  remediating in this slice: `ISessionEventSubjectSource` is actor-keyed and
+  cannot represent per-Session relationships. Fix with persistence-backed
+  rehydration, not another SSE-only commit.
 
 # Verification
 

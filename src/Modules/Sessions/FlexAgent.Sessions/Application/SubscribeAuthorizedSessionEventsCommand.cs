@@ -22,6 +22,13 @@ public sealed record SessionEventSubject(
 
 public sealed record SessionEventSubscriptionAuthorization(bool IsPermitted);
 
+/// <summary>
+/// Adapter-seam lookup of current organization, participant, and relationship
+/// for an authenticated actor. Production rehydration must not keep a global
+/// actor-to-one-relationship map. Resolve subject scope for the requested
+/// Session from trusted records (session → organization → activity →
+/// participant/enrollment → the actor's current relationship) per ADR-002.
+/// </summary>
 public interface ISessionEventSubjectSource
 {
     Task<SessionEventSubject?> GetCurrentAsync(
