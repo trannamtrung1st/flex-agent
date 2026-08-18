@@ -6,36 +6,28 @@ namespace FlexAgent.Worker;
 public sealed class WorkerReadinessCheck(
     WorkClaimGate workClaimGate,
     IRecoverableAuthorityGate authorityGate,
-    WorkerRuntimeCapabilities capabilities,
-    IAuthenticatedWorkloadContextSource identitySource) : IHealthCheck
+    WorkerRuntimeCapabilities capabilities) : IHealthCheck
 {
-    public async Task<HealthCheckResult> CheckHealthAsync(
+    public Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
         if (!workClaimGate.TryClaimWork())
         {
-            return HealthCheckResult.Unhealthy("Worker is shutting down.");
+            return Task.FromResult(
+                HealthCheckResult.Unhealthy("Worker is shutting down."));
         }
 
         var identityState = authorityGate.State;
-        var current = ProtectedLaneEnabled(capabilities)
-            ? await identitySource.TryGetCurrentAsync(cancellationToken).ConfigureAwait(false)
-            : null;
-        var identityUnavailable = ProtectedLaneEnabled(capabilities)
-            && (current is null || !current.IsProofValidAt(DateTimeOffset.UtcNow));
         if (ProtectedLaneEnabled(capabilities)
-            && (identityUnavailable
-                || identityState is RecoverableAuthorityStates.RefreshDegraded
+            && (identityState is RecoverableAuthorityStates.RefreshDegraded
                 || (!authorityGate.CanAcceptProtectedWork()
                     && identityState is RecoverableAuthorityStates.IdentityDenied
                         or RecoverableAuthorityStates.DependencyUnavailable
                         or RecoverableAuthorityStates.Authenticating)))
         {
-            var reported = identityUnavailable && identityState is RecoverableAuthorityStates.Ready
-                ? RecoverableAuthorityStates.IdentityDenied
-                : identityState;
-            return HealthCheckResult.Degraded($"Worker identity is {reported}.");
+            return Task.FromResult(
+                HealthCheckResult.Degraded($"Worker identity is {identityState}."));
         }
 
         var claiming = capabilities.DurableWorkClaimingEnabled
@@ -47,7 +39,7 @@ public sealed class WorkerReadinessCheck(
         var description = capabilities.DurableWorkClaimingEnabled
             ? $"Worker loop is running and {claiming}. {timerPolling}."
             : $"Worker loop is running. {claiming}. {timerPolling}.";
-        return HealthCheckResult.Healthy(description);
+        return Task.FromResult(HealthCheckResult.Healthy(description));
     }
 
     private static bool ProtectedLaneEnabled(WorkerRuntimeCapabilities capabilities) =>

@@ -5,10 +5,12 @@
 Approved. Product, Architecture, Operations, and Security/Privacy approval of
 the complete decision package was recorded on 2026-08-18.
 
-Approval makes this ADR authoritative architecture. It does not authorize a
-Production or Staging Worker lane until its implementation, deployment-profile,
-and verification gates pass. [ADR-015](ADR-015-session-timer-lane-service-delegation.md)
-was approved as part of the same Worker authorization package.
+The Worker reference-path implementation of this ADR was independently reviewed
+and approved on 2026-08-18. Approval covers the implemented authorization
+slice; it does not authorize a Production or Staging Worker lane until
+deployment-profile, live-issuer, and live-provider verification gates pass.
+[ADR-015](ADR-015-session-timer-lane-service-delegation.md) was approved as
+part of the same Worker authorization package.
 
 ## Decision metadata
 
@@ -309,11 +311,16 @@ row remains ineligible.
 Readiness distinguishes disabled, authenticating, ready, refresh-degraded,
 identity-denied, dependency-unavailable, and stopping states without revealing
 tokens, secrets, issuer payloads, stable Organization/Activity/Participant/
-Session/Invocation/delegation identifiers, or protected content. Metrics and
-logs use allowlisted reason categories, lane, profile, process-instance
-correlation, and bounded timing data. Raw authentication material is never
-stored in product state, audit, telemetry, test artifacts, or generated
-fixtures.
+Session/Invocation/delegation identifiers, or protected content. The Worker
+ready check reports the last observation on the recoverable authorization
+gate; it does not mint tokens, query JWKS, or open a binding transaction.
+A still-valid cryptographic proof may be re-checked against the current
+durable principal binding without requesting a new access token. Transactional
+authorization remains the authoritative binding check at claim, disclosure,
+and commit. Metrics and logs use allowlisted reason categories, lane, profile,
+process-instance correlation, and bounded timing data. Raw authentication
+material is never stored in product state, audit, telemetry, test artifacts,
+or generated fixtures.
 
 ## Authorization and data ownership
 
@@ -413,9 +420,12 @@ Staging work.
 - A stolen reference-profile client credential remains security-sensitive; the
   short-lived token does not remove secret rotation, TLS, least privilege, and
   issuer administration obligations.
-- Identity provider and verification-key availability enter Worker readiness,
-  but bounded cached verification and current proof may preserve service during
-  a short outage when the approved profile permits it.
+- Identity provider and verification-key availability enter the Worker's
+  recoverable identity observation loop. Readiness reports that gate only; it
+  does not mint tokens or query JWKS. While a cryptographic proof remains valid,
+  OAuth re-checks the current durable principal binding without requesting a new
+  access token. Transactional authorization remains the authoritative binding
+  check at claim, disclosure, and commit.
 - Every Invocation work item carries inspectable authority lineage, and retries
   cannot widen Session or action scope.
 - Timer and Invocation lanes can be operated independently, while timer-created

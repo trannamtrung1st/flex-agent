@@ -24,70 +24,43 @@ public sealed class OAuthWorkloadIdentitySource(
         CancellationToken cancellationToken = default)
     {
         var now = clock.GetUtcNow();
-        AuthenticatedWorkloadContext? cached = null;
+        AuthenticatedWorkloadContext? cached;
         lock (_gate)
         {
-            if (_current is not null && _current.ExpiresAt - now > refreshMargin && _current.IsProofValidAt(now))
-            {
-                cached = _current;
-            }
+            cached = _current is not null && _current.IsProofValidAt(now) ? _current : null;
         }
 
         if (cached is not null)
         {
-            if (await BindingStillCurrentAsync(cached, cancellationToken).ConfigureAwait(false))
+            var observed = await ObserveBindingAsync(cached, cancellationToken).ConfigureAwait(false);
+            if (observed is null)
             {
-                return cached;
-            }
-
-            lock (_gate)
-            {
-                if (ReferenceEquals(_current, cached))
-                {
-                    _current = null;
-                }
-            }
-
-            authorityGate?.SetState(RecoverableAuthorityStates.IdentityDenied);
-            return null;
-        }
-
-        var refreshed = await AuthenticateAsync(cancellationToken).ConfigureAwait(false);
-        AuthenticatedWorkloadContext? fallback = null;
-        lock (_gate)
-        {
-            if (refreshed is not null)
-            {
-                _current = refreshed;
-                return _current;
-            }
-
-            if (_current is not null && _current.IsProofValidAt(clock.GetUtcNow()))
-            {
-                fallback = _current;
-            }
-            else
-            {
-                _current = null;
+                authorityGate?.SetState(RecoverableAuthorityStates.IdentityDenied);
                 return null;
             }
-        }
 
-        if (await BindingStillCurrentAsync(fallback, cancellationToken).ConfigureAwait(false))
-        {
-            return fallback;
-        }
-
-        lock (_gate)
-        {
-            if (ReferenceEquals(_current, fallback))
+            if (observed.ExpiresAt - now > refreshMargin)
             {
-                _current = null;
+                return observed;
             }
+
+            var rotated = await AuthenticateAsync(cancellationToken).ConfigureAwait(false);
+            if (rotated is not null)
+            {
+                return rotated;
+            }
+
+            observed = await ObserveBindingAsync(cached, cancellationToken).ConfigureAwait(false);
+            if (observed is null)
+            {
+                authorityGate?.SetState(RecoverableAuthorityStates.IdentityDenied);
+                return null;
+            }
+
+            return observed;
         }
 
-        authorityGate?.SetState(RecoverableAuthorityStates.IdentityDenied);
-        return null;
+        return await AuthenticateAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<AuthenticatedWorkloadContext?> AuthenticateAsync(CancellationToken cancellationToken)
@@ -142,66 +115,84 @@ public sealed class OAuthWorkloadIdentitySource(
             return null;
         }
 
-        await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken)
-            .ConfigureAwait(false);
-        try
+        var proof = authentication.Proof;
+        var binding = await LoadCurrentBindingAsync(
+            proof.Issuer,
+            proof.Subject,
+            proof.Audience,
+            cancellationToken).ConfigureAwait(false);
+        var context = CreateContext(proof, binding);
+        lock (_gate)
         {
-            var binding = await PostgresServicePrincipalBindingCoordinator.LoadCurrentAsync(
-                WorkloadIdentityProfiles.OAuthClientCredentialsJwt,
-                authentication.Proof.Issuer,
-                authentication.Proof.Subject,
-                authentication.Proof.Audience,
-                scope.Transaction,
-                cancellationToken).ConfigureAwait(false);
-            await scope.CommitAsync(cancellationToken).ConfigureAwait(false);
-            if (binding is null
-                || binding.ServiceActorId != expectedServiceActorId
-                || binding.EffectiveAt > clock.GetUtcNow())
-            {
-                authorityGate?.SetState(RecoverableAuthorityStates.IdentityDenied);
-                return null;
-            }
+            _current = context;
+        }
 
-            var proof = authentication.Proof;
-            return new AuthenticatedWorkloadContext(
-                WorkloadIdentityProfiles.OAuthClientCredentialsJwt,
-                WorkloadAuthenticationMethods.OAuthClientCredentialsSignedJwt,
-                proof.Issuer,
-                proof.Subject,
-                proof.ClientId,
-                proof.Audience,
-                proof.IssuedAt,
-                proof.NotBefore,
-                proof.ExpiresAt,
-                proof.ValidatedAt,
-                binding.ServiceActorId,
-                binding.BindingId,
-                binding.BindingVersion,
-                $"{binding.BindingId:N}:{binding.BindingVersion}");
-        }
-        catch
+        if (!IsUsableBinding(binding))
         {
-            await scope.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
-            throw;
+            authorityGate?.SetState(RecoverableAuthorityStates.IdentityDenied);
+            return null;
         }
+
+        return context;
     }
 
-    private async Task<bool> BindingStillCurrentAsync(
-        AuthenticatedWorkloadContext context,
+    private async Task<AuthenticatedWorkloadContext?> ObserveBindingAsync(
+        AuthenticatedWorkloadContext cached,
+        CancellationToken cancellationToken)
+    {
+        var binding = await LoadCurrentBindingAsync(
+            cached.Issuer,
+            cached.Subject,
+            cached.Audience,
+            cancellationToken).ConfigureAwait(false);
+        if (!IsUsableBinding(binding))
+        {
+            return null;
+        }
+
+        var observed = cached with
+        {
+            ServiceActorId = binding!.ServiceActorId,
+            BindingId = binding.BindingId,
+            BindingVersion = binding.BindingVersion,
+            CorrelationReference = $"{binding.BindingId:N}:{binding.BindingVersion}",
+        };
+        lock (_gate)
+        {
+            if (_current is not null && _current.IsProofValidAt(clock.GetUtcNow()))
+            {
+                _current = _current with
+                {
+                    ServiceActorId = observed.ServiceActorId,
+                    BindingId = observed.BindingId,
+                    BindingVersion = observed.BindingVersion,
+                    CorrelationReference = observed.CorrelationReference,
+                };
+            }
+        }
+
+        return observed;
+    }
+
+    private async Task<ServicePrincipalBindingRecord?> LoadCurrentBindingAsync(
+        string issuer,
+        string subject,
+        string audience,
         CancellationToken cancellationToken)
     {
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken)
             .ConfigureAwait(false);
         try
         {
-            var matched = await PostgresServicePrincipalBindingCoordinator.MatchesCurrentInTransactionAsync(
-                context.BindingId,
-                context.BindingVersion,
-                context.ServiceActorId,
+            var binding = await PostgresServicePrincipalBindingCoordinator.LoadCurrentAsync(
+                WorkloadIdentityProfiles.OAuthClientCredentialsJwt,
+                issuer,
+                subject,
+                audience,
                 scope.Transaction,
                 cancellationToken).ConfigureAwait(false);
             await scope.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return matched;
+            return binding;
         }
         catch
         {
@@ -209,4 +200,28 @@ public sealed class OAuthWorkloadIdentitySource(
             throw;
         }
     }
+
+    private bool IsUsableBinding(ServicePrincipalBindingRecord? binding) =>
+        binding is not null
+        && binding.ServiceActorId == expectedServiceActorId
+        && binding.EffectiveAt <= clock.GetUtcNow();
+
+    private AuthenticatedWorkloadContext CreateContext(
+        ValidatedWorkloadProof proof,
+        ServicePrincipalBindingRecord? binding) =>
+        new(
+            WorkloadIdentityProfiles.OAuthClientCredentialsJwt,
+            WorkloadAuthenticationMethods.OAuthClientCredentialsSignedJwt,
+            proof.Issuer,
+            proof.Subject,
+            proof.ClientId,
+            proof.Audience,
+            proof.IssuedAt,
+            proof.NotBefore,
+            proof.ExpiresAt,
+            proof.ValidatedAt,
+            binding?.ServiceActorId ?? expectedServiceActorId,
+            binding?.BindingId ?? Guid.Empty,
+            binding?.BindingVersion ?? 0,
+            binding is null ? "unbound" : $"{binding.BindingId:N}:{binding.BindingVersion}");
 }

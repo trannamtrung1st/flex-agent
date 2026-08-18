@@ -287,13 +287,18 @@ Interim defaults used in code until Operations/Security approve a named deployme
 
 # Current state
 
-Implementation of ADR-016 is complete for the Worker reference path. Additive
-migration `0025` carries principal bindings and Invocation-execute envelopes.
-Production/Staging compose protected lanes only with the OAuth JWT profile and
-a mounted client secret; both host flags remain default `false`. Synthetic
-`configured_actor` remains Development/Testing only. Live issuers, approved
-deployment-profile numbers, live model providers, human OIDC, and hosted
-Session start are not claimed complete.
+Implementation of ADR-016 is complete for the Worker reference path and was
+independently reviewed and approved on 2026-08-18. Additive migration `0025`
+carries principal bindings and Invocation-execute envelopes. Production/Staging
+compose protected lanes only with the OAuth JWT profile and a mounted client
+secret; both host flags remain default `false`. Synthetic `configured_actor`
+remains Development/Testing only. Live issuers, approved deployment-profile
+numbers, live model providers, human OIDC, and hosted Session start are not
+claimed complete. The Worker ready check reports the recoverable gate only.
+OAuth re-checks a still-valid proof against the durable binding without minting
+a token. A locked full `.NET` regression after the review-fix commits, a live
+issuer, and deployment-profile numbers remain required before Production
+enablement.
 
 # Findings / deviations
 
@@ -355,9 +360,20 @@ Session start are not claimed complete.
 - External review of `ef63fbd` (2026-08-18): protected Session load now happens
   after in-transaction admission; content stream start uses the same
   model-disclosure gate as `ExecuteAsync`; claim commit locking-reauthorizes the
-  work envelope's execute delegation after the lease update; readiness consults
-  the current identity source so a cached JWT plus revoked binding is not
-  reported healthy.
+  work envelope's execute delegation after the lease update. A follow-up on
+  `074e581` made readiness consult the identity source; that coupling is now
+  reversed so readiness reports only the recoverable gate.
+- External review of `074e581` (2026-08-18): no remaining P1 authorization
+  findings. The reviewer approved this implementation slice. The recorded P2
+  operability follow-up is implemented: readiness is passive; OAuth keeps a
+  still-valid cryptographic proof after binding denial and re-checks the
+  durable binding without minting a new token; near-expiry refresh that cannot
+  produce a usable context does not fall back to a previously permitted
+  observation; refresh exceptions do not overwrite `IdentityDenied`.
+- Independent review approval (2026-08-18): the Worker reference-path
+  authorization slice for ADR-016 is approved. Production/Staging enablement,
+  live-issuer qualification, live providers, and a locked full-solution
+  regression after the review-fix commits remain separate gates.
 
 - Planning review on 2026-08-18 clarified that timer polling and Invocation
   processing share authentication but retain separate action delegations and
@@ -532,13 +548,13 @@ the authoritative source.
 | ADR preparation validation | complete | ADR catalog, architecture hub, documentation maturity summary, ADR-015 cross-link, and tracked task reconciled; `python3 scripts/check_docs.py` and `git diff --check` passed 2026-08-18 |
 | ADR promotion validation | complete | ADR-015/ADR-016 status, approved dispositions, ADR catalog, architecture/documentation hubs, requirement traceability, and task state reconciled; `python3 scripts/check_docs.py`, `git diff --check`, and trailing-whitespace scan passed 2026-08-18 |
 | Final pre-commit documentation review | complete | Configured-actor and opaque-token ambiguities corrected; `python3 scripts/check_docs.py`, `git diff --check`, stale-status scan, 16-ADR count check, and trailing-whitespace scan passed 2026-08-18. `markdownlint-cli2` is configured in CI but unavailable in this workspace (`pnpm exec markdownlint-cli2 --version` reports command not found). |
-| Focused identity/authorization tests | complete | Runtime `WorkloadIdentityTests` + `WorkerRuntimeTests` 47 passed including future/`iat`, plaintext OAuth URI refusal, ready-check degrade when identity is missing, and refresh not clobbering `IdentityDenied` |
-| PostgreSQL migration/upgrade/concurrency/fault tests | complete | Migration `0025`; review-fix pass: `WorkerInvocationExecuteDelegationTests`, `DurableInvocationWorkClaimTests`, `DurableInvocationWorkCrashRecoveryTests`, and `SessionTimerLaneDelegationTests` 57 passed (cached-binding revoke, model-disclosure revoke, poison HOL, claim lease-update then delegation revoke rollback) |
+| Focused identity/authorization tests | complete | Runtime `WorkloadIdentityTests` + `WorkerRuntimeTests` 48 passed including passive ready-check (gate only), refresh not clobbering `IdentityDenied` on null or exception, future/`iat`, and plaintext OAuth URI refusal |
+| PostgreSQL migration/upgrade/concurrency/fault tests | complete | Migration `0025`; this pass: `OAuthWorkloadIdentitySourceTests`, `WorkerInvocationExecuteDelegationTests`, `DurableInvocationWorkClaimTests`, `DurableInvocationWorkCrashRecoveryTests`, and `SessionTimerLaneDelegationTests` 59 passed (revoked binding does not remint while proof is valid; near-expiry refresh mints once while binding remains usable; cached-binding revoke; model-disclosure revoke; poison HOL; claim lease-update then delegation revoke rollback) |
 | Locked .NET regression | complete | `bash build/scripts/verify-dotnet.sh` — 977 passed, publish succeeded at `3596480`; later review-fix passes ran focused suites only (not a second locked full-solution run) |
 | Architecture/docs/whitespace | complete | `python3 scripts/check_docs.py`; `git diff --check` |
-| Supply-chain/OCI/secret evidence | complete | No package or deployment-input changes in this slice; Worker errors mention secret-file presence without values; token client unit test does not persist secrets |
-| Independent cross-concern review | complete | External reviews of `3596480` and `ef63fbd` addressed 2026-08-18; residual gaps recorded below |
 | Review-fix processor admission | complete | `DurableInvocationWorkProcessorTests` 29 passed including denied `ExecuteAsync` and denied stream-start with zero stream calls |
+| Supply-chain/OCI/secret evidence | complete | No package or deployment-input changes in this slice; Worker errors mention secret-file presence without values; token client unit test does not persist secrets |
+| Independent cross-concern review | complete | External reviews of `3596480`, `ef63fbd`, and `074e581` addressed 2026-08-18. `074e581` was approved for the authorization slice with a P2 readiness/identity-source follow-up, which this pass implements. Residual gaps: live issuer, deployment-profile numbers, live providers, and a locked full-solution run after the review-fix commits. |
 
 # Blockers
 

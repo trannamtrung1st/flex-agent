@@ -271,21 +271,24 @@ public sealed class WorkloadIdentityTests
     }
 
     [Fact]
-    public async Task Ready_check_degrades_when_identity_source_has_no_current_principal()
+    public async Task Ready_check_reports_the_recoverable_authority_gate_without_refreshing_identity()
     {
         var shutdown = new FlexAgent.Worker.WorkClaimGate();
         var authority = new RecoverableAuthorityGate();
-        authority.SetState(RecoverableAuthorityStates.Ready);
+        authority.SetState(RecoverableAuthorityStates.IdentityDenied);
         var check = new FlexAgent.Worker.WorkerReadinessCheck(
             shutdown,
             authority,
-            new FlexAgent.Worker.WorkerRuntimeCapabilities { DurableWorkClaimingEnabled = true },
-            new MissingWorkloadIdentitySource());
+            new FlexAgent.Worker.WorkerRuntimeCapabilities { DurableWorkClaimingEnabled = true });
 
         var result = await check.CheckHealthAsync(new HealthCheckContext(), TestContext.Current.CancellationToken);
 
         Assert.Equal(HealthStatus.Degraded, result.Status);
         Assert.Contains(RecoverableAuthorityStates.IdentityDenied, result.Description, StringComparison.Ordinal);
+
+        authority.SetState(RecoverableAuthorityStates.Ready);
+        var healthy = await check.CheckHealthAsync(new HealthCheckContext(), TestContext.Current.CancellationToken);
+        Assert.Equal(HealthStatus.Healthy, healthy.Status);
     }
 
     [Fact]
@@ -294,6 +297,23 @@ public sealed class WorkloadIdentityTests
         var authority = new RecoverableAuthorityGate();
         authority.SetState(RecoverableAuthorityStates.IdentityDenied);
         FlexAgent.Worker.WorkloadIdentityRefreshService.ApplyObservation(authority, context: null);
+        Assert.Equal(RecoverableAuthorityStates.IdentityDenied, authority.State);
+    }
+
+    [Fact]
+    public async Task Refresh_exception_does_not_replace_identity_denied()
+    {
+        var authority = new RecoverableAuthorityGate();
+        authority.SetState(RecoverableAuthorityStates.IdentityDenied);
+        using var stopping = new CancellationTokenSource();
+        var service = new FlexAgent.Worker.WorkloadIdentityRefreshService(
+            new CancellingThrowingIdentitySource(stopping),
+            authority,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<FlexAgent.Worker.WorkloadIdentityRefreshService>.Instance);
+
+        await service.StartAsync(stopping.Token);
+        await service.StopAsync(CancellationToken.None);
+
         Assert.Equal(RecoverableAuthorityStates.IdentityDenied, authority.State);
     }
 
@@ -345,13 +365,6 @@ public sealed class WorkloadIdentityTests
         return Encoding.ASCII.GetString(buffer.AsSpan(0, written));
     }
 
-    private sealed class MissingWorkloadIdentitySource : IAuthenticatedWorkloadContextSource
-    {
-        public Task<AuthenticatedWorkloadContext?> TryGetCurrentAsync(
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<AuthenticatedWorkloadContext?>(null);
-    }
-
     private sealed class StubJsonHandler(string json) : HttpMessageHandler
     {
         public string LastBody { get; private set; } = string.Empty;
@@ -373,6 +386,18 @@ public sealed class WorkloadIdentityTests
     private sealed class FrozenTimeProvider(DateTimeOffset utcNow) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => utcNow;
+    }
+
+    private sealed class CancellingThrowingIdentitySource(CancellationTokenSource stopping)
+        : IAuthenticatedWorkloadContextSource
+    {
+        public async Task<AuthenticatedWorkloadContext?> TryGetCurrentAsync(
+            CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+            stopping.Cancel();
+            throw new InvalidOperationException("identity observation failed");
+        }
     }
 }
 

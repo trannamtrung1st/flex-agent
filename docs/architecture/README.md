@@ -85,9 +85,10 @@ Approved
 [ADR-016](decisions/ADR-016-worker-workload-identity-and-invocation-delegation.md)
 defines the portable Worker workload-authentication contract, reference OAuth
 2.0 client-credentials signed-JWT profile, durable service-actor binding, and
-bounded Invocation-execution delegation. The decisions govern implementation,
-while their runtime, deployment-profile, and verification gates remain
-incomplete.
+bounded Invocation-execution delegation. The Worker reference-path
+implementation of that ADR is present and independently reviewed; Production
+and Staging enablement still require approved deployment-profile evidence, a
+live issuer, and live-provider qualification.
 
 ## Purpose
 

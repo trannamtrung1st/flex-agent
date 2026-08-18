@@ -33,7 +33,13 @@ public sealed class WorkloadIdentityRefreshService(
             catch (Exception exception)
             {
                 logger.LogWarning(exception, "Workload identity refresh failed.");
-                authorityGate.SetState(RecoverableAuthorityStates.DependencyUnavailable);
+                if (!string.Equals(
+                    authorityGate.State,
+                    RecoverableAuthorityStates.IdentityDenied,
+                    StringComparison.Ordinal))
+                {
+                    authorityGate.SetState(RecoverableAuthorityStates.DependencyUnavailable);
+                }
             }
 
             try
