@@ -4,8 +4,11 @@
 
 Proposed. This records the Worker timer-lane realization of approved
 [ADR-002](ADR-002-authorization-enforcement-and-delegation.md) and
-`REQ-SESS-75`. It does not replace ADR-002. It is working implementation
-guidance until product, architecture, and security/privacy approve it.
+`REQ-SESS-75`. It does not replace ADR-002.
+
+Security/privacy accepted the implemented MVP path at `f5e06e9` on 2026-08-18
+with no remaining blockers. Product Lead and Architecture Lead approval remain
+required before this ADR is Approved.
 
 ## Decision metadata
 
@@ -15,6 +18,7 @@ guidance until product, architecture, and security/privacy approve it.
 | **Required approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Architecture, backend, security/privacy |
 | **Proposed date** | 2026-08-18 |
+| **Security/Privacy implementation review** | Accepted 2026-08-18 against `f5e06e9`; no blockers |
 | **Governs** | Durable per-Session `session.timer_lane.fire` service delegation, timer-schedule envelope reference, Worker timer-polling capability, and commit-time reauthorization |
 | **Upstream sources** | [ADR-002](ADR-002-authorization-enforcement-and-delegation.md), [auth-resource-isolation](../../requirements/features/auth-resource-isolation.md), [text Session lifecycle](../../requirements/features/session-text-lifecycle.md) `REQ-SESS-75` |
 | **Extends** | ADR-002 delegated service execution |

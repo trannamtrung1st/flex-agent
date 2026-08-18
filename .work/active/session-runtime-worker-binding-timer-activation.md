@@ -1,6 +1,6 @@
 ---
 id: session-runtime-worker-binding-timer-activation
-status: in-progress
+status: completed
 created: 2026-08-18
 updated: 2026-08-18
 predecessors:
@@ -216,9 +216,16 @@ production pilot is complete.
 
 # Current state
 
-`90a96f6` review remediations implemented, awaiting independent re-review.
-The public pre-abort hook is gone. The canceled-token race is reproduced by a
-test kernel wrapper that cancels only after the inner kernel returns deny.
+Completed. Independent backend and security/privacy review of `f5e06e9`
+against `90a96f6` found no blockers and accepted this timer-lane
+delegation/security remediation slice for the MVP. The defensive
+`OperationCanceledException` catch on non-cancelable rollback is retained as
+harmless. GitHub has no attached status checks for this SHA; the last local
+locked regression was `bash build/scripts/verify-dotnet.sh` **940/940**.
+
+Live model providers, OIDC, Participant UI, hosted HTTP Session-create, and
+production-pilot certification remain out of scope. ADR-015 remains Proposed
+until product and architecture approve it.
 
 # Decisions
 
@@ -243,8 +250,8 @@ test kernel wrapper that cancels only after the inner kernel returns deny.
 ## Proposed implementation defaults
 
 Recorded as proposed [ADR-015](../../docs/architecture/decisions/ADR-015-session-timer-lane-service-delegation.md).
-They remain working guidance until product, architecture, and security/privacy
-approve that ADR.
+Security/privacy accepted the implemented MVP path at `f5e06e9`. Product and
+architecture approval remain required before the ADR is Approved.
 
 - `PROP-WBT-1` — Use one durable per-Session service-delegation reference for
   `session.timer_lane.fire`, linked from the timer schedule. It names the
@@ -285,7 +292,11 @@ approve that ADR.
   null envelopes left revoked/expired/mismatched due rows able to occupy the
   poller, and that admission used a second connection while those rows were
   locked. Due-claim now joins a currently valid envelope; admission and commit
-  authorization share the fire transaction. This is not a second-agent review.
+  authorization share the fire transaction.
+- Independent review of `f5e06e9` (2026-08-18) found no remaining blockers and
+  accepted this timer-lane delegation/security remediation for the MVP. ADR-015
+  stays Proposed until product and architecture approve it. GitHub has no
+  attached commit status checks for that SHA.
 
 # Threats and required controls
 
@@ -293,7 +304,7 @@ approve that ADR.
 | --- | --- | --- |
 | Static process identity is treated as permission | Current durable delegation plus service principal and action/resource match | Unknown/wrong service and invalid envelopes are not selected |
 | Cross-Organization or guessed Session substitution | Composite trusted ownership loaded from the selected due row and binding; delegation bound to the same scope | Wrong-org/session negative matrix |
-| Revocation races timer commit | Reauthorize delegation under the same transaction/lock boundary as mutation | Revoke/narrow-between-admission-and-commit races |
+| Revocation races timer commit | Reauthorize delegation under the same transaction/lock boundary as mutation | Revoke-between-admission-and-commit races |
 | Invalid or revoked authority occupies the poller | Due-claim joins currently valid, ownership-matched envelopes | Revoked due row does not HOL-block another Session |
 | Mutable or tampered policy widens timer behavior | Rehydrate immutable snapshot and verify configuration/policy digest | Missing/digest-mismatch/cross-scope tests |
 | Retry or concurrency admits parallel work | Expected schedule revision, one-lane uniqueness, idempotent admission, `SKIP LOCKED` | Concurrent Worker tests |
@@ -319,6 +330,7 @@ approve that ADR.
 | External review remediations (`58f2595`) | passed | P1 abort caller tx on final auth denial + commit-after-deny test; P1 revoked unbounded `0022` rows upgrade |
 | External review remediations (`9da4af5`) | passed | P1 non-cancelable denial rollback + canceled-token commit-after-deny test |
 | External review remediations (`90a96f6`) | passed | P1 removed public pre-abort hook; cancel race via test kernel wrapper |
+| Independent review (`f5e06e9`) | passed | No blockers. Slice accepted for MVP. Local `940/940` not independently verifiable from GitHub status checks |
 
 # Blockers
 
@@ -344,6 +356,6 @@ None.
 - [x] Governing specifications and production-gate status are rechecked and
       reconciled without overstating provider, OIDC, UI, load, or pilot readiness
 - [x] Remaining gaps or unverified behavior are recorded
-- [ ] Independent backend and security/privacy review findings are resolved
-- [ ] Task state is safe and complete for external review
+- [x] Independent backend and security/privacy review findings are resolved
+- [x] Task state is safe and complete for external review
 
