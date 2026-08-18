@@ -126,6 +126,7 @@ public interface ISessionActorRelationshipStore
     Task<bool> RevokeCurrentAsync(
         Guid actorId,
         Guid untrustedSessionId,
+        long relationshipVersion,
         CancellationToken cancellationToken = default);
 }
 

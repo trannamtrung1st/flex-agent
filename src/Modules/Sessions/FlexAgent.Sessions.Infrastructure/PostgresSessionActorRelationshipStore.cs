@@ -29,10 +29,11 @@ public sealed class PostgresSessionActorRelationshipStore(PostgresConnectionAcce
     private const string RevokeCurrentSql = """
         UPDATE session_actor_relationships
         SET revoked_at = clock_timestamp(),
-            relationship_version = relationship_version + 1
+            relationship_version = @RelationshipVersion
         WHERE actor_id = @ActorId
           AND session_id = @SessionId
-          AND revoked_at IS NULL;
+          AND revoked_at IS NULL
+          AND @RelationshipVersion > relationship_version;
         """;
 
     private const string ResolveCurrentSql = """
@@ -95,9 +96,10 @@ public sealed class PostgresSessionActorRelationshipStore(PostgresConnectionAcce
     public async Task<bool> RevokeCurrentAsync(
         Guid actorId,
         Guid untrustedSessionId,
+        long relationshipVersion,
         CancellationToken cancellationToken = default)
     {
-        if (actorId == Guid.Empty || untrustedSessionId == Guid.Empty)
+        if (actorId == Guid.Empty || untrustedSessionId == Guid.Empty || relationshipVersion < 1)
         {
             return false;
         }
@@ -106,7 +108,12 @@ public sealed class PostgresSessionActorRelationshipStore(PostgresConnectionAcce
         var affected = await connection.ExecuteAsync(
             new CommandDefinition(
                 RevokeCurrentSql,
-                new { ActorId = actorId, SessionId = untrustedSessionId },
+                new
+                {
+                    ActorId = actorId,
+                    SessionId = untrustedSessionId,
+                    RelationshipVersion = relationshipVersion,
+                },
                 cancellationToken: cancellationToken));
         return affected > 0;
     }

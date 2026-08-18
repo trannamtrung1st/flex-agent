@@ -60,22 +60,22 @@ fail-closed bindings with persistence-backed resolution of the actor's
       revoke while an org grant remains
 - [x] Write the initial participant relationship atomically in the trusted
       Session insert transaction (review P1)
-- [x] Make `SetCurrentAsync` / revoke monotonic CAS on the supplied version
-      (review P2)
+- [x] Make `SetCurrentAsync` apply only a strictly newer supplied version
+      (review P2 stale-set)
+- [x] Make revoke participate in the same monotonic version CAS as
+      `SetCurrentAsync` (review P2 stale-revoke)
 - [x] Refuse populated `0020`→`0021` upgrades that cannot backfill snapshots
       (review P2)
 - [x] Reconcile spec Partial rows when the hosted path is actually usable
 
 # Current state
 
-Completed follow-up to `af152df`. Hosted API SSE composition resolves
-`(actor, untrustedSessionId)` from `session_actor_relationships`, writes the
-starting participant relationship in the same `InsertActiveAsync`
-transaction as the runtime and frozen-policy snapshot, rehydrates
-`TrustedSessionBinding` from `session_frozen_policy_snapshots`, and still
-revalidates ADR-002 org grant plus current relationship on authorize, replay,
-and the 60-second held loop. Worker bindings remain fail-closed (out of
-scope). `REQ-SESS-59` stays Partial: OIDC and Participant UI are later.
+Completed follow-up to `b94d6fc`. `RevokeCurrentAsync` now takes an
+authoritative `relationshipVersion` and applies only when it is strictly
+newer than the stored version, matching `SetCurrentAsync`. Hosted SSE still
+writes the starting participant at insert, rehydrates frozen policy, and
+revalidates on authorize/replay/hold. Worker bindings remain fail-closed.
+`REQ-SESS-59` stays Partial.
 
 # Decisions
 
@@ -103,9 +103,9 @@ scope). `REQ-SESS-59` stays Partial: OIDC and Participant UI are later.
 - Initial participant relationship is written in the same
   `InsertActiveAsync` transaction as the runtime and frozen-policy snapshot.
   Later enrollment/reviewer assignment still uses `SetCurrentAsync`.
-- `SetCurrentAsync` applies the supplied `RelationshipVersion` only when it
-  is strictly newer than the stored version; revoke increments the version
-  and sets `revoked_at` so a stale lower version cannot restore access.
+- `SetCurrentAsync` and `RevokeCurrentAsync` both apply an authoritative
+  supplied `RelationshipVersion` only when it is strictly newer than the
+  stored version. Revoke sets `revoked_at`; it does not invent a version.
 - Populated `0020` databases cannot reconstruct frozen policy payloads.
   `0021` fails closed when `session_runtimes` already has rows. Empty
   `0020`→`0021` remains the supported upgrade.
@@ -129,6 +129,10 @@ scope). `REQ-SESS-59` stays Partial: OIDC and Participant UI are later.
   `session_runtimes` because snapshots are not backfilled. GitHub still
   exposed no commit status checks for the SHA.
 
+- `b94d6fc` (2026-08-18): **changes requested**. P1 insert writer, stale-set
+  CAS, and populated `0021` refuse are addressed. Remaining P2: a delayed
+  `RevokeCurrentAsync` with no version can still revoke a newer assignment.
+
 # Verification
 
 | Check | Status | Evidence |
@@ -138,9 +142,9 @@ scope). `REQ-SESS-59` stays Partial: OIDC and Participant UI are later.
 | Enrollment revoke while org grant remains | passed | `Subscribe_denies_after_enrollment_revoke_while_org_grant_remains` |
 | Hosted bindings no longer fail-closed for authorized participants | passed | `InsertActiveAsync` writes participant v1; subscribe happy path no longer calls `SetCurrentAsync`; API composition registers `PostgresTrustedSessionBindingSource` |
 | Frozen-policy snapshot round-trip | passed | `FrozenRuntimePolicySnapshotTests`; `InsertActiveAsync` writes snapshot; empty upgrade `0020`→`0021` |
-| Relationship version CAS | passed | `Stale_set_current_after_revoke_does_not_restore_access`; newer version reassigns |
+| Relationship version CAS | passed | `Stale_set_current_after_revoke_does_not_restore_access`; `Stale_revoke_after_newer_assignment_does_not_revoke`; newer version reassigns or revokes |
 | Populated `0020`→`0021` fails closed | passed | `Upgrade_from_populated_0020_runtime_fails_closed` |
-| Locked .NET regression | passed | `bash build/scripts/verify-dotnet.sh` **907/907** |
+| Locked .NET regression | passed | `bash build/scripts/verify-dotnet.sh` **908/908** |
 | Docs | passed | `python3 scripts/check_docs.py`; `git diff --check` clean; `REQ-SESS-59` Partial rows updated |
 
 # Blockers
