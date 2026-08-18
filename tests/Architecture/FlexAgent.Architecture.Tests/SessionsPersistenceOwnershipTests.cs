@@ -11,6 +11,7 @@ public sealed class SessionsPersistenceOwnershipTests
         "actors",
         "actor_organization_grants",
         "service_delegations",
+        "service_delegation_transitions",
         "configuration_sources",
         "configuration_source_versions",
         "configuration_source_version_idempotency",

@@ -5,6 +5,9 @@ public static class AuthorizationActions
     public const string RegisterConfigurationSourceVersion = "configuration_source_version.register";
     public const string SubscribeSessionEvents = "session.events.subscribe";
     public const string FireSessionTimerLane = "session.timer_lane.fire";
+    public const string IssueServiceDelegation = "service_delegation.issue";
+    public const string RevokeServiceDelegation = "service_delegation.revoke";
+    public const string NarrowServiceDelegation = "service_delegation.narrow";
 }
 
 public static class AuthorizationResourceTypes
@@ -12,6 +15,12 @@ public static class AuthorizationResourceTypes
     public const string ConfigurationSource = "configuration_source";
     public const string ConfigurationSourceVersion = "configuration_source_version";
     public const string Session = "session";
+    public const string ServiceDelegation = "service_delegation";
+}
+
+public static class AuthorizationReferenceTypes
+{
+    public const string ServiceDelegation = "service_delegation";
 }
 
 public static class AuthorizationReasonCodes

@@ -22,7 +22,9 @@ internal static class SessionRuntimePersistenceAudit
         Npgsql.NpgsqlTransaction transaction,
         CancellationToken cancellationToken,
         ISessionRuntimeTelemetry? telemetry = null,
-        long? relationshipVersion = null)
+        long? relationshipVersion = null,
+        string? authorizationReferenceType = null,
+        Guid? authorizationReferenceId = null)
     {
         var digest = ProtectedContentRef.DigestForReference(payloadSeed);
         var signals = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
@@ -44,7 +46,9 @@ internal static class SessionRuntimePersistenceAudit
                     ReasonCode: null,
                     RelationshipVersion: relationshipVersion,
                     SourceChannel: sourceChannel,
-                    PayloadDigest: digest),
+                    PayloadDigest: digest,
+                    AuthorizationReferenceType: authorizationReferenceType,
+                    AuthorizationReferenceId: authorizationReferenceId),
                 transaction,
                 cancellationToken);
         }

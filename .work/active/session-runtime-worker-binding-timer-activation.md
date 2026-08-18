@@ -170,6 +170,19 @@ production pilot is complete.
       slice; resolve blocking findings and repeat affected verification before
       marking this task completed.
 
+# Review remediations (`9ab00a1`)
+
+- [x] P1 — Issue/revoke/narrow through a transaction-bound coordinator with
+      mutation-coupled append-only audit and previous/new transition facts
+      (`REQ-AUTH-27`, `REQ-AUTH-31`, ADR-003). Remove autocommit repository
+      mutation APIs.
+- [x] P1 — Make `ReauthorizeInTransactionAsync` the last meaningful SQL before
+      each timer-fire `CommitAsync`; add an expiry-after-persist race test.
+- [x] P2 — Persist `authorization_reference_type` + `authorization_reference_id`
+      on timer-fire audit events with the exact `delegation_id`.
+- [x] P2 — Require `expires_at` for `session.timer_lane.fire` with a 7-day max
+      lifetime (`PROP-WBT-5`); fail closed on missing or over-long expiry.
+
 # Current state
 
 Implemented. When `ConnectionStrings:Sessions` is set, the Worker registers
@@ -223,6 +236,9 @@ approve that ADR.
 - `PROP-WBT-4` — Use the primary database clock and transaction for delegation
   freshness, timer due state, Session lifecycle/cutoff, expected revision,
   Invocation admission, audit, and outbox commit.
+- `PROP-WBT-5` — `session.timer_lane.fire` delegations require `expires_at`, and
+  `expires_at - effective_at` cannot exceed seven days. Renewal is a later
+  authorized command.
 
 # Findings / deviations
 
@@ -267,10 +283,10 @@ approve that ADR.
 | PostgreSQL binding/delegation/timer integration | passed | `SessionTimerLaneDelegationTests` including HOL skip of revoked due rows, `PostgresTrustedSessionBindingSourceTests`, `SessionTimerSchedulePersistenceTests` against PostgreSQL 18 |
 | Migration and upgrade safety | passed | Additive `0022`; Grate expected one-time count 22; `Upgrade_from_frozen_0020_applies_0021_subject_binding_tables` includes `service_delegations` |
 | Architecture/module boundaries | passed | Architecture 31/31 including Worker Dockerfile COPY of IdentityAccess |
-| Locked .NET regression | passed | Re-run after admission-in-transaction fix: `bash build/scripts/verify-dotnet.sh` **930/930** |
+| Locked .NET regression | passed | Review remediations: `bash build/scripts/verify-dotnet.sh` **934/934** |
 | Documentation | passed | `python3 scripts/check_docs.py` |
 | Whitespace | passed | `git diff --check` clean |
-| Implementer backend and security/privacy review | passed | HOL skip via current-envelope join; admission/commit share the fire transaction; ADR-015 remains Proposed; external second-agent review still valuable |
+| External review remediations (`9ab00a1`) | passed | P1 audit/transaction coordinator; P1 final reauth-before-commit + expiry race; P2 audit delegation reference; P2 required 7-day timer-lane expiry |
 
 # Blockers
 

@@ -5,7 +5,7 @@ using Npgsql;
 
 namespace FlexAgent.IdentityAccess.Infrastructure;
 
-public sealed class PostgresServiceDelegationRepository(PostgresConnectionAccessor connectionAccessor)
+internal static class PostgresServiceDelegationRepository
 {
     private const string InsertSql = """
         INSERT INTO service_delegations (
@@ -18,6 +18,19 @@ public sealed class PostgresServiceDelegationRepository(PostgresConnectionAccess
             @EffectiveAt, @ExpiresAt, NULL, 1, clock_timestamp());
         """;
 
+    private const string LoadForUpdateSql = """
+        SELECT
+            allowed_action,
+            revoked_at,
+            expires_at,
+            delegation_version
+        FROM service_delegations
+        WHERE delegation_id = @DelegationId
+          AND organization_id = @OrganizationId
+          AND session_id = @SessionId
+        FOR UPDATE;
+        """;
+
     private const string RevokeSql = """
         UPDATE service_delegations
         SET
@@ -26,7 +39,8 @@ public sealed class PostgresServiceDelegationRepository(PostgresConnectionAccess
         WHERE delegation_id = @DelegationId
           AND organization_id = @OrganizationId
           AND session_id = @SessionId
-          AND revoked_at IS NULL;
+          AND revoked_at IS NULL
+        RETURNING allowed_action, revoked_at, expires_at, delegation_version;
         """;
 
     private const string NarrowActionSql = """
@@ -37,18 +51,31 @@ public sealed class PostgresServiceDelegationRepository(PostgresConnectionAccess
         WHERE delegation_id = @DelegationId
           AND organization_id = @OrganizationId
           AND session_id = @SessionId
-          AND revoked_at IS NULL;
+          AND revoked_at IS NULL
+        RETURNING allowed_action, revoked_at, expires_at, delegation_version;
+        """;
+
+    private const string InsertTransitionSql = """
+        INSERT INTO service_delegation_transitions (
+            transition_id, delegation_id, organization_id, session_id, mutation_kind,
+            previous_allowed_action, new_allowed_action, previous_revoked_at, new_revoked_at,
+            previous_expires_at, new_expires_at, delegation_version, actor_id, actor_type,
+            reason, correlation_id, occurred_at)
+        VALUES (
+            @TransitionId, @DelegationId, @OrganizationId, @SessionId, @MutationKind,
+            @PreviousAllowedAction, @NewAllowedAction, @PreviousRevokedAt, @NewRevokedAt,
+            @PreviousExpiresAt, @NewExpiresAt, @DelegationVersion, @ActorId, @ActorType,
+            @Reason, @CorrelationId, clock_timestamp());
         """;
 
     public static Task InsertInTransactionAsync(
         SessionScopedDelegationTarget target,
         ServiceDelegationIssue issue,
         NpgsqlTransaction transaction,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(issue);
-        ArgumentNullException.ThrowIfNull(transaction);
         return RequireConnection(transaction).ExecuteAsync(
             new CommandDefinition(
                 InsertSql,
@@ -71,30 +98,40 @@ public sealed class PostgresServiceDelegationRepository(PostgresConnectionAccess
                 cancellationToken: cancellationToken));
     }
 
-    public async Task<bool> RevokeAsync(
+    public static Task<DelegationStateRow?> LoadForUpdateAsync(
         Guid organizationId,
         Guid sessionId,
         Guid delegationId,
-        CancellationToken cancellationToken = default)
-    {
-        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
-        var updated = await connection.ExecuteAsync(
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken) =>
+        RequireConnection(transaction).QuerySingleOrDefaultAsync<DelegationStateRow>(
+            new CommandDefinition(
+                LoadForUpdateSql,
+                new { OrganizationId = organizationId, SessionId = sessionId, DelegationId = delegationId },
+                transaction,
+                cancellationToken: cancellationToken));
+
+    public static Task<DelegationStateRow?> RevokeInTransactionAsync(
+        Guid organizationId,
+        Guid sessionId,
+        Guid delegationId,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken) =>
+        RequireConnection(transaction).QuerySingleOrDefaultAsync<DelegationStateRow>(
             new CommandDefinition(
                 RevokeSql,
                 new { OrganizationId = organizationId, SessionId = sessionId, DelegationId = delegationId },
+                transaction,
                 cancellationToken: cancellationToken));
-        return updated == 1;
-    }
 
-    public async Task<bool> NarrowAllowedActionAsync(
+    public static Task<DelegationStateRow?> NarrowAllowedActionInTransactionAsync(
         Guid organizationId,
         Guid sessionId,
         Guid delegationId,
         string allowedAction,
-        CancellationToken cancellationToken = default)
-    {
-        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
-        var updated = await connection.ExecuteAsync(
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken) =>
+        RequireConnection(transaction).QuerySingleOrDefaultAsync<DelegationStateRow>(
             new CommandDefinition(
                 NarrowActionSql,
                 new
@@ -104,14 +141,26 @@ public sealed class PostgresServiceDelegationRepository(PostgresConnectionAccess
                     DelegationId = delegationId,
                     AllowedAction = allowedAction,
                 },
+                transaction,
                 cancellationToken: cancellationToken));
-        return updated == 1;
-    }
+
+    public static Task InsertTransitionAsync(
+        object parameters,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken) =>
+        RequireConnection(transaction).ExecuteAsync(
+            new CommandDefinition(InsertTransitionSql, parameters, transaction, cancellationToken: cancellationToken));
 
     private static NpgsqlConnection RequireConnection(NpgsqlTransaction transaction) =>
         transaction.Connection
         ?? throw new InvalidOperationException("Delegation writes require an open transaction connection.");
 }
+
+internal sealed record DelegationStateRow(
+    string allowed_action,
+    DateTime? revoked_at,
+    DateTime? expires_at,
+    long delegation_version);
 
 public sealed record SessionScopedDelegationTarget(
     Guid OrganizationId,

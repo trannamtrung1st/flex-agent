@@ -627,13 +627,15 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
             }
 
             var session = SessionRuntime.CreateActive(binding, startedAt);
+            var delegationClock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
             var timerLaneDelegation = new ServiceDelegationIssue(
                 Guid.NewGuid(),
                 timerServiceActorId ?? organization.ActorId,
                 AuthorizationActions.FireSessionTimerLane,
                 "session.timer_lane.scheduler",
                 "system.session_runtime",
-                new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+                delegationClock.AddMinutes(-1),
+                delegationClock.AddDays(6));
             await repository.InsertActiveAsync(
                 binding.Ownership,
                 session,

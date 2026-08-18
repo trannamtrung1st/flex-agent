@@ -18,7 +18,7 @@ guidance until product, architecture, and security/privacy approve it.
 | **Governs** | Durable per-Session `session.timer_lane.fire` service delegation, timer-schedule envelope reference, Worker timer-polling capability, and commit-time reauthorization |
 | **Upstream sources** | [ADR-002](ADR-002-authorization-enforcement-and-delegation.md), [auth-resource-isolation](../../requirements/features/auth-resource-isolation.md), [text Session lifecycle](../../requirements/features/session-text-lifecycle.md) `REQ-SESS-75` |
 | **Extends** | ADR-002 delegated service execution |
-| **Preserves** | ADR-001 frozen configuration, ADR-003 mutation-coupled audit, ADR-013 one-lane timer replacement, applied migrations `0001`–`0021` |
+| **Preserves** | ADR-001 frozen configuration, ADR-003 mutation-coupled audit, ADR-013 one-lane timer replacement, applied migrations `0001`–`0022` |
 
 ## Context
 
@@ -64,15 +64,26 @@ violate the delayed-work contract.
 4. The Worker authenticates as its configured service principal, rehydrates the
    immutable Session policy snapshot, and authorizes the delegation on the
    timer-fire transaction before admitting one Invocation. Admission does not
-   take `FOR SHARE`; commit reauthorization does, so a concurrent revoke or
-   narrowing after selection still denies. Due-claim selects only currently
-   valid, ownership-matched envelopes for that service principal so revoked,
-   expired, mismatched, or historical-null rows stay pending without
+   take `FOR SHARE`. After persistence, audit, and outbox writes, commit
+   reauthorization is the last meaningful SQL before `COMMIT`, so wall-clock
+   expiry as well as concurrent revoke/narrow still deny. Due-claim selects
+   only currently valid, ownership-matched envelopes for that service principal
+   so revoked, expired, mismatched, or historical-null rows stay pending without
    head-of-line blocking another Session.
 5. Hosted timer polling requires an explicit `Sessions:TimerPolling:Enabled`
    capability, default `false`, in addition to a Sessions connection string,
    PostgreSQL binding rehydration, and the authorization kernel. The fail-closed
    model port remains until a later provider-qualification task.
+6. Issuance, revocation, and narrowing of service delegations occur only inside
+   the caller's database transaction together with an append-only transition
+   row and required durable audit (`REQ-AUTH-31`). Previous and new allowed
+   action/revocation/expiry facts are preserved on the transition. Repository
+   methods do not autocommit security-state changes.
+7. `session.timer_lane.fire` delegations require `expires_at`, and the lifetime
+   from `effective_at` cannot exceed seven days (`PROP-WBT-5`). Renewal remains
+   a later authorized command. Timer-fire audit events record
+   `authorization_reference_type=service_delegation` and the exact
+   `delegation_id` (`REQ-AUTH-27`).
 
 ## Consequences
 
@@ -85,6 +96,7 @@ violate the delayed-work contract.
 
 ## Related
 
-- Requirements: `REQ-AUTH-11`, `REQ-AUTH-18`–`REQ-AUTH-20`, `REQ-SESS-75`
-- Proposed defaults: `PROP-WBT-1`–`PROP-WBT-4` in
+- Requirements: `REQ-AUTH-11`, `REQ-AUTH-18`–`REQ-AUTH-20`, `REQ-AUTH-27`,
+  `REQ-AUTH-31`, `REQ-SESS-75`
+- Proposed defaults: `PROP-WBT-1`–`PROP-WBT-5` in
   `.work/active/session-runtime-worker-binding-timer-activation.md`

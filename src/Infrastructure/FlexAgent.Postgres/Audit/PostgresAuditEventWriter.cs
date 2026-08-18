@@ -21,7 +21,9 @@ public sealed class PostgresAuditEventWriter : IAuditEventWriter
             reason_code,
             relationship_version,
             source_channel,
-            payload_digest)
+            payload_digest,
+            authorization_reference_type,
+            authorization_reference_id)
         VALUES (
             @EventId,
             @OrganizationId,
@@ -37,7 +39,9 @@ public sealed class PostgresAuditEventWriter : IAuditEventWriter
             @ReasonCode,
             @RelationshipVersion,
             @SourceChannel,
-            @PayloadDigest);
+            @PayloadDigest,
+            @AuthorizationReferenceType,
+            @AuthorizationReferenceId);
         """;
 
     public async Task InsertAsync(

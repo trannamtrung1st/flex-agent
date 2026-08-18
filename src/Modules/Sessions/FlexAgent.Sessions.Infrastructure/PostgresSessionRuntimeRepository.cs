@@ -753,7 +753,7 @@ public sealed class PostgresSessionRuntimeRepository
         session.ReplaceLastCommittedAtFromDatabase(lastCommittedAt);
         if (timerLaneDelegation is not null)
         {
-            await PostgresServiceDelegationRepository.InsertInTransactionAsync(
+            await PostgresServiceDelegationCoordinator.IssueInTransactionAsync(
                 new SessionScopedDelegationTarget(
                     ownership.OrganizationId,
                     ownership.ActivityId,
@@ -761,6 +761,10 @@ public sealed class PostgresSessionRuntimeRepository
                     ownership.AttemptId,
                     ownership.SessionId),
                 timerLaneDelegation,
+                new TrustedActor(participantActor.ActorId, participantActor.ActorType),
+                Guid.NewGuid(),
+                "session.runtime.insert",
+                timerLaneDelegation.SystemPurpose,
                 transaction,
                 cancellationToken);
         }

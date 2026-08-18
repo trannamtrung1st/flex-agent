@@ -15,7 +15,9 @@ public sealed record AuditEventWriteModel(
     string? ReasonCode,
     long? RelationshipVersion,
     string SourceChannel,
-    string? PayloadDigest);
+    string? PayloadDigest,
+    string? AuthorizationReferenceType = null,
+    Guid? AuthorizationReferenceId = null);
 
 public interface IAuditEventWriter
 {

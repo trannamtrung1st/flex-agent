@@ -83,6 +83,8 @@ public sealed class PostgresFireDueTimerCoordinator(
 
     internal Func<Task>? AfterAdmissionAuthorizedAsync { get; set; }
 
+    internal Func<Task>? AfterPersistenceBeforeCommitAsync { get; set; }
+
     public async Task<TimerFireResult> TryFireNextDueAsync(
         FireDueTimerCommand command,
         CancellationToken cancellationToken = default)
@@ -172,14 +174,50 @@ public sealed class PostgresFireDueTimerCoordinator(
             var result = WithObservedAt(
                 session.FireDueTimer(due.schedule_revision_ordinal.Value, authoritativeUtc),
                 authoritativeUtc);
-            var commitDecision = await authorizationKernel.ReauthorizeInTransactionAsync(
-                authorizationRequest,
-                scope.Transaction,
-                cancellationToken);
-            if (!commitDecision.IsPermitted)
+
+            async Task<TimerFireResult> FinalizeCommitAsync(bool writeFireAudit)
             {
-                await scope.RollbackAsync(cancellationToken);
-                return new TimerFireResult(false, TimerFireOutcomeCodes.AuthorityDenied, ObservedAt: authoritativeUtc);
+                if (writeFireAudit)
+                {
+                    await SessionRuntimePersistenceAudit.WriteAsync(
+                        _auditEventWriter,
+                        _outboxItemWriter,
+                        command.Actor,
+                        ownership,
+                        command.CorrelationId,
+                        command.SourceChannel,
+                        SessionRuntimeAuditActions.FireDueTimer,
+                        SessionRuntimeOutboxEventTypes.TimerLaneFired,
+                        result.Admission!.Invocation!.AgentInvocationId,
+                        authoritativeUtc,
+                        scope.Transaction,
+                        cancellationToken,
+                        _telemetry,
+                        admission.RelationshipVersion,
+                        AuthorizationReferenceTypes.ServiceDelegation,
+                        due.timer_lane_delegation_id);
+                }
+
+                if (AfterPersistenceBeforeCommitAsync is not null)
+                {
+                    await AfterPersistenceBeforeCommitAsync();
+                }
+
+                var commitDecision = await authorizationKernel.ReauthorizeInTransactionAsync(
+                    authorizationRequest,
+                    scope.Transaction,
+                    cancellationToken);
+                if (!commitDecision.IsPermitted)
+                {
+                    await scope.RollbackAsync(cancellationToken);
+                    return new TimerFireResult(
+                        false,
+                        TimerFireOutcomeCodes.AuthorityDenied,
+                        ObservedAt: authoritativeUtc);
+                }
+
+                await scope.CommitAsync(cancellationToken);
+                return result;
             }
 
             if (result.OutcomeCode == TimerFireOutcomeCodes.BudgetExhausted)
@@ -200,8 +238,7 @@ public sealed class PostgresFireDueTimerCoordinator(
                         ObservedAt: result.ObservedAt);
                 }
 
-                await scope.CommitAsync(cancellationToken);
-                return result;
+                return await FinalizeCommitAsync(writeFireAudit: false);
             }
 
             if (result.OutcomeCode == TimerFireOutcomeCodes.LifecycleIneligible)
@@ -225,8 +262,7 @@ public sealed class PostgresFireDueTimerCoordinator(
                         ObservedAt: result.ObservedAt);
                 }
 
-                await scope.CommitAsync(cancellationToken);
-                return result;
+                return await FinalizeCommitAsync(writeFireAudit: false);
             }
 
             if (!result.Succeeded)
@@ -237,8 +273,7 @@ public sealed class PostgresFireDueTimerCoordinator(
 
             if (result.OutcomeCode == TimerFireOutcomeCodes.Reconciled)
             {
-                await scope.CommitAsync(cancellationToken);
-                return result;
+                return await FinalizeCommitAsync(writeFireAudit: false);
             }
 
             if (result.Admission?.Invocation is null)
@@ -268,24 +303,7 @@ public sealed class PostgresFireDueTimerCoordinator(
                     ObservedAt: result.ObservedAt);
             }
 
-            await SessionRuntimePersistenceAudit.WriteAsync(
-                _auditEventWriter,
-                _outboxItemWriter,
-                command.Actor,
-                ownership,
-                command.CorrelationId,
-                command.SourceChannel,
-                SessionRuntimeAuditActions.FireDueTimer,
-                SessionRuntimeOutboxEventTypes.TimerLaneFired,
-                result.Admission.Invocation.AgentInvocationId,
-                authoritativeUtc,
-                scope.Transaction,
-                cancellationToken,
-                _telemetry,
-                commitDecision.RelationshipVersion);
-
-            await scope.CommitAsync(cancellationToken);
-            return result;
+            return await FinalizeCommitAsync(writeFireAudit: true);
         }
         catch
         {
