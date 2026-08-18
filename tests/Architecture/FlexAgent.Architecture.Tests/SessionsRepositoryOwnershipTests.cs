@@ -33,6 +33,11 @@ public sealed class SessionsRepositoryOwnershipTests
                 $"{methodName} must accept Organization, Activity, Participant, Attempt, and Session ownership.");
         }
 
+        var insertActive = RepositoryType.GetMethod("InsertActiveAsync", BindingFlags.Instance | BindingFlags.Public);
+        Assert.Contains(
+            insertActive!.GetParameters(),
+            parameter => parameter.ParameterType == typeof(TrustedRuntimeActor));
+
         Assert.Null(RepositoryType.GetMethod("GetById", BindingFlags.Instance | BindingFlags.Public));
         Assert.Null(RepositoryType.GetMethod("GetBySessionId", BindingFlags.Instance | BindingFlags.Public));
         Assert.Null(RepositoryType.GetMethod("LoadAsync", BindingFlags.Instance | BindingFlags.Public));

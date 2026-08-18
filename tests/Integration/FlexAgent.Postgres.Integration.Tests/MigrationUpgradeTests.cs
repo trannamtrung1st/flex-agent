@@ -404,7 +404,8 @@ public sealed class MigrationUpgradeTests
         await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
             connectionString,
             migrationsDirectory,
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0020ScriptName);
 
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
@@ -597,7 +598,8 @@ public sealed class MigrationUpgradeTests
         await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
             connectionString,
             migrationsDirectory,
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0020ScriptName);
 
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
@@ -668,7 +670,8 @@ public sealed class MigrationUpgradeTests
         await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
             connectionString,
             migrationsDirectory,
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0020ScriptName);
 
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
@@ -712,8 +715,7 @@ public sealed class MigrationUpgradeTests
             Current0017ScriptName,
             Current0018ScriptName,
             Current0019ScriptName,
-            Current0020ScriptName,
-            Current0021ScriptName);
+            Current0020ScriptName);
     }
 
     [Fact]
@@ -917,6 +919,31 @@ public sealed class MigrationUpgradeTests
     }
 
     [Fact]
+    public async Task Upgrade_from_populated_0020_runtime_fails_closed()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0020ScriptName);
+
+        await SeedPopulated0020RuntimeAsync(connectionString);
+
+        var exception = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+                connectionString,
+                migrationsDirectory,
+                TestContext.Current.CancellationToken));
+
+        Assert.Contains("empty session_runtimes", exception.MessageText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("0021", exception.MessageText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Upgrade_from_populated_0018_seeds_claimed_partitions_so_fairness_skips_busy_activity()
     {
         await using var container = await StartContainerAsync();
@@ -934,7 +961,8 @@ public sealed class MigrationUpgradeTests
         await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
             connectionString,
             migrationsDirectory,
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0020ScriptName);
 
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
@@ -1001,7 +1029,8 @@ public sealed class MigrationUpgradeTests
         var applying = GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
             connectionString,
             migrationsDirectory,
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0020ScriptName);
         await WaitForMigrationLockAsync(connectionString);
         await held.CommitAsync(TestContext.Current.CancellationToken);
         await applying;
@@ -1119,7 +1148,8 @@ public sealed class MigrationUpgradeTests
         await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
             connectionString,
             migrationsDirectory,
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0020ScriptName);
 
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
@@ -1433,6 +1463,35 @@ public sealed class MigrationUpgradeTests
                 "migrations",
                 fileName),
             TestContext.Current.CancellationToken);
+
+    private static async Task SeedPopulated0020RuntimeAsync(string connectionString)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var organizationId = Guid.NewGuid();
+        var digest = new string('a', 64);
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO organizations (id, created_at) VALUES (@OrganizationId, @CreatedAt);
+            INSERT INTO session_runtimes (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                configuration_id, configuration_digest, manifest_id, lifecycle_state)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'cfg-1', @Digest, 'man-1', 'active');
+            """,
+            new
+            {
+                OrganizationId = organizationId,
+                ActivityId = Guid.NewGuid(),
+                ParticipantId = Guid.NewGuid(),
+                AttemptId = Guid.NewGuid(),
+                SessionId = Guid.NewGuid(),
+                Digest = digest,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+    }
 
     private static async Task SeedPopulated0005RuntimeAsync(string connectionString)
     {

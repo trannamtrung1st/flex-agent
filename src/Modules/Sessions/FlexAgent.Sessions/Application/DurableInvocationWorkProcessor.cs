@@ -119,11 +119,11 @@ public sealed record SessionActorRelationship(
 
 public interface ISessionActorRelationshipStore
 {
-    Task SetCurrentAsync(
+    Task<bool> SetCurrentAsync(
         SessionActorRelationship relationship,
         CancellationToken cancellationToken = default);
 
-    Task RevokeCurrentAsync(
+    Task<bool> RevokeCurrentAsync(
         Guid actorId,
         Guid untrustedSessionId,
         CancellationToken cancellationToken = default);

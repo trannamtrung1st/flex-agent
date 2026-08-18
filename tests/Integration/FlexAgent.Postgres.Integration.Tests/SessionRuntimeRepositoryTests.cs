@@ -21,7 +21,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -77,6 +77,31 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     }
 
     [Fact]
+    public async Task Insert_active_establishes_participant_relationship_for_the_starting_actor()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
+        var repository = new PostgresSessionRuntimeRepository();
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var subject = await new PostgresSessionActorRelationshipStore(Fixture.Services.ConnectionAccessor)
+            .ResolveCurrentAsync(actor, binding.Ownership.SessionId, CancellationToken);
+
+        Assert.NotNull(subject);
+        Assert.Equal(actor.ActorId, subject!.ActorId);
+        Assert.Equal(SessionEventSubscriptionRelationships.Participant, subject.Relationship);
+        Assert.Equal(binding.Ownership.ParticipantId, subject.ParticipantId);
+        Assert.Equal(binding.Ownership.OrganizationId, subject.OrganizationId);
+    }
+
+    [Fact]
     public async Task Admit_opening_trigger_persists_and_reconciles_without_duplicate_insert()
     {
         var organization = await Fixture.SeedOrganizationAsync();
@@ -90,7 +115,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -144,7 +169,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -198,7 +223,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -254,7 +279,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -333,7 +358,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -412,7 +437,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -516,7 +541,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -596,7 +621,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -681,7 +706,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -799,11 +824,13 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
             await repository.InsertActiveAsync(
                 binding.Ownership,
                 SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero)),
+                actor,
                 scope.Transaction,
                 CancellationToken);
             await repository.InsertActiveAsync(
                 other.Ownership,
                 SessionRuntime.CreateActive(other, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero)),
+                actor,
                 scope.Transaction,
                 CancellationToken);
             await scope.CommitAsync(CancellationToken);
@@ -863,7 +890,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -949,7 +976,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -1021,7 +1048,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -1121,7 +1148,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -1255,7 +1282,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -1356,7 +1383,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -1479,7 +1506,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -1640,7 +1667,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -1834,7 +1861,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -2008,7 +2035,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -2131,7 +2158,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -2258,7 +2285,7 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 

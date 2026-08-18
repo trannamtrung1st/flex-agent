@@ -33,9 +33,6 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
 
         await GrantSubscribeAsync(ready.OrganizationId, ready.Actor.ActorId);
         var relationships = new PostgresSessionActorRelationshipStore(Fixture.Services.ConnectionAccessor);
-        await relationships.SetCurrentAsync(
-            ParticipantRelationship(ready.Actor, ready.Binding),
-            CancellationToken);
         var access = new KernelSubscribeAccess(
             new PostgresAuthorizationKernel(Fixture.Services.ConnectionAccessor));
         var handler = new SubscribeAuthorizedSessionEventsHandler(
@@ -105,15 +102,12 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
         await GrantSubscribeAsync(first.OrganizationId, first.Actor.ActorId);
         var relationships = new PostgresSessionActorRelationshipStore(Fixture.Services.ConnectionAccessor);
         await relationships.SetCurrentAsync(
-            ParticipantRelationship(first.Actor, first.Binding),
-            CancellationToken);
-        await relationships.SetCurrentAsync(
             new SessionActorRelationship(
                 second.Binding.Ownership,
                 first.Actor.ActorId,
                 first.Actor.ActorType,
                 SessionEventSubscriptionRelationships.Reviewer,
-                1),
+                2),
             CancellationToken);
         var handler = new SubscribeAuthorizedSessionEventsHandler(
             new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor),
@@ -165,9 +159,6 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
 
         await GrantSubscribeAsync(ready.OrganizationId, ready.Actor.ActorId);
         var relationships = new PostgresSessionActorRelationshipStore(Fixture.Services.ConnectionAccessor);
-        await relationships.SetCurrentAsync(
-            ParticipantRelationship(ready.Actor, ready.Binding),
-            CancellationToken);
         var handler = new SubscribeAuthorizedSessionEventsHandler(
             new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor),
             new KernelSubscribeAccess(
@@ -196,16 +187,6 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
         Assert.False(replayed.Succeeded);
         Assert.Empty(replayed.Events);
     }
-
-    private static SessionActorRelationship ParticipantRelationship(
-        TrustedRuntimeActor actor,
-        TrustedSessionBinding binding) =>
-        new(
-            binding.Ownership,
-            actor.ActorId,
-            actor.ActorType,
-            SessionEventSubscriptionRelationships.Participant,
-            1);
 
     private async Task GrantSubscribeAsync(Guid organizationId, Guid actorId)
     {
@@ -249,7 +230,7 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
 
         await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 

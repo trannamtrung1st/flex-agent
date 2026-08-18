@@ -477,7 +477,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             Fixture.Services.ConnectionAccessor,
             CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 
@@ -654,7 +654,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             Fixture.Services.ConnectionAccessor,
             CancellationToken))
         {
-            await repository.InsertActiveAsync(binding.Ownership, session, scope.Transaction, CancellationToken);
+            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
             await scope.CommitAsync(CancellationToken);
         }
 

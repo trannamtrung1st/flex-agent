@@ -1,6 +1,16 @@
 -- Session-scoped actor relationships and frozen-policy binding snapshots.
 -- Do not rewrite frozen 0005-0019. Production SSE rehydrates (actor, session)
 -- current relationship and TrustedSessionBinding from these records.
+-- Frozen policy payloads cannot be reconstructed from 0020 session_runtimes,
+-- so a populated upgrade is refused rather than stranding Sessions.
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM session_runtimes) THEN
+        RAISE EXCEPTION '0021 requires empty session_runtimes because frozen-policy snapshots cannot be backfilled from 0020; refusing a populated upgrade';
+    END IF;
+END;
+$$;
 
 CREATE TABLE session_frozen_policy_snapshots (
     organization_id UUID NOT NULL,

@@ -1,5 +1,6 @@
 using System.Text;
 using Dapper;
+using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using Npgsql;
 
@@ -231,6 +232,15 @@ public sealed class PostgresSessionRuntimeRepository
             @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
             @ConfigurationId, @ConfigurationDigest, @ManifestId, @PolicyDigest,
             CAST(@PolicyPayload AS jsonb));
+        """;
+
+    private const string InsertStartingParticipantRelationshipSql = """
+        INSERT INTO session_actor_relationships (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            actor_id, actor_type, relationship, relationship_version)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @ActorId, @ActorType, @Relationship, 1);
         """;
 
     private const string InsertTerminalRecordSql = """
@@ -707,13 +717,19 @@ public sealed class PostgresSessionRuntimeRepository
     public async Task InsertActiveAsync(
         SessionOwnership ownership,
         SessionRuntime session,
+        TrustedRuntimeActor participantActor,
         NpgsqlTransaction transaction,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(ownership);
         ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(participantActor);
         ArgumentNullException.ThrowIfNull(transaction);
         EnsureOwnership(ownership, session.Ownership);
+        if (participantActor.ActorId == Guid.Empty || string.IsNullOrWhiteSpace(participantActor.ActorType))
+        {
+            throw new ArgumentOutOfRangeException(nameof(participantActor));
+        }
 
         var lastCommittedAt = ToUtc(await RequireConnection(transaction).ExecuteScalarAsync<DateTime>(
             new CommandDefinition(
@@ -726,6 +742,11 @@ public sealed class PostgresSessionRuntimeRepository
         await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
         await PersistBindingManifestRefsAsync(ownership, session, transaction, cancellationToken);
         await PersistFrozenPolicySnapshotAsync(ownership, session, transaction, cancellationToken);
+        await PersistStartingParticipantRelationshipAsync(
+            ownership,
+            participantActor,
+            transaction,
+            cancellationToken);
         await PersistManifestAndTerminalAsync(ownership, session, transaction, cancellationToken);
     }
 
@@ -1609,6 +1630,30 @@ public sealed class PostgresSessionRuntimeRepository
                     binding.ManifestId,
                     PolicyDigest = binding.Policy.PolicyDigest,
                     PolicyPayload = FrozenRuntimePolicySnapshot.ToCanonicalJson(binding.Policy),
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+    }
+
+    private async Task PersistStartingParticipantRelationshipAsync(
+        SessionOwnership ownership,
+        TrustedRuntimeActor participantActor,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        await RequireConnection(transaction).ExecuteAsync(
+            new CommandDefinition(
+                InsertStartingParticipantRelationshipSql,
+                new
+                {
+                    ownership.OrganizationId,
+                    ownership.ActivityId,
+                    ownership.ParticipantId,
+                    ownership.AttemptId,
+                    ownership.SessionId,
+                    participantActor.ActorId,
+                    participantActor.ActorType,
+                    Relationship = SessionEventSubscriptionRelationships.Participant,
                 },
                 transaction,
                 cancellationToken: cancellationToken));

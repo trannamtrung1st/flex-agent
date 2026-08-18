@@ -18,13 +18,18 @@ public sealed class PostgresSessionActorRelationshipStore(PostgresConnectionAcce
         ON CONFLICT (organization_id, session_id, actor_id) DO UPDATE
         SET actor_type = EXCLUDED.actor_type,
             relationship = EXCLUDED.relationship,
-            relationship_version = session_actor_relationships.relationship_version + 1,
-            revoked_at = NULL;
+            activity_id = EXCLUDED.activity_id,
+            participant_id = EXCLUDED.participant_id,
+            attempt_id = EXCLUDED.attempt_id,
+            relationship_version = EXCLUDED.relationship_version,
+            revoked_at = NULL
+        WHERE EXCLUDED.relationship_version > session_actor_relationships.relationship_version;
         """;
 
     private const string RevokeCurrentSql = """
         UPDATE session_actor_relationships
-        SET revoked_at = clock_timestamp()
+        SET revoked_at = clock_timestamp(),
+            relationship_version = relationship_version + 1
         WHERE actor_id = @ActorId
           AND session_id = @SessionId
           AND revoked_at IS NULL;
@@ -49,7 +54,7 @@ public sealed class PostgresSessionActorRelationshipStore(PostgresConnectionAcce
           AND rel.revoked_at IS NULL;
         """;
 
-    public async Task SetCurrentAsync(
+    public async Task<bool> SetCurrentAsync(
         SessionActorRelationship relationship,
         CancellationToken cancellationToken = default)
     {
@@ -58,13 +63,17 @@ public sealed class PostgresSessionActorRelationshipStore(PostgresConnectionAcce
             || string.IsNullOrWhiteSpace(relationship.ActorType)
             || relationship.Ownership.OrganizationId == Guid.Empty
             || relationship.Ownership.SessionId == Guid.Empty
-            || relationship.RelationshipVersion < 1)
+            || relationship.RelationshipVersion < 1
+            || relationship.Relationship is not (
+                SessionEventSubscriptionRelationships.Participant
+                or SessionEventSubscriptionRelationships.Reviewer
+                or SessionEventSubscriptionRelationships.Administrator))
         {
             throw new ArgumentOutOfRangeException(nameof(relationship));
         }
 
         await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
-        await connection.ExecuteAsync(
+        var affected = await connection.ExecuteAsync(
             new CommandDefinition(
                 SetCurrentSql,
                 new
@@ -80,24 +89,26 @@ public sealed class PostgresSessionActorRelationshipStore(PostgresConnectionAcce
                     relationship.RelationshipVersion,
                 },
                 cancellationToken: cancellationToken));
+        return affected > 0;
     }
 
-    public async Task RevokeCurrentAsync(
+    public async Task<bool> RevokeCurrentAsync(
         Guid actorId,
         Guid untrustedSessionId,
         CancellationToken cancellationToken = default)
     {
         if (actorId == Guid.Empty || untrustedSessionId == Guid.Empty)
         {
-            return;
+            return false;
         }
 
         await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
-        await connection.ExecuteAsync(
+        var affected = await connection.ExecuteAsync(
             new CommandDefinition(
                 RevokeCurrentSql,
                 new { ActorId = actorId, SessionId = untrustedSessionId },
                 cancellationToken: cancellationToken));
+        return affected > 0;
     }
 
     public async Task<SessionEventSubject?> ResolveCurrentAsync(
