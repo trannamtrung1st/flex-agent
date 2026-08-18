@@ -80,8 +80,10 @@ public sealed class ApiRuntimeTests : IClassFixture<WebApplicationFactory<ApiPro
             factory.Services.GetRequiredService<ISubscribeAuthorizedSessionEventsHandler>());
         Assert.IsType<PostgresReplayAuthorizedSessionEventsCoordinator>(
             factory.Services.GetRequiredService<IReplayAuthorizedSessionEventsCoordinator>());
-        Assert.IsType<FailClosedTrustedSessionBindingSource>(
+        Assert.IsType<PostgresTrustedSessionBindingSource>(
             factory.Services.GetRequiredService<ITrustedSessionBindingSource>());
+        Assert.IsType<PostgresSessionActorRelationshipStore>(
+            factory.Services.GetRequiredService<ISessionEventSubjectSource>());
         Assert.IsType<FlexAgent.IdentityAccess.Infrastructure.PostgresAuthorizationKernel>(
             factory.Services.GetRequiredService<FlexAgent.IdentityAccess.Application.IAuthorizationKernel>());
         Assert.IsType<DisabledSessionEventIdentityAdapter>(

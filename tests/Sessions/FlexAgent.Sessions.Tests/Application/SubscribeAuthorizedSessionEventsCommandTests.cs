@@ -66,6 +66,76 @@ public sealed class SubscribeAuthorizedSessionEventsCommandTests
     }
 
     [Fact]
+    public void Subject_source_resolves_current_relationship_for_actor_and_requested_session()
+    {
+        var method = typeof(ISessionEventSubjectSource).GetMethod(nameof(ISessionEventSubjectSource.ResolveCurrentAsync));
+        Assert.NotNull(method);
+        var parameters = method!.GetParameters();
+        Assert.Equal(typeof(TrustedRuntimeActor), parameters[0].ParameterType);
+        Assert.Equal("untrustedSessionId", parameters[1].Name);
+        Assert.Equal(typeof(Guid), parameters[1].ParameterType);
+        Assert.Null(typeof(ISessionEventSubjectSource).GetMethod("GetCurrentAsync"));
+    }
+
+    [Fact]
+    public async Task Authorize_denies_reviewer_on_requested_session_when_same_actor_is_participant_on_another()
+    {
+        var participantOwnership = SessionRuntimeTestFixtures.CreateOwnership();
+        var reviewOwnership = participantOwnership with
+        {
+            SessionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+        };
+        var participantBinding = SessionRuntimeTestFixtures.CreateBinding(ownership: participantOwnership);
+        var reviewBinding = SessionRuntimeTestFixtures.CreateBinding(ownership: reviewOwnership);
+        var replay = new RecordingReplay();
+        var handler = new SubscribeAuthorizedSessionEventsHandler(
+            new MultiBindingSource(participantBinding, reviewBinding),
+            new RecordingAccess(permit: true),
+            replay,
+            new SessionKeyedSubjectSource(
+                (participantOwnership.SessionId, Subject(participantOwnership, SessionEventSubscriptionRelationships.Participant)),
+                (reviewOwnership.SessionId, Subject(reviewOwnership, SessionEventSubscriptionRelationships.Reviewer))));
+
+        var reviewCommand = new SubscribeAuthorizedSessionEventsCommand(
+            SessionRuntimeTestFixtures.CreateActor(),
+            reviewOwnership.SessionId,
+            "4");
+        var participantCommand = ParticipantCommand(participantOwnership, "4");
+
+        Assert.False((await handler.AuthorizeAsync(reviewCommand, CancellationToken.None)).IsPermitted);
+        Assert.True((await handler.AuthorizeAsync(participantCommand, CancellationToken.None)).IsPermitted);
+        Assert.Equal(0, replay.Calls);
+    }
+
+    [Fact]
+    public async Task Authorize_denies_administrator_on_requested_session_when_same_actor_is_participant_on_another()
+    {
+        var participantOwnership = SessionRuntimeTestFixtures.CreateOwnership();
+        var adminOwnership = participantOwnership with
+        {
+            SessionId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+        };
+        var handler = new SubscribeAuthorizedSessionEventsHandler(
+            new MultiBindingSource(
+                SessionRuntimeTestFixtures.CreateBinding(ownership: participantOwnership),
+                SessionRuntimeTestFixtures.CreateBinding(ownership: adminOwnership)),
+            new RecordingAccess(permit: true),
+            new RecordingReplay(),
+            new SessionKeyedSubjectSource(
+                (participantOwnership.SessionId, Subject(participantOwnership, SessionEventSubscriptionRelationships.Participant)),
+                (adminOwnership.SessionId, Subject(adminOwnership, SessionEventSubscriptionRelationships.Administrator))));
+
+        var authorization = await handler.AuthorizeAsync(
+            new SubscribeAuthorizedSessionEventsCommand(
+                SessionRuntimeTestFixtures.CreateActor(),
+                adminOwnership.SessionId,
+                null),
+            CancellationToken.None);
+
+        Assert.False(authorization.IsPermitted);
+    }
+
+    [Fact]
     public async Task Authorize_denies_guessed_session_id_without_replay()
     {
         var ownership = SessionRuntimeTestFixtures.CreateOwnership();
@@ -241,10 +311,53 @@ public sealed class SubscribeAuthorizedSessionEventsCommandTests
     {
         public SessionEventSubject Current { get; set; } = current;
 
-        public Task<SessionEventSubject?> GetCurrentAsync(
-            Guid actorId,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<SessionEventSubject?>(Current.ActorId == actorId ? Current : null);
+        public Task<SessionEventSubject?> ResolveCurrentAsync(
+            TrustedRuntimeActor actor,
+            Guid untrustedSessionId,
+            CancellationToken cancellationToken = default)
+        {
+            _ = untrustedSessionId;
+            return Task.FromResult<SessionEventSubject?>(
+                Current.ActorId == actor.ActorId ? Current : null);
+        }
+    }
+
+    private sealed class SessionKeyedSubjectSource(
+        params (Guid SessionId, SessionEventSubject Subject)[] entries) : ISessionEventSubjectSource
+    {
+        public Task<SessionEventSubject?> ResolveCurrentAsync(
+            TrustedRuntimeActor actor,
+            Guid untrustedSessionId,
+            CancellationToken cancellationToken = default)
+        {
+            foreach (var (sessionId, subject) in entries)
+            {
+                if (sessionId == untrustedSessionId
+                    && subject.ActorId == actor.ActorId
+                    && string.Equals(subject.ActorType, actor.ActorType, StringComparison.Ordinal))
+                {
+                    return Task.FromResult<SessionEventSubject?>(subject);
+                }
+            }
+
+            return Task.FromResult<SessionEventSubject?>(null);
+        }
+    }
+
+    private sealed class MultiBindingSource(params TrustedSessionBinding[] bindings) : ITrustedSessionBindingSource
+    {
+        public Task<TrustedSessionBinding?> GetAsync(
+            SessionOwnership ownership,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(bindings.FirstOrDefault(binding => binding.Ownership == ownership));
+
+        public Task<TrustedSessionBinding?> GetForOrganizationSessionAsync(
+            Guid organizationId,
+            Guid sessionId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(
+                bindings.FirstOrDefault(binding =>
+                    binding.Ownership.OrganizationId == organizationId && binding.Ownership.SessionId == sessionId));
     }
 
     private sealed class MemoryBindingSource(TrustedSessionBinding binding) : ITrustedSessionBindingSource

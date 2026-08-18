@@ -116,6 +116,49 @@ public sealed class ProductionSessionEventRuntimeTests
     }
 
     [Fact]
+    public async Task Participant_in_one_session_does_not_inherit_reviewer_or_guessed_session_access()
+    {
+        var harness = CreateHarness();
+        var otherSessionId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        harness.Directory.Register(new TrustedInteractiveActor(
+            harness.ActorId,
+            "synthetic.test_actor",
+            harness.OrganizationId,
+            otherSessionId,
+            harness.ParticipantId,
+            SessionEventSubscriptionRelationships.Reviewer));
+        await using var factory = harness.Factory;
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var guessed = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff");
+
+        using var reviewerRequest = new HttpRequestMessage(HttpMethod.Get, $"/sessions/{otherSessionId:D}/events");
+        AddTestIdentity(reviewerRequest, harness.ActorId);
+        using var reviewerResponse = await client.SendAsync(reviewerRequest, cancellationToken);
+
+        using var guessedRequest = new HttpRequestMessage(HttpMethod.Get, $"/sessions/{guessed:D}/events");
+        AddTestIdentity(guessedRequest, harness.ActorId);
+        using var guessedResponse = await client.SendAsync(guessedRequest, cancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, reviewerResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, guessedResponse.StatusCode);
+        Assert.Equal(0, harness.Handler.ReplayCalls);
+        Assert.DoesNotContain(
+            "secret-fragment",
+            await reviewerResponse.Content.ReadAsStringAsync(cancellationToken),
+            StringComparison.Ordinal);
+
+        using var ownRequest = new HttpRequestMessage(HttpMethod.Get, $"/sessions/{harness.SessionId:D}/events");
+        AddTestIdentity(ownRequest, harness.ActorId);
+        using var ownResponse = await client.SendAsync(
+            ownRequest,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, ownResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task Reviewer_actor_does_not_receive_participant_fragments()
     {
         var harness = CreateHarness(reviewer: true);
@@ -256,6 +299,7 @@ public sealed class ProductionSessionEventRuntimeTests
             harness.ActorId,
             "synthetic.test_actor",
             harness.OrganizationId,
+            harness.SessionId,
             harness.ParticipantId,
             SessionEventSubscriptionRelationships.Reviewer));
 
@@ -281,6 +325,7 @@ public sealed class ProductionSessionEventRuntimeTests
             actorId,
             "synthetic.test_actor",
             organizationId,
+            sessionId,
             participantId,
             reviewer
                 ? SessionEventSubscriptionRelationships.Reviewer
@@ -402,7 +447,7 @@ public sealed class ProductionSessionEventRuntimeTests
         {
             AuthorizeCalls++;
             LastCommand = command;
-            var subject = await directory.GetCurrentAsync(command.Actor.ActorId, cancellationToken);
+            var subject = await directory.ResolveCurrentAsync(command.Actor, command.UntrustedSessionId, cancellationToken);
             var permitted = command.UntrustedSessionId == PermitSessionId
                 && subject is not null
                 && subject.Relationship == SessionEventSubscriptionRelationships.Participant

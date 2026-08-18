@@ -18,7 +18,7 @@ internal static class RuntimePolicyDigestComputer
         return CanonicalJsonProcessor.CanonicalizeSha256Hex(Encoding.UTF8.GetBytes(json), Limits);
     }
 
-    private static string BuildCanonicalPayload(FrozenTextSessionRuntimePolicy policy)
+    internal static string BuildCanonicalPayload(FrozenTextSessionRuntimePolicy policy)
     {
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))

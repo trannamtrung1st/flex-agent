@@ -32,18 +32,20 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
             CancellationToken)).Succeeded);
 
         await GrantSubscribeAsync(ready.OrganizationId, ready.Actor.ActorId);
-        var bindings = new MemoryTrustedSessionBindingSource();
-        bindings.Register(ready.Binding);
+        var relationships = new PostgresSessionActorRelationshipStore(Fixture.Services.ConnectionAccessor);
+        await relationships.SetCurrentAsync(
+            ParticipantRelationship(ready.Actor, ready.Binding),
+            CancellationToken);
         var access = new KernelSubscribeAccess(
             new PostgresAuthorizationKernel(Fixture.Services.ConnectionAccessor));
         var handler = new SubscribeAuthorizedSessionEventsHandler(
-            bindings,
+            new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor),
             access,
             new PostgresReplayAuthorizedSessionEventsCoordinator(
                 Fixture.Services.ConnectionAccessor,
                 ready.Repository,
                 new ReplayAuthorizedSessionEventsHandler()),
-            SubjectSource(ready.Actor, ready.Binding, SessionEventSubscriptionRelationships.Participant));
+            relationships);
         var command = new SubscribeAuthorizedSessionEventsCommand(
             ready.Actor,
             ready.Binding.Ownership.SessionId,
@@ -69,7 +71,8 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
     [Fact]
     public async Task Subscribe_does_not_project_another_session_or_accept_a_stolen_cursor_as_identity()
     {
-        var first = await PrepareReadyToPublishAsync("own-a");
+        var organization = await Fixture.SeedOrganizationAsync();
+        var first = await PrepareReadyToPublishAsync("own-a", organization);
         Assert.True((await first.Publisher.PublishFragmentAsync(
             new PublishAgentResponseFragmentCommand(
                 first.Actor,
@@ -84,7 +87,7 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
             first.Binding,
             CancellationToken)).Succeeded);
 
-        var second = await PrepareReadyToPublishAsync("own-b");
+        var second = await PrepareReadyToPublishAsync("own-b", organization);
         Assert.True((await second.Publisher.PublishFragmentAsync(
             new PublishAgentResponseFragmentCommand(
                 second.Actor,
@@ -100,18 +103,27 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
             CancellationToken)).Succeeded);
 
         await GrantSubscribeAsync(first.OrganizationId, first.Actor.ActorId);
-        var bindings = new MemoryTrustedSessionBindingSource();
-        bindings.Register(first.Binding);
-        bindings.Register(second.Binding);
+        var relationships = new PostgresSessionActorRelationshipStore(Fixture.Services.ConnectionAccessor);
+        await relationships.SetCurrentAsync(
+            ParticipantRelationship(first.Actor, first.Binding),
+            CancellationToken);
+        await relationships.SetCurrentAsync(
+            new SessionActorRelationship(
+                second.Binding.Ownership,
+                first.Actor.ActorId,
+                first.Actor.ActorType,
+                SessionEventSubscriptionRelationships.Reviewer,
+                1),
+            CancellationToken);
         var handler = new SubscribeAuthorizedSessionEventsHandler(
-            bindings,
+            new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor),
             new KernelSubscribeAccess(
                 new PostgresAuthorizationKernel(Fixture.Services.ConnectionAccessor)),
             new PostgresReplayAuthorizedSessionEventsCoordinator(
                 Fixture.Services.ConnectionAccessor,
                 first.Repository,
                 new ReplayAuthorizedSessionEventsHandler()),
-            SubjectSource(first.Actor, first.Binding, SessionEventSubscriptionRelationships.Participant));
+            relationships);
 
         var guessed = await handler.AuthorizeAsync(
             new SubscribeAuthorizedSessionEventsCommand(
@@ -133,16 +145,67 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
         Assert.DoesNotContain(scoped.Events, evt => evt.TextDelta == "secret-a");
     }
 
-    private static MemorySubjectSource SubjectSource(
+    [Fact]
+    public async Task Subscribe_denies_after_enrollment_revoke_while_org_grant_remains()
+    {
+        var ready = await PrepareReadyToPublishAsync("rev");
+        Assert.True((await ready.Publisher.PublishFragmentAsync(
+            new PublishAgentResponseFragmentCommand(
+                ready.Actor,
+                ready.Binding.Ownership,
+                ready.SessionVersion,
+                ready.InvocationId,
+                1,
+                "secret-rev",
+                "agen.rev.1",
+                Guid.NewGuid(),
+                "integration.test"),
+            ready.Binding,
+            CancellationToken)).Succeeded);
+
+        await GrantSubscribeAsync(ready.OrganizationId, ready.Actor.ActorId);
+        var relationships = new PostgresSessionActorRelationshipStore(Fixture.Services.ConnectionAccessor);
+        await relationships.SetCurrentAsync(
+            ParticipantRelationship(ready.Actor, ready.Binding),
+            CancellationToken);
+        var handler = new SubscribeAuthorizedSessionEventsHandler(
+            new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor),
+            new KernelSubscribeAccess(
+                new PostgresAuthorizationKernel(Fixture.Services.ConnectionAccessor)),
+            new PostgresReplayAuthorizedSessionEventsCoordinator(
+                Fixture.Services.ConnectionAccessor,
+                ready.Repository,
+                new ReplayAuthorizedSessionEventsHandler()),
+            relationships);
+        var command = new SubscribeAuthorizedSessionEventsCommand(
+            ready.Actor,
+            ready.Binding.Ownership.SessionId,
+            null);
+
+        Assert.True((await handler.AuthorizeAsync(command, CancellationToken)).IsPermitted);
+
+        await relationships.RevokeCurrentAsync(
+            ready.Actor.ActorId,
+            ready.Binding.Ownership.SessionId,
+            CancellationToken);
+
+        var afterRevoke = await handler.AuthorizeAsync(command, CancellationToken);
+        var replayed = await handler.ReplayAsync(command, CancellationToken);
+
+        Assert.False(afterRevoke.IsPermitted);
+        Assert.False(replayed.Succeeded);
+        Assert.Empty(replayed.Events);
+    }
+
+    private static SessionActorRelationship ParticipantRelationship(
         TrustedRuntimeActor actor,
-        TrustedSessionBinding binding,
-        string relationship) =>
-        new(new SessionEventSubject(
+        TrustedSessionBinding binding) =>
+        new(
+            binding.Ownership,
             actor.ActorId,
             actor.ActorType,
-            binding.Ownership.OrganizationId,
-            binding.Ownership.ParticipantId,
-            relationship));
+            SessionEventSubscriptionRelationships.Participant,
+            1);
 
     private async Task GrantSubscribeAsync(Guid organizationId, Guid actorId)
     {
@@ -162,9 +225,11 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
             });
     }
 
-    private async Task<ReadyPublication> PrepareReadyToPublishAsync(string key)
+    private async Task<ReadyPublication> PrepareReadyToPublishAsync(
+        string key,
+        SeededOrganization? organization = null)
     {
-        var organization = await Fixture.SeedOrganizationAsync();
+        organization ??= await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var repository = new PostgresSessionRuntimeRepository();
         var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
@@ -262,14 +327,6 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
         long SessionVersion,
         PostgresSessionRuntimeRepository Repository,
         PostgresPublishAgentResponseCoordinator Publisher);
-
-    private sealed class MemorySubjectSource(SessionEventSubject subject) : ISessionEventSubjectSource
-    {
-        public Task<SessionEventSubject?> GetCurrentAsync(
-            Guid actorId,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<SessionEventSubject?>(subject.ActorId == actorId ? subject : null);
-    }
 
     private sealed class KernelSubscribeAccess(IAuthorizationKernel authorizationKernel) : ISessionEventSubscriptionAccess
     {

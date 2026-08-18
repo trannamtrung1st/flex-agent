@@ -1,0 +1,150 @@
+using Dapper;
+using FlexAgent.Postgres;
+using FlexAgent.Sessions.Application;
+using FlexAgent.Sessions.Domain;
+
+namespace FlexAgent.Sessions.Infrastructure;
+
+public sealed class PostgresSessionActorRelationshipStore(PostgresConnectionAccessor connectionAccessor)
+    : ISessionActorRelationshipStore, ISessionEventSubjectSource
+{
+    private const string SetCurrentSql = """
+        INSERT INTO session_actor_relationships (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            actor_id, actor_type, relationship, relationship_version)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @ActorId, @ActorType, @Relationship, @RelationshipVersion)
+        ON CONFLICT (organization_id, session_id, actor_id) DO UPDATE
+        SET actor_type = EXCLUDED.actor_type,
+            relationship = EXCLUDED.relationship,
+            relationship_version = session_actor_relationships.relationship_version + 1,
+            revoked_at = NULL;
+        """;
+
+    private const string RevokeCurrentSql = """
+        UPDATE session_actor_relationships
+        SET revoked_at = clock_timestamp()
+        WHERE actor_id = @ActorId
+          AND session_id = @SessionId
+          AND revoked_at IS NULL;
+        """;
+
+    private const string ResolveCurrentSql = """
+        SELECT
+            rel.actor_id,
+            rel.actor_type,
+            rel.organization_id,
+            rel.participant_id,
+            rel.relationship
+        FROM session_actor_relationships AS rel
+        INNER JOIN session_runtimes AS runtime
+            ON runtime.organization_id = rel.organization_id
+           AND runtime.activity_id = rel.activity_id
+           AND runtime.participant_id = rel.participant_id
+           AND runtime.attempt_id = rel.attempt_id
+           AND runtime.session_id = rel.session_id
+        WHERE rel.actor_id = @ActorId
+          AND rel.session_id = @SessionId
+          AND rel.revoked_at IS NULL;
+        """;
+
+    public async Task SetCurrentAsync(
+        SessionActorRelationship relationship,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(relationship);
+        if (relationship.ActorId == Guid.Empty
+            || string.IsNullOrWhiteSpace(relationship.ActorType)
+            || relationship.Ownership.OrganizationId == Guid.Empty
+            || relationship.Ownership.SessionId == Guid.Empty
+            || relationship.RelationshipVersion < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(relationship));
+        }
+
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                SetCurrentSql,
+                new
+                {
+                    relationship.Ownership.OrganizationId,
+                    relationship.Ownership.ActivityId,
+                    relationship.Ownership.ParticipantId,
+                    relationship.Ownership.AttemptId,
+                    relationship.Ownership.SessionId,
+                    relationship.ActorId,
+                    relationship.ActorType,
+                    relationship.Relationship,
+                    relationship.RelationshipVersion,
+                },
+                cancellationToken: cancellationToken));
+    }
+
+    public async Task RevokeCurrentAsync(
+        Guid actorId,
+        Guid untrustedSessionId,
+        CancellationToken cancellationToken = default)
+    {
+        if (actorId == Guid.Empty || untrustedSessionId == Guid.Empty)
+        {
+            return;
+        }
+
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                RevokeCurrentSql,
+                new { ActorId = actorId, SessionId = untrustedSessionId },
+                cancellationToken: cancellationToken));
+    }
+
+    public async Task<SessionEventSubject?> ResolveCurrentAsync(
+        TrustedRuntimeActor actor,
+        Guid untrustedSessionId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(actor);
+        if (actor.ActorId == Guid.Empty
+            || string.IsNullOrWhiteSpace(actor.ActorType)
+            || untrustedSessionId == Guid.Empty)
+        {
+            return null;
+        }
+
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
+        var rows = (await connection.QueryAsync<SubjectRow>(
+            new CommandDefinition(
+                ResolveCurrentSql,
+                new { ActorId = actor.ActorId, SessionId = untrustedSessionId },
+                cancellationToken: cancellationToken))).AsList();
+        if (rows.Count != 1)
+        {
+            return null;
+        }
+
+        var row = rows[0];
+        if (row.actor_id != actor.ActorId
+            || !string.Equals(row.actor_type, actor.ActorType, StringComparison.Ordinal)
+            || row.organization_id == Guid.Empty
+            || string.IsNullOrWhiteSpace(row.relationship))
+        {
+            return null;
+        }
+
+        return new SessionEventSubject(
+            row.actor_id,
+            row.actor_type,
+            row.organization_id,
+            row.participant_id == Guid.Empty ? null : row.participant_id,
+            row.relationship);
+    }
+
+    private sealed record SubjectRow(
+        Guid actor_id,
+        string actor_type,
+        Guid organization_id,
+        Guid participant_id,
+        string relationship);
+}

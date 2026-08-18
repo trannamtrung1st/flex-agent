@@ -445,6 +445,23 @@ public static partial class FrozenRuntimePolicyResolver
         return true;
     }
 
+    internal static FrozenTextSessionRuntimePolicy? TryRehydrate(
+        RuntimePolicyEffectiveValues values,
+        string expectedDigest)
+    {
+        if (!RuntimePolicyEffectiveValuesValidator.HasRequiredFreezeInputs(values)
+            || !TryValidateMergedValues(values, out _)
+            || !TryValidateAgainstP0Kernel(values, out _)
+            || !TryBuildPolicy(values, out var policy, out _)
+            || policy is null
+            || !string.Equals(policy.PolicyDigest, expectedDigest, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return policy;
+    }
+
     private static RuntimePolicyResolutionResult Failure(string outcomeCode) =>
         new(false, outcomeCode, null);
 

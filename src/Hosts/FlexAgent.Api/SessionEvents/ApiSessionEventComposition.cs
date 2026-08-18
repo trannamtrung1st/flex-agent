@@ -24,34 +24,38 @@ public sealed record TrustedInteractiveActor(
     Guid ActorId,
     string ActorType,
     Guid OrganizationId,
+    Guid SessionId,
     Guid? ParticipantId,
     string Relationship);
 
 public sealed class MemoryTrustedInteractiveActorDirectory : ISessionEventSubjectSource
 {
-    private readonly ConcurrentDictionary<Guid, TrustedInteractiveActor> _actors = new();
+    private readonly ConcurrentDictionary<(Guid ActorId, Guid SessionId), TrustedInteractiveActor> _actors = new();
 
     public void Register(TrustedInteractiveActor actor)
     {
         ArgumentNullException.ThrowIfNull(actor);
-        _actors[actor.ActorId] = actor;
+        _actors[(actor.ActorId, actor.SessionId)] = actor;
     }
 
-    public Task<SessionEventSubject?> GetCurrentAsync(
-        Guid actorId,
+    public Task<SessionEventSubject?> ResolveCurrentAsync(
+        TrustedRuntimeActor actor,
+        Guid untrustedSessionId,
         CancellationToken cancellationToken = default)
     {
-        if (!_actors.TryGetValue(actorId, out var actor))
+        ArgumentNullException.ThrowIfNull(actor);
+        if (!_actors.TryGetValue((actor.ActorId, untrustedSessionId), out var registered)
+            || !string.Equals(registered.ActorType, actor.ActorType, StringComparison.Ordinal))
         {
             return Task.FromResult<SessionEventSubject?>(null);
         }
 
         return Task.FromResult<SessionEventSubject?>(new SessionEventSubject(
-            actor.ActorId,
-            actor.ActorType,
-            actor.OrganizationId,
-            actor.ParticipantId,
-            actor.Relationship));
+            registered.ActorId,
+            registered.ActorType,
+            registered.OrganizationId,
+            registered.ParticipantId,
+            registered.Relationship));
     }
 }
 
@@ -182,9 +186,6 @@ internal static class ApiSessionEventComposition
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(environment);
 
-        services.AddSingleton<MemoryTrustedInteractiveActorDirectory>();
-        services.AddSingleton<ISessionEventSubjectSource>(sp =>
-            sp.GetRequiredService<MemoryTrustedInteractiveActorDirectory>());
         services.AddSingleton(new SessionEventSubscriptionOptions());
         services.AddSingleton<ISessionEventIdentityAdapter>(sp =>
             SessionEventTestIdentity.IsEnabled(environment, configuration)
@@ -204,7 +205,12 @@ internal static class ApiSessionEventComposition
         services.AddSingleton<PostgresSessionRuntimeRepository>();
         services.AddSingleton<IReplayAuthorizedSessionEventsHandler, ReplayAuthorizedSessionEventsHandler>();
         services.AddSingleton<IReplayAuthorizedSessionEventsCoordinator, PostgresReplayAuthorizedSessionEventsCoordinator>();
-        services.AddSingleton<ITrustedSessionBindingSource>(_ => FailClosedTrustedSessionBindingSource.Instance);
+        services.AddSingleton<PostgresSessionActorRelationshipStore>();
+        services.AddSingleton<ISessionActorRelationshipStore>(sp =>
+            sp.GetRequiredService<PostgresSessionActorRelationshipStore>());
+        services.AddSingleton<ISessionEventSubjectSource>(sp =>
+            sp.GetRequiredService<PostgresSessionActorRelationshipStore>());
+        services.AddSingleton<ITrustedSessionBindingSource, PostgresTrustedSessionBindingSource>();
         services.AddSingleton<IAuthorizationKernel, PostgresAuthorizationKernel>();
         services.AddSingleton<ISessionEventSubscriptionAccess, Adr002SessionEventSubscriptionAccess>();
         services.AddSingleton<ISubscribeAuthorizedSessionEventsHandler, SubscribeAuthorizedSessionEventsHandler>();

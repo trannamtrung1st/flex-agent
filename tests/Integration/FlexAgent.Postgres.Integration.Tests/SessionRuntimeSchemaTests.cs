@@ -9,6 +9,7 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
 {
     private static readonly string[] RequiredSessionTables =
     [
+        "session_actor_relationships",
         "session_runtimes",
         "session_events",
         "session_turns",
@@ -31,6 +32,7 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         "session_durable_work",
         "session_durable_work_claim_partitions",
         "session_evaluation_handoffs",
+        "session_frozen_policy_snapshots",
         "session_manifest_refs",
         "session_manifest_runtime_records",
     ];

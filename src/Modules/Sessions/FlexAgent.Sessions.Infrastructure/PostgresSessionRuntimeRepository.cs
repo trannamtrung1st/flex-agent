@@ -223,6 +223,16 @@ public sealed class PostgresSessionRuntimeRepository
         ON CONFLICT (organization_id, session_id, ref_kind, protected_ref) DO NOTHING;
         """;
 
+    private const string InsertFrozenPolicySnapshotSql = """
+        INSERT INTO session_frozen_policy_snapshots (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            configuration_id, configuration_digest, manifest_id, policy_digest, policy_payload)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @ConfigurationId, @ConfigurationDigest, @ManifestId, @PolicyDigest,
+            CAST(@PolicyPayload AS jsonb));
+        """;
+
     private const string InsertTerminalRecordSql = """
         INSERT INTO session_terminal_records (
             organization_id, activity_id, participant_id, attempt_id, session_id,
@@ -715,6 +725,7 @@ public sealed class PostgresSessionRuntimeRepository
         session.ReplaceLastCommittedAtFromDatabase(lastCommittedAt);
         await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
         await PersistBindingManifestRefsAsync(ownership, session, transaction, cancellationToken);
+        await PersistFrozenPolicySnapshotAsync(ownership, session, transaction, cancellationToken);
         await PersistManifestAndTerminalAsync(ownership, session, transaction, cancellationToken);
     }
 
@@ -1568,6 +1579,39 @@ public sealed class PostgresSessionRuntimeRepository
                 reference.ProtectedRef,
                 reference.ContentDigest);
         }
+    }
+
+    private async Task PersistFrozenPolicySnapshotAsync(
+        SessionOwnership ownership,
+        SessionRuntime session,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var binding = session.Binding;
+        if (!string.Equals(binding.ConfigurationDigest, binding.Policy.PolicyDigest, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Frozen policy digest must match the Session configuration digest.");
+        }
+
+        await RequireConnection(transaction).ExecuteAsync(
+            new CommandDefinition(
+                InsertFrozenPolicySnapshotSql,
+                new
+                {
+                    ownership.OrganizationId,
+                    ownership.ActivityId,
+                    ownership.ParticipantId,
+                    ownership.AttemptId,
+                    ownership.SessionId,
+                    binding.ConfigurationId,
+                    binding.ConfigurationDigest,
+                    binding.ManifestId,
+                    PolicyDigest = binding.Policy.PolicyDigest,
+                    PolicyPayload = FrozenRuntimePolicySnapshot.ToCanonicalJson(binding.Policy),
+                },
+                transaction,
+                cancellationToken: cancellationToken));
     }
 
     private async Task InsertManifestRefAsync(

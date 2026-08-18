@@ -110,6 +110,25 @@ public interface ITrustedSessionBindingSource
         CancellationToken cancellationToken);
 }
 
+public sealed record SessionActorRelationship(
+    SessionOwnership Ownership,
+    Guid ActorId,
+    string ActorType,
+    string Relationship,
+    long RelationshipVersion);
+
+public interface ISessionActorRelationshipStore
+{
+    Task SetCurrentAsync(
+        SessionActorRelationship relationship,
+        CancellationToken cancellationToken = default);
+
+    Task RevokeCurrentAsync(
+        Guid actorId,
+        Guid untrustedSessionId,
+        CancellationToken cancellationToken = default);
+}
+
 public sealed class IdleDurableInvocationWorkProcessor : IDurableInvocationWorkProcessor
 {
     public Task<DurableInvocationWorkProcessResult> TryProcessNextAsync(CancellationToken cancellationToken) =>

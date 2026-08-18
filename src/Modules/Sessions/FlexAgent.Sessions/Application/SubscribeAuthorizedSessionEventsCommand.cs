@@ -6,6 +6,7 @@ public static class SessionEventSubscriptionRelationships
 {
     public const string Participant = "participant";
     public const string Reviewer = "reviewer";
+    public const string Administrator = "administrator";
 }
 
 public sealed record SubscribeAuthorizedSessionEventsCommand(
@@ -23,16 +24,16 @@ public sealed record SessionEventSubject(
 public sealed record SessionEventSubscriptionAuthorization(bool IsPermitted);
 
 /// <summary>
-/// Adapter-seam lookup of current organization, participant, and relationship
-/// for an authenticated actor. Production rehydration must not keep a global
-/// actor-to-one-relationship map. Resolve subject scope for the requested
-/// Session from trusted records (session → organization → activity →
-/// participant/enrollment → the actor's current relationship) per ADR-002.
+/// Current organization, participant, and relationship for an authenticated
+/// actor on one requested Session. Resolve from trusted records
+/// (session → organization → activity → participant/enrollment → current
+/// relationship) per ADR-002. Do not use a global actor-to-one-relationship map.
 /// </summary>
 public interface ISessionEventSubjectSource
 {
-    Task<SessionEventSubject?> GetCurrentAsync(
-        Guid actorId,
+    Task<SessionEventSubject?> ResolveCurrentAsync(
+        TrustedRuntimeActor actor,
+        Guid untrustedSessionId,
         CancellationToken cancellationToken = default);
 }
 
@@ -153,7 +154,10 @@ public sealed class SubscribeAuthorizedSessionEventsHandler(
             return null;
         }
 
-        var subject = await subjects.GetCurrentAsync(command.Actor.ActorId, cancellationToken).ConfigureAwait(false);
+        var subject = await subjects.ResolveCurrentAsync(
+            command.Actor,
+            command.UntrustedSessionId,
+            cancellationToken).ConfigureAwait(false);
         if (subject is null
             || subject.ActorId != command.Actor.ActorId
             || !string.Equals(subject.ActorType, command.Actor.ActorType, StringComparison.Ordinal)

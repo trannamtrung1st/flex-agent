@@ -1,6 +1,6 @@
 ---
 id: session-runtime-subject-binding-rehydration
-status: planned
+status: completed
 created: 2026-08-18
 updated: 2026-08-18
 predecessor: session-runtime-production-http-sse
@@ -53,34 +53,47 @@ fail-closed bindings with persistence-backed resolution of the actor's
 
 # Plan
 
-- [ ] Replace actor-keyed subject source with Session-scoped authoritative
+- [x] Replace actor-keyed subject source with Session-scoped authoritative
       resolver; keep the hosted path fail-closed until the resolver is wired
-- [ ] Persist/rehydrate trusted Session bindings from frozen policy
-- [ ] Cover cross-Session relationship isolation and enrollment/assignment
+- [x] Persist/rehydrate trusted Session bindings from frozen policy
+- [x] Cover cross-Session relationship isolation and enrollment/assignment
       revoke while an org grant remains
-- [ ] Reconcile spec Partial rows when the hosted path is actually usable
+- [x] Reconcile spec Partial rows when the hosted path is actually usable
 
 # Current state
 
-Planned. External review of `4831cab` (2026-08-18) **approved** this successor
-scope and froze the SSE adapter seam. Production SSE remains unusable until
-this task is started and completed. Do not implement until this task is
-explicitly started.
+Completed. Hosted API SSE composition resolves `(actor, untrustedSessionId)`
+from `session_actor_relationships` joined to `session_runtimes`, rehydrates
+`TrustedSessionBinding` from `session_frozen_policy_snapshots`, and still
+revalidates ADR-002 org grant plus current relationship on authorize, replay,
+and the 60-second held loop. Worker bindings remain fail-closed (out of
+scope). `REQ-SESS-59` stays Partial: OIDC and Participant UI are later.
 
 # Decisions
 
-- Interim default while this task is unstarted: actor-keyed memory subject
-  lookup plus fail-closed bindings. That default is adapter-seam only and
-  does not govern production authorization once rehydration is in scope.
-- Rationale: ADR-002 already requires actor/action/resource decisions against
-  current authoritative state; a single global relationship per actor cannot
+- `ISessionEventSubjectSource.ResolveCurrentAsync(actor, untrustedSessionId)`
+  is the production contract. Actor-keyed `GetCurrentAsync(actorId)` is gone.
+- Current Session relationship is a dedicated row
+  (`session_actor_relationships`), not an org grant. Revoke that row while
+  the org grant remains and subscribe/replay deny.
+- Frozen policy is an immutable Session snapshot written at
+  `InsertActiveAsync`. API `ITrustedSessionBindingSource` is
+  `PostgresTrustedSessionBindingSource`. Worker stays
+  `FailClosedTrustedSessionBindingSource`.
+- Configuration digest on `session_runtimes` must equal the frozen policy
+  digest for rehydration (P0 insert invariant).
+- Rationale: ADR-002 requires actor/action/resource decisions against current
+  authoritative state; a single global relationship per actor cannot
   represent participant-in-one-Session and reviewer-in-another.
 
 # Findings / deviations
 
-- P2 from review of `5fc6b7f`: `GetCurrentAsync(actorId)` returns one
-  organization, participant id, and relationship for the actor, then the
-  handler applies that to whatever `UntrustedSessionId` was requested.
+- P2 from review of `5fc6b7f` is remediated: subject lookup is Session-scoped.
+- Full product Enrollment aggregate is not introduced. The current
+  participant/reviewer/administrator row plus `session_runtimes` ownership
+  is the trusted chain for this slice.
+- `SetCurrentAsync` upserts and can clear `revoked_at`. That write path is
+  not an HTTP API; tests and later enrollment commands own it.
 
 # External review
 
@@ -94,19 +107,25 @@ explicitly started.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Session-scoped subject resolution | pending | |
-| Cross-Session relationship isolation | pending | |
-| Hosted bindings no longer fail-closed for authorized participants | pending | |
+| Session-scoped subject resolution | passed | `SubscribeAuthorizedSessionEventsCommandTests` (ResolveCurrentAsync contract); `PostgresSessionActorRelationshipStore` join to `session_runtimes` |
+| Cross-Session relationship isolation | passed | Unit: participant vs reviewer/admin on another Session; HTTP: `Participant_in_one_session_does_not_inherit_reviewer_or_guessed_session_access`; Postgres: guessed Session with remaining org grant and reviewer relationship on the other Session |
+| Enrollment revoke while org grant remains | passed | `Subscribe_denies_after_enrollment_revoke_while_org_grant_remains` |
+| Hosted bindings no longer fail-closed for authorized participants | passed | API composition registers `PostgresTrustedSessionBindingSource`; Postgres subscribe replays fragments without `MemoryTrustedSessionBindingSource` |
+| Frozen-policy snapshot round-trip | passed | `FrozenRuntimePolicySnapshotTests`; `InsertActiveAsync` writes snapshot; upgrade `0020`→`0021` |
+| Locked .NET regression | passed | `bash build/scripts/verify-dotnet.sh` **903/903** |
+| Docs | passed | `python3 scripts/check_docs.py`; `git diff --check` clean; `REQ-SESS-59` Partial rows updated |
 
 # Blockers
 
-None. Not started.
+None.
 
 # Completion
 
-- [ ] Planned work is reconciled with actual changes
-- [ ] Applicable focused tests pass
-- [ ] Applicable integration/regression checks pass
-- [ ] Governing specifications were rechecked
-- [ ] Remaining gaps or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review
+- [x] Planned work is reconciled with actual changes
+- [x] Applicable focused tests pass
+- [x] Applicable integration/regression checks pass
+- [x] Governing specifications were rechecked (`REQ-SESS-59` remains Partial:
+      OIDC and Participant UI are later; production SSE is now Session-scoped
+      and binding-rehydrated)
+- [x] Remaining gaps or unverified behavior are recorded
+- [x] Task state is safe and complete for external review
