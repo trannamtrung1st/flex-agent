@@ -27,6 +27,7 @@ public static class WorkloadAuthenticationReasonCodes
     public const string ClientMismatch = "workload.client_mismatch";
     public const string NotYetValid = "workload.not_yet_valid";
     public const string Expired = "workload.expired";
+    public const string IssuedAtInvalid = "workload.issued_at_invalid";
     public const string LifetimeExceeded = "workload.lifetime_exceeded";
     public const string ProductClaimRejected = "workload.product_claim_rejected";
     public const string SecretUnavailable = "workload.secret_unavailable";

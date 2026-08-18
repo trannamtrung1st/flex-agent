@@ -467,6 +467,42 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
     }
 
     [Theory]
+    [InlineData("Production", "WorkloadIdentity:TokenEndpoint", "http://issuer.example/token")]
+    [InlineData("Staging", "WorkloadIdentity:JwksUri", "http://issuer.example/certs")]
+    public void Worker_refuses_plaintext_oauth_issuer_uris_outside_development_and_testing(
+        string environmentName,
+        string settingName,
+        string plaintextUri)
+    {
+        var secrets = Directory.CreateTempSubdirectory("flexagent-worker-secrets");
+        File.WriteAllText(Path.Combine(secrets.FullName, "client-secret"), "unused-secret");
+        try
+        {
+            using var factory = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment(environmentName);
+                builder.UseSetting(
+                    "ConnectionStrings:Sessions",
+                    "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+                builder.UseSetting("Sessions:TimerPolling:Enabled", "true");
+                builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+                ApplyOauthWorkloadIdentity(builder, secrets.FullName);
+                builder.UseSetting(settingName, plaintextUri);
+            });
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                factory.Services.GetRequiredService<IDurableTimerFireProcessor>());
+            Assert.Contains("https", exception.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(settingName, exception.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain("unused-secret", exception.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            secrets.Delete(true);
+        }
+    }
+
+    [Theory]
     [InlineData("Production")]
     [InlineData("Staging")]
     public void Worker_composes_timer_polling_when_oauth_workload_identity_is_configured(

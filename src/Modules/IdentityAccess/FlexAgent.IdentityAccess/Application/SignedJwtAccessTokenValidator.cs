@@ -137,7 +137,12 @@ public static class SignedJwtAccessTokenValidator
             return WorkloadAuthenticationResult.Deny(WorkloadAuthenticationReasonCodes.Expired);
         }
 
-        if (expiresAt - issuedAt > profile.MaxLifetime)
+        if (issuedAt > expiresAt || now + profile.ClockSkew < issuedAt)
+        {
+            return WorkloadAuthenticationResult.Deny(WorkloadAuthenticationReasonCodes.IssuedAtInvalid);
+        }
+
+        if (expiresAt - notBefore > profile.MaxLifetime)
         {
             return WorkloadAuthenticationResult.Deny(WorkloadAuthenticationReasonCodes.LifetimeExceeded);
         }

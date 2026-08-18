@@ -51,6 +51,31 @@ public sealed class DurableInvocationWorkProcessorTests
     }
 
     [Fact]
+    public async Task Denied_model_disclosure_does_not_call_the_model_port()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AdmitTrustedTrigger(
+            SessionRuntimeTestFixtures.OpeningTrigger(),
+            "idem.opening.disclosure",
+            SessionRuntimeTestFixtures.T0);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var adapter = new CountingModelExecutionPort(
+            EnqueueNoAction(invocationId, "adec.disclosure.00000001"));
+        var store = new MemoryWorkStore(session.Ownership, invocationId);
+        var processor = CreateProcessor(
+            adapter,
+            new DenyingModelDisclosureGateway(new MemorySessionGateway(session)),
+            store);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.RetryLater, result.Outcome);
+        Assert.False(store.Completed);
+        Assert.Equal(0, adapter.ExecuteCount);
+    }
+
+    [Fact]
     public async Task Schema_invalid_control_is_an_execution_outcome_not_a_decision()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
@@ -1017,6 +1042,15 @@ public sealed class DurableInvocationWorkProcessorTests
             Guid correlationId,
             CancellationToken cancellationToken) =>
             Task.FromResult(true);
+
+        public Task<bool> TryAuthorizeModelDisclosureAsync(
+            SessionOwnership ownership,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArgumentNullException.ThrowIfNull(ownership);
+            return Task.FromResult(true);
+        }
     }
 
     private sealed class FaultInjectingSessionGateway(IInvocationWorkSessionGateway inner) : IInvocationWorkSessionGateway
@@ -1053,6 +1087,46 @@ public sealed class DurableInvocationWorkProcessorTests
                 invocation,
                 correlationId,
                 cancellationToken);
+
+        public Task<bool> TryAuthorizeModelDisclosureAsync(
+            SessionOwnership ownership,
+            CancellationToken cancellationToken) =>
+            inner.TryAuthorizeModelDisclosureAsync(ownership, cancellationToken);
+    }
+
+    private sealed class DenyingModelDisclosureGateway(IInvocationWorkSessionGateway inner) : IInvocationWorkSessionGateway
+    {
+        public Task<LoadedInvocationWorkSession?> LoadAsync(
+            SessionOwnership ownership,
+            CancellationToken cancellationToken) =>
+            inner.LoadAsync(ownership, cancellationToken);
+
+        public Task<DateTimeOffset> ReadAuthoritativeUtcAsync(CancellationToken cancellationToken) =>
+            inner.ReadAuthoritativeUtcAsync(cancellationToken);
+
+        public Task<bool> TrySaveCompletionAsync(
+            SessionOwnership ownership,
+            long expectedSessionVersion,
+            SessionRuntime session,
+            AgentInvocation invocation,
+            Guid correlationId,
+            CancellationToken cancellationToken) =>
+            inner.TrySaveCompletionAsync(
+                ownership,
+                expectedSessionVersion,
+                session,
+                invocation,
+                correlationId,
+                cancellationToken);
+
+        public Task<bool> TryAuthorizeModelDisclosureAsync(
+            SessionOwnership ownership,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArgumentNullException.ThrowIfNull(ownership);
+            return Task.FromResult(false);
+        }
     }
 
     private sealed class FaultInjectingWorkStore(IDurableInvocationWorkStore inner) : IDurableInvocationWorkStore

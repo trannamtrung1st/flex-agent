@@ -340,8 +340,18 @@ Session start are not claimed complete.
 - Consistency review (2026-08-18): `RefreshDegraded` now still accepts protected
   work while readiness reports degraded; OAuth identity keeps still-valid proof
   when refresh fails; JWKS cache no longer disposes in-use verification keys on
-  refresh. Binding-version is rechecked on the next authentication, not on every
-  claim poll.
+  refresh. Cached JWT proof is not durable authorization: claim, disclosure, and
+  commit re-read `(binding_id, binding_version, service_actor_id, revoked_at,
+  effective_at)` in the same PostgreSQL transaction.
+- External review of `3596480` (2026-08-18): Invocation now reauthorizes the
+  current durable principal binding inside claim/load/publish/complete/release/
+  lease transactions; `TryAuthorizeModelDisclosureAsync` runs immediately
+  before `ExecuteAsync`; Production/Staging require absolute `https` token and
+  JWKS URIs; JWT max lifetime uses `nbf`/`exp` plus `iat` ordering; the claim
+  HOL anti-join matches the candidate ownership fields. A remaining
+  provider-call race is only the unavoidable window after that last admission.
+  GitHub check results were not attached to `3596480`; this pass recorded local
+  focused evidence rather than a second locked full-solution run.
 
 - Planning review on 2026-08-18 clarified that timer polling and Invocation
   processing share authentication but retain separate action delegations and
@@ -516,12 +526,13 @@ the authoritative source.
 | ADR preparation validation | complete | ADR catalog, architecture hub, documentation maturity summary, ADR-015 cross-link, and tracked task reconciled; `python3 scripts/check_docs.py` and `git diff --check` passed 2026-08-18 |
 | ADR promotion validation | complete | ADR-015/ADR-016 status, approved dispositions, ADR catalog, architecture/documentation hubs, requirement traceability, and task state reconciled; `python3 scripts/check_docs.py`, `git diff --check`, and trailing-whitespace scan passed 2026-08-18 |
 | Final pre-commit documentation review | complete | Configured-actor and opaque-token ambiguities corrected; `python3 scripts/check_docs.py`, `git diff --check`, stale-status scan, 16-ADR count check, and trailing-whitespace scan passed 2026-08-18. `markdownlint-cli2` is configured in CI but unavailable in this workspace (`pnpm exec markdownlint-cli2 --version` reports command not found). |
-| Focused identity/authorization tests | complete | `WorkloadIdentityTests` 13 passed; Worker host composition in Runtime suite; binding provision/revoke/replace and historical-null/expired-identity claim tests |
-| PostgreSQL migration/upgrade/concurrency/fault tests | complete | Migration `0025`; populated predecessor upgrade tests; Postgres integration 240 passed |
-| Locked .NET regression | complete | `bash build/scripts/verify-dotnet.sh` — 977 passed, publish succeeded |
-| Architecture/docs/whitespace | complete | Architecture 31 passed; `python3 scripts/check_docs.py`; `git diff --check` |
+| Focused identity/authorization tests | complete | `WorkloadIdentityTests` 14 passed including future/`iat` bypass; `WorkerRuntimeTests` 31 passed including Production/Staging plaintext OAuth URI refusal |
+| PostgreSQL migration/upgrade/concurrency/fault tests | complete | Migration `0025`; populated predecessor upgrade tests; earlier slice recorded 240 Postgres tests; review-fix pass: `WorkerInvocationExecuteDelegationTests`, `DurableInvocationWorkClaimTests`, `DurableInvocationWorkCrashRecoveryTests`, and `SessionTimerLaneDelegationTests` 56 passed (cached-binding revoke, model-disclosure revoke, poison HOL) |
+| Locked .NET regression | complete | `bash build/scripts/verify-dotnet.sh` — 977 passed, publish succeeded at `3596480`; review-fix pass ran focused suites only (not a second locked full-solution run) |
+| Architecture/docs/whitespace | complete | `SessionsPersistenceOwnershipTests` 3 passed; `python3 scripts/check_docs.py`; `git diff --check` |
 | Supply-chain/OCI/secret evidence | complete | No package or deployment-input changes in this slice; Worker errors mention secret-file presence without values; token client unit test does not persist secrets |
-| Independent cross-concern review | complete | Implementer architecture/backend/security self-review 2026-08-18; blocking complete-after-deny issue fixed; residual gaps recorded below |
+| Independent cross-concern review | complete | External review of `3596480` requested changes; P1 binding/disclosure/commit reauth and P2 HTTPS/`iat`/HOL join addressed 2026-08-18; residual gaps recorded below |
+| Review-fix processor admission | complete | `DurableInvocationWorkProcessorTests` 28 passed including denied disclosure with zero model-port calls |
 
 # Blockers
 

@@ -51,6 +51,9 @@ public sealed class PostgresDurableInvocationWorkStore(
                 INNER JOIN service_delegations AS older_delegation
                   ON older_delegation.delegation_id = older.invocation_execute_delegation_id
                  AND older_delegation.organization_id = older.organization_id
+                 AND older_delegation.activity_id = older.activity_id
+                 AND older_delegation.participant_id = older.participant_id
+                 AND older_delegation.attempt_id = older.attempt_id
                  AND older_delegation.session_id = older.session_id
                  AND older_delegation.service_actor_id = @ServiceActorId
                  AND older_delegation.allowed_action = @AllowedAction
@@ -172,7 +175,11 @@ public sealed class PostgresDurableInvocationWorkStore(
                 return null;
             }
 
-            if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(workloadIdentity, actor, cancellationToken))
+            if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
+                workloadIdentity,
+                actor,
+                cancellationToken,
+                scope.Transaction))
             {
                 await scope.RollbackAsync(cancellationToken);
                 return null;
@@ -228,6 +235,16 @@ public sealed class PostgresDurableInvocationWorkStore(
                     await scope.RollbackAsync(CancellationToken.None);
                     return null;
                 }
+            }
+
+            if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
+                workloadIdentity,
+                actor,
+                cancellationToken,
+                scope.Transaction))
+            {
+                await scope.RollbackAsync(CancellationToken.None);
+                return null;
             }
 
             await scope.CommitAsync(cancellationToken);
@@ -289,6 +306,36 @@ public sealed class PostgresDurableInvocationWorkStore(
                     },
                     scope.Transaction,
                     cancellationToken: cancellationToken));
+            if (renewed is not null && serviceActor is not null)
+            {
+                if (authorizationKernel is not null)
+                {
+                    var commitDecision = await SessionInvocationExecuteCommitAuthorization.ReauthorizeAsync(
+                        authorizationKernel,
+                        serviceActor,
+                        work.Ownership,
+                        Guid.NewGuid(),
+                        "worker.session_runtime",
+                        scope.Transaction,
+                        cancellationToken,
+                        workloadIdentity);
+                    if (!commitDecision.IsPermitted)
+                    {
+                        await scope.RollbackAsync(CancellationToken.None);
+                        return null;
+                    }
+                }
+                else if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
+                    workloadIdentity,
+                    serviceActor,
+                    cancellationToken,
+                    scope.Transaction))
+                {
+                    await scope.RollbackAsync(CancellationToken.None);
+                    return null;
+                }
+            }
+
             await scope.CommitAsync(cancellationToken);
             return renewed is null ? null : ToUtc(renewed);
         }
@@ -359,7 +406,8 @@ public sealed class PostgresDurableInvocationWorkStore(
                     Guid.NewGuid(),
                     "worker.session_runtime",
                     scope.Transaction,
-                    cancellationToken);
+                    cancellationToken,
+                    workloadIdentity);
                 if (!commitDecision.IsPermitted)
                 {
                     if (requireAuthorizedCommit)

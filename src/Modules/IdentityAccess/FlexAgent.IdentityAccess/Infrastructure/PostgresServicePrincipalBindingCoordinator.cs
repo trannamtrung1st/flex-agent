@@ -355,6 +355,38 @@ public static class PostgresServicePrincipalBindingCoordinator
                 row.binding_version);
     }
 
+    public static async Task<bool> MatchesCurrentInTransactionAsync(
+        Guid bindingId,
+        long bindingVersion,
+        Guid serviceActorId,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = transaction.Connection
+            ?? throw new InvalidOperationException("Principal binding reads require an open transaction.");
+        var matched = await connection.ExecuteScalarAsync<int?>(
+            new CommandDefinition(
+                """
+                SELECT 1
+                FROM service_principal_bindings
+                WHERE binding_id = @BindingId
+                  AND binding_version = @BindingVersion
+                  AND service_actor_id = @ServiceActorId
+                  AND revoked_at IS NULL
+                  AND effective_at <= clock_timestamp()
+                FOR SHARE;
+                """,
+                new
+                {
+                    BindingId = bindingId,
+                    BindingVersion = bindingVersion,
+                    ServiceActorId = serviceActorId,
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+        return matched == 1;
+    }
+
     private static AuthorizationRequest CreateRequest(
         Guid organizationId,
         Guid bindingId,

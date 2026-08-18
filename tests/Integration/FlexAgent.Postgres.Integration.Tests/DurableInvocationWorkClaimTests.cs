@@ -36,6 +36,78 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
     }
 
     [Fact]
+    public async Task Malformed_older_execute_envelope_does_not_block_head_of_line()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var candidateBinding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var foreignBinding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var workerActorId = await WorkerActorIdAsync();
+        var foreignDelegationId = await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
+            Fixture,
+            organization,
+            foreignBinding,
+            CancellationToken,
+            workerActorId);
+        await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
+            Fixture,
+            organization,
+            candidateBinding,
+            CancellationToken,
+            workerActorId);
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            var inserted = await connection.ExecuteAsync(
+                """
+                INSERT INTO session_durable_work (
+                    organization_id, activity_id, participant_id, attempt_id, session_id,
+                    work_id, work_type, business_key, state, invocation_execute_delegation_id)
+                VALUES (
+                    @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                    @WorkId, @WorkType, 'ainv.poison.hol0000001', @Pending, @DelegationId);
+                """,
+                new
+                {
+                    candidateBinding.Ownership.OrganizationId,
+                    candidateBinding.Ownership.ActivityId,
+                    candidateBinding.Ownership.ParticipantId,
+                    candidateBinding.Ownership.AttemptId,
+                    candidateBinding.Ownership.SessionId,
+                    WorkId = Guid.NewGuid(),
+                    WorkType = DurableSessionWorkTypes.ExecuteInvocation,
+                    Pending = DurableSessionWorkStates.Pending,
+                    DelegationId = foreignDelegationId,
+                });
+            Assert.Equal(1, inserted);
+        }
+
+        var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            new PostgresSessionRuntimeRepository(),
+            new AdmitTrustedTriggerHandler());
+        var admitted = await coordinator.AdmitAsync(
+            new AdmitTrustedTriggerCommand(
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                candidateBinding.Ownership,
+                0,
+                SessionPersistenceFixtures.OpeningTrigger("trig.claim.poison.hol"),
+                "idem.claim.poison.hol",
+                Guid.NewGuid(),
+                "integration.test"),
+            candidateBinding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+
+        await using var otherWork = await HoldOtherClaimableWorkAsync(
+            candidateBinding.Ownership,
+            foreignBinding.Ownership);
+        var store = await CreateStoreAsync();
+        var claimed = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
+
+        Assert.NotNull(claimed);
+        Assert.Equal(admitted.Invocation!.AgentInvocationId, claimed!.AgentInvocationId);
+    }
+
+    [Fact]
     public async Task Concurrent_claims_on_one_row_yield_exactly_one_winner()
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.claim.race", "idem.claim.race");

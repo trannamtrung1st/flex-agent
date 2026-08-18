@@ -1,4 +1,5 @@
 using Dapper;
+using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Sessions.Domain;
@@ -15,8 +16,18 @@ internal static class SessionInvocationExecuteCommitAuthorization
         Guid correlationId,
         string sourceChannel,
         NpgsqlTransaction transaction,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IAuthenticatedWorkloadContextSource? workloadIdentity = null)
     {
+        if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
+            workloadIdentity,
+            actor,
+            cancellationToken,
+            transaction).ConfigureAwait(false))
+        {
+            return AuthorizationDecision.Deny(AuthorizationReasonCodes.IdentityUnavailable);
+        }
+
         var connection = transaction.Connection
             ?? throw new InvalidOperationException("Commit authorization requires an open transaction.");
         var delegationId = await connection.ExecuteScalarAsync<Guid?>(

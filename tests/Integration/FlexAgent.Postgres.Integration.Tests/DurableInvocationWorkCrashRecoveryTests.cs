@@ -803,6 +803,11 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
                 correlationId,
                 cancellationToken);
         }
+
+        public Task<bool> TryAuthorizeModelDisclosureAsync(
+            SessionOwnership ownership,
+            CancellationToken cancellationToken) =>
+            inner.TryAuthorizeModelDisclosureAsync(ownership, cancellationToken);
     }
 
     private sealed class FaultInjectingWorkStore(IDurableInvocationWorkStore inner) : IDurableInvocationWorkStore

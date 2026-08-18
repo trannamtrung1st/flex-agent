@@ -162,6 +162,39 @@ public sealed class WorkloadIdentityTests
     }
 
     [Fact]
+    public void Future_or_inverted_issued_at_does_not_bypass_max_lifetime()
+    {
+        using var rsa = RSA.Create(2048);
+        var futureIssuedAt = WorkloadJwtTestSupport.CreateToken(rsa, T0, extraClaims: new Dictionary<string, object>
+        {
+            ["iat"] = T0.AddHours(2).ToUnixTimeSeconds(),
+        });
+        var invertedIssuedAt = WorkloadJwtTestSupport.CreateToken(
+            rsa,
+            T0,
+            lifetime: TimeSpan.FromMinutes(5),
+            extraClaims: new Dictionary<string, object>
+            {
+                ["iat"] = T0.AddHours(1).ToUnixTimeSeconds(),
+            });
+
+        Assert.Equal(
+            WorkloadAuthenticationReasonCodes.IssuedAtInvalid,
+            SignedJwtAccessTokenValidator.Validate(
+                futureIssuedAt,
+                WorkloadJwtTestSupport.Profile(),
+                WorkloadJwtTestSupport.Keys(rsa),
+                new FrozenTimeProvider(T0)).ReasonCode);
+        Assert.Equal(
+            WorkloadAuthenticationReasonCodes.IssuedAtInvalid,
+            SignedJwtAccessTokenValidator.Validate(
+                invertedIssuedAt,
+                WorkloadJwtTestSupport.Profile(),
+                WorkloadJwtTestSupport.Keys(rsa),
+                new FrozenTimeProvider(T0)).ReasonCode);
+    }
+
+    [Fact]
     public void Product_permission_claims_are_rejected()
     {
         using var rsa = RSA.Create(2048);

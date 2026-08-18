@@ -93,17 +93,18 @@ public sealed class PostgresFireDueTimerCoordinator(
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
-            workloadIdentity,
-            command.Actor,
-            cancellationToken))
-        {
-            return new TimerFireResult(false, TimerFireOutcomeCodes.AuthorityDenied);
-        }
-
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
         try
         {
+            if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
+                workloadIdentity,
+                command.Actor,
+                cancellationToken,
+                scope.Transaction))
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return new TimerFireResult(false, TimerFireOutcomeCodes.AuthorityDenied);
+            }
             var due = await scope.Connection.QuerySingleOrDefaultAsync<DueScheduleRow>(
                 new CommandDefinition(
                     ClaimDueSql,
@@ -226,7 +227,8 @@ public sealed class PostgresFireDueTimerCoordinator(
                 if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
                     workloadIdentity,
                     command.Actor,
-                    cancellationToken))
+                    cancellationToken,
+                    scope.Transaction))
                 {
                     await scope.RollbackAsync(CancellationToken.None);
                     return new TimerFireResult(

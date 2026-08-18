@@ -191,14 +191,14 @@ internal static class WorkerDurableWorkSampling
 
         if (string.Equals(configured, WorkloadIdentityProfiles.OAuthClientCredentialsJwt, StringComparison.Ordinal))
         {
-            RequireOauthProfile(configuration);
+            RequireOauthProfile(configuration, environment);
             return WorkloadIdentityProfiles.OAuthClientCredentialsJwt;
         }
 
         throw new InvalidOperationException("WorkloadIdentity:Profile is not a supported authentication profile.");
     }
 
-    private static void RequireOauthProfile(IConfiguration configuration)
+    private static void RequireOauthProfile(IConfiguration configuration, IHostEnvironment environment)
     {
         var required = new[]
         {
@@ -217,6 +217,15 @@ internal static class WorkerDurableWorkSampling
                 "OAuth workload identity requires issuer, audience, subject, client id, token endpoint, JWKS URI, and a mounted client-secret file.");
         }
 
+        RequireHttpsAbsoluteUri(
+            configuration["WorkloadIdentity:TokenEndpoint"],
+            "WorkloadIdentity:TokenEndpoint",
+            environment);
+        RequireHttpsAbsoluteUri(
+            configuration["WorkloadIdentity:JwksUri"],
+            "WorkloadIdentity:JwksUri",
+            environment);
+
         var secretDirectory = configuration["WorkloadIdentity:SecretDirectory"]!;
         var secretName = configuration["WorkloadIdentity:ClientSecretName"]!;
         var secretPath = Path.Combine(secretDirectory, secretName);
@@ -225,6 +234,28 @@ internal static class WorkerDurableWorkSampling
             throw new InvalidOperationException(
                 "OAuth workload identity requires the client secret to be present on the mounted-file SecretSource.");
         }
+    }
+
+    private static void RequireHttpsAbsoluteUri(string? value, string settingName, IHostEnvironment environment)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            || string.IsNullOrWhiteSpace(uri.Host))
+        {
+            throw new InvalidOperationException($"{settingName} must be an absolute URI.");
+        }
+
+        if (uri.Scheme == Uri.UriSchemeHttps)
+        {
+            return;
+        }
+
+        if (IsSyntheticHostProfile(environment) && uri.Scheme == Uri.UriSchemeHttp)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"{settingName} must be an absolute https URI outside Development/Testing.");
     }
 
     private static void RegisterWorkloadIdentitySource(

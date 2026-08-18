@@ -132,13 +132,21 @@ must:
   profile's positive bounded clock skew;
 - reject unsigned tokens, algorithm substitution, unknown or ambiguous keys,
   wrong issuer/audience/subject/client identity, expired or not-yet-valid proof,
-  and claims that attempt to supply Organization, role, scope, actor id, or
-  product permission;
+  inconsistent or future `iat`, overlong `nbf`/`exp` windows, and claims that
+  attempt to supply Organization, role, scope, actor id, or product permission;
 - obtain discovery and verification keys only through the approved protected
   issuer endpoint and accept cached keys only within the profile's approved
   positive cache lifetime; and
 - refresh before expiry with bounded backoff and jitter, while closing the
   recoverable new-work gate whenever no currently valid proof exists.
+
+Hosts may cache cryptographic proof. They must not treat a still-unexpired
+cached JWT as current durable authorization. Sensitive admission, disclosure,
+and commit re-read the current principal binding in the same authorization
+transaction.
+
+Production and Staging OAuth token and JWKS endpoints must be absolute `https`
+URIs. Development and Testing may use `http` for local issuer doubles.
 
 The exact token maximum lifetime, clock skew, refresh margin, issuer-metadata
 cache lifetime, retry bounds, and timeouts are deployment-profile parameters.
@@ -219,7 +227,9 @@ The current workload binding, Invocation delegation, complete ownership,
 Invocation/work identity, frozen Session policy, lifecycle/cutoff, expected
 version, lease, and idempotency boundary are then checked:
 
-- before loading protected provider context or disclosing it to a model port;
+- before loading protected provider context or disclosing it to a model port,
+  including a dedicated model-disclosure admission immediately before the
+  provider `ExecuteAsync` or stream start;
 - before each durable response-fragment publication;
 - before response seal and message completion;
 - before recording an Invocation outcome or Agent Decision and effecting each

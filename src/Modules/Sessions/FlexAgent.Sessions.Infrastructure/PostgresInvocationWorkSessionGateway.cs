@@ -6,6 +6,7 @@ using FlexAgent.Postgres.Audit;
 using FlexAgent.Postgres.Outbox;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
+using Npgsql;
 
 namespace FlexAgent.Sessions.Infrastructure;
 
@@ -33,14 +34,6 @@ public sealed class PostgresInvocationWorkSessionGateway(
             return null;
         }
 
-        if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
-            workloadIdentity,
-            settings.ServiceActor,
-            cancellationToken))
-        {
-            return null;
-        }
-
         await using var scope = await PostgresTransactionScope.BeginAsync(
             connectionAccessor,
             IsolationLevel.RepeatableRead,
@@ -58,21 +51,10 @@ public sealed class PostgresInvocationWorkSessionGateway(
                 return null;
             }
 
-            if (authorizationKernel is not null)
+            if (!await AuthorizeProtectedAdmissionAsync(ownership, scope.Transaction, cancellationToken))
             {
-                var disclosure = await SessionInvocationExecuteCommitAuthorization.ReauthorizeAsync(
-                    authorizationKernel,
-                    settings.ServiceActor,
-                    ownership,
-                    Guid.NewGuid(),
-                    settings.SourceChannel,
-                    scope.Transaction,
-                    cancellationToken);
-                if (!disclosure.IsPermitted)
-                {
-                    await scope.RollbackAsync(CancellationToken.None);
-                    return null;
-                }
+                await scope.RollbackAsync(CancellationToken.None);
+                return null;
             }
 
             await scope.CommitAsync(cancellationToken);
@@ -113,14 +95,6 @@ public sealed class PostgresInvocationWorkSessionGateway(
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(invocation);
 
-        if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
-            workloadIdentity,
-            settings.ServiceActor,
-            cancellationToken))
-        {
-            return false;
-        }
-
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
         try
         {
@@ -154,21 +128,14 @@ public sealed class PostgresInvocationWorkSessionGateway(
                 scope.Transaction,
                 cancellationToken);
 
-            if (authorizationKernel is not null)
+            if (!await AuthorizeProtectedAdmissionAsync(
+                ownership,
+                scope.Transaction,
+                cancellationToken,
+                correlationId))
             {
-                var commitDecision = await SessionInvocationExecuteCommitAuthorization.ReauthorizeAsync(
-                    authorizationKernel,
-                    settings.ServiceActor,
-                    ownership,
-                    correlationId,
-                    settings.SourceChannel,
-                    scope.Transaction,
-                    cancellationToken);
-                if (!commitDecision.IsPermitted)
-                {
-                    await scope.RollbackAsync(CancellationToken.None);
-                    return false;
-                }
+                await scope.RollbackAsync(CancellationToken.None);
+                return false;
             }
 
             await scope.CommitAsync(cancellationToken);
@@ -179,5 +146,59 @@ public sealed class PostgresInvocationWorkSessionGateway(
             await scope.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    public async Task<bool> TryAuthorizeModelDisclosureAsync(
+        SessionOwnership ownership,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ownership);
+        await using var scope = await PostgresTransactionScope.BeginAsync(
+            connectionAccessor,
+            IsolationLevel.RepeatableRead,
+            cancellationToken);
+        try
+        {
+            if (!await AuthorizeProtectedAdmissionAsync(ownership, scope.Transaction, cancellationToken))
+            {
+                await scope.RollbackAsync(CancellationToken.None);
+                return false;
+            }
+
+            await scope.CommitAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            await scope.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    private async Task<bool> AuthorizeProtectedAdmissionAsync(
+        SessionOwnership ownership,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken,
+        Guid? correlationId = null)
+    {
+        if (authorizationKernel is not null)
+        {
+            var decision = await SessionInvocationExecuteCommitAuthorization.ReauthorizeAsync(
+                authorizationKernel,
+                settings.ServiceActor,
+                ownership,
+                correlationId ?? Guid.NewGuid(),
+                settings.SourceChannel,
+                transaction,
+                cancellationToken,
+                workloadIdentity);
+            return decision.IsPermitted;
+        }
+
+        return await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
+            workloadIdentity,
+            settings.ServiceActor,
+            cancellationToken,
+            transaction);
     }
 }

@@ -94,6 +94,10 @@ public interface IInvocationWorkSessionGateway
         AgentInvocation invocation,
         Guid correlationId,
         CancellationToken cancellationToken);
+
+    Task<bool> TryAuthorizeModelDisclosureAsync(
+        SessionOwnership ownership,
+        CancellationToken cancellationToken);
 }
 
 public interface IDurableInvocationWorkProcessor
@@ -215,6 +219,13 @@ public sealed class DurableInvocationWorkProcessor(
         else
         {
             var binding = resolvedBinding.Binding!;
+            if (!await sessionGateway.TryAuthorizeModelDisclosureAsync(
+                claimed.Ownership,
+                cancellationToken))
+            {
+                return RecordProcess(await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId));
+            }
+
             var context = InvocationContextAssembler.Assemble(loaded.Session);
             attemptResult = await modelExecutionPort.ExecuteAsync(
                 new ModelExecutionAttemptRequest(
