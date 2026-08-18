@@ -85,6 +85,58 @@ internal static class SessionRuntimePersistenceAudit
         TryRecordFault(signals, faultKind, SessionRuntimeTelemetryValues.Succeeded);
     }
 
+    public static async Task WriteDenialAsync(
+        IAuditEventWriter auditEventWriter,
+        TrustedRuntimeActor actor,
+        SessionOwnership ownership,
+        Guid correlationId,
+        string sourceChannel,
+        string action,
+        string outcome,
+        string reasonCode,
+        DateTimeOffset occurredAt,
+        Npgsql.NpgsqlTransaction transaction,
+        CancellationToken cancellationToken,
+        ISessionRuntimeTelemetry? telemetry = null,
+        string? authorizationReferenceType = null,
+        Guid? authorizationReferenceId = null)
+    {
+        var signals = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
+        try
+        {
+            await auditEventWriter.InsertAsync(
+                new AuditEventWriteModel(
+                    EventId: Guid.NewGuid(),
+                    OrganizationId: ownership.OrganizationId,
+                    EventSchemaVersion: "audit-event.v1",
+                    OccurredAt: occurredAt,
+                    CorrelationId: correlationId,
+                    ActorType: actor.ActorType,
+                    ActorId: actor.ActorId,
+                    Action: action,
+                    ResourceType: SessionRuntimeResourceTypes.Session,
+                    ResourceId: ownership.SessionId,
+                    Outcome: outcome,
+                    ReasonCode: reasonCode,
+                    RelationshipVersion: null,
+                    SourceChannel: sourceChannel,
+                    PayloadDigest: null,
+                    AuthorizationReferenceType: authorizationReferenceId is null
+                        ? null
+                        : authorizationReferenceType,
+                    AuthorizationReferenceId: authorizationReferenceId),
+                transaction,
+                cancellationToken);
+        }
+        catch
+        {
+            TryRecordFault(signals, SessionRuntimeTelemetryValues.Audit, SessionRuntimeTelemetryValues.Failed);
+            throw;
+        }
+
+        TryRecordFault(signals, SessionRuntimeTelemetryValues.Audit, SessionRuntimeTelemetryValues.Succeeded);
+    }
+
     private static void TryRecordFault(ISessionRuntimeTelemetry telemetry, string kind, string outcome)
     {
         try

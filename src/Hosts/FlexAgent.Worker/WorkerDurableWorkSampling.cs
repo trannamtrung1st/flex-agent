@@ -17,8 +17,6 @@ public sealed class WorkerRuntimeCapabilities
 
 internal static class WorkerDurableWorkSampling
 {
-    internal static readonly Guid DefaultWorkerServiceActorId = Guid.Parse("11111111-2222-3333-4444-555555555555");
-
     public static void AddDurableWorkSampling(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -72,7 +70,7 @@ internal static class WorkerDurableWorkSampling
                 services.AddSingleton<ICompleteInvocationHandler>(sp =>
                     new CompleteInvocationHandler(sp.GetRequiredService<ISessionRuntimeTelemetry>()));
                 services.AddSingleton<IModelExecutionPort>(_ => FailClosedModelExecutionPort.Instance);
-                services.AddSingleton(CreateInvocationWorkSettings(configuration));
+                services.AddSingleton(CreateInvocationWorkSettings(configuration, RequireWorkerServiceActorId(configuration)));
                 services.AddSingleton<PostgresPublishAgentResponseCoordinator>();
                 services.AddSingleton<IAgentResponsePublicationPersistPort>(sp =>
                     sp.GetRequiredService<PostgresPublishAgentResponseCoordinator>());
@@ -87,8 +85,9 @@ internal static class WorkerDurableWorkSampling
 
             if (timerPollingEnabled)
             {
+                var workerActorId = RequireWorkerServiceActorId(configuration);
                 services.AddSingleton<IDueTimerFirePort, PostgresFireDueTimerCoordinator>();
-                services.AddSingleton(CreateTimerFireSettings(configuration));
+                services.AddSingleton(CreateTimerFireSettings(workerActorId));
                 services.AddSingleton<IDurableTimerFireProcessor, DurableTimerFireProcessor>();
             }
             else
@@ -112,7 +111,9 @@ internal static class WorkerDurableWorkSampling
     private static bool IsSyntheticHostProfile(IHostEnvironment environment) =>
         environment.IsDevelopment() || environment.IsEnvironment("Testing");
 
-    private static DurableInvocationWorkSettings CreateInvocationWorkSettings(IConfiguration configuration)
+    private static DurableInvocationWorkSettings CreateInvocationWorkSettings(
+        IConfiguration configuration,
+        Guid workerActorId)
     {
         var providerId = string.IsNullOrWhiteSpace(configuration["Sessions:ModelDeployment:ProviderId"])
             ? "unconfigured.provider"
@@ -120,7 +121,7 @@ internal static class WorkerDurableWorkSampling
         var organizationBindingReference = configuration["Sessions:ModelDeployment:OrganizationBindingReference"];
         var organizationBindingVersion = configuration["Sessions:ModelDeployment:OrganizationBindingVersion"];
         return new DurableInvocationWorkSettings(
-            new TrustedRuntimeActor(ResolveServiceActorId(configuration), "worker.session_runtime"),
+            new TrustedRuntimeActor(workerActorId, "worker.session_runtime"),
             providerId,
             "worker.session_runtime",
             65_536,
@@ -136,16 +137,20 @@ internal static class WorkerDurableWorkSampling
                 false));
     }
 
-    private static DurableTimerFireSettings CreateTimerFireSettings(IConfiguration configuration) =>
+    private static DurableTimerFireSettings CreateTimerFireSettings(Guid workerActorId) =>
         new(
-            new TrustedRuntimeActor(ResolveServiceActorId(configuration), "worker.session_runtime"),
+            new TrustedRuntimeActor(workerActorId, "worker.session_runtime"),
             "worker.session_runtime");
 
-    private static Guid ResolveServiceActorId(IConfiguration configuration)
+    private static Guid RequireWorkerServiceActorId(IConfiguration configuration)
     {
         var configured = configuration["Sessions:WorkerServiceActorId"];
-        return Guid.TryParse(configured, out var parsed) && parsed != Guid.Empty
-            ? parsed
-            : DefaultWorkerServiceActorId;
+        if (!Guid.TryParse(configured, out var parsed) || parsed == Guid.Empty)
+        {
+            throw new InvalidOperationException(
+                "Sessions:WorkerServiceActorId must be an explicit non-empty actor id when timer polling or Invocation processing is enabled. The compiled default is not used for a live protected lane, and the actor must already exist in IdentityAccess.");
+        }
+
+        return parsed;
     }
 }

@@ -136,6 +136,86 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
     }
 
     [Fact]
+    public async Task Admission_authorization_denial_rolls_back_work_and_persists_denial_audit()
+    {
+        var prepared = await InsertDelegatedSessionAsync();
+        await using var otherDue = await HoldOtherDueSchedulesAsync(prepared.Ownership);
+        await MarkScheduleDueAsync(prepared.Ownership);
+        var correlationId = Guid.NewGuid();
+        var coordinator = CreateCoordinator();
+        coordinator.AfterDueClaimedAsync = async () =>
+        {
+            Assert.True(await MutateDelegationAsync(prepared));
+        };
+
+        var before = await CaptureWorkAsync(prepared.Ownership);
+        var result = await coordinator.TryFireNextDueAsync(
+            FireCommand(prepared.Organization.ActorId, correlationId),
+            CancellationToken);
+        var after = await CaptureWorkAsync(prepared.Ownership);
+        var denial = await ReadTimerLaneDenialAuditAsync(prepared.Ownership, correlationId);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(TimerFireOutcomeCodes.AuthorityDenied, result.OutcomeCode);
+        Assert.Equal(before.SessionVersion, after.SessionVersion);
+        Assert.Equal(0, after.InvocationCount);
+        Assert.Equal("pending", after.LaneState);
+        Assert.Equal(before.OutboxCount, after.OutboxCount);
+        Assert.Equal(AuthorizationOutcomes.Deny, denial.Outcome);
+        Assert.Equal(AuthorizationActions.FireSessionTimerLane, denial.Action);
+        Assert.Equal(AuthorizationResourceTypes.Session, denial.ResourceType);
+        Assert.Equal(prepared.Ownership.SessionId, denial.ResourceId);
+        Assert.Equal(prepared.Ownership.OrganizationId, denial.OrganizationId);
+        Assert.Equal(prepared.Organization.ActorId, denial.ActorId);
+        Assert.Equal("synthetic.test_actor", denial.ActorType);
+        Assert.Equal(AuthorizationReasonCodes.RevokedDelegation, denial.ReasonCode);
+        Assert.Equal("integration.test", denial.SourceChannel);
+        Assert.Equal(AuthorizationReferenceTypes.ServiceDelegation, denial.ReferenceType);
+        Assert.Equal(prepared.DelegationId, denial.ReferenceId);
+        Assert.Equal(0, await CountSucceededTimerLaneFireAuditsAsync(prepared.Ownership));
+    }
+
+    [Fact]
+    public async Task Commit_reauthorization_denial_rolls_back_success_audit_and_persists_denial_audit()
+    {
+        var prepared = await InsertDelegatedSessionAsync();
+        await using var otherDue = await HoldOtherDueSchedulesAsync(prepared.Ownership);
+        await MarkScheduleDueAsync(prepared.Ownership);
+        var correlationId = Guid.NewGuid();
+        var coordinator = CreateCoordinator();
+        coordinator.AfterPersistenceBeforeCommitAsync = async () =>
+        {
+            await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+            var updated = await connection.ExecuteAsync(
+                """
+                UPDATE service_delegations
+                SET expires_at = clock_timestamp() - INTERVAL '1 second'
+                WHERE delegation_id = @DelegationId;
+                """,
+                new { prepared.DelegationId });
+            Assert.Equal(1, updated);
+        };
+
+        var before = await CaptureWorkAsync(prepared.Ownership);
+        var result = await coordinator.TryFireNextDueAsync(
+            FireCommand(prepared.Organization.ActorId, correlationId),
+            CancellationToken);
+        var after = await CaptureWorkAsync(prepared.Ownership);
+        var denial = await ReadTimerLaneDenialAuditAsync(prepared.Ownership, correlationId);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(TimerFireOutcomeCodes.AuthorityDenied, result.OutcomeCode);
+        Assert.Equal(before.SessionVersion, after.SessionVersion);
+        Assert.Equal(0, after.InvocationCount);
+        Assert.Equal("pending", after.LaneState);
+        Assert.Equal(before.OutboxCount, after.OutboxCount);
+        Assert.Equal(AuthorizationOutcomes.Deny, denial.Outcome);
+        Assert.Equal(AuthorizationReasonCodes.ExpiredDelegation, denial.ReasonCode);
+        Assert.Equal(prepared.DelegationId, denial.ReferenceId);
+        Assert.Equal(0, await CountSucceededTimerLaneFireAuditsAsync(prepared.Ownership));
+    }
+
+    [Fact]
     public async Task Issue_records_mutation_coupled_audit_against_the_authorizing_grant()
     {
         var prepared = await InsertDelegatedSessionAsync();
@@ -788,6 +868,85 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
         return new WorkSnapshot(row.SessionVersion, row.InvocationCount, row.LaneState, row.AuditCount, row.OutboxCount);
     }
 
+    private async Task<(
+        string Outcome,
+        string Action,
+        string ResourceType,
+        Guid ResourceId,
+        Guid OrganizationId,
+        Guid ActorId,
+        string ActorType,
+        string? ReasonCode,
+        string SourceChannel,
+        string? ReferenceType,
+        Guid? ReferenceId)> ReadTimerLaneDenialAuditAsync(
+        SessionOwnership ownership,
+        Guid correlationId)
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        return await connection.QuerySingleAsync<(
+            string Outcome,
+            string Action,
+            string ResourceType,
+            Guid ResourceId,
+            Guid OrganizationId,
+            Guid ActorId,
+            string ActorType,
+            string? ReasonCode,
+            string SourceChannel,
+            string? ReferenceType,
+            Guid? ReferenceId)>(
+            """
+            SELECT
+                outcome,
+                action,
+                resource_type,
+                resource_id,
+                organization_id,
+                actor_id,
+                actor_type,
+                reason_code,
+                source_channel,
+                authorization_reference_type,
+                authorization_reference_id
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND resource_id = @SessionId
+              AND correlation_id = @CorrelationId
+              AND action = @Action
+              AND outcome = @Outcome;
+            """,
+            new
+            {
+                ownership.OrganizationId,
+                ownership.SessionId,
+                CorrelationId = correlationId,
+                Action = AuthorizationActions.FireSessionTimerLane,
+                Outcome = AuthorizationOutcomes.Deny,
+            });
+    }
+
+    private async Task<int> CountSucceededTimerLaneFireAuditsAsync(SessionOwnership ownership)
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        return await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND resource_id = @SessionId
+              AND action = @Action
+              AND outcome = @Outcome;
+            """,
+            new
+            {
+                ownership.OrganizationId,
+                ownership.SessionId,
+                Action = AuthorizationActions.FireSessionTimerLane,
+                Outcome = "succeeded",
+            });
+    }
+
     private async Task<Guid> InsertActorAsync()
     {
         var actorId = Guid.NewGuid();
@@ -846,8 +1005,8 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
         }
     }
 
-    private FireDueTimerCommand FireCommand(Guid actorId) =>
-        new(SessionPersistenceFixtures.Actor(actorId), Guid.NewGuid(), "integration.test");
+    private FireDueTimerCommand FireCommand(Guid actorId, Guid? correlationId = null) =>
+        new(SessionPersistenceFixtures.Actor(actorId), correlationId ?? Guid.NewGuid(), "integration.test");
 
     private sealed record PreparedDelegatedSession(
         SeededOrganization Organization,

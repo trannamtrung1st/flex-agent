@@ -111,6 +111,7 @@ public sealed class ApiRuntimeTests : IClassFixture<WebApplicationFactory<ApiPro
 
 public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<WorkerProgram>>
 {
+    private static readonly Guid TestWorkerServiceActorId = Guid.Parse("11111111-2222-3333-4444-555555555555");
     private readonly WebApplicationFactory<WorkerProgram> _factory;
 
     public WorkerRuntimeTests(WebApplicationFactory<WorkerProgram> factory)
@@ -276,6 +277,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
                 "ConnectionStrings:Sessions",
                 "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
             builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
         });
 
         Assert.IsType<DurableInvocationWorkProcessor>(
@@ -299,6 +301,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
                 "ConnectionStrings:Sessions",
                 "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
             builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
         });
 
         Assert.IsType<DurableInvocationWorkProcessor>(
@@ -335,6 +338,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
                 "ConnectionStrings:Sessions",
                 "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
             builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
         });
         var client = factory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -356,6 +360,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
                 "ConnectionStrings:Sessions",
                 "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
             builder.UseSetting("Sessions:TimerPolling:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
         });
 
         Assert.IsType<DurableTimerFireProcessor>(
@@ -375,6 +380,23 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         Assert.False(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().DurableWorkClaimingEnabled);
     }
 
+    [Fact]
+    public void Worker_refuses_to_start_timer_polling_without_an_explicit_worker_service_actor_id()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:TimerPolling:Enabled", "true");
+        });
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            factory.Services.GetRequiredService<IDurableTimerFireProcessor>());
+        Assert.Contains("Sessions:WorkerServiceActorId", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("11111111", exception.Message, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("Production")]
     [InlineData("Staging")]
@@ -388,6 +410,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
                 "ConnectionStrings:Sessions",
                 "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
             builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
         });
 
         var exception = Assert.Throws<InvalidOperationException>(() =>
@@ -426,6 +449,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
                 "ConnectionStrings:Sessions",
                 "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
             builder.UseSetting("Sessions:TimerPolling:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
         });
         var client = factory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;

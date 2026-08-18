@@ -123,7 +123,12 @@ public sealed class PostgresFireDueTimerCoordinator(
                 due.session_id);
             if (due.timer_lane_delegation_id is null || due.timer_lane_delegation_id == Guid.Empty)
             {
-                await scope.RollbackAsync(cancellationToken);
+                await scope.RollbackAsync(CancellationToken.None);
+                await PersistAuthorizationDenialAuditAsync(
+                    command,
+                    ownership,
+                    AuthorizationDecision.Deny(AuthorizationReasonCodes.MissingDelegation),
+                    due.timer_lane_delegation_id);
                 return new TimerFireResult(false, TimerFireOutcomeCodes.AuthorityDenied);
             }
 
@@ -134,7 +139,12 @@ public sealed class PostgresFireDueTimerCoordinator(
                 cancellationToken);
             if (!admission.IsPermitted)
             {
-                await scope.RollbackAsync(cancellationToken);
+                await scope.RollbackAsync(CancellationToken.None);
+                await PersistAuthorizationDenialAuditAsync(
+                    command,
+                    ownership,
+                    admission,
+                    due.timer_lane_delegation_id);
                 return new TimerFireResult(false, TimerFireOutcomeCodes.AuthorityDenied);
             }
 
@@ -209,7 +219,12 @@ public sealed class PostgresFireDueTimerCoordinator(
                     cancellationToken);
                 if (!commitDecision.IsPermitted)
                 {
-                    await scope.RollbackAsync(cancellationToken);
+                    await scope.RollbackAsync(CancellationToken.None);
+                    await PersistAuthorizationDenialAuditAsync(
+                        command,
+                        ownership,
+                        commitDecision,
+                        due.timer_lane_delegation_id);
                     return new TimerFireResult(
                         false,
                         TimerFireOutcomeCodes.AuthorityDenied,
@@ -307,7 +322,14 @@ public sealed class PostgresFireDueTimerCoordinator(
         }
         catch
         {
-            await scope.RollbackAsync(cancellationToken);
+            try
+            {
+                await scope.RollbackAsync(CancellationToken.None);
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
             throw;
         }
     }
@@ -330,6 +352,48 @@ public sealed class PostgresFireDueTimerCoordinator(
             ownership.ActivityId,
             ownership.ParticipantId,
             ownership.AttemptId);
+
+    private async Task PersistAuthorizationDenialAuditAsync(
+        FireDueTimerCommand command,
+        SessionOwnership ownership,
+        AuthorizationDecision decision,
+        Guid? evaluatedDelegationId)
+    {
+        await using var auditScope = await PostgresTransactionScope.BeginAsync(
+            connectionAccessor,
+            CancellationToken.None);
+        try
+        {
+            var occurredAt = DateTime.SpecifyKind(
+                await auditScope.Connection.ExecuteScalarAsync<DateTime>(
+                    new CommandDefinition(
+                        "SELECT clock_timestamp();",
+                        transaction: auditScope.Transaction,
+                        cancellationToken: CancellationToken.None)),
+                DateTimeKind.Utc);
+            await SessionRuntimePersistenceAudit.WriteDenialAsync(
+                _auditEventWriter,
+                command.Actor,
+                ownership,
+                command.CorrelationId,
+                command.SourceChannel,
+                SessionRuntimeAuditActions.FireDueTimer,
+                decision.Outcome,
+                decision.ReasonCode,
+                occurredAt,
+                auditScope.Transaction,
+                CancellationToken.None,
+                _telemetry,
+                AuthorizationReferenceTypes.ServiceDelegation,
+                evaluatedDelegationId);
+            await auditScope.CommitAsync(CancellationToken.None);
+        }
+        catch
+        {
+            await auditScope.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+    }
 
     private sealed record DueScheduleRow(
         Guid organization_id,

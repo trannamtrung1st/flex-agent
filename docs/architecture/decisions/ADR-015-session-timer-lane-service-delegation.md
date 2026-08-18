@@ -65,27 +65,38 @@ violate the delayed-work contract.
    timer-enabled Sessions. Do not backfill historical rows; missing or invalid
    references stay fail-closed and retryable without cancelling a valid pending
    timer.
-4. The Worker authenticates as its configured service principal, rehydrates the
-   immutable Session policy snapshot, and authorizes the delegation on the
-   timer-fire transaction before admitting one Invocation. Admission does not
-   take `FOR SHARE`. After persistence, audit, and outbox writes, commit
-   reauthorization is the last meaningful SQL before `COMMIT`, so wall-clock
-   expiry as well as concurrent revoke still deny. Due-claim selects
-   only currently valid, ownership-matched envelopes for that service principal
-   so revoked, expired, mismatched, or historical-null rows stay pending without
-   head-of-line blocking another Session.
+4. The Worker acts as the explicitly configured `Sessions:WorkerServiceActorId`
+   (which must already exist in IdentityAccess `actors`). This is trusted
+   deployment configuration, not workload authentication or provisioning. It
+   rehydrates the immutable Session policy snapshot and authorizes the
+   delegation on the timer-fire transaction before admitting one Invocation.
+   Admission does not take `FOR SHARE`. After persistence, success audit, and
+   outbox writes, commit reauthorization is the last meaningful SQL before
+   `COMMIT`, so wall-clock expiry as well as concurrent revoke still deny.
+   Due-claim selects only currently valid, ownership-matched envelopes for that
+   service principal so revoked, expired, mismatched, or historical-null rows
+   stay pending without head-of-line blocking another Session and without a
+   per-cycle denial audit. Kernel admission denial and commit-time
+   reauthorization denial are security-relevant: the fire transaction (including
+   any staged success audit/outbox) rolls back first, then a separate
+   audit-only transaction records the deny. Inability to persist that denial
+   audit fails the operation; it never allows protected timer work to commit.
 5. Hosted timer polling requires an explicit `Sessions:TimerPolling:Enabled`
-   capability, default `false`, in addition to a Sessions connection string,
-   PostgreSQL binding rehydration, and the authorization kernel. Hosted
-   Invocation claiming is a separate default-off
-   `Sessions:InvocationProcessing:Enabled` capability; a Sessions connection
-   string alone does not register the live Invocation processor, mutation
-   ports, or live invocation work store. Until invocation service delegation
-   exists, enabling that flag outside Development/Testing refuses Worker
-   startup. The fail-closed model port is registered only in that synthetic
-   profile and remains until a later provider-qualification task. Unscoped
-   claimable-work aggregates are not an authorization-exempt operator read;
-   persistence-only and timer-only hosts keep the unknown invocation store.
+   capability, default `false`, an explicit non-empty
+   `Sessions:WorkerServiceActorId`, a Sessions connection string, PostgreSQL
+   binding rehydration, and the authorization kernel. The compiled default
+   actor id is not used for a live protected lane. Hosted Invocation claiming
+   is a separate default-off `Sessions:InvocationProcessing:Enabled` capability;
+   a Sessions connection string alone does not register the live Invocation
+   processor, mutation ports, or live invocation work store. Until invocation
+   service delegation exists, enabling that flag outside Development/Testing
+   refuses Worker startup. The fail-closed model port is registered only in
+   that synthetic profile and remains until a later provider-qualification
+   task. Unscoped claimable-work aggregates are not an authorization-exempt
+   operator read; persistence-only and timer-only hosts keep the unknown
+   invocation store. Timer-lane delegations fail closed after `expires_at`.
+   Authorized renewal is deferred; remaining Session duration after expiry
+   cannot silently extend or fabricate authority.
 6. Issuance and revocation of service delegations are authorized operations
    (`service_delegation.issue` / `service_delegation.revoke`) against a current
    actor-organization grant. The mutated resource is `service_delegation` /
@@ -121,7 +132,7 @@ violate the delayed-work contract.
 
 ## Related
 
-- Requirements: `REQ-AUTH-11`, `REQ-AUTH-18`–`REQ-AUTH-20`, `REQ-AUTH-27`,
-  `REQ-AUTH-31`, `REQ-SESS-75`
-- Proposed defaults: `PROP-WBT-1`–`PROP-WBT-7` in
+- Requirements: `REQ-AUTH-11`, `REQ-AUTH-18`–`REQ-AUTH-20`, `REQ-AUTH-22`,
+  `REQ-AUTH-26`, `REQ-AUTH-27`, `REQ-AUTH-31`, `REQ-SESS-75`
+- Proposed defaults: `PROP-WBT-1`–`PROP-WBT-11` in
   `.work/active/session-runtime-worker-binding-timer-activation.md`

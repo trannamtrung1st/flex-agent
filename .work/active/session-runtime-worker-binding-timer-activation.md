@@ -1,6 +1,6 @@
 ---
 id: session-runtime-worker-binding-timer-activation
-status: completed
+status: in-progress
 created: 2026-08-18
 updated: 2026-08-18
 predecessors:
@@ -235,12 +235,25 @@ production pilot is complete.
       Document that this count is not an authorization-exempt operator read.
 - [x] Verify focused host tests, locked regression, docs, and whitespace.
 
+# Review remediations (`6811012` / remaining `f4eff9b` findings)
+
+- [x] P1 — Persist security-relevant timer-lane authorization denials after
+      rolling back protected mutations; do not audit ineligible poller skips.
+- [x] P1 — Require explicit `Sessions:WorkerServiceActorId` when timer polling
+      (or synthetic Invocation processing) is enabled; do not silently use the
+      compiled default. Document deferred workload identity and expiry/renewal.
+- [x] P2 — Add an executable requirement-to-test mapping table; fix ADR-015
+      `PROP-WBT-1`–`8` (and later) references. Keep Invocation processing
+      Development/Testing-only until a successor delegation task.
+- [x] Verify focused authorization/timer/Worker host tests, locked regression,
+      docs, and whitespace.
+
 # Current state
 
-Review remediations for `f4eff9b` are complete. Production/Staging refuse
-`Sessions:InvocationProcessing:Enabled` at startup. Persistence-only and
-timer-only hosts keep `UnknownDurableInvocationWorkStore`, so they do not
-issue an unscoped claimable-work aggregate.
+Remediations for the remaining `f4eff9b` findings are implemented and locally
+verified. The work record stays `in-progress` until independent backend and
+security/privacy review. ADR-015 stays Proposed. Invocation service delegation
+is the next production-enablement task, not this slice.
 
 Live model providers, OIDC, Participant UI, hosted HTTP Session-create, and
 production-pilot certification remain out of scope. ADR-015 remains Proposed
@@ -291,6 +304,14 @@ architecture approval remain required before the ADR is Approved.
   authorization-exempt operator read (`REQ-AUTH-12`). Persistence-only and
   timer-only hosts keep `UnknownDurableInvocationWorkStore` and do not sample
   live invocation backlog.
+- `PROP-WBT-10` — `session.timer_lane.fire` delegations fail closed after
+  `expires_at`. Authorized renewal is deferred. Remaining Session duration
+  after expiry cannot re-arm the lane; never fabricate or silently extend
+  authority.
+- `PROP-WBT-11` — Enabling timer polling or synthetic Invocation processing
+  requires an explicit non-empty `Sessions:WorkerServiceActorId`. The compiled
+  default is not used. The actor must already exist in IdentityAccess. Real
+  workload authentication and provisioning remain deferred.
 - `PROP-WBT-4` — Use the primary database clock and transaction for delegation
   freshness, timer due state, Session lifecycle/cutoff, expected revision,
   Invocation admission, audit, and outbox commit.
@@ -373,6 +394,32 @@ architecture approval remain required before the ADR is Approved.
 | Independent review (`f5e06e9`) | passed | No blockers. Slice accepted for MVP. Local `940/940` not independently verifiable from GitHub status checks |
 | Post-completion Invocation capability remediation | passed | Red: 4 `WorkerRuntimeTests` failed because CS registered live processor/claiming. Green: `Sessions:InvocationProcessing:Enabled` default-off. Runtime 92/92; Architecture 31/31; `check_docs.py`; `git diff --check`; locked **942/942** |
 | Review remediations (`f4eff9b`) | passed | P1 Production/Staging startup refuse; P2 unknown store for persistence-only/timer-only. Red 5 failed; green `WorkerRuntimeTests` 19/19; Architecture 31/31; `check_docs.py`; `git diff --check`; locked **946/946** |
+| Remaining `f4eff9b` remediations (`6811012` follow-up) | passed | Denial audit after rollback; explicit WorkerServiceActorId; traceability `PROP-WBT-1`–`11`. `SessionTimerLaneDelegationTests` 21/21; `WorkerRuntimeTests` 20/20; Architecture 31/31; `check_docs.py`; `git diff --check`; locked **949/949** |
+
+# Executable traceability
+
+| Requirement/control | Production enforcement | Exact automated test(s) | Status/gap |
+| --- | --- | --- | --- |
+| `REQ-AUTH-11` | Timer polling uses explicit `Sessions:WorkerServiceActorId` plus current `session.timer_lane.fire` delegation; compiled default unused | `WorkerRuntimeTests.Worker_refuses_to_start_timer_polling_without_an_explicit_worker_service_actor_id`; `SessionTimerLaneDelegationTests.Invalid_delegation_denies_without_mutating_due_work` | Enforced for timer lane. Real workload authentication/provisioning deferred |
+| `REQ-AUTH-18` | Due-claim joins currently valid envelopes; kernel re-reads delegation at admission | `SessionTimerLaneDelegationTests.Invalid_delegation_denies_without_mutating_due_work`; `SessionTimerLaneDelegationTests.Admission_authorization_denial_rolls_back_work_and_persists_denial_audit` | Enforced |
+| `REQ-AUTH-19` | Commit `ReauthorizeInTransactionAsync` is last SQL before fire `COMMIT` | `SessionTimerLaneDelegationTests.Expiry_after_persistence_and_before_commit_denies_without_invocation`; `SessionTimerLaneDelegationTests.Commit_reauthorization_denial_rolls_back_success_audit_and_persists_denial_audit` | Enforced |
+| `REQ-AUTH-20` | Revoke/expiry after selection denies without admitting an Invocation | `SessionTimerLaneDelegationTests.Revocation_after_admission_and_before_commit_denies_without_invocation`; `SessionTimerLaneDelegationTests.Expiry_after_persistence_and_before_commit_denies_without_invocation` | Enforced |
+| `REQ-AUTH-22` | Denial does not disclose internals; reason codes are bounded (`auth.*`) | `SessionTimerLaneDelegationTests.Admission_authorization_denial_rolls_back_work_and_persists_denial_audit`; Worker refuse messages omit connection-string secrets | Enforced for timer-lane deny audit and host-guard copy |
+| `REQ-AUTH-26` | Kernel admission/commit denials produce durable deny audit; poller skips do not | `SessionTimerLaneDelegationTests.Admission_authorization_denial_rolls_back_work_and_persists_denial_audit`; `SessionTimerLaneDelegationTests.Invalid_delegation_denies_without_mutating_due_work` | Enforced |
+| `REQ-AUTH-27` | Deny audit records actor, org, `session.timer_lane.fire`, Session id, deny, reason, correlation/source, delegation when evaluated | `SessionTimerLaneDelegationTests.Admission_authorization_denial_rolls_back_work_and_persists_denial_audit` | Enforced |
+| `REQ-AUTH-31` | Success audit/outbox share the fire transaction and roll back on deny; deny audit is a later audit-only commit; audit insert failure throws after rollback | `SessionTimerLaneDelegationTests.Commit_reauthorization_denial_rolls_back_success_audit_and_persists_denial_audit`; `AuditOutboxFaultInjectionTests` (success-path fail-closed) | Enforced for timer-lane deny-after-rollback. Dedicated denial-audit fault injection not added |
+| `REQ-SESS-75` | Timer fire authorizes current bounded delegation inside the commit boundary | `PostgresFireDueTimerCoordinator.TryFireNextDueAsync`; `SessionTimerLaneDelegationTests.Due_timer_with_production_binding_admits_one_invocation` | Enforced |
+| `PROP-WBT-1` | Per-Session `service_delegations` linked from `session_timer_schedules.timer_lane_delegation_id` | `SessionTimerLaneDelegationTests.Due_timer_with_production_binding_admits_one_invocation` | Enforced |
+| `PROP-WBT-2` | No identifier-only backfill | Historical-null rows stay unselected (`Invalid_delegation_denies_without_mutating_due_work` `missing`) | Enforced |
+| `PROP-WBT-3` | `Sessions:TimerPolling:Enabled` default false | `WorkerRuntimeTests.Worker_keeps_invocation_processing_idle_when_only_a_sessions_connection_string_is_set` | Enforced |
+| `PROP-WBT-4` | Primary DB clock/transaction for due, lifecycle, delegation, commit | `SessionTimerLaneDelegationTests.Expiry_after_persistence_and_before_commit_denies_without_invocation` | Enforced |
+| `PROP-WBT-5` | Required 7-day max `expires_at` | `SessionTimerLaneDelegationTests.Timer_lane_fire_issue_requires_bounded_expiry` | Enforced |
+| `PROP-WBT-6` | Issue/revoke kernel-authorized against org grant | `SessionTimerLaneDelegationTests.Issue_records_mutation_coupled_audit_against_the_authorizing_grant`; `SessionTimerLaneDelegationTests.Revoke_records_mutation_coupled_audit_against_the_authorizing_grant` | Enforced |
+| `PROP-WBT-7` | No in-place `allowed_action` rewrite | Production API has no `NarrowAllowedAction`; wrong-action via test SQL in `Invalid_delegation_denies_without_mutating_due_work` | Enforced |
+| `PROP-WBT-8` | Invocation processing default-off; Production/Staging refuse | `WorkerRuntimeTests.Worker_refuses_to_start_when_invocation_processing_is_enabled_outside_development_and_testing` | Enforced. Full Invocation delegation is the next production-enablement task |
+| `PROP-WBT-9` | Persistence-only/timer-only use `UnknownDurableInvocationWorkStore` | `WorkerRuntimeTests.Worker_keeps_invocation_processing_idle_when_only_a_sessions_connection_string_is_set`; `WorkerRuntimeTests.Worker_registers_timer_processor_only_when_timer_polling_is_explicitly_enabled` | Enforced |
+| `PROP-WBT-10` | Expiry fail-closed; renewal deferred | `SessionTimerLaneDelegationTests.Expiry_after_persistence_and_before_commit_denies_without_invocation` | Enforced; no renewal command in this slice |
+| `PROP-WBT-11` | Explicit Worker actor id for live protected lanes | `WorkerRuntimeTests.Worker_refuses_to_start_timer_polling_without_an_explicit_worker_service_actor_id` | Enforced. Workload identity provisioning deferred |
 
 # Blockers
 
@@ -407,3 +454,5 @@ its separate service-delegation and provider-qualification work is outstanding.
       `Sessions:InvocationProcessing:Enabled` until invocation delegation exists
 - [x] Persistence-only and timer-only hosts do not issue unscoped invocation
       claimable-work aggregates
+- [ ] Independent backend and security/privacy review of the remaining
+      `f4eff9b` remediations (denial audit, Worker service actor, traceability)
