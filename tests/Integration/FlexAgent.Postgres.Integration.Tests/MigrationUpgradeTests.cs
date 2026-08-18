@@ -1000,6 +1000,68 @@ public sealed class MigrationUpgradeTests
     }
 
     [Fact]
+    public async Task Upgrade_from_populated_0022_revoked_unbounded_timer_delegation_preserves_history()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0022ScriptName);
+
+        var seeded = await SeedPopulated0022TimerDelegationAsync(
+            connectionString,
+            expiresAt: null,
+            revoked: true);
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var row = await connection.QuerySingleAsync<(DateTime? ExpiresAt, DateTime? RevokedAt)>(
+            """
+            SELECT expires_at, revoked_at
+            FROM service_delegations
+            WHERE delegation_id = @DelegationId;
+            """,
+            new { seeded.DelegationId });
+        Assert.Null(row.ExpiresAt);
+        Assert.NotNull(row.RevokedAt);
+        await AssertAppliedScriptsAsync(
+            connectionString,
+            "0001_initial_authorization_configuration_schema.sql",
+            Historical0002ScriptName,
+            Historical0003ScriptName,
+            Current0004ScriptName,
+            Current0005ScriptName,
+            Current0006ScriptName,
+            Current0007ScriptName,
+            Current0008ScriptName,
+            Current0009ScriptName,
+            Current0010ScriptName,
+            Current0011ScriptName,
+            Current0012ScriptName,
+            Current0013ScriptName,
+            Current0014ScriptName,
+            Current0015ScriptName,
+            Current0016ScriptName,
+            Current0017ScriptName,
+            Current0018ScriptName,
+            Current0019ScriptName,
+            Current0020ScriptName,
+            Current0021ScriptName,
+            Current0022ScriptName,
+            Current0023ScriptName,
+            Current0024ScriptName);
+    }
+
+    [Fact]
     public async Task Upgrade_from_populated_0022_bounded_timer_delegation_applies_expiry_guard()
     {
         await using var container = await StartContainerAsync();
@@ -1609,10 +1671,11 @@ public sealed class MigrationUpgradeTests
                 fileName),
             TestContext.Current.CancellationToken);
 
-    private static async Task SeedPopulated0022TimerDelegationAsync(
+    private static async Task<(Guid DelegationId, Guid OrganizationId)> SeedPopulated0022TimerDelegationAsync(
         string connectionString,
         DateTimeOffset? expiresAt,
-        DateTimeOffset? effectiveAt = null)
+        DateTimeOffset? effectiveAt = null,
+        bool revoked = false)
     {
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
@@ -1622,6 +1685,7 @@ public sealed class MigrationUpgradeTests
         var participantId = Guid.NewGuid();
         var attemptId = Guid.NewGuid();
         var sessionId = Guid.NewGuid();
+        var delegationId = Guid.NewGuid();
         var createdAt = effectiveAt ?? DateTimeOffset.UtcNow;
         var digest = new string('a', 64);
 
@@ -1642,7 +1706,7 @@ public sealed class MigrationUpgradeTests
             VALUES (
                 @DelegationId, @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
                 @ActorId, @AllowedAction, 'session.timer_lane.scheduler', 'system.session_runtime',
-                @EffectiveAt, @ExpiresAt, NULL, 1, @CreatedAt);
+                @EffectiveAt, @ExpiresAt, @RevokedAt, 1, @CreatedAt);
             """,
             new
             {
@@ -1652,13 +1716,15 @@ public sealed class MigrationUpgradeTests
                 ParticipantId = participantId,
                 AttemptId = attemptId,
                 SessionId = sessionId,
-                DelegationId = Guid.NewGuid(),
+                DelegationId = delegationId,
                 Digest = digest,
                 AllowedAction = AuthorizationActions.FireSessionTimerLane,
                 EffectiveAt = createdAt,
                 ExpiresAt = expiresAt,
+                RevokedAt = revoked ? createdAt : (DateTimeOffset?)null,
                 CreatedAt = createdAt,
             });
+        return (delegationId, organizationId);
     }
 
     private static async Task SeedPopulated0020RuntimeAsync(string connectionString)

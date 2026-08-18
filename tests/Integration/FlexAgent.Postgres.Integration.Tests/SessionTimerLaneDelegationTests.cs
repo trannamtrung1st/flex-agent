@@ -225,7 +225,13 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
                     clock,
                     Guid.NewGuid()),
                 CommitKernel()));
-        await scope.RollbackAsync(CancellationToken);
+        try
+        {
+            await scope.CommitAsync(CancellationToken);
+        }
+        catch (Exception)
+        {
+        }
 
         Assert.Equal(AuthorizationReasonCodes.DeniedNoGrant, denied.ReasonCode);
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
@@ -237,6 +243,85 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
             """,
             new { binding.Ownership.OrganizationId, binding.Ownership.SessionId });
         Assert.Equal(0, sessionCount);
+    }
+
+    [Fact]
+    public async Task Commit_after_final_reauthorization_denial_cannot_persist_session_or_delegation()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        await Fixture.GrantOrganizationActionAsync(
+            organization.OrganizationId,
+            organization.ActorId,
+            AuthorizationActions.IssueServiceDelegation);
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var delegationId = Guid.NewGuid();
+        PostgresSessionRuntimeRepository.AfterPersistenceBeforeDelegationReauthAsync = async () =>
+        {
+            await new PostgresGrantRepository(Fixture.Services.ConnectionAccessor).RevokeAsync(
+                organization.OrganizationId,
+                organization.ActorId,
+                AuthorizationActions.IssueServiceDelegation,
+                CancellationToken);
+        };
+
+        try
+        {
+            await using var scope = await PostgresTransactionScope.BeginAsync(
+                Fixture.Services.ConnectionAccessor,
+                CancellationToken);
+            var startedAt = new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero);
+            var session = SessionRuntime.CreateActive(binding, startedAt);
+            var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
+            var denied = await Assert.ThrowsAsync<AuthorizationDeniedException>(() =>
+                repository.InsertActiveAsync(
+                    binding.Ownership,
+                    session,
+                    SessionPersistenceFixtures.Actor(organization.ActorId),
+                    scope.Transaction,
+                    CancellationToken,
+                    CreateAuthorizedIssue(
+                        organization,
+                        delegationId,
+                        organization.ActorId,
+                        clock,
+                        Guid.NewGuid()),
+                    CommitKernel()));
+            try
+            {
+                await scope.CommitAsync(CancellationToken);
+            }
+            catch (Exception)
+            {
+            }
+
+            Assert.Equal(AuthorizationReasonCodes.DeniedNoGrant, denied.ReasonCode);
+        }
+        finally
+        {
+            PostgresSessionRuntimeRepository.AfterPersistenceBeforeDelegationReauthAsync = null;
+        }
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var counts = await connection.QuerySingleAsync<(int Sessions, int Delegations, int Audits)>(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM session_runtimes
+                 WHERE organization_id = @OrganizationId AND session_id = @SessionId)::int,
+                (SELECT COUNT(*) FROM service_delegations
+                 WHERE organization_id = @OrganizationId AND delegation_id = @DelegationId)::int,
+                (SELECT COUNT(*) FROM audit_events
+                 WHERE organization_id = @OrganizationId AND resource_id = @DelegationId)::int;
+            """,
+            new
+            {
+                binding.Ownership.OrganizationId,
+                binding.Ownership.SessionId,
+                DelegationId = delegationId,
+            });
+        Assert.Equal(0, counts.Sessions);
+        Assert.Equal(0, counts.Delegations);
+        Assert.Equal(0, counts.Audits);
     }
 
     [Fact]

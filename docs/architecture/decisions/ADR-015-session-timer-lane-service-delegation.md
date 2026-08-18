@@ -90,9 +90,12 @@ violate the delayed-work contract.
    from `effective_at` cannot exceed seven days (`PROP-WBT-5`). Renewal remains
    a later authorized command. Timer-fire audit events record
    `authorization_reference_type=service_delegation` and the exact
-   `delegation_id` (`REQ-AUTH-27`). Additive `0023` refuses unbounded or
-   over-long timer-lane rows left by `0022` with an operator-facing error and
-   does not fabricate expiry.
+   `delegation_id` (`REQ-AUTH-27`). Additive `0023` refuses *active* unbounded
+   or over-long timer-lane rows left by `0022` with an operator-facing error
+   and does not fabricate expiry. Revoked historically unbounded rows may
+   upgrade so the documented revoke-then-retry repair works. A service-
+   delegation mutation that fails commit-time reauthorization aborts the
+   caller transaction so a later `COMMIT` cannot persist the staged writes.
 
 ## Consequences
 

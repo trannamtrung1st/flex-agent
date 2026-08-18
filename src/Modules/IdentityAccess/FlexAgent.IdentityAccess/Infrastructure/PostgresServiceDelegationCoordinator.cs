@@ -144,7 +144,22 @@ public static class PostgresServiceDelegationCoordinator
             cancellationToken);
         if (!decision.IsPermitted)
         {
+            await AbortCallerTransactionAsync(transaction, cancellationToken);
             throw new AuthorizationDeniedException(decision.ReasonCode);
+        }
+    }
+
+    public static async Task AbortCallerTransactionAsync(
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(transaction);
+        try
+        {
+            await transaction.RollbackAsync(cancellationToken);
+        }
+        catch (InvalidOperationException)
+        {
         }
     }
 

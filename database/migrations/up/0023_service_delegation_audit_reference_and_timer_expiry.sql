@@ -5,18 +5,25 @@
 -- over-long session.timer_lane.fire rows with an operator-facing error instead
 -- of a generic CHECK failure, and does not fabricate expiry timestamps.
 
+-- 58f2595 applied a 0023 revision whose preflight and CHECK also rejected
+-- revoked historically unbounded rows, so the documented revoke-then-upgrade
+-- repair could not succeed. Databases that recorded that hash must rebuild.
+-- This revision inspects only active timer-lane rows and preserves revoked
+-- 0022 history without fabricating expiry.
+
 DO $$
 BEGIN
     IF EXISTS (
         SELECT 1
         FROM service_delegations
         WHERE allowed_action = 'session.timer_lane.fire'
+          AND revoked_at IS NULL
           AND (
                 expires_at IS NULL
                 OR expires_at > effective_at + INTERVAL '7 days'
               )
     ) THEN
-        RAISE EXCEPTION '0023 refuses unbounded or over-long session.timer_lane.fire delegations left by 0022; revoke those rows before upgrade; refusing fabricated expiry backfill';
+        RAISE EXCEPTION '0023 refuses unbounded or over-long active session.timer_lane.fire delegations left by 0022; revoke those rows before upgrade; refusing fabricated expiry backfill';
     END IF;
 END;
 $$;
@@ -99,6 +106,7 @@ ALTER TABLE service_delegations
     ADD CONSTRAINT chk_service_delegations_timer_lane_fire_expiry
         CHECK (
             allowed_action <> 'session.timer_lane.fire'
+            OR revoked_at IS NOT NULL
             OR (
                 expires_at IS NOT NULL
                 AND expires_at <= effective_at + INTERVAL '7 days'

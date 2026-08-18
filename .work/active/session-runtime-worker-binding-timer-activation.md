@@ -195,20 +195,20 @@ production pilot is complete.
       an explicit operator-facing guard; do not fabricate expiry. Add `0024`
       `grant_id` so mutation audit can name the authorizing grant.
 
-# Current state
+# Review remediations (`58f2595`)
 
-`d175099` review remediations implemented, awaiting the same independent
-re-review before treating the security slice as complete. Issue/revoke use
-the authorization kernel against `service_delegation.issue` /
-`service_delegation.revoke` grants. Mutation audit names
-`service_delegation` / `delegation_id` as the resource and
-`actor_organization_grant` / `grant_id` as the authority used. Session insert
-requires an `AuthorizedServiceDelegationIssue` (initiator, correlation, source,
-reason) plus the kernel; it no longer invents those facts from the participant
-actor. `allowed_action` is not rewritten in place. Additive `0023` now fails
-closed on unbounded or over-long `0022` timer-lane rows with an operator-facing
-error. Additive `0024` adds `actor_organization_grants.grant_id`. Databases
-that recorded `d175099`'s earlier `0023` hash must rebuild.
+- [x] P1 — Abort the caller transaction on commit-time (and post-write)
+      authorization denial so a later `COMMIT` cannot persist the mutation.
+- [x] P1 — `0023` preflight and CHECK ignore revoked timer-lane rows so the
+      documented revoke-then-upgrade repair works; add revoked+unbounded
+      upgrade evidence.
+
+`58f2595` review remediations implemented, awaiting independent re-review.
+Commit-time authorization denial rolls back the caller transaction so a later
+`COMMIT` cannot persist Session, delegation, or audit rows. Additive `0023`
+refuses only *active* unbounded/over-long timer-lane rows; revoked historically
+unbounded `0022` rows upgrade and keep history. Databases that recorded the
+`58f2595` `0023` hash must rebuild.
 
 # Decisions
 
@@ -301,11 +301,12 @@ approve that ADR.
 | PostgreSQL binding/delegation/timer integration | passed | `SessionTimerLaneDelegationTests` including HOL skip of revoked due rows, `PostgresTrustedSessionBindingSourceTests`, `SessionTimerSchedulePersistenceTests` against PostgreSQL 18 |
 | Migration and upgrade safety | passed | Additive `0022`–`0024`; Grate expected one-time count 24; populated unbounded `0022` timer-lane rows fail closed on `0023`; bounded `0022` rows apply |
 | Architecture/module boundaries | passed | Architecture 31/31 including Worker Dockerfile COPY of IdentityAccess |
-| Locked .NET regression | passed | `d175099` remediations: `bash build/scripts/verify-dotnet.sh` **937/937** |
+| Locked .NET regression | passed | `58f2595` remediations: `bash build/scripts/verify-dotnet.sh` **939/939** |
 | Documentation | passed | `python3 scripts/check_docs.py` |
 | Whitespace | passed | `git diff --check` clean |
 | External review remediations (`9ab00a1`) | passed | P1 audit/transaction coordinator; P1 final reauth-before-commit + expiry race; P2 audit delegation reference; P2 required 7-day timer-lane expiry |
 | External review remediations (`d175099`) | passed | P1 kernel-authorized issue/revoke with grant `authorization_reference` and caller mutation context; P1 removed `NarrowAllowedAction`; P1 explicit `0022`→`0023` populated fail-closed plus `0024` `grant_id` |
+| External review remediations (`58f2595`) | passed | P1 abort caller tx on final auth denial + commit-after-deny test; P1 revoked unbounded `0022` rows upgrade |
 
 # Blockers
 

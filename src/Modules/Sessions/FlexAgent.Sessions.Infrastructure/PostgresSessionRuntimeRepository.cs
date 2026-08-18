@@ -11,6 +11,7 @@ namespace FlexAgent.Sessions.Infrastructure;
 public sealed class PostgresSessionRuntimeRepository
 {
     internal static Func<NpgsqlTransaction, Task>? AfterHeadLoadedAsync { get; set; }
+    internal static Func<Task>? AfterPersistenceBeforeDelegationReauthAsync { get; set; }
     internal static int FragmentInsertAttempts { get; set; }
 
     internal static int PublicationMessagesTouched { get; set; }
@@ -744,51 +745,64 @@ public sealed class PostgresSessionRuntimeRepository
             throw new ArgumentOutOfRangeException(nameof(participantActor));
         }
 
-        var lastCommittedAt = ToUtc(await RequireConnection(transaction).ExecuteScalarAsync<DateTime>(
-            new CommandDefinition(
-                InsertActiveSql,
-                HeadParameters(ownership, session, expectedSessionVersion: null),
-                transaction,
-                cancellationToken: cancellationToken)));
-
-        session.ReplaceLastCommittedAtFromDatabase(lastCommittedAt);
-        if (timerLaneDelegation is not null)
+        try
         {
-            ArgumentNullException.ThrowIfNull(authorizationKernel);
-            await PostgresServiceDelegationCoordinator.IssueInTransactionAsync(
-                new SessionScopedDelegationTarget(
-                    ownership.OrganizationId,
-                    ownership.ActivityId,
-                    ownership.ParticipantId,
-                    ownership.AttemptId,
-                    ownership.SessionId),
-                timerLaneDelegation,
-                authorizationKernel,
-                transaction,
-                cancellationToken,
-                reauthorizeBeforeReturn: false);
-        }
+            var lastCommittedAt = ToUtc(await RequireConnection(transaction).ExecuteScalarAsync<DateTime>(
+                new CommandDefinition(
+                    InsertActiveSql,
+                    HeadParameters(ownership, session, expectedSessionVersion: null),
+                    transaction,
+                    cancellationToken: cancellationToken)));
 
-        await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
-        await PersistBindingManifestRefsAsync(ownership, session, transaction, cancellationToken);
-        await PersistFrozenPolicySnapshotAsync(ownership, session, transaction, cancellationToken);
-        await PersistStartingParticipantRelationshipAsync(
-            ownership,
-            participantActor,
-            transaction,
-            cancellationToken);
-        await PersistManifestAndTerminalAsync(ownership, session, transaction, cancellationToken);
-        if (timerLaneDelegation is not null)
-        {
-            await PostgresServiceDelegationCoordinator.ReauthorizeMutationInTransactionAsync(
-                ownership.OrganizationId,
-                ownership.SessionId,
-                timerLaneDelegation.Issue.DelegationId,
-                timerLaneDelegation.Mutation,
-                AuthorizationActions.IssueServiceDelegation,
-                authorizationKernel!,
+            session.ReplaceLastCommittedAtFromDatabase(lastCommittedAt);
+            if (timerLaneDelegation is not null)
+            {
+                ArgumentNullException.ThrowIfNull(authorizationKernel);
+                await PostgresServiceDelegationCoordinator.IssueInTransactionAsync(
+                    new SessionScopedDelegationTarget(
+                        ownership.OrganizationId,
+                        ownership.ActivityId,
+                        ownership.ParticipantId,
+                        ownership.AttemptId,
+                        ownership.SessionId),
+                    timerLaneDelegation,
+                    authorizationKernel,
+                    transaction,
+                    cancellationToken,
+                    reauthorizeBeforeReturn: false);
+            }
+
+            await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
+            await PersistBindingManifestRefsAsync(ownership, session, transaction, cancellationToken);
+            await PersistFrozenPolicySnapshotAsync(ownership, session, transaction, cancellationToken);
+            await PersistStartingParticipantRelationshipAsync(
+                ownership,
+                participantActor,
                 transaction,
                 cancellationToken);
+            await PersistManifestAndTerminalAsync(ownership, session, transaction, cancellationToken);
+            if (timerLaneDelegation is not null)
+            {
+                if (AfterPersistenceBeforeDelegationReauthAsync is not null)
+                {
+                    await AfterPersistenceBeforeDelegationReauthAsync();
+                }
+
+                await PostgresServiceDelegationCoordinator.ReauthorizeMutationInTransactionAsync(
+                    ownership.OrganizationId,
+                    ownership.SessionId,
+                    timerLaneDelegation.Issue.DelegationId,
+                    timerLaneDelegation.Mutation,
+                    AuthorizationActions.IssueServiceDelegation,
+                    authorizationKernel!,
+                    transaction,
+                    cancellationToken);
+            }
+        }
+        catch (AuthorizationDeniedException)
+        {
+            await PostgresServiceDelegationCoordinator.AbortCallerTransactionAsync(transaction, cancellationToken);
+            throw;
         }
     }
 
