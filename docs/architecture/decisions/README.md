@@ -4,13 +4,15 @@ Architecture Decision Records (ADRs) for Flex Agent.
 
 ## Status
 
-**Fourteen approved decisions** plus one proposed timer-lane delegation
-realization. ADR-012 through ADR-014 plus their approved upstream
+**Sixteen approved decisions.** ADR-012 through ADR-014 plus their approved upstream
 product/requirement revisions govern structured Agent Invocation/Decision,
-next-timer replacement, and the P0 Decision-output envelope. Proposed
+next-timer replacement, and the P0 Decision-output envelope.
 [ADR-015](ADR-015-session-timer-lane-service-delegation.md) records the Worker
-timer-lane service-delegation realization of ADR-002; it does not govern until
-approved.
+timer-lane service-delegation realization of ADR-002.
+[ADR-016](ADR-016-worker-workload-identity-and-invocation-delegation.md)
+defines portable Worker workload authentication and bounded Invocation
+delegation. Both Worker authorization decisions are approved; their runtime,
+deployment-profile, and verification gates remain incomplete.
 
 | ADR | Status | Decision |
 | --- | --- | --- |
@@ -28,7 +30,8 @@ approved.
 | [ADR-012](ADR-012-structured-agent-invocation-and-decision-boundary.md) | Approved | Provider-neutral trusted Agent Invocation, structured Agent Decision, independent validation/effect, explicit no-action, ordering, streaming coexistence, and minimized provenance boundary |
 | [ADR-013](ADR-013-agent-requested-next-timer-replacement.md) | Approved | Optional Agent recommendation that replaces one runtime-owned next timer under frozen delay, lifecycle, idempotency, and loop bounds |
 | [ADR-014](ADR-014-agent-output-envelope-and-p0-compatibility.md) | Approved | Versioned Decision envelope with typed outputs and requested actions, P0 message-only compatibility profile, runtime-owned output identity, and historical v1 reconstruction |
-| [ADR-015](ADR-015-session-timer-lane-service-delegation.md) | Proposed | Per-Session `session.timer_lane.fire` service delegation, timer-schedule envelope reference, explicit Worker timer-polling capability, and commit-time reauthorization |
+| [ADR-015](ADR-015-session-timer-lane-service-delegation.md) | Approved | Per-Session `session.timer_lane.fire` service delegation, timer-schedule envelope reference, explicit Worker timer-polling capability, and commit-time reauthorization |
+| [ADR-016](ADR-016-worker-workload-identity-and-invocation-delegation.md) | Approved | Provider-neutral Worker workload identity, OAuth 2.0 client-credentials signed-JWT reference profile, versioned service-actor binding, and per-Session `session.invocation.execute` delegation |
 
 ## Purpose
 

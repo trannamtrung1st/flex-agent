@@ -561,3 +561,12 @@ None for the current Development/Testing timer-lane path.
       `Sessions:TimerPolling:Enabled` until Worker workload authentication exists
 - [x] Independent backend and security/privacy review of the `c8dc740`
       exact-evidence traceability cleanup (against `9650da9`)
+
+# Post-completion governance update
+
+ADR-015 was Approved on 2026-08-18 together with ADR-016 after this task's
+implementation and external review had completed. Earlier statements that
+ADR-015 remained Proposed are retained above as execution history at task
+closure; the approved ADR now governs the timer-lane realization. Production
+timer polling still requires ADR-016 workload-identity implementation,
+deployment-profile, and verification evidence.

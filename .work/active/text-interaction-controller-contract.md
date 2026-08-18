@@ -2,8 +2,8 @@
 id: text-interaction-controller-contract
 status: planned
 created: 2026-08-15
-updated: 2026-08-15
-blocked_by: structured-agent-runtime-sync
+updated: 2026-08-18
+activation_gate: explicit-product-lead-prioritization
 ---
 
 # Goal
@@ -139,7 +139,7 @@ This task is a contract and planning task. It does not implement the controller.
 
 # Plan
 
-- [!] Wait for `structured-agent-runtime-sync` completion and its required
+- [x] Wait for `structured-agent-runtime-sync` completion and its required
   implementation, verification, and independent-review evidence.
 - [ ] Reconcile the source proposal with the completed runtime seams,
   traceability matrix, residual risks, and any superseding product decisions.
@@ -164,15 +164,16 @@ This task is a contract and planning task. It does not implement the controller.
 
 # Current state
 
-Planned and blocked. The source proposal has been captured without modifying
-the approved MVP or active runtime-sync contract. The current runtime sync is
-in progress and explicitly keeps Interaction Controller triggers disabled while
-it completes the structured Invocation/Decision, response-streaming, and
-one-lane timer foundation.
+Planned and awaiting explicit Product Lead prioritization. The structured
+runtime dependency and its successor host slices are completed, including the
+structured Invocation/Decision, response-streaming, production HTTP SSE,
+Session binding, and one-lane timer foundation. Interaction Controller triggers
+remain disabled and deferred by the approved MVP scope.
 
-The next action is to wait for the dependency to complete. At activation, the
-first substantive step is an evidence-based seam inventory; do not begin by
-copying the proposal into authoritative documents.
+If the Product Lead activates this contract task, the first substantive step is
+an evidence-based seam inventory against the completed runtime and remaining
+production gates; do not begin by copying the proposal into authoritative
+documents or by treating the cleared technical dependency as product approval.
 
 # Proposed decisions to evaluate
 
@@ -261,7 +262,7 @@ Interim defaults below are working guidance only.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Dependency status and completion evidence | blocked | `.work/active/structured-agent-runtime-sync.md` remains `in-progress` as of 2026-08-15 |
+| Dependency status and completion evidence | complete | `.work/active/structured-agent-runtime-sync.md` and its Worker, production HTTP SSE, subject-binding, and timer-activation successors are completed as of 2026-08-18 |
 | Proposal remains non-authoritative and does not enable behavior | complete | Status and dependency statements in `.work/resources/text-interaction-controller-proposal.md` and this task |
 | Proposal cross-concern consistency review | complete | Checked against `REQ-SESS-10`, `REQ-SESS-61`–`REQ-SESS-70`, `REQ-SESS-84`, `SESS-DEC-14`–`SESS-DEC-23`, ADR-012, ADR-013, ADR-014, and Text Session/design-system interaction boundaries; corrections applied 2026-08-15 |
 | Governing document inventory | pending | Recheck after dependency completion |
@@ -271,8 +272,6 @@ Interim defaults below are working guidance only.
 
 # Blockers
 
-- `structured-agent-runtime-sync` must complete with reconciled implementation,
-  verification, and required independent reviews.
 - Product Lead approval is required to promote the Interaction Controller from
   deferred behavior into the MVP.
 

@@ -2,13 +2,13 @@
 
 ## Status
 
-Proposed. This records the Worker timer-lane realization of approved
+Approved. This records the Worker timer-lane realization of approved
 [ADR-002](ADR-002-authorization-enforcement-and-delegation.md) and
 `REQ-SESS-75`. It does not replace ADR-002.
 
 Security/privacy accepted the implemented MVP path at `f5e06e9` on 2026-08-18
-with no remaining blockers. Product Lead and Architecture Lead approval remain
-required before this ADR is Approved.
+with no remaining blockers. Product Lead and Architecture Lead approval was
+recorded on 2026-08-18.
 
 ## Decision metadata
 
@@ -18,11 +18,13 @@ required before this ADR is Approved.
 | **Required approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Architecture, backend, security/privacy |
 | **Proposed date** | 2026-08-18 |
+| **Approved date** | 2026-08-18 |
+| **Approval reference** | Product and Architecture approval of the complete Worker authorization proposal on 2026-08-18; Security/Privacy implementation acceptance at `f5e06e9` |
 | **Security/Privacy implementation review** | Accepted 2026-08-18 against `f5e06e9`; no blockers |
 | **Governs** | Durable per-Session `session.timer_lane.fire` service delegation, timer-schedule envelope reference, Worker timer-polling capability, and commit-time reauthorization |
 | **Upstream sources** | [ADR-002](ADR-002-authorization-enforcement-and-delegation.md), [auth-resource-isolation](../../requirements/features/auth-resource-isolation.md), [text Session lifecycle](../../requirements/features/session-text-lifecycle.md) `REQ-SESS-75` |
 | **Extends** | ADR-002 delegated service execution |
-| **Preserves** | ADR-001 frozen configuration, ADR-003 mutation-coupled audit, ADR-013 one-lane timer replacement, applied migrations `0001`–`0023` |
+| **Preserves** | ADR-001 frozen configuration, ADR-003 mutation-coupled audit, ADR-013 one-lane timer replacement, applied migrations `0001`–`0024` |
 
 ## Context
 
@@ -65,11 +67,15 @@ violate the delayed-work contract.
    timer-enabled Sessions. Do not backfill historical rows; missing or invalid
    references stay fail-closed and retryable without cancelling a valid pending
    timer.
-4. The Worker acts as the explicitly configured `Sessions:WorkerServiceActorId`
-   (which must already exist in IdentityAccess `actors`). This is trusted
-   deployment configuration, not workload authentication or provisioning. The
-   host flag and actor GUID do not authenticate the service. Until real
-   workload authentication exists, `Sessions:TimerPolling:Enabled` is a
+4. In the current Development/Testing synthetic profile, the Worker acts as the
+   explicitly configured `Sessions:WorkerServiceActorId` (which must already
+   exist in IdentityAccess `actors`). This is trusted deployment configuration,
+   not workload authentication or provisioning. The host flag and actor GUID
+   do not authenticate the service. Under ADR-016, a Production/Staging profile
+   resolves the service actor from the current authenticated workload-principal
+   binding and requires it to match the configured expected actor id; configuration
+   cannot supply authenticated actor context or authority. Until that workload
+   authentication is implemented, `Sessions:TimerPolling:Enabled` is a
    Development/Testing host profile only: Production and Staging refuse
    startup when the flag is set. In that synthetic profile the Worker
    rehydrates the immutable Session policy snapshot and authorizes the
@@ -116,8 +122,9 @@ violate the delayed-work contract.
    Single-action delegations are not rewritten in place: replacing capability
    requires revoke plus a newly authorized issue (`REQ-AUTH-5`).
 7. `session.timer_lane.fire` delegations require `expires_at`, and the lifetime
-   from `effective_at` cannot exceed seven days (`PROP-WBT-5`). Renewal remains
-   a later authorized command. Timer-fire audit events record
+   from `effective_at` cannot exceed seven days. This approves the bound
+   previously tracked as `PROP-WBT-5`. Renewal remains a later authorized
+   command. Timer-fire audit events record
    `authorization_reference_type=service_delegation` and the exact
    `delegation_id` (`REQ-AUTH-27`). Additive `0023` refuses *active* unbounded
    or over-long timer-lane rows left by `0022` with an operator-facing error
@@ -130,9 +137,9 @@ violate the delayed-work contract.
 ## Consequences
 
 - Timer due-claim can no longer treat process identity as permission.
-- Production and Staging cannot enable timer polling until a successor
-  implements Worker workload authentication; this slice does not claim the
-  timer lane is production-authenticated.
+- Production and Staging cannot enable timer polling until ADR-016 Worker
+  workload authentication is implemented and verified; this slice does not
+  claim the timer lane is production-authenticated.
 - New Sessions must receive a trustworthy Worker service principal at insert.
 - Operators can distinguish invocation claiming from timer polling in readiness
   copy without protected identifiers.
@@ -143,5 +150,9 @@ violate the delayed-work contract.
 
 - Requirements: `REQ-AUTH-1`, `REQ-AUTH-11`, `REQ-AUTH-15`, `REQ-AUTH-18`–`REQ-AUTH-22`,
   `REQ-AUTH-26`, `REQ-AUTH-27`, `REQ-AUTH-31`, `REQ-SESS-75`
-- Proposed defaults: `PROP-WBT-1`–`PROP-WBT-11` in
-  `.work/active/session-runtime-worker-binding-timer-activation.md`
+- Approved extension: [ADR-016](ADR-016-worker-workload-identity-and-invocation-delegation.md)
+  adds Worker workload authentication and defines the downstream Invocation
+  delegation required when a timer fire creates Invocation work.
+- Planning provenance: `PROP-WBT-1`–`PROP-WBT-11` in
+  `.work/active/session-runtime-worker-binding-timer-activation.md`; this ADR
+  now governs the adopted timer-lane decisions.

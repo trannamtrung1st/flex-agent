@@ -79,8 +79,15 @@ specializes the Decision as a versioned output/action envelope with a P0
 message-only compatibility profile. Historical v1 Decisions remain
 reconstructable; voice and additional actions remain disabled.
 
-Proposed [ADR-015](decisions/ADR-015-session-timer-lane-service-delegation.md)
+Approved [ADR-015](decisions/ADR-015-session-timer-lane-service-delegation.md)
 records the Worker timer-lane service-delegation realization of ADR-002.
+Approved
+[ADR-016](decisions/ADR-016-worker-workload-identity-and-invocation-delegation.md)
+defines the portable Worker workload-authentication contract, reference OAuth
+2.0 client-credentials signed-JWT profile, durable service-actor binding, and
+bounded Invocation-execution delegation. The decisions govern implementation,
+while their runtime, deployment-profile, and verification gates remain
+incomplete.
 
 ## Purpose
 
@@ -96,7 +103,8 @@ This area governs how the system is structured: boundaries, data ownership, runt
 | Review the approved structured Agent boundary | [ADR-012: structured Agent Invocation and Decision](decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md) |
 | Review the approved next-timer replacement boundary | [ADR-013: Agent-requested next-timer replacement](decisions/ADR-013-agent-requested-next-timer-replacement.md) |
 | Review the approved P0 Decision-output envelope | [ADR-014: Agent output envelope and P0 compatibility](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
-| Review the proposed timer-lane service delegation | [ADR-015: Session timer-lane service delegation](decisions/ADR-015-session-timer-lane-service-delegation.md) |
+| Review the approved timer-lane service delegation | [ADR-015: Session timer-lane service delegation](decisions/ADR-015-session-timer-lane-service-delegation.md) |
+| Review the approved Worker identity and Invocation delegation | [ADR-016: Worker workload identity and bounded Invocation delegation](decisions/ADR-016-worker-workload-identity-and-invocation-delegation.md) |
 | Review the approved implementation stack and workspace | [ADR-010: .NET implementation stack](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) |
 | Structure or review a backend module | [Backend module architecture](backend-module-architecture.md) |
 | Review approved OSS component defaults and pending evidence gates | [ADR-008: bounded OSS component set](decisions/ADR-008-bounded-oss-component-set.md) |
