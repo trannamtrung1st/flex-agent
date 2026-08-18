@@ -289,7 +289,7 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
                     CommitKernel()));
             try
             {
-                await scope.CommitAsync(CancellationToken);
+                await scope.CommitAsync(CancellationToken.None);
             }
             catch (Exception)
             {
@@ -303,6 +303,88 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
         }
 
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var counts = await connection.QuerySingleAsync<(int Sessions, int Delegations, int Audits)>(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM session_runtimes
+                 WHERE organization_id = @OrganizationId AND session_id = @SessionId)::int,
+                (SELECT COUNT(*) FROM service_delegations
+                 WHERE organization_id = @OrganizationId AND delegation_id = @DelegationId)::int,
+                (SELECT COUNT(*) FROM audit_events
+                 WHERE organization_id = @OrganizationId AND resource_id = @DelegationId)::int;
+            """,
+            new
+            {
+                binding.Ownership.OrganizationId,
+                binding.Ownership.SessionId,
+                DelegationId = delegationId,
+            });
+        Assert.Equal(0, counts.Sessions);
+        Assert.Equal(0, counts.Delegations);
+        Assert.Equal(0, counts.Audits);
+    }
+
+    [Fact]
+    public async Task Canceled_request_cannot_prevent_abort_after_final_authorization_denial()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        await Fixture.GrantOrganizationActionAsync(
+            organization.OrganizationId,
+            organization.ActorId,
+            AuthorizationActions.IssueServiceDelegation);
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        var delegationId = Guid.NewGuid();
+        using var canceled = new CancellationTokenSource();
+        PostgresSessionRuntimeRepository.AfterPersistenceBeforeDelegationReauthAsync = async () =>
+        {
+            await new PostgresGrantRepository(Fixture.Services.ConnectionAccessor).RevokeAsync(
+                organization.OrganizationId,
+                organization.ActorId,
+                AuthorizationActions.IssueServiceDelegation,
+                CancellationToken.None);
+        };
+        PostgresServiceDelegationCoordinator.AfterFinalAuthorizationDeniedBeforeAbort = () => canceled.Cancel();
+
+        try
+        {
+            await using var scope = await PostgresTransactionScope.BeginAsync(
+                Fixture.Services.ConnectionAccessor,
+                CancellationToken.None);
+            var startedAt = new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero);
+            var session = SessionRuntime.CreateActive(binding, startedAt);
+            var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken.None);
+            var denied = await Assert.ThrowsAsync<AuthorizationDeniedException>(() =>
+                repository.InsertActiveAsync(
+                    binding.Ownership,
+                    session,
+                    SessionPersistenceFixtures.Actor(organization.ActorId),
+                    scope.Transaction,
+                    canceled.Token,
+                    CreateAuthorizedIssue(
+                        organization,
+                        delegationId,
+                        organization.ActorId,
+                        clock,
+                        Guid.NewGuid()),
+                    CommitKernel()));
+            try
+            {
+                await scope.CommitAsync(CancellationToken.None);
+            }
+            catch (Exception)
+            {
+            }
+
+            Assert.Equal(AuthorizationReasonCodes.DeniedNoGrant, denied.ReasonCode);
+        }
+        finally
+        {
+            PostgresSessionRuntimeRepository.AfterPersistenceBeforeDelegationReauthAsync = null;
+            PostgresServiceDelegationCoordinator.AfterFinalAuthorizationDeniedBeforeAbort = null;
+        }
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken.None);
         var counts = await connection.QuerySingleAsync<(int Sessions, int Delegations, int Audits)>(
             """
             SELECT

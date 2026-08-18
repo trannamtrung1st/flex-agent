@@ -801,7 +801,7 @@ public sealed class PostgresSessionRuntimeRepository
         }
         catch (AuthorizationDeniedException)
         {
-            await PostgresServiceDelegationCoordinator.AbortCallerTransactionAsync(transaction, cancellationToken);
+            await PostgresServiceDelegationCoordinator.AbortCallerTransactionAsync(transaction);
             throw;
         }
     }

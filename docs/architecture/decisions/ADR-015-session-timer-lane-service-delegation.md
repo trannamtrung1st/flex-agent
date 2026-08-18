@@ -95,7 +95,8 @@ violate the delayed-work contract.
    and does not fabricate expiry. Revoked historically unbounded rows may
    upgrade so the documented revoke-then-retry repair works. A service-
    delegation mutation that fails commit-time reauthorization aborts the
-   caller transaction so a later `COMMIT` cannot persist the staged writes.
+   caller transaction with a non-cancelable rollback so request cancellation
+   cannot leave staged writes committable.
 
 ## Consequences
 

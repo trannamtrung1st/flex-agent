@@ -144,21 +144,22 @@ public static class PostgresServiceDelegationCoordinator
             cancellationToken);
         if (!decision.IsPermitted)
         {
-            await AbortCallerTransactionAsync(transaction, cancellationToken);
+            AfterFinalAuthorizationDeniedBeforeAbort?.Invoke();
+            await AbortCallerTransactionAsync(transaction);
             throw new AuthorizationDeniedException(decision.ReasonCode);
         }
     }
 
-    public static async Task AbortCallerTransactionAsync(
-        NpgsqlTransaction transaction,
-        CancellationToken cancellationToken = default)
+    public static Action? AfterFinalAuthorizationDeniedBeforeAbort { get; set; }
+
+    public static async Task AbortCallerTransactionAsync(NpgsqlTransaction transaction)
     {
         ArgumentNullException.ThrowIfNull(transaction);
         try
         {
-            await transaction.RollbackAsync(cancellationToken);
+            await transaction.RollbackAsync(CancellationToken.None);
         }
-        catch (InvalidOperationException)
+        catch (Exception exception) when (exception is InvalidOperationException or OperationCanceledException)
         {
         }
     }
