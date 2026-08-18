@@ -68,10 +68,12 @@ participant UI remain later.
 
 # Current state
 
-External review of `0b78ba0` is addressed and `5fc6b7f` is approved. `GET
-/sessions/{id}/events` remains a production **adapter seam**. `REQ-SESS-59`
-stays Partial. Session-scoped subject resolution is successor work
-(`.work/active/session-runtime-subject-binding-rehydration.md`).
+This adapter-seam slice is **frozen**. External review of `4831cab` (2026-08-18)
+is **approved** (0 blocking). `GET /sessions/{id}/events` remains a production
+adapter seam. `REQ-SESS-59` stays Partial. Session-scoped subject/binding
+rehydration is successor work
+(`.work/active/session-runtime-subject-binding-rehydration.md`). Do not iterate
+this SSE-only slice.
 
 # Decisions
 
@@ -110,6 +112,19 @@ stays Partial. Session-scoped subject resolution is successor work
   remediating in this slice: `ISessionEventSubjectSource` is actor-keyed and
   cannot represent per-Session relationships. Fix with persistence-backed
   rehydration, not another SSE-only commit.
+
+# External review
+
+- `0b78ba0` (2026-08-18): request changes — empty hosted bindings labeled
+  complete, frozen relationship on the command, unguarded actor GUID header.
+- `5fc6b7f` (2026-08-18): **approved** with P2 — actor-keyed subject lookup
+  is not the production authorization model. Recorded in `4831cab`.
+- `4831cab` (2026-08-18): **approved**. 0 blocking. Freeze this adapter seam.
+  Successor `session-runtime-subject-binding-rehydration` owns Session-scoped
+  chain resolution, persistence-backed bindings, and cross-Session
+  relationship tests. GitHub had no attached status checks for this SHA at
+  review time; evaluation was of the diff. Local `verify-dotnet.sh` **895/895**
+  was for the prior implementation SHA `5fc6b7f`.
 
 # Verification
 

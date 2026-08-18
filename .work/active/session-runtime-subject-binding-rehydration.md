@@ -62,8 +62,10 @@ fail-closed bindings with persistence-backed resolution of the actor's
 
 # Current state
 
-Planned successor after approval of `5fc6b7f`. Production SSE remains an
-adapter seam. Do not implement until this task is started.
+Planned. External review of `4831cab` (2026-08-18) **approved** this successor
+scope and froze the SSE adapter seam. Production SSE remains unusable until
+this task is started and completed. Do not implement until this task is
+explicitly started.
 
 # Decisions
 
@@ -79,6 +81,14 @@ adapter seam. Do not implement until this task is started.
 - P2 from review of `5fc6b7f`: `GetCurrentAsync(actorId)` returns one
   organization, participant id, and relationship for the actor, then the
   handler applies that to whatever `UntrustedSessionId` was requested.
+
+# External review
+
+- `4831cab` (2026-08-18): **approved** the recording of that P2 and this
+  task's scope (`(actor, untrustedSessionId)` chain, persistence-backed
+  bindings, 60-second revalidation, participant-in-one-Session /
+  reviewer-in-another negative case). GitHub had no status checks for the
+  SHA at review time.
 
 # Verification
 
