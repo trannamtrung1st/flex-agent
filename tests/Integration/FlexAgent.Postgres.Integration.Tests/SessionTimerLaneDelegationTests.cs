@@ -89,30 +89,7 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
         var coordinator = CreateCoordinator();
         coordinator.AfterAdmissionAuthorizedAsync = async () =>
         {
-            Assert.True(await MutateDelegationAsync(prepared, "revoke"));
-        };
-
-        var before = await CaptureWorkAsync(prepared.Ownership);
-        var result = await coordinator.TryFireNextDueAsync(FireCommand(prepared.Organization.ActorId), CancellationToken);
-        var after = await CaptureWorkAsync(prepared.Ownership);
-
-        Assert.False(result.Succeeded);
-        Assert.Equal(TimerFireOutcomeCodes.AuthorityDenied, result.OutcomeCode);
-        Assert.Equal(before.SessionVersion, after.SessionVersion);
-        Assert.Equal(0, after.InvocationCount);
-        Assert.Equal("pending", after.LaneState);
-    }
-
-    [Fact]
-    public async Task Narrowing_after_admission_and_before_commit_denies_without_invocation()
-    {
-        var prepared = await InsertDelegatedSessionAsync();
-        await using var otherDue = await HoldOtherDueSchedulesAsync(prepared.Ownership);
-        await MarkScheduleDueAsync(prepared.Ownership);
-        var coordinator = CreateCoordinator();
-        coordinator.AfterAdmissionAuthorizedAsync = async () =>
-        {
-            Assert.True(await MutateDelegationAsync(prepared, "narrow"));
+            Assert.True(await MutateDelegationAsync(prepared));
         };
 
         var before = await CaptureWorkAsync(prepared.Ownership);
@@ -158,23 +135,48 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
     }
 
     [Fact]
-    public async Task Issue_records_mutation_coupled_audit_and_transition()
+    public async Task Issue_records_mutation_coupled_audit_against_the_authorizing_grant()
     {
         var prepared = await InsertDelegatedSessionAsync();
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
-        var audit = await connection.QuerySingleAsync<(string Action, Guid? ReferenceId, long? Version)>(
+        var grantId = await connection.ExecuteScalarAsync<Guid>(
             """
-            SELECT action, authorization_reference_id, relationship_version
-            FROM audit_events
+            SELECT grant_id
+            FROM actor_organization_grants
             WHERE organization_id = @OrganizationId
-              AND resource_id = @SessionId
-              AND action = @Action;
+              AND actor_id = @ActorId
+              AND granted_action = @GrantedAction
+              AND revoked_at IS NULL;
             """,
             new
             {
                 prepared.Ownership.OrganizationId,
-                prepared.Ownership.SessionId,
+                ActorId = prepared.Organization.ActorId,
+                GrantedAction = AuthorizationActions.IssueServiceDelegation,
+            });
+        var audit = await connection.QuerySingleAsync<(
+            string Action,
+            string ResourceType,
+            Guid ResourceId,
+            Guid ActorId,
+            Guid CorrelationId,
+            string SourceChannel,
+            string? ReferenceType,
+            Guid? ReferenceId,
+            long? Version)>(
+            """
+            SELECT action, resource_type, resource_id, actor_id, correlation_id, source_channel,
+                   authorization_reference_type, authorization_reference_id, relationship_version
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND action = @Action
+              AND resource_id = @DelegationId;
+            """,
+            new
+            {
+                prepared.Ownership.OrganizationId,
                 Action = AuthorizationActions.IssueServiceDelegation,
+                prepared.DelegationId,
             });
         var transition = await connection.QuerySingleAsync<(string Kind, string? PreviousAction, string NewAction)>(
             """
@@ -184,7 +186,13 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
             """,
             new { prepared.Ownership.OrganizationId, prepared.DelegationId });
         Assert.Equal(AuthorizationActions.IssueServiceDelegation, audit.Action);
-        Assert.Equal(prepared.DelegationId, audit.ReferenceId);
+        Assert.Equal(AuthorizationResourceTypes.ServiceDelegation, audit.ResourceType);
+        Assert.Equal(prepared.DelegationId, audit.ResourceId);
+        Assert.Equal(prepared.Organization.ActorId, audit.ActorId);
+        Assert.Equal(prepared.CorrelationId, audit.CorrelationId);
+        Assert.Equal("session.start", audit.SourceChannel);
+        Assert.Equal(AuthorizationReferenceTypes.ActorOrganizationGrant, audit.ReferenceType);
+        Assert.Equal(grantId, audit.ReferenceId);
         Assert.Equal(1, audit.Version);
         Assert.Equal("issue", transition.Kind);
         Assert.Null(transition.PreviousAction);
@@ -192,22 +200,101 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
     }
 
     [Fact]
-    public async Task Narrow_preserves_previous_allowed_action_in_append_only_history()
+    public async Task Issue_without_grant_is_denied_and_does_not_insert_a_session()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var repository = new PostgresSessionRuntimeRepository();
+        await using var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken);
+        var startedAt = new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero);
+        var session = SessionRuntime.CreateActive(binding, startedAt);
+        var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
+        var denied = await Assert.ThrowsAsync<AuthorizationDeniedException>(() =>
+            repository.InsertActiveAsync(
+                binding.Ownership,
+                session,
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                scope.Transaction,
+                CancellationToken,
+                CreateAuthorizedIssue(
+                    organization,
+                    Guid.NewGuid(),
+                    organization.ActorId,
+                    clock,
+                    Guid.NewGuid()),
+                CommitKernel()));
+        await scope.RollbackAsync(CancellationToken);
+
+        Assert.Equal(AuthorizationReasonCodes.DeniedNoGrant, denied.ReasonCode);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var sessionCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM session_runtimes
+            WHERE organization_id = @OrganizationId AND session_id = @SessionId;
+            """,
+            new { binding.Ownership.OrganizationId, binding.Ownership.SessionId });
+        Assert.Equal(0, sessionCount);
+    }
+
+    [Fact]
+    public async Task Revoke_without_grant_is_denied_and_leaves_the_delegation_active()
+    {
+        var prepared = await InsertDelegatedSessionAsync(grantRevoke: false);
+        var denied = await Assert.ThrowsAsync<AuthorizationDeniedException>(() => MutateDelegationAsync(prepared));
+        Assert.Equal(AuthorizationReasonCodes.DeniedNoGrant, denied.ReasonCode);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var revokedAt = await connection.ExecuteScalarAsync<DateTime?>(
+            """
+            SELECT revoked_at
+            FROM service_delegations
+            WHERE delegation_id = @DelegationId;
+            """,
+            new { prepared.DelegationId });
+        Assert.Null(revokedAt);
+    }
+
+    [Fact]
+    public async Task Revoke_records_mutation_coupled_audit_against_the_authorizing_grant()
     {
         var prepared = await InsertDelegatedSessionAsync();
-        Assert.True(await MutateDelegationAsync(prepared, "narrow"));
+        Assert.True(await MutateDelegationAsync(prepared));
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
-        var transition = await connection.QuerySingleAsync<(string Kind, string? PreviousAction, string NewAction)>(
+        var grantId = await connection.ExecuteScalarAsync<Guid>(
             """
-            SELECT mutation_kind, previous_allowed_action, new_allowed_action
-            FROM service_delegation_transitions
+            SELECT grant_id
+            FROM actor_organization_grants
             WHERE organization_id = @OrganizationId
-              AND delegation_id = @DelegationId
-              AND mutation_kind = 'narrow';
+              AND actor_id = @ActorId
+              AND granted_action = @GrantedAction
+              AND revoked_at IS NULL;
             """,
-            new { prepared.Ownership.OrganizationId, prepared.DelegationId });
-        Assert.Equal(AuthorizationActions.FireSessionTimerLane, transition.PreviousAction);
-        Assert.Equal(AuthorizationActions.SubscribeSessionEvents, transition.NewAction);
+            new
+            {
+                prepared.Ownership.OrganizationId,
+                ActorId = prepared.Organization.ActorId,
+                GrantedAction = AuthorizationActions.RevokeServiceDelegation,
+            });
+        var audit = await connection.QuerySingleAsync<(string ResourceType, Guid ResourceId, string? ReferenceType, Guid? ReferenceId)>(
+            """
+            SELECT resource_type, resource_id, authorization_reference_type, authorization_reference_id
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND action = @Action
+              AND resource_id = @DelegationId;
+            """,
+            new
+            {
+                prepared.Ownership.OrganizationId,
+                Action = AuthorizationActions.RevokeServiceDelegation,
+                prepared.DelegationId,
+            });
+        Assert.Equal(AuthorizationResourceTypes.ServiceDelegation, audit.ResourceType);
+        Assert.Equal(prepared.DelegationId, audit.ResourceId);
+        Assert.Equal(AuthorizationReferenceTypes.ActorOrganizationGrant, audit.ReferenceType);
+        Assert.Equal(grantId, audit.ReferenceId);
     }
 
     [Fact]
@@ -301,12 +388,27 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
 
                 break;
             case "revoked":
-                Assert.True(await MutateDelegationAsync(prepared, "revoke"));
+                Assert.True(await MutateDelegationAsync(prepared));
                 break;
             case "wrong-service":
                 break;
             case "wrong-action":
-                Assert.True(await MutateDelegationAsync(prepared, "narrow"));
+                await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+                {
+                    var updated = await connection.ExecuteAsync(
+                        """
+                        UPDATE service_delegations
+                        SET allowed_action = @AllowedAction
+                        WHERE delegation_id = @DelegationId;
+                        """,
+                        new
+                        {
+                            prepared.DelegationId,
+                            AllowedAction = AuthorizationActions.SubscribeSessionEvents,
+                        });
+                    Assert.Equal(1, updated);
+                }
+
                 break;
             case "wrong-organization":
             case "wrong-session":
@@ -334,12 +436,27 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
         }
     }
 
-    private async Task<PreparedDelegatedSession> InsertDelegatedSessionAsync(Guid? timerServiceActorId = null)
+    private async Task<PreparedDelegatedSession> InsertDelegatedSessionAsync(
+        Guid? timerServiceActorId = null,
+        bool grantRevoke = true)
     {
         var organization = await Fixture.SeedOrganizationAsync();
+        await Fixture.GrantOrganizationActionAsync(
+            organization.OrganizationId,
+            organization.ActorId,
+            AuthorizationActions.IssueServiceDelegation);
+        if (grantRevoke)
+        {
+            await Fixture.GrantOrganizationActionAsync(
+                organization.OrganizationId,
+                organization.ActorId,
+                AuthorizationActions.RevokeServiceDelegation);
+        }
+
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var repository = new PostgresSessionRuntimeRepository();
         var delegationId = Guid.NewGuid();
+        var correlationId = Guid.NewGuid();
         await using (var scope = await PostgresTransactionScope.BeginAsync(
             Fixture.Services.ConnectionAccessor,
             CancellationToken))
@@ -353,18 +470,23 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
                 SessionPersistenceFixtures.Actor(organization.ActorId),
                 scope.Transaction,
                 CancellationToken,
-                new ServiceDelegationIssue(
+                CreateAuthorizedIssue(
+                    organization,
                     delegationId,
                     timerServiceActorId ?? organization.ActorId,
-                    AuthorizationActions.FireSessionTimerLane,
-                    "session.timer_lane.scheduler",
-                    "system.session_runtime",
-                    delegationClock.AddMinutes(-1),
-                    delegationClock.AddDays(6)));
+                    delegationClock,
+                    correlationId),
+                CommitKernel());
             await scope.CommitAsync(CancellationToken);
         }
 
-        return new PreparedDelegatedSession(organization, binding.Ownership, binding, delegationId, repository);
+        return new PreparedDelegatedSession(
+            organization,
+            binding.Ownership,
+            binding,
+            delegationId,
+            correlationId,
+            repository);
     }
 
     [Fact]
@@ -385,37 +507,47 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
             () => PostgresServiceDelegationCoordinator.ValidateTimerLaneFireLifetime(overLong));
     }
 
-    private async Task<bool> MutateDelegationAsync(PreparedDelegatedSession prepared, string mutation)
+    private async Task<bool> MutateDelegationAsync(PreparedDelegatedSession prepared)
     {
         await using var scope = await PostgresTransactionScope.BeginAsync(
             Fixture.Services.ConnectionAccessor,
             CancellationToken);
-        var actor = new TrustedActor(prepared.Organization.ActorId, "integration.test");
-        var mutated = mutation == "revoke"
-            ? await PostgresServiceDelegationCoordinator.RevokeInTransactionAsync(
-                prepared.Ownership.OrganizationId,
-                prepared.Ownership.SessionId,
-                prepared.DelegationId,
-                actor,
+        var mutated = await PostgresServiceDelegationCoordinator.RevokeInTransactionAsync(
+            prepared.Ownership.OrganizationId,
+            prepared.Ownership.SessionId,
+            prepared.DelegationId,
+            new ServiceDelegationMutationContext(
+                new TrustedActor(prepared.Organization.ActorId, "integration.test"),
                 Guid.NewGuid(),
                 "integration.test",
-                "timer.lane.test.revoke",
-                scope.Transaction,
-                CancellationToken)
-            : await PostgresServiceDelegationCoordinator.NarrowAllowedActionInTransactionAsync(
-                prepared.Ownership.OrganizationId,
-                prepared.Ownership.SessionId,
-                prepared.DelegationId,
-                AuthorizationActions.SubscribeSessionEvents,
-                actor,
-                Guid.NewGuid(),
-                "integration.test",
-                "timer.lane.test.narrow",
-                scope.Transaction,
-                CancellationToken);
+                "timer.lane.test.revoke"),
+            CommitKernel(),
+            scope.Transaction,
+            CancellationToken);
         await scope.CommitAsync(CancellationToken);
         return mutated;
     }
+
+    private static AuthorizedServiceDelegationIssue CreateAuthorizedIssue(
+        SeededOrganization organization,
+        Guid delegationId,
+        Guid serviceActorId,
+        DateTimeOffset clock,
+        Guid correlationId) =>
+        new(
+            new ServiceDelegationIssue(
+                delegationId,
+                serviceActorId,
+                AuthorizationActions.FireSessionTimerLane,
+                "session.timer_lane.scheduler",
+                "system.session_runtime",
+                clock.AddMinutes(-1),
+                clock.AddDays(6)),
+            new ServiceDelegationMutationContext(
+                new TrustedActor(organization.ActorId, "integration.test"),
+                correlationId,
+                "session.start",
+                "session.start.timer_lane"));
 
     private async Task MarkScheduleDueAsync(SessionOwnership ownership, TimeSpan? olderBy = null)
     {
@@ -517,6 +649,9 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
             bindingSource ?? new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor),
             (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel);
 
+    private ICommitAuthorizationKernel CommitKernel() =>
+        (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel;
+
     private FireDueTimerCommand FireCommand(Guid actorId) =>
         new(SessionPersistenceFixtures.Actor(actorId), Guid.NewGuid(), "integration.test");
 
@@ -525,6 +660,7 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
         SessionOwnership Ownership,
         TrustedSessionBinding Binding,
         Guid DelegationId,
+        Guid CorrelationId,
         PostgresSessionRuntimeRepository Repository);
 
     private sealed record WorkSnapshot(

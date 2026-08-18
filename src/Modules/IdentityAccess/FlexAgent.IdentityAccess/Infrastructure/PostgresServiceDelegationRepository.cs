@@ -43,18 +43,6 @@ internal static class PostgresServiceDelegationRepository
         RETURNING allowed_action, revoked_at, expires_at, delegation_version;
         """;
 
-    private const string NarrowActionSql = """
-        UPDATE service_delegations
-        SET
-            allowed_action = @AllowedAction,
-            delegation_version = delegation_version + 1
-        WHERE delegation_id = @DelegationId
-          AND organization_id = @OrganizationId
-          AND session_id = @SessionId
-          AND revoked_at IS NULL
-        RETURNING allowed_action, revoked_at, expires_at, delegation_version;
-        """;
-
     private const string InsertTransitionSql = """
         INSERT INTO service_delegation_transitions (
             transition_id, delegation_id, organization_id, session_id, mutation_kind,
@@ -121,26 +109,6 @@ internal static class PostgresServiceDelegationRepository
             new CommandDefinition(
                 RevokeSql,
                 new { OrganizationId = organizationId, SessionId = sessionId, DelegationId = delegationId },
-                transaction,
-                cancellationToken: cancellationToken));
-
-    public static Task<DelegationStateRow?> NarrowAllowedActionInTransactionAsync(
-        Guid organizationId,
-        Guid sessionId,
-        Guid delegationId,
-        string allowedAction,
-        NpgsqlTransaction transaction,
-        CancellationToken cancellationToken) =>
-        RequireConnection(transaction).QuerySingleOrDefaultAsync<DelegationStateRow>(
-            new CommandDefinition(
-                NarrowActionSql,
-                new
-                {
-                    OrganizationId = organizationId,
-                    SessionId = sessionId,
-                    DelegationId = delegationId,
-                    AllowedAction = allowedAction,
-                },
                 transaction,
                 cancellationToken: cancellationToken));
 

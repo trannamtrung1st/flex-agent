@@ -7,7 +7,6 @@ public static class AuthorizationActions
     public const string FireSessionTimerLane = "session.timer_lane.fire";
     public const string IssueServiceDelegation = "service_delegation.issue";
     public const string RevokeServiceDelegation = "service_delegation.revoke";
-    public const string NarrowServiceDelegation = "service_delegation.narrow";
 }
 
 public static class AuthorizationResourceTypes
@@ -21,6 +20,7 @@ public static class AuthorizationResourceTypes
 public static class AuthorizationReferenceTypes
 {
     public const string ServiceDelegation = "service_delegation";
+    public const string ActorOrganizationGrant = "actor_organization_grant";
 }
 
 public static class AuthorizationReasonCodes
@@ -76,15 +76,49 @@ public sealed record ServiceDelegationIssue(
     DateTimeOffset EffectiveAt,
     DateTimeOffset? ExpiresAt = null);
 
+public sealed record ServiceDelegationMutationContext(
+    TrustedActor Initiator,
+    Guid CorrelationId,
+    string SourceChannel,
+    string Reason);
+
+public sealed record AuthorizedServiceDelegationIssue(
+    ServiceDelegationIssue Issue,
+    ServiceDelegationMutationContext Mutation);
+
+public sealed class AuthorizationDeniedException : InvalidOperationException
+{
+    public AuthorizationDeniedException(string reasonCode)
+        : base($"Authorization denied ({reasonCode}).")
+    {
+        ReasonCode = reasonCode;
+    }
+
+    public string ReasonCode { get; }
+}
+
 public sealed record AuthorizationDecision(
     bool IsPermitted,
     string Outcome,
     string ReasonCode,
     long? RelationshipVersion,
-    string PolicyVersion)
+    string PolicyVersion,
+    string? AuthorizationReferenceType = null,
+    Guid? AuthorizationReferenceId = null)
 {
-    public static AuthorizationDecision Permit(long relationshipVersion, string policyVersion = "policy.v1") =>
-        new(true, AuthorizationOutcomes.Permit, "auth.permitted", relationshipVersion, policyVersion);
+    public static AuthorizationDecision Permit(
+        long relationshipVersion,
+        string policyVersion = "policy.v1",
+        string? authorizationReferenceType = null,
+        Guid? authorizationReferenceId = null) =>
+        new(
+            true,
+            AuthorizationOutcomes.Permit,
+            "auth.permitted",
+            relationshipVersion,
+            policyVersion,
+            authorizationReferenceType,
+            authorizationReferenceId);
 
     public static AuthorizationDecision Deny(string reasonCode, string policyVersion = "policy.v1") =>
         new(false, AuthorizationOutcomes.Deny, reasonCode, null, policyVersion);

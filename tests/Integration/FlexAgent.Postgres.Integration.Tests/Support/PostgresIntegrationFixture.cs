@@ -79,6 +79,24 @@ public sealed class PostgresIntegrationFixture : IAsyncLifetime
             new OrganizationScope(organizationId));
     }
 
+    public async Task GrantOrganizationActionAsync(Guid organizationId, Guid actorId, string grantedAction)
+    {
+        await using var connection = await Services.ConnectionAccessor.OpenConnectionAsync();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO actor_organization_grants (
+                organization_id, actor_id, relationship_version, granted_action, created_at)
+            VALUES (
+                @OrganizationId, @ActorId, 1, @GrantedAction, clock_timestamp());
+            """,
+            new
+            {
+                OrganizationId = organizationId,
+                ActorId = actorId,
+                GrantedAction = grantedAction,
+            });
+    }
+
     public static byte[] LoadMinimalStableDomainCanonicalUtf8()
     {
         var root = FindRepositoryRoot();

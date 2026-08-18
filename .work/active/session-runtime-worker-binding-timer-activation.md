@@ -1,6 +1,6 @@
 ---
 id: session-runtime-worker-binding-timer-activation
-status: completed
+status: in-progress
 created: 2026-08-18
 updated: 2026-08-18
 predecessors:
@@ -172,7 +172,7 @@ production pilot is complete.
 
 # Review remediations (`9ab00a1`)
 
-- [x] P1 — Issue/revoke/narrow through a transaction-bound coordinator with
+- [x] P1 — Issue/revoke through a transaction-bound coordinator with
       mutation-coupled append-only audit and previous/new transition facts
       (`REQ-AUTH-27`, `REQ-AUTH-31`, ADR-003). Remove autocommit repository
       mutation APIs.
@@ -183,21 +183,32 @@ production pilot is complete.
 - [x] P2 — Require `expires_at` for `session.timer_lane.fire` with a 7-day max
       lifetime (`PROP-WBT-5`); fail closed on missing or over-long expiry.
 
+# Review remediations (`d175099`)
+
+- [x] P1 — Authorize `service_delegation.issue` / `service_delegation.revoke`
+      through the kernel; mutate `service_delegation` as the resource; record
+      the parent organization grant as `authorization_reference`; propagate
+      initiator, correlation, source, and reason from the calling command.
+- [x] P1 — Remove `NarrowAllowedAction` (capability substitution). Prove
+      wrong-action with test-only SQL; use revoke for the commit race.
+- [x] P1 — Make `0023` refuse populated unbounded `0022` timer-lane rows with
+      an explicit operator-facing guard; do not fabricate expiry. Add `0024`
+      `grant_id` so mutation audit can name the authorizing grant.
+
 # Current state
 
-Implemented. When `ConnectionStrings:Sessions` is set, the Worker registers
-`PostgresTrustedSessionBindingSource` and keeps `FailClosedModelExecutionPort`.
-Timer polling stays `IdleDurableTimerFireProcessor` unless
-`Sessions:TimerPolling:Enabled` is true, in which case it composes
-`PostgresFireDueTimerCoordinator` plus `DurableTimerFireProcessor` and the
-ADR-002 kernel. Additive `0022` stores per-Session `service_delegations` and
-links `session_timer_schedules.timer_lane_delegation_id`. New inserts may issue
-that reference in the same transaction. Due-claim joins a currently valid,
-ownership-matched `session.timer_lane.fire` envelope for the configured service
-principal so revoked, expired, mismatched, or historical-null rows stay pending
-without HOL-blocking another Session. Admission and commit authorization run on
-the same fire transaction; commit uses `FOR SHARE` so revocation or narrowing
-after selection still denies.
+`d175099` review remediations implemented, awaiting the same independent
+re-review before treating the security slice as complete. Issue/revoke use
+the authorization kernel against `service_delegation.issue` /
+`service_delegation.revoke` grants. Mutation audit names
+`service_delegation` / `delegation_id` as the resource and
+`actor_organization_grant` / `grant_id` as the authority used. Session insert
+requires an `AuthorizedServiceDelegationIssue` (initiator, correlation, source,
+reason) plus the kernel; it no longer invents those facts from the participant
+actor. `allowed_action` is not rewritten in place. Additive `0023` now fails
+closed on unbounded or over-long `0022` timer-lane rows with an operator-facing
+error. Additive `0024` adds `actor_organization_grants.grant_id`. Databases
+that recorded `d175099`'s earlier `0023` hash must rebuild.
 
 # Decisions
 
@@ -239,6 +250,12 @@ approve that ADR.
 - `PROP-WBT-5` — `session.timer_lane.fire` delegations require `expires_at`, and
   `expires_at - effective_at` cannot exceed seven days. Renewal is a later
   authorized command.
+- `PROP-WBT-6` — Service-delegation issue and revoke are kernel-authorized
+  against a current actor-organization grant. Audit records the mutated
+  delegation as the resource and the grant as `authorization_reference`.
+  Callers propagate initiator, correlation, source, and reason.
+- `PROP-WBT-7` — Do not overwrite `allowed_action`. Replace a capability by
+  revoking the old delegation and issuing a new authorized one.
 
 # Findings / deviations
 
@@ -250,7 +267,8 @@ approve that ADR.
 - Wrong-session negative cases currently substitute a delegation from another
   Organization/Session pair; kernel checks both organization and session id.
 - Production Session insert still has no hosted HTTP command. `InsertActiveAsync`
-  issues a timer-lane delegation only when callers supply `ServiceDelegationIssue`.
+  issues a timer-lane delegation only when callers supply
+  `AuthorizedServiceDelegationIssue` plus the commit kernel.
 - The configured Worker service actor must already exist in `actors`; this task
   does not provision that row.
 - Implementer backend and security/privacy review found that skipping only
@@ -281,12 +299,13 @@ approve that ADR.
 | Host composition red/green | passed | `WorkerRuntimeTests` 13/13 including connection-string-only idle timer + explicit `Sessions:TimerPolling:Enabled` live processor |
 | Timer processor/domain focused tests | passed | `DurableTimerFireProcessorTests` 9/9 including `timer_fire.authority_denied` → `retry_later` |
 | PostgreSQL binding/delegation/timer integration | passed | `SessionTimerLaneDelegationTests` including HOL skip of revoked due rows, `PostgresTrustedSessionBindingSourceTests`, `SessionTimerSchedulePersistenceTests` against PostgreSQL 18 |
-| Migration and upgrade safety | passed | Additive `0022`; Grate expected one-time count 22; `Upgrade_from_frozen_0020_applies_0021_subject_binding_tables` includes `service_delegations` |
+| Migration and upgrade safety | passed | Additive `0022`–`0024`; Grate expected one-time count 24; populated unbounded `0022` timer-lane rows fail closed on `0023`; bounded `0022` rows apply |
 | Architecture/module boundaries | passed | Architecture 31/31 including Worker Dockerfile COPY of IdentityAccess |
-| Locked .NET regression | passed | Review remediations: `bash build/scripts/verify-dotnet.sh` **934/934** |
+| Locked .NET regression | passed | `d175099` remediations: `bash build/scripts/verify-dotnet.sh` **937/937** |
 | Documentation | passed | `python3 scripts/check_docs.py` |
 | Whitespace | passed | `git diff --check` clean |
 | External review remediations (`9ab00a1`) | passed | P1 audit/transaction coordinator; P1 final reauth-before-commit + expiry race; P2 audit delegation reference; P2 required 7-day timer-lane expiry |
+| External review remediations (`d175099`) | passed | P1 kernel-authorized issue/revoke with grant `authorization_reference` and caller mutation context; P1 removed `NarrowAllowedAction`; P1 explicit `0022`→`0023` populated fail-closed plus `0024` `grant_id` |
 
 # Blockers
 
@@ -312,6 +331,6 @@ None.
 - [x] Governing specifications and production-gate status are rechecked and
       reconciled without overstating provider, OIDC, UI, load, or pilot readiness
 - [x] Remaining gaps or unverified behavior are recorded
-- [x] Independent backend and security/privacy review findings are resolved
-- [x] Task state is safe and complete for external review
+- [ ] Independent backend and security/privacy review findings are resolved
+- [ ] Task state is safe and complete for external review
 

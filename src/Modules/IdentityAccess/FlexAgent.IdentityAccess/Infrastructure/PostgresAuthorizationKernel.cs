@@ -10,7 +10,7 @@ public sealed class PostgresAuthorizationKernel(PostgresConnectionAccessor conne
     : ICommitAuthorizationKernel
 {
     private const string ActiveGrantSql = """
-        SELECT relationship_version
+        SELECT grant_id, relationship_version
         FROM actor_organization_grants
         WHERE organization_id = @OrganizationId
           AND actor_id = @ActorId
@@ -19,7 +19,7 @@ public sealed class PostgresAuthorizationKernel(PostgresConnectionAccessor conne
         """;
 
     private const string ActiveGrantForCommitSql = """
-        SELECT relationship_version
+        SELECT grant_id, relationship_version
         FROM actor_organization_grants
         WHERE organization_id = @OrganizationId
           AND actor_id = @ActorId
@@ -146,7 +146,7 @@ public sealed class PostgresAuthorizationKernel(PostgresConnectionAccessor conne
             }
 
             var grantSql = useCommitLock ? ActiveGrantForCommitSql : ActiveGrantSql;
-            var relationshipVersion = await connection.ExecuteScalarAsync<long?>(
+            var grant = await connection.QuerySingleOrDefaultAsync<GrantRow>(
                 new CommandDefinition(
                     grantSql,
                     new
@@ -158,12 +158,15 @@ public sealed class PostgresAuthorizationKernel(PostgresConnectionAccessor conne
                     transaction,
                     cancellationToken: cancellationToken));
 
-            if (relationshipVersion is null)
+            if (grant is null)
             {
                 return AuthorizationDecision.Deny(AuthorizationReasonCodes.DeniedNoGrant);
             }
 
-            return AuthorizationDecision.Permit(relationshipVersion.Value);
+            return AuthorizationDecision.Permit(
+                grant.relationship_version,
+                authorizationReferenceType: AuthorizationReferenceTypes.ActorOrganizationGrant,
+                authorizationReferenceId: grant.grant_id);
         }
         finally
         {
@@ -246,8 +249,13 @@ public sealed class PostgresAuthorizationKernel(PostgresConnectionAccessor conne
             return AuthorizationDecision.Deny(AuthorizationReasonCodes.ScopeMismatch);
         }
 
-        return AuthorizationDecision.Permit(row.delegation_version);
+        return AuthorizationDecision.Permit(
+            row.delegation_version,
+            authorizationReferenceType: AuthorizationReferenceTypes.ServiceDelegation,
+            authorizationReferenceId: row.delegation_id);
     }
+
+    private sealed record GrantRow(Guid grant_id, long relationship_version);
 
     private sealed record DelegationRow(
         Guid delegation_id,

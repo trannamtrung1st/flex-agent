@@ -628,21 +628,32 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
 
             var session = SessionRuntime.CreateActive(binding, startedAt);
             var delegationClock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken);
-            var timerLaneDelegation = new ServiceDelegationIssue(
-                Guid.NewGuid(),
-                timerServiceActorId ?? organization.ActorId,
-                AuthorizationActions.FireSessionTimerLane,
-                "session.timer_lane.scheduler",
-                "system.session_runtime",
-                delegationClock.AddMinutes(-1),
-                delegationClock.AddDays(6));
+            var timerLaneDelegation = new AuthorizedServiceDelegationIssue(
+                new ServiceDelegationIssue(
+                    Guid.NewGuid(),
+                    timerServiceActorId ?? organization.ActorId,
+                    AuthorizationActions.FireSessionTimerLane,
+                    "session.timer_lane.scheduler",
+                    "system.session_runtime",
+                    delegationClock.AddMinutes(-1),
+                    delegationClock.AddDays(6)),
+                new ServiceDelegationMutationContext(
+                    new TrustedActor(organization.ActorId, "integration.test"),
+                    Guid.NewGuid(),
+                    "session.start",
+                    "session.start.timer_lane"));
+            await Fixture.GrantOrganizationActionAsync(
+                organization.OrganizationId,
+                organization.ActorId,
+                AuthorizationActions.IssueServiceDelegation);
             await repository.InsertActiveAsync(
                 binding.Ownership,
                 session,
                 SessionPersistenceFixtures.Actor(organization.ActorId),
                 scope.Transaction,
                 CancellationToken,
-                timerLaneDelegation);
+                timerLaneDelegation,
+                CommitKernel());
             await scope.CommitAsync(CancellationToken);
         }
 

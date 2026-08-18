@@ -1,5 +1,25 @@
 -- Additive audit/delegation history for REQ-AUTH-27/31 and bounded timer-lane
 -- expiry (proposed ADR-015). Do not rewrite frozen 0001-0022.
+-- d175099 applied this script without a populated-0022 expiry guard. Databases
+-- that recorded that hash must rebuild. This revision refuses unbounded or
+-- over-long session.timer_lane.fire rows with an operator-facing error instead
+-- of a generic CHECK failure, and does not fabricate expiry timestamps.
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM service_delegations
+        WHERE allowed_action = 'session.timer_lane.fire'
+          AND (
+                expires_at IS NULL
+                OR expires_at > effective_at + INTERVAL '7 days'
+              )
+    ) THEN
+        RAISE EXCEPTION '0023 refuses unbounded or over-long session.timer_lane.fire delegations left by 0022; revoke those rows before upgrade; refusing fabricated expiry backfill';
+    END IF;
+END;
+$$;
 
 ALTER TABLE audit_events
     ADD COLUMN IF NOT EXISTS authorization_reference_type TEXT NULL;

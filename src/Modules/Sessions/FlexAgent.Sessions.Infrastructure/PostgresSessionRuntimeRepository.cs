@@ -731,7 +731,8 @@ public sealed class PostgresSessionRuntimeRepository
         TrustedRuntimeActor participantActor,
         NpgsqlTransaction transaction,
         CancellationToken cancellationToken = default,
-        ServiceDelegationIssue? timerLaneDelegation = null)
+        AuthorizedServiceDelegationIssue? timerLaneDelegation = null,
+        ICommitAuthorizationKernel? authorizationKernel = null)
     {
         ArgumentNullException.ThrowIfNull(ownership);
         ArgumentNullException.ThrowIfNull(session);
@@ -753,6 +754,7 @@ public sealed class PostgresSessionRuntimeRepository
         session.ReplaceLastCommittedAtFromDatabase(lastCommittedAt);
         if (timerLaneDelegation is not null)
         {
+            ArgumentNullException.ThrowIfNull(authorizationKernel);
             await PostgresServiceDelegationCoordinator.IssueInTransactionAsync(
                 new SessionScopedDelegationTarget(
                     ownership.OrganizationId,
@@ -761,12 +763,10 @@ public sealed class PostgresSessionRuntimeRepository
                     ownership.AttemptId,
                     ownership.SessionId),
                 timerLaneDelegation,
-                new TrustedActor(participantActor.ActorId, participantActor.ActorType),
-                Guid.NewGuid(),
-                "session.runtime.insert",
-                timerLaneDelegation.SystemPurpose,
+                authorizationKernel,
                 transaction,
-                cancellationToken);
+                cancellationToken,
+                reauthorizeBeforeReturn: false);
         }
 
         await PersistTimerSchedulesAsync(ownership, session, transaction, cancellationToken);
@@ -778,6 +778,18 @@ public sealed class PostgresSessionRuntimeRepository
             transaction,
             cancellationToken);
         await PersistManifestAndTerminalAsync(ownership, session, transaction, cancellationToken);
+        if (timerLaneDelegation is not null)
+        {
+            await PostgresServiceDelegationCoordinator.ReauthorizeMutationInTransactionAsync(
+                ownership.OrganizationId,
+                ownership.SessionId,
+                timerLaneDelegation.Issue.DelegationId,
+                timerLaneDelegation.Mutation,
+                AuthorizationActions.IssueServiceDelegation,
+                authorizationKernel!,
+                transaction,
+                cancellationToken);
+        }
     }
 
     public Task<SessionRuntime?> LoadForUpdateAsync(

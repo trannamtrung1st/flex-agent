@@ -148,7 +148,7 @@ deploy them.
 | `GATE-STACK-OPERABILITY` | Partial — liveness/readiness and graceful work-claim stop only |
 | `GATE-STACK-SCHEMA` | Partial — canonical Draft 2020-12 catalog including Session runtime, Decision v1/v2, digest, Evidence locator, audit, and SSE schemas, with fixtures, C#/TypeScript mappings, OpenAPI projection, and contract tests; HTTP runtime request validation remains deferred |
 | `GATE-STACK-JCS` | Partial — language-neutral ADR-001/ADR-004/Evidence-set and manifest-seal fixtures with independent .NET and Node verification; production normalization builders remain deferred |
-| `GATE-STACK-POSTGRES` | Partial — Grate empty/repeat/changed-script plus Session runtime migrations `0005`–`0023` and scoped repository isolation/concurrency tests against PostgreSQL 18; backup/restore and full-module isolation remain later |
+| `GATE-STACK-POSTGRES` | Partial — Grate empty/repeat/changed-script plus Session runtime migrations `0005`–`0024` and scoped repository isolation/concurrency tests against PostgreSQL 18; backup/restore and full-module isolation remain later |
 | `GATE-STACK-ISOLATION` | Partial — Sessions protected repositories require complete ownership tuples and have wrong-scope/guessed-id tests; Worker timer fire reauthorizes per-Session service delegation at commit; organization-wide list/count matrices and OIDC remain later |
 | `GATE-STACK-SESSION` | Partial — synthetic SSE reconnect/replay preserves Session sequence; production opaque application-session rotation/revocation and HTTP SSE host wiring remain later |
 | `GATE-STACK-BROWSER` | Partial — static SPA build plus Playwright MCP on the synthetic Participant Text Session; authenticated production journey and NGINX-hosted e2e in CI remain later |
