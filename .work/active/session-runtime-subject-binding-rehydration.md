@@ -70,12 +70,13 @@ fail-closed bindings with persistence-backed resolution of the actor's
 
 # Current state
 
-Completed follow-up to `3e67e91`. `RevokeCurrentAsync` upserts a revoked
-tombstone with the same relationship metadata as assignment, so a newer
-revoke that arrives before the first set still wins over a delayed lower
-`SetCurrentAsync`. Hosted SSE still writes the starting participant at
-insert and revalidates on authorize/replay/hold. Worker bindings remain
-fail-closed. `REQ-SESS-59` stays Partial.
+This relationship-rehydration slice is **frozen**. External review of
+`25e2b98` (2026-08-18) is **approved** (no remaining blocking correctness
+issue). Hosted SSE resolves `(actor, untrustedSessionId)` from a monotonic
+`(organization, session, actor)` relationship projection, writes the starting
+participant at insert, and revalidates on authorize/replay/hold. Worker
+bindings remain fail-closed. `REQ-SESS-59` stays Partial. Do not iterate
+this version-CAS slice further.
 
 # Decisions
 
@@ -146,6 +147,11 @@ fail-closed. `REQ-SESS-59` stays Partial.
 - `3e67e91` (2026-08-18): **changes requested**. Remaining P2: revoke cannot
   create a tombstone when no relationship row exists yet, so a delayed
   assignment INSERT can restore access.
+- `25e2b98` (2026-08-18): **approved**. Revoke upserts a tombstone before the
+  first assignment; delayed lower set cannot INSERT access. The monotonic
+  projection (set/revoke, with and without an existing row) is sufficient
+  for MVP. GitHub had no status checks or workflow runs for this SHA;
+  evaluation was of the diff. Local `verify-dotnet.sh` **910/910**.
 
 # Verification
 
@@ -175,3 +181,4 @@ None.
       and binding-rehydrated, with a production participant writer on insert)
 - [x] Remaining gaps or unverified behavior are recorded
 - [x] Task state is safe and complete for external review
+- [x] External review of `25e2b98` recorded as approved; slice frozen
