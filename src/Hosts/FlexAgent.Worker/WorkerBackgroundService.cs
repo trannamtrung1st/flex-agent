@@ -1,3 +1,4 @@
+using FlexAgent.IdentityAccess.Application;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 
@@ -6,6 +7,7 @@ namespace FlexAgent.Worker;
 public sealed class WorkerBackgroundService(
     ILogger<WorkerBackgroundService> logger,
     WorkClaimGate workClaimGate,
+    IRecoverableAuthorityGate authorityGate,
     IDurableInvocationWorkProcessor workProcessor,
     IDurableTimerFireProcessor timerFireProcessor,
     IDurableWorkBacklogSampler backlogSampler) : BackgroundService
@@ -31,7 +33,7 @@ public sealed class WorkerBackgroundService(
                     logger.LogError(exception, "Durable work backlog sampling failed.");
                 }
 
-                if (workClaimGate.TryClaimWork())
+                if (workClaimGate.TryClaimWork() && authorityGate.CanAcceptProtectedWork())
                 {
                     try
                     {
@@ -80,6 +82,7 @@ public sealed class WorkerBackgroundService(
     public override Task StopAsync(CancellationToken cancellationToken)
     {
         workClaimGate.StopAcceptingWork();
+        authorityGate.SetState(RecoverableAuthorityStates.Stopping);
         logger.LogInformation("Worker stopped accepting new durable work.");
         return base.StopAsync(cancellationToken);
     }

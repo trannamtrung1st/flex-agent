@@ -1,19 +1,38 @@
 using Dapper;
+using FlexAgent.IdentityAccess.Application;
+using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.Infrastructure;
 
-public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccessor connectionAccessor)
+public sealed class PostgresDurableInvocationWorkStore(
+    PostgresConnectionAccessor connectionAccessor,
+    TrustedRuntimeActor? serviceActor = null,
+    ICommitAuthorizationKernel? authorizationKernel = null,
+    IAuthenticatedWorkloadContextSource? workloadIdentity = null)
     : IDurableInvocationWorkStore
 {
     public const string ClaimableIndexName = "ix_session_durable_work_claimable";
 
     internal const string ClaimCandidateSql = """
         SELECT work.organization_id, work.activity_id, work.participant_id, work.attempt_id,
-               work.session_id, work.work_id
+               work.session_id, work.work_id, work.invocation_execute_delegation_id
         FROM session_durable_work AS work
+        INNER JOIN service_delegations AS delegation
+          ON delegation.delegation_id = work.invocation_execute_delegation_id
+         AND delegation.organization_id = work.organization_id
+         AND delegation.activity_id = work.activity_id
+         AND delegation.participant_id = work.participant_id
+         AND delegation.attempt_id = work.attempt_id
+         AND delegation.session_id = work.session_id
+         AND delegation.service_actor_id = @ServiceActorId
+         AND delegation.allowed_action = @AllowedAction
+         AND delegation.revoked_at IS NULL
+         AND delegation.effective_at <= clock_timestamp()
+         AND (delegation.expires_at IS NULL OR delegation.expires_at > clock_timestamp())
         LEFT JOIN session_durable_work_claim_partitions AS served
           ON served.organization_id = work.organization_id
          AND served.activity_id = work.activity_id
@@ -29,6 +48,15 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
           AND NOT EXISTS (
                 SELECT 1
                 FROM session_durable_work AS older
+                INNER JOIN service_delegations AS older_delegation
+                  ON older_delegation.delegation_id = older.invocation_execute_delegation_id
+                 AND older_delegation.organization_id = older.organization_id
+                 AND older_delegation.session_id = older.session_id
+                 AND older_delegation.service_actor_id = @ServiceActorId
+                 AND older_delegation.allowed_action = @AllowedAction
+                 AND older_delegation.revoked_at IS NULL
+                 AND older_delegation.effective_at <= clock_timestamp()
+                 AND (older_delegation.expires_at IS NULL OR older_delegation.expires_at > clock_timestamp())
                 WHERE older.work_type = work.work_type
                   AND older.organization_id = work.organization_id
                   AND older.activity_id = work.activity_id
@@ -70,7 +98,8 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
             work.session_id,
             work.business_key,
             work.state,
-            work.claim_lease_until;
+            work.claim_lease_until,
+            work.invocation_execute_delegation_id;
         """;
 
     private const string BacklogSql = """
@@ -136,6 +165,19 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
         try
         {
+            var actor = serviceActor;
+            if (actor is null || actor.ActorId == Guid.Empty)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(workloadIdentity, actor, cancellationToken))
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return null;
+            }
+
             var row = await scope.Connection.QuerySingleOrDefaultAsync<ClaimedWorkRow>(
                 new CommandDefinition(
                     ClaimSql,
@@ -145,6 +187,8 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
                         Pending = DurableSessionWorkStates.Pending,
                         Claimed = DurableSessionWorkStates.Claimed,
                         LeaseSeconds = lease.TotalSeconds,
+                        ServiceActorId = actor.ActorId,
+                        AllowedAction = AuthorizationActions.ExecuteSessionInvocation,
                     },
                     scope.Transaction,
                     cancellationToken: cancellationToken));
@@ -152,6 +196,38 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
             {
                 await scope.CommitAsync(cancellationToken);
                 return null;
+            }
+
+            if (authorizationKernel is not null)
+            {
+                var ownership = new SessionOwnership(
+                    row.organization_id,
+                    row.activity_id,
+                    row.participant_id,
+                    row.attempt_id,
+                    row.session_id);
+                var decision = await authorizationKernel.AuthorizeInTransactionAsync(
+                    new AuthorizationRequest(
+                        new TrustedActor(actor.ActorId, actor.ActorType),
+                        new OrganizationScope(ownership.OrganizationId),
+                        AuthorizationActions.ExecuteSessionInvocation,
+                        new ResourceScope(
+                            new OrganizationScope(ownership.OrganizationId),
+                            AuthorizationResourceTypes.Session,
+                            ownership.SessionId),
+                        "worker.session_runtime",
+                        Guid.NewGuid(),
+                        row.invocation_execute_delegation_id,
+                        ownership.ActivityId,
+                        ownership.ParticipantId,
+                        ownership.AttemptId),
+                    scope.Transaction,
+                    cancellationToken);
+                if (!decision.IsPermitted)
+                {
+                    await scope.RollbackAsync(CancellationToken.None);
+                    return null;
+                }
             }
 
             await scope.CommitAsync(cancellationToken);
@@ -165,7 +241,8 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
                     row.session_id),
                 row.business_key,
                 row.state,
-                ToUtc(row.claim_lease_until));
+                ToUtc(row.claim_lease_until),
+                row.invocation_execute_delegation_id);
         }
         catch
         {
@@ -177,12 +254,12 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
     public Task ReleaseToPendingAsync(
         DurableInvocationWorkItem work,
         CancellationToken cancellationToken) =>
-        UpdateOwnedClaimAsync(ReleaseSql, work, cancellationToken);
+        UpdateOwnedClaimAsync(ReleaseSql, work, requireAuthorizedCommit: false, cancellationToken);
 
     public Task MarkCompletedAsync(
         DurableInvocationWorkItem work,
         CancellationToken cancellationToken) =>
-        UpdateOwnedClaimAsync(CompleteSql, work, cancellationToken);
+        UpdateOwnedClaimAsync(CompleteSql, work, requireAuthorizedCommit: true, cancellationToken);
 
     public async Task<DateTimeOffset?> TryRenewClaimLeaseAsync(
         DurableInvocationWorkItem work,
@@ -251,6 +328,7 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
     private async Task UpdateOwnedClaimAsync(
         string sql,
         DurableInvocationWorkItem work,
+        bool requireAuthorizedCommit,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(work);
@@ -272,6 +350,28 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
                     },
                     scope.Transaction,
                     cancellationToken: cancellationToken));
+            if (authorizationKernel is not null && serviceActor is not null)
+            {
+                var commitDecision = await SessionInvocationExecuteCommitAuthorization.ReauthorizeAsync(
+                    authorizationKernel,
+                    serviceActor,
+                    work.Ownership,
+                    Guid.NewGuid(),
+                    "worker.session_runtime",
+                    scope.Transaction,
+                    cancellationToken);
+                if (!commitDecision.IsPermitted)
+                {
+                    if (requireAuthorizedCommit)
+                    {
+                        throw new AuthorizationDeniedException(commitDecision.ReasonCode);
+                    }
+
+                    await scope.RollbackAsync(CancellationToken.None);
+                    return;
+                }
+            }
+
             await scope.CommitAsync(cancellationToken);
         }
         catch
@@ -308,5 +408,6 @@ public sealed class PostgresDurableInvocationWorkStore(PostgresConnectionAccesso
         Guid session_id,
         string business_key,
         string state,
-        DateTime claim_lease_until);
+        DateTime claim_lease_until,
+        Guid? invocation_execute_delegation_id);
 }

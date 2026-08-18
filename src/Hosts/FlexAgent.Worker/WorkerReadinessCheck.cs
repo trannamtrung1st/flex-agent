@@ -1,9 +1,11 @@
+using FlexAgent.IdentityAccess.Application;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace FlexAgent.Worker;
 
 public sealed class WorkerReadinessCheck(
     WorkClaimGate workClaimGate,
+    IRecoverableAuthorityGate authorityGate,
     WorkerRuntimeCapabilities capabilities) : IHealthCheck
 {
     public Task<HealthCheckResult> CheckHealthAsync(
@@ -14,6 +16,18 @@ public sealed class WorkerReadinessCheck(
         {
             return Task.FromResult(
                 HealthCheckResult.Unhealthy("Worker is shutting down."));
+        }
+
+        var identityState = authorityGate.State;
+        if (ProtectedLaneEnabled(capabilities)
+            && (identityState is RecoverableAuthorityStates.RefreshDegraded
+                || (!authorityGate.CanAcceptProtectedWork()
+                    && identityState is RecoverableAuthorityStates.IdentityDenied
+                        or RecoverableAuthorityStates.DependencyUnavailable
+                        or RecoverableAuthorityStates.Authenticating)))
+        {
+            return Task.FromResult(
+                HealthCheckResult.Degraded($"Worker identity is {identityState}."));
         }
 
         var claiming = capabilities.DurableWorkClaimingEnabled
@@ -27,4 +41,7 @@ public sealed class WorkerReadinessCheck(
             : $"Worker loop is running. {claiming}. {timerPolling}.";
         return Task.FromResult(HealthCheckResult.Healthy(description));
     }
+
+    private static bool ProtectedLaneEnabled(WorkerRuntimeCapabilities capabilities) =>
+        capabilities.DurableWorkClaimingEnabled || capabilities.TimerPollingEnabled;
 }

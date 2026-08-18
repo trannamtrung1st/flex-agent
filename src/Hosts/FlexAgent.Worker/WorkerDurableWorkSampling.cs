@@ -13,6 +13,8 @@ public sealed class WorkerRuntimeCapabilities
     public bool DurableWorkClaimingEnabled { get; init; }
 
     public bool TimerPollingEnabled { get; init; }
+
+    public string WorkloadIdentityProfile { get; init; } = WorkloadIdentityProfiles.SyntheticConfiguredActor;
 }
 
 internal static class WorkerDurableWorkSampling
@@ -34,21 +36,58 @@ internal static class WorkerDurableWorkSampling
             "Sessions:InvocationProcessing:Enabled",
             false);
         var timerPollingRequested = configuration.GetValue("Sessions:TimerPolling:Enabled", false);
-        if (invocationProcessingRequested && !IsSyntheticHostProfile(environment))
+        var protectedLaneRequested = invocationProcessingRequested || timerPollingRequested;
+        var identityProfile = ResolveWorkloadIdentityProfile(
+            configuration,
+            environment,
+            protectedLaneRequested);
+        var productionAuthenticated = string.Equals(
+            identityProfile,
+            WorkloadIdentityProfiles.OAuthClientCredentialsJwt,
+            StringComparison.Ordinal);
+        if (invocationProcessingRequested && !IsSyntheticHostProfile(environment) && !productionAuthenticated)
         {
             throw new InvalidOperationException(
-                "Sessions:InvocationProcessing:Enabled is a Development/Testing host profile until invocation service delegation is implemented and cannot be enabled in this environment.");
+                "Sessions:InvocationProcessing:Enabled requires a configured OAuth workload identity profile and cannot be enabled without it.");
         }
 
-        if (timerPollingRequested && !IsSyntheticHostProfile(environment))
+        if (timerPollingRequested && !IsSyntheticHostProfile(environment) && !productionAuthenticated)
         {
             throw new InvalidOperationException(
-                "Sessions:TimerPolling:Enabled is a Development/Testing host profile until Worker workload authentication is implemented and cannot be enabled in this environment.");
+                "Sessions:TimerPolling:Enabled requires a configured OAuth workload identity profile and cannot be enabled without it.");
         }
 
         var invocationProcessingEnabled = invocationProcessingRequested
-            && IsSyntheticHostProfile(environment);
-        var timerPollingEnabled = timerPollingRequested && IsSyntheticHostProfile(environment);
+            && (IsSyntheticHostProfile(environment) || productionAuthenticated);
+        var timerPollingEnabled = timerPollingRequested
+            && (IsSyntheticHostProfile(environment) || productionAuthenticated);
+        RegisterWorkloadIdentitySource(
+            services,
+            configuration,
+            identityProfile,
+            protectedLaneRequested && (invocationProcessingEnabled || timerPollingEnabled),
+            !string.IsNullOrWhiteSpace(connectionString));
+        services.AddSingleton<IRecoverableAuthorityGate>(_ =>
+        {
+            var gate = new RecoverableAuthorityGate();
+            if (!protectedLaneRequested || !invocationProcessingEnabled && !timerPollingEnabled)
+            {
+                gate.SetState(RecoverableAuthorityStates.Ready);
+            }
+            else if (string.Equals(
+                identityProfile,
+                WorkloadIdentityProfiles.SyntheticConfiguredActor,
+                StringComparison.Ordinal))
+            {
+                gate.SetState(RecoverableAuthorityStates.Ready);
+            }
+            else
+            {
+                gate.SetState(RecoverableAuthorityStates.Authenticating);
+            }
+
+            return gate;
+        });
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             services.AddSingleton<IDurableInvocationWorkStore>(UnknownDurableInvocationWorkStore.Instance);
@@ -58,6 +97,7 @@ internal static class WorkerDurableWorkSampling
             {
                 DurableWorkClaimingEnabled = false,
                 TimerPollingEnabled = false,
+                WorkloadIdentityProfile = identityProfile,
             });
         }
         else
@@ -71,13 +111,19 @@ internal static class WorkerDurableWorkSampling
                 (ICommitAuthorizationKernel)sp.GetRequiredService<IAuthorizationKernel>());
             if (invocationProcessingEnabled)
             {
-                services.AddSingleton<IDurableInvocationWorkStore, PostgresDurableInvocationWorkStore>();
+                var workerActorId = RequireWorkerServiceActorId(configuration);
+                services.AddSingleton(CreateInvocationWorkSettings(configuration, workerActorId));
+                services.AddSingleton<IDurableInvocationWorkStore>(sp =>
+                    new PostgresDurableInvocationWorkStore(
+                        sp.GetRequiredService<PostgresConnectionAccessor>(),
+                        sp.GetRequiredService<DurableInvocationWorkSettings>().ServiceActor,
+                        sp.GetRequiredService<ICommitAuthorizationKernel>(),
+                        sp.GetRequiredService<IAuthenticatedWorkloadContextSource>()));
                 services.AddSingleton<IPublishAgentResponseFragmentHandler>(sp =>
                     new PublishAgentResponseFragmentHandler(sp.GetRequiredService<ISessionRuntimeTelemetry>()));
                 services.AddSingleton<ICompleteInvocationHandler>(sp =>
                     new CompleteInvocationHandler(sp.GetRequiredService<ISessionRuntimeTelemetry>()));
                 services.AddSingleton<IModelExecutionPort>(_ => FailClosedModelExecutionPort.Instance);
-                services.AddSingleton(CreateInvocationWorkSettings(configuration, RequireWorkerServiceActorId(configuration)));
                 services.AddSingleton<PostgresPublishAgentResponseCoordinator>();
                 services.AddSingleton<IAgentResponsePublicationPersistPort>(sp =>
                     sp.GetRequiredService<PostgresPublishAgentResponseCoordinator>());
@@ -106,6 +152,7 @@ internal static class WorkerDurableWorkSampling
             {
                 DurableWorkClaimingEnabled = invocationProcessingEnabled,
                 TimerPollingEnabled = timerPollingEnabled,
+                WorkloadIdentityProfile = identityProfile,
             });
         }
 
@@ -117,6 +164,129 @@ internal static class WorkerDurableWorkSampling
 
     private static bool IsSyntheticHostProfile(IHostEnvironment environment) =>
         environment.IsDevelopment() || environment.IsEnvironment("Testing");
+
+    private static string ResolveWorkloadIdentityProfile(
+        IConfiguration configuration,
+        IHostEnvironment environment,
+        bool protectedLaneRequested)
+    {
+        var configured = configuration["WorkloadIdentity:Profile"];
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            return IsSyntheticHostProfile(environment)
+                ? WorkloadIdentityProfiles.SyntheticConfiguredActor
+                : string.Empty;
+        }
+
+        if (string.Equals(configured, WorkloadIdentityProfiles.SyntheticConfiguredActor, StringComparison.Ordinal))
+        {
+            if (!IsSyntheticHostProfile(environment) && protectedLaneRequested)
+            {
+                throw new InvalidOperationException(
+                    "WorkloadIdentity:Profile synthetic.configured_actor cannot be selected outside Development/Testing.");
+            }
+
+            return WorkloadIdentityProfiles.SyntheticConfiguredActor;
+        }
+
+        if (string.Equals(configured, WorkloadIdentityProfiles.OAuthClientCredentialsJwt, StringComparison.Ordinal))
+        {
+            RequireOauthProfile(configuration);
+            return WorkloadIdentityProfiles.OAuthClientCredentialsJwt;
+        }
+
+        throw new InvalidOperationException("WorkloadIdentity:Profile is not a supported authentication profile.");
+    }
+
+    private static void RequireOauthProfile(IConfiguration configuration)
+    {
+        var required = new[]
+        {
+            "WorkloadIdentity:Issuer",
+            "WorkloadIdentity:Audience",
+            "WorkloadIdentity:Subject",
+            "WorkloadIdentity:ClientId",
+            "WorkloadIdentity:TokenEndpoint",
+            "WorkloadIdentity:JwksUri",
+            "WorkloadIdentity:SecretDirectory",
+            "WorkloadIdentity:ClientSecretName",
+        };
+        if (required.Any(key => string.IsNullOrWhiteSpace(configuration[key])))
+        {
+            throw new InvalidOperationException(
+                "OAuth workload identity requires issuer, audience, subject, client id, token endpoint, JWKS URI, and a mounted client-secret file.");
+        }
+
+        var secretDirectory = configuration["WorkloadIdentity:SecretDirectory"]!;
+        var secretName = configuration["WorkloadIdentity:ClientSecretName"]!;
+        var secretPath = Path.Combine(secretDirectory, secretName);
+        if (!File.Exists(secretPath))
+        {
+            throw new InvalidOperationException(
+                "OAuth workload identity requires the client secret to be present on the mounted-file SecretSource.");
+        }
+    }
+
+    private static void RegisterWorkloadIdentitySource(
+        IServiceCollection services,
+        IConfiguration configuration,
+        string identityProfile,
+        bool protectedLaneEnabled,
+        bool postgresConfigured)
+    {
+        if (string.Equals(identityProfile, WorkloadIdentityProfiles.OAuthClientCredentialsJwt, StringComparison.Ordinal))
+        {
+            services.AddSingleton<ISecretSource>(_ =>
+                new MountedFileSecretSource(configuration["WorkloadIdentity:SecretDirectory"]!));
+            if (!postgresConfigured)
+            {
+                services.AddSingleton<IAuthenticatedWorkloadContextSource>(
+                    StaticUnavailableWorkloadIdentitySource.Instance);
+                return;
+            }
+
+            var expectedActorId = RequireWorkerServiceActorId(configuration);
+            services.AddSingleton(_ => new HttpClient { Timeout = TimeSpan.FromSeconds(2) });
+            services.AddSingleton<IWorkloadTokenClient>(sp =>
+                new HttpWorkloadTokenClient(sp.GetRequiredService<HttpClient>()));
+            services.AddSingleton<IJwksKeySource>(sp =>
+                new CachedJwksKeySource(
+                    sp.GetRequiredService<HttpClient>(),
+                    TimeProvider.System,
+                    TimeSpan.FromMinutes(10)));
+            services.AddSingleton<IAuthenticatedWorkloadContextSource>(sp =>
+                new OAuthWorkloadIdentitySource(
+                    sp.GetRequiredService<ISecretSource>(),
+                    sp.GetRequiredService<IWorkloadTokenClient>(),
+                    sp.GetRequiredService<IJwksKeySource>(),
+                    sp.GetRequiredService<PostgresConnectionAccessor>(),
+                    WorkloadJwtValidationProfile.Reference(
+                        configuration["WorkloadIdentity:Issuer"]!,
+                        configuration["WorkloadIdentity:Audience"]!,
+                        configuration["WorkloadIdentity:Subject"]!,
+                        configuration["WorkloadIdentity:ClientId"]),
+                    configuration["WorkloadIdentity:TokenEndpoint"]!,
+                    configuration["WorkloadIdentity:JwksUri"]!,
+                    configuration["WorkloadIdentity:ClientSecretName"]!,
+                    expectedActorId,
+                    TimeProvider.System,
+                    TimeSpan.FromSeconds(60)));
+            services.AddHostedService<WorkloadIdentityRefreshService>();
+            return;
+        }
+
+        if (protectedLaneEnabled
+            && string.Equals(identityProfile, WorkloadIdentityProfiles.SyntheticConfiguredActor, StringComparison.Ordinal))
+        {
+            var actorId = RequireWorkerServiceActorId(configuration);
+            services.AddSingleton<IAuthenticatedWorkloadContextSource>(
+                new ConfiguredActorWorkloadIdentitySource(actorId));
+            return;
+        }
+
+        services.AddSingleton<IAuthenticatedWorkloadContextSource>(
+            StaticUnavailableWorkloadIdentitySource.Instance);
+    }
 
     private static DurableInvocationWorkSettings CreateInvocationWorkSettings(
         IConfiguration configuration,

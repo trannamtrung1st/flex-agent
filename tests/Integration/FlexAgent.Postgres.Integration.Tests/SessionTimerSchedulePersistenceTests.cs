@@ -653,7 +653,11 @@ public sealed class SessionTimerSchedulePersistenceTests(PostgresIntegrationFixt
                 scope.Transaction,
                 CancellationToken,
                 timerLaneDelegation,
-                CommitKernel());
+                CommitKernel(),
+                InvocationExecuteDelegationSupport.CreateIssue(
+                    organization,
+                    timerServiceActorId ?? organization.ActorId,
+                    delegationClock));
             await scope.CommitAsync(CancellationToken);
         }
 

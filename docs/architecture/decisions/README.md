@@ -11,8 +11,10 @@ next-timer replacement, and the P0 Decision-output envelope.
 timer-lane service-delegation realization of ADR-002.
 [ADR-016](ADR-016-worker-workload-identity-and-invocation-delegation.md)
 defines portable Worker workload authentication and bounded Invocation
-delegation. Both Worker authorization decisions are approved; their runtime,
-deployment-profile, and verification gates remain incomplete.
+delegation. Both Worker authorization decisions are approved. The Worker
+reference identity and Invocation-delegation runtime path is implemented;
+deployment-profile numeric bounds, live-issuer qualification, and Production
+or Staging enablement remain incomplete.
 
 | ADR | Status | Decision |
 | --- | --- | --- |

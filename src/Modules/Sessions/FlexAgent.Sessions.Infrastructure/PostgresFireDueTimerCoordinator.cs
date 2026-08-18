@@ -1,4 +1,5 @@
 using Dapper;
+using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
@@ -16,7 +17,8 @@ public sealed class PostgresFireDueTimerCoordinator(
     ICommitAuthorizationKernel authorizationKernel,
     IAuditEventWriter? auditEventWriter = null,
     IOutboxItemWriter? outboxItemWriter = null,
-    ISessionRuntimeTelemetry? telemetry = null) : IDueTimerFirePort
+    ISessionRuntimeTelemetry? telemetry = null,
+    IAuthenticatedWorkloadContextSource? workloadIdentity = null) : IDueTimerFirePort
 {
     private const string ClaimDueSql = """
         WITH candidate AS MATERIALIZED (
@@ -90,6 +92,14 @@ public sealed class PostgresFireDueTimerCoordinator(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+
+        if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
+            workloadIdentity,
+            command.Actor,
+            cancellationToken))
+        {
+            return new TimerFireResult(false, TimerFireOutcomeCodes.AuthorityDenied);
+        }
 
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
         try
@@ -213,6 +223,18 @@ public sealed class PostgresFireDueTimerCoordinator(
                     await AfterPersistenceBeforeCommitAsync();
                 }
 
+                if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
+                    workloadIdentity,
+                    command.Actor,
+                    cancellationToken))
+                {
+                    await scope.RollbackAsync(CancellationToken.None);
+                    return new TimerFireResult(
+                        false,
+                        TimerFireOutcomeCodes.AuthorityDenied,
+                        ObservedAt: authoritativeUtc);
+                }
+
                 var commitDecision = await authorizationKernel.ReauthorizeInTransactionAsync(
                     authorizationRequest,
                     scope.Transaction,
@@ -297,6 +319,54 @@ public sealed class PostgresFireDueTimerCoordinator(
                 return new TimerFireResult(
                     false,
                     TimerFireOutcomeCodes.LifecycleIneligible,
+                    result.Revision,
+                    ObservedAt: result.ObservedAt);
+            }
+
+            var executionDelegationId = await scope.Connection.ExecuteScalarAsync<Guid?>(
+                new CommandDefinition(
+                    """
+                    SELECT invocation_execute_delegation_id
+                    FROM session_runtimes
+                    WHERE organization_id = @OrganizationId
+                      AND session_id = @SessionId;
+                    """,
+                    new { ownership.OrganizationId, ownership.SessionId },
+                    scope.Transaction,
+                    cancellationToken: cancellationToken));
+            if (executionDelegationId is null || executionDelegationId == Guid.Empty)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return new TimerFireResult(
+                    false,
+                    TimerFireOutcomeCodes.MissingExecutionDelegation,
+                    result.Revision,
+                    ObservedAt: result.ObservedAt);
+            }
+
+            var executionAdmission = await authorizationKernel.AuthorizeInTransactionAsync(
+                new AuthorizationRequest(
+                    new TrustedActor(command.Actor.ActorId, command.Actor.ActorType),
+                    new OrganizationScope(ownership.OrganizationId),
+                    AuthorizationActions.ExecuteSessionInvocation,
+                    new ResourceScope(
+                        new OrganizationScope(ownership.OrganizationId),
+                        AuthorizationResourceTypes.Session,
+                        ownership.SessionId),
+                    command.SourceChannel,
+                    command.CorrelationId,
+                    executionDelegationId,
+                    ownership.ActivityId,
+                    ownership.ParticipantId,
+                    ownership.AttemptId),
+                scope.Transaction,
+                cancellationToken);
+            if (!executionAdmission.IsPermitted)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return new TimerFireResult(
+                    false,
+                    TimerFireOutcomeCodes.MissingExecutionDelegation,
                     result.Revision,
                     ObservedAt: result.ObservedAt);
             }

@@ -10,6 +10,10 @@ public static class PostgresServiceDelegationCoordinator
 {
     public static readonly TimeSpan TimerLaneFireMaxLifetime = TimeSpan.FromDays(7);
 
+    public static readonly TimeSpan InvocationExecuteMaxLifetime = TimeSpan.FromHours(24);
+
+    public static readonly TimeSpan InvocationExecuteRecoveryAllowance = TimeSpan.FromMinutes(15);
+
     public static Task IssueInTransactionAsync(
         SessionScopedDelegationTarget target,
         AuthorizedServiceDelegationIssue authorizedIssue,
@@ -30,6 +34,7 @@ public static class PostgresServiceDelegationCoordinator
             {
                 ArgumentNullException.ThrowIfNull(target);
                 ValidateTimerLaneFireLifetime(authorizedIssue.Issue);
+                ValidateInvocationExecuteLifetime(authorizedIssue.Issue);
                 await PostgresServiceDelegationRepository.InsertInTransactionAsync(
                     target,
                     authorizedIssue.Issue,
@@ -186,6 +191,34 @@ public static class PostgresServiceDelegationCoordinator
             throw new ArgumentOutOfRangeException(
                 nameof(issue),
                 "session.timer_lane.fire delegations cannot exceed a 7-day lifetime.");
+        }
+    }
+
+    public static void ValidateInvocationExecuteLifetime(ServiceDelegationIssue issue)
+    {
+        ArgumentNullException.ThrowIfNull(issue);
+        if (!string.Equals(issue.AllowedAction, AuthorizationActions.ExecuteSessionInvocation, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (issue.ExpiresAt is not { } expiresAt)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(issue),
+                "session.invocation.execute delegations require a UTC expiry.");
+        }
+
+        if (expiresAt <= issue.EffectiveAt)
+        {
+            throw new ArgumentOutOfRangeException(nameof(issue), "Expiry must be after the effective time.");
+        }
+
+        if (expiresAt - issue.EffectiveAt > InvocationExecuteMaxLifetime)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(issue),
+                "session.invocation.execute delegations cannot exceed a 24-hour lifetime.");
         }
     }
 

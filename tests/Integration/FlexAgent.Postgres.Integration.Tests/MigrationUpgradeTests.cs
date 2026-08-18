@@ -40,6 +40,7 @@ public sealed class MigrationUpgradeTests
     private const string Current0022ScriptName = "0022_service_delegations_and_timer_lane_reference.sql";
     private const string Current0023ScriptName = "0023_service_delegation_audit_reference_and_timer_expiry.sql";
     private const string Current0024ScriptName = "0024_actor_organization_grant_id.sql";
+    private const string Current0025ScriptName = "0025_service_principal_bindings_and_invocation_execute_delegation.sql";
 
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
@@ -86,7 +87,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -134,7 +136,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -180,7 +183,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -226,7 +230,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -272,7 +277,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -318,7 +324,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -364,7 +371,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -410,7 +418,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -521,7 +530,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -567,7 +577,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -613,7 +624,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -797,7 +809,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -848,7 +861,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -904,7 +918,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -971,7 +986,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -1058,7 +1074,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -1116,7 +1133,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
     }
 
     [Fact]
@@ -1184,9 +1202,7 @@ public sealed class MigrationUpgradeTests
             TimeSpan.FromSeconds(30),
             TestContext.Current.CancellationToken);
 
-        Assert.NotNull(claimed);
-        Assert.Equal(seeded.PendingBWorkId, claimed!.WorkId);
-        Assert.Equal(seeded.OrganizationB, claimed.Ownership.OrganizationId);
+        Assert.Null(claimed);
     }
 
     [Fact]
@@ -1254,7 +1270,7 @@ public sealed class MigrationUpgradeTests
             TimeSpan.FromSeconds(30),
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(seeded.PendingBWorkId, next!.WorkId);
+        Assert.Null(next);
     }
 
     [Fact]
@@ -1544,7 +1560,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -1617,7 +1634,8 @@ public sealed class MigrationUpgradeTests
             Current0021ScriptName,
             Current0022ScriptName,
             Current0023ScriptName,
-            Current0024ScriptName);
+            Current0024ScriptName,
+            Current0025ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }

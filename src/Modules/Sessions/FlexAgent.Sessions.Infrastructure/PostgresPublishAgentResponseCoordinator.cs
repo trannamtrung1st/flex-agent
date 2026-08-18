@@ -1,3 +1,5 @@
+using FlexAgent.IdentityAccess.Application;
+using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Audit;
 using FlexAgent.Postgres.Outbox;
@@ -11,7 +13,10 @@ public sealed class PostgresPublishAgentResponseCoordinator(
     PostgresSessionRuntimeRepository runtimeRepository,
     IPublishAgentResponseFragmentHandler publicationHandler,
     IAuditEventWriter? auditEventWriter = null,
-    IOutboxItemWriter? outboxItemWriter = null)
+    IOutboxItemWriter? outboxItemWriter = null,
+    ICommitAuthorizationKernel? authorizationKernel = null,
+    DurableInvocationWorkSettings? settings = null,
+    IAuthenticatedWorkloadContextSource? workloadIdentity = null)
     : IAgentResponsePublicationPersistPort
 {
     private readonly ISealAgentResponseHandler _sealHandler = new SealAgentResponseHandler();
@@ -29,6 +34,15 @@ public sealed class PostgresPublishAgentResponseCoordinator(
         if (command.Ownership != binding.Ownership)
         {
             return new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.OwnershipMismatch);
+        }
+
+        if (settings is not null
+            && !await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
+                workloadIdentity,
+                settings.ServiceActor,
+                cancellationToken))
+        {
+            return new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.Denied);
         }
 
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
@@ -78,6 +92,15 @@ public sealed class PostgresPublishAgentResponseCoordinator(
         if (command.Ownership != binding.Ownership)
         {
             return new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.OwnershipMismatch);
+        }
+
+        if (settings is not null
+            && !await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
+                workloadIdentity,
+                settings.ServiceActor,
+                cancellationToken))
+        {
+            return new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.Denied);
         }
 
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
@@ -223,6 +246,23 @@ public sealed class PostgresPublishAgentResponseCoordinator(
                 cancellationToken);
         }
 
+        if (authorizationKernel is not null && settings is not null)
+        {
+            var commitDecision = await SessionInvocationExecuteCommitAuthorization.ReauthorizeAsync(
+                authorizationKernel,
+                settings.ServiceActor,
+                ownership,
+                correlationId,
+                sourceChannel,
+                scope.Transaction,
+                cancellationToken);
+            if (!commitDecision.IsPermitted)
+            {
+                await scope.RollbackAsync(CancellationToken.None);
+                return new AgentResponseFragmentCommitResult(false, FragmentCommitOutcomeCodes.Denied);
+            }
+        }
+
         await scope.CommitAsync(cancellationToken);
         return result;
     }
@@ -254,6 +294,15 @@ public sealed class PostgresPublishAgentResponseCoordinator(
             return false;
         }
 
+        if (settings is not null
+            && !await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
+                workloadIdentity,
+                settings.ServiceActor,
+                cancellationToken))
+        {
+            return false;
+        }
+
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
         try
         {
@@ -267,6 +316,23 @@ public sealed class PostgresPublishAgentResponseCoordinator(
             {
                 await scope.RollbackAsync(cancellationToken);
                 return false;
+            }
+
+            if (authorizationKernel is not null && settings is not null)
+            {
+                var commitDecision = await SessionInvocationExecuteCommitAuthorization.ReauthorizeAsync(
+                    authorizationKernel,
+                    settings.ServiceActor,
+                    ownership,
+                    Guid.NewGuid(),
+                    settings.SourceChannel,
+                    scope.Transaction,
+                    cancellationToken);
+                if (!commitDecision.IsPermitted)
+                {
+                    await scope.RollbackAsync(CancellationToken.None);
+                    return false;
+                }
             }
 
             await scope.CommitAsync(cancellationToken);

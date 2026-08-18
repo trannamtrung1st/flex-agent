@@ -9,4 +9,9 @@
     <ProjectReference Include="..\..\..\Infrastructure\FlexAgent.Postgres\FlexAgent.Postgres.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="FlexAgent.Runtime.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Postgres.Integration.Tests" />
+  </ItemGroup>
+
 </Project>

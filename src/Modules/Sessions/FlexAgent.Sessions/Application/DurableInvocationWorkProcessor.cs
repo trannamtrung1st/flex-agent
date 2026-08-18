@@ -7,7 +7,8 @@ public sealed class DurableInvocationWorkItem(
     SessionOwnership ownership,
     string agentInvocationId,
     string state,
-    DateTimeOffset? claimLeaseUntil = null)
+    DateTimeOffset? claimLeaseUntil = null,
+    Guid? invocationExecuteDelegationId = null)
 {
     public Guid WorkId { get; } = workId;
 
@@ -18,6 +19,8 @@ public sealed class DurableInvocationWorkItem(
     public string State { get; set; } = state;
 
     public DateTimeOffset? ClaimLeaseUntil { get; set; } = claimLeaseUntil;
+
+    public Guid? InvocationExecuteDelegationId { get; } = invocationExecuteDelegationId;
 }
 
 public sealed record LoadedInvocationWorkSession(

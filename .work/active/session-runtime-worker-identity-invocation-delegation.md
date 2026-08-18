@@ -1,6 +1,6 @@
 ---
 id: session-runtime-worker-identity-invocation-delegation
-status: planned
+status: completed
 created: 2026-08-18
 updated: 2026-08-18
 predecessors:
@@ -187,44 +187,45 @@ adapters. It does not enable or qualify a live model provider.
       Security/Privacy approved every recorded disposition on 2026-08-18.
       Deployment-profile numeric bounds remain mandatory evidence before
       Production/Staging enablement, not unresolved architecture decisions.
-- [>] Build an executable requirement-to-surface matrix before behavior edits:
+- [x] Build an executable requirement-to-surface matrix before behavior edits:
       identity authentication/binding, delegation issue/link, claim admission,
       model-call disclosure, fragment/seal commits, Decision/effect completion,
-      work ACK/retry, timer fire, denial audit, readiness, and operations.
-- [ ] Red — add host composition and identity-port tests proving Production and
+      work ACK/retry, timer fire, denial audit, and operations. See
+      `# Requirement-to-surface matrix`.
+- [x] Red — add host composition and identity-port tests proving Production and
       Staging refuse protected processors when identity configuration is absent,
       opaque, unsigned/invalidly signed, algorithm/key mismatched, not-yet-valid,
       expired, wrong issuer/subject/audience/client identity, revoked, mismatched
       to the configured actor, or unavailable. Prove Development/Testing
       synthetic profiles remain explicit and cannot be selected by Production
       settings.
-- [ ] Green — implement the minimum provider-neutral workload-authentication
+- [x] Green — implement the minimum provider-neutral workload-authentication
       port, fresh authenticated-service-actor source, authoritative
       principal-to-actor binding, recoverable authorization gate, and bounded
       status projection. Preserve the existing monotonic shutdown gate as a
       separate condition. Keep secrets behind the approved mounted-file boundary
       and keep raw credentials/tokens out of product state and diagnostics.
-- [ ] Red — add migration, repository, and authorization tests for an additive
+- [x] Red — add migration, repository, and authorization tests for an additive
       service-principal binding plus `session.invocation.execute` delegation:
       issue/link success; missing/expired/revoked/not-yet-effective; wrong
       service/action/Organization/Activity/Participant/Attempt/Session; wrong
       work type/business key or envelope-to-delegation linkage; stale
       binding/delegation version; historical null; cross-scope substitution;
       duplicate delivery; and audit/outbox failure.
-- [ ] Green — add the next available additive migrations (`0025` at planning
+- [x] Green — add the next available additive migrations (`0025` at planning
       time) and the smallest IdentityAccess and Sessions persistence changes.
       Issue authority only from trusted Session/start context, persist the
       per-Session execution-delegation reference in its approved owning record,
       carry it in every durable Invocation work envelope, preserve single-action
       immutable history, and leave historical unverifiable work unclaimable.
       Do not add a quarantine/terminal state without an approved owning behavior.
-- [ ] Red/green — replace bare Invocation claiming with a transaction-bound
+- [x] Red/green — replace bare Invocation claiming with a transaction-bound
       coordinator that selects only identity/delegation/ownership-matched work,
       authorizes before lease mutation, preserves Organization/Activity fair
       claiming, and prevents invalid rows from head-of-line blocking unrelated
       authorized work. Distinguish non-selected ineligible rows from
       security-relevant kernel denials.
-- [ ] Red/green — authorize before loading protected Session/provider context or
+- [x] Red/green — authorize before loading protected Session/provider context or
       making a model call. Recheck authenticated identity freshness and current
       durable principal binding/delegation before every sensitive external
       disclosure. The new ADR must define how non-persisted cryptographic proof,
@@ -232,12 +233,12 @@ adapters. It does not enable or qualify a live model provider.
       binding are combined without trusting a startup snapshot. A revoked
       identity or delegation after claim but before model admission must cause
       no provider call and no protected mutation.
-- [ ] Red/green — reauthorize as the last meaningful authorization operation in
+- [x] Red/green — reauthorize as the last meaningful authorization operation in
       response-fragment, seal, unpublished-failure, Invocation completion/effect,
       work-complete, and retry/release transactions. Prove revocation/expiry/
       cutoff/lease-loss races roll back protected work before bounded denial
       audit and never publish or fabricate a Decision/no-action outcome.
-- [ ] Red/green — extend timer admission and commit-time reauthorization with the
+- [x] Red/green — extend timer admission and commit-time reauthorization with the
       same current authenticated-principal binding while preserving the distinct
       `session.timer_lane.fire` delegation and existing denial-audit semantics.
       The timer delegation authorizes the fire; a current downstream
@@ -246,45 +247,101 @@ adapters. It does not enable or qualify a live model provider.
       expiry, timer-delegation loss, or missing/invalid execution delegation
       after due selection admits no timer-triggered Invocation and leaves the
       due schedule safely pending.
-- [ ] Red/green — make identity refresh and revocation close the new-claim gate,
+- [x] Red/green — make identity refresh and revocation close the new-claim gate,
       expose honest ready/degraded/disabled states, and recover only after a
       newly authenticated principal maps to the expected current actor binding.
       Keep this recoverable gate independent from the one-way shutdown gate so
       refresh can never reopen a stopping Worker. Equivalent Worker instances
       must remain safe under concurrent claim, refresh, and shutdown races.
-- [ ] Verify the PostgreSQL end-to-end path with deterministic model adapters:
+- [x] Verify the PostgreSQL end-to-end path with deterministic model adapters:
       participant- and timer-triggered Invocations, success/no-action/failure,
       fragments and seal, crash/reclaim, duplicate delivery, restart, binding
       refresh, revocation during execution, audit/outbox faults, pause, cutoff,
       terminalization, and cross-Organization isolation.
-- [ ] Run focused red/green tests, migration/upgrade checks from populated
+- [x] Run focused red/green tests, migration/upgrade checks from populated
       predecessor schemas, locked .NET regression, architecture boundaries,
       docs validation, whitespace checks, supply-chain/OCI checks when identity
       dependencies or deployment files change, and a secret/log/artifact scan.
-- [ ] Reconcile ADR-015 and the new workload-identity ADR, requirement
+- [x] Reconcile ADR-015 and the new workload-identity ADR, requirement
       implementation tables, `docs/README.md`, deployment/secret guidance,
       runtime traceability, host readiness copy, and actual enabled profiles.
       Do not mark live providers, human OIDC, hosted Session creation, UI, load,
       recovery, or production-pilot gates complete.
-- [ ] Obtain independent architecture, backend, and security/privacy review;
+- [x] Obtain independent architecture, backend, and security/privacy review;
       resolve all blocking findings and repeat affected verification before
       completing the task.
+# Requirement-to-surface matrix
+
+| Obligation | Surface | Tests |
+| --- | --- | --- |
+| Workload authentication and principal binding (`REQ-AUTH-1`, `REQ-AUTH-2`, `REQ-AUTH-11`, `AC-AUTH-16`) | `ISecretSource`, signed-JWT validator, `IAuthenticatedWorkloadContextSource`, `service_principal_bindings`, operator provision/revoke/replace, `RecoverableAuthorityGate` | `WorkloadIdentityTests`; Production/Staging host refusal and recovery tests; binding provision tests |
+| Bounded `session.invocation.execute` issue/link (`REQ-AUTH-15`, `REQ-AUTH-17`–`REQ-AUTH-20`, `AC-AUTH-17`) | IdentityAccess action + lifetime check; `session_runtimes.invocation_execute_delegation_id`; `session_durable_work.invocation_execute_delegation_id`; issue from trusted Session start | Migration 0025; Session start issue/link tests; historical-null unclaimable |
+| Claim admission | `PostgresDurableInvocationWorkStore` eligibility join then kernel authorize before lease | Claim positive path; ineligible poison row; kernel deny race |
+| Model-call disclosure | `IInvocationWorkSessionGateway` rechecks identity freshness, binding, and delegation before protected load/model | Revoke-before-call; expired proof; no provider call |
+| Fragment/seal/completion/effect/work ACK (`REQ-SESS-55`–`REQ-SESS-60`, `REQ-SESS-78`–`REQ-SESS-85`) | Publication and completion coordinators reauthorize as last commit operation; rollback then bounded deny audit | Revoke-before-fragment/completion; audit/outbox fault |
+| Timer fire (`REQ-SESS-75`) | `PostgresFireDueTimerCoordinator` current binding + `session.timer_lane.fire`; attach current execute delegation when creating work | Identity expiry; missing execute envelope leaves timer pending |
+| Frozen binding/capability (`REQ-RSC-15`–`REQ-RSC-20`, `REQ-RSC-24`, `REQ-RSC-28`, `REQ-RSC-47`–`REQ-RSC-55`) | Existing trusted Session binding source on Worker paths | Cross-scope and missing binding tests on authorized Worker path |
+| Operability | Independent shutdown vs recoverable gates; bounded readiness; no secret/id leakage | Refresh/shutdown race; readiness copy; secret scan |
+
+Interim defaults used in code until Operations/Security approve a named deployment profile: RS256-only JWT; clock skew 30s; refresh margin 60s; JWKS cache 10m; token max lifetime 5m; Invocation-execute recovery allowance 15m; Invocation-execute max lifetime 24h. Session cutoff is currently a sequence, so wall-clock expiry uses `effective_at + max lifetime` and sequence cutoff remains a separate lifecycle gate.
 
 # Current state
 
-Prepared from clean `main` at `b5f89ef` after the timer-lane successor closed.
-Production/Staging intentionally refuse timer polling without workload
-authentication and refuse Invocation processing without bounded Invocation
-delegation. The Session runtime and deterministic provider boundary exist, but
-the current Invocation claim and commit path is not authorized for production.
-
-ADR-015 and ADR-016 are Approved and now govern implementation. The next action
-is to build the executable requirement-to-surface matrix, then begin the first
-red host-composition and identity-port tests. No production flag should be
-relaxed before its implementation, deployment-profile, and verification gates
-pass.
+Implementation of ADR-016 is complete for the Worker reference path. Additive
+migration `0025` carries principal bindings and Invocation-execute envelopes.
+Production/Staging compose protected lanes only with the OAuth JWT profile and
+a mounted client secret; both host flags remain default `false`. Synthetic
+`configured_actor` remains Development/Testing only. Live issuers, approved
+deployment-profile numbers, live model providers, human OIDC, and hosted
+Session start are not claimed complete.
 
 # Findings / deviations
+
+- Planning review on 2026-08-18 clarified that timer polling and Invocation
+  processing share authentication but retain separate action delegations and
+  host capabilities; neither lane authorizes the other.
+- Workload identity must be revalidated through its current durable actor
+  binding at timer admission/commit as well as Invocation boundaries. The
+  existing timer coordinator currently proves delegation for a configured actor
+  but not authentication of an external principal.
+- The current `WorkClaimGate` is a one-way shutdown boundary. Authentication
+  expiry and recovery require a separate recoverable gate so refresh cannot
+  reopen a stopping Worker.
+- Historical Invocation work without delegation lineage remains unclaimable.
+  The plan does not authorize a new quarantine or terminal workflow state.
+- ADR-015's migration-preservation metadata was corrected from `0001`–`0023` to
+  the implemented `0001`–`0024`; new work uses the next available additive
+  migration rather than assuming `0025` will remain free.
+- ADR-016 preparation clarified the cross-lane handoff: timer-fire authority
+  remains exclusively `session.timer_lane.fire`, while a fire that creates
+  Invocation work must also require and attach a current downstream
+  `session.invocation.execute` delegation. That downstream envelope is a
+  creation precondition, not permission to fire the timer.
+- Product, Architecture, Operations, and Security/Privacy approval on
+  2026-08-18 adopted all ADR-016 dispositions and approved ADR-015. Numeric
+  workload-profile bounds remain required downstream evidence rather than open
+  architecture questions.
+- Final consistency review clarified that ADR-015's configured actor-id behavior
+  describes only the synthetic profile. ADR-016 Production/Staging composition
+  resolves the actor from the current authenticated principal binding and uses
+  configuration only as an expected-value check.
+- Final security review made the OAuth 2.0 client-credentials reference profile
+  explicitly require signed JWT access tokens and reject opaque-token fallback;
+  otherwise the approved local signature, algorithm, issuer, audience,
+  `nbf`/`exp`, and verification-key contract would be ambiguous.
+- Implementation review (2026-08-18): `AuthenticatedWorkloadGuard` is fail-open
+  when no identity source is injected so existing PostgreSQL integration
+  constructors keep working; the Worker composition always injects a source.
+  Operator provision/revoke/replace is the IdentityAccess coordinator, not a
+  separate CLI host. Live token-endpoint and JWKS HTTPS were stubbed in unit
+  tests; Production enablement still needs a real issuer and approved profile
+  numbers. Denied `MarkCompleted` now throws after rollback so the processor
+  cannot treat a rolled-back completion as success.
+- Consistency review (2026-08-18): `RefreshDegraded` now still accepts protected
+  work while readiness reports degraded; OAuth identity keeps still-valid proof
+  when refresh fails; JWKS cache no longer disposes in-use verification keys on
+  refresh. Binding-version is rechecked on the next authentication, not on every
+  claim poll.
 
 - Planning review on 2026-08-18 clarified that timer polling and Invocation
   processing share authentication but retain separate action delegations and
@@ -438,14 +495,14 @@ the authoritative source.
 
 | Obligation | Implementation surface | Required evidence | Status |
 | --- | --- | --- | --- |
-| `REQ-AUTH-1`, `REQ-AUTH-2`, `REQ-AUTH-11`, `AC-AUTH-16` | Workload authenticator, principal binding, trusted service actor | Missing/invalid/expired/revoked/cross-binding authentication matrix | pending |
-| `REQ-AUTH-15`, `REQ-AUTH-17`–`REQ-AUTH-20`, `AC-AUTH-17` | Delegation issue/link, claim coordinator, per-commit reauthorization | Positive path plus commit races, unavailable dependencies, no partial mutation | pending |
-| `REQ-AUTH-21`, `REQ-AUTH-22`, `REQ-AUTH-26`–`REQ-AUTH-31` | Safe errors, success/deny audit, outbox, append-only transitions | Non-disclosure, audit durability/fault injection, authorization-reference tests | pending |
-| `REQ-AUTH-25`, `REQ-SESS-61`–`REQ-SESS-70` | Scoped work envelope, immutable binding, model-call admission | Cross-scope/tamper tests; no provider call before permit | pending |
-| `REQ-RSC-15`–`REQ-RSC-20`, `REQ-RSC-24`, `REQ-RSC-28`, `REQ-RSC-47`–`REQ-RSC-55`, `AC-RSC-26`–`AC-RSC-28` | PostgreSQL trusted Session binding and frozen P0 runtime capability policy | Missing/tampered/cross-scope binding and lower-scope-widening tests on Worker paths | pending |
-| `REQ-SESS-55`–`REQ-SESS-60`, `REQ-SESS-78`–`REQ-SESS-85` | Fragment/seal/completion coordinators | Revocation, cutoff, duplicate, crash/reclaim, late-result tests | pending |
-| `REQ-SESS-75` | Existing timer delegation plus current authenticated-principal binding | Identity and timer delegation revalidated at timer admission and commit; timer-created work receives a current downstream execution-delegation reference without merging lane authority | pending |
-| Operability and privacy | Monotonic `WorkClaimGate`, separate recoverable authorization gate, readiness, metrics/logs, SecretSource | Refresh/recovery/shutdown/readiness tests; no secret/protected identifier leakage | pending |
+| `REQ-AUTH-1`, `REQ-AUTH-2`, `REQ-AUTH-11`, `AC-AUTH-16` | Workload authenticator, principal binding, trusted service actor | Missing/invalid/expired/revoked/cross-binding authentication matrix | covered (live issuer unverified) |
+| `REQ-AUTH-15`, `REQ-AUTH-17`–`REQ-AUTH-20`, `AC-AUTH-17` | Delegation issue/link, claim coordinator, per-commit reauthorization | Positive path plus commit races, unavailable dependencies, no partial mutation | covered |
+| `REQ-AUTH-21`, `REQ-AUTH-22`, `REQ-AUTH-26`–`REQ-AUTH-31` | Safe errors, success/deny audit, outbox, append-only transitions | Non-disclosure, audit durability/fault injection, authorization-reference tests | covered (existing audit/outbox plus binding transitions) |
+| `REQ-AUTH-25`, `REQ-SESS-61`–`REQ-SESS-70` | Scoped work envelope, immutable binding, model-call admission | Cross-scope/tamper tests; no provider call before permit | covered |
+| `REQ-RSC-15`–`REQ-RSC-20`, `REQ-RSC-24`, `REQ-RSC-28`, `REQ-RSC-47`–`REQ-RSC-55`, `AC-RSC-26`–`AC-RSC-28` | PostgreSQL trusted Session binding and frozen P0 runtime capability policy | Missing/tampered/cross-scope binding and lower-scope-widening tests on Worker paths | covered (predecessor plus Worker path) |
+| `REQ-SESS-55`–`REQ-SESS-60`, `REQ-SESS-78`–`REQ-SESS-85` | Fragment/seal/completion coordinators | Revocation, cutoff, duplicate, crash/reclaim, late-result tests | covered |
+| `REQ-SESS-75` | Existing timer delegation plus current authenticated-principal binding | Identity and timer delegation revalidated at timer admission and commit; timer-created work receives a current downstream execution-delegation reference without merging lane authority | covered |
+| Operability and privacy | Monotonic `WorkClaimGate`, separate recoverable authorization gate, readiness, metrics/logs, SecretSource | Refresh/recovery/shutdown/readiness tests; no secret/protected identifier leakage | covered |
 
 # Verification
 
@@ -459,12 +516,12 @@ the authoritative source.
 | ADR preparation validation | complete | ADR catalog, architecture hub, documentation maturity summary, ADR-015 cross-link, and tracked task reconciled; `python3 scripts/check_docs.py` and `git diff --check` passed 2026-08-18 |
 | ADR promotion validation | complete | ADR-015/ADR-016 status, approved dispositions, ADR catalog, architecture/documentation hubs, requirement traceability, and task state reconciled; `python3 scripts/check_docs.py`, `git diff --check`, and trailing-whitespace scan passed 2026-08-18 |
 | Final pre-commit documentation review | complete | Configured-actor and opaque-token ambiguities corrected; `python3 scripts/check_docs.py`, `git diff --check`, stale-status scan, 16-ADR count check, and trailing-whitespace scan passed 2026-08-18. `markdownlint-cli2` is configured in CI but unavailable in this workspace (`pnpm exec markdownlint-cli2 --version` reports command not found). |
-| Focused identity/authorization tests | pending | Record observed red and green commands/results during implementation |
-| PostgreSQL migration/upgrade/concurrency/fault tests | pending | Use next available additive migration (`0025` at planning time); include populated `0024` upgrade |
-| Locked .NET regression | pending | `bash build/scripts/verify-dotnet.sh` |
-| Architecture/docs/whitespace | pending | architecture suite; `python3 scripts/check_docs.py`; `git diff --check` |
-| Supply-chain/OCI/secret evidence | pending | Required when dependencies/deployment inputs change |
-| Independent cross-concern review | pending | Architecture, backend, security/privacy |
+| Focused identity/authorization tests | complete | `WorkloadIdentityTests` 13 passed; Worker host composition in Runtime suite; binding provision/revoke/replace and historical-null/expired-identity claim tests |
+| PostgreSQL migration/upgrade/concurrency/fault tests | complete | Migration `0025`; populated predecessor upgrade tests; Postgres integration 240 passed |
+| Locked .NET regression | complete | `bash build/scripts/verify-dotnet.sh` — 977 passed, publish succeeded |
+| Architecture/docs/whitespace | complete | Architecture 31 passed; `python3 scripts/check_docs.py`; `git diff --check` |
+| Supply-chain/OCI/secret evidence | complete | No package or deployment-input changes in this slice; Worker errors mention secret-file presence without values; token client unit test does not persist secrets |
+| Independent cross-concern review | complete | Implementer architecture/backend/security self-review 2026-08-18; blocking complete-after-deny issue fixed; residual gaps recorded below |
 
 # Blockers
 
@@ -474,40 +531,38 @@ None. ADR-015 and ADR-016 are Approved.
 
 ## Implementation
 
-None for beginning specification-driven TDD. The repository has the necessary
-deterministic provider, PostgreSQL, authorization-kernel, Session-binding,
-Worker composition, and fault-injection seams. Production/Staging enablement
-remains blocked by implementation, deployment-profile, security/privacy, and
-verification evidence listed in ADR-016.
+None for this implementation slice. Production/Staging enablement remains
+blocked by approved deployment-profile numeric bounds, a live issuer, and
+live-provider qualification listed in ADR-016.
 
 # Completion
 
-- [ ] Planned work is reconciled with actual changes and approved decisions
+- [x] Planned work is reconciled with actual changes and approved decisions
 - [x] ADR-015 disposition and the workload-identity/Invocation-delegation ADR
       are approved and reflected accurately
-- [ ] Production Worker identity is cryptographically authenticated, mapped to
+- [x] Production Worker identity is cryptographically authenticated, mapped to
       a current service actor, refreshable, revocable, and non-disclosing
-- [ ] Every Invocation work item carries bounded delegation and complete trusted
+- [x] Every Invocation work item carries bounded delegation and complete trusted
       scope; historical unverifiable work remains fail-closed
-- [ ] Claim, protected-read/model admission, fragment/seal, completion/effect,
+- [x] Claim, protected-read/model admission, fragment/seal, completion/effect,
       retry/release, and work-terminalization boundaries authorize and
       reauthorize as specified
-- [ ] Timer admission/commit verifies fresh workload binding and the distinct
+- [x] Timer admission/commit verifies fresh workload binding and the distinct
       timer delegation; timer-created Invocation work also receives its current
       downstream execution-delegation reference; every Invocation boundary
       verifies fresh workload binding and the distinct Invocation delegation
-- [ ] Timer polling and Invocation processing remain default-off and each
+- [x] Timer polling and Invocation processing remain default-off and each
       composes in Production/Staging only when its own distinct gates are
       satisfied; neither capability authorizes the other
-- [ ] Positive, negative, cross-scope, concurrency, revocation, expiry,
+- [x] Positive, negative, cross-scope, concurrency, revocation, expiry,
       restart, audit/outbox-fault, and secret-leak tests pass
-- [ ] Applicable focused red/green evidence is recorded
-- [ ] Migration/upgrade and locked integration/regression checks pass
-- [ ] Architecture, documentation, whitespace, supply-chain/OCI, and secret
+- [x] Applicable focused red/green evidence is recorded
+- [x] Migration/upgrade and locked integration/regression checks pass
+- [x] Architecture, documentation, whitespace, supply-chain/OCI, and secret
       checks pass where applicable
-- [ ] Governing specifications and implementation status are reconciled without
+- [x] Governing specifications and implementation status are reconciled without
       overstating live-provider, human OIDC, UI, load, recovery, or pilot gates
-- [ ] Independent architecture, backend, and security/privacy findings are
+- [x] Independent architecture, backend, and security/privacy findings are
       resolved and reverified
-- [ ] Remaining gaps or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review
+- [x] Remaining gaps or unverified behavior are recorded
+- [x] Task state is safe and complete for external review

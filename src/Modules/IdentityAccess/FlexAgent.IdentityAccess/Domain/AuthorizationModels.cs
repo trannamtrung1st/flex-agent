@@ -5,8 +5,12 @@ public static class AuthorizationActions
     public const string RegisterConfigurationSourceVersion = "configuration_source_version.register";
     public const string SubscribeSessionEvents = "session.events.subscribe";
     public const string FireSessionTimerLane = "session.timer_lane.fire";
+    public const string ExecuteSessionInvocation = "session.invocation.execute";
     public const string IssueServiceDelegation = "service_delegation.issue";
     public const string RevokeServiceDelegation = "service_delegation.revoke";
+    public const string ProvisionServicePrincipalBinding = "service_principal_binding.provision";
+    public const string RevokeServicePrincipalBinding = "service_principal_binding.revoke";
+    public const string ReplaceServicePrincipalBinding = "service_principal_binding.replace";
 }
 
 public static class AuthorizationResourceTypes
@@ -15,12 +19,14 @@ public static class AuthorizationResourceTypes
     public const string ConfigurationSourceVersion = "configuration_source_version";
     public const string Session = "session";
     public const string ServiceDelegation = "service_delegation";
+    public const string ServicePrincipalBinding = "service_principal_binding";
 }
 
 public static class AuthorizationReferenceTypes
 {
     public const string ServiceDelegation = "service_delegation";
     public const string ActorOrganizationGrant = "actor_organization_grant";
+    public const string ServicePrincipalBinding = "service_principal_binding";
 }
 
 public static class AuthorizationReasonCodes
@@ -38,6 +44,12 @@ public static class AuthorizationReasonCodes
     public const string DelegationNotEffective = "auth.delegation_not_effective";
     public const string DelegationActorMismatch = "auth.delegation_actor_mismatch";
     public const string DelegationActionMismatch = "auth.delegation_action_mismatch";
+    public const string MissingPrincipalBinding = "auth.missing_principal_binding";
+    public const string RevokedPrincipalBinding = "auth.revoked_principal_binding";
+    public const string StalePrincipalBinding = "auth.stale_principal_binding";
+    public const string PrincipalBindingMismatch = "auth.principal_binding_mismatch";
+    public const string IdentityUnavailable = "auth.identity_unavailable";
+    public const string IdentityExpired = "auth.identity_expired";
 }
 
 public static class AuthorizationOutcomes

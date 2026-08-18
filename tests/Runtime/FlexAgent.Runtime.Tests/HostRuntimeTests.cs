@@ -400,7 +400,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
     [Theory]
     [InlineData("Production")]
     [InlineData("Staging")]
-    public void Worker_refuses_to_start_when_invocation_processing_is_enabled_outside_development_and_testing(
+    public void Worker_refuses_protected_invocation_processing_without_workload_identity(
         string environmentName)
     {
         using var factory = _factory.WithWebHostBuilder(builder =>
@@ -416,14 +416,14 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         var exception = Assert.Throws<InvalidOperationException>(() =>
             factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>());
         Assert.Contains("Sessions:InvocationProcessing:Enabled", exception.Message, StringComparison.Ordinal);
-        Assert.Contains("Development", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("workload identity", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("flexagent", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
     [InlineData("Production")]
     [InlineData("Staging")]
-    public void Worker_refuses_to_start_when_timer_polling_is_enabled_outside_development_and_testing(
+    public void Worker_refuses_timer_polling_without_workload_identity(
         string environmentName)
     {
         using var factory = _factory.WithWebHostBuilder(builder =>
@@ -439,8 +439,95 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         var exception = Assert.Throws<InvalidOperationException>(() =>
             factory.Services.GetRequiredService<IDurableTimerFireProcessor>());
         Assert.Contains("Sessions:TimerPolling:Enabled", exception.Message, StringComparison.Ordinal);
-        Assert.Contains("Development", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("workload identity", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("flexagent", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Staging")]
+    public void Worker_refuses_synthetic_workload_identity_outside_development_and_testing(
+        string environmentName)
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment(environmentName);
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:TimerPolling:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+            builder.UseSetting("WorkloadIdentity:Profile", "synthetic.configured_actor");
+        });
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            factory.Services.GetRequiredService<IDurableTimerFireProcessor>());
+        Assert.Contains("synthetic.configured_actor", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("flexagent", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Staging")]
+    public void Worker_composes_timer_polling_when_oauth_workload_identity_is_configured(
+        string environmentName)
+    {
+        var secrets = Directory.CreateTempSubdirectory("flexagent-worker-secrets");
+        File.WriteAllText(Path.Combine(secrets.FullName, "client-secret"), "unused-secret");
+        try
+        {
+            using var factory = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment(environmentName);
+                builder.UseSetting(
+                    "ConnectionStrings:Sessions",
+                    "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+                builder.UseSetting("Sessions:TimerPolling:Enabled", "true");
+                builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+                ApplyOauthWorkloadIdentity(builder, secrets.FullName);
+            });
+
+            Assert.IsType<DurableTimerFireProcessor>(
+                factory.Services.GetRequiredService<IDurableTimerFireProcessor>());
+            Assert.True(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().TimerPollingEnabled);
+            Assert.False(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().DurableWorkClaimingEnabled);
+        }
+        finally
+        {
+            secrets.Delete(true);
+        }
+    }
+
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Staging")]
+    public void Worker_composes_invocation_processing_independently_of_timer_polling(
+        string environmentName)
+    {
+        var secrets = Directory.CreateTempSubdirectory("flexagent-worker-secrets");
+        File.WriteAllText(Path.Combine(secrets.FullName, "client-secret"), "unused-secret");
+        try
+        {
+            using var factory = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment(environmentName);
+                builder.UseSetting(
+                    "ConnectionStrings:Sessions",
+                    "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+                builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+                builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+                ApplyOauthWorkloadIdentity(builder, secrets.FullName);
+            });
+
+            Assert.IsType<DurableInvocationWorkProcessor>(
+                factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>());
+            Assert.True(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().DurableWorkClaimingEnabled);
+            Assert.False(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().TimerPollingEnabled);
+        }
+        finally
+        {
+            secrets.Delete(true);
+        }
     }
 
     [Fact]
@@ -564,6 +651,19 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
 
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/live", cancellationToken)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/ready", cancellationToken)).StatusCode);
+    }
+
+    private static void ApplyOauthWorkloadIdentity(IWebHostBuilder builder, string secretDirectory)
+    {
+        builder.UseSetting("WorkloadIdentity:Profile", "oauth_client_credentials_jwt");
+        builder.UseSetting("WorkloadIdentity:Issuer", "https://issuer.example/realms/flex-agent");
+        builder.UseSetting("WorkloadIdentity:Audience", "flex-agent-worker");
+        builder.UseSetting("WorkloadIdentity:Subject", "worker-client");
+        builder.UseSetting("WorkloadIdentity:ClientId", "worker-client");
+        builder.UseSetting("WorkloadIdentity:TokenEndpoint", "https://issuer.example/realms/flex-agent/protocol/openid-connect/token");
+        builder.UseSetting("WorkloadIdentity:JwksUri", "https://issuer.example/realms/flex-agent/protocol/openid-connect/certs");
+        builder.UseSetting("WorkloadIdentity:SecretDirectory", secretDirectory);
+        builder.UseSetting("WorkloadIdentity:ClientSecretName", "client-secret");
     }
 
     private sealed class ThrowingDurableInvocationWorkProcessor : IDurableInvocationWorkProcessor

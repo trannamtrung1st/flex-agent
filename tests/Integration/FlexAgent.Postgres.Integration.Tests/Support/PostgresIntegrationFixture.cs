@@ -79,6 +79,16 @@ public sealed class PostgresIntegrationFixture : IAsyncLifetime
             new OrganizationScope(organizationId));
     }
 
+    public async Task<Guid> SeedWorkerActorAsync()
+    {
+        var actorId = Guid.NewGuid();
+        await using var connection = await Services.ConnectionAccessor.OpenConnectionAsync();
+        await connection.ExecuteAsync(
+            "INSERT INTO actors (id, created_at) VALUES (@ActorId, clock_timestamp());",
+            new { ActorId = actorId });
+        return actorId;
+    }
+
     public async Task GrantOrganizationActionAsync(Guid organizationId, Guid actorId, string grantedAction)
     {
         await using var connection = await Services.ConnectionAccessor.OpenConnectionAsync();
@@ -87,7 +97,8 @@ public sealed class PostgresIntegrationFixture : IAsyncLifetime
             INSERT INTO actor_organization_grants (
                 organization_id, actor_id, relationship_version, granted_action, created_at)
             VALUES (
-                @OrganizationId, @ActorId, 1, @GrantedAction, clock_timestamp());
+                @OrganizationId, @ActorId, 1, @GrantedAction, clock_timestamp())
+            ON CONFLICT (organization_id, actor_id, granted_action) DO NOTHING;
             """,
             new
             {

@@ -17,7 +17,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.crash.claim", "idem.crash.claim");
         await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
-        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor, SessionPersistenceFixtures.Actor(prepared.Organization.ActorId));
         var adapter = new CountingModelExecutionPort(EnqueueNoAction(prepared.InvocationId, "adec.crash.claim00001"));
         var gateway = new FaultInjectingSessionGateway(CreateGateway(prepared)) { FailNextLoad = 1 };
         var processor = CreateProcessor(store, gateway, adapter, prepared);
@@ -45,7 +45,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.crash.provider", "idem.crash.provider");
         await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
-        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor, SessionPersistenceFixtures.Actor(prepared.Organization.ActorId));
         var adapter = new CrashAfterReturnPort(EnqueueNoAction(prepared.InvocationId, "adec.crash.provider01", copies: 2))
         {
             FailAfterNextReturn = 1,
@@ -72,7 +72,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.crash.commit", "idem.crash.commit");
         await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
-        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor, SessionPersistenceFixtures.Actor(prepared.Organization.ActorId));
         var adapter = new CountingModelExecutionPort(EnqueueNoAction(prepared.InvocationId, "adec.crash.commit0001", copies: 2));
         var gateway = new FaultInjectingSessionGateway(CreateGateway(prepared)) { FailNextSave = 1 };
         var processor = CreateProcessor(store, gateway, adapter, prepared);
@@ -97,7 +97,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.crash.ack", "idem.crash.ack");
         await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
-        var inner = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var inner = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor, SessionPersistenceFixtures.Actor(prepared.Organization.ActorId));
         // Throw before MarkCompletedAsync so Decision is committed and the
         // durable-work acknowledgement itself fails (not a lost successful-ack response).
         var store = new FaultInjectingWorkStore(inner) { FailNextMarkCompleted = 1 };
@@ -125,7 +125,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.crash.skew", "idem.crash.skew");
         await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
-        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor, SessionPersistenceFixtures.Actor(prepared.Organization.ActorId));
         var claimed = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromMinutes(30), CancellationToken);
         Assert.NotNull(claimed);
         Assert.True(claimed!.ClaimLeaseUntil > DateTimeOffset.UtcNow.AddMinutes(20));
@@ -143,7 +143,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.crash.cas", "idem.crash.cas");
         await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
-        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor, SessionPersistenceFixtures.Actor(prepared.Organization.ActorId));
         var original = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
         Assert.NotNull(original);
 
@@ -168,7 +168,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
         var adapter = new CountingModelExecutionPort(EnqueueNoAction(prepared.InvocationId, "adec.crash.poison0001"));
         var processor = CreateProcessor(
-            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor, SessionPersistenceFixtures.Actor(prepared.Organization.ActorId)),
             CreateGateway(prepared),
             adapter,
             prepared);
@@ -176,10 +176,9 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         var first = await processor.TryProcessNextAsync(CancellationToken);
         var second = await processor.TryProcessNextAsync(CancellationToken);
 
-        Assert.Equal(DurableInvocationWorkOutcomes.RetryLater, first.Outcome);
-        Assert.Equal("ainv.orphan.poison0001", first.AgentInvocationId);
-        Assert.Equal(DurableInvocationWorkOutcomes.Decided, second.Outcome);
-        Assert.Equal(prepared.InvocationId, second.AgentInvocationId);
+        Assert.Equal(DurableInvocationWorkOutcomes.Decided, first.Outcome);
+        Assert.Equal(prepared.InvocationId, first.AgentInvocationId);
+        Assert.Equal(DurableInvocationWorkOutcomes.Idle, second.Outcome);
         Assert.Equal(1, adapter.ExecuteCount);
         Assert.Equal(DurableSessionWorkStates.Completed, await ReadWorkStateAsync(
             prepared.Binding.Ownership,
@@ -200,7 +199,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         };
         var adapter = new CountingModelExecutionPort(EnqueueRespond(prepared.InvocationId, "adec.crash.frag000001"));
         var processor = CreateProcessor(
-            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor, SessionPersistenceFixtures.Actor(prepared.Organization.ActorId)),
             CreateGateway(prepared),
             adapter,
             prepared,
@@ -239,7 +238,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         };
         var adapter = new CountingModelExecutionPort(EnqueueRespond(prepared.InvocationId, "adec.crash.seal000001"));
         var processor = CreateProcessor(
-            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor, SessionPersistenceFixtures.Actor(prepared.Organization.ActorId)),
             CreateGateway(prepared),
             adapter,
             prepared,
@@ -274,7 +273,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         var prepared = await PrepareRespondWorkAsync("msg.crash.renew", "turn.crash.renew");
         await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
         var store = new FaultInjectingWorkStore(
-            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor))
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor, SessionPersistenceFixtures.Actor(prepared.Organization.ActorId)))
         {
             FailNextRenew = 1,
         };
@@ -316,7 +315,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         adapter.EnqueueContent(new ModelContentTextDelta("Hi"), new ModelContentCompleted());
         var counting = new CountingModelExecutionPort(adapter);
         var processor = CreateProcessor(
-            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor, SessionPersistenceFixtures.Actor(prepared.Organization.ActorId)),
             CreateGateway(prepared),
             counting,
             prepared,
@@ -357,7 +356,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
                 "adec.crash.unpub00001",
                 new ModelContentCompleted()));
         var processor = CreateProcessor(
-            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor, SessionPersistenceFixtures.Actor(prepared.Organization.ActorId)),
             CreateGateway(prepared),
             adapter,
             prepared,
@@ -400,12 +399,12 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         adapter.Register(second.InvocationId, EnqueueNoAction(second.InvocationId, "adec.crash.w2dec00001"));
         var gateway = CreateGateway(first, second);
         var firstProcessor = CreateProcessor(
-            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor, SessionPersistenceFixtures.Actor(first.Organization.ActorId)),
             gateway,
             adapter,
             first);
         var secondProcessor = CreateProcessor(
-            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor, SessionPersistenceFixtures.Actor(second.Organization.ActorId)),
             gateway,
             adapter,
             second);
@@ -471,15 +470,12 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             Fixture.Services.ConnectionAccessor,
             repository,
             new AdmitTrustedTriggerHandler());
-        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
-
-        await using (var scope = await PostgresTransactionScope.BeginAsync(
-            Fixture.Services.ConnectionAccessor,
-            CancellationToken))
-        {
-            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
-            await scope.CommitAsync(CancellationToken);
-        }
+        await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
+            Fixture,
+            organization,
+            binding,
+            CancellationToken,
+            organization.ActorId);
 
         if (insertOlderUnprocessableWork)
         {
@@ -649,14 +645,12 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var repository = new PostgresSessionRuntimeRepository();
-        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
-        await using (var scope = await PostgresTransactionScope.BeginAsync(
-            Fixture.Services.ConnectionAccessor,
-            CancellationToken))
-        {
-            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
-            await scope.CommitAsync(CancellationToken);
-        }
+        await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
+            Fixture,
+            organization,
+            binding,
+            CancellationToken,
+            organization.ActorId);
 
         var accepted = await new PostgresAcceptParticipantMessageCoordinator(
             Fixture.Services.ConnectionAccessor,

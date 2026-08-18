@@ -751,7 +751,11 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
                     timerServiceActorId ?? organization.ActorId,
                     delegationClock,
                     correlationId),
-                CommitKernel());
+                CommitKernel(),
+                InvocationExecuteDelegationSupport.CreateIssue(
+                    organization,
+                    timerServiceActorId ?? organization.ActorId,
+                    delegationClock));
             await scope.CommitAsync(CancellationToken);
         }
 

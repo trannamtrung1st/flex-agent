@@ -123,6 +123,7 @@ public static class TimerFireOutcomeCodes
     public const string StaleClock = "timer_fire.stale_clock";
     public const string StaleRevision = "timer_fire.stale_revision";
     public const string AuthorityDenied = "timer_fire.authority_denied";
+    public const string MissingExecutionDelegation = "timer_fire.missing_execution_delegation";
 }
 
 public sealed record TimerFireResult(

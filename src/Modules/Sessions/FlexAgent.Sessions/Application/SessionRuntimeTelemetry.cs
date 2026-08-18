@@ -375,6 +375,7 @@ internal static class SessionRuntimeTelemetryVocabularies
         TimerFireOutcomeCodes.StaleClock,
         TimerFireOutcomeCodes.StaleRevision,
         TimerFireOutcomeCodes.AuthorityDenied,
+        TimerFireOutcomeCodes.MissingExecutionDelegation,
         SessionLifecycleOutcomeCodes.Succeeded,
         SessionLifecycleOutcomeCodes.Reconciled,
         SessionLifecycleOutcomeCodes.Denied,

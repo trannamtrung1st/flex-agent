@@ -528,10 +528,10 @@ public sealed class PostgresSessionRuntimeRepository
     private const string InsertDurableWorkSql = """
         INSERT INTO session_durable_work (
             organization_id, activity_id, participant_id, attempt_id, session_id,
-            work_id, work_type, business_key, state)
+            work_id, work_type, business_key, state, invocation_execute_delegation_id)
         VALUES (
             @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
-            @WorkId, @WorkType, @BusinessKey, @State)
+            @WorkId, @WorkType, @BusinessKey, @State, @InvocationExecuteDelegationId)
         ON CONFLICT (organization_id, session_id, work_type, business_key) DO NOTHING;
         """;
 
@@ -733,7 +733,8 @@ public sealed class PostgresSessionRuntimeRepository
         NpgsqlTransaction transaction,
         CancellationToken cancellationToken = default,
         AuthorizedServiceDelegationIssue? timerLaneDelegation = null,
-        ICommitAuthorizationKernel? authorizationKernel = null)
+        ICommitAuthorizationKernel? authorizationKernel = null,
+        AuthorizedServiceDelegationIssue? invocationExecuteDelegation = null)
     {
         ArgumentNullException.ThrowIfNull(ownership);
         ArgumentNullException.ThrowIfNull(session);
@@ -755,9 +756,45 @@ public sealed class PostgresSessionRuntimeRepository
                     cancellationToken: cancellationToken)));
 
             session.ReplaceLastCommittedAtFromDatabase(lastCommittedAt);
-            if (timerLaneDelegation is not null)
+            if (timerLaneDelegation is not null || invocationExecuteDelegation is not null)
             {
                 ArgumentNullException.ThrowIfNull(authorizationKernel);
+            }
+
+            if (invocationExecuteDelegation is not null)
+            {
+                await PostgresServiceDelegationCoordinator.IssueInTransactionAsync(
+                    new SessionScopedDelegationTarget(
+                        ownership.OrganizationId,
+                        ownership.ActivityId,
+                        ownership.ParticipantId,
+                        ownership.AttemptId,
+                        ownership.SessionId),
+                    invocationExecuteDelegation,
+                    authorizationKernel!,
+                    transaction,
+                    cancellationToken,
+                    reauthorizeBeforeReturn: false);
+                await RequireConnection(transaction).ExecuteAsync(
+                    new CommandDefinition(
+                        """
+                        UPDATE session_runtimes
+                        SET invocation_execute_delegation_id = @DelegationId
+                        WHERE organization_id = @OrganizationId
+                          AND session_id = @SessionId;
+                        """,
+                        new
+                        {
+                            DelegationId = invocationExecuteDelegation.Issue.DelegationId,
+                            ownership.OrganizationId,
+                            ownership.SessionId,
+                        },
+                        transaction,
+                        cancellationToken: cancellationToken));
+            }
+
+            if (timerLaneDelegation is not null)
+            {
                 await PostgresServiceDelegationCoordinator.IssueInTransactionAsync(
                     new SessionScopedDelegationTarget(
                         ownership.OrganizationId,
@@ -766,7 +803,7 @@ public sealed class PostgresSessionRuntimeRepository
                         ownership.AttemptId,
                         ownership.SessionId),
                     timerLaneDelegation,
-                    authorizationKernel,
+                    authorizationKernel!,
                     transaction,
                     cancellationToken,
                     reauthorizeBeforeReturn: false);
@@ -781,22 +818,38 @@ public sealed class PostgresSessionRuntimeRepository
                 transaction,
                 cancellationToken);
             await PersistManifestAndTerminalAsync(ownership, session, transaction, cancellationToken);
-            if (timerLaneDelegation is not null)
+            if (timerLaneDelegation is not null || invocationExecuteDelegation is not null)
             {
                 if (AfterPersistenceBeforeDelegationReauthAsync is not null)
                 {
                     await AfterPersistenceBeforeDelegationReauthAsync();
                 }
 
-                await PostgresServiceDelegationCoordinator.ReauthorizeMutationInTransactionAsync(
-                    ownership.OrganizationId,
-                    ownership.SessionId,
-                    timerLaneDelegation.Issue.DelegationId,
-                    timerLaneDelegation.Mutation,
-                    AuthorizationActions.IssueServiceDelegation,
-                    authorizationKernel!,
-                    transaction,
-                    cancellationToken);
+                if (invocationExecuteDelegation is not null)
+                {
+                    await PostgresServiceDelegationCoordinator.ReauthorizeMutationInTransactionAsync(
+                        ownership.OrganizationId,
+                        ownership.SessionId,
+                        invocationExecuteDelegation.Issue.DelegationId,
+                        invocationExecuteDelegation.Mutation,
+                        AuthorizationActions.IssueServiceDelegation,
+                        authorizationKernel!,
+                        transaction,
+                        cancellationToken);
+                }
+
+                if (timerLaneDelegation is not null)
+                {
+                    await PostgresServiceDelegationCoordinator.ReauthorizeMutationInTransactionAsync(
+                        ownership.OrganizationId,
+                        ownership.SessionId,
+                        timerLaneDelegation.Issue.DelegationId,
+                        timerLaneDelegation.Mutation,
+                        AuthorizationActions.IssueServiceDelegation,
+                        authorizationKernel!,
+                        transaction,
+                        cancellationToken);
+                }
             }
         }
         catch (AuthorizationDeniedException)
@@ -1082,6 +1135,17 @@ public sealed class PostgresSessionRuntimeRepository
                     WorkType = DurableSessionWorkTypes.ExecuteInvocation,
                     BusinessKey = invocation.AgentInvocationId,
                     State = DurableSessionWorkStates.Pending,
+                    InvocationExecuteDelegationId = await connection.ExecuteScalarAsync<Guid?>(
+                        new CommandDefinition(
+                            """
+                            SELECT invocation_execute_delegation_id
+                            FROM session_runtimes
+                            WHERE organization_id = @OrganizationId
+                              AND session_id = @SessionId;
+                            """,
+                            new { ownership.OrganizationId, ownership.SessionId },
+                            transaction,
+                            cancellationToken: cancellationToken)),
                 },
                 transaction,
                 cancellationToken: cancellationToken));

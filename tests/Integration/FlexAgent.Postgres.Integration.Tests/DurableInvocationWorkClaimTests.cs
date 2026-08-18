@@ -1,4 +1,5 @@
 using Dapper;
+using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Integration.Tests.Support;
 using FlexAgent.Sessions.Application;
@@ -11,12 +12,19 @@ namespace FlexAgent.Postgres.Integration.Tests;
 public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture fixture)
     : PostgresIntegrationTest(fixture)
 {
+    private Guid? _workerActorId;
+
+    private async Task<Guid> WorkerActorIdAsync()
+    {
+        _workerActorId ??= await Fixture.SeedWorkerActorAsync();
+        return _workerActorId.Value;
+    }
     [Fact]
     public async Task Claim_takes_pending_invocation_execute_work_and_sets_a_database_lease()
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.claim.pending", "idem.claim.pending");
         await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
-        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var store = await CreateStoreAsync();
 
         var claimed = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
 
@@ -32,8 +40,8 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.claim.race", "idem.claim.race");
         await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
-        var firstStore = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
-        var secondStore = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var firstStore = await CreateStoreAsync();
+        var secondStore = await CreateStoreAsync();
 
         var results = await Task.WhenAll(
             firstStore.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken),
@@ -53,7 +61,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         var secondBinding = SessionPersistenceFixtures.CreateBinding(secondOrg.OrganizationId, cooldownSeconds: 0);
         var second = await AdmitPreparedWorkAsync(secondOrg, secondBinding, "trig.claim.fair.b", "idem.claim.fair.b");
         await using var otherWork = await HoldOtherClaimableWorkAsync(first.Binding.Ownership, second.Binding.Ownership);
-        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var store = await CreateStoreAsync();
 
         var claimedFirst = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
         Assert.Equal(first.InvocationId, claimedFirst!.AgentInvocationId);
@@ -95,7 +103,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
             firstSibling.Binding.Ownership,
             firstTail.Binding.Ownership,
             second.Binding.Ownership);
-        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var store = await CreateStoreAsync();
 
         var claimedFirst = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
         var claimedSecond = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
@@ -155,7 +163,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
             Assert.Equal(1, updated);
         }
 
-        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var store = await CreateStoreAsync();
         var claimedSecond = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
 
         Assert.Equal(second.InvocationId, claimedSecond!.AgentInvocationId);
@@ -202,7 +210,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.claim.held", "idem.claim.held");
         await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
-        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var store = await CreateStoreAsync();
 
         var first = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
         var second = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
@@ -217,7 +225,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.claim.expire", "idem.claim.expire");
         await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
-        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var store = await CreateStoreAsync();
         var claimed = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
         Assert.NotNull(claimed);
 
@@ -253,7 +261,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.claim.release", "idem.claim.release");
         await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
-        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var store = await CreateStoreAsync();
         var claimed = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
         Assert.NotNull(claimed);
 
@@ -285,7 +293,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         bindingSource.Register(prepared.Binding);
         var settings = CreateWorkerSettings(prepared.Organization.ActorId);
         var processor = new DurableInvocationWorkProcessor(
-            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            await CreateStoreAsync(),
             new PostgresInvocationWorkSessionGateway(
                 Fixture.Services.ConnectionAccessor,
                 new PostgresSessionRuntimeRepository(),
@@ -322,14 +330,13 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var repository = new PostgresSessionRuntimeRepository();
-        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
-        await using (var scope = await PostgresTransactionScope.BeginAsync(
-            Fixture.Services.ConnectionAccessor,
-            CancellationToken))
-        {
-            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
-            await scope.CommitAsync(CancellationToken);
-        }
+        var workerActorId = await WorkerActorIdAsync();
+        await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
+            Fixture,
+            organization,
+            binding,
+            CancellationToken,
+            workerActorId);
 
         var accepted = await new PostgresAcceptParticipantMessageCoordinator(
             Fixture.Services.ConnectionAccessor,
@@ -376,13 +383,13 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         adapter.EnqueueContent(new ModelContentTextDelta("Hi"), new ModelContentCompleted());
         var bindingSource = new MemoryTrustedSessionBindingSource();
         bindingSource.Register(binding);
-        var settings = CreateWorkerSettings(organization.ActorId);
+        var settings = CreateWorkerSettings(workerActorId);
         var persist = new PostgresPublishAgentResponseCoordinator(
             Fixture.Services.ConnectionAccessor,
             repository,
             new PublishAgentResponseFragmentHandler());
         var processor = new DurableInvocationWorkProcessor(
-            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            await CreateStoreAsync(),
             new PostgresInvocationWorkSessionGateway(
                 Fixture.Services.ConnectionAccessor,
                 repository,
@@ -444,6 +451,8 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
                     WorkType = DurableSessionWorkTypes.ExecuteInvocation,
                     Pending = DurableSessionWorkStates.Pending,
                     Claimed = DurableSessionWorkStates.Claimed,
+                    ServiceActorId = await WorkerActorIdAsync(),
+                    AllowedAction = AuthorizationActions.ExecuteSessionInvocation,
                 },
                 scope.Transaction,
                 cancellationToken: CancellationToken));
@@ -473,7 +482,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         Assert.True(usedClaimableIndex, planJson);
         Assert.False(seqScannedWork, planJson);
 
-        var store = new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor);
+        var store = await CreateStoreAsync();
         var claimed = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
         Assert.Equal(prepared.InvocationId, claimed!.AgentInvocationId);
     }
@@ -486,7 +495,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         var sink = new CapturingSessionRuntimeTelemetrySink();
         var clock = new MutableTimeProvider(new DateTimeOffset(2026, 8, 17, 9, 0, 0, TimeSpan.Zero));
         var sampler = new DurableWorkBacklogSampler(
-            new PostgresDurableInvocationWorkStore(Fixture.Services.ConnectionAccessor),
+            await CreateStoreAsync(),
             new SessionRuntimeTelemetry(sink),
             clock);
 
@@ -512,20 +521,16 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
     {
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
-        var repository = new PostgresSessionRuntimeRepository();
+        await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
+            Fixture,
+            organization,
+            binding,
+            CancellationToken,
+            await WorkerActorIdAsync());
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
-            repository,
+            new PostgresSessionRuntimeRepository(),
             new AdmitTrustedTriggerHandler());
-        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
-
-        await using (var scope = await PostgresTransactionScope.BeginAsync(
-            Fixture.Services.ConnectionAccessor,
-            CancellationToken))
-        {
-            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
-            await scope.CommitAsync(CancellationToken);
-        }
 
         var admitted = await coordinator.AdmitAsync(
             new AdmitTrustedTriggerCommand(
@@ -548,19 +553,16 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         string triggerId,
         string idempotencyKey)
     {
-        var repository = new PostgresSessionRuntimeRepository();
+        await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
+            Fixture,
+            organization,
+            binding,
+            CancellationToken,
+            await WorkerActorIdAsync());
         var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
             Fixture.Services.ConnectionAccessor,
-            repository,
+            new PostgresSessionRuntimeRepository(),
             new AdmitTrustedTriggerHandler());
-        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
-        await using (var scope = await PostgresTransactionScope.BeginAsync(
-            Fixture.Services.ConnectionAccessor,
-            CancellationToken))
-        {
-            await repository.InsertActiveAsync(binding.Ownership, session, SessionPersistenceFixtures.Actor(organization.ActorId), scope.Transaction, CancellationToken);
-            await scope.CommitAsync(CancellationToken);
-        }
 
         var admitted = await coordinator.AdmitAsync(
             new AdmitTrustedTriggerCommand(
@@ -576,6 +578,11 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
         return new PreparedWork(organization, binding, admitted.Invocation!.AgentInvocationId);
     }
+
+    private async Task<PostgresDurableInvocationWorkStore> CreateStoreAsync() =>
+        new(
+            Fixture.Services.ConnectionAccessor,
+            SessionPersistenceFixtures.Actor(await WorkerActorIdAsync()));
 
     private async Task<IAsyncDisposable> HoldOtherClaimableWorkAsync(params SessionOwnership[] keep)
     {
