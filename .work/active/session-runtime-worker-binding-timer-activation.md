@@ -208,9 +208,17 @@ production pilot is complete.
 - [x] P1 — Make authorization-denial rollback use a non-cancelable cleanup
       token so a canceled request cannot leave a committable transaction.
 
-`9da4af5` review remediations implemented, awaiting independent re-review.
-Authorization-denial rollback uses `CancellationToken.None` so a canceled
-request cannot leave staged writes committable.
+# Review remediations (`90a96f6`)
+
+- [x] P1 — Remove the public pre-abort production hook; reproduce the
+      canceled-token race with a test kernel wrapper so rollback cannot be
+      skipped.
+
+# Current state
+
+`90a96f6` review remediations implemented, awaiting independent re-review.
+The public pre-abort hook is gone. The canceled-token race is reproduced by a
+test kernel wrapper that cancels only after the inner kernel returns deny.
 
 # Decisions
 
@@ -303,13 +311,14 @@ approve that ADR.
 | PostgreSQL binding/delegation/timer integration | passed | `SessionTimerLaneDelegationTests` including HOL skip of revoked due rows, `PostgresTrustedSessionBindingSourceTests`, `SessionTimerSchedulePersistenceTests` against PostgreSQL 18 |
 | Migration and upgrade safety | passed | Additive `0022`–`0024`; Grate expected one-time count 24; populated unbounded `0022` timer-lane rows fail closed on `0023`; bounded `0022` rows apply |
 | Architecture/module boundaries | passed | Architecture 31/31 including Worker Dockerfile COPY of IdentityAccess |
-| Locked .NET regression | passed | `9da4af5` remediations: `bash build/scripts/verify-dotnet.sh` **940/940** |
+| Locked .NET regression | passed | `90a96f6` remediations: `bash build/scripts/verify-dotnet.sh` **940/940** |
 | Documentation | passed | `python3 scripts/check_docs.py` |
 | Whitespace | passed | `git diff --check` clean |
 | External review remediations (`9ab00a1`) | passed | P1 audit/transaction coordinator; P1 final reauth-before-commit + expiry race; P2 audit delegation reference; P2 required 7-day timer-lane expiry |
 | External review remediations (`d175099`) | passed | P1 kernel-authorized issue/revoke with grant `authorization_reference` and caller mutation context; P1 removed `NarrowAllowedAction`; P1 explicit `0022`→`0023` populated fail-closed plus `0024` `grant_id` |
 | External review remediations (`58f2595`) | passed | P1 abort caller tx on final auth denial + commit-after-deny test; P1 revoked unbounded `0022` rows upgrade |
 | External review remediations (`9da4af5`) | passed | P1 non-cancelable denial rollback + canceled-token commit-after-deny test |
+| External review remediations (`90a96f6`) | passed | P1 removed public pre-abort hook; cancel race via test kernel wrapper |
 
 # Blockers
 

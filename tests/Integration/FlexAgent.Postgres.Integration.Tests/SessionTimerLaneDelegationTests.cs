@@ -6,6 +6,7 @@ using FlexAgent.Postgres.Integration.Tests.Support;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
+using Npgsql;
 
 namespace FlexAgent.Postgres.Integration.Tests;
 
@@ -336,54 +337,42 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
         var repository = new PostgresSessionRuntimeRepository();
         var delegationId = Guid.NewGuid();
         using var canceled = new CancellationTokenSource();
-        PostgresSessionRuntimeRepository.AfterPersistenceBeforeDelegationReauthAsync = async () =>
-        {
-            await new PostgresGrantRepository(Fixture.Services.ConnectionAccessor).RevokeAsync(
-                organization.OrganizationId,
-                organization.ActorId,
-                AuthorizationActions.IssueServiceDelegation,
-                CancellationToken.None);
-        };
-        PostgresServiceDelegationCoordinator.AfterFinalAuthorizationDeniedBeforeAbort = () => canceled.Cancel();
+        var kernel = new CancelOnFinalDenyKernel(
+            CommitKernel(),
+            canceled,
+            organization.OrganizationId,
+            organization.ActorId,
+            Fixture.Services.ConnectionAccessor);
 
+        await using var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken.None);
+        var startedAt = new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero);
+        var session = SessionRuntime.CreateActive(binding, startedAt);
+        var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken.None);
+        var denied = await Assert.ThrowsAsync<AuthorizationDeniedException>(() =>
+            repository.InsertActiveAsync(
+                binding.Ownership,
+                session,
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                scope.Transaction,
+                canceled.Token,
+                CreateAuthorizedIssue(
+                    organization,
+                    delegationId,
+                    organization.ActorId,
+                    clock,
+                    Guid.NewGuid()),
+                kernel));
         try
         {
-            await using var scope = await PostgresTransactionScope.BeginAsync(
-                Fixture.Services.ConnectionAccessor,
-                CancellationToken.None);
-            var startedAt = new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero);
-            var session = SessionRuntime.CreateActive(binding, startedAt);
-            var clock = await repository.ReadAuthoritativeUtcAsync(scope.Transaction, CancellationToken.None);
-            var denied = await Assert.ThrowsAsync<AuthorizationDeniedException>(() =>
-                repository.InsertActiveAsync(
-                    binding.Ownership,
-                    session,
-                    SessionPersistenceFixtures.Actor(organization.ActorId),
-                    scope.Transaction,
-                    canceled.Token,
-                    CreateAuthorizedIssue(
-                        organization,
-                        delegationId,
-                        organization.ActorId,
-                        clock,
-                        Guid.NewGuid()),
-                    CommitKernel()));
-            try
-            {
-                await scope.CommitAsync(CancellationToken.None);
-            }
-            catch (Exception)
-            {
-            }
-
-            Assert.Equal(AuthorizationReasonCodes.DeniedNoGrant, denied.ReasonCode);
+            await scope.CommitAsync(CancellationToken.None);
         }
-        finally
+        catch (Exception)
         {
-            PostgresSessionRuntimeRepository.AfterPersistenceBeforeDelegationReauthAsync = null;
-            PostgresServiceDelegationCoordinator.AfterFinalAuthorizationDeniedBeforeAbort = null;
         }
 
+        Assert.Equal(AuthorizationReasonCodes.DeniedNoGrant, denied.ReasonCode);
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken.None);
         var counts = await connection.QuerySingleAsync<(int Sessions, int Delegations, int Audits)>(
             """
@@ -818,6 +807,44 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
 
     private ICommitAuthorizationKernel CommitKernel() =>
         (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel;
+
+    private sealed class CancelOnFinalDenyKernel(
+        ICommitAuthorizationKernel inner,
+        CancellationTokenSource canceled,
+        Guid organizationId,
+        Guid actorId,
+        PostgresConnectionAccessor connectionAccessor) : ICommitAuthorizationKernel
+    {
+        public Task<AuthorizationDecision> AuthorizeAsync(
+            AuthorizationRequest request,
+            CancellationToken cancellationToken = default) =>
+            inner.AuthorizeAsync(request, cancellationToken);
+
+        public Task<AuthorizationDecision> AuthorizeInTransactionAsync(
+            AuthorizationRequest request,
+            NpgsqlTransaction transaction,
+            CancellationToken cancellationToken = default) =>
+            inner.AuthorizeInTransactionAsync(request, transaction, cancellationToken);
+
+        public async Task<AuthorizationDecision> ReauthorizeInTransactionAsync(
+            AuthorizationRequest request,
+            NpgsqlTransaction transaction,
+            CancellationToken cancellationToken = default)
+        {
+            await new PostgresGrantRepository(connectionAccessor).RevokeAsync(
+                organizationId,
+                actorId,
+                AuthorizationActions.IssueServiceDelegation,
+                CancellationToken.None);
+            var decision = await inner.ReauthorizeInTransactionAsync(request, transaction, cancellationToken);
+            if (!decision.IsPermitted)
+            {
+                canceled.Cancel();
+            }
+
+            return decision;
+        }
+    }
 
     private FireDueTimerCommand FireCommand(Guid actorId) =>
         new(SessionPersistenceFixtures.Actor(actorId), Guid.NewGuid(), "integration.test");
