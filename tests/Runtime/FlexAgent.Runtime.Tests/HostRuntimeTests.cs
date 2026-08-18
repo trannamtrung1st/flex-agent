@@ -241,7 +241,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
     }
 
     [Fact]
-    public void Worker_registers_live_processor_with_publication_persist_when_a_sessions_connection_string_is_set()
+    public void Worker_keeps_invocation_processing_idle_when_only_a_sessions_connection_string_is_set()
     {
         using var factory = _factory.WithWebHostBuilder(builder =>
         {
@@ -251,31 +251,70 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         });
 
         var processor = factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>();
-        var persist = factory.Services.GetRequiredService<IAgentResponsePublicationPersistPort>();
         var store = factory.Services.GetRequiredService<IDurableInvocationWorkStore>();
         var timer = factory.Services.GetRequiredService<IDurableTimerFireProcessor>();
-        var model = factory.Services.GetRequiredService<IModelExecutionPort>();
         var bindingSource = factory.Services.GetRequiredService<ITrustedSessionBindingSource>();
         var capabilities = factory.Services.GetRequiredService<WorkerRuntimeCapabilities>();
 
-        Assert.IsType<DurableInvocationWorkProcessor>(processor);
-        Assert.IsType<PostgresPublishAgentResponseCoordinator>(persist);
+        Assert.IsType<IdleDurableInvocationWorkProcessor>(processor);
         Assert.IsType<PostgresDurableInvocationWorkStore>(store);
         Assert.IsType<IdleDurableTimerFireProcessor>(timer);
-        Assert.IsType<FailClosedModelExecutionPort>(model);
         Assert.IsType<PostgresTrustedSessionBindingSource>(bindingSource);
-        Assert.True(capabilities.DurableWorkClaimingEnabled);
+        Assert.Null(factory.Services.GetService<IAgentResponsePublicationPersistPort>());
+        Assert.Null(factory.Services.GetService<IModelExecutionPort>());
+        Assert.False(capabilities.DurableWorkClaimingEnabled);
         Assert.False(capabilities.TimerPollingEnabled);
     }
 
     [Fact]
-    public async Task Worker_ready_copy_names_claiming_when_the_live_processor_is_registered()
+    public void Worker_registers_live_processor_only_when_invocation_processing_is_explicitly_enabled()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+        });
+
+        Assert.IsType<DurableInvocationWorkProcessor>(
+            factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>());
+        Assert.IsType<PostgresPublishAgentResponseCoordinator>(
+            factory.Services.GetRequiredService<IAgentResponsePublicationPersistPort>());
+        Assert.IsType<FailClosedModelExecutionPort>(
+            factory.Services.GetRequiredService<IModelExecutionPort>());
+        Assert.True(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().DurableWorkClaimingEnabled);
+    }
+
+    [Fact]
+    public async Task Worker_ready_copy_names_claiming_as_disabled_without_the_explicit_capability()
     {
         await using var factory = _factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting(
                 "ConnectionStrings:Sessions",
                 "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+        });
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var ready = await client.GetAsync("/health/ready", cancellationToken);
+        var readyBody = await ready.Content.ReadAsStringAsync(cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
+        Assert.Contains("Worker loop is running. Durable work claiming is not enabled. Timer polling is not enabled.", readyBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("accepting work claims", readyBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Worker_ready_copy_names_claiming_when_invocation_processing_is_explicitly_enabled()
+    {
+        await using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
         });
         var client = factory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -305,12 +344,13 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
             factory.Services.GetRequiredService<IDueTimerFirePort>());
         Assert.IsType<PostgresTrustedSessionBindingSource>(
             factory.Services.GetRequiredService<ITrustedSessionBindingSource>());
-        Assert.IsType<FailClosedModelExecutionPort>(
-            factory.Services.GetRequiredService<IModelExecutionPort>());
+        Assert.IsType<IdleDurableInvocationWorkProcessor>(
+            factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>());
+        Assert.Null(factory.Services.GetService<IModelExecutionPort>());
         Assert.IsType<FlexAgent.IdentityAccess.Infrastructure.PostgresAuthorizationKernel>(
             factory.Services.GetRequiredService<FlexAgent.IdentityAccess.Application.IAuthorizationKernel>());
         Assert.True(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().TimerPollingEnabled);
-        Assert.True(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().DurableWorkClaimingEnabled);
+        Assert.False(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().DurableWorkClaimingEnabled);
     }
 
     [Fact]
@@ -330,7 +370,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         var readyBody = await ready.Content.ReadAsStringAsync(cancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
-        Assert.Contains("durable work claiming is enabled", readyBody, StringComparison.Ordinal);
+        Assert.Contains("Durable work claiming is not enabled", readyBody, StringComparison.Ordinal);
         Assert.Contains("Timer polling is enabled.", readyBody, StringComparison.Ordinal);
         Assert.DoesNotContain("accepting work claims", readyBody, StringComparison.Ordinal);
     }

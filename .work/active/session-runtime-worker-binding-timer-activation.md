@@ -214,14 +214,25 @@ production pilot is complete.
       canceled-token race with a test kernel wrapper so rollback cannot be
       skipped.
 
+# Post-completion remediation (`fabe346`)
+
+- [x] Red — prove that configuring Sessions persistence alone keeps durable
+      Invocation processing idle, and that timer polling remains independently
+      gated.
+- [x] Green — require an explicit default-off
+      `Sessions:InvocationProcessing:Enabled` capability before registering the
+      live Invocation processor and its mutation dependencies.
+- [x] Verify focused host composition/readiness, locked regression, docs, and
+      whitespace; then reconcile this retained task record.
+
 # Current state
 
-Completed. Independent backend and security/privacy review of `f5e06e9`
-against `90a96f6` found no blockers and accepted this timer-lane
-delegation/security remediation slice for the MVP. The defensive
-`OperationCanceledException` catch on non-cancelable rollback is retained as
-harmless. GitHub has no attached status checks for this SHA; the last local
-locked regression was `bash build/scripts/verify-dotnet.sh` **940/940**.
+Post-completion remediation is complete. Sessions persistence rehydrates the
+immutable binding and can sample backlog, but it no longer registers the live
+Invocation processor, publication persist port, or model port. Those mutation
+dependencies require `Sessions:InvocationProcessing:Enabled`. Timer polling
+remains independently gated by `Sessions:TimerPolling:Enabled`. Both
+capabilities default off.
 
 Live model providers, OIDC, Participant UI, hosted HTTP Session-create, and
 production-pilot certification remain out of scope. ADR-015 remains Proposed
@@ -235,9 +246,10 @@ until product and architecture approve it.
 - Preserve `FailClosedModelExecutionPort` in this task. Binding and timer
   readiness must not be misreported as provider readiness.
 - Keep timer polling behind a distinct explicit capability, default disabled.
-  Tests may enable the capability with synthetic provider-independent Session
-  data; a real-use profile must wait for the separately qualified provider and
-  credential boundary.
+  Keep Invocation processing behind a separate explicit capability, default
+  disabled (`PROP-WBT-8`). Tests may enable either capability with synthetic
+  provider-independent Session data; a real-use profile must wait for the
+  separately qualified provider and credential boundary.
 - Missing or invalid binding/delegation is retryable only while authoritative
   state could become available; it must not cancel a valid pending timer,
   fabricate success, or create a second schedule.
@@ -261,6 +273,10 @@ architecture approval remain required before the ADR is Approved.
   from identifiers alone.
 - `PROP-WBT-3` — Require an explicit `Sessions:TimerPolling:Enabled` host
   capability, default `false`, in addition to the Sessions connection string.
+- `PROP-WBT-8` — Require an explicit `Sessions:InvocationProcessing:Enabled`
+  host capability, default `false`, before registering the live Invocation
+  processor or its mutation ports. Sessions persistence and timer polling
+  remain independently gated.
 - `PROP-WBT-4` — Use the primary database clock and transaction for delegation
   freshness, timer due state, Session lifecycle/cutoff, expected revision,
   Invocation admission, audit, and outbox commit.
@@ -297,6 +313,11 @@ architecture approval remain required before the ADR is Approved.
   accepted this timer-lane delegation/security remediation for the MVP. ADR-015
   stays Proposed until product and architecture approve it. GitHub has no
   attached commit status checks for that SHA.
+- A later repository-status review found that binding registration also
+  activated Invocation claiming. That path is now separately gated
+  (`PROP-WBT-8`). The live Invocation processor still lacks its own bounded
+  service-delegation realization; enabling the host capability remains a
+  test/synthetic profile, not production authorization.
 
 # Threats and required controls
 
@@ -311,18 +332,19 @@ architecture approval remain required before the ADR is Approved.
 | Invalid authority destroys valid pending work | Skip or roll back without cancelling or advancing the schedule | Repeated missing binding/delegation tests |
 | Audit or telemetry leaks protected identifiers | Bounded reason/metric categories; protected references only in authoritative records | Ready-copy and telemetry allowlist tests |
 | Timer polling creates provider-failure loops before qualification | Separate default-off capability and honest readiness | Connection-string-only host remains timer-idle |
+| Sessions persistence is treated as Invocation execution authority | Separate default-off `Sessions:InvocationProcessing:Enabled` plus idle processor/mutation ports | Connection-string-only host keeps `IdleDurableInvocationWorkProcessor` |
 
 # Verification
 
 | Check | Status | Evidence |
 | --- | --- | --- |
 | Baseline repository state | passed | Planned from `e8793e5` |
-| Host composition red/green | passed | `WorkerRuntimeTests` 13/13 including connection-string-only idle timer + explicit `Sessions:TimerPolling:Enabled` live processor |
+| Host composition red/green | passed | `WorkerRuntimeTests` 15/15: connection-string-only idle Invocation + idle timer; explicit `Sessions:InvocationProcessing:Enabled` live processor; explicit `Sessions:TimerPolling:Enabled` live timer with idle Invocation |
 | Timer processor/domain focused tests | passed | `DurableTimerFireProcessorTests` 9/9 including `timer_fire.authority_denied` → `retry_later` |
 | PostgreSQL binding/delegation/timer integration | passed | `SessionTimerLaneDelegationTests` including HOL skip of revoked due rows, `PostgresTrustedSessionBindingSourceTests`, `SessionTimerSchedulePersistenceTests` against PostgreSQL 18 |
 | Migration and upgrade safety | passed | Additive `0022`–`0024`; Grate expected one-time count 24; populated unbounded `0022` timer-lane rows fail closed on `0023`; bounded `0022` rows apply |
 | Architecture/module boundaries | passed | Architecture 31/31 including Worker Dockerfile COPY of IdentityAccess |
-| Locked .NET regression | passed | `90a96f6` remediations: `bash build/scripts/verify-dotnet.sh` **940/940** |
+| Locked .NET regression | passed | Invocation-capability remediation: `bash build/scripts/verify-dotnet.sh` **942/942** |
 | Documentation | passed | `python3 scripts/check_docs.py` |
 | Whitespace | passed | `git diff --check` clean |
 | External review remediations (`9ab00a1`) | passed | P1 audit/transaction coordinator; P1 final reauth-before-commit + expiry race; P2 audit delegation reference; P2 required 7-day timer-lane expiry |
@@ -331,10 +353,12 @@ architecture approval remain required before the ADR is Approved.
 | External review remediations (`9da4af5`) | passed | P1 non-cancelable denial rollback + canceled-token commit-after-deny test |
 | External review remediations (`90a96f6`) | passed | P1 removed public pre-abort hook; cancel race via test kernel wrapper |
 | Independent review (`f5e06e9`) | passed | No blockers. Slice accepted for MVP. Local `940/940` not independently verifiable from GitHub status checks |
+| Post-completion Invocation capability remediation | passed | Red: 4 `WorkerRuntimeTests` failed because CS registered live processor/claiming. Green: `Sessions:InvocationProcessing:Enabled` default-off. Runtime 92/92; Architecture 31/31; `check_docs.py`; `git diff --check`; locked **942/942** |
 
 # Blockers
 
-None.
+None. The live Invocation path remains intentionally disabled by default while
+its separate service-delegation and provider-qualification work is outstanding.
 
 # Completion
 
@@ -358,4 +382,5 @@ None.
 - [x] Remaining gaps or unverified behavior are recorded
 - [x] Independent backend and security/privacy review findings are resolved
 - [x] Task state is safe and complete for external review
-
+- [x] Sessions persistence alone cannot activate protected Invocation work
+- [x] Post-completion remediation is verified and reconciled

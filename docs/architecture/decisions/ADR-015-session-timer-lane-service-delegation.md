@@ -76,8 +76,13 @@ violate the delayed-work contract.
    head-of-line blocking another Session.
 5. Hosted timer polling requires an explicit `Sessions:TimerPolling:Enabled`
    capability, default `false`, in addition to a Sessions connection string,
-   PostgreSQL binding rehydration, and the authorization kernel. The fail-closed
-   model port remains until a later provider-qualification task.
+   PostgreSQL binding rehydration, and the authorization kernel. Hosted
+   Invocation claiming is a separate default-off
+   `Sessions:InvocationProcessing:Enabled` capability; a Sessions connection
+   string alone does not register the live Invocation processor or its
+   mutation ports. The fail-closed model port is registered only when
+   Invocation processing is explicitly enabled and remains until a later
+   provider-qualification task.
 6. Issuance and revocation of service delegations are authorized operations
    (`service_delegation.issue` / `service_delegation.revoke`) against a current
    actor-organization grant. The mutated resource is `service_delegation` /

@@ -28,6 +28,9 @@ internal static class WorkerDurableWorkSampling
         services.AddSingleton<ISessionRuntimeTelemetry>(sp =>
             new SessionRuntimeTelemetry(sp.GetRequiredService<ISessionRuntimeTelemetrySink>()));
         var connectionString = configuration.GetConnectionString("Sessions");
+        var invocationProcessingEnabled = configuration.GetValue(
+            "Sessions:InvocationProcessing:Enabled",
+            false);
         var timerPollingEnabled = configuration.GetValue("Sessions:TimerPolling:Enabled", false);
         if (string.IsNullOrWhiteSpace(connectionString))
         {
@@ -50,17 +53,25 @@ internal static class WorkerDurableWorkSampling
             services.AddSingleton<IAuthorizationKernel, PostgresAuthorizationKernel>();
             services.AddSingleton<ICommitAuthorizationKernel>(sp =>
                 (ICommitAuthorizationKernel)sp.GetRequiredService<IAuthorizationKernel>());
-            services.AddSingleton<IPublishAgentResponseFragmentHandler>(sp =>
-                new PublishAgentResponseFragmentHandler(sp.GetRequiredService<ISessionRuntimeTelemetry>()));
-            services.AddSingleton<ICompleteInvocationHandler>(sp =>
-                new CompleteInvocationHandler(sp.GetRequiredService<ISessionRuntimeTelemetry>()));
-            services.AddSingleton<IModelExecutionPort>(_ => FailClosedModelExecutionPort.Instance);
-            services.AddSingleton(CreateInvocationWorkSettings(configuration));
-            services.AddSingleton<PostgresPublishAgentResponseCoordinator>();
-            services.AddSingleton<IAgentResponsePublicationPersistPort>(sp =>
-                sp.GetRequiredService<PostgresPublishAgentResponseCoordinator>());
-            services.AddSingleton<IInvocationWorkSessionGateway, PostgresInvocationWorkSessionGateway>();
-            services.AddSingleton<IDurableInvocationWorkProcessor, DurableInvocationWorkProcessor>();
+            if (invocationProcessingEnabled)
+            {
+                services.AddSingleton<IPublishAgentResponseFragmentHandler>(sp =>
+                    new PublishAgentResponseFragmentHandler(sp.GetRequiredService<ISessionRuntimeTelemetry>()));
+                services.AddSingleton<ICompleteInvocationHandler>(sp =>
+                    new CompleteInvocationHandler(sp.GetRequiredService<ISessionRuntimeTelemetry>()));
+                services.AddSingleton<IModelExecutionPort>(_ => FailClosedModelExecutionPort.Instance);
+                services.AddSingleton(CreateInvocationWorkSettings(configuration));
+                services.AddSingleton<PostgresPublishAgentResponseCoordinator>();
+                services.AddSingleton<IAgentResponsePublicationPersistPort>(sp =>
+                    sp.GetRequiredService<PostgresPublishAgentResponseCoordinator>());
+                services.AddSingleton<IInvocationWorkSessionGateway, PostgresInvocationWorkSessionGateway>();
+                services.AddSingleton<IDurableInvocationWorkProcessor, DurableInvocationWorkProcessor>();
+            }
+            else
+            {
+                services.AddSingleton<IDurableInvocationWorkProcessor, IdleDurableInvocationWorkProcessor>();
+            }
+
             if (timerPollingEnabled)
             {
                 services.AddSingleton<IDueTimerFirePort, PostgresFireDueTimerCoordinator>();
@@ -74,7 +85,7 @@ internal static class WorkerDurableWorkSampling
 
             services.AddSingleton(new WorkerRuntimeCapabilities
             {
-                DurableWorkClaimingEnabled = true,
+                DurableWorkClaimingEnabled = invocationProcessingEnabled,
                 TimerPollingEnabled = timerPollingEnabled,
             });
         }
