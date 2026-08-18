@@ -27,13 +27,23 @@ public sealed class PostgresSessionActorRelationshipStore(PostgresConnectionAcce
         """;
 
     private const string RevokeCurrentSql = """
-        UPDATE session_actor_relationships
-        SET revoked_at = COALESCE(revoked_at, clock_timestamp()),
-            relationship_version = @RelationshipVersion
-        WHERE organization_id = @OrganizationId
-          AND session_id = @SessionId
-          AND actor_id = @ActorId
-          AND @RelationshipVersion > relationship_version;
+        INSERT INTO session_actor_relationships (
+            organization_id, activity_id, participant_id, attempt_id, session_id,
+            actor_id, actor_type, relationship, relationship_version, revoked_at)
+        VALUES (
+            @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+            @ActorId, @ActorType, @Relationship, @RelationshipVersion, clock_timestamp())
+        ON CONFLICT (organization_id, session_id, actor_id) DO UPDATE
+        SET actor_type = EXCLUDED.actor_type,
+            relationship = EXCLUDED.relationship,
+            activity_id = EXCLUDED.activity_id,
+            participant_id = EXCLUDED.participant_id,
+            attempt_id = EXCLUDED.attempt_id,
+            relationship_version = EXCLUDED.relationship_version,
+            revoked_at = COALESCE(
+                session_actor_relationships.revoked_at,
+                EXCLUDED.revoked_at)
+        WHERE EXCLUDED.relationship_version > session_actor_relationships.relationship_version;
         """;
 
     private const string ResolveCurrentSql = """
@@ -59,66 +69,26 @@ public sealed class PostgresSessionActorRelationshipStore(PostgresConnectionAcce
         SessionActorRelationship relationship,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(relationship);
-        if (relationship.ActorId == Guid.Empty
-            || string.IsNullOrWhiteSpace(relationship.ActorType)
-            || relationship.Ownership.OrganizationId == Guid.Empty
-            || relationship.Ownership.SessionId == Guid.Empty
-            || relationship.RelationshipVersion < 1
-            || relationship.Relationship is not (
-                SessionEventSubscriptionRelationships.Participant
-                or SessionEventSubscriptionRelationships.Reviewer
-                or SessionEventSubscriptionRelationships.Administrator))
-        {
-            throw new ArgumentOutOfRangeException(nameof(relationship));
-        }
-
+        EnsureValidRelationship(relationship);
         await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
         var affected = await connection.ExecuteAsync(
             new CommandDefinition(
                 SetCurrentSql,
-                new
-                {
-                    relationship.Ownership.OrganizationId,
-                    relationship.Ownership.ActivityId,
-                    relationship.Ownership.ParticipantId,
-                    relationship.Ownership.AttemptId,
-                    relationship.Ownership.SessionId,
-                    relationship.ActorId,
-                    relationship.ActorType,
-                    relationship.Relationship,
-                    relationship.RelationshipVersion,
-                },
+                RelationshipParameters(relationship),
                 cancellationToken: cancellationToken));
         return affected > 0;
     }
 
     public async Task<bool> RevokeCurrentAsync(
-        SessionOwnership ownership,
-        Guid actorId,
-        long relationshipVersion,
+        SessionActorRelationship relationship,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(ownership);
-        if (actorId == Guid.Empty
-            || ownership.OrganizationId == Guid.Empty
-            || ownership.SessionId == Guid.Empty
-            || relationshipVersion < 1)
-        {
-            return false;
-        }
-
+        EnsureValidRelationship(relationship);
         await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
         var affected = await connection.ExecuteAsync(
             new CommandDefinition(
                 RevokeCurrentSql,
-                new
-                {
-                    ownership.OrganizationId,
-                    ownership.SessionId,
-                    ActorId = actorId,
-                    RelationshipVersion = relationshipVersion,
-                },
+                RelationshipParameters(relationship),
                 cancellationToken: cancellationToken));
         return affected > 0;
     }
@@ -163,6 +133,37 @@ public sealed class PostgresSessionActorRelationshipStore(PostgresConnectionAcce
             row.participant_id == Guid.Empty ? null : row.participant_id,
             row.relationship);
     }
+
+    private static void EnsureValidRelationship(SessionActorRelationship relationship)
+    {
+        ArgumentNullException.ThrowIfNull(relationship);
+        if (relationship.ActorId == Guid.Empty
+            || string.IsNullOrWhiteSpace(relationship.ActorType)
+            || relationship.Ownership.OrganizationId == Guid.Empty
+            || relationship.Ownership.SessionId == Guid.Empty
+            || relationship.RelationshipVersion < 1
+            || relationship.Relationship is not (
+                SessionEventSubscriptionRelationships.Participant
+                or SessionEventSubscriptionRelationships.Reviewer
+                or SessionEventSubscriptionRelationships.Administrator))
+        {
+            throw new ArgumentOutOfRangeException(nameof(relationship));
+        }
+    }
+
+    private static object RelationshipParameters(SessionActorRelationship relationship) =>
+        new
+        {
+            relationship.Ownership.OrganizationId,
+            relationship.Ownership.ActivityId,
+            relationship.Ownership.ParticipantId,
+            relationship.Ownership.AttemptId,
+            relationship.Ownership.SessionId,
+            relationship.ActorId,
+            relationship.ActorType,
+            relationship.Relationship,
+            relationship.RelationshipVersion,
+        };
 
     private sealed record SubjectRow(
         Guid actor_id,

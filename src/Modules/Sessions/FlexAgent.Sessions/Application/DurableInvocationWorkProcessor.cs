@@ -124,9 +124,7 @@ public interface ISessionActorRelationshipStore
         CancellationToken cancellationToken = default);
 
     Task<bool> RevokeCurrentAsync(
-        SessionOwnership ownership,
-        Guid actorId,
-        long relationshipVersion,
+        SessionActorRelationship relationship,
         CancellationToken cancellationToken = default);
 }
 

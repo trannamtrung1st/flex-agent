@@ -62,20 +62,20 @@ fail-closed bindings with persistence-backed resolution of the actor's
       Session insert transaction (review P1)
 - [x] Make `SetCurrentAsync` apply only a strictly newer supplied version
       (review P2 stale-set)
-- [x] Advance already-revoked relationship tombstones with a newer revoke
-      version (review P2 delayed-set after out-of-order revoke)
+- [x] Upsert a revoked tombstone when revoke arrives before any assignment
+      row (review P2 revoke-before-first-set)
 - [x] Refuse populated `0020`→`0021` upgrades that cannot backfill snapshots
       (review P2)
 - [x] Reconcile spec Partial rows when the hosted path is actually usable
 
 # Current state
 
-Completed follow-up to `6d01939`. A newer revoke advances the tombstone
-version even when already revoked, scoped to trusted
-`(organization, session, actor)`. Delayed lower `SetCurrentAsync` cannot
-restore access. Hosted SSE still writes the starting participant at insert
-and revalidates on authorize/replay/hold. Worker bindings remain fail-closed.
-`REQ-SESS-59` stays Partial.
+Completed follow-up to `3e67e91`. `RevokeCurrentAsync` upserts a revoked
+tombstone with the same relationship metadata as assignment, so a newer
+revoke that arrives before the first set still wins over a delayed lower
+`SetCurrentAsync`. Hosted SSE still writes the starting participant at
+insert and revalidates on authorize/replay/hold. Worker bindings remain
+fail-closed. `REQ-SESS-59` stays Partial.
 
 # Decisions
 
@@ -102,12 +102,16 @@ and revalidates on authorize/replay/hold. Worker bindings remain fail-closed.
   is the trusted chain for this slice.
 - Initial participant relationship is written in the same
   `InsertActiveAsync` transaction as the runtime and frozen-policy snapshot.
-  Later enrollment/reviewer assignment still uses `SetCurrentAsync`.
-- `SetCurrentAsync` and `RevokeCurrentAsync` both apply an authoritative
-  supplied `RelationshipVersion` only when it is strictly newer than the
-  stored version. Revoke sets or preserves `revoked_at` and can advance an
-  already-revoked tombstone so a delayed lower assignment cannot restore
-  access. Revoke is scoped to trusted `(organization, session, actor)`.
+- Later enrollment/reviewer assignment still uses `SetCurrentAsync`.
+  `RevokeCurrentAsync` upserts a revoked tombstone with the same
+  relationship metadata when no row exists yet, so a delayed lower
+  assignment cannot INSERT access. A separate version-watermark table was
+  not added; the existing `(organization, session, actor)` row is the
+  monotonic projection.
+- `SetCurrentAsync` and `RevokeCurrentAsync` both take a
+  `SessionActorRelationship` and apply only a strictly newer supplied
+  version. Revoke upserts a tombstone (`revoked_at` set) even when no row
+  existed, and preserves `revoked_at` when advancing an existing tombstone.
 - Populated `0020` databases cannot reconstruct frozen policy payloads.
   `0021` fails closed when `session_runtimes` already has rows. Empty
   `0020`→`0021` remains the supported upgrade.
@@ -139,6 +143,10 @@ and revalidates on authorize/replay/hold. Worker bindings remain fail-closed.
   is ignored on an already-revoked row, so a delayed lower `SetCurrentAsync`
   can restore access.
 
+- `3e67e91` (2026-08-18): **changes requested**. Remaining P2: revoke cannot
+  create a tombstone when no relationship row exists yet, so a delayed
+  assignment INSERT can restore access.
+
 # Verification
 
 | Check | Status | Evidence |
@@ -148,9 +156,9 @@ and revalidates on authorize/replay/hold. Worker bindings remain fail-closed.
 | Enrollment revoke while org grant remains | passed | `Subscribe_denies_after_enrollment_revoke_while_org_grant_remains` |
 | Hosted bindings no longer fail-closed for authorized participants | passed | `InsertActiveAsync` writes participant v1; subscribe happy path no longer calls `SetCurrentAsync`; API composition registers `PostgresTrustedSessionBindingSource` |
 | Frozen-policy snapshot round-trip | passed | `FrozenRuntimePolicySnapshotTests`; `InsertActiveAsync` writes snapshot; empty upgrade `0020`→`0021` |
-| Relationship version CAS | passed | `Stale_set_current_after_revoke_does_not_restore_access`; `Stale_revoke_after_newer_assignment_does_not_revoke`; `Newer_revoke_advances_tombstone_so_delayed_lower_set_does_not_restore_access` |
+| Relationship version CAS | passed | `Stale_set_current_after_revoke_does_not_restore_access`; `Stale_revoke_after_newer_assignment_does_not_revoke`; `Newer_revoke_advances_tombstone_so_delayed_lower_set_does_not_restore_access`; `Revoke_before_first_set_keeps_delayed_lower_assignment_from_creating_access` |
 | Populated `0020`→`0021` fails closed | passed | `Upgrade_from_populated_0020_runtime_fails_closed` |
-| Locked .NET regression | passed | `bash build/scripts/verify-dotnet.sh` **909/909** |
+| Locked .NET regression | passed | `bash build/scripts/verify-dotnet.sh` **910/910** |
 | Docs | passed | `python3 scripts/check_docs.py`; `git diff --check` clean; `REQ-SESS-59` Partial rows updated |
 
 # Blockers
