@@ -5,6 +5,7 @@ using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
 using FlexAgent.Worker;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using ApiProgram = FlexAgent.Api.Program;
@@ -257,7 +258,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         var capabilities = factory.Services.GetRequiredService<WorkerRuntimeCapabilities>();
 
         Assert.IsType<IdleDurableInvocationWorkProcessor>(processor);
-        Assert.IsType<PostgresDurableInvocationWorkStore>(store);
+        Assert.IsType<UnknownDurableInvocationWorkStore>(store);
         Assert.IsType<IdleDurableTimerFireProcessor>(timer);
         Assert.IsType<PostgresTrustedSessionBindingSource>(bindingSource);
         Assert.Null(factory.Services.GetService<IAgentResponsePublicationPersistPort>());
@@ -279,10 +280,29 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
 
         Assert.IsType<DurableInvocationWorkProcessor>(
             factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>());
+        Assert.IsType<PostgresDurableInvocationWorkStore>(
+            factory.Services.GetRequiredService<IDurableInvocationWorkStore>());
         Assert.IsType<PostgresPublishAgentResponseCoordinator>(
             factory.Services.GetRequiredService<IAgentResponsePublicationPersistPort>());
         Assert.IsType<FailClosedModelExecutionPort>(
             factory.Services.GetRequiredService<IModelExecutionPort>());
+        Assert.True(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().DurableWorkClaimingEnabled);
+    }
+
+    [Fact]
+    public void Worker_registers_live_processor_when_invocation_processing_is_enabled_in_testing()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+        });
+
+        Assert.IsType<DurableInvocationWorkProcessor>(
+            factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>());
         Assert.True(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().DurableWorkClaimingEnabled);
     }
 
@@ -346,10 +366,54 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
             factory.Services.GetRequiredService<ITrustedSessionBindingSource>());
         Assert.IsType<IdleDurableInvocationWorkProcessor>(
             factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>());
+        Assert.IsType<UnknownDurableInvocationWorkStore>(
+            factory.Services.GetRequiredService<IDurableInvocationWorkStore>());
         Assert.Null(factory.Services.GetService<IModelExecutionPort>());
         Assert.IsType<FlexAgent.IdentityAccess.Infrastructure.PostgresAuthorizationKernel>(
             factory.Services.GetRequiredService<FlexAgent.IdentityAccess.Application.IAuthorizationKernel>());
         Assert.True(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().TimerPollingEnabled);
+        Assert.False(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().DurableWorkClaimingEnabled);
+    }
+
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Staging")]
+    public void Worker_refuses_to_start_when_invocation_processing_is_enabled_outside_development_and_testing(
+        string environmentName)
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment(environmentName);
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+        });
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>());
+        Assert.Contains("Sessions:InvocationProcessing:Enabled", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("Development", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("flexagent", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Worker_keeps_invocation_processing_idle_in_production_when_only_a_sessions_connection_string_is_set()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Production");
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+        });
+
+        Assert.IsType<IdleDurableInvocationWorkProcessor>(
+            factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>());
+        Assert.IsType<UnknownDurableInvocationWorkStore>(
+            factory.Services.GetRequiredService<IDurableInvocationWorkStore>());
+        Assert.IsType<PostgresTrustedSessionBindingSource>(
+            factory.Services.GetRequiredService<ITrustedSessionBindingSource>());
         Assert.False(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().DurableWorkClaimingEnabled);
     }
 

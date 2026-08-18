@@ -79,10 +79,13 @@ violate the delayed-work contract.
    PostgreSQL binding rehydration, and the authorization kernel. Hosted
    Invocation claiming is a separate default-off
    `Sessions:InvocationProcessing:Enabled` capability; a Sessions connection
-   string alone does not register the live Invocation processor or its
-   mutation ports. The fail-closed model port is registered only when
-   Invocation processing is explicitly enabled and remains until a later
-   provider-qualification task.
+   string alone does not register the live Invocation processor, mutation
+   ports, or live invocation work store. Until invocation service delegation
+   exists, enabling that flag outside Development/Testing refuses Worker
+   startup. The fail-closed model port is registered only in that synthetic
+   profile and remains until a later provider-qualification task. Unscoped
+   claimable-work aggregates are not an authorization-exempt operator read;
+   persistence-only and timer-only hosts keep the unknown invocation store.
 6. Issuance and revocation of service delegations are authorized operations
    (`service_delegation.issue` / `service_delegation.revoke`) against a current
    actor-organization grant. The mutated resource is `service_delegation` /

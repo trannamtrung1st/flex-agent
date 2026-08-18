@@ -225,14 +225,22 @@ production pilot is complete.
 - [x] Verify focused host composition/readiness, locked regression, docs, and
       whitespace; then reconcile this retained task record.
 
+# Review remediations (`f4eff9b`)
+
+- [x] P1 — Refuse Worker startup when `Sessions:InvocationProcessing:Enabled`
+      is set outside Development/Testing. The host flag is not authorization
+      and must not persist fail-closed execution failures in production.
+- [x] P2 — Persistence-only (and timer-only) hosts must not register the live
+      invocation work store or issue an unscoped claimable-work aggregate.
+      Document that this count is not an authorization-exempt operator read.
+- [x] Verify focused host tests, locked regression, docs, and whitespace.
+
 # Current state
 
-Post-completion remediation is complete. Sessions persistence rehydrates the
-immutable binding and can sample backlog, but it no longer registers the live
-Invocation processor, publication persist port, or model port. Those mutation
-dependencies require `Sessions:InvocationProcessing:Enabled`. Timer polling
-remains independently gated by `Sessions:TimerPolling:Enabled`. Both
-capabilities default off.
+Review remediations for `f4eff9b` are complete. Production/Staging refuse
+`Sessions:InvocationProcessing:Enabled` at startup. Persistence-only and
+timer-only hosts keep `UnknownDurableInvocationWorkStore`, so they do not
+issue an unscoped claimable-work aggregate.
 
 Live model providers, OIDC, Participant UI, hosted HTTP Session-create, and
 production-pilot certification remain out of scope. ADR-015 remains Proposed
@@ -247,9 +255,10 @@ until product and architecture approve it.
   readiness must not be misreported as provider readiness.
 - Keep timer polling behind a distinct explicit capability, default disabled.
   Keep Invocation processing behind a separate explicit capability, default
-  disabled (`PROP-WBT-8`). Tests may enable either capability with synthetic
-  provider-independent Session data; a real-use profile must wait for the
-  separately qualified provider and credential boundary.
+  disabled (`PROP-WBT-8`). Until invocation service delegation exists, the
+  Invocation flag is a Development/Testing host profile only and refuses
+  startup elsewhere. Tests may enable timer polling, or Invocation processing
+  in Development/Testing, with synthetic provider-independent Session data.
 - Missing or invalid binding/delegation is retryable only while authoritative
   state could become available; it must not cancel a valid pending timer,
   fabricate success, or create a second schedule.
@@ -275,8 +284,13 @@ architecture approval remain required before the ADR is Approved.
   capability, default `false`, in addition to the Sessions connection string.
 - `PROP-WBT-8` — Require an explicit `Sessions:InvocationProcessing:Enabled`
   host capability, default `false`, before registering the live Invocation
-  processor or its mutation ports. Sessions persistence and timer polling
-  remain independently gated.
+  processor or its mutation ports. Until invocation service delegation exists,
+  enabling the flag outside Development/Testing refuses Worker startup. The
+  flag is not authorization.
+- `PROP-WBT-9` — Unscoped claimable-work aggregates are not an
+  authorization-exempt operator read (`REQ-AUTH-12`). Persistence-only and
+  timer-only hosts keep `UnknownDurableInvocationWorkStore` and do not sample
+  live invocation backlog.
 - `PROP-WBT-4` — Use the primary database clock and transaction for delegation
   freshness, timer due state, Session lifecycle/cutoff, expected revision,
   Invocation admission, audit, and outbox commit.
@@ -315,9 +329,11 @@ architecture approval remain required before the ADR is Approved.
   attached commit status checks for that SHA.
 - A later repository-status review found that binding registration also
   activated Invocation claiming. That path is now separately gated
-  (`PROP-WBT-8`). The live Invocation processor still lacks its own bounded
-  service-delegation realization; enabling the host capability remains a
-  test/synthetic profile, not production authorization.
+  (`PROP-WBT-8`). Review of `f4eff9b` required a production startup refuse and
+  removal of the unscoped persistence-only backlog read. The live Invocation
+  processor still lacks bounded service delegation; Development/Testing may
+  compose it, and that remains a synthetic profile rather than production
+  authorization.
 
 # Threats and required controls
 
@@ -333,18 +349,20 @@ architecture approval remain required before the ADR is Approved.
 | Audit or telemetry leaks protected identifiers | Bounded reason/metric categories; protected references only in authoritative records | Ready-copy and telemetry allowlist tests |
 | Timer polling creates provider-failure loops before qualification | Separate default-off capability and honest readiness | Connection-string-only host remains timer-idle |
 | Sessions persistence is treated as Invocation execution authority | Separate default-off `Sessions:InvocationProcessing:Enabled` plus idle processor/mutation ports | Connection-string-only host keeps `IdleDurableInvocationWorkProcessor` |
+| Host flag is treated as production authorization | Refuse startup outside Development/Testing until invocation delegation exists | Production/Staging `InvalidOperationException`; Testing/Development still compose |
+| Persistence-only mode issues an unscoped protected aggregate | Unknown invocation store unless the synthetic Invocation profile is composed | CS-only and timer-only use `UnknownDurableInvocationWorkStore` |
 
 # Verification
 
 | Check | Status | Evidence |
 | --- | --- | --- |
 | Baseline repository state | passed | Planned from `e8793e5` |
-| Host composition red/green | passed | `WorkerRuntimeTests` 15/15: connection-string-only idle Invocation + idle timer; explicit `Sessions:InvocationProcessing:Enabled` live processor; explicit `Sessions:TimerPolling:Enabled` live timer with idle Invocation |
+| Host composition red/green | passed | `WorkerRuntimeTests` 19/19 including Production/Staging refuse of Invocation processing, Testing compose, CS-only/timer-only `UnknownDurableInvocationWorkStore` |
 | Timer processor/domain focused tests | passed | `DurableTimerFireProcessorTests` 9/9 including `timer_fire.authority_denied` → `retry_later` |
 | PostgreSQL binding/delegation/timer integration | passed | `SessionTimerLaneDelegationTests` including HOL skip of revoked due rows, `PostgresTrustedSessionBindingSourceTests`, `SessionTimerSchedulePersistenceTests` against PostgreSQL 18 |
 | Migration and upgrade safety | passed | Additive `0022`–`0024`; Grate expected one-time count 24; populated unbounded `0022` timer-lane rows fail closed on `0023`; bounded `0022` rows apply |
 | Architecture/module boundaries | passed | Architecture 31/31 including Worker Dockerfile COPY of IdentityAccess |
-| Locked .NET regression | passed | Invocation-capability remediation: `bash build/scripts/verify-dotnet.sh` **942/942** |
+| Locked .NET regression | passed | `f4eff9b` remediations: `bash build/scripts/verify-dotnet.sh` **946/946** |
 | Documentation | passed | `python3 scripts/check_docs.py` |
 | Whitespace | passed | `git diff --check` clean |
 | External review remediations (`9ab00a1`) | passed | P1 audit/transaction coordinator; P1 final reauth-before-commit + expiry race; P2 audit delegation reference; P2 required 7-day timer-lane expiry |
@@ -354,6 +372,7 @@ architecture approval remain required before the ADR is Approved.
 | External review remediations (`90a96f6`) | passed | P1 removed public pre-abort hook; cancel race via test kernel wrapper |
 | Independent review (`f5e06e9`) | passed | No blockers. Slice accepted for MVP. Local `940/940` not independently verifiable from GitHub status checks |
 | Post-completion Invocation capability remediation | passed | Red: 4 `WorkerRuntimeTests` failed because CS registered live processor/claiming. Green: `Sessions:InvocationProcessing:Enabled` default-off. Runtime 92/92; Architecture 31/31; `check_docs.py`; `git diff --check`; locked **942/942** |
+| Review remediations (`f4eff9b`) | passed | P1 Production/Staging startup refuse; P2 unknown store for persistence-only/timer-only. Red 5 failed; green `WorkerRuntimeTests` 19/19; Architecture 31/31; `check_docs.py`; `git diff --check`; locked **946/946** |
 
 # Blockers
 
@@ -384,3 +403,7 @@ its separate service-delegation and provider-qualification work is outstanding.
 - [x] Task state is safe and complete for external review
 - [x] Sessions persistence alone cannot activate protected Invocation work
 - [x] Post-completion remediation is verified and reconciled
+- [x] Production and other non-test environments refuse
+      `Sessions:InvocationProcessing:Enabled` until invocation delegation exists
+- [x] Persistence-only and timer-only hosts do not issue unscoped invocation
+      claimable-work aggregates

@@ -19,19 +19,31 @@ internal static class WorkerDurableWorkSampling
 {
     internal static readonly Guid DefaultWorkerServiceActorId = Guid.Parse("11111111-2222-3333-4444-555555555555");
 
-    public static void AddDurableWorkSampling(this IServiceCollection services, IConfiguration configuration)
+    public static void AddDurableWorkSampling(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(environment);
 
         services.AddSingleton<ISessionRuntimeTelemetrySink, MeterSessionRuntimeTelemetrySink>();
         services.AddSingleton<ISessionRuntimeTelemetry>(sp =>
             new SessionRuntimeTelemetry(sp.GetRequiredService<ISessionRuntimeTelemetrySink>()));
         var connectionString = configuration.GetConnectionString("Sessions");
-        var invocationProcessingEnabled = configuration.GetValue(
+        var invocationProcessingRequested = configuration.GetValue(
             "Sessions:InvocationProcessing:Enabled",
             false);
         var timerPollingEnabled = configuration.GetValue("Sessions:TimerPolling:Enabled", false);
+        if (invocationProcessingRequested && !IsSyntheticHostProfile(environment))
+        {
+            throw new InvalidOperationException(
+                "Sessions:InvocationProcessing:Enabled is a Development/Testing host profile until invocation service delegation is implemented and cannot be enabled in this environment.");
+        }
+
+        var invocationProcessingEnabled = invocationProcessingRequested
+            && IsSyntheticHostProfile(environment);
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             services.AddSingleton<IDurableInvocationWorkStore>(UnknownDurableInvocationWorkStore.Instance);
@@ -48,13 +60,13 @@ internal static class WorkerDurableWorkSampling
             services.AddSingleton(_ => NpgsqlDataSource.Create(connectionString));
             services.AddSingleton<PostgresConnectionAccessor>();
             services.AddSingleton<PostgresSessionRuntimeRepository>();
-            services.AddSingleton<IDurableInvocationWorkStore, PostgresDurableInvocationWorkStore>();
             services.AddSingleton<ITrustedSessionBindingSource, PostgresTrustedSessionBindingSource>();
             services.AddSingleton<IAuthorizationKernel, PostgresAuthorizationKernel>();
             services.AddSingleton<ICommitAuthorizationKernel>(sp =>
                 (ICommitAuthorizationKernel)sp.GetRequiredService<IAuthorizationKernel>());
             if (invocationProcessingEnabled)
             {
+                services.AddSingleton<IDurableInvocationWorkStore, PostgresDurableInvocationWorkStore>();
                 services.AddSingleton<IPublishAgentResponseFragmentHandler>(sp =>
                     new PublishAgentResponseFragmentHandler(sp.GetRequiredService<ISessionRuntimeTelemetry>()));
                 services.AddSingleton<ICompleteInvocationHandler>(sp =>
@@ -69,6 +81,7 @@ internal static class WorkerDurableWorkSampling
             }
             else
             {
+                services.AddSingleton<IDurableInvocationWorkStore>(UnknownDurableInvocationWorkStore.Instance);
                 services.AddSingleton<IDurableInvocationWorkProcessor, IdleDurableInvocationWorkProcessor>();
             }
 
@@ -95,6 +108,9 @@ internal static class WorkerDurableWorkSampling
                 sp.GetRequiredService<IDurableInvocationWorkStore>(),
                 sp.GetRequiredService<ISessionRuntimeTelemetry>()));
     }
+
+    private static bool IsSyntheticHostProfile(IHostEnvironment environment) =>
+        environment.IsDevelopment() || environment.IsEnvironment("Testing");
 
     private static DurableInvocationWorkSettings CreateInvocationWorkSettings(IConfiguration configuration)
     {
