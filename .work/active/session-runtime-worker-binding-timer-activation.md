@@ -1,6 +1,6 @@
 ---
 id: session-runtime-worker-binding-timer-activation
-status: in-progress
+status: completed
 created: 2026-08-18
 updated: 2026-08-18
 predecessors:
@@ -287,12 +287,15 @@ are not authentication.
 
 # Current state
 
-Independent review of `9650da9` found the production-boundary remediation
-correct and no runtime/security blocker. The remaining P2 is documentation:
-executable-table evidence now uses exact test methods (or an explicit
-unenumerated UI gap). The task stays `in-progress` for follow-up review.
-ADR-015 stays Proposed. Completing this slice would not make timer polling
-production-ready.
+Independent review of `c8dc740` against `9650da9` found no remaining
+implementation, security, or closure-evidence issue. The timer-lane
+Worker/delegation slice is `completed`. Completion does not enable production
+timer polling. Production/Staging remain fail-closed until Worker workload
+authentication exists. Production Invocation processing remains blocked until
+bounded Invocation delegation exists. ADR-015 stays Proposed pending Product
+Lead and Architecture Lead approval. GitHub has no attached commit status
+checks for `c8dc740`. Next MVP work is a successor slice, not further
+timer-lane remediation.
 
 Live model providers, OIDC, Participant UI, hosted HTTP Session-create, and
 production-pilot certification remain out of scope.
@@ -407,6 +410,12 @@ architecture approval remain required before the ADR is Approved.
   unchanged, the executable table omitted governing-source rows, and
   `# Blockers — None` was misleading. GitHub has no attached commit status
   checks for that SHA.
+- Independent review of `c8dc740` (2026-08-18) against `9650da9` found no
+  remaining implementation, security, or closure-evidence issue. Exact
+  `TestClass.TestMethod` evidence was spot-checked against the repository.
+  UI `AC-SESS` rows correctly record an unenumerated evidence gap. Completing
+  this slice does not enable production timer polling. GitHub has no attached
+  commit status checks for that SHA.
 
 # Threats and required controls
 
@@ -451,6 +460,7 @@ architecture approval remain required before the ADR is Approved.
 | Independent review (`50c894e`) | passed (later revised) | P2 remediations accepted, then close verdict revised for production timer-polling gate, traceability coverage, and blockers. Local `950/950` not independently verifiable from GitHub status checks |
 | Review remediations (`50c894e` follow-up) | passed | P1 Production/Staging refuse `Sessions:TimerPolling:Enabled`; stale deny-audit plan wording; expanded governing-source table; blockers classified. Red: 2 `WorkerRuntimeTests` (Production/Staging timer polling). Green: `WorkerRuntimeTests` 23/23; `SessionTimerLaneDelegationTests` 22/22; Architecture 31/31; `check_docs.py`; `git diff --check`; locked **953/953** |
 | Review remediations (`9650da9` P2) | passed | Documentation-only exact `TestClass.TestMethod` evidence (or explicit unenumerated UI gap). `python3 scripts/check_docs.py`; `git diff --check` |
+| Independent review (`c8dc740`) | passed | No blocker. Exact-evidence table accepted. Slice complete; production timer polling remains disabled. Local regression not independently verifiable from GitHub status checks |
 
 # Executable traceability
 
@@ -512,7 +522,6 @@ None for the current Development/Testing timer-lane path.
 ### Governance
 
 - ADR-015 remains Proposed pending Product Lead and Architecture Lead approval. Independent implementation review is not ADR approval.
-- Independent backend/security review of this production-boundary remediation is outstanding.
 
 ### Intentionally deferred successor work
 
@@ -540,7 +549,7 @@ None for the current Development/Testing timer-lane path.
 - [x] Governing specifications and production-gate status are rechecked and
       reconciled without overstating provider, OIDC, UI, load, or pilot readiness
 - [x] Remaining gaps or unverified behavior are recorded
-- [ ] Independent backend and security/privacy review findings are resolved
+- [x] Independent backend and security/privacy review findings are resolved
 - [x] Task state is safe and complete for external review
 - [x] Sessions persistence alone cannot activate protected Invocation work
 - [x] Post-completion remediation is verified and reconciled
@@ -550,5 +559,5 @@ None for the current Development/Testing timer-lane path.
       claimable-work aggregates
 - [x] Production and other non-test environments refuse
       `Sessions:TimerPolling:Enabled` until Worker workload authentication exists
-- [ ] Independent backend and security/privacy review of the `9650da9` P2
-      exact-evidence traceability cleanup
+- [x] Independent backend and security/privacy review of the `c8dc740`
+      exact-evidence traceability cleanup (against `9650da9`)
