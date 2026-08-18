@@ -2,6 +2,7 @@ using Dapper;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
+using FlexAgent.Postgres.Audit;
 using FlexAgent.Postgres.Integration.Tests.Support;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
@@ -213,6 +214,44 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
         Assert.Equal(AuthorizationReasonCodes.ExpiredDelegation, denial.ReasonCode);
         Assert.Equal(prepared.DelegationId, denial.ReferenceId);
         Assert.Equal(0, await CountSucceededTimerLaneFireAuditsAsync(prepared.Ownership));
+    }
+
+    [Fact]
+    public async Task Denial_audit_failure_after_commit_reauthorization_deny_does_not_mutate_or_leave_audit()
+    {
+        var prepared = await InsertDelegatedSessionAsync();
+        await using var otherDue = await HoldOtherDueSchedulesAsync(prepared.Ownership);
+        await MarkScheduleDueAsync(prepared.Ownership);
+        var correlationId = Guid.NewGuid();
+        var coordinator = CreateCoordinator(
+            auditEventWriter: new DenyAuditFaultInjectingWriter(new PostgresAuditEventWriter()));
+        coordinator.AfterPersistenceBeforeCommitAsync = async () =>
+        {
+            await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+            var updated = await connection.ExecuteAsync(
+                """
+                UPDATE service_delegations
+                SET expires_at = clock_timestamp() - INTERVAL '1 second'
+                WHERE delegation_id = @DelegationId;
+                """,
+                new { prepared.DelegationId });
+            Assert.Equal(1, updated);
+        };
+
+        var before = await CaptureWorkAsync(prepared.Ownership);
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            coordinator.TryFireNextDueAsync(
+                FireCommand(prepared.Organization.ActorId, correlationId),
+                CancellationToken));
+        var after = await CaptureWorkAsync(prepared.Ownership);
+
+        Assert.Equal("Injected denial-audit failure.", exception.Message);
+        Assert.Equal(before.SessionVersion, after.SessionVersion);
+        Assert.Equal(0, after.InvocationCount);
+        Assert.Equal("pending", after.LaneState);
+        Assert.Equal(before.OutboxCount, after.OutboxCount);
+        Assert.Equal(0, await CountSucceededTimerLaneFireAuditsAsync(prepared.Ownership));
+        Assert.Equal(0, await CountTimerLaneDenialAuditsAsync(prepared.Ownership, correlationId));
     }
 
     [Fact]
@@ -947,6 +986,29 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
             });
     }
 
+    private async Task<int> CountTimerLaneDenialAuditsAsync(SessionOwnership ownership, Guid correlationId)
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        return await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND resource_id = @SessionId
+              AND correlation_id = @CorrelationId
+              AND action = @Action
+              AND outcome = @Outcome;
+            """,
+            new
+            {
+                ownership.OrganizationId,
+                ownership.SessionId,
+                CorrelationId = correlationId,
+                Action = AuthorizationActions.FireSessionTimerLane,
+                Outcome = AuthorizationOutcomes.Deny,
+            });
+    }
+
     private async Task<Guid> InsertActorAsync()
     {
         var actorId = Guid.NewGuid();
@@ -957,12 +1019,15 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
         return actorId;
     }
 
-    private PostgresFireDueTimerCoordinator CreateCoordinator(ITrustedSessionBindingSource? bindingSource = null) =>
+    private PostgresFireDueTimerCoordinator CreateCoordinator(
+        ITrustedSessionBindingSource? bindingSource = null,
+        IAuditEventWriter? auditEventWriter = null) =>
         new(
             Fixture.Services.ConnectionAccessor,
             new PostgresSessionRuntimeRepository(),
             bindingSource ?? new PostgresTrustedSessionBindingSource(Fixture.Services.ConnectionAccessor),
-            (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel);
+            (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
+            auditEventWriter);
 
     private ICommitAuthorizationKernel CommitKernel() =>
         (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel;
@@ -1022,6 +1087,22 @@ public sealed class SessionTimerLaneDelegationTests(PostgresIntegrationFixture f
         string LaneState,
         int AuditCount,
         int OutboxCount);
+
+    private sealed class DenyAuditFaultInjectingWriter(IAuditEventWriter inner) : IAuditEventWriter
+    {
+        public Task InsertAsync(
+            AuditEventWriteModel auditEvent,
+            NpgsqlTransaction transaction,
+            CancellationToken cancellationToken = default)
+        {
+            if (auditEvent.Outcome == AuthorizationOutcomes.Deny)
+            {
+                throw new InvalidOperationException("Injected denial-audit failure.");
+            }
+
+            return inner.InsertAsync(auditEvent, transaction, cancellationToken);
+        }
+    }
 
     private sealed class HeldDueScope(Npgsql.NpgsqlConnection connection, Npgsql.NpgsqlTransaction transaction)
         : IAsyncDisposable
