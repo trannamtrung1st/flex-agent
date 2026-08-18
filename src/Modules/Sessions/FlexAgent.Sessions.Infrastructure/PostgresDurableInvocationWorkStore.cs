@@ -15,6 +15,7 @@ public sealed class PostgresDurableInvocationWorkStore(
     IAuthenticatedWorkloadContextSource? workloadIdentity = null)
     : IDurableInvocationWorkStore
 {
+    internal Func<Task>? AfterLeaseUpdateBeforeCommitAsync { get; set; }
     public const string ClaimableIndexName = "ix_session_durable_work_claimable";
 
     internal const string ClaimCandidateSql = """
@@ -205,15 +206,30 @@ public sealed class PostgresDurableInvocationWorkStore(
                 return null;
             }
 
+            if (AfterLeaseUpdateBeforeCommitAsync is not null)
+            {
+                await AfterLeaseUpdateBeforeCommitAsync();
+            }
+
+            var ownership = new SessionOwnership(
+                row.organization_id,
+                row.activity_id,
+                row.participant_id,
+                row.attempt_id,
+                row.session_id);
+            if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
+                workloadIdentity,
+                actor,
+                cancellationToken,
+                scope.Transaction))
+            {
+                await scope.RollbackAsync(CancellationToken.None);
+                return null;
+            }
+
             if (authorizationKernel is not null)
             {
-                var ownership = new SessionOwnership(
-                    row.organization_id,
-                    row.activity_id,
-                    row.participant_id,
-                    row.attempt_id,
-                    row.session_id);
-                var decision = await authorizationKernel.AuthorizeInTransactionAsync(
+                var decision = await authorizationKernel.ReauthorizeInTransactionAsync(
                     new AuthorizationRequest(
                         new TrustedActor(actor.ActorId, actor.ActorType),
                         new OrganizationScope(ownership.OrganizationId),
@@ -237,25 +253,10 @@ public sealed class PostgresDurableInvocationWorkStore(
                 }
             }
 
-            if (!await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
-                workloadIdentity,
-                actor,
-                cancellationToken,
-                scope.Transaction))
-            {
-                await scope.RollbackAsync(CancellationToken.None);
-                return null;
-            }
-
             await scope.CommitAsync(cancellationToken);
             return new DurableInvocationWorkItem(
                 row.work_id,
-                new SessionOwnership(
-                    row.organization_id,
-                    row.activity_id,
-                    row.participant_id,
-                    row.attempt_id,
-                    row.session_id),
+                ownership,
                 row.business_key,
                 row.state,
                 ToUtc(row.claim_lease_until),

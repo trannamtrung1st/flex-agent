@@ -227,9 +227,9 @@ The current workload binding, Invocation delegation, complete ownership,
 Invocation/work identity, frozen Session policy, lifecycle/cutoff, expected
 version, lease, and idempotency boundary are then checked:
 
-- before loading protected provider context or disclosing it to a model port,
-  including a dedicated model-disclosure admission immediately before the
-  provider `ExecuteAsync` or stream start;
+- before loading a protected Session snapshot or disclosing provider context to
+  a model port, including a dedicated model-disclosure admission immediately
+  before the provider `ExecuteAsync` or stream start;
 - before each durable response-fragment publication;
 - before response seal and message completion;
 - before recording an Invocation outcome or Agent Decision and effecting each
@@ -237,11 +237,14 @@ version, lease, and idempotency boundary are then checked:
 - before recording unpublished failure; and
 - before completion, retry/release, or other protected work-state mutation.
 
-Commit-time authorization is the last meaningful authorization operation in
-each sensitive transaction. If authorization loses a race, the transaction,
-including staged success audit and outbox writes, rolls back before any bounded
-denial audit is attempted separately. Authorization or required-audit
-unavailability cannot leave a protected partial mutation committable.
+The Invocation claim transaction reauthorizes the work envelope's execute
+delegation with a commit lock as its last authorization step so a concurrent
+revocation cannot persist a lease. Commit-time authorization is the last
+meaningful authorization operation in each sensitive transaction. If
+authorization loses a race, the transaction, including staged success audit and
+outbox writes, rolls back before any bounded denial audit is attempted
+separately. Authorization or required-audit unavailability cannot leave a
+protected partial mutation committable.
 
 ### 7. Preserve independent timer and Invocation capabilities
 

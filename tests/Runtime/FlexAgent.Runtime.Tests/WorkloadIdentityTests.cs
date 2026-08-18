@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FlexAgent.IdentityAccess.Application;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace FlexAgent.Runtime.Tests;
 
@@ -270,6 +271,33 @@ public sealed class WorkloadIdentityTests
     }
 
     [Fact]
+    public async Task Ready_check_degrades_when_identity_source_has_no_current_principal()
+    {
+        var shutdown = new FlexAgent.Worker.WorkClaimGate();
+        var authority = new RecoverableAuthorityGate();
+        authority.SetState(RecoverableAuthorityStates.Ready);
+        var check = new FlexAgent.Worker.WorkerReadinessCheck(
+            shutdown,
+            authority,
+            new FlexAgent.Worker.WorkerRuntimeCapabilities { DurableWorkClaimingEnabled = true },
+            new MissingWorkloadIdentitySource());
+
+        var result = await check.CheckHealthAsync(new HealthCheckContext(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HealthStatus.Degraded, result.Status);
+        Assert.Contains(RecoverableAuthorityStates.IdentityDenied, result.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Refresh_does_not_replace_identity_denied_with_dependency_unavailable()
+    {
+        var authority = new RecoverableAuthorityGate();
+        authority.SetState(RecoverableAuthorityStates.IdentityDenied);
+        FlexAgent.Worker.WorkloadIdentityRefreshService.ApplyObservation(authority, context: null);
+        Assert.Equal(RecoverableAuthorityStates.IdentityDenied, authority.State);
+    }
+
+    [Fact]
     public void Jwks_parser_imports_rsa_verification_keys()
     {
         using var rsa = RSA.Create(2048);
@@ -315,6 +343,13 @@ public sealed class WorkloadIdentityTests
         var buffer = new byte[Base64Url.GetEncodedLength(bytes.Length)];
         Base64Url.EncodeToUtf8(bytes, buffer, out _, out var written);
         return Encoding.ASCII.GetString(buffer.AsSpan(0, written));
+    }
+
+    private sealed class MissingWorkloadIdentitySource : IAuthenticatedWorkloadContextSource
+    {
+        public Task<AuthenticatedWorkloadContext?> TryGetCurrentAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<AuthenticatedWorkloadContext?>(null);
     }
 
     private sealed class StubJsonHandler(string json) : HttpMessageHandler

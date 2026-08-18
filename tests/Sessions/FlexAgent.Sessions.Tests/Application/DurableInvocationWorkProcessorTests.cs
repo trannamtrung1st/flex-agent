@@ -76,6 +76,38 @@ public sealed class DurableInvocationWorkProcessorTests
     }
 
     [Fact]
+    public async Task Denied_stream_disclosure_does_not_start_provider_content_stream()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.streamdeny", SessionRuntimeTestFixtures.T0);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var inner = new DeterministicFakeModelExecutionAdapter();
+        inner.EnqueueEnvelope(
+            SessionRuntimeTestFixtures.Envelope(
+                invocationId,
+                outputs: [SessionRuntimeTestFixtures.MessageOutput(turnId: null, responseSlotId: null)],
+                decisionId: "adec.worker.streamdeny"));
+        inner.EnqueueContent(
+            new ModelContentTextDelta("Hi"),
+            new ModelContentCompleted());
+        var adapter = new CountingModelExecutionPort(inner);
+        var store = new MemoryWorkStore(session.Ownership, invocationId);
+        var processor = CreateProcessor(
+            adapter,
+            new DenyAfterSuccessfulDisclosuresGateway(new MemorySessionGateway(session), permitCount: 1),
+            store);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.RetryLater, result.Outcome);
+        Assert.Equal(1, adapter.ExecuteCount);
+        Assert.Equal(0, adapter.StreamCount);
+        Assert.False(store.Completed);
+    }
+
+    [Fact]
     public async Task Schema_invalid_control_is_an_execution_outcome_not_a_decision()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
@@ -1126,6 +1158,51 @@ public sealed class DurableInvocationWorkProcessorTests
             cancellationToken.ThrowIfCancellationRequested();
             ArgumentNullException.ThrowIfNull(ownership);
             return Task.FromResult(false);
+        }
+    }
+
+    private sealed class DenyAfterSuccessfulDisclosuresGateway(
+        IInvocationWorkSessionGateway inner,
+        int permitCount) : IInvocationWorkSessionGateway
+    {
+        private int _permitted;
+
+        public Task<LoadedInvocationWorkSession?> LoadAsync(
+            SessionOwnership ownership,
+            CancellationToken cancellationToken) =>
+            inner.LoadAsync(ownership, cancellationToken);
+
+        public Task<DateTimeOffset> ReadAuthoritativeUtcAsync(CancellationToken cancellationToken) =>
+            inner.ReadAuthoritativeUtcAsync(cancellationToken);
+
+        public Task<bool> TrySaveCompletionAsync(
+            SessionOwnership ownership,
+            long expectedSessionVersion,
+            SessionRuntime session,
+            AgentInvocation invocation,
+            Guid correlationId,
+            CancellationToken cancellationToken) =>
+            inner.TrySaveCompletionAsync(
+                ownership,
+                expectedSessionVersion,
+                session,
+                invocation,
+                correlationId,
+                cancellationToken);
+
+        public Task<bool> TryAuthorizeModelDisclosureAsync(
+            SessionOwnership ownership,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArgumentNullException.ThrowIfNull(ownership);
+            if (_permitted >= permitCount)
+            {
+                return Task.FromResult(false);
+            }
+
+            _permitted++;
+            return Task.FromResult(true);
         }
     }
 

@@ -40,6 +40,12 @@ public sealed class PostgresInvocationWorkSessionGateway(
             cancellationToken);
         try
         {
+            if (!await AuthorizeProtectedAdmissionAsync(ownership, scope.Transaction, cancellationToken))
+            {
+                await scope.RollbackAsync(CancellationToken.None);
+                return null;
+            }
+
             var session = await runtimeRepository.LoadSnapshotAsync(
                 ownership,
                 binding,
@@ -48,12 +54,6 @@ public sealed class PostgresInvocationWorkSessionGateway(
             if (session is null)
             {
                 await scope.RollbackAsync(cancellationToken);
-                return null;
-            }
-
-            if (!await AuthorizeProtectedAdmissionAsync(ownership, scope.Transaction, cancellationToken))
-            {
-                await scope.RollbackAsync(CancellationToken.None);
                 return null;
             }
 

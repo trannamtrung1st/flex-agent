@@ -301,7 +301,8 @@ internal static class WorkerDurableWorkSampling
                     configuration["WorkloadIdentity:ClientSecretName"]!,
                     expectedActorId,
                     TimeProvider.System,
-                    TimeSpan.FromSeconds(60)));
+                    TimeSpan.FromSeconds(60),
+                    sp.GetRequiredService<IRecoverableAuthorityGate>()));
             services.AddHostedService<WorkloadIdentityRefreshService>();
             return;
         }

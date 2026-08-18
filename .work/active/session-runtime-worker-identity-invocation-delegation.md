@@ -352,6 +352,12 @@ Session start are not claimed complete.
   provider-call race is only the unavoidable window after that last admission.
   GitHub check results were not attached to `3596480`; this pass recorded local
   focused evidence rather than a second locked full-solution run.
+- External review of `ef63fbd` (2026-08-18): protected Session load now happens
+  after in-transaction admission; content stream start uses the same
+  model-disclosure gate as `ExecuteAsync`; claim commit locking-reauthorizes the
+  work envelope's execute delegation after the lease update; readiness consults
+  the current identity source so a cached JWT plus revoked binding is not
+  reported healthy.
 
 - Planning review on 2026-08-18 clarified that timer polling and Invocation
   processing share authentication but retain separate action delegations and
@@ -526,13 +532,13 @@ the authoritative source.
 | ADR preparation validation | complete | ADR catalog, architecture hub, documentation maturity summary, ADR-015 cross-link, and tracked task reconciled; `python3 scripts/check_docs.py` and `git diff --check` passed 2026-08-18 |
 | ADR promotion validation | complete | ADR-015/ADR-016 status, approved dispositions, ADR catalog, architecture/documentation hubs, requirement traceability, and task state reconciled; `python3 scripts/check_docs.py`, `git diff --check`, and trailing-whitespace scan passed 2026-08-18 |
 | Final pre-commit documentation review | complete | Configured-actor and opaque-token ambiguities corrected; `python3 scripts/check_docs.py`, `git diff --check`, stale-status scan, 16-ADR count check, and trailing-whitespace scan passed 2026-08-18. `markdownlint-cli2` is configured in CI but unavailable in this workspace (`pnpm exec markdownlint-cli2 --version` reports command not found). |
-| Focused identity/authorization tests | complete | `WorkloadIdentityTests` 14 passed including future/`iat` bypass; `WorkerRuntimeTests` 31 passed including Production/Staging plaintext OAuth URI refusal |
-| PostgreSQL migration/upgrade/concurrency/fault tests | complete | Migration `0025`; populated predecessor upgrade tests; earlier slice recorded 240 Postgres tests; review-fix pass: `WorkerInvocationExecuteDelegationTests`, `DurableInvocationWorkClaimTests`, `DurableInvocationWorkCrashRecoveryTests`, and `SessionTimerLaneDelegationTests` 56 passed (cached-binding revoke, model-disclosure revoke, poison HOL) |
-| Locked .NET regression | complete | `bash build/scripts/verify-dotnet.sh` — 977 passed, publish succeeded at `3596480`; review-fix pass ran focused suites only (not a second locked full-solution run) |
-| Architecture/docs/whitespace | complete | `SessionsPersistenceOwnershipTests` 3 passed; `python3 scripts/check_docs.py`; `git diff --check` |
+| Focused identity/authorization tests | complete | Runtime `WorkloadIdentityTests` + `WorkerRuntimeTests` 47 passed including future/`iat`, plaintext OAuth URI refusal, ready-check degrade when identity is missing, and refresh not clobbering `IdentityDenied` |
+| PostgreSQL migration/upgrade/concurrency/fault tests | complete | Migration `0025`; review-fix pass: `WorkerInvocationExecuteDelegationTests`, `DurableInvocationWorkClaimTests`, `DurableInvocationWorkCrashRecoveryTests`, and `SessionTimerLaneDelegationTests` 57 passed (cached-binding revoke, model-disclosure revoke, poison HOL, claim lease-update then delegation revoke rollback) |
+| Locked .NET regression | complete | `bash build/scripts/verify-dotnet.sh` — 977 passed, publish succeeded at `3596480`; later review-fix passes ran focused suites only (not a second locked full-solution run) |
+| Architecture/docs/whitespace | complete | `python3 scripts/check_docs.py`; `git diff --check` |
 | Supply-chain/OCI/secret evidence | complete | No package or deployment-input changes in this slice; Worker errors mention secret-file presence without values; token client unit test does not persist secrets |
-| Independent cross-concern review | complete | External review of `3596480` requested changes; P1 binding/disclosure/commit reauth and P2 HTTPS/`iat`/HOL join addressed 2026-08-18; residual gaps recorded below |
-| Review-fix processor admission | complete | `DurableInvocationWorkProcessorTests` 28 passed including denied disclosure with zero model-port calls |
+| Independent cross-concern review | complete | External reviews of `3596480` and `ef63fbd` addressed 2026-08-18; residual gaps recorded below |
+| Review-fix processor admission | complete | `DurableInvocationWorkProcessorTests` 29 passed including denied `ExecuteAsync` and denied stream-start with zero stream calls |
 
 # Blockers
 

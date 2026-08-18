@@ -355,6 +355,11 @@ public sealed class DurableInvocationWorkProcessor(
         var nextOrdinal = (existing?.LastFragmentOrdinal ?? 0) + 1;
         var assembled = existing?.AssembleExactText() ?? string.Empty;
 
+        if (!await sessionGateway.TryAuthorizeModelDisclosureAsync(claimed.Ownership, cancellationToken))
+        {
+            return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+        }
+
         try
         {
             await foreach (var contentEvent in modelExecutionPort.StreamParticipantVisibleContentAsync(

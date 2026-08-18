@@ -24,22 +24,7 @@ public sealed class WorkloadIdentityRefreshService(
                     return;
                 }
 
-                if (context is null)
-                {
-                    authorityGate.SetState(RecoverableAuthorityStates.DependencyUnavailable);
-                }
-                else if (!context.IsProofValidAt(DateTimeOffset.UtcNow))
-                {
-                    authorityGate.SetState(RecoverableAuthorityStates.IdentityDenied);
-                }
-                else if (context.ExpiresAt - DateTimeOffset.UtcNow <= TimeSpan.FromSeconds(60))
-                {
-                    authorityGate.SetState(RecoverableAuthorityStates.RefreshDegraded);
-                }
-                else
-                {
-                    authorityGate.SetState(RecoverableAuthorityStates.Ready);
-                }
+                ApplyObservation(authorityGate, context);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -60,5 +45,43 @@ public sealed class WorkloadIdentityRefreshService(
                 return;
             }
         }
+    }
+
+    public static void ApplyObservation(
+        IRecoverableAuthorityGate authorityGate,
+        AuthenticatedWorkloadContext? context)
+    {
+        ArgumentNullException.ThrowIfNull(authorityGate);
+        if (string.Equals(authorityGate.State, RecoverableAuthorityStates.Stopping, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (context is null)
+        {
+            if (!string.Equals(
+                authorityGate.State,
+                RecoverableAuthorityStates.IdentityDenied,
+                StringComparison.Ordinal))
+            {
+                authorityGate.SetState(RecoverableAuthorityStates.DependencyUnavailable);
+            }
+
+            return;
+        }
+
+        if (!context.IsProofValidAt(DateTimeOffset.UtcNow))
+        {
+            authorityGate.SetState(RecoverableAuthorityStates.IdentityDenied);
+            return;
+        }
+
+        if (context.ExpiresAt - DateTimeOffset.UtcNow <= TimeSpan.FromSeconds(60))
+        {
+            authorityGate.SetState(RecoverableAuthorityStates.RefreshDegraded);
+            return;
+        }
+
+        authorityGate.SetState(RecoverableAuthorityStates.Ready);
     }
 }

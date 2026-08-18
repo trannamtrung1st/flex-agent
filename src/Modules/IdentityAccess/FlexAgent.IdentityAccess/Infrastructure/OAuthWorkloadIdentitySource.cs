@@ -14,7 +14,8 @@ public sealed class OAuthWorkloadIdentitySource(
     string clientSecretName,
     Guid expectedServiceActorId,
     TimeProvider clock,
-    TimeSpan refreshMargin) : IAuthenticatedWorkloadContextSource
+    TimeSpan refreshMargin,
+    IRecoverableAuthorityGate? authorityGate = null) : IAuthenticatedWorkloadContextSource
 {
     private readonly object _gate = new();
     private AuthenticatedWorkloadContext? _current;
@@ -23,15 +24,36 @@ public sealed class OAuthWorkloadIdentitySource(
         CancellationToken cancellationToken = default)
     {
         var now = clock.GetUtcNow();
+        AuthenticatedWorkloadContext? cached = null;
         lock (_gate)
         {
             if (_current is not null && _current.ExpiresAt - now > refreshMargin && _current.IsProofValidAt(now))
             {
-                return _current;
+                cached = _current;
             }
         }
 
+        if (cached is not null)
+        {
+            if (await BindingStillCurrentAsync(cached, cancellationToken).ConfigureAwait(false))
+            {
+                return cached;
+            }
+
+            lock (_gate)
+            {
+                if (ReferenceEquals(_current, cached))
+                {
+                    _current = null;
+                }
+            }
+
+            authorityGate?.SetState(RecoverableAuthorityStates.IdentityDenied);
+            return null;
+        }
+
         var refreshed = await AuthenticateAsync(cancellationToken).ConfigureAwait(false);
+        AuthenticatedWorkloadContext? fallback = null;
         lock (_gate)
         {
             if (refreshed is not null)
@@ -42,12 +64,30 @@ public sealed class OAuthWorkloadIdentitySource(
 
             if (_current is not null && _current.IsProofValidAt(clock.GetUtcNow()))
             {
-                return _current;
+                fallback = _current;
             }
-
-            _current = null;
-            return null;
+            else
+            {
+                _current = null;
+                return null;
+            }
         }
+
+        if (await BindingStillCurrentAsync(fallback, cancellationToken).ConfigureAwait(false))
+        {
+            return fallback;
+        }
+
+        lock (_gate)
+        {
+            if (ReferenceEquals(_current, fallback))
+            {
+                _current = null;
+            }
+        }
+
+        authorityGate?.SetState(RecoverableAuthorityStates.IdentityDenied);
+        return null;
     }
 
     private async Task<AuthenticatedWorkloadContext?> AuthenticateAsync(CancellationToken cancellationToken)
@@ -118,6 +158,7 @@ public sealed class OAuthWorkloadIdentitySource(
                 || binding.ServiceActorId != expectedServiceActorId
                 || binding.EffectiveAt > clock.GetUtcNow())
             {
+                authorityGate?.SetState(RecoverableAuthorityStates.IdentityDenied);
                 return null;
             }
 
@@ -137,6 +178,30 @@ public sealed class OAuthWorkloadIdentitySource(
                 binding.BindingId,
                 binding.BindingVersion,
                 $"{binding.BindingId:N}:{binding.BindingVersion}");
+        }
+        catch
+        {
+            await scope.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    private async Task<bool> BindingStillCurrentAsync(
+        AuthenticatedWorkloadContext context,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken)
+            .ConfigureAwait(false);
+        try
+        {
+            var matched = await PostgresServicePrincipalBindingCoordinator.MatchesCurrentInTransactionAsync(
+                context.BindingId,
+                context.BindingVersion,
+                context.ServiceActorId,
+                scope.Transaction,
+                cancellationToken).ConfigureAwait(false);
+            await scope.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return matched;
         }
         catch
         {

@@ -1,5 +1,6 @@
 using Dapper;
 using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Integration.Tests.Support;
 using FlexAgent.Sessions.Application;
@@ -105,6 +106,51 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
 
         Assert.NotNull(claimed);
         Assert.Equal(admitted.Invocation!.AgentInvocationId, claimed!.AgentInvocationId);
+    }
+
+    [Fact]
+    public async Task Delegation_revoke_after_lease_update_rolls_back_the_claim()
+    {
+        var prepared = await PrepareAdmittedWorkAsync("trig.claim.reauth", "idem.claim.reauth");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
+        Guid delegationId;
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            delegationId = await connection.ExecuteScalarAsync<Guid>(
+                """
+                SELECT invocation_execute_delegation_id
+                FROM session_runtimes
+                WHERE organization_id = @OrganizationId
+                  AND session_id = @SessionId;
+                """,
+                new
+                {
+                    prepared.Binding.Ownership.OrganizationId,
+                    prepared.Binding.Ownership.SessionId,
+                });
+        }
+
+        var store = new PostgresDurableInvocationWorkStore(
+            Fixture.Services.ConnectionAccessor,
+            SessionPersistenceFixtures.Actor(await WorkerActorIdAsync()),
+            (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel);
+        store.AfterLeaseUpdateBeforeCommitAsync = async () =>
+        {
+            await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+            var updated = await connection.ExecuteAsync(
+                """
+                UPDATE service_delegations
+                SET revoked_at = clock_timestamp()
+                WHERE delegation_id = @DelegationId;
+                """,
+                new { DelegationId = delegationId });
+            Assert.Equal(1, updated);
+        };
+
+        var claimed = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
+
+        Assert.Null(claimed);
+        Assert.Equal(DurableSessionWorkStates.Pending, await ReadWorkStateAsync(prepared.Binding.Ownership));
     }
 
     [Fact]
