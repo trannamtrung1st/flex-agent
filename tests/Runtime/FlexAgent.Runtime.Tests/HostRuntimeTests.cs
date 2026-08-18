@@ -420,6 +420,47 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         Assert.DoesNotContain("flexagent", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Staging")]
+    public void Worker_refuses_to_start_when_timer_polling_is_enabled_outside_development_and_testing(
+        string environmentName)
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment(environmentName);
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:TimerPolling:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+        });
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            factory.Services.GetRequiredService<IDurableTimerFireProcessor>());
+        Assert.Contains("Sessions:TimerPolling:Enabled", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("Development", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("flexagent", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Worker_registers_timer_processor_when_timer_polling_is_enabled_in_testing()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:TimerPolling:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+        });
+
+        Assert.IsType<DurableTimerFireProcessor>(
+            factory.Services.GetRequiredService<IDurableTimerFireProcessor>());
+        Assert.True(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().TimerPollingEnabled);
+    }
+
     [Fact]
     public void Worker_keeps_invocation_processing_idle_in_production_when_only_a_sessions_connection_string_is_set()
     {
@@ -435,9 +476,12 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
             factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>());
         Assert.IsType<UnknownDurableInvocationWorkStore>(
             factory.Services.GetRequiredService<IDurableInvocationWorkStore>());
+        Assert.IsType<IdleDurableTimerFireProcessor>(
+            factory.Services.GetRequiredService<IDurableTimerFireProcessor>());
         Assert.IsType<PostgresTrustedSessionBindingSource>(
             factory.Services.GetRequiredService<ITrustedSessionBindingSource>());
         Assert.False(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().DurableWorkClaimingEnabled);
+        Assert.False(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().TimerPollingEnabled);
     }
 
     [Fact]

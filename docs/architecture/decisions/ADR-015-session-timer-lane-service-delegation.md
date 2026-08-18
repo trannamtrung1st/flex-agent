@@ -67,7 +67,11 @@ violate the delayed-work contract.
    timer.
 4. The Worker acts as the explicitly configured `Sessions:WorkerServiceActorId`
    (which must already exist in IdentityAccess `actors`). This is trusted
-   deployment configuration, not workload authentication or provisioning. It
+   deployment configuration, not workload authentication or provisioning. The
+   host flag and actor GUID do not authenticate the service. Until real
+   workload authentication exists, `Sessions:TimerPolling:Enabled` is a
+   Development/Testing host profile only: Production and Staging refuse
+   startup when the flag is set. In that synthetic profile the Worker
    rehydrates the immutable Session policy snapshot and authorizes the
    delegation on the timer-fire transaction before admitting one Invocation.
    Admission does not take `FOR SHARE`. After persistence, success audit, and
@@ -85,8 +89,10 @@ violate the delayed-work contract.
    capability, default `false`, an explicit non-empty
    `Sessions:WorkerServiceActorId`, a Sessions connection string, PostgreSQL
    binding rehydration, and the authorization kernel. The compiled default
-   actor id is not used for a live protected lane. Hosted Invocation claiming
-   is a separate default-off `Sessions:InvocationProcessing:Enabled` capability;
+   actor id is not used for a live protected lane. Until Worker workload
+   authentication exists, enabling timer polling outside Development/Testing
+   refuses Worker startup. Hosted Invocation claiming is a separate default-off
+   `Sessions:InvocationProcessing:Enabled` capability;
    a Sessions connection string alone does not register the live Invocation
    processor, mutation ports, or live invocation work store. Until invocation
    service delegation exists, enabling that flag outside Development/Testing
@@ -124,6 +130,9 @@ violate the delayed-work contract.
 ## Consequences
 
 - Timer due-claim can no longer treat process identity as permission.
+- Production and Staging cannot enable timer polling until a successor
+  implements Worker workload authentication; this slice does not claim the
+  timer lane is production-authenticated.
 - New Sessions must receive a trustworthy Worker service principal at insert.
 - Operators can distinguish invocation claiming from timer polling in readiness
   copy without protected identifiers.
@@ -132,7 +141,7 @@ violate the delayed-work contract.
 
 ## Related
 
-- Requirements: `REQ-AUTH-11`, `REQ-AUTH-18`–`REQ-AUTH-20`, `REQ-AUTH-22`,
+- Requirements: `REQ-AUTH-1`, `REQ-AUTH-11`, `REQ-AUTH-15`, `REQ-AUTH-18`–`REQ-AUTH-22`,
   `REQ-AUTH-26`, `REQ-AUTH-27`, `REQ-AUTH-31`, `REQ-SESS-75`
 - Proposed defaults: `PROP-WBT-1`–`PROP-WBT-11` in
   `.work/active/session-runtime-worker-binding-timer-activation.md`

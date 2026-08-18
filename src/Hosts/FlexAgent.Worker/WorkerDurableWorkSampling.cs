@@ -33,15 +33,22 @@ internal static class WorkerDurableWorkSampling
         var invocationProcessingRequested = configuration.GetValue(
             "Sessions:InvocationProcessing:Enabled",
             false);
-        var timerPollingEnabled = configuration.GetValue("Sessions:TimerPolling:Enabled", false);
+        var timerPollingRequested = configuration.GetValue("Sessions:TimerPolling:Enabled", false);
         if (invocationProcessingRequested && !IsSyntheticHostProfile(environment))
         {
             throw new InvalidOperationException(
                 "Sessions:InvocationProcessing:Enabled is a Development/Testing host profile until invocation service delegation is implemented and cannot be enabled in this environment.");
         }
 
+        if (timerPollingRequested && !IsSyntheticHostProfile(environment))
+        {
+            throw new InvalidOperationException(
+                "Sessions:TimerPolling:Enabled is a Development/Testing host profile until Worker workload authentication is implemented and cannot be enabled in this environment.");
+        }
+
         var invocationProcessingEnabled = invocationProcessingRequested
             && IsSyntheticHostProfile(environment);
+        var timerPollingEnabled = timerPollingRequested && IsSyntheticHostProfile(environment);
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             services.AddSingleton<IDurableInvocationWorkStore>(UnknownDurableInvocationWorkStore.Instance);
