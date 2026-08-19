@@ -351,20 +351,21 @@ pilot.
 - [x] Close remaining P2 hardening from `4373f70` review: require
       authorization dependencies on PostgreSQL admission, and cover
       service-principal-binding revoke at reservation.
-- [ ] Reconcile actual changes against governing specs, update truthful
-      implementation-status and operator guidance, run independent backend,
-      architecture, and security/privacy review, resolve blocking findings, and
-      retain this task for external review.
+- [x] Record independent review of `4a6e314`: no P0/P1; leftover invocation-id
+      coupling is hardening backlog; deterministic Phase A may proceed to
+      Phase B qualification.
+- [ ] Reconcile remaining Phase B qualification, locked/supply-chain/OCI
+      checks, and final task completion after exact-profile evidence exists.
 
 # Current state
 
-Independent review of `4373f70` found no remaining P0/P1. The leftover P2s are
-closed: PostgreSQL admission now requires service actor, commit kernel, and
-workload identity, and reservation is covered for both invocation-delegation
-revoke and service-principal-binding revoke. Deterministic Phase A
-provider-execution/admission is ready for independent external review and
-Phase B qualification. The task remains incomplete until Phase B and the
-remaining completion checkboxes.
+Independent review of `4a6e314` approved the deterministic Phase A
+provider-execution/admission slice: no P0/P1 findings. The leftover P2
+(admission should derive `agentInvocationId` from the claimed work item) is
+hardening backlog and is not holding Phase B. Next: exact-profile live
+qualification when an owner-selected Direct OpenAI profile and credential
+exist. The task remains incomplete until Phase B and remaining completion
+checkboxes.
 
 # Delivery phases
 
@@ -527,6 +528,12 @@ Interim defaults are working guidance only and do not approve a deployment.
   and `IAuthenticatedWorkloadContextSource` with no skip-auth constructor.
   `Revoked_principal_binding_cannot_reserve_a_provider_request_after_disclosure`
   covers OAuth principal-binding revoke at the same reservation commit.
+- Independent review of `4a6e314` (2026-08-19): no P0/P1. Do not derive a
+  further Phase A remediation commit from that review. Remaining P2: bind
+  `TryReserveAsync` to `claimedWork.AgentInvocationId` internally so a future
+  caller cannot fence invocation A while budgeting invocation B. Current
+  processor supplies matching IDs; treat as hardening backlog, not a Phase B
+  gate.
 - P0 participant-message admission requires non-empty exact UTF-8 text.
   `AcceptParticipantMessageCommand.ExactUtf8Text` is required; missing or blank
   text fails closed with `trigger_admission.missing_participant_content`.
@@ -552,7 +559,7 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Sessions domain/application tests | passed | `FlexAgent.Sessions.Tests` **448 passed** including revoked-authorization reservation |
 | Exact Direct OpenAI profile qualification | blocked | Opt-in synthetic evidence for one owner-selected immutable profile is not available; does not close synthetic OpenRouter/vLLM portions of `GATE-STACK-PROVIDERS` |
 | Locked regression, supply chain, OCI, docs, whitespace | partial | `python3 scripts/check_docs.py` passed; `git diff --check` passed. OCI image rebuild/SBOM/grype not re-run in this session |
-| Independent backend/architecture/security review | pending | Independent review of `4373f70` found no remaining P0/P1; leftover P2 constructor and principal-binding items are addressed in this slice. Re-review still required before treating Phase A as externally signed off |
+| Independent backend/architecture/security review | approved for deterministic Phase A | Independent review of `4a6e314`: no P0/P1; `4373f70` P2s closed; leftover invocation-id coupling recorded as hardening backlog. GitHub connector still has no combined status checks for this SHA. Proceed to Phase B rather than another admission-remediation commit |
 
 # Blockers
 
@@ -576,6 +583,6 @@ Interim defaults are working guidance only and do not approve a deployment.
 - [ ] Applicable focused, integration, concurrency, recovery, architecture, locked regression, supply-chain, OCI, documentation, and whitespace checks pass
 - [x] Governing specifications and implementation-status tables are rechecked and remain truthful
 - [x] Full start-time immutable-model enforcement and the synthetic OpenRouter/vLLM portions of `GATE-STACK-PROVIDERS` remain explicitly recorded unless separately implemented and verified
-- [ ] Independent backend, architecture, and security/privacy findings are resolved
+- [x] Independent backend, architecture, and security/privacy findings for the deterministic Phase A admission/execution slice are resolved at `4a6e314`; leftover invocation-id coupling is recorded as hardening backlog
 - [x] Remaining gaps or unverified behavior are recorded
 - [ ] Task state is safe and complete for external review
