@@ -1,5 +1,8 @@
 using System.Collections.Concurrent;
 using Dapper;
+using FlexAgent.IdentityAccess.Application;
+using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Integration.Tests.Support;
 using FlexAgent.Sessions.Application;
@@ -405,13 +408,13 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         {
             DelayLoad = loadGate.Task,
         };
-        var staleProcessor = CreateProcessor(store, stalledGateway, adapter, prepared, provenanceWriter: writer);
+        var staleProcessor = CreateProcessor(store, stalledGateway, adapter, prepared, requestAdmission: writer);
         var currentProcessor = CreateProcessor(
             store,
             CreateGateway(prepared),
             adapter,
             prepared,
-            provenanceWriter: writer);
+            requestAdmission: writer);
 
         var staleTask = staleProcessor.TryProcessNextAsync(CancellationToken);
         await WaitUntilAsync(
@@ -435,6 +438,64 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         Assert.Equal(DurableInvocationWorkOutcomes.Decided, current.Outcome);
         Assert.Equal(1, adapter.ExecuteCount);
         Assert.Equal(1, await CountStartedProviderRequestsAsync(prepared.Binding.Ownership, prepared.InvocationId));
+    }
+
+    [Fact]
+    public async Task Revoked_delegation_cannot_reserve_a_provider_request_after_disclosure()
+    {
+        var prepared = await PrepareAdmittedWorkAsync("trig.crash.revoke.reserve", "idem.crash.revoke.reserve");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
+        var authorizeGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var adapter = new CountingModelExecutionPort(EnqueueNoAction(prepared.InvocationId, "adec.crash.revoke.res01"));
+        var admission = CreateAdmission(prepared);
+        var store = new PostgresDurableInvocationWorkStore(
+            Fixture.Services.ConnectionAccessor,
+            SessionPersistenceFixtures.Actor(prepared.Organization.ActorId));
+        var stalledGateway = new FaultInjectingSessionGateway(CreateGateway(authorize: true, prepared))
+        {
+            DelayAfterAuthorize = authorizeGate.Task,
+        };
+        var processor = CreateProcessor(store, stalledGateway, adapter, prepared, requestAdmission: admission);
+
+        var processing = processor.TryProcessNextAsync(CancellationToken);
+        await stalledGateway.DisclosureAuthorized.Task.WaitAsync(TimeSpan.FromSeconds(10), CancellationToken);
+        var leaseBeforeRevoke = await ReadClaimLeaseUntilAsync(prepared.Binding.Ownership);
+        Assert.NotNull(leaseBeforeRevoke);
+
+        await Fixture.GrantOrganizationActionAsync(
+            prepared.Organization.OrganizationId,
+            prepared.Organization.ActorId,
+            AuthorizationActions.RevokeServiceDelegation);
+        await using (var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            var revoked = await PostgresServiceDelegationCoordinator.RevokeInTransactionAsync(
+                prepared.Binding.Ownership.OrganizationId,
+                prepared.Binding.Ownership.SessionId,
+                prepared.InvocationExecuteDelegationId,
+                new ServiceDelegationMutationContext(
+                    new TrustedActor(prepared.Organization.ActorId, "integration.test"),
+                    Guid.NewGuid(),
+                    "integration.test",
+                    "invocation.execute.test.revoke"),
+                (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
+                scope.Transaction,
+                CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+            Assert.True(revoked);
+        }
+
+        authorizeGate.SetResult();
+        var result = await processing;
+
+        Assert.Equal(DurableInvocationWorkOutcomes.RetryLater, result.Outcome);
+        Assert.Equal(0, adapter.ExecuteCount);
+        Assert.Equal(0, await CountStartedProviderRequestsAsync(prepared.Binding.Ownership, prepared.InvocationId));
+        var leaseAfter = await ReadClaimLeaseUntilAsync(prepared.Binding.Ownership);
+        Assert.True(
+            leaseAfter is null || leaseAfter <= leaseBeforeRevoke,
+            "revoked authority must not renew the claim lease");
     }
 
     [Fact]
@@ -479,7 +540,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         IModelExecutionPort adapter,
         PreparedWork prepared,
         IAgentResponsePublicationPersistPort? publicationPersist = null,
-        IModelProviderAttemptProvenanceWriter? provenanceWriter = null) =>
+        IProviderRequestAdmissionPort? requestAdmission = null) =>
         new(
             store,
             gateway,
@@ -487,7 +548,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             new CompleteInvocationHandler(),
             CreateWorkerSettings(prepared.Organization.ActorId, prepared.Binding.Ownership.OrganizationId),
             publicationPersist ?? CreatePublicationPersist(),
-            provenanceWriter: provenanceWriter);
+            requestAdmission ?? CreateAdmission(prepared));
 
     private PostgresPublishAgentResponseCoordinator CreatePublicationPersist() =>
         new(
@@ -495,7 +556,16 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             new PostgresSessionRuntimeRepository(),
             new PublishAgentResponseFragmentHandler());
 
-    private PostgresInvocationWorkSessionGateway CreateGateway(params PreparedWork[] prepared)
+    private PostgresModelProviderAttemptProvenanceWriter CreateAdmission(PreparedWork prepared) =>
+        new(
+            Fixture.Services.ConnectionAccessor,
+            CreateWorkerSettings(prepared.Organization.ActorId, prepared.Binding.Ownership.OrganizationId).ServiceActor,
+            (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel);
+
+    private PostgresInvocationWorkSessionGateway CreateGateway(params PreparedWork[] prepared) =>
+        CreateGateway(authorize: false, prepared);
+
+    private PostgresInvocationWorkSessionGateway CreateGateway(bool authorize, params PreparedWork[] prepared)
     {
         Assert.NotEmpty(prepared);
         var bindingSource = new MemoryTrustedSessionBindingSource();
@@ -504,13 +574,17 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             bindingSource.Register(item.Binding);
         }
 
+        var settings = CreateWorkerSettings(
+            prepared[0].Organization.ActorId,
+            prepared.Select(item => item.Binding.Ownership.OrganizationId).ToArray());
         return new PostgresInvocationWorkSessionGateway(
             Fixture.Services.ConnectionAccessor,
             new PostgresSessionRuntimeRepository(),
             bindingSource,
-            CreateWorkerSettings(
-                prepared[0].Organization.ActorId,
-                prepared.Select(item => item.Binding.Ownership.OrganizationId).ToArray()));
+            settings,
+            authorizationKernel: authorize
+                ? (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel
+                : null);
     }
 
     private async Task<PreparedWork> PrepareAdmittedWorkAsync(
@@ -525,7 +599,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             Fixture.Services.ConnectionAccessor,
             repository,
             new AdmitTrustedTriggerHandler());
-        await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
+        var delegationId = await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
             Fixture,
             organization,
             binding,
@@ -549,7 +623,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
-        return new PreparedWork(organization, binding, admitted.Invocation!.AgentInvocationId);
+        return new PreparedWork(organization, binding, admitted.Invocation!.AgentInvocationId, delegationId);
     }
 
     private async Task InsertPendingWorkAsync(SessionOwnership ownership, string businessKey)
@@ -634,6 +708,26 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
                 Claimed = DurableSessionWorkStates.Claimed,
             });
         Assert.Equal(1, updated);
+    }
+
+    private async Task<DateTimeOffset?> ReadClaimLeaseUntilAsync(SessionOwnership ownership)
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var value = await connection.ExecuteScalarAsync<DateTime?>(
+            """
+            SELECT claim_lease_until
+            FROM session_durable_work
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+              AND work_type = @WorkType;
+            """,
+            new
+            {
+                ownership.OrganizationId,
+                ownership.SessionId,
+                WorkType = DurableSessionWorkTypes.ExecuteInvocation,
+            });
+        return value is null ? null : DateTime.SpecifyKind(value.Value, DateTimeKind.Utc);
     }
 
     private async Task<int> CountStartedProviderRequestsAsync(SessionOwnership ownership, string invocationId)
@@ -730,7 +824,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         var organization = await Fixture.SeedOrganizationAsync();
         var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
         var repository = new PostgresSessionRuntimeRepository();
-        await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
+        var delegationId = await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
             Fixture,
             organization,
             binding,
@@ -756,7 +850,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             binding,
             CancellationToken);
         Assert.True(accepted.Succeeded, accepted.OutcomeCode);
-        return new PreparedWork(organization, binding, accepted.Invocation!.AgentInvocationId);
+        return new PreparedWork(organization, binding, accepted.Invocation!.AgentInvocationId, delegationId);
     }
 
     private async Task<SessionRuntime> LoadSessionAsync(PreparedWork prepared)
@@ -843,7 +937,8 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     private sealed record PreparedWork(
         SeededOrganization Organization,
         TrustedSessionBinding Binding,
-        string InvocationId);
+        string InvocationId,
+        Guid InvocationExecuteDelegationId);
 
     private sealed class FaultInjectingSessionGateway(IInvocationWorkSessionGateway inner) : IInvocationWorkSessionGateway
     {
@@ -852,6 +947,10 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         public int FailNextSave { get; set; }
 
         public Task? DelayLoad { get; set; }
+
+        public Task? DelayAfterAuthorize { get; set; }
+
+        public TaskCompletionSource DisclosureAuthorized { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public async Task<LoadedInvocationWorkSession?> LoadAsync(
             SessionOwnership ownership,
@@ -899,10 +998,24 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
                 cancellationToken);
         }
 
-        public Task<bool> TryAuthorizeModelDisclosureAsync(
+        public async Task<bool> TryAuthorizeModelDisclosureAsync(
             SessionOwnership ownership,
-            CancellationToken cancellationToken) =>
-            inner.TryAuthorizeModelDisclosureAsync(ownership, cancellationToken);
+            CancellationToken cancellationToken)
+        {
+            var permitted = await inner.TryAuthorizeModelDisclosureAsync(ownership, cancellationToken);
+            if (permitted)
+            {
+                DisclosureAuthorized.TrySetResult();
+                if (DelayAfterAuthorize is not null)
+                {
+                    var delay = DelayAfterAuthorize;
+                    DelayAfterAuthorize = null;
+                    await delay.WaitAsync(cancellationToken);
+                }
+            }
+
+            return permitted;
+        }
     }
 
     private sealed class FaultInjectingWorkStore(IDurableInvocationWorkStore inner) : IDurableInvocationWorkStore

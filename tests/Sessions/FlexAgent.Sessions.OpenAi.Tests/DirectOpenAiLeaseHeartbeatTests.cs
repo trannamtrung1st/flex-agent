@@ -67,7 +67,8 @@ public sealed class DirectOpenAiLeaseHeartbeatTests
                         providerId: "openai.direct")),
                 ClaimLease: TimeSpan.FromSeconds(30),
                 ClaimLeaseRenewalPeriod: TimeSpan.FromMilliseconds(20)),
-            PassThroughAgentResponsePublicationPersistPort.Succeed);
+            PassThroughAgentResponsePublicationPersistPort.Succeed,
+            new InMemoryModelProviderAttemptProvenanceWriter());
 
         var result = await processor.TryProcessNextAsync(CancellationToken.None);
 

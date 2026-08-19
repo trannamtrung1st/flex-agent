@@ -1,12 +1,18 @@
 using Dapper;
+using FlexAgent.IdentityAccess.Application;
+using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.Infrastructure;
 
-public sealed class PostgresModelProviderAttemptProvenanceWriter(PostgresConnectionAccessor connectionAccessor)
-    : IModelProviderAttemptProvenanceWriter
+public sealed class PostgresModelProviderAttemptProvenanceWriter(
+    PostgresConnectionAccessor connectionAccessor,
+    TrustedRuntimeActor? serviceActor = null,
+    ICommitAuthorizationKernel? authorizationKernel = null,
+    IAuthenticatedWorkloadContextSource? workloadIdentity = null)
+    : IProviderRequestAdmissionPort
 {
     private const string InsertSql = """
         INSERT INTO session_invocation_provider_attempts (
@@ -96,7 +102,7 @@ public sealed class PostgresModelProviderAttemptProvenanceWriter(PostgresConnect
                 cancellationToken: cancellationToken));
     }
 
-    public async Task<ProviderRequestReservationResult> TryReserveStartedAsync(
+    public async Task<ProviderRequestReservationResult> TryReserveAsync(
         DurableInvocationWorkItem claimedWork,
         string agentInvocationId,
         int invocationAttemptOrdinal,
@@ -141,6 +147,12 @@ public sealed class PostgresModelProviderAttemptProvenanceWriter(PostgresConnect
                 return ProviderRequestReservationResult.LostClaim;
             }
 
+            if (!await TryAuthorizeCurrentAsync(scope, ownership, cancellationToken))
+            {
+                await scope.RollbackAsync(CancellationToken.None);
+                return ProviderRequestReservationResult.LostClaim;
+            }
+
             var used = await scope.Connection.ExecuteScalarAsync<int>(
                 new CommandDefinition(
                     CountDistinctRequestsSql,
@@ -178,6 +190,37 @@ public sealed class PostgresModelProviderAttemptProvenanceWriter(PostgresConnect
             await scope.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    private async Task<bool> TryAuthorizeCurrentAsync(
+        PostgresTransactionScope scope,
+        SessionOwnership ownership,
+        CancellationToken cancellationToken)
+    {
+        if (serviceActor is null)
+        {
+            return true;
+        }
+
+        if (authorizationKernel is not null)
+        {
+            var commitDecision = await SessionInvocationExecuteCommitAuthorization.ReauthorizeAsync(
+                authorizationKernel,
+                serviceActor,
+                ownership,
+                Guid.NewGuid(),
+                "worker.session_runtime",
+                scope.Transaction,
+                cancellationToken,
+                workloadIdentity);
+            return commitDecision.IsPermitted;
+        }
+
+        return await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
+            workloadIdentity,
+            serviceActor,
+            cancellationToken,
+            scope.Transaction);
     }
 
     private static async Task<DateTimeOffset?> RenewOwnedClaimAsync(

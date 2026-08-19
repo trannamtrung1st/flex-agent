@@ -56,8 +56,11 @@ public interface IModelProviderAttemptProvenanceWriter
         SessionOwnership ownership,
         string agentInvocationId,
         CancellationToken cancellationToken);
+}
 
-    Task<ProviderRequestReservationResult> TryReserveStartedAsync(
+public interface IProviderRequestAdmissionPort : IModelProviderAttemptProvenanceWriter
+{
+    Task<ProviderRequestReservationResult> TryReserveAsync(
         DurableInvocationWorkItem claimedWork,
         string agentInvocationId,
         int invocationAttemptOrdinal,

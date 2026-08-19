@@ -130,7 +130,16 @@ internal static class WorkerDurableWorkSampling
                 services.AddSingleton<ICompleteInvocationHandler>(sp =>
                     new CompleteInvocationHandler(sp.GetRequiredService<ISessionRuntimeTelemetry>()));
                 services.AddSingleton<IModelExecutionPort>(_ => modelExecution.Port);
-                services.AddSingleton<IModelProviderAttemptProvenanceWriter, PostgresModelProviderAttemptProvenanceWriter>();
+                services.AddSingleton(sp =>
+                    new PostgresModelProviderAttemptProvenanceWriter(
+                        sp.GetRequiredService<PostgresConnectionAccessor>(),
+                        sp.GetRequiredService<DurableInvocationWorkSettings>().ServiceActor,
+                        sp.GetRequiredService<ICommitAuthorizationKernel>(),
+                        sp.GetRequiredService<IAuthenticatedWorkloadContextSource>()));
+                services.AddSingleton<IProviderRequestAdmissionPort>(sp =>
+                    sp.GetRequiredService<PostgresModelProviderAttemptProvenanceWriter>());
+                services.AddSingleton<IModelProviderAttemptProvenanceWriter>(sp =>
+                    sp.GetRequiredService<PostgresModelProviderAttemptProvenanceWriter>());
                 services.AddSingleton<PostgresPublishAgentResponseCoordinator>();
                 services.AddSingleton<IAgentResponsePublicationPersistPort>(sp =>
                     sp.GetRequiredService<PostgresPublishAgentResponseCoordinator>());

@@ -2,7 +2,7 @@ using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.Application;
 
-public sealed class InMemoryModelProviderAttemptProvenanceWriter : IModelProviderAttemptProvenanceWriter
+public sealed class InMemoryModelProviderAttemptProvenanceWriter : IProviderRequestAdmissionPort
 {
     private readonly List<StoredFact> _facts = [];
     private readonly object _gate = new();
@@ -46,7 +46,9 @@ public sealed class InMemoryModelProviderAttemptProvenanceWriter : IModelProvide
         }
     }
 
-    public Task<ProviderRequestReservationResult> TryReserveStartedAsync(
+    public Func<bool> IsReservationAuthorized { get; set; } = static () => true;
+
+    public Task<ProviderRequestReservationResult> TryReserveAsync(
         DurableInvocationWorkItem claimedWork,
         string agentInvocationId,
         int invocationAttemptOrdinal,
@@ -72,7 +74,8 @@ public sealed class InMemoryModelProviderAttemptProvenanceWriter : IModelProvide
         {
             if (claimedWork.State != DurableSessionWorkStates.Claimed
                 || claimedWork.ClaimLeaseUntil is null
-                || claimedWork.ClaimLeaseUntil <= DateTimeOffset.UtcNow)
+                || claimedWork.ClaimLeaseUntil <= DateTimeOffset.UtcNow
+                || !IsReservationAuthorized())
             {
                 return Task.FromResult(ProviderRequestReservationResult.LostClaim);
             }

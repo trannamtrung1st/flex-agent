@@ -156,8 +156,8 @@ public sealed class DurableInvocationWorkProcessor(
     ICompleteInvocationHandler completionHandler,
     DurableInvocationWorkSettings settings,
     IAgentResponsePublicationPersistPort publicationPersist,
-    ISessionRuntimeTelemetry? telemetry = null,
-    IModelProviderAttemptProvenanceWriter? provenanceWriter = null) : IDurableInvocationWorkProcessor
+    IProviderRequestAdmissionPort requestAdmission,
+    ISessionRuntimeTelemetry? telemetry = null) : IDurableInvocationWorkProcessor
 {
     private readonly ISessionRuntimeTelemetry _telemetry = telemetry ?? NoopSessionRuntimeTelemetry.Instance;
     private readonly IPublishAgentResponseFragmentHandler _publicationHandler =
@@ -165,6 +165,8 @@ public sealed class DurableInvocationWorkProcessor(
     private readonly ISealAgentResponseHandler _sealHandler = new SealAgentResponseHandler();
     private readonly IAgentResponsePublicationPersistPort _publicationPersist =
         publicationPersist ?? throw new ArgumentNullException(nameof(publicationPersist));
+    private readonly IProviderRequestAdmissionPort _requestAdmission =
+        requestAdmission ?? throw new ArgumentNullException(nameof(requestAdmission));
 
     public async Task<DurableInvocationWorkProcessResult> TryProcessNextAsync(
         CancellationToken cancellationToken)
@@ -243,7 +245,6 @@ public sealed class DurableInvocationWorkProcessor(
                 var reservation = await TryReserveProviderRequestAsync(
                     claimed,
                     claimed.AgentInvocationId,
-                    invocation.Attempts.Count,
                     frozenResolution.Profile!,
                     providerAttemptId,
                     ModelProviderRequestPhases.Control,
@@ -461,7 +462,6 @@ public sealed class DurableInvocationWorkProcessor(
             var reservation = await TryReserveProviderRequestAsync(
                 claimed,
                 invocation.AgentInvocationId,
-                invocation.Attempts.Count,
                 frozenResolution.Profile!,
                 providerAttemptId,
                 ModelProviderRequestPhases.Content,
@@ -873,7 +873,6 @@ public sealed class DurableInvocationWorkProcessor(
     private async Task<ProviderReservation> TryReserveProviderRequestAsync(
         DurableInvocationWorkItem claimed,
         string agentInvocationId,
-        int invocationAttemptCount,
         InstalledModelDeploymentProfile profile,
         string providerRequestId,
         string phase,
@@ -898,17 +897,7 @@ public sealed class DurableInvocationWorkProcessor(
             phase,
             providerRequestId,
             ModelProviderRequestFacts.Started);
-        if (provenanceWriter is null)
-        {
-            if (invocationAttemptCount >= profile.MaxProviderRequestAttempts)
-            {
-                return ProviderReservation.BudgetExhausted;
-            }
-
-            return new ProviderReservation(started, LostClaimAuthority: false);
-        }
-
-        var result = await provenanceWriter.TryReserveStartedAsync(
+        var result = await _requestAdmission.TryReserveAsync(
             claimed,
             agentInvocationId,
             invocationAttemptOrdinal,
@@ -949,11 +938,6 @@ public sealed class DurableInvocationWorkProcessor(
         string outcomeCategory,
         CancellationToken cancellationToken)
     {
-        if (provenanceWriter is null)
-        {
-            return;
-        }
-
         var finished = (adapterProvenance ?? started) with
         {
             FactKind = ModelProviderRequestFacts.Finished,
@@ -962,7 +946,7 @@ public sealed class DurableInvocationWorkProcessor(
             ProviderRequestId = started.ProviderRequestId,
             Phase = started.Phase,
         };
-        await provenanceWriter.WriteAsync(
+        await _requestAdmission.WriteAsync(
             ownership,
             agentInvocationId,
             invocationAttemptOrdinal,

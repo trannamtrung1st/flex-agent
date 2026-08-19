@@ -282,6 +282,8 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
 
         Assert.IsType<DurableInvocationWorkProcessor>(
             factory.Services.GetRequiredService<IDurableInvocationWorkProcessor>());
+        Assert.IsType<PostgresModelProviderAttemptProvenanceWriter>(
+            factory.Services.GetRequiredService<IProviderRequestAdmissionPort>());
         Assert.IsType<PostgresDurableInvocationWorkStore>(
             factory.Services.GetRequiredService<IDurableInvocationWorkStore>());
         Assert.IsType<PostgresPublishAgentResponseCoordinator>(

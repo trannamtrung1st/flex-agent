@@ -84,7 +84,7 @@ internal static class SessionPersistenceFixtures
             CreateFrozenDeployment());
     }
 
-    internal static InstalledModelDeploymentProfile CreateInstalledProfile() =>
+    internal static InstalledModelDeploymentProfile CreateInstalledProfile(int maxProviderRequestAttempts = 4) =>
         InstalledModelDeploymentProfile.Create(
             "synthetic.fake.v1",
             "1",
@@ -98,7 +98,7 @@ internal static class SessionPersistenceFixtures
             256,
             TimeSpan.FromSeconds(30),
             TimeSpan.FromSeconds(60),
-            2,
+            maxProviderRequestAttempts,
             "synthetic.provider");
 
     internal static FrozenModelDeploymentBinding CreateFrozenDeployment()

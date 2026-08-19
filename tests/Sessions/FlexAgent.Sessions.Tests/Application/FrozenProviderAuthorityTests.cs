@@ -266,7 +266,8 @@ public sealed class FrozenProviderAuthorityProcessorTests
                     SessionRuntimeTestFixtures.CreateCatalogRecord(session.Ownership.OrganizationId)),
                 ClaimLease: TimeSpan.FromSeconds(30),
                 ClaimLeaseRenewalPeriod: TimeSpan.FromMilliseconds(20)),
-            PassThroughAgentResponsePublicationPersistPort.Succeed);
+            PassThroughAgentResponsePublicationPersistPort.Succeed,
+            new InMemoryModelProviderAttemptProvenanceWriter());
 
         var result = await processor.TryProcessNextAsync(CancellationToken.None);
 
@@ -308,7 +309,8 @@ public sealed class FrozenProviderAuthorityProcessorTests
                     SessionRuntimeTestFixtures.CreateCatalogRecord(session.Ownership.OrganizationId)),
                 ClaimLease: TimeSpan.FromSeconds(30),
                 ClaimLeaseRenewalPeriod: TimeSpan.FromMilliseconds(20)),
-            PassThroughAgentResponsePublicationPersistPort.Succeed);
+            PassThroughAgentResponsePublicationPersistPort.Succeed,
+            new InMemoryModelProviderAttemptProvenanceWriter());
 
         var result = await processor.TryProcessNextAsync(CancellationToken.None);
 
@@ -342,7 +344,8 @@ public sealed class FrozenProviderAuthorityProcessorTests
                     SessionRuntimeTestFixtures.CreateCatalogRecord(session.Ownership.OrganizationId)),
                 ClaimLease: TimeSpan.FromSeconds(30),
                 ClaimLeaseRenewalPeriod: TimeSpan.FromMilliseconds(20)),
-            PassThroughAgentResponsePublicationPersistPort.Succeed);
+            PassThroughAgentResponsePublicationPersistPort.Succeed,
+            new InMemoryModelProviderAttemptProvenanceWriter());
 
         var result = await processor.TryProcessNextAsync(CancellationToken.None);
 
@@ -368,7 +371,8 @@ public sealed class FrozenProviderAuthorityProcessorTests
                     SessionRuntimeTestFixtures.CreateInstalledProfile()),
                 CredentialCatalog: new InMemoryModelDeploymentCredentialCatalog(
                     SessionRuntimeTestFixtures.CreateCatalogRecord(session.Ownership.OrganizationId))),
-            PassThroughAgentResponsePublicationPersistPort.Succeed);
+            PassThroughAgentResponsePublicationPersistPort.Succeed,
+            new InMemoryModelProviderAttemptProvenanceWriter());
 
     private static RestartStore CreateStore(SessionOwnership ownership, string invocationId) =>
         new(ownership, invocationId);

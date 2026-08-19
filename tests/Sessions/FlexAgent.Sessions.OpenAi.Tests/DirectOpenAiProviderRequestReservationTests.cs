@@ -73,7 +73,7 @@ public sealed class DirectOpenAiProviderRequestReservationTests
                         session.Ownership.OrganizationId,
                         providerId: "openai.direct"))),
             PassThroughAgentResponsePublicationPersistPort.Succeed,
-            provenanceWriter: writer);
+            writer);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             processor.TryProcessNextAsync(CancellationToken.None));

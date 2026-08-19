@@ -24,7 +24,7 @@ public sealed class InMemoryModelProviderAttemptProvenanceWriterTests
             DurableSessionWorkStates.Claimed,
             DateTimeOffset.UtcNow.AddSeconds(30));
 
-        var lost = await writer.TryReserveStartedAsync(
+        var lost = await writer.TryReserveAsync(
             expired,
             expired.AgentInvocationId,
             1,
@@ -32,7 +32,7 @@ public sealed class InMemoryModelProviderAttemptProvenanceWriterTests
             Started("prat.stale"),
             TimeSpan.FromSeconds(30),
             CancellationToken.None);
-        var reserved = await writer.TryReserveStartedAsync(
+        var reserved = await writer.TryReserveAsync(
             current,
             current.AgentInvocationId,
             1,
@@ -45,6 +45,36 @@ public sealed class InMemoryModelProviderAttemptProvenanceWriterTests
         Assert.False(lost.Reserved);
         Assert.True(reserved.Reserved);
         Assert.Equal(1, await writer.CountAsync(ownership, current.AgentInvocationId, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Revoked_authorization_cannot_reserve_a_started_fact()
+    {
+        var writer = new InMemoryModelProviderAttemptProvenanceWriter
+        {
+            IsReservationAuthorized = static () => false,
+        };
+        var ownership = SessionRuntimeTestFixtures.CreateOwnership();
+        var work = new DurableInvocationWorkItem(
+            Guid.NewGuid(),
+            ownership,
+            "ainv.reserve.denied",
+            DurableSessionWorkStates.Claimed,
+            DateTimeOffset.UtcNow.AddSeconds(30));
+
+        var denied = await writer.TryReserveAsync(
+            work,
+            work.AgentInvocationId,
+            1,
+            2,
+            Started("prat.denied"),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.True(denied.LostClaimAuthority);
+        Assert.False(denied.Reserved);
+        Assert.Null(denied.RenewedClaimLeaseUntil);
+        Assert.Equal(0, await writer.CountAsync(ownership, work.AgentInvocationId, CancellationToken.None));
     }
 
     [Fact]
@@ -62,7 +92,7 @@ public sealed class InMemoryModelProviderAttemptProvenanceWriterTests
 
         var results = await Task.WhenAll(
             Enumerable.Range(0, 8).Select(index =>
-                writer.TryReserveStartedAsync(
+                writer.TryReserveAsync(
                     work,
                     work.AgentInvocationId,
                     1,

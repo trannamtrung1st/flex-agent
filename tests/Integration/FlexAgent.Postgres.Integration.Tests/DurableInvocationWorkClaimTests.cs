@@ -420,7 +420,8 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
             adapter,
             new CompleteInvocationHandler(),
             settings,
-            PassThroughAgentResponsePublicationPersistPort.Succeed);
+            PassThroughAgentResponsePublicationPersistPort.Succeed,
+            new PostgresModelProviderAttemptProvenanceWriter(Fixture.Services.ConnectionAccessor));
 
         var result = await processor.TryProcessNextAsync(CancellationToken);
 
@@ -517,7 +518,8 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
             adapter,
             new CompleteInvocationHandler(),
             settings,
-            persist);
+            persist,
+            new PostgresModelProviderAttemptProvenanceWriter(Fixture.Services.ConnectionAccessor));
 
         var result = await processor.TryProcessNextAsync(CancellationToken);
 

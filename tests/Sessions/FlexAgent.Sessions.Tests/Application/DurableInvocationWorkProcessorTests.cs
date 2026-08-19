@@ -902,7 +902,7 @@ public sealed class DurableInvocationWorkProcessorTests
         IDurableInvocationWorkStore store,
         ISessionRuntimeTelemetry? telemetry = null,
         IAgentResponsePublicationPersistPort? publicationPersist = null,
-        IModelProviderAttemptProvenanceWriter? provenanceWriter = null,
+        IProviderRequestAdmissionPort? provenanceWriter = null,
         InstalledModelDeploymentProfile? profile = null) =>
         CreateProcessor(adapter, new MemorySessionGateway(session), store, telemetry, publicationPersist, provenanceWriter, profile);
 
@@ -912,7 +912,7 @@ public sealed class DurableInvocationWorkProcessorTests
         IDurableInvocationWorkStore store,
         ISessionRuntimeTelemetry? telemetry = null,
         IAgentResponsePublicationPersistPort? publicationPersist = null,
-        IModelProviderAttemptProvenanceWriter? provenanceWriter = null,
+        IProviderRequestAdmissionPort? provenanceWriter = null,
         InstalledModelDeploymentProfile? profile = null) =>
         new(
             store,
@@ -929,8 +929,8 @@ public sealed class DurableInvocationWorkProcessorTests
                     SessionRuntimeTestFixtures.CreateCatalogRecord(
                         SessionRuntimeTestFixtures.CreateOwnership().OrganizationId))),
             publicationPersist ?? PassThroughAgentResponsePublicationPersistPort.Succeed,
-            telemetry,
-            provenanceWriter);
+            provenanceWriter ?? new InMemoryModelProviderAttemptProvenanceWriter(),
+            telemetry);
 
     private static DeterministicFakeModelExecutionAdapter EnqueueNoAction(
         string invocationId,
