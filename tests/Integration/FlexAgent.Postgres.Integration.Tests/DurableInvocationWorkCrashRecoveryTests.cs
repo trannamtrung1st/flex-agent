@@ -400,7 +400,7 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         {
             Continue = executeGate,
         };
-        var writer = new PostgresModelProviderAttemptProvenanceWriter(Fixture.Services.ConnectionAccessor);
+        var writer = CreateAdmission(prepared);
         var store = new PostgresDurableInvocationWorkStore(
             Fixture.Services.ConnectionAccessor,
             SessionPersistenceFixtures.Actor(prepared.Organization.ActorId));
@@ -499,6 +499,119 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     }
 
     [Fact]
+    public async Task Revoked_principal_binding_cannot_reserve_a_provider_request_after_disclosure()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        await Fixture.GrantOrganizationActionAsync(
+            organization.OrganizationId,
+            organization.ActorId,
+            AuthorizationActions.ProvisionServicePrincipalBinding);
+        await Fixture.GrantOrganizationActionAsync(
+            organization.OrganizationId,
+            organization.ActorId,
+            AuthorizationActions.RevokeServicePrincipalBinding);
+        var workerActorId = await Fixture.SeedWorkerActorAsync();
+        var principalBindingId = Guid.NewGuid();
+        var sessionBinding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var mutation = new ServiceDelegationMutationContext(
+            organization.Actor,
+            Guid.NewGuid(),
+            "operator.command",
+            "revoke.reservation.worker.binding");
+        await using (var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            await PostgresServicePrincipalBindingCoordinator.ProvisionInTransactionAsync(
+                organization.OrganizationId,
+                new ServicePrincipalBindingProvision(
+                    principalBindingId,
+                    WorkloadIdentityProfiles.OAuthClientCredentialsJwt,
+                    WorkloadAuthenticationMethods.OAuthClientCredentialsSignedJwt,
+                    "https://issuer.example/realms/flex-agent",
+                    "worker-client-disclosure",
+                    "worker-client-disclosure",
+                    "flex-agent-worker",
+                    workerActorId,
+                    "worker.session_runtime",
+                    DateTimeOffset.UtcNow),
+                mutation,
+                (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
+                scope.Transaction,
+                CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var prepared = await AdmitPreparedWorkAsync(
+            organization,
+            sessionBinding,
+            "trig.crash.revoke.binding",
+            "idem.crash.revoke.binding",
+            workerActorId);
+        await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
+        var identity = new CachedOAuthWorkloadIdentitySource(workerActorId, principalBindingId, 1);
+        var settings = CreateWorkerSettings(workerActorId, organization.OrganizationId);
+        var admission = new PostgresModelProviderAttemptProvenanceWriter(
+            Fixture.Services.ConnectionAccessor,
+            settings.ServiceActor,
+            (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
+            identity);
+        var authorizeGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var adapter = new CountingModelExecutionPort(EnqueueNoAction(prepared.InvocationId, "adec.crash.revoke.bind1"));
+        var bindingSource = new MemoryTrustedSessionBindingSource();
+        bindingSource.Register(prepared.Binding);
+        var stalledGateway = new FaultInjectingSessionGateway(
+            new PostgresInvocationWorkSessionGateway(
+                Fixture.Services.ConnectionAccessor,
+                new PostgresSessionRuntimeRepository(),
+                bindingSource,
+                settings,
+                authorizationKernel: (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
+                workloadIdentity: identity))
+        {
+            DelayAfterAuthorize = authorizeGate.Task,
+        };
+        var processor = CreateProcessor(
+            new PostgresDurableInvocationWorkStore(
+                Fixture.Services.ConnectionAccessor,
+                SessionPersistenceFixtures.Actor(workerActorId)),
+            stalledGateway,
+            adapter,
+            prepared,
+            requestAdmission: admission);
+
+        var processing = processor.TryProcessNextAsync(CancellationToken);
+        await stalledGateway.DisclosureAuthorized.Task.WaitAsync(TimeSpan.FromSeconds(10), CancellationToken);
+        var leaseBeforeRevoke = await ReadClaimLeaseUntilAsync(prepared.Binding.Ownership);
+        Assert.NotNull(leaseBeforeRevoke);
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(
+            Fixture.Services.ConnectionAccessor,
+            CancellationToken))
+        {
+            await PostgresServicePrincipalBindingCoordinator.RevokeInTransactionAsync(
+                organization.OrganizationId,
+                principalBindingId,
+                mutation,
+                (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
+                scope.Transaction,
+                CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        authorizeGate.SetResult();
+        var result = await processing;
+
+        Assert.Equal(DurableInvocationWorkOutcomes.RetryLater, result.Outcome);
+        Assert.Equal(0, adapter.ExecuteCount);
+        Assert.Equal(0, await CountStartedProviderRequestsAsync(prepared.Binding.Ownership, prepared.InvocationId));
+        var leaseAfter = await ReadClaimLeaseUntilAsync(prepared.Binding.Ownership);
+        Assert.True(
+            leaseAfter is null || leaseAfter <= leaseBeforeRevoke,
+            "revoked principal binding must not renew the claim lease");
+    }
+
+    [Fact]
     public async Task Concurrent_workers_complete_two_independent_sessions()
     {
         var first = await PrepareAdmittedWorkAsync("trig.crash.w1", "idem.crash.w1");
@@ -556,11 +669,17 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             new PostgresSessionRuntimeRepository(),
             new PublishAgentResponseFragmentHandler());
 
-    private PostgresModelProviderAttemptProvenanceWriter CreateAdmission(PreparedWork prepared) =>
-        new(
+    private PostgresModelProviderAttemptProvenanceWriter CreateAdmission(PreparedWork prepared)
+    {
+        var settings = CreateWorkerSettings(
+            prepared.Organization.ActorId,
+            prepared.Binding.Ownership.OrganizationId);
+        return new PostgresModelProviderAttemptProvenanceWriter(
             Fixture.Services.ConnectionAccessor,
-            CreateWorkerSettings(prepared.Organization.ActorId, prepared.Binding.Ownership.OrganizationId).ServiceActor,
-            (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel);
+            settings.ServiceActor,
+            (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
+            new SyntheticConfiguredActorWorkloadIdentitySource(settings.ServiceActor.ActorId));
+    }
 
     private PostgresInvocationWorkSessionGateway CreateGateway(params PreparedWork[] prepared) =>
         CreateGateway(authorize: false, prepared);
@@ -611,6 +730,38 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
             await InsertPendingWorkAsync(binding.Ownership, "ainv.orphan.poison0001");
         }
 
+        var admitted = await coordinator.AdmitAsync(
+            new AdmitTrustedTriggerCommand(
+                SessionPersistenceFixtures.Actor(organization.ActorId),
+                binding.Ownership,
+                0,
+                SessionPersistenceFixtures.OpeningTrigger(triggerId),
+                idempotencyKey,
+                Guid.NewGuid(),
+                "integration.test"),
+            binding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+        return new PreparedWork(organization, binding, admitted.Invocation!.AgentInvocationId, delegationId);
+    }
+
+    private async Task<PreparedWork> AdmitPreparedWorkAsync(
+        SeededOrganization organization,
+        TrustedSessionBinding binding,
+        string triggerId,
+        string idempotencyKey,
+        Guid serviceActorId)
+    {
+        var coordinator = new PostgresAdmitTrustedTriggerCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            new PostgresSessionRuntimeRepository(),
+            new AdmitTrustedTriggerHandler());
+        var delegationId = await InvocationExecuteDelegationSupport.InsertSessionWithExecutionDelegationAsync(
+            Fixture,
+            organization,
+            binding,
+            CancellationToken,
+            serviceActorId);
         var admitted = await coordinator.AdmitAsync(
             new AdmitTrustedTriggerCommand(
                 SessionPersistenceFixtures.Actor(organization.ActorId),

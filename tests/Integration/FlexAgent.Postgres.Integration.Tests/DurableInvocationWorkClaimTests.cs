@@ -1,4 +1,5 @@
 using Dapper;
+using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres;
@@ -421,7 +422,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
             new CompleteInvocationHandler(),
             settings,
             PassThroughAgentResponsePublicationPersistPort.Succeed,
-            new PostgresModelProviderAttemptProvenanceWriter(Fixture.Services.ConnectionAccessor));
+            await CreateAdmissionAsync());
 
         var result = await processor.TryProcessNextAsync(CancellationToken);
 
@@ -519,7 +520,7 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
             new CompleteInvocationHandler(),
             settings,
             persist,
-            new PostgresModelProviderAttemptProvenanceWriter(Fixture.Services.ConnectionAccessor));
+            await CreateAdmissionAsync());
 
         var result = await processor.TryProcessNextAsync(CancellationToken);
 
@@ -704,6 +705,16 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
         new(
             Fixture.Services.ConnectionAccessor,
             SessionPersistenceFixtures.Actor(await WorkerActorIdAsync()));
+
+    private async Task<PostgresModelProviderAttemptProvenanceWriter> CreateAdmissionAsync()
+    {
+        var actorId = await WorkerActorIdAsync();
+        return new PostgresModelProviderAttemptProvenanceWriter(
+            Fixture.Services.ConnectionAccessor,
+            SessionPersistenceFixtures.Actor(actorId),
+            (ICommitAuthorizationKernel)Fixture.Services.AuthorizationKernel,
+            new SyntheticConfiguredActorWorkloadIdentitySource(actorId));
+    }
 
     private async Task<IAsyncDisposable> HoldOtherClaimableWorkAsync(params SessionOwnership[] keep)
     {

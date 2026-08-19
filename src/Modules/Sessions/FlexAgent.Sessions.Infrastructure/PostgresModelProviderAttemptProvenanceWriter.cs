@@ -9,9 +9,9 @@ namespace FlexAgent.Sessions.Infrastructure;
 
 public sealed class PostgresModelProviderAttemptProvenanceWriter(
     PostgresConnectionAccessor connectionAccessor,
-    TrustedRuntimeActor? serviceActor = null,
-    ICommitAuthorizationKernel? authorizationKernel = null,
-    IAuthenticatedWorkloadContextSource? workloadIdentity = null)
+    TrustedRuntimeActor serviceActor,
+    ICommitAuthorizationKernel authorizationKernel,
+    IAuthenticatedWorkloadContextSource workloadIdentity)
     : IProviderRequestAdmissionPort
 {
     private const string InsertSql = """
@@ -197,30 +197,19 @@ public sealed class PostgresModelProviderAttemptProvenanceWriter(
         SessionOwnership ownership,
         CancellationToken cancellationToken)
     {
-        if (serviceActor is null)
-        {
-            return true;
-        }
-
-        if (authorizationKernel is not null)
-        {
-            var commitDecision = await SessionInvocationExecuteCommitAuthorization.ReauthorizeAsync(
-                authorizationKernel,
-                serviceActor,
-                ownership,
-                Guid.NewGuid(),
-                "worker.session_runtime",
-                scope.Transaction,
-                cancellationToken,
-                workloadIdentity);
-            return commitDecision.IsPermitted;
-        }
-
-        return await AuthenticatedWorkloadGuard.IsCurrentForActorAsync(
-            workloadIdentity,
+        ArgumentNullException.ThrowIfNull(serviceActor);
+        ArgumentNullException.ThrowIfNull(authorizationKernel);
+        ArgumentNullException.ThrowIfNull(workloadIdentity);
+        var commitDecision = await SessionInvocationExecuteCommitAuthorization.ReauthorizeAsync(
+            authorizationKernel,
             serviceActor,
+            ownership,
+            Guid.NewGuid(),
+            "worker.session_runtime",
+            scope.Transaction,
             cancellationToken,
-            scope.Transaction);
+            workloadIdentity);
+        return commitDecision.IsPermitted;
     }
 
     private static async Task<DateTimeOffset?> RenewOwnedClaimAsync(

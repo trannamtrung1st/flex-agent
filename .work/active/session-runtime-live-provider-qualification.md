@@ -348,6 +348,9 @@ pilot.
       workload/delegation in the same transaction as claim-fenced reservation,
       require the admission port on every executable processor, and state the
       post-reservation dispatch residual accurately.
+- [x] Close remaining P2 hardening from `4373f70` review: require
+      authorization dependencies on PostgreSQL admission, and cover
+      service-principal-binding revoke at reservation.
 - [ ] Reconcile actual changes against governing specs, update truthful
       implementation-status and operator guidance, run independent backend,
       architecture, and security/privacy review, resolve blocking findings, and
@@ -355,13 +358,13 @@ pilot.
 
 # Current state
 
-Independent review of `eb432f2` is addressed in place: reservation now
-reauthorizes current workload/delegation in the same transaction as the claim
-fence, `started` insert, and lease renewal. The executable processor requires
-`IProviderRequestAdmissionPort`. A request reserved under a current lease may
-still dispatch if the process is suspended until that renewed lease expires;
-that is not treated as an MVP blocker. Phase A still needs independent
-re-review; Phase B still needs an owner-selected profile and credential.
+Independent review of `4373f70` found no remaining P0/P1. The leftover P2s are
+closed: PostgreSQL admission now requires service actor, commit kernel, and
+workload identity, and reservation is covered for both invocation-delegation
+revoke and service-principal-binding revoke. Deterministic Phase A
+provider-execution/admission is ready for independent external review and
+Phase B qualification. The task remains incomplete until Phase B and the
+remaining completion checkboxes.
 
 # Delivery phases
 
@@ -519,6 +522,11 @@ Interim defaults are working guidance only and do not approve a deployment.
   workload identity. Postgres
   `Revoked_delegation_cannot_reserve_a_provider_request_after_disclosure`
   covers revoke-after-disclosure.
+- Independent review of `4373f70` found no remaining P0/P1. PostgreSQL
+  admission now requires `TrustedRuntimeActor`, `ICommitAuthorizationKernel`,
+  and `IAuthenticatedWorkloadContextSource` with no skip-auth constructor.
+  `Revoked_principal_binding_cannot_reserve_a_provider_request_after_disclosure`
+  covers OAuth principal-binding revoke at the same reservation commit.
 - P0 participant-message admission requires non-empty exact UTF-8 text.
   `AcceptParticipantMessageCommand.ExactUtf8Text` is required; missing or blank
   text fails closed with `trigger_admission.missing_participant_content`.
@@ -535,16 +543,16 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Governing source and current-seam inventory | complete | Product foundation, RSC/Session/Auth requirements, ADR-008/010/012/016, Session runtime, backend module guide, current ports/composition, and predecessor task state reviewed 2026-08-18 |
 | Predecessor remediation protected | complete | Worker identity/readiness remediation landed separately as `94c1412`; this planning edit is restricted to the new task file |
 | Plan readiness review | complete | Backend/architecture/security consistency pass on 2026-08-19 added frozen per-Session provider authority, restart-safe phases, retry ownership, secret hardening, egress/SSRF, qualification scope, and threat-model gates |
-| Current-source .NET baseline | passed | After authorized reservation: `dotnet test --solution FlexAgent.slnx` **1033 passed**, 0 failed (2026-08-19). Prior `eb432f2` count was 1031 |
+| Current-source .NET baseline | passed | After required PostgreSQL admission auth: `dotnet test --solution FlexAgent.slnx` **1034 passed**, 0 failed (2026-08-19). Prior `4373f70` count was 1033 |
 | Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAi.Tests` **14 passed** including fake-HTTP crash-after-request reservation (no second HTTP) and lease-renewal `RetryLater` |
 | Credential/profile isolation tests | passed | `FrozenModelDeploymentResolverTests` plus processor frozen-authority tests; secret symlink/size in WorkloadIdentity tests; no-fallback matrix for missing/revoked/wrong-org/provider mismatch |
-| Lease/auth/lifecycle concurrency tests | passed | Claim-lease heartbeat; overlapping reclaim; Postgres `Revoked_delegation_cannot_reserve_a_provider_request_after_disclosure` (no started fact, no HTTP, lease not extended); in-memory denied-authorization reservation |
-| PostgreSQL migration/provenance/recovery tests | passed | Additive `0029` unchanged; crash-recovery class **15 passed**; claim class **15 passed**; full Postgres integration included in the 1033 solution run |
+| Lease/auth/lifecycle concurrency tests | passed | Claim-lease heartbeat; overlapping reclaim; Postgres delegation revoke and principal-binding revoke at reservation (no started fact, no HTTP, lease not extended) |
+| PostgreSQL migration/provenance/recovery tests | passed | Additive `0029` unchanged; crash-recovery class **16 passed**; claim class **15 passed**; full Postgres integration included in the 1034 solution run |
 | Architecture/module dependency tests | passed | Architecture **33 passed**; official SDK isolated to `FlexAgent.Sessions.OpenAi` with negative control |
 | Sessions domain/application tests | passed | `FlexAgent.Sessions.Tests` **448 passed** including revoked-authorization reservation |
 | Exact Direct OpenAI profile qualification | blocked | Opt-in synthetic evidence for one owner-selected immutable profile is not available; does not close synthetic OpenRouter/vLLM portions of `GATE-STACK-PROVIDERS` |
 | Locked regression, supply chain, OCI, docs, whitespace | partial | `python3 scripts/check_docs.py` passed; `git diff --check` passed. OCI image rebuild/SBOM/grype not re-run in this session |
-| Independent backend/architecture/security review | pending | Independent review of `eb432f2` produced the remaining P1 authorization-at-reservation fence this slice remediates; re-review still required before Phase B |
+| Independent backend/architecture/security review | pending | Independent review of `4373f70` found no remaining P0/P1; leftover P2 constructor and principal-binding items are addressed in this slice. Re-review still required before treating Phase A as externally signed off |
 
 # Blockers
 
