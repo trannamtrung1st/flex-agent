@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved — 2026-08-06; amended 2026-08-08
+Approved — 2026-08-06; amended 2026-08-08 and 2026-08-19
 
 Component-family and provider-boundary selection is approved. A profile is not
 production-certified until the applicable compatibility, security, recovery,
@@ -18,8 +18,8 @@ one model, provider, or runtime part of Flex Agent's product identity.
 | **Decision owners** | Architecture Lead, Operations owner |
 | **Approvers** | Product Lead, Architecture Lead, Operations owner, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, documentation |
-| **Last amended** | 2026-08-08 |
-| **Amendment reference** | Explicit owner approval to resolve `Q-OSS-1` with a model-neutral provider-profile architecture |
+| **Last amended** | 2026-08-19 |
+| **Amendment reference** | Product Lead approval on 2026-08-19 of the bounded OpenRouter synthetic-development profile; preserves the 2026-08-08 model-neutral provider-profile decision |
 | **Resolves** | `Q-ARCH-14` and `Q-ARCH-15` in the [MVP architecture](../mvp-architecture.md#approved-decision-disposition); `Q-OSS-1` and `Q-OSS-2` in this ADR |
 | **Governs** | Reference infrastructure products, provider/deployment defaults, supported version lines, profile placement, compatibility evidence, and replacement policy |
 
@@ -107,6 +107,7 @@ separate machine-readable lock manifest.
 | `OSS-DEC-14` | Support operator-provisioned deployment profiles and Organization-scoped BYOK profiles for installed adapters in the MVP. Preserve the same profile boundary for a later optional Organization-owned model endpoint, enabled only after its additional gates pass. | Raw keys are never stored in product records or entered by Participants. Adapter, model, and credential selection—and endpoint selection when enabled—are frozen and audited by reference; missing, revoked, mismatched, or cross-Organization bindings fail closed without silent fallback. |
 | `OSS-DEC-15` | Do not select a normative model family, model artifact, quantization, or hardware envelope. Qualify concrete provider deployment profiles independently against the model-provider gate, and permit multiple qualified profiles to coexist. | Certification belongs to the exact adapter/provider/endpoint/model/version-or-fingerprint/capability/credential-policy combination. Replacing a model or adding an Organization model does not change domain contracts, but the new profile must pass its applicable gates before real use. |
 | `OSS-DEC-16` | Keep `grafana/otel-lgtm` operator-pulled and optional for local development and CI; do not bundle or redistribute it in the MVP distribution. | LGTM is development infrastructure, not product runtime or the production monitoring stack. This resolves `Q-OSS-2` for the MVP without making a legal conclusion about future redistribution. |
+| `OSS-DEC-17` | Permit real OpenRouter calls for local synthetic development under the approved [OpenRouter synthetic-development profile](../../operations/provider-profiles/openrouter-synthetic-development.md). `openrouter/free` may be used only for capability discovery and smoke testing; repeatable interactive Session testing must pin a concrete `:free` model and one permitted provider slug. | Natural local chat may exercise the real provider path with synthetic, non-sensitive content, but neither a random free-router result nor a pinned free model becomes production-qualified. Direct OpenAI qualification remains separate, runtime enablement remains explicit, and every missing identity, privacy, credential, routing, or budget control fails closed. |
 
 ## Selected OSS components
 
@@ -216,7 +217,7 @@ Approved profiles are:
 | Profile | Provider configuration | Constraint |
 | --- | --- | --- |
 | Automated tests | Deterministic fake/in-memory provider | Required for repeatable tests; no remote free model is a deterministic test oracle. |
-| Local exploratory development | OpenAI-compatible adapter pointed to OpenRouter; `openrouter/free` or a specific `:free` model may be used | Synthetic data only. Dynamic/free routing cannot create a frozen real assessment manifest. |
+| Local exploratory development | Distinct OpenRouter adapter using its OpenAI-compatible Chat Completions surface; `openrouter/free` or a specific `:free` model may be used under the approved synthetic-development profile | Synthetic data only. Dynamic/free routing cannot create a frozen real assessment manifest, and OpenRouter must not be substituted into the Direct OpenAI adapter profile. |
 | Deployment-managed external provider | An installed native or protocol-compatible adapter with an operator-managed endpoint/deployment and credential binding | No model is the product default. The exact profile must pass quality, structured-output, latency, privacy, identity, and capacity gates before real use. |
 | Optional Organization-owned model extension | An installed approved adapter with an Organization-scoped endpoint/deployment, model reference, capability profile, and BYOK binding | Not an MVP acceptance dependency. Before enablement, the endpoint is operator-approved and server-resolved; Organization configuration cannot introduce arbitrary runtime code, unvalidated URLs, cross-Organization credentials, or silent fallback. |
 | Self-hosted | An installed protocol-compatible or native adapter pointed to an operator-approved runtime such as vLLM | Each concrete runtime/model artifact profile pins source, revision, digest, quantization where applicable, hardware envelope, and license evidence before real use. No particular model family is required. |
@@ -225,9 +226,31 @@ OpenRouter's stable MVP integration surface is the OpenAI-compatible Chat
 Completions contract. Its Responses API is beta and is not the portability
 baseline. OpenRouter automatic fallbacks, latest aliases, and free-model routing
 are disabled for real assessment Sessions. If OpenRouter is later approved for
-real data, the configuration must pin the model and allowed provider endpoint,
+real data, the configuration must pin the model and allowed provider route,
 disable fallbacks, require supported parameters and approved data policy, and
 record returned routing metadata.
+
+For approved local synthetic development, `openrouter/free` is a discovery
+router rather than a frozen model. It may select a different eligible model for
+each request, so its returned model and selected provider must be recorded and it
+must not be used as the resolved model identity of a repeatable Session. This is
+especially important when one Agent Invocation performs separate structured-
+control and participant-visible-content requests: both phases must use one
+concrete pinned `:free` model for coherent Session testing. Capability
+discovery may use the random router; interactive local chat must move to the
+concrete model before it is represented as a repeatable Session test.
+
+The synthetic profile must use Chat Completions with strict JSON Schema where
+structured control is required, require support for every sent parameter,
+disable fallbacks, deny data-collecting routes, require zero-data-retention
+routing, restrict repeatable requests to one permitted provider, expose and
+validate router metadata, disable response caching, and fail when no eligible
+route or attestable identity exists. Only synthetic, non-sensitive content may
+cross the boundary. The key remains an operator-mounted file outside the
+repository, and committed evidence contains sanitized identity, capability,
+usage, latency, cost, and outcome facts only. Exact operating bounds and the
+default-off progression are governed by the
+[provider-profile runbook](../../operations/provider-profiles/openrouter-synthetic-development.md).
 
 Every external or Organization-provided endpoint is a separate trust boundary.
 Real participant data requires an approved provider data/retention policy, data
@@ -466,6 +489,12 @@ but profile qualification is delivery work rather than an architecture question.
 - [vLLM documentation](https://docs.vllm.ai/en/latest/)
 - [vLLM supported models](https://docs.vllm.ai/en/latest/models/supported_models/)
 - [OpenRouter API and free-model limits](https://openrouter.ai/docs/faq)
+- [OpenRouter free-model router](https://openrouter.ai/docs/guides/routing/routers/free-router)
+- [OpenRouter provider routing](https://openrouter.ai/docs/guides/routing/provider-selection)
+- [OpenRouter structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs)
+- [OpenRouter router metadata](https://openrouter.ai/docs/guides/features/router-metadata)
+- [OpenRouter zero-data-retention routing](https://openrouter.ai/docs/guides/features/zdr)
+- [OpenRouter data collection](https://openrouter.ai/docs/guides/privacy/data-collection)
 - [OpenRouter Responses API beta](https://openrouter.ai/docs/api/reference/responses/overview)
 - [OpenAI model guidance](https://developers.openai.com/api/docs/guides/latest-model)
 - [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data)
@@ -477,6 +506,5 @@ but profile qualification is delivery work rather than an architecture question.
 - [ADR-007: OSS-first self-hostable deployment](ADR-007-oss-first-self-hostable-deployment.md)
 - [MVP operational defaults](../../requirements/mvp-operational-defaults.md)
 - [Authorization and resource isolation](../../requirements/features/auth-resource-isolation.md)
-- [Resolved Session configuration](../../requirements/features/resolved-session-configuration.md)
 - [Resolved Session configuration](../../requirements/features/resolved-session-configuration.md)
 - [Submission and Attempts](../../requirements/features/submission-attempts.md)

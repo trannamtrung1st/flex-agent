@@ -16,6 +16,13 @@ reference identity and Invocation-delegation runtime path is implemented;
 deployment-profile numeric bounds, live-issuer qualification, and Production
 or Staging enablement remain incomplete.
 
+ADR-008 and ADR-010 were amended on 2026-08-19 to approve a distinct
+OpenRouter synthetic-development profile: real provider calls and natural local
+chat may use synthetic, non-sensitive content; random free routing remains
+discovery-only, repeatable Session testing pins a concrete `:free` model and
+one provider, and no evidence qualifies production or substitutes for Direct
+OpenAI Phase B.
+
 | ADR | Status | Decision |
 | --- | --- | --- |
 | [ADR-001](ADR-001-resolved-configuration-representation-and-integrity.md) | Approved | Versioned canonical representation, digest and terminal-seal procedure, logical artifact split, and source-materialization boundary |
@@ -25,9 +32,9 @@ or Staging enablement remain incomplete.
 | [ADR-005](ADR-005-atomic-attempt-start-and-submission-binding.md) | Approved | Atomic Attempt activation, exact Submission-version binding, Session readiness, entitlement consumption, and required audit acceptance |
 | [ADR-006](ADR-006-mvp-architecture-baseline-and-evolution.md) | Approved | MVP application/deployment baseline, SPA/API/gateway, OIDC, persistence/work, recovery, optional caching, and deferred Kubernetes evolution boundaries |
 | [ADR-007](ADR-007-oss-first-self-hostable-deployment.md) | Approved | OSS-first self-hostable reference deployment, open integration contracts, OCI packaging, agent-friendly automation, and optional cloud adapters |
-| [ADR-008](ADR-008-bounded-oss-component-set.md) | Approved | Bounded OSS components, model-neutral provider profiles, scoped BYOK and Organization model endpoints, development-only operator-pulled LGTM, synthetic-evaluation versus production-pilot gates, external recovery responsibility, version policy, evidence gates, and Docker Compose reference orchestration |
+| [ADR-008](ADR-008-bounded-oss-component-set.md) | Approved; amended 2026-08-19 | Bounded OSS components, model-neutral provider profiles, scoped BYOK and Organization model endpoints, approved OpenRouter synthetic-development profile, development-only operator-pulled LGTM, synthetic-evaluation versus production-pilot gates, external recovery responsibility, version policy, evidence gates, and Docker Compose reference orchestration |
 | [ADR-009](ADR-009-mvp-session-evaluation-review-contracts.md) | Approved; Session publication partially superseded by ADR-011 | Detailed Session, Evidence/Evaluation, and Review/Result/Release contracts, including original provider-streaming, optional-broker, and notification boundaries |
-| [ADR-010](ADR-010-dotnet-implementation-stack-and-workspace.md) | Approved | .NET 10/ASP.NET Core API and worker, React/Vite SPA, `JsonSchema.Net`, separate pinned-source JCS project, Npgsql/Dapper persistence, Grate migrations, test stack, workspace boundaries, and supply-chain conventions |
+| [ADR-010](ADR-010-dotnet-implementation-stack-and-workspace.md) | Approved; amended 2026-08-19 | .NET 10/ASP.NET Core API and worker, React/Vite SPA, `JsonSchema.Net`, separate pinned-source JCS project, Npgsql/Dapper persistence, Grate migrations, test stack, workspace boundaries, supply-chain conventions, and distinct Direct OpenAI/OpenRouter adapter contracts |
 | [ADR-011](ADR-011-participant-visible-agent-response-streaming.md) | Approved | Durable-before-display participant-visible incremental Agent-response fragments, ordering, replay, incomplete-stream recovery, cutoff, validation, and backpressure |
 | [ADR-012](ADR-012-structured-agent-invocation-and-decision-boundary.md) | Approved | Provider-neutral trusted Agent Invocation, structured Agent Decision, independent validation/effect, explicit no-action, ordering, streaming coexistence, and minimized provenance boundary |
 | [ADR-013](ADR-013-agent-requested-next-timer-replacement.md) | Approved | Optional Agent recommendation that replaces one runtime-owned next timer under frozen delay, lifecycle, idempotency, and loop bounds |

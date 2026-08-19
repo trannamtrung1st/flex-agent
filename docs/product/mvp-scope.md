@@ -11,8 +11,8 @@ First product experience, platform direction, explicit non-goals, and deferred c
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.4 |
 | **Effective date** | 2026-08-14 |
-| **Last reviewed** | 2026-08-16 |
-| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; supersedes v0.3 |
+| **Last reviewed** | 2026-08-19 |
+| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; 2026-08-19 provider/host sequencing review preserved scope; supersedes v0.3 |
 | **Related decisions** | Approved [Concept model v0.5](concept-model.md), [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
 
 Version 0.4 is **approved** and supersedes v0.3. It preserves the seven-step MVP
@@ -203,17 +203,22 @@ Continue remaining production gates after the Sessions runtime slice defined by
 [ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#traceability-and-downstream-work).
 Structured Agent Invocation/Decision, next-timer, and P0-compatible output
 envelope behavior exists in Sessions, contracts, PostgreSQL, and the synthetic
-Participant path; live providers, production HTTP SSE, and Worker polling
-remain host gates against approved Concept model v0.5, MVP scope v0.4, current
-approved feature specifications,
+Participant path. Production HTTP SSE and Worker polling are implemented host
+successors; exact-profile provider qualification, OIDC application-session,
+hosted Session start/configuration, and other production gates remain against
+approved Concept model v0.5, MVP scope v0.4, and current approved feature
+specifications,
 [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md),
 [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md),
 and
 [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md).
 In parallel, complete ADR-008's applicable compatibility and
-provider-credential evidence and qualify at least one concrete provider
-deployment profile for each claimed execution profile without making its model
-a product dependency. Canonical Session runtime schemas and fixtures exist;
+provider-credential evidence. The approved
+[OpenRouter synthetic-development profile](../operations/provider-profiles/openrouter-synthetic-development.md)
+may use real free-model calls for non-sensitive local chat but cannot qualify a
+real assessment provider or replace Direct OpenAI Phase B. Qualify at least one
+concrete provider deployment profile for each claimed execution profile without
+making its model a product dependency. Canonical Session runtime schemas and fixtures exist;
 HTTP runtime validation and live-provider contract suites remain open. An
 affected integration must pass its gates before acceptance or real use; the
 production pilot must pass the broader evidence gates in

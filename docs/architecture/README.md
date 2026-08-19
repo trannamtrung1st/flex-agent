@@ -50,6 +50,15 @@ workspace boundaries, and application dependency policy. Its schema, RFC 8785,
 database, provider, artifact, session, and operability gates remain required
 implementation evidence.
 
+The 2026-08-19 approved amendments to
+[ADR-008](decisions/ADR-008-bounded-oss-component-set.md) and
+[ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md)
+authorize a distinct
+[OpenRouter synthetic-development profile](../operations/provider-profiles/openrouter-synthetic-development.md).
+It permits real external calls and natural local text chat with synthetic,
+non-sensitive content while keeping random free routing out of frozen Sessions,
+production qualification, and the Direct OpenAI evidence track.
+
 The [backend module architecture](backend-module-architecture.md) is approved
 as the implementation guide for applying ADR-006 and ADR-010 consistently. It
 defines the domain-oriented modular-monolith identity, ports-and-adapters

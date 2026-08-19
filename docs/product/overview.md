@@ -9,8 +9,8 @@
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.4 |
 | **Effective date** | 2026-08-14 |
-| **Last reviewed** | 2026-08-16 |
-| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; supersedes v0.3 |
+| **Last reviewed** | 2026-08-19 |
+| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; 2026-08-19 provider sequencing review preserved product meaning and synthetic-only OpenRouter scope; supersedes v0.3 |
 
 Vision, positioning, and principles. Canonical concepts, scope boundaries, and requirements live in linked product and requirements documents.
 
@@ -34,16 +34,21 @@ OSS-first self-hostable
 [Review/Release](../architecture/review-result-release-contract.md) contracts are
 approved. The P0 Activity journey and all five P0 surface interaction
 specifications, including [Result and Release](../ui-ux/result-release.md), are
-also approved. Continue remaining production gates after the Sessions runtime
-slice: live provider qualification, production HTTP SSE and Worker polling,
-OIDC application-session, and the ADR-010 evidence listed by
+also approved. Production HTTP SSE and Worker polling are implemented successor
+slices. Continue the remaining production gates: exact-profile live provider
+qualification, OIDC application-session, hosted Session start/configuration,
+and the ADR-010 evidence listed by
 [ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#traceability-and-downstream-work).
 In parallel, complete the applicable compatibility evidence required by
 [ADR-008](../architecture/decisions/ADR-008-bounded-oss-component-set.md),
 including qualification of each enabled provider deployment profile and
-provider-credential/Organization-endpoint isolation. An affected integration
-must not be accepted or enabled for real use until its gates pass, and the
-production pilot remains blocked on the evidence listed in
+provider-credential/Organization-endpoint isolation. The approved
+[OpenRouter synthetic-development profile](../operations/provider-profiles/openrouter-synthetic-development.md)
+may exercise real free-model calls and natural local chat with synthetic,
+non-sensitive content, but it does not qualify production, accept Participant
+data, or close the separately blocked Direct OpenAI Phase B. An affected
+integration must not be accepted or enabled for real use until its gates pass,
+and the production pilot remains blocked on the evidence listed in
 [MVP architecture implementation readiness](../architecture/mvp-architecture.md#implementation-readiness).
 Apply the approved shared [design system](../ui-ux/design-system/README.md) with
 the approved interaction specifications and implement and verify the

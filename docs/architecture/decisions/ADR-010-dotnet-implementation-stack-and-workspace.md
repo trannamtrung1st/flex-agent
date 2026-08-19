@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved — 2026-08-07
+Approved — 2026-08-07; amended 2026-08-19
 
 This decision selects implementation technology only. It does not change
 product meaning, observable behavior, UI/UX behavior, or the approved
@@ -17,7 +17,8 @@ architecture boundaries.
 | **Approvers** | Architecture owner, Backend owner, Frontend owner, Security/Privacy reviewer, Operations owner |
 | **Consulted perspectives** | Architecture, security/privacy, documentation |
 | **Approved date** | 2026-08-07 |
-| **Approval reference** | Explicit owner approval in the 2026-08-07 implementation-stack and follow-up schema/canonicalization reviews |
+| **Last amended** | 2026-08-19 |
+| **Approval reference** | Explicit owner approval in the 2026-08-07 implementation-stack and follow-up schema/canonicalization reviews; Product Lead approval on 2026-08-19 of the separate OpenRouter synthetic-development adapter/profile boundary |
 | **Governs** | Application runtime and language, backend and SPA frameworks, contract-validation approach, PostgreSQL access and migration tooling, test stack, workspace layout, and dependency/build conventions |
 
 ## Context
@@ -135,6 +136,7 @@ versioned artifacts rather than incidental generated API documentation.
 | `STACK-DEC-15` | Build API and worker with `dotnet publish`, build the SPA with Vite, and package API, worker, and static SPA/gateway artifacts in separate multi-stage OCI images. | Preserves disposable runtime roles and prevents SDKs, development dependencies, source-only secrets, or migration authority from entering runtime images unnecessarily. |
 | `STACK-DEC-16` | Pin direct dependencies centrally and transitive graphs in lock files, prohibit floating container tags and prerelease packages in released profiles, produce SBOMs, scan dependencies/images, and review upgrades with focused contract, migration, and regression tests. | Extends ADR-008's supply-chain policy to NuGet and frontend packages. Package restore and build steps are code-execution boundaries. |
 | `STACK-DEC-17` | Treat API and worker entry points as composition roots. Keep domain/application modules, adapters, contracts, and browser code separately importable, and enforce the dependency rules below in CI. | Prevents framework, provider, and persistence choices from becoming product semantics and keeps future module extraction reversible. |
+| `STACK-DEC-18` | Implement OpenRouter as a distinct Sessions-owned adapter contract behind the existing provider-neutral execution port. Its approved development surface is OpenAI-compatible Chat Completions at the fixed `/api/v1` base path; OpenRouter routing fields, opt-in router metadata, response-cache denial, returned identity, and failure semantics remain adapter concerns. Do not reuse the Direct OpenAI adapter kind or treat an origin-only profile substitution as compatibility evidence. | The current Direct OpenAI adapter enforces its own kind, contract, endpoint, and immutable-model checks. A separate adapter makes OpenRouter path handling, free-router discovery, concrete `:free` model and provider pinning, privacy filters, no-fallback behavior, and provenance independently testable without weakening Direct OpenAI or durable domain contracts. |
 
 Exact package, SDK, frontend-tool, and OCI digests are pinned by the
 implementation lock files and component manifest. The supported lines above
@@ -320,7 +322,7 @@ to imitate a template.
 | `GATE-STACK-POSTGRES` | PostgreSQL and Grate | Empty migration, repeat invocation, changed-script failure, transaction rollback, migration concurrency/locking behavior, upgrade path, composite scope constraints, and one atomic audit/outbox boundary pass against PostgreSQL 18 |
 | `GATE-STACK-MODULES` | Module boundaries | Automated architecture tests reject framework imports in domain/application code, browser-to-backend references, cross-module repository writes, and unscoped protected repository methods |
 | `GATE-STACK-ISOLATION` | Authorization/isolation | Positive and complete wrong-Organization, wrong-Activity, wrong-Participant, guessed-ID, list/count, stale-delegation, and background-work scope matrices pass against real repositories |
-| `GATE-STACK-PROVIDERS` | Model compatibility | Fake, direct OpenAI, synthetic OpenRouter, and vLLM contract tests cover streaming, structured outputs used by the MVP, timeouts, cancellation, retries, failure normalization, usage/provenance, and fail-closed no-fallback behavior |
+| `GATE-STACK-PROVIDERS` | Model compatibility | Fake, direct OpenAI, synthetic OpenRouter, and vLLM contract tests cover streaming, structured outputs used by the MVP, timeouts, cancellation, retries, failure normalization, usage/provenance, and fail-closed no-fallback behavior. Synthetic OpenRouter evidence must distinguish random-router discovery from a pinned concrete model/provider, attest selected routing from metadata, reject response-cache hits, and cannot satisfy a real-data provider-profile gate |
 | `GATE-STACK-ARTIFACTS` | S3 compatibility | Exact SeaweedFS version passes private object, integrity, conditional/version behavior, presigned delivery, metadata, lifecycle, cleanup, recovery, and wrong-scope tests required by ADR-008 |
 | `GATE-STACK-SESSION` | Application session and SSE | Multi-instance opaque-session rotation/revocation and synthetic SSE reconnect/replay preserve authoritative sequence ordering; disconnect does not change Session authority |
 | `GATE-STACK-BROWSER` | Browser build | Static SPA loads through NGINX and Playwright verifies an authenticated synthetic journey at desktop and narrow viewports without storing credentials in artifacts |

@@ -367,6 +367,12 @@ qualification when an owner-selected Direct OpenAI profile and credential
 exist. The task remains incomplete until Phase B and remaining completion
 checkboxes.
 
+On 2026-08-19 the Product Lead separately approved the OpenRouter
+synthetic-development profile and its implementation task. That work may
+exercise real free-model calls with synthetic, non-sensitive content, but it
+does not provide this task's exact Direct OpenAI evidence, change its completion
+criteria, or authorize production/Participant data.
+
 # Delivery phases
 
 - **Phase A — deterministic implementation:** restart-safe provider-phase
@@ -450,10 +456,11 @@ Interim defaults are working guidance only and do not approve a deployment.
 
 # Findings / deviations
 
-- The authoritative overview still lists production HTTP SSE and Worker polling
-  among next gates, but the completed successor tasks already implement those
-  host seams. This task therefore owns the remaining live-provider integration
-  and qualification gate, not a second SSE or Worker-polling implementation.
+- At task planning time the authoritative overview still listed production HTTP
+  SSE and Worker polling among next gates although completed successor tasks
+  implemented those seams. The 2026-08-19 documentation promotion corrected
+  that stale status. This task owns live-provider integration and qualification,
+  not a second SSE or Worker-polling implementation.
 - Predecessor commit `94c1412` updates Worker readiness and workload identity
   behavior in files this task may later touch. This plan treats that commit as
   the baseline and does not reopen its completed remediation scope.

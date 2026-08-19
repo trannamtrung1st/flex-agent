@@ -11,8 +11,8 @@ Approved technical realization baseline for the P0 assessment vertical slice.
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, UI/UX, documentation |
 | **Version** | 0.10 |
-| **Approved date** | Version 0.7 approved 2026-08-09; versions 0.8 and 0.9 approved 2026-08-11; version 0.10 approved 2026-08-14; version 0.10 amended 2026-08-14 for Text Session v0.5 catalog accuracy and independent-item validation verification |
-| **Approval reference** | Version 0.10 is approved through ADR-006–ADR-014; [ADR-014](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) supplies the P0-compatible Decision-output envelope |
+| **Approved date** | Version 0.7 approved 2026-08-09; versions 0.8 and 0.9 approved 2026-08-11; version 0.10 approved 2026-08-14; version 0.10 amended 2026-08-14 for Text Session v0.5 catalog accuracy and independent-item validation verification and reviewed 2026-08-19 for provider/host status accuracy |
+| **Approval reference** | Version 0.10 is approved through ADR-006–ADR-014; [ADR-014](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) supplies the P0-compatible Decision-output envelope; the 2026-08-19 ADR-008/ADR-010 amendments preserve this baseline while approving synthetic-only OpenRouter development |
 | **Governs** | MVP system boundaries, logical ownership, runtime flows, consistency boundaries, trust boundaries, deployment shape, recovery baseline, and architecture verification |
 
 Version 0.10 is **approved** and supersedes version 0.9. This architecture does
@@ -896,8 +896,9 @@ is staged, not all-or-nothing:
 4. Frontend implementation must conform to the approved Activity/Campaign
    journey, the five approved P0 surface specifications including Text Session
    v0.5, and the approved shared design system. The Participant Text Session
-   synthetic journey has Playwright evidence; remaining P0 surfaces,
-   production HTTP SSE, and OIDC-authenticated journeys remain outstanding.
+   synthetic journey has Playwright evidence and production HTTP SSE is
+   implemented; remaining P0 surfaces and OIDC-authenticated journeys remain
+   outstanding.
 5. Scaffold acceptance must pass ADR-010's runtime, schema, JCS, HTTP,
    PostgreSQL/Grate, module-boundary, supply-chain, and operability gates.
 6. Production pilot remains blocked on lifecycle, identity, upload, provider
