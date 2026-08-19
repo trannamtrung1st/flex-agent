@@ -230,16 +230,7 @@ public sealed class DurableInvocationWorkProcessor(
         else
         {
             var binding = frozenResolution.Binding!;
-            if (await ProviderRequestBudgetExhaustedAsync(
-                    claimed.Ownership,
-                    claimed.AgentInvocationId,
-                    invocation.Attempts.Count,
-                    frozenResolution.Profile!.MaxProviderRequestAttempts,
-                    cancellationToken))
-            {
-                attemptResult = new ModelExecutionFailed(ExecutionOutcomeCategories.AttemptsExhausted);
-            }
-            else if (!await sessionGateway.TryAuthorizeModelDisclosureAsync(
+            if (!await sessionGateway.TryAuthorizeModelDisclosureAsync(
                 claimed.Ownership,
                 cancellationToken))
             {
@@ -249,59 +240,74 @@ public sealed class DurableInvocationWorkProcessor(
             {
                 var context = InvocationContextAssembler.Assemble(loaded.Session);
                 var providerAttemptId = $"prat.{Guid.NewGuid():N}";
-                using var controlHeartbeat = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                await using var heartbeat = ClaimLeaseHeartbeat.Start(
-                    workStore,
-                    claimed,
-                    settings.EffectiveClaimLeaseRenewalPeriod,
-                    settings.EffectiveClaimLease,
-                    controlHeartbeat);
-                try
+                var started = await TryReserveProviderRequestAsync(
+                    claimed.Ownership,
+                    claimed.AgentInvocationId,
+                    invocation.Attempts.Count,
+                    frozenResolution.Profile!,
+                    providerAttemptId,
+                    ModelProviderRequestPhases.Control,
+                    invocation.Attempts.Count + 1,
+                    cancellationToken);
+                if (started is null)
                 {
-                    attemptResult = await modelExecutionPort.ExecuteAsync(
-                        new ModelExecutionAttemptRequest(
-                            claimed.Ownership,
-                            claimed.AgentInvocationId,
-                            binding.ProviderId,
-                            binding.BindingReference,
-                            binding.BindingVersion,
-                            context,
-                            invocation.Attempts.Count + 1,
-                            settings.MaxControlUtf8Bytes,
-                            frozenResolution.Frozen,
-                            providerAttemptId,
-                            frozenResolution.Profile.RequestedModel,
-                            frozenResolution.Profile.ProfileDigest),
-                        controlHeartbeat.Token);
+                    attemptResult = new ModelExecutionFailed(ExecutionOutcomeCategories.AttemptsExhausted);
                 }
-                catch (OperationCanceledException) when (controlHeartbeat.IsCancellationRequested)
+                else
                 {
-                    return RecordProcess(await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId));
-                }
-
-                if (controlHeartbeat.IsCancellationRequested)
-                {
-                    if (attemptResult.Provenance is not null && provenanceWriter is not null)
+                    using var controlHeartbeat = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    await using var heartbeat = ClaimLeaseHeartbeat.Start(
+                        workStore,
+                        claimed,
+                        settings.EffectiveClaimLeaseRenewalPeriod,
+                        settings.EffectiveClaimLease,
+                        controlHeartbeat);
+                    try
                     {
-                        await provenanceWriter.WriteAsync(
+                        attemptResult = await modelExecutionPort.ExecuteAsync(
+                            new ModelExecutionAttemptRequest(
+                                claimed.Ownership,
+                                claimed.AgentInvocationId,
+                                binding.ProviderId,
+                                binding.BindingReference,
+                                binding.BindingVersion,
+                                context,
+                                invocation.Attempts.Count + 1,
+                                settings.MaxControlUtf8Bytes,
+                                frozenResolution.Frozen,
+                                providerAttemptId,
+                                frozenResolution.Profile!.RequestedModel,
+                                frozenResolution.Profile.ProfileDigest),
+                            controlHeartbeat.Token);
+                    }
+                    catch (OperationCanceledException) when (controlHeartbeat.IsCancellationRequested)
+                    {
+                        await WriteProviderRequestFinishedAsync(
                             claimed.Ownership,
                             claimed.AgentInvocationId,
                             invocation.Attempts.Count + 1,
-                            attemptResult.Provenance,
+                            started,
+                            adapterProvenance: null,
+                            ExecutionAttemptOutcomeCategories.Cancelled,
                             cancellationToken);
+                        return RecordProcess(await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId));
                     }
 
-                    return RecordProcess(await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId));
-                }
-
-                if (attemptResult.Provenance is not null && provenanceWriter is not null)
-                {
-                    await provenanceWriter.WriteAsync(
+                    await WriteProviderRequestFinishedAsync(
                         claimed.Ownership,
                         claimed.AgentInvocationId,
                         invocation.Attempts.Count + 1,
+                        started,
                         attemptResult.Provenance,
+                        attemptResult is ModelExecutionFailed failed
+                            ? failed.ReasonCategory
+                            : ExecutionAttemptOutcomeCategories.DecisionProduced,
                         cancellationToken);
+
+                    if (controlHeartbeat.IsCancellationRequested)
+                    {
+                        return RecordProcess(await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId));
+                    }
                 }
             }
         }
@@ -426,6 +432,7 @@ public sealed class DurableInvocationWorkProcessor(
             return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
         }
 
+        ModelProviderAttemptProvenance? reserved = null;
         try
         {
             var frozenResolution = FrozenModelDeploymentResolver.Resolve(
@@ -443,12 +450,18 @@ public sealed class DurableInvocationWorkProcessor(
                     cancellationToken);
             }
 
-            if (await ProviderRequestBudgetExhaustedAsync(
-                    claimed.Ownership,
-                    invocation.AgentInvocationId,
-                    invocation.Attempts.Count,
-                    frozenResolution.Profile!.MaxProviderRequestAttempts,
-                    cancellationToken))
+            var context = InvocationContextAssembler.Assemble(session);
+            var providerAttemptId = $"prat.{Guid.NewGuid():N}";
+            var started = await TryReserveProviderRequestAsync(
+                claimed.Ownership,
+                invocation.AgentInvocationId,
+                invocation.Attempts.Count,
+                frozenResolution.Profile!,
+                providerAttemptId,
+                ModelProviderRequestPhases.Content,
+                Math.Max(1, invocation.Attempts.Count),
+                cancellationToken);
+            if (started is null)
             {
                 return await StopContentAsync(
                     claimed,
@@ -458,8 +471,8 @@ public sealed class DurableInvocationWorkProcessor(
                     cancellationToken);
             }
 
-            var context = InvocationContextAssembler.Assemble(session);
-            var providerAttemptId = $"prat.{Guid.NewGuid():N}";
+            reserved = started;
+
             using var streamHeartbeat = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             await using var heartbeat = ClaimLeaseHeartbeat.Start(
                 workStore,
@@ -481,28 +494,40 @@ public sealed class DurableInvocationWorkProcessor(
                     frozenResolution.Binding.BindingVersion),
                 streamHeartbeat.Token))
             {
+                if (contentEvent is ModelContentCompleted or ModelContentFailed)
+                {
+                    var provenance = contentEvent switch
+                    {
+                        ModelContentCompleted completed => completed.Provenance,
+                        ModelContentFailed failed => failed.Provenance,
+                        _ => null,
+                    };
+                    await WriteProviderRequestFinishedAsync(
+                        claimed.Ownership,
+                        invocation.AgentInvocationId,
+                        Math.Max(1, invocation.Attempts.Count),
+                        started,
+                        provenance,
+                        contentEvent is ModelContentFailed failedEvent
+                            ? failedEvent.ReasonCategory
+                            : ExecutionAttemptOutcomeCategories.ContentProduced,
+                        cancellationToken);
+                }
+
                 if (streamHeartbeat.IsCancellationRequested)
                 {
+                    await WriteProviderRequestFinishedAsync(
+                        claimed.Ownership,
+                        invocation.AgentInvocationId,
+                        Math.Max(1, invocation.Attempts.Count),
+                        started,
+                        adapterProvenance: null,
+                        ExecutionAttemptOutcomeCategories.Cancelled,
+                        cancellationToken);
                     return await InterruptContentAsync(
                         claimed,
                         loaded,
                         invocation.AgentInvocationId);
-                }
-
-                var provenance = contentEvent switch
-                {
-                    ModelContentCompleted completed => completed.Provenance,
-                    ModelContentFailed failed => failed.Provenance,
-                    _ => null,
-                };
-                if (provenance is not null && provenanceWriter is not null)
-                {
-                    await provenanceWriter.WriteAsync(
-                        claimed.Ownership,
-                        invocation.AgentInvocationId,
-                        Math.Max(1, invocation.Attempts.Count),
-                        provenance,
-                        cancellationToken);
                 }
 
                 if (contentEvent is ModelContentFailed)
@@ -584,6 +609,18 @@ public sealed class DurableInvocationWorkProcessor(
         }
         catch (OperationCanceledException)
         {
+            if (reserved is not null)
+            {
+                await WriteProviderRequestFinishedAsync(
+                    claimed.Ownership,
+                    invocation.AgentInvocationId,
+                    Math.Max(1, invocation.Attempts.Count),
+                    reserved,
+                    adapterProvenance: null,
+                    ExecutionAttemptOutcomeCategories.Cancelled,
+                    CancellationToken.None);
+            }
+
             return await InterruptContentAsync(
                 claimed,
                 loaded,
@@ -835,6 +872,87 @@ public sealed class DurableInvocationWorkProcessor(
 
         var used = await provenanceWriter.CountAsync(ownership, agentInvocationId, cancellationToken);
         return used >= maxProviderRequestAttempts;
+    }
+
+    private async Task<ModelProviderAttemptProvenance?> TryReserveProviderRequestAsync(
+        SessionOwnership ownership,
+        string agentInvocationId,
+        int invocationAttemptCount,
+        InstalledModelDeploymentProfile profile,
+        string providerRequestId,
+        string phase,
+        int invocationAttemptOrdinal,
+        CancellationToken cancellationToken)
+    {
+        if (await ProviderRequestBudgetExhaustedAsync(
+                ownership,
+                agentInvocationId,
+                invocationAttemptCount,
+                profile.MaxProviderRequestAttempts,
+                cancellationToken))
+        {
+            return null;
+        }
+
+        var startedAt = DateTimeOffset.UtcNow;
+        var started = new ModelProviderAttemptProvenance(
+            profile.AdapterKind,
+            profile.AdapterContractVersion,
+            profile.ProfileId,
+            profile.ProfileVersion,
+            profile.ProfileDigest,
+            profile.RequestedModel,
+            profile.ResolvedModelVersion,
+            ExecutionAttemptOutcomeCategories.ProviderRequestStarted,
+            null,
+            null,
+            $"pref.{providerRequestId}",
+            startedAt,
+            startedAt,
+            phase,
+            providerRequestId,
+            ModelProviderRequestFacts.Started);
+        if (provenanceWriter is not null)
+        {
+            await provenanceWriter.WriteAsync(
+                ownership,
+                agentInvocationId,
+                invocationAttemptOrdinal,
+                started,
+                cancellationToken);
+        }
+
+        return started;
+    }
+
+    private async Task WriteProviderRequestFinishedAsync(
+        SessionOwnership ownership,
+        string agentInvocationId,
+        int invocationAttemptOrdinal,
+        ModelProviderAttemptProvenance started,
+        ModelProviderAttemptProvenance? adapterProvenance,
+        string outcomeCategory,
+        CancellationToken cancellationToken)
+    {
+        if (provenanceWriter is null)
+        {
+            return;
+        }
+
+        var finished = (adapterProvenance ?? started) with
+        {
+            FactKind = ModelProviderRequestFacts.Finished,
+            OutcomeCategory = adapterProvenance?.OutcomeCategory ?? outcomeCategory,
+            CompletedAt = adapterProvenance?.CompletedAt ?? DateTimeOffset.UtcNow,
+            ProviderRequestId = started.ProviderRequestId,
+            Phase = started.Phase,
+        };
+        await provenanceWriter.WriteAsync(
+            ownership,
+            agentInvocationId,
+            invocationAttemptOrdinal,
+            finished,
+            cancellationToken);
     }
 
     private async Task<DurableInvocationWorkProcessResult> InterruptContentAsync(

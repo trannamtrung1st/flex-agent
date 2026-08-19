@@ -9,7 +9,7 @@ public sealed class TrustedTriggerAdmissionTests
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
 
-        var result = session.AcceptParticipantMessage(
+        var result = SessionRuntimeTestFixtures.AdmitParticipant(session,
             participantMessageId: "msg.p.1",
             turnId: "turn.1",
             responseSlotId: "slot.1",
@@ -32,16 +32,38 @@ public sealed class TrustedTriggerAdmissionTests
         Assert.Single(session.Turns);
         Assert.Equal(TurnKinds.Participant, session.Turns[0].Kind);
         Assert.Equal(ResponseSlotStates.Open, session.Turns[0].ResponseSlot.State);
+        Assert.Equal(SessionRuntimeTestFixtures.ParticipantMessageText, session.VisibleTranscript[0].ExactUtf8Text);
+    }
+
+    [Fact]
+    public void Blank_or_missing_participant_text_fails_admission_without_a_transcript_item()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+
+        var blank = session.AcceptParticipantMessage(
+            "msg.p.blank",
+            "turn.blank",
+            "slot.blank",
+            "trig.participant.blank",
+            "idem.p.blank",
+            SessionRuntimeTestFixtures.T0,
+            "   ");
+
+        Assert.False(blank.Succeeded);
+        Assert.Equal(TriggerAdmissionOutcomeCodes.MissingParticipantContent, blank.OutcomeCode);
+        Assert.Empty(session.Turns);
+        Assert.Empty(session.VisibleTranscript);
+        Assert.Empty(session.Invocations);
     }
 
     [Fact]
     public void Duplicate_participant_trigger_reconciles_to_the_same_invocation()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var first = session.AcceptParticipantMessage(
+        var first = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
 
-        var second = session.AcceptParticipantMessage(
+        var second = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0.AddSeconds(3));
 
         Assert.True(second.Succeeded, second.OutcomeCode);
@@ -56,10 +78,10 @@ public sealed class TrustedTriggerAdmissionTests
     public void Participant_admission_with_the_same_trigger_and_idempotency_but_different_bound_identities_conflicts()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var first = session.AcceptParticipantMessage(
+        var first = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
 
-        var conflict = session.AcceptParticipantMessage(
+        var conflict = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.2", "turn.2", "slot.2", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0.AddSeconds(1));
 
         Assert.True(first.Succeeded, first.OutcomeCode);
@@ -76,10 +98,10 @@ public sealed class TrustedTriggerAdmissionTests
     public void Mismatched_idempotency_reuse_conflicts_without_creating_another_invocation()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        session.AcceptParticipantMessage(
+        SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
 
-        var conflict = session.AcceptParticipantMessage(
+        var conflict = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.other", SessionRuntimeTestFixtures.T0);
 
         Assert.False(conflict.Succeeded);
@@ -221,7 +243,7 @@ public sealed class TrustedTriggerAdmissionTests
             "idem.open",
             SessionRuntimeTestFixtures.T0);
 
-        var result = session.AcceptParticipantMessage(
+        var result = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1",
             "turn.1",
             "slot.1",

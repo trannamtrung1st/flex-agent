@@ -158,7 +158,8 @@ public sealed class SessionRuntimeAuditOutboxTests(PostgresIntegrationFixture fi
                 "trig.p.1",
                 "idem.p.1",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
@@ -294,7 +295,8 @@ public sealed class SessionRuntimeAuditOutboxTests(PostgresIntegrationFixture fi
                 "trig.participant.outbox",
                 "idem.p.outbox",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
@@ -465,7 +467,8 @@ public sealed class SessionRuntimeAuditOutboxTests(PostgresIntegrationFixture fi
                 "trig.participant.outbox.fail",
                 "idem.p.outbox.fail",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
@@ -586,7 +589,8 @@ public sealed class SessionRuntimeAuditOutboxTests(PostgresIntegrationFixture fi
                 "trig.participant.outbox.writer",
                 "idem.p.outbox.writer",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
@@ -705,7 +709,8 @@ public sealed class SessionRuntimeAuditOutboxTests(PostgresIntegrationFixture fi
                 "trig.participant.outbox.dup",
                 "idem.p.outbox.dup",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
@@ -1101,7 +1106,8 @@ public sealed class SessionRuntimeAuditOutboxTests(PostgresIntegrationFixture fi
                 $"trig.participant.{key}",
                 $"idem.p.{key}",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);

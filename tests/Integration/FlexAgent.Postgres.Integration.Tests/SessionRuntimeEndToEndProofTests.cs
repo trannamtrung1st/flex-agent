@@ -68,7 +68,8 @@ public sealed class SessionRuntimeEndToEndProofTests(PostgresIntegrationFixture 
                 "trig.e2e.p",
                 "idem.e2e.p",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(participant.Succeeded, participant.OutcomeCode);

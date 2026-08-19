@@ -18,6 +18,59 @@ public sealed class DurableInvocationWorkProcessorTests
     }
 
     [Fact]
+    public async Task Crash_after_control_call_before_finished_fact_does_not_send_another_provider_request()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AdmitTrustedTrigger(
+            SessionRuntimeTestFixtures.OpeningTrigger("trig.opening.reserve"),
+            "idem.opening.reserve",
+            SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var adapter = new CountingModelExecutionPort(
+            EnqueueNoAction(invocationId, "adec.reserve.00000001", copies: 2));
+        var writer = new InMemoryModelProviderAttemptProvenanceWriter { ThrowOnFinished = true };
+        var profile = SessionRuntimeTestFixtures.CreateInstalledProfile();
+        var seededAt = SessionRuntimeTestFixtures.T0;
+        await writer.WriteAsync(
+            session.Ownership,
+            invocationId,
+            1,
+            new ModelProviderAttemptProvenance(
+                profile.AdapterKind,
+                profile.AdapterContractVersion,
+                profile.ProfileId,
+                profile.ProfileVersion,
+                profile.ProfileDigest,
+                profile.RequestedModel,
+                profile.ResolvedModelVersion,
+                ExecutionAttemptOutcomeCategories.ProviderRequestStarted,
+                null,
+                null,
+                "pref.prat.seeded",
+                seededAt,
+                seededAt,
+                ModelProviderRequestPhases.Control,
+                "prat.seeded",
+                ModelProviderRequestFacts.Started),
+            CancellationToken.None);
+        var store = new MemoryWorkStore(session.Ownership, invocationId);
+        var processor = CreateProcessor(adapter, session, store, provenanceWriter: writer);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            processor.TryProcessNextAsync(CancellationToken.None));
+        Assert.Equal(1, adapter.ExecuteCount);
+        Assert.Equal(2, await writer.CountAsync(session.Ownership, invocationId, CancellationToken.None));
+
+        store.ExpireClaimedLeases();
+        writer.ThrowOnFinished = false;
+        var retried = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(1, adapter.ExecuteCount);
+        Assert.NotEqual(DurableInvocationWorkOutcomes.Decided, retried.Outcome);
+        Assert.Null(session.Invocations[0].Decision);
+    }
+
+    [Fact]
     public async Task Claimed_work_records_one_schema_valid_decision_and_completes_the_claim()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
@@ -79,7 +132,7 @@ public sealed class DurableInvocationWorkProcessorTests
     public async Task Denied_stream_disclosure_does_not_start_provider_content_stream()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.streamdeny", SessionRuntimeTestFixtures.T0);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
         var invocationId = admitted.Invocation!.AgentInvocationId;
@@ -327,7 +380,7 @@ public sealed class DurableInvocationWorkProcessorTests
     public async Task Accepted_message_decision_publishes_delta_content_then_seals_complete()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
         var invocationId = admitted.Invocation!.AgentInvocationId;
@@ -359,7 +412,7 @@ public sealed class DurableInvocationWorkProcessorTests
     public async Task Cumulative_snapshots_publish_only_verified_suffixes()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var adapter = new DeterministicFakeModelExecutionAdapter();
@@ -387,7 +440,7 @@ public sealed class DurableInvocationWorkProcessorTests
     public async Task Prefix_divergence_seals_visible_prefix_incomplete_without_echo()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var adapter = new DeterministicFakeModelExecutionAdapter();
@@ -445,7 +498,7 @@ public sealed class DurableInvocationWorkProcessorTests
     public async Task Terminal_publication_claimed_invocation_resumes_content_without_control()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var completed = session.CompleteInvocation(
@@ -477,7 +530,7 @@ public sealed class DurableInvocationWorkProcessorTests
     public async Task Completed_with_zero_fragments_terminalizes_the_claimed_publication_path()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var adapter = new DeterministicFakeModelExecutionAdapter();
@@ -504,7 +557,7 @@ public sealed class DurableInvocationWorkProcessorTests
     public async Task Redelivery_after_a_visible_delta_seals_incomplete_instead_of_duplicating_text()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var completed = session.CompleteInvocation(
@@ -541,7 +594,7 @@ public sealed class DurableInvocationWorkProcessorTests
     public async Task Cancellation_after_a_visible_fragment_seals_incomplete()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         using var workerCancellation = new CancellationTokenSource();
@@ -566,7 +619,7 @@ public sealed class DurableInvocationWorkProcessorTests
     public async Task Cancellation_before_first_visibility_releases_the_claim()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var adapter = new CancelBeforeFirstDeltaPort();
@@ -600,7 +653,7 @@ public sealed class DurableInvocationWorkProcessorTests
                 },
                 StreamingPublicationBounds = new StreamingPublicationBounds(512, 40, 64, 8_192, 1),
             }));
-        var firstAdmitted = session.AcceptParticipantMessage(
+        var firstAdmitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var firstInvocationId = firstAdmitted.Invocation!.AgentInvocationId;
         Assert.True(session.CompleteInvocation(
@@ -610,7 +663,7 @@ public sealed class DurableInvocationWorkProcessorTests
         Assert.True(session.CommitAgentResponseFragment(
             new AgentResponseFragmentCommit(firstInvocationId, 1, "a", "agen.inflight.1"),
             SessionRuntimeTestFixtures.T0.AddSeconds(2)).Succeeded);
-        var secondAdmitted = session.AcceptParticipantMessage(
+        var secondAdmitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.2", "turn.2", "slot.2", "trig.participant.2", "idem.p.2", session.LastCommittedAt);
         Assert.True(secondAdmitted.Succeeded, secondAdmitted.OutcomeCode);
         var secondInvocationId = secondAdmitted.Invocation!.AgentInvocationId;
@@ -638,7 +691,7 @@ public sealed class DurableInvocationWorkProcessorTests
     public async Task Stream_end_without_completed_event_seals_visible_prefix_incomplete()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var adapter = new DeterministicFakeModelExecutionAdapter();
@@ -673,7 +726,7 @@ public sealed class DurableInvocationWorkProcessorTests
                 },
                 StreamingPublicationBounds = new StreamingPublicationBounds(512, 1, 64, 8_192, 2),
             }));
-        var firstAdmitted = session.AcceptParticipantMessage(
+        var firstAdmitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var firstInvocationId = firstAdmitted.Invocation!.AgentInvocationId;
         Assert.True(session.CompleteInvocation(
@@ -683,7 +736,7 @@ public sealed class DurableInvocationWorkProcessorTests
         Assert.True(session.CommitAgentResponseFragment(
             new AgentResponseFragmentCommit(firstInvocationId, 1, "a", "agen.rate.1"),
             SessionRuntimeTestFixtures.T0.AddSeconds(2)).Succeeded);
-        var secondAdmitted = session.AcceptParticipantMessage(
+        var secondAdmitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.2",
             "turn.2",
             "slot.2",
@@ -716,7 +769,7 @@ public sealed class DurableInvocationWorkProcessorTests
     public async Task Content_phase_does_not_complete_the_claim_when_fragment_persist_fails()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.persist", "idem.p.persist", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var adapter = new DeterministicFakeModelExecutionAdapter();
@@ -848,15 +901,19 @@ public sealed class DurableInvocationWorkProcessorTests
         SessionRuntime session,
         IDurableInvocationWorkStore store,
         ISessionRuntimeTelemetry? telemetry = null,
-        IAgentResponsePublicationPersistPort? publicationPersist = null) =>
-        CreateProcessor(adapter, new MemorySessionGateway(session), store, telemetry, publicationPersist);
+        IAgentResponsePublicationPersistPort? publicationPersist = null,
+        IModelProviderAttemptProvenanceWriter? provenanceWriter = null,
+        InstalledModelDeploymentProfile? profile = null) =>
+        CreateProcessor(adapter, new MemorySessionGateway(session), store, telemetry, publicationPersist, provenanceWriter, profile);
 
     private static DurableInvocationWorkProcessor CreateProcessor(
         IModelExecutionPort adapter,
         IInvocationWorkSessionGateway gateway,
         IDurableInvocationWorkStore store,
         ISessionRuntimeTelemetry? telemetry = null,
-        IAgentResponsePublicationPersistPort? publicationPersist = null) =>
+        IAgentResponsePublicationPersistPort? publicationPersist = null,
+        IModelProviderAttemptProvenanceWriter? provenanceWriter = null,
+        InstalledModelDeploymentProfile? profile = null) =>
         new(
             store,
             gateway,
@@ -867,12 +924,13 @@ public sealed class DurableInvocationWorkProcessorTests
                 "worker.session_runtime",
                 65_536,
                 InstalledProfiles: new InMemoryInstalledModelDeploymentProfileRegistry(
-                    SessionRuntimeTestFixtures.CreateInstalledProfile()),
+                    profile ?? SessionRuntimeTestFixtures.CreateInstalledProfile()),
                 CredentialCatalog: new InMemoryModelDeploymentCredentialCatalog(
                     SessionRuntimeTestFixtures.CreateCatalogRecord(
                         SessionRuntimeTestFixtures.CreateOwnership().OrganizationId))),
             publicationPersist ?? PassThroughAgentResponsePublicationPersistPort.Succeed,
-            telemetry);
+            telemetry,
+            provenanceWriter);
 
     private static DeterministicFakeModelExecutionAdapter EnqueueNoAction(
         string invocationId,

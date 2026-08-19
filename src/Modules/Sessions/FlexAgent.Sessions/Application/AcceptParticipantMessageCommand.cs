@@ -14,7 +14,7 @@ public sealed record AcceptParticipantMessageCommand(
     string IdempotencyKey,
     Guid CorrelationId,
     string SourceChannel,
-    string? ExactUtf8Text = null);
+    string ExactUtf8Text);
 
 public interface IAcceptParticipantMessageHandler
 {
@@ -60,8 +60,8 @@ public sealed class AcceptParticipantMessageHandler(ISessionRuntimeTelemetry? te
                 command.TriggerId,
                 command.IdempotencyKey,
                 authoritativeUtc,
-                command.ExpectedSessionVersion,
-                command.ExactUtf8Text);
+                command.ExactUtf8Text,
+                command.ExpectedSessionVersion);
         }
 
         var labels = SessionRuntimeTelemetryRecording.Labels(

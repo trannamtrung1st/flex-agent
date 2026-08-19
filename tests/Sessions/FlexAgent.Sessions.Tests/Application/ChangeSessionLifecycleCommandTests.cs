@@ -250,7 +250,7 @@ public sealed class ChangeSessionLifecycleCommandTests
 
     private static string ClaimParticipantPublication(SessionRuntime session)
     {
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var completed = session.CompleteInvocation(

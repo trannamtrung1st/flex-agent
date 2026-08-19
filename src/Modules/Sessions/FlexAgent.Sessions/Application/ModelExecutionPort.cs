@@ -31,7 +31,8 @@ public sealed record ModelProviderAttemptProvenance(
     DateTimeOffset StartedAt,
     DateTimeOffset CompletedAt,
     string Phase = ModelProviderRequestPhases.Control,
-    string? ProviderRequestId = null);
+    string? ProviderRequestId = null,
+    string FactKind = ModelProviderRequestFacts.Finished);
 
 public abstract record ModelExecutionAttemptResult
 {

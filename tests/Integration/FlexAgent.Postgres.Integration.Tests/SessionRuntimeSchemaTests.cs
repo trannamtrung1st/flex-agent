@@ -75,6 +75,7 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
         Assert.Contains("provider_request_id", columns);
         Assert.Contains("phase", columns);
         Assert.Contains("provider_request_ordinal", columns);
+        Assert.Contains("fact_kind", columns);
 
         var keys = (await connection.QueryAsync<string>(
             new CommandDefinition(
@@ -88,6 +89,7 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
                 cancellationToken: CancellationToken))).AsList();
 
         Assert.Contains("provider_request_id", keys);
+        Assert.Contains("fact_kind", keys);
         Assert.DoesNotContain("attempt_ordinal", keys);
         Assert.DoesNotContain("agent_invocation_id", keys);
     }

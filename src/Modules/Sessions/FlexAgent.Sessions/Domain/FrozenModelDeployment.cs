@@ -18,6 +18,12 @@ public static class ModelProviderRequestPhases
     public const string Content = "content";
 }
 
+public static class ModelProviderRequestFacts
+{
+    public const string Started = "started";
+    public const string Finished = "finished";
+}
+
 public static class FrozenModelDeploymentOutcomeCodes
 {
     public const string Succeeded = "frozen_model_deployment.succeeded";

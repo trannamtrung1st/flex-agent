@@ -8,7 +8,7 @@ public sealed class InvocationExecutionTests
     public void Successful_completion_records_exactly_one_decision_and_no_execution_outcome()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
 
@@ -31,7 +31,7 @@ public sealed class InvocationExecutionTests
     public void Second_decision_on_the_same_invocation_is_rejected()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         session.CompleteInvocation(
@@ -54,7 +54,7 @@ public sealed class InvocationExecutionTests
     public void Complete_invocation_resumes_after_decision_recorded_instead_of_returning_already_terminal()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var recommendation = SessionRuntimeTestFixtures.NoAction(invocationId);
@@ -82,7 +82,7 @@ public sealed class InvocationExecutionTests
     public void Complete_invocation_retry_of_the_same_decision_reconciles_after_the_pipeline_completes()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var recommendation = SessionRuntimeTestFixtures.NoAction(invocationId);
@@ -105,7 +105,7 @@ public sealed class InvocationExecutionTests
     public void Same_decision_ids_with_a_different_payload_are_rejected()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var noAction = SessionRuntimeTestFixtures.NoAction(invocationId);
@@ -134,7 +134,7 @@ public sealed class InvocationExecutionTests
     public void Infrastructure_failure_records_an_execution_outcome_and_never_a_decision(string reason)
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
 
@@ -160,7 +160,7 @@ public sealed class InvocationExecutionTests
     public void Execution_failure_retry_returns_already_terminal_without_mutating()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var first = session.CompleteInvocation(
@@ -191,7 +191,7 @@ public sealed class InvocationExecutionTests
         };
         var session = SessionRuntimeTestFixtures.CreateActiveSession(
             RuntimePolicyTestFixtures.ResolvePolicy(values));
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
 
@@ -226,7 +226,7 @@ public sealed class InvocationExecutionTests
     public void Execution_failure_after_decision_recorded_does_not_replace_the_decision()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var recommendation = SessionRuntimeTestFixtures.NoAction(invocationId);
@@ -249,7 +249,7 @@ public sealed class InvocationExecutionTests
     public void Late_result_after_cutoff_is_an_execution_outcome_not_no_action()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         session.BeginCompleting(SessionRuntimeTestFixtures.T0.AddSeconds(1));
@@ -272,7 +272,7 @@ public sealed class InvocationExecutionTests
     public void Provider_produced_at_does_not_choose_authoritative_session_sequence()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var sequenceBefore = session.SessionSequence;
@@ -294,7 +294,7 @@ public sealed class InvocationExecutionTests
     public void Non_utc_completion_clock_cannot_mutate_authoritative_state()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var offsetTime = new DateTimeOffset(2026, 8, 13, 7, 0, 2, TimeSpan.FromHours(7));
@@ -319,7 +319,7 @@ public sealed class InvocationExecutionTests
     public void Authoritative_clock_older_than_last_committed_at_cannot_mutate()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
 

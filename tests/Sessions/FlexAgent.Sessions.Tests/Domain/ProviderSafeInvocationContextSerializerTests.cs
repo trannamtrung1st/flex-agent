@@ -42,7 +42,7 @@ public sealed class ProviderSafeInvocationContextSerializerTests
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
         var participantText = "Explain dependency injection";
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.text",
             "turn.text",
             "slot.text",

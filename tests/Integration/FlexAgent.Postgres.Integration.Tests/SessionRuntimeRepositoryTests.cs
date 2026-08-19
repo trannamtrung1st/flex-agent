@@ -373,7 +373,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 "trig.participant.1",
                 "idem.p.1",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
@@ -958,7 +959,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 "trig.z",
                 "idem.z",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(first.Succeeded, first.OutcomeCode);
@@ -1004,7 +1006,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                     "trig.a",
                     "idem.a",
                     Guid.NewGuid(),
-                    "integration.test"),
+                    "integration.test",
+                "synthetic.participant.message"),
                 binding,
                 CancellationToken);
             Assert.True(second.Succeeded, second.OutcomeCode);
@@ -1044,7 +1047,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 "trig.z",
                 "idem.z",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(first.Succeeded, first.OutcomeCode);
@@ -1059,7 +1063,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 "trig.a",
                 "idem.a",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(second.Succeeded, second.OutcomeCode);
@@ -1160,7 +1165,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                     "trig.a",
                     "idem.a",
                     Guid.NewGuid(),
-                    "integration.test"),
+                    "integration.test",
+                "synthetic.participant.message"),
                 binding,
                 CancellationToken);
             Assert.True(participant.Succeeded, participant.OutcomeCode);
@@ -1216,7 +1222,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 "trig.participant.1",
                 "idem.p.envelope",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
@@ -1350,7 +1357,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 "trig.participant.1",
                 "idem.p.empty-respond-timer",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
@@ -1451,7 +1459,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 "trig.participant.1",
                 "idem.p.staged-empty-timer",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
@@ -1574,7 +1583,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 "trig.participant.1",
                 "idem.p.cutoff-timer-retry",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
@@ -1735,7 +1745,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 "trig.participant.1",
                 "idem.p.effect-failed-timer-retry",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
@@ -1929,7 +1940,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 "trig.participant.1",
                 "idem.p.fragments",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
@@ -2103,7 +2115,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 "trig.participant.incremental",
                 "idem.p.incremental",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
@@ -2226,7 +2239,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 "trig.participant.rollback",
                 "idem.p.rollback",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
@@ -2353,7 +2367,8 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
                 "trig.participant.legacy",
                 "idem.p.legacy.fragments",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);

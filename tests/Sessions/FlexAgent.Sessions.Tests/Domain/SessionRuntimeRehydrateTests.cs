@@ -50,9 +50,9 @@ public sealed class SessionRuntimeRehydrateTests
         };
         var session = SessionRuntimeTestFixtures.CreateActiveSession(
             RuntimePolicyTestFixtures.ResolvePolicy(values));
-        session.AcceptParticipantMessage(
+        SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.z", "turn.z", "slot.z", "trig.z", "idem.z", SessionRuntimeTestFixtures.T0);
-        session.AcceptParticipantMessage(
+        SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.a", "turn.a", "slot.a", "trig.a", "idem.a", SessionRuntimeTestFixtures.T0.AddSeconds(1));
 
         Assert.Equal(["turn.z", "turn.a"], session.Turns.Select(turn => turn.TurnId));
@@ -82,7 +82,7 @@ public sealed class SessionRuntimeRehydrateTests
             SessionRuntimeTestFixtures.T0.AddSeconds(2));
         Assert.True(completed.Succeeded, completed.OutcomeCode);
 
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.a", "turn.a", "slot.a", "trig.a", "idem.a", SessionRuntimeTestFixtures.T0.AddSeconds(3));
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);
 

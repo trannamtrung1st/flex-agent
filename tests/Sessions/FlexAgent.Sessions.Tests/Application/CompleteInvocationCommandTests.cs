@@ -40,7 +40,7 @@ public sealed class CompleteInvocationCommandTests
     public void Handler_rejects_stale_expected_version_before_recording_a_decision()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var command = new CompleteInvocationCommand(
@@ -65,7 +65,7 @@ public sealed class CompleteInvocationCommandTests
     public void Handler_rejects_missing_actor_as_denied()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var command = new CompleteInvocationCommand(
@@ -89,7 +89,7 @@ public sealed class CompleteInvocationCommandTests
     public void Handler_rejects_command_ownership_that_does_not_match_the_loaded_session()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var command = new CompleteInvocationCommand(

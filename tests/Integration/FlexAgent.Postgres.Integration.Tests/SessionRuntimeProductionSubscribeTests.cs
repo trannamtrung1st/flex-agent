@@ -249,7 +249,8 @@ public sealed class SessionRuntimeProductionSubscribeTests(PostgresIntegrationFi
                 $"trig.participant.{key}",
                 $"idem.p.{key}",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(admitted.Succeeded, admitted.OutcomeCode);

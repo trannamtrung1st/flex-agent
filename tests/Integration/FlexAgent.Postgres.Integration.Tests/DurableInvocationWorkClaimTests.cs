@@ -470,7 +470,8 @@ public sealed class DurableInvocationWorkClaimTests(PostgresIntegrationFixture f
                 "trig.claim.persist",
                 "idem.claim.persist",
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(accepted.Succeeded, accepted.OutcomeCode);

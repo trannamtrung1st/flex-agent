@@ -41,7 +41,7 @@ public sealed class SessionRuntimeTelemetryTests
         var sink = new CapturingSessionRuntimeTelemetrySink();
         var telemetry = new SessionRuntimeTelemetry(sink);
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.telemetry",
             "turn.1",
             "slot.1",
@@ -256,7 +256,7 @@ public sealed class SessionRuntimeTelemetryTests
         var sink = new CapturingSessionRuntimeTelemetrySink();
         var telemetry = new SessionRuntimeTelemetry(sink);
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.prohibited.telemetry",
             "turn.1",
             "slot.1",
@@ -322,7 +322,7 @@ public sealed class SessionRuntimeTelemetryTests
         var sink = new CapturingSessionRuntimeTelemetrySink();
         var telemetry = new SessionRuntimeTelemetry(sink);
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.stale",
             "turn.1",
             "slot.1",

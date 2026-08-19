@@ -184,9 +184,14 @@ public sealed partial class SessionRuntime
         string triggerId,
         string idempotencyKey,
         DateTimeOffset authoritativeUtc,
-        long? expectedSessionVersion = null,
-        string? exactUtf8Text = null)
+        string exactUtf8Text,
+        long? expectedSessionVersion = null)
     {
+        if (string.IsNullOrWhiteSpace(exactUtf8Text))
+        {
+            return AdmissionFailure(TriggerAdmissionOutcomeCodes.MissingParticipantContent);
+        }
+
         var trigger = new TrustedTrigger(
             RuntimeTriggerIdentifiers.ParticipantInputFamily,
             RuntimeTriggerIdentifiers.ParticipantMessageType,
@@ -234,17 +239,14 @@ public sealed partial class SessionRuntime
         }
 
         _turns.Add(new Turn(turnId, TurnKinds.Participant, triggerId, new ResponseSlot(responseSlotId), NextAdmissionSequence()));
-        var trimmedText = string.IsNullOrWhiteSpace(exactUtf8Text) ? null : exactUtf8Text;
         var participantTranscript = new VisibleTranscriptItemRef(
             participantMessageId,
             TranscriptAuthorTypes.Participant,
             turnId,
             new ProtectedContentRef(
                 $"msg:{participantMessageId}",
-                trimmedText is null
-                    ? ProtectedContentRef.DigestForReference($"msg:{participantMessageId}")
-                    : ProtectedContentRef.DigestUtf8(trimmedText)),
-            trimmedText);
+                ProtectedContentRef.DigestUtf8(exactUtf8Text)),
+            exactUtf8Text);
         _visibleTranscript.Add(participantTranscript);
 
         var result = AdmitTrustedTrigger(trigger, idempotencyKey, authoritativeUtc, expectedSessionVersion);

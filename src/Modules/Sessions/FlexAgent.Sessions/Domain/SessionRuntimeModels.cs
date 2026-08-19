@@ -75,6 +75,7 @@ public static class TriggerAdmissionOutcomeCodes
     public const string StaleClock = "trigger_admission.stale_clock";
     public const string MissingTurn = "trigger_admission.missing_turn";
     public const string Denied = "trigger_admission.denied";
+    public const string MissingParticipantContent = "trigger_admission.missing_participant_content";
 }
 
 public static class InvocationCompletionOutcomeCodes
@@ -268,6 +269,7 @@ public static class ExecutionAttemptOutcomeCategories
     public const string IncompleteControl = "incomplete_control";
     public const string Cancelled = "cancelled";
     public const string LateResult = "late_result";
+    public const string ProviderRequestStarted = "provider_request_started";
 }
 
 public static class ExecutionOutcomeCategories

@@ -15,15 +15,15 @@ public sealed class PostgresModelProviderAttemptProvenanceWriter(PostgresConnect
             adapter_kind, adapter_contract_version,
             profile_id, profile_version, profile_digest, requested_model, resolved_model_version,
             outcome_category, input_token_count, output_token_count, provider_request_ref,
-            started_at, completed_at)
+            started_at, completed_at, fact_kind)
         VALUES (
             @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
             @AgentInvocationId, @AttemptOrdinal, @ProviderRequestId, @Phase, @ProviderRequestOrdinal,
             @AdapterKind, @AdapterContractVersion,
             @ProfileId, @ProfileVersion, @ProfileDigest, @RequestedModel, @ResolvedModelVersion,
             @OutcomeCategory, @InputTokenCount, @OutputTokenCount, @ProviderRequestRef,
-            @StartedAt, @CompletedAt)
-        ON CONFLICT (organization_id, session_id, provider_request_id) DO NOTHING;
+            @StartedAt, @CompletedAt, @FactKind)
+        ON CONFLICT (organization_id, session_id, provider_request_id, fact_kind) DO NOTHING;
         """;
 
     public async Task WriteAsync(
@@ -72,6 +72,9 @@ public sealed class PostgresModelProviderAttemptProvenanceWriter(PostgresConnect
                     provenance.ProviderRequestRef,
                     provenance.StartedAt,
                     provenance.CompletedAt,
+                    FactKind = string.IsNullOrWhiteSpace(provenance.FactKind)
+                        ? ModelProviderRequestFacts.Finished
+                        : provenance.FactKind,
                 },
                 cancellationToken: cancellationToken));
     }
@@ -87,7 +90,7 @@ public sealed class PostgresModelProviderAttemptProvenanceWriter(PostgresConnect
         return await connection.ExecuteScalarAsync<int>(
             new CommandDefinition(
                 """
-                SELECT COUNT(*)
+                SELECT COUNT(DISTINCT provider_request_id)
                 FROM session_invocation_provider_attempts
                 WHERE organization_id = @OrganizationId
                   AND session_id = @SessionId

@@ -55,7 +55,7 @@ public sealed class DecisionEnvelopeTests
     public void Mixed_message_and_voice_accepts_the_message_and_rejects_voice_independently()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(
@@ -103,7 +103,7 @@ public sealed class DecisionEnvelopeTests
     public void Respond_with_zero_valid_outputs_is_a_decision_rejection_not_no_action()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(invocationId, outputs: []);
@@ -126,7 +126,7 @@ public sealed class DecisionEnvelopeTests
     public void Respond_with_zero_valid_outputs_still_effects_an_accepted_next_timer()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var commitAt = SessionRuntimeTestFixtures.T0.AddSeconds(2);
@@ -171,7 +171,7 @@ public sealed class DecisionEnvelopeTests
     public void Voice_only_respond_still_effects_an_accepted_next_timer()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(
@@ -206,7 +206,7 @@ public sealed class DecisionEnvelopeTests
     public void Later_valid_timer_is_applied_when_the_first_timer_action_is_invalid()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var commitAt = SessionRuntimeTestFixtures.T0.AddSeconds(2);
@@ -248,7 +248,7 @@ public sealed class DecisionEnvelopeTests
     public void Model_authored_output_id_and_reviewer_audience_are_rejected_per_item()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(
@@ -284,7 +284,7 @@ public sealed class DecisionEnvelopeTests
     public void Extra_message_is_rejected_without_voiding_the_first_accepted_message()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(
@@ -312,7 +312,7 @@ public sealed class DecisionEnvelopeTests
     public void Message_referencing_a_nonexistent_local_ref_is_rejected_and_does_not_publish()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(
@@ -344,7 +344,7 @@ public sealed class DecisionEnvelopeTests
     public void Message_referencing_a_p0_rejected_voice_sibling_is_rejected_and_does_not_publish()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(
@@ -384,7 +384,7 @@ public sealed class DecisionEnvelopeTests
     public void First_message_with_missing_local_ref_does_not_block_a_later_valid_message()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(
@@ -420,7 +420,7 @@ public sealed class DecisionEnvelopeTests
     public void First_message_referencing_rejected_voice_does_not_block_a_later_valid_message()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(
@@ -525,7 +525,7 @@ public sealed class DecisionEnvelopeTests
     public void Duplicate_output_local_ref_is_rejected_independently()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(
@@ -551,7 +551,7 @@ public sealed class DecisionEnvelopeTests
     public void No_action_with_a_valid_message_rejects_the_message_and_does_not_publish()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(

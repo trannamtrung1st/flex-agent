@@ -6,6 +6,28 @@ internal static class SessionRuntimeTestFixtures
 {
     internal static readonly DateTimeOffset T0 = new(2026, 8, 13, 0, 0, 0, TimeSpan.Zero);
 
+    internal const string ParticipantMessageText = "synthetic.participant.message";
+
+    internal static TriggerAdmissionResult AdmitParticipant(
+        SessionRuntime session,
+        string participantMessageId,
+        string turnId,
+        string responseSlotId,
+        string triggerId,
+        string idempotencyKey,
+        DateTimeOffset authoritativeUtc,
+        string exactUtf8Text = ParticipantMessageText,
+        long? expectedSessionVersion = null) =>
+        session.AcceptParticipantMessage(
+            participantMessageId,
+            turnId,
+            responseSlotId,
+            triggerId,
+            idempotencyKey,
+            authoritativeUtc,
+            exactUtf8Text,
+            expectedSessionVersion);
+
     internal static SessionOwnership CreateOwnership() =>
         new(
             OrganizationId: Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
@@ -20,7 +42,8 @@ internal static class SessionRuntimeTestFixtures
     internal static InstalledModelDeploymentProfile CreateInstalledProfile(
         string providerId = "synthetic.provider",
         string credentialMode = ModelDeploymentCredentialModes.OrganizationByok,
-        string requestedModel = "synthetic.model.pinned") =>
+        string requestedModel = "synthetic.model.pinned",
+        int maxProviderRequestAttempts = 2) =>
         InstalledModelDeploymentProfile.Create(
             profileId: "synthetic.fake.v1",
             profileVersion: "1",
@@ -34,7 +57,7 @@ internal static class SessionRuntimeTestFixtures
             maxOutputTokens: 256,
             controlTimeout: TimeSpan.FromSeconds(30),
             contentTimeout: TimeSpan.FromSeconds(60),
-            maxProviderRequestAttempts: 2,
+            maxProviderRequestAttempts: maxProviderRequestAttempts,
             providerId: providerId);
 
     internal static FrozenModelDeploymentBinding CreateFrozenDeployment(

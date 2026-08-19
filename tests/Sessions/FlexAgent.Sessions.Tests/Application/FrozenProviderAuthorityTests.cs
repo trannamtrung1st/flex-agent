@@ -193,7 +193,7 @@ public sealed class FrozenProviderAuthorityProcessorTests
     public async Task Restarted_content_phase_reconstructs_frozen_binding_without_process_local_adapter_state()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1",
             "turn.1",
             "slot.1",

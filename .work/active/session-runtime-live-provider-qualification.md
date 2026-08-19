@@ -337,6 +337,10 @@ pilot.
       exact text through accept; make `0027` safe for populated `0026` rows;
       treat claim-authority cancellation as retry through the Direct OpenAI
       adapter; record failed provider requests and enforce the request budget.
+- [x] Close remaining Phase A blockers from `e17b546` review: reserve each
+      provider request durably before network I/O; require participant exact
+      text at admission; record the `0027` checksum/history assertion; refresh
+      the verification table.
 - [ ] Reconcile actual changes against governing specs, update truthful
       implementation-status and operator guidance, run independent backend,
       architecture, and security/privacy review, resolve blocking findings, and
@@ -344,9 +348,10 @@ pilot.
 
 # Current state
 
-Implemented the `dc727f2` review blockers. Phase B live qualification and
-independent re-review remain open. Next: owner-selected Direct OpenAI profile
-or another review pass.
+Independent review of `e17b546` is addressed in place: durable
+`started`/`finished` provider-request facts (`0029`), mandatory participant
+exact text at admission, and an explicit `0027` disposable-database history
+assertion. Phase B live qualification and independent re-review remain open.
 
 # Delivery phases
 
@@ -476,8 +481,20 @@ Interim defaults are working guidance only and do not approve a deployment.
 - Claim-authority cancellation is treated as `RetryLater` even when the adapter
   returns `Cancelled`. Direct OpenAI fake-transport plus heartbeat-throw covers
   the live adapter path. Content failures now emit `ModelContentFailed` with
-  provenance. `MaxProviderRequestAttempts` is compared to durable provider
-  request count when the writer is present.
+  provenance. `MaxProviderRequestAttempts` counts distinct reserved
+  `provider_request_id` values (`started` facts) rather than finished rows.
+- Additive `0029` appends `fact_kind` (`started` | `finished`) without rewriting
+  `0027` or `0028`. Budget admission writes `started` before network I/O;
+  completion writes `finished`. Crash after HTTP and before `finished` still
+  consumes the budget.
+- P0 participant-message admission requires non-empty exact UTF-8 text.
+  `AcceptParticipantMessageCommand.ExactUtf8Text` is required; missing or blank
+  text fails closed with `trigger_admission.missing_participant_content`.
+- **`0027` checksum/history:** the `e17b546` rewrite of `0027` was never applied
+  outside disposable local and CI databases. This MVP slice has no persistent
+  operator, staging, or production database that applied the `dc727f2` `0027`
+  text. No Grate checksum repair procedure is required; do not edit `0027` or
+  `0028` again.
 
 # Verification
 
@@ -486,15 +503,16 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Governing source and current-seam inventory | complete | Product foundation, RSC/Session/Auth requirements, ADR-008/010/012/016, Session runtime, backend module guide, current ports/composition, and predecessor task state reviewed 2026-08-18 |
 | Predecessor remediation protected | complete | Worker identity/readiness remediation landed separately as `94c1412`; this planning edit is restricted to the new task file |
 | Plan readiness review | complete | Backend/architecture/security consistency pass on 2026-08-19 added frozen per-Session provider authority, restart-safe phases, retry ownership, secret hardening, egress/SSRF, qualification scope, and threat-model gates |
-| Current-source .NET baseline | passed | After review remediations: `dotnet test --solution FlexAgent.slnx` **1016 passed**, 1 failed (`Grate_tool_changed_one_time_script_fails_closed`, SSLRequest flake under parallel Testcontainers). Isolated re-run of that method **passed**. Prior Phase A count was 1010 (2026-08-19) |
-| Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAi.Tests` **12 passed** including outbound body/transcript, frozen resolved model, model-mismatch, and contract-version fail-closed |
+| Current-source .NET baseline | passed | After `e17b546` remediations: `dotnet test --solution FlexAgent.slnx` **1028 passed**, 0 failed (2026-08-19). Prior `e17b546` count was 1016 passed + 1 parallel Testcontainers SSL flake |
+| Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAi.Tests` **14 passed** including fake-HTTP crash-after-request reservation (no second HTTP) and lease-renewal `RetryLater` |
 | Credential/profile isolation tests | passed | `FrozenModelDeploymentResolverTests` plus processor frozen-authority tests; secret symlink/size in WorkloadIdentity tests; no-fallback matrix for missing/revoked/wrong-org/provider mismatch |
 | Lease/auth/lifecycle concurrency tests | passed | Claim-lease heartbeat; lease-renewal **throw** cancels in-flight provider work (`RetryLater`); Postgres crash-recovery lease-renew failure after fragment persist |
-| PostgreSQL migration/provenance/recovery tests | passed | Additive `0027` keys attempts by `provider_request_id` and records `control`/`content` phase; Grate expected script count 27; schema + upgrade + Grate classes passed in isolation |
+| PostgreSQL migration/provenance/recovery tests | passed | Additive `0029` keys facts by `(provider_request_id, fact_kind)`; Grate expected script count **29**; populated-`0026` upgrade backfills `fact_kind=finished`; schema + upgrade + Grate + repository classes passed; full Postgres integration included in the 1028 solution run |
 | Architecture/module dependency tests | passed | Architecture **33 passed**; official SDK isolated to `FlexAgent.Sessions.OpenAi` with negative control |
+| Sessions domain/application tests | passed | `FlexAgent.Sessions.Tests` **445 passed** including mandatory participant text and crash-after-control-before-finished-fact |
 | Exact Direct OpenAI profile qualification | blocked | Opt-in synthetic evidence for one owner-selected immutable profile is not available; does not close synthetic OpenRouter/vLLM portions of `GATE-STACK-PROVIDERS` |
 | Locked regression, supply chain, OCI, docs, whitespace | partial | `python3 scripts/check_docs.py` passed; `git diff --check` passed. OCI image rebuild/SBOM/grype not re-run in this session |
-| Independent backend/architecture/security review | pending | Independent review of `bee700e` produced the six findings this slice remediates; re-review still required before Phase B |
+| Independent backend/architecture/security review | pending | Independent review of `e17b546` produced the three remaining Phase A findings this slice remediates; re-review still required before Phase B |
 
 # Blockers
 

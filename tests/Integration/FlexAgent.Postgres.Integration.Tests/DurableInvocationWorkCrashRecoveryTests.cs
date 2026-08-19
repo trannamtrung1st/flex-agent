@@ -661,7 +661,8 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
                 "trig." + turnId,
                 "idem." + turnId,
                 Guid.NewGuid(),
-                "integration.test"),
+                "integration.test",
+                "synthetic.participant.message"),
             binding,
             CancellationToken);
         Assert.True(accepted.Succeeded, accepted.OutcomeCode);

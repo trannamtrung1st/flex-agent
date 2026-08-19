@@ -8,7 +8,7 @@ public sealed class DecisionValidationEffectTests
     public void Accepted_no_action_terminalizes_participant_turn_without_an_agent_message()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
 
@@ -32,7 +32,7 @@ public sealed class DecisionValidationEffectTests
     public void Validate_decision_retry_at_unchanged_session_state_does_not_mutate()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var recommendation = SessionRuntimeTestFixtures.NoAction(invocationId);
@@ -57,7 +57,7 @@ public sealed class DecisionValidationEffectTests
     public void Revalidation_after_lifecycle_change_appends_a_revision_and_preserves_accepted_history()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var recommendation = SessionRuntimeTestFixtures.NoAction(invocationId);
@@ -83,7 +83,7 @@ public sealed class DecisionValidationEffectTests
     public void Reconcile_after_no_action_does_not_restart_the_invocation()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        session.AcceptParticipantMessage(
+        SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = session.Invocations[0].AgentInvocationId;
         session.CompleteInvocation(
@@ -91,7 +91,7 @@ public sealed class DecisionValidationEffectTests
             SessionRuntimeTestFixtures.NoAction(invocationId),
             SessionRuntimeTestFixtures.T0.AddSeconds(2));
 
-        var retry = session.AcceptParticipantMessage(
+        var retry = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0.AddSeconds(5));
 
         Assert.Equal(TriggerAdmissionOutcomeCodes.Reconciled, retry.OutcomeCode);
@@ -110,7 +110,7 @@ public sealed class DecisionValidationEffectTests
         };
         var session = SessionRuntimeTestFixtures.CreateActiveSession(
             RuntimePolicyTestFixtures.ResolvePolicy(values));
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
 
@@ -132,7 +132,7 @@ public sealed class DecisionValidationEffectTests
     public void Duplicate_apply_of_rejected_communication_does_not_install_a_second_timer_replacement()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(
@@ -174,7 +174,7 @@ public sealed class DecisionValidationEffectTests
     public void Complete_invocation_retry_after_rejected_validate_still_applies_the_accepted_timer()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(
@@ -216,7 +216,7 @@ public sealed class DecisionValidationEffectTests
     public void Rejected_communication_does_not_rearm_an_accepted_timer_after_cutoff()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(
@@ -266,7 +266,7 @@ public sealed class DecisionValidationEffectTests
     public void Effect_failed_with_accepted_timer_is_not_pending_independent_work()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var envelope = SessionRuntimeTestFixtures.Envelope(
@@ -310,7 +310,7 @@ public sealed class DecisionValidationEffectTests
     public void Well_formed_prohibited_decision_is_rejected_and_causes_no_effect()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var prohibited = new ProhibitedDecisionRecommendation(
@@ -339,7 +339,7 @@ public sealed class DecisionValidationEffectTests
     public void Accepted_emit_message_claims_the_participant_response_slot()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
 
@@ -411,7 +411,7 @@ public sealed class DecisionValidationEffectTests
     public void Agent_initiated_emit_message_ignores_model_supplied_turn_and_slot_ids()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        session.AcceptParticipantMessage(
+        SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var participantInvocationId = session.Invocations[0].AgentInvocationId;
         session.CompleteInvocation(
@@ -477,7 +477,7 @@ public sealed class DecisionValidationEffectTests
     public void Duplicate_apply_decision_effect_does_not_rewrite_a_successful_participant_effect_to_failed()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         session.CompleteInvocation(
@@ -498,7 +498,7 @@ public sealed class DecisionValidationEffectTests
     public void Revalidating_after_a_terminal_effect_does_not_reset_the_effect_outcome()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         session.CompleteInvocation(
@@ -520,7 +520,7 @@ public sealed class DecisionValidationEffectTests
     public void Decision_for_a_different_invocation_cannot_be_attached()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
 
@@ -561,7 +561,7 @@ public sealed class DecisionValidationEffectTests
     public void Rejected_timer_request_does_not_reject_an_otherwise_valid_primary_decision()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var oversizedTimer = new NextTimerRecommendation("PT48H", "1");
@@ -582,7 +582,7 @@ public sealed class DecisionValidationEffectTests
     public void Accepted_decision_whose_slot_claim_fails_is_an_effect_failure_not_an_execution_outcome()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var decision = SessionRuntimeTestFixtures.EmitMessage(invocationId);
@@ -606,7 +606,7 @@ public sealed class DecisionValidationEffectTests
     public void Malformed_control_is_an_execution_outcome_not_a_decision_rejection()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
 

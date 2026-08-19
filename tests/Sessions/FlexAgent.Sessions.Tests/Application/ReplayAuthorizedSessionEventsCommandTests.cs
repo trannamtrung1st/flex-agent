@@ -162,7 +162,7 @@ public sealed class ReplayAuthorizedSessionEventsCommandTests
         var firstSeal = session.AgentMessages[0].SealedSessionSequence;
         Assert.NotNull(firstSeal);
 
-        var secondAdmitted = session.AcceptParticipantMessage(
+        var secondAdmitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.2",
             "turn.2",
             "slot.2",
@@ -276,7 +276,7 @@ public sealed class ReplayAuthorizedSessionEventsCommandTests
 
     private static string ClaimParticipantPublication(SessionRuntime session, string key = "1")
     {
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             $"msg.p.{key}", $"turn.{key}", $"slot.{key}", $"trig.participant.{key}", $"idem.p.{key}", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var completed = session.CompleteInvocation(

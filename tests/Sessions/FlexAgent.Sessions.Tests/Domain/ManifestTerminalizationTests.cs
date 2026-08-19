@@ -97,7 +97,7 @@ public sealed class ManifestTerminalizationTests
                 openingId,
                 nextTimer: new NextTimerRecommendation("PT2M", "1")),
             SessionRuntimeTestFixtures.T0.AddSeconds(2)).Succeeded);
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1",
             "turn.1",
             "slot.1",
@@ -153,7 +153,7 @@ public sealed class ManifestTerminalizationTests
     public void Execution_failure_and_late_result_append_invocation_outcome_records()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.fail",
             "turn.fail",
             "slot.fail",
@@ -179,7 +179,7 @@ public sealed class ManifestTerminalizationTests
             {
                 SessionId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
             });
-        var lateAdmitted = completing.AcceptParticipantMessage(
+        var lateAdmitted = SessionRuntimeTestFixtures.AdmitParticipant(completing,
             "msg.p.late",
             "turn.late",
             "slot.late",

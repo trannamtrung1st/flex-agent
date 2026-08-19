@@ -48,7 +48,7 @@ public sealed class AgentResponseFragmentPublicationTests
     public void Envelope_first_fragment_uses_the_runtime_owned_output_id()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var completed = session.CompleteInvocation(
@@ -154,7 +154,7 @@ public sealed class AgentResponseFragmentPublicationTests
     public void Empty_delta_and_unclaimed_publication_are_rejected()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
 
@@ -319,7 +319,7 @@ public sealed class AgentResponseFragmentPublicationTests
     public void Complete_invocation_retry_after_visibility_reports_agent_message_published()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var recommendation = SessionRuntimeTestFixtures.EmitMessage(invocationId);
@@ -384,7 +384,7 @@ public sealed class AgentResponseFragmentPublicationTests
     public void No_action_cannot_publish_a_fragment()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         session.CompleteInvocation(
@@ -459,7 +459,7 @@ public sealed class AgentResponseFragmentPublicationTests
 
     private static string ClaimParticipantPublication(SessionRuntime session)
     {
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var completed = session.CompleteInvocation(

@@ -8,7 +8,7 @@ public sealed class InvocationContextAssemblerTests
     public void Assembled_context_contains_only_trusted_binding_and_visible_transcript_refs()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        session.AcceptParticipantMessage(
+        SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
 
         var context = InvocationContextAssembler.Assemble(session);
@@ -139,7 +139,7 @@ public sealed class InvocationContextAssemblerTests
     public void Offered_transcript_item_not_in_the_session_cannot_enter_invocation_context()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        session.AcceptParticipantMessage(
+        SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var offered = new[]
         {

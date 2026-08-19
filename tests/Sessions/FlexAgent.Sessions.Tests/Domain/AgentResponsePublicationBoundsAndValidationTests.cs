@@ -225,7 +225,7 @@ public sealed class AgentResponsePublicationBoundsAndValidationTests
         DateTimeOffset? at = null)
     {
         var clock = at ?? session.LastCommittedAt;
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             $"msg.p.{key}",
             $"turn.{key}",
             $"slot.{key}",

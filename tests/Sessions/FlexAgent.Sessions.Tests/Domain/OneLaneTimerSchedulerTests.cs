@@ -33,7 +33,7 @@ public sealed class OneLaneTimerSchedulerTests
     public void Accepted_no_action_replacement_supersedes_the_pending_default()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var commitAt = SessionRuntimeTestFixtures.T0.AddSeconds(2);
@@ -65,7 +65,7 @@ public sealed class OneLaneTimerSchedulerTests
     public void Accepted_emit_message_replacement_coexists_with_publication_claim()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
 
@@ -88,7 +88,7 @@ public sealed class OneLaneTimerSchedulerTests
     public void Omitted_or_rejected_timer_keeps_the_pending_default()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var omitted = session.CompleteInvocation(
@@ -128,7 +128,7 @@ public sealed class OneLaneTimerSchedulerTests
     public void Out_of_bounds_or_malformed_delay_is_rejected_without_schedule_effect(string delay)
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
 
@@ -149,7 +149,7 @@ public sealed class OneLaneTimerSchedulerTests
     public void Stale_expected_revision_is_rejected_and_does_not_erase_the_pending_event()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var first = session.AcceptParticipantMessage(
+        var first = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         session.CompleteInvocation(
             first.Invocation!.AgentInvocationId,
@@ -393,7 +393,7 @@ public sealed class OneLaneTimerSchedulerTests
         var session = SessionRuntimeTestFixtures.CreateActiveSession(
             ResolveTimerPolicy(maxConcurrentReplacements: 2));
         session.FireDueTimer(1, SessionRuntimeTestFixtures.T0.AddMinutes(5));
-        var participant = session.AcceptParticipantMessage(
+        var participant = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1",
             "turn.1",
             "slot.1",
@@ -427,7 +427,7 @@ public sealed class OneLaneTimerSchedulerTests
         var session = SessionRuntimeTestFixtures.CreateActiveSession(
             ResolveTimerPolicy(maxConcurrentReplacements: 1));
         session.FireDueTimer(1, SessionRuntimeTestFixtures.T0.AddMinutes(5));
-        var participant = session.AcceptParticipantMessage(
+        var participant = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1",
             "turn.1",
             "slot.1",
@@ -462,7 +462,7 @@ public sealed class OneLaneTimerSchedulerTests
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession(
             ResolveTimerPolicy(maxConcurrentReplacements: 1));
-        var first = session.AcceptParticipantMessage(
+        var first = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var recorded = session.RecordDecision(
             first.Invocation!.AgentInvocationId,
@@ -497,7 +497,7 @@ public sealed class OneLaneTimerSchedulerTests
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession(
             ResolveTimerPolicy(duplicateSuppressionWindowSeconds: 30));
-        var first = session.AcceptParticipantMessage(
+        var first = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         session.CompleteInvocation(
             first.Invocation!.AgentInvocationId,
@@ -518,7 +518,7 @@ public sealed class OneLaneTimerSchedulerTests
                 responseSlotId: null,
                 nextTimer: new NextTimerRecommendation("PT2M", "2")),
             SessionRuntimeTestFixtures.T0.AddSeconds(4));
-        var distinct = session.AcceptParticipantMessage(
+        var distinct = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.2",
             "turn.2",
             "slot.2",
@@ -591,7 +591,7 @@ public sealed class OneLaneTimerSchedulerTests
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession(
             ResolveTimerPolicy(maxAcceptedReplacements: 1));
-        var first = session.AcceptParticipantMessage(
+        var first = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         session.CompleteInvocation(
             first.Invocation!.AgentInvocationId,
@@ -624,7 +624,7 @@ public sealed class OneLaneTimerSchedulerTests
     public void Equivalent_decision_retry_does_not_create_a_second_schedule_revision()
     {
         var session = SessionRuntimeTestFixtures.CreateActiveSession();
-        var admitted = session.AcceptParticipantMessage(
+        var admitted = SessionRuntimeTestFixtures.AdmitParticipant(session,
             "msg.p.1", "turn.1", "slot.1", "trig.participant.1", "idem.p.1", SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
         var recommendation = SessionRuntimeTestFixtures.NoAction(
