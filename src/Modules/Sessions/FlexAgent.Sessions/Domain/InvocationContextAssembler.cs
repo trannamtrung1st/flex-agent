@@ -116,7 +116,33 @@ public static class InvocationContextAssembler
             session.Binding.PermittedSubmissionRefs,
             session.Binding.PermittedKnowledgeRefs,
             session.Binding.PermittedMemoryReadRefs,
-            session.VisibleTranscript,
+            AttachExactTranscriptText(session),
             categories);
+    }
+
+    private static IReadOnlyList<VisibleTranscriptItemRef> AttachExactTranscriptText(SessionRuntime session)
+    {
+        if (session.VisibleTranscript.Count == 0)
+        {
+            return session.VisibleTranscript;
+        }
+
+        var agentText = session.AgentMessages.ToDictionary(
+            message => message.MessageId,
+            message => message.AssembleExactText(),
+            StringComparer.Ordinal);
+        return session.VisibleTranscript
+            .Select(item =>
+            {
+                if (!string.IsNullOrEmpty(item.ExactUtf8Text))
+                {
+                    return item;
+                }
+
+                return agentText.TryGetValue(item.MessageId, out var text) && !string.IsNullOrEmpty(text)
+                    ? item with { ExactUtf8Text = text }
+                    : item;
+            })
+            .ToArray();
     }
 }

@@ -261,6 +261,7 @@ public static class ExecutionFailureReasons
 public static class ExecutionAttemptOutcomeCategories
 {
     public const string DecisionProduced = "decision_produced";
+    public const string ContentProduced = "content_produced";
     public const string ProviderTimeout = "provider_timeout";
     public const string ProviderUnavailable = "provider_unavailable";
     public const string MalformedControl = "malformed_control";
@@ -364,7 +365,8 @@ public sealed record VisibleTranscriptItemRef(
     string MessageId,
     string AuthorType,
     string? TurnId,
-    ProtectedContentRef ContentRef);
+    ProtectedContentRef ContentRef,
+    string? ExactUtf8Text = null);
 
 public sealed record TrustedSessionBinding(
     SessionOwnership Ownership,

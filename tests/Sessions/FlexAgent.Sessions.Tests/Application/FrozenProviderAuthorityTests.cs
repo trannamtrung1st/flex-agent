@@ -274,6 +274,48 @@ public sealed class FrozenProviderAuthorityProcessorTests
         Assert.True(store.RenewCount >= 1);
     }
 
+    [Fact]
+    public async Task Lease_renewal_exception_cancels_the_in_flight_provider_call()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AdmitTrustedTrigger(
+            SessionRuntimeTestFixtures.OpeningTrigger(),
+            "idem.opening.lease.throw",
+            SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var adapter = new BlockingControlPort();
+        adapter.Inner.EnqueueEnvelope(
+            SessionRuntimeTestFixtures.Envelope(
+                invocationId,
+                DecisionDispositions.NoAction,
+                [],
+                [],
+                NoActionReasonCategories.IntentionalSilence,
+                "adec.lease.throw0001"));
+        var store = new RestartStore(session.Ownership, invocationId) { ThrowOnRenew = true };
+        var processor = new DurableInvocationWorkProcessor(
+            store,
+            new MemoryGateway(session),
+            adapter,
+            new CompleteInvocationHandler(),
+            new DurableInvocationWorkSettings(
+                SessionRuntimeTestFixtures.CreateActor(),
+                "worker.session_runtime",
+                65_536,
+                InstalledProfiles: new InMemoryInstalledModelDeploymentProfileRegistry(
+                    SessionRuntimeTestFixtures.CreateInstalledProfile()),
+                CredentialCatalog: new InMemoryModelDeploymentCredentialCatalog(
+                    SessionRuntimeTestFixtures.CreateCatalogRecord(session.Ownership.OrganizationId)),
+                ClaimLease: TimeSpan.FromSeconds(30),
+                ClaimLeaseRenewalPeriod: TimeSpan.FromMilliseconds(20)),
+            PassThroughAgentResponsePublicationPersistPort.Succeed);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.RetryLater, result.Outcome);
+        Assert.True(store.RenewCount >= 1);
+    }
+
     private static DurableInvocationWorkProcessor CreateProcessor(
         IModelExecutionPort adapter,
         SessionRuntime session,
@@ -417,12 +459,19 @@ public sealed class FrozenProviderAuthorityProcessorTests
 
         public int RenewCount { get; private set; }
 
+        public bool ThrowOnRenew { get; init; }
+
         public Task<DateTimeOffset?> TryRenewClaimLeaseAsync(
             DurableInvocationWorkItem work,
             TimeSpan lease,
             CancellationToken cancellationToken)
         {
             RenewCount++;
+            if (ThrowOnRenew)
+            {
+                throw new InvalidOperationException("Injected lease renewal failure.");
+            }
+
             var until = DateTimeOffset.UtcNow.Add(lease);
             work.ClaimLeaseUntil = until;
             return Task.FromResult<DateTimeOffset?>(until);

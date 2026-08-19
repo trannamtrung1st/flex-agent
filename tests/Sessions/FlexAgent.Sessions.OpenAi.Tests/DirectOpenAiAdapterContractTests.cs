@@ -24,7 +24,58 @@ public sealed class DirectOpenAiAdapterContractTests
         Assert.NotNull(result.Provenance);
         Assert.Equal(ModelDeploymentAdapterKinds.DirectOpenAi, result.Provenance!.AdapterKind);
         Assert.Equal("synthetic.model.pinned", result.Provenance.RequestedModel);
+        Assert.Equal("synthetic.model.pinned.2026-01-01", result.Provenance.ResolvedModelVersion);
+        Assert.Equal(ModelProviderRequestPhases.Control, result.Provenance.Phase);
         Assert.DoesNotContain("sk-", result.Provenance.ProviderRequestRef ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Fake_transport_sends_participant_transcript_and_frozen_resolved_model()
+    {
+        var harness = CreateHarness(requestedModel: "gpt-alias", resolvedModel: "gpt-pinned-2026-08-01");
+        var json = """
+            {"schema_version":"v2","agent_decision_id":"adec.00000001","agent_invocation_id":"ainv.00000001","produced_at":"2026-08-14T00:00:00Z","disposition":"no_action","outputs":[],"requested_actions":[],"no_action":{"reason_category":"intentional_silence"}}
+            """;
+        var handler = new ScriptedOpenAiHandler(json, stream: false, returnedModel: "gpt-pinned-2026-08-01");
+        var adapter = harness.Adapter(handler);
+        var participantText = "What is the next assessment question?";
+
+        var result = await adapter.ExecuteAsync(harness.ControlRequest(participantText: participantText), CancellationToken.None);
+
+        Assert.IsType<ModelExecutionStructuredControl>(result);
+        Assert.Contains(participantText, handler.CapturedRequestBody, StringComparison.Ordinal);
+        Assert.Contains("\"model\":\"gpt-pinned-2026-08-01\"", handler.CapturedRequestBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"model\":\"gpt-alias\"", handler.CapturedRequestBody, StringComparison.Ordinal);
+        Assert.DoesNotContain(harness.Ownership.OrganizationId.ToString(), handler.CapturedRequestBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("sk-test", handler.CapturedRequestBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Provider_returned_model_must_match_frozen_resolved_version()
+    {
+        var harness = CreateHarness(requestedModel: "gpt-alias", resolvedModel: "gpt-pinned-2026-08-01");
+        var json = """
+            {"schema_version":"v2","agent_decision_id":"adec.00000001","agent_invocation_id":"ainv.00000001","produced_at":"2026-08-14T00:00:00Z","disposition":"no_action","outputs":[],"requested_actions":[],"no_action":{"reason_category":"intentional_silence"}}
+            """;
+        var drifted = await harness.Adapter(new ScriptedOpenAiHandler(json, stream: false, returnedModel: "gpt-alias"))
+            .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
+        Assert.Equal(
+            ExecutionFailureReasons.ProviderUnavailable,
+            Assert.IsType<ModelExecutionFailed>(drifted).ReasonCategory);
+    }
+
+    [Fact]
+    public async Task Mismatched_adapter_contract_version_fails_closed()
+    {
+        var harness = CreateHarness(contractVersion: "sessions.openai.v2");
+        var json = """
+            {"schema_version":"v2","agent_decision_id":"adec.00000001","agent_invocation_id":"ainv.00000001","produced_at":"2026-08-14T00:00:00Z","disposition":"no_action","outputs":[],"requested_actions":[],"no_action":{"reason_category":"intentional_silence"}}
+            """;
+        var result = await harness.Adapter(new ScriptedOpenAiHandler(json, stream: false))
+            .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
+        Assert.Equal(
+            ExecutionFailureReasons.CredentialBindingFailed,
+            Assert.IsType<ModelExecutionFailed>(result).ReasonCategory);
     }
 
     [Fact]
@@ -137,16 +188,19 @@ public sealed class DirectOpenAiAdapterContractTests
         Assert.DoesNotContain("sk-live", secret.ToString(), StringComparison.Ordinal);
     }
 
-    private static Harness CreateHarness()
+    private static Harness CreateHarness(
+        string requestedModel = "synthetic.model.pinned",
+        string resolvedModel = "synthetic.model.pinned.2026-01-01",
+        string contractVersion = DirectOpenAiModelExecutionAdapter.AdapterContractVersion)
     {
         var profile = InstalledModelDeploymentProfile.Create(
             "direct-openai.unqualified.example",
             "1",
             ModelDeploymentAdapterKinds.DirectOpenAi,
-            DirectOpenAiModelExecutionAdapter.AdapterContractVersion,
+            contractVersion,
             new Uri("https://api.openai.com/"),
-            "synthetic.model.pinned",
-            "synthetic.model.pinned.2026-01-01",
+            requestedModel,
+            resolvedModel,
             "p0.text.structured-control",
             ModelDeploymentCredentialModes.OrganizationByok,
             256,
@@ -193,8 +247,20 @@ public sealed class DirectOpenAiAdapterContractTests
         public DirectOpenAiModelExecutionAdapter Adapter(HttpMessageHandler handler) =>
             new(Profiles, Catalog, Secrets, handler);
 
-        public ModelExecutionAttemptRequest ControlRequest(int maxControlUtf8Bytes = 65_536)
+        public ModelExecutionAttemptRequest ControlRequest(
+            int maxControlUtf8Bytes = 65_536,
+            string? participantText = null)
         {
+            IReadOnlyList<VisibleTranscriptItemRef> transcript = participantText is null
+                ? []
+                : [
+                    new VisibleTranscriptItemRef(
+                        "msg.p.1",
+                        TranscriptAuthorTypes.Participant,
+                        "turn.1",
+                        new ProtectedContentRef("msg:msg.p.1", new string('d', 64)),
+                        participantText),
+                ];
             var context = new InvocationContext(
                 Ownership,
                 new string('a', 64),
@@ -202,8 +268,8 @@ public sealed class DirectOpenAiAdapterContractTests
                 [],
                 [],
                 [],
-                [],
-                []);
+                transcript,
+                transcript.Count == 0 ? [] : [InvocationContextFactCategories.TranscriptItem]);
             return new ModelExecutionAttemptRequest(
                 Ownership,
                 "ainv.00000001",
@@ -247,35 +313,48 @@ public sealed class DirectOpenAiAdapterContractTests
             Task.FromResult<ProviderSecret?>(new ProviderSecret(value));
     }
 
-    private sealed class ScriptedOpenAiHandler(string content, bool stream, string? secondDelta = null) : HttpMessageHandler
+    private sealed class ScriptedOpenAiHandler(
+        string content,
+        bool stream,
+        string? secondDelta = null,
+        string? returnedModel = "synthetic.model.pinned.2026-01-01") : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        public string CapturedRequestBody { get; private set; } = string.Empty;
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Assert.StartsWith("https://api.openai.com", request.RequestUri?.GetLeftPart(UriPartial.Authority), StringComparison.Ordinal);
+            if (request.Content is not null)
+            {
+                CapturedRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
+            }
+
             if (stream)
             {
                 var first = Chunk(content);
                 var second = secondDelta is null ? string.Empty : Chunk(secondDelta);
                 var body = first + second + "data: [DONE]\n\n";
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                return new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new StringContent(body, Encoding.UTF8, "text/event-stream"),
-                });
+                };
             }
 
             var encoded = System.Text.Json.JsonSerializer.Serialize(content);
             var json =
-                "{\"id\":\"chatcmpl-test\",\"object\":\"chat.completion\",\"created\":0,\"model\":\"synthetic.model.pinned.2026-01-01\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":"
+                "{\"id\":\"chatcmpl-test\",\"object\":\"chat.completion\",\"created\":0,\"model\":"
+                + System.Text.Json.JsonSerializer.Serialize(returnedModel)
+                + ",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":"
                 + encoded
                 + "},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":4,\"total_tokens\":13}}";
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json"),
-            });
+            };
         }
 
-        private static string Chunk(string text) =>
-            $"data: {{\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"synthetic.model.pinned.2026-01-01\",\"choices\":[{{\"index\":0,\"delta\":{{\"content\":{System.Text.Json.JsonSerializer.Serialize(text)}}},\"finish_reason\":null}}]}}\n\n";
+        private string Chunk(string text) =>
+            $"data: {{\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":{System.Text.Json.JsonSerializer.Serialize(returnedModel)},\"choices\":[{{\"index\":0,\"delta\":{{\"content\":{System.Text.Json.JsonSerializer.Serialize(text)}}},\"finish_reason\":null}}]}}\n\n";
     }
 
     private sealed class StatusOpenAiHandler(int status) : HttpMessageHandler

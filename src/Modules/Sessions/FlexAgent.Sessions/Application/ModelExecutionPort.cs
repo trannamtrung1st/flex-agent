@@ -29,7 +29,9 @@ public sealed record ModelProviderAttemptProvenance(
     int? OutputTokenCount,
     string? ProviderRequestRef,
     DateTimeOffset StartedAt,
-    DateTimeOffset CompletedAt);
+    DateTimeOffset CompletedAt,
+    string Phase = ModelProviderRequestPhases.Control,
+    string? ProviderRequestId = null);
 
 public abstract record ModelExecutionAttemptResult
 {
@@ -63,7 +65,10 @@ public sealed record ModelContentCumulativeSnapshot(string ExactUtf8Text) : Mode
 
 public sealed record ModelContentMetadata : ModelContentEvent;
 
-public sealed record ModelContentCompleted : ModelContentEvent;
+public sealed record ModelContentCompleted : ModelContentEvent
+{
+    public ModelProviderAttemptProvenance? Provenance { get; init; }
+}
 
 /// <summary>
 /// Starts a content stream for an invocation/generation attempt. The request

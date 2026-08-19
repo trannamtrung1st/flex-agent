@@ -59,6 +59,40 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
     }
 
     [Fact]
+    public async Task Provider_attempts_are_keyed_by_provider_request_identity()
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var columns = (await connection.QueryAsync<string>(
+            new CommandDefinition(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'session_invocation_provider_attempts';
+                """,
+                cancellationToken: CancellationToken))).AsList();
+
+        Assert.Contains("provider_request_id", columns);
+        Assert.Contains("phase", columns);
+        Assert.Contains("provider_request_ordinal", columns);
+
+        var keys = (await connection.QueryAsync<string>(
+            new CommandDefinition(
+                """
+                SELECT a.attname
+                FROM pg_index i
+                JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
+                WHERE i.indrelid = 'session_invocation_provider_attempts'::regclass
+                  AND i.indisprimary;
+                """,
+                cancellationToken: CancellationToken))).AsList();
+
+        Assert.Contains("provider_request_id", keys);
+        Assert.DoesNotContain("attempt_ordinal", keys);
+        Assert.DoesNotContain("agent_invocation_id", keys);
+    }
+
+    [Fact]
     public async Task Timer_schedules_store_contract_lane_state_and_remaining_delay()
     {
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);

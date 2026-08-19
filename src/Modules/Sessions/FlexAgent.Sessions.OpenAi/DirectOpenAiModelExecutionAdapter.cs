@@ -42,7 +42,7 @@ public sealed class DirectOpenAiModelExecutionAdapter(
         try
         {
             using var lifetime = CreateClient(resolved.Value.Profile, secret, resolved.Value.Profile.ControlTimeout);
-            var chat = lifetime.Client.GetChatClient(resolved.Value.Profile.RequestedModel);
+            var chat = lifetime.Client.GetChatClient(resolved.Value.Profile.ResolvedModelVersion);
             var options = new ChatCompletionOptions
             {
                 MaxOutputTokenCount = resolved.Value.Profile.MaxOutputTokens,
@@ -52,11 +52,19 @@ public sealed class DirectOpenAiModelExecutionAdapter(
                 BuildMinimizedMessages(request.AgentInvocationId, request.Context, control: true),
                 options,
                 cancellationToken);
+            if (completion.Value.Content.Count == 0 || string.IsNullOrEmpty(completion.Value.Content[0].Text))
+            {
+                return Fail(ExecutionFailureReasons.MalformedControl, startedAt, request, resolved.Value.Profile, null);
+            }
+
+            if (string.IsNullOrWhiteSpace(completion.Value.Model)
+                || !ModelIdentityMatches(resolved.Value.Profile.ResolvedModelVersion, completion.Value.Model))
+            {
+                return Fail(ExecutionFailureReasons.ProviderUnavailable, startedAt, request, resolved.Value.Profile, null);
+            }
+
             var utf8 = System.Text.Encoding.UTF8.GetBytes(completion.Value.Content[0].Text);
             var outcome = DeterministicControl(request, utf8);
-            var resolvedModel = string.IsNullOrWhiteSpace(completion.Value.Model)
-                ? resolved.Value.Profile.ResolvedModelVersion
-                : completion.Value.Model;
             return outcome with
             {
                 Provenance = CreateProvenance(
@@ -67,7 +75,8 @@ public sealed class DirectOpenAiModelExecutionAdapter(
                     request.ProviderAttemptId,
                     startedAt,
                     DateTimeOffset.UtcNow,
-                    resolvedModel),
+                    resolved.Value.Profile.ResolvedModelVersion,
+                    ModelProviderRequestPhases.Control),
             };
         }
         catch (Exception) when (cancellationToken.IsCancellationRequested)
@@ -106,11 +115,13 @@ public sealed class DirectOpenAiModelExecutionAdapter(
         }
 
         using var lifetime = CreateClient(resolved.Value.Profile, secret, resolved.Value.Profile.ContentTimeout);
-        var chat = lifetime.Client.GetChatClient(resolved.Value.Profile.RequestedModel);
+        var chat = lifetime.Client.GetChatClient(resolved.Value.Profile.ResolvedModelVersion);
         ChatCompletionOptions options = new()
         {
             MaxOutputTokenCount = resolved.Value.Profile.MaxOutputTokens,
         };
+        var startedAt = DateTimeOffset.UtcNow;
+        var observedResolvedModel = false;
 
         await using var enumerator = chat.CompleteChatStreamingAsync(
             BuildMinimizedMessages(request.AgentInvocationId, request.Context, control: false),
@@ -142,8 +153,35 @@ public sealed class DirectOpenAiModelExecutionAdapter(
 
             if (!moved)
             {
-                yield return new ModelContentCompleted();
+                if (!observedResolvedModel)
+                {
+                    yield break;
+                }
+
+                yield return new ModelContentCompleted
+                {
+                    Provenance = CreateProvenance(
+                        resolved.Value.Profile,
+                        ExecutionAttemptOutcomeCategories.ContentProduced,
+                        null,
+                        null,
+                        request.ProviderAttemptId,
+                        startedAt,
+                        DateTimeOffset.UtcNow,
+                        resolved.Value.Profile.ResolvedModelVersion,
+                        ModelProviderRequestPhases.Content),
+                };
                 yield break;
+            }
+
+            if (!string.IsNullOrWhiteSpace(enumerator.Current.Model))
+            {
+                if (!ModelIdentityMatches(resolved.Value.Profile.ResolvedModelVersion, enumerator.Current.Model))
+                {
+                    yield break;
+                }
+
+                observedResolvedModel = true;
             }
 
             foreach (var part in enumerator.Current.ContentUpdate)
@@ -173,7 +211,8 @@ public sealed class DirectOpenAiModelExecutionAdapter(
             return null;
         }
 
-        if (!string.Equals(resolution.Profile.AdapterKind, ModelDeploymentAdapterKinds.DirectOpenAi, StringComparison.Ordinal))
+        if (!string.Equals(resolution.Profile.AdapterKind, ModelDeploymentAdapterKinds.DirectOpenAi, StringComparison.Ordinal)
+            || !string.Equals(resolution.Profile.AdapterContractVersion, AdapterContractVersion, StringComparison.Ordinal))
         {
             return null;
         }
@@ -192,7 +231,7 @@ public sealed class DirectOpenAiModelExecutionAdapter(
         };
         var options = new OpenAIClientOptions
         {
-            Endpoint = profile.ApprovedHttpsOrigin,
+            Endpoint = ApprovedHttpsOrigin.Canonicalize(profile.ApprovedHttpsOrigin),
             Transport = new HttpClientPipelineTransport(http),
             RetryPolicy = new ClientRetryPolicy(0),
             NetworkTimeout = timeout,
@@ -209,11 +248,11 @@ public sealed class DirectOpenAiModelExecutionAdapter(
         var role = control
             ? "Return one JSON Agent Decision envelope and no participant-visible prose."
             : "Return only participant-visible message text.";
-        var digest = context?.PolicyDigest ?? string.Empty;
         return
         [
             ChatMessage.CreateSystemMessage(role),
-            ChatMessage.CreateUserMessage($"invocation:{invocationId};policy:{digest}"),
+            ChatMessage.CreateUserMessage(
+                ProviderSafeInvocationContextSerializer.Serialize(invocationId, context)),
         ];
     }
 
@@ -272,7 +311,8 @@ public sealed class DirectOpenAiModelExecutionAdapter(
                     request.ProviderAttemptId,
                     startedAt,
                     DateTimeOffset.UtcNow,
-                    profile.ResolvedModelVersion),
+                    profile.ResolvedModelVersion,
+                    ModelProviderRequestPhases.Control),
         };
 
     private static ModelProviderAttemptProvenance CreateProvenance(
@@ -283,7 +323,8 @@ public sealed class DirectOpenAiModelExecutionAdapter(
         string? providerAttemptId,
         DateTimeOffset startedAt,
         DateTimeOffset completedAt,
-        string resolvedModel) =>
+        string resolvedModel,
+        string phase) =>
         new(
             profile.AdapterKind,
             AdapterContractVersion,
@@ -297,7 +338,12 @@ public sealed class DirectOpenAiModelExecutionAdapter(
             outputTokens,
             string.IsNullOrWhiteSpace(providerAttemptId) ? null : $"pref.{providerAttemptId}",
             startedAt,
-            completedAt);
+            completedAt,
+            phase,
+            providerAttemptId);
+
+    private static bool ModelIdentityMatches(string frozenResolvedModel, string providerModel) =>
+        string.Equals(providerModel, frozenResolvedModel, StringComparison.Ordinal);
 
     private sealed class ClientLifetime(OpenAIClient client, HttpClient http) : IDisposable
     {

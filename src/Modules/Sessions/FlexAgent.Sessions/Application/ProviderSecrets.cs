@@ -48,7 +48,7 @@ public interface IModelProviderAttemptProvenanceWriter
     Task WriteAsync(
         SessionOwnership ownership,
         string agentInvocationId,
-        int attemptOrdinal,
+        int invocationAttemptOrdinal,
         ModelProviderAttemptProvenance provenance,
         CancellationToken cancellationToken);
 }

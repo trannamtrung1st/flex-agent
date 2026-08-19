@@ -1,6 +1,6 @@
 ---
 id: session-runtime-live-provider-qualification
-status: blocked
+status: in-progress
 created: 2026-08-18
 updated: 2026-08-19
 predecessors:
@@ -328,31 +328,24 @@ pilot.
 - [x] Run focused adapter/Sessions/Runtime/PostgreSQL/architecture tests, then
       locked solution, package/supply-chain, OCI, documentation, whitespace,
       and applicable failure/recovery checks. Record exact commands and counts.
-- [>] Reconcile actual changes against governing specs, update truthful
+- [x] Resolve independent review blockers: serialize permitted InvocationContext
+      into provider messages; execute and validate frozen ResolvedModelVersion;
+      cancel provider work when lease renewal throws; give each external request
+      its own provenance identity and phase; canonicalize origin-only endpoints
+      into the profile digest; enforce adapter contract version.
+- [ ] Reconcile actual changes against governing specs, update truthful
       implementation-status and operator guidance, run independent backend,
       architecture, and security/privacy review, resolve blocking findings, and
       retain this task for external review.
 
 # Current state
 
-Phase A (deterministic) is implemented and green. Direct OpenAI is isolated in
-`FlexAgent.Sessions.OpenAi` (official SDK 2.12.0), Worker composition stays
-fail-closed unless `Sessions:ModelExecution:Adapter=direct_openai` and
-`Qualified=true` with installed profile, catalog, and secret directory.
-Frozen per-Session provider/credential authority, restart-safe content
-requests, claim-lease heartbeat, additive migration `0026`, and fake-transport
-contract tests are in place. Worker execution settings no longer carry
-host-global provider/credential binding callbacks.
-
-Phase B is blocked: no owner-selected exact Direct OpenAI profile, mounted
-synthetic credential, or data-policy determination is available in this
-environment (`FLEXAGENT_LIVE_OPENAI_QUALIFICATION` is unset). The task cannot
-be marked completed until that opt-in harness records exact-profile evidence.
-Synthetic OpenRouter/vLLM contract evidence remains a separate gate.
-
-Implementer self-review of Phase A found no remaining blocking isolation
-defects after removing unused host-binding settings. Exact live-profile
-qualification, OCI image rebuild, and independent external review remain open.
+Independent review of `bee700e` found Phase A incomplete. Remediating the six
+blocking/completeness findings without redesigning the adapter boundary:
+provider-safe InvocationContext serialization, frozen ResolvedModelVersion
+execution and match, fail-closed lease-renewal exceptions, per-request
+provenance identity/phase (`0027`), origin-only canonical endpoints, and
+adapter contract-version enforcement.
 
 # Delivery phases
 
@@ -464,6 +457,17 @@ Interim defaults are working guidance only and do not approve a deployment.
   OpenRouter, and vLLM contract evidence. This task implements and qualifies the
   Direct OpenAI subset only and must not mark the complete cross-provider gate
   satisfied.
+- Independent review of `bee700e` (2026-08-19) treated the adapter boundary as
+  sound but Phase A incomplete: minimized context was not sent, requested-model
+  aliases were executed, lease-renewal throws failed open, provenance keyed
+  invocation attempts rather than provider requests, origin digest omitted
+  path, and adapter contract version was not enforced. This remediation slice
+  addresses those findings in place.
+- Accepted participant-message bodies are still identity/digest-only on
+  `SessionRuntime` (`AcceptParticipantMessage` does not persist exact text).
+  Provider-safe serialization includes `ExactUtf8Text` when the assembler has
+  it (Agent fragments, and tests). Live participant words remain a downstream
+  transcript-content gap, not an adapter-message-format gap.
 
 # Verification
 
@@ -472,15 +476,15 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Governing source and current-seam inventory | complete | Product foundation, RSC/Session/Auth requirements, ADR-008/010/012/016, Session runtime, backend module guide, current ports/composition, and predecessor task state reviewed 2026-08-18 |
 | Predecessor remediation protected | complete | Worker identity/readiness remediation landed separately as `94c1412`; this planning edit is restricted to the new task file |
 | Plan readiness review | complete | Backend/architecture/security consistency pass on 2026-08-19 added frozen per-Session provider authority, restart-safe phases, retry ownership, secret hardening, egress/SSRF, qualification scope, and threat-model gates |
-| Current-source .NET baseline | passed | Predecessor `94c1412`: 991 passed. After Phase A plus self-review: `dotnet test --solution FlexAgent.slnx`: **1010 passed**, 0 failed, 0 skipped (2026-08-19) |
-| Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAi.Tests` **9 passed** (structured control, streaming, 429/malformed, egress, timeout/outage/oversized, stream fail-closed, cancellation, secret redaction, live-qual opt-in guard) |
+| Current-source .NET baseline | passed | After review remediations: `dotnet test --solution FlexAgent.slnx` **1016 passed**, 1 failed (`Grate_tool_changed_one_time_script_fails_closed`, SSLRequest flake under parallel Testcontainers). Isolated re-run of that method **passed**. Prior Phase A count was 1010 (2026-08-19) |
+| Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAi.Tests` **12 passed** including outbound body/transcript, frozen resolved model, model-mismatch, and contract-version fail-closed |
 | Credential/profile isolation tests | passed | `FrozenModelDeploymentResolverTests` plus processor frozen-authority tests; secret symlink/size in WorkloadIdentity tests; no-fallback matrix for missing/revoked/wrong-org/provider mismatch |
-| Lease/auth/lifecycle concurrency tests | passed | Claim-lease heartbeat unit test; Postgres crash-recovery lease-renew failure after fragment persist; revoke/disclosure denial processor tests |
-| PostgreSQL migration/provenance/recovery tests | passed | Additive `0026`; Grate expected script count 26; schema lists frozen-deployment and provider-attempt tables; Postgres integration **246 passed** |
+| Lease/auth/lifecycle concurrency tests | passed | Claim-lease heartbeat; lease-renewal **throw** cancels in-flight provider work (`RetryLater`); Postgres crash-recovery lease-renew failure after fragment persist |
+| PostgreSQL migration/provenance/recovery tests | passed | Additive `0027` keys attempts by `provider_request_id` and records `control`/`content` phase; Grate expected script count 27; schema + upgrade + Grate classes passed in isolation |
 | Architecture/module dependency tests | passed | Architecture **33 passed**; official SDK isolated to `FlexAgent.Sessions.OpenAi` with negative control |
 | Exact Direct OpenAI profile qualification | blocked | Opt-in synthetic evidence for one owner-selected immutable profile is not available; does not close synthetic OpenRouter/vLLM portions of `GATE-STACK-PROVIDERS` |
-| Locked regression, supply chain, OCI, docs, whitespace | partial | Full solution 1010 passed; `python3 scripts/check_docs.py` passed; `git diff --check` passed; `gitleaks detect` — no leaks. Locked NuGet restore already present for OpenAi projects. OCI image rebuild/SBOM/grype not re-run in this session |
-| Independent backend/architecture/security review | pending | Second implementer review 2026-08-19: no Phase A blockers; residual risks below. Independent reviewer roles remain required before completion |
+| Locked regression, supply chain, OCI, docs, whitespace | partial | `python3 scripts/check_docs.py` passed; `git diff --check` passed. OCI image rebuild/SBOM/grype not re-run in this session |
+| Independent backend/architecture/security review | pending | Independent review of `bee700e` produced the six findings this slice remediates; re-review still required before Phase B |
 
 # Blockers
 

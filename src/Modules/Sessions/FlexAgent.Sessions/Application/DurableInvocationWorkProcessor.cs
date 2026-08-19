@@ -243,7 +243,7 @@ public sealed class DurableInvocationWorkProcessor(
             else
             {
                 var context = InvocationContextAssembler.Assemble(loaded.Session);
-                var providerAttemptId = $"prat.{claimed.WorkId:N}.{invocation.Attempts.Count + 1}";
+                var providerAttemptId = $"prat.{Guid.NewGuid():N}";
                 using var controlHeartbeat = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 await using var heartbeat = ClaimLeaseHeartbeat.Start(
                     workStore,
@@ -251,21 +251,29 @@ public sealed class DurableInvocationWorkProcessor(
                     settings.EffectiveClaimLeaseRenewalPeriod,
                     settings.EffectiveClaimLease,
                     controlHeartbeat);
-                attemptResult = await modelExecutionPort.ExecuteAsync(
-                    new ModelExecutionAttemptRequest(
-                        claimed.Ownership,
-                        claimed.AgentInvocationId,
-                        binding.ProviderId,
-                        binding.BindingReference,
-                        binding.BindingVersion,
-                        context,
-                        invocation.Attempts.Count + 1,
-                        settings.MaxControlUtf8Bytes,
-                        frozenResolution.Frozen,
-                        providerAttemptId,
-                        frozenResolution.Profile.RequestedModel,
-                        frozenResolution.Profile.ProfileDigest),
-                    controlHeartbeat.Token);
+                try
+                {
+                    attemptResult = await modelExecutionPort.ExecuteAsync(
+                        new ModelExecutionAttemptRequest(
+                            claimed.Ownership,
+                            claimed.AgentInvocationId,
+                            binding.ProviderId,
+                            binding.BindingReference,
+                            binding.BindingVersion,
+                            context,
+                            invocation.Attempts.Count + 1,
+                            settings.MaxControlUtf8Bytes,
+                            frozenResolution.Frozen,
+                            providerAttemptId,
+                            frozenResolution.Profile.RequestedModel,
+                            frozenResolution.Profile.ProfileDigest),
+                        controlHeartbeat.Token);
+                }
+                catch (OperationCanceledException) when (controlHeartbeat.IsCancellationRequested)
+                {
+                    return RecordProcess(await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId));
+                }
+
                 if (attemptResult.Provenance is not null && provenanceWriter is not null)
                 {
                     await provenanceWriter.WriteAsync(
@@ -416,7 +424,7 @@ public sealed class DurableInvocationWorkProcessor(
             }
 
             var context = InvocationContextAssembler.Assemble(session);
-            var providerAttemptId = $"prat.{claimed.WorkId:N}.{invocation.Attempts.Count}";
+            var providerAttemptId = $"prat.{Guid.NewGuid():N}";
             using var streamHeartbeat = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             await using var heartbeat = ClaimLeaseHeartbeat.Start(
                 workStore,
@@ -444,6 +452,18 @@ public sealed class DurableInvocationWorkProcessor(
                         claimed,
                         loaded,
                         invocation.AgentInvocationId);
+                }
+
+                if (contentEvent is ModelContentCompleted completed
+                    && completed.Provenance is not null
+                    && provenanceWriter is not null)
+                {
+                    await provenanceWriter.WriteAsync(
+                        claimed.Ownership,
+                        invocation.AgentInvocationId,
+                        Math.Max(1, invocation.Attempts.Count),
+                        completed.Provenance,
+                        cancellationToken);
                 }
 
                 var normalized = ProviderContentNormalizer.Normalize(contentEvent, assembled);

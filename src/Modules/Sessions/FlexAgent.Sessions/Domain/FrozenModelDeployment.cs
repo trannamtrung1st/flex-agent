@@ -12,6 +12,12 @@ public static class ModelDeploymentAdapterKinds
     public const string DeterministicFake = "deterministic_fake";
 }
 
+public static class ModelProviderRequestPhases
+{
+    public const string Control = "control";
+    public const string Content = "content";
+}
+
 public static class FrozenModelDeploymentOutcomeCodes
 {
     public const string Succeeded = "frozen_model_deployment.succeeded";
@@ -78,12 +84,7 @@ public sealed record InstalledModelDeploymentProfile(
         ArgumentException.ThrowIfNullOrWhiteSpace(capabilityProfileId);
         ArgumentException.ThrowIfNullOrWhiteSpace(credentialMode);
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
-        if (!string.Equals(approvedHttpsOrigin.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
-            || approvedHttpsOrigin.IsLoopback
-            || string.IsNullOrWhiteSpace(approvedHttpsOrigin.Host))
-        {
-            throw new ArgumentOutOfRangeException(nameof(approvedHttpsOrigin));
-        }
+        var canonicalOrigin = global::FlexAgent.Sessions.Domain.ApprovedHttpsOrigin.Canonicalize(approvedHttpsOrigin);
 
         var digestSource = string.Join(
             "\n",
@@ -91,7 +92,7 @@ public sealed record InstalledModelDeploymentProfile(
             profileVersion,
             adapterKind,
             adapterContractVersion,
-            approvedHttpsOrigin.GetLeftPart(UriPartial.Authority).ToLowerInvariant(),
+            global::FlexAgent.Sessions.Domain.ApprovedHttpsOrigin.DigestSource(canonicalOrigin),
             requestedModel,
             resolvedModelVersion,
             capabilityProfileId,
@@ -108,7 +109,7 @@ public sealed record InstalledModelDeploymentProfile(
             digest,
             adapterKind,
             adapterContractVersion,
-            approvedHttpsOrigin,
+            canonicalOrigin,
             requestedModel,
             resolvedModelVersion,
             capabilityProfileId,

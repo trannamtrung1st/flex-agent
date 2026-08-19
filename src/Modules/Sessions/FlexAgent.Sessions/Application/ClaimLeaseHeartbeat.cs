@@ -74,6 +74,11 @@ internal sealed class ClaimLeaseHeartbeat : IAsyncDisposable
         {
             return false;
         }
+        catch (Exception)
+        {
+            _workCancellation.Cancel();
+            return false;
+        }
     }
 
     public async ValueTask DisposeAsync()
