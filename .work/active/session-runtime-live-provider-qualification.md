@@ -341,6 +341,9 @@ pilot.
       provider request durably before network I/O; require participant exact
       text at admission; record the `0027` checksum/history assertion; refresh
       the verification table.
+- [x] Close remaining Phase A blockers from `353a242` review: atomically
+      reserve a provider request under the current claim fence, reject a stale
+      worker after lease reclaim, and add an overlapping-lease test.
 - [ ] Reconcile actual changes against governing specs, update truthful
       implementation-status and operator guidance, run independent backend,
       architecture, and security/privacy review, resolve blocking findings, and
@@ -348,10 +351,12 @@ pilot.
 
 # Current state
 
-Independent review of `e17b546` is addressed in place: durable
-`started`/`finished` provider-request facts (`0029`), mandatory participant
-exact text at admission, and an explicit `0027` disposable-database history
-assertion. Phase B live qualification and independent re-review remain open.
+Independent review of `353a242` is addressed in place: PostgreSQL now admits a
+`started` fact only inside a transaction that locks the current claim, checks
+the request budget, inserts the fact, and renews the lease. An overlapping-lease
+reclaim test proves a stale worker cannot reach fake HTTP or exceed the budget.
+Phase A still needs independent re-review; Phase B still needs an owner-selected
+profile and credential.
 
 # Delivery phases
 
@@ -487,6 +492,14 @@ Interim defaults are working guidance only and do not approve a deployment.
   `0027` or `0028`. Budget admission writes `started` before network I/O;
   completion writes `finished`. Crash after HTTP and before `finished` still
   consumes the budget.
+- Independent review of `353a242` found `CountAsync` then `WriteAsync` was not
+  atomic with current claim ownership. `TryReserveStartedAsync` now locks the
+  durable-work row (`claimed`, fencing `claim_lease_until`, unexpired), counts
+  distinct `provider_request_id` values, inserts `started`, and renews the
+  claim in one transaction. A stale worker after reclaim receives
+  `RetryLater` without HTTP. Remaining gap: a stall *after* a successful
+  reservation and *before* HTTP can still send that already-budgeted request
+  until heartbeat notices lease loss; that does not admit a second reservation.
 - P0 participant-message admission requires non-empty exact UTF-8 text.
   `AcceptParticipantMessageCommand.ExactUtf8Text` is required; missing or blank
   text fails closed with `trigger_admission.missing_participant_content`.
@@ -503,16 +516,16 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Governing source and current-seam inventory | complete | Product foundation, RSC/Session/Auth requirements, ADR-008/010/012/016, Session runtime, backend module guide, current ports/composition, and predecessor task state reviewed 2026-08-18 |
 | Predecessor remediation protected | complete | Worker identity/readiness remediation landed separately as `94c1412`; this planning edit is restricted to the new task file |
 | Plan readiness review | complete | Backend/architecture/security consistency pass on 2026-08-19 added frozen per-Session provider authority, restart-safe phases, retry ownership, secret hardening, egress/SSRF, qualification scope, and threat-model gates |
-| Current-source .NET baseline | passed | After `e17b546` remediations: `dotnet test --solution FlexAgent.slnx` **1028 passed**, 0 failed (2026-08-19). Prior `e17b546` count was 1016 passed + 1 parallel Testcontainers SSL flake |
+| Current-source .NET baseline | passed | After claim-fenced reservation: `dotnet test --solution FlexAgent.slnx` **1031 passed**, 0 failed (2026-08-19). Prior `353a242` count was 1028 |
 | Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAi.Tests` **14 passed** including fake-HTTP crash-after-request reservation (no second HTTP) and lease-renewal `RetryLater` |
 | Credential/profile isolation tests | passed | `FrozenModelDeploymentResolverTests` plus processor frozen-authority tests; secret symlink/size in WorkloadIdentity tests; no-fallback matrix for missing/revoked/wrong-org/provider mismatch |
-| Lease/auth/lifecycle concurrency tests | passed | Claim-lease heartbeat; lease-renewal **throw** cancels in-flight provider work (`RetryLater`); Postgres crash-recovery lease-renew failure after fragment persist |
-| PostgreSQL migration/provenance/recovery tests | passed | Additive `0029` keys facts by `(provider_request_id, fact_kind)`; Grate expected script count **29**; populated-`0026` upgrade backfills `fact_kind=finished`; schema + upgrade + Grate + repository classes passed; full Postgres integration included in the 1028 solution run |
+| Lease/auth/lifecycle concurrency tests | passed | Claim-lease heartbeat; lease-renewal **throw** cancels in-flight provider work (`RetryLater`); Postgres `Expired_claim_cannot_reserve_a_provider_request_after_reclaim` (stale worker never reaches HTTP; started-fact count stays 1); crash-recovery lease-renew failure after fragment persist |
+| PostgreSQL migration/provenance/recovery tests | passed | Additive `0029` keys facts by `(provider_request_id, fact_kind)`; Grate expected script count **29**; populated-`0026` upgrade backfills `fact_kind=finished`; crash-recovery class **14 passed**; full Postgres integration included in the 1031 solution run |
 | Architecture/module dependency tests | passed | Architecture **33 passed**; official SDK isolated to `FlexAgent.Sessions.OpenAi` with negative control |
-| Sessions domain/application tests | passed | `FlexAgent.Sessions.Tests` **445 passed** including mandatory participant text and crash-after-control-before-finished-fact |
+| Sessions domain/application tests | passed | `FlexAgent.Sessions.Tests` **447 passed** including in-memory expired-claim and concurrent budget reservation |
 | Exact Direct OpenAI profile qualification | blocked | Opt-in synthetic evidence for one owner-selected immutable profile is not available; does not close synthetic OpenRouter/vLLM portions of `GATE-STACK-PROVIDERS` |
 | Locked regression, supply chain, OCI, docs, whitespace | partial | `python3 scripts/check_docs.py` passed; `git diff --check` passed. OCI image rebuild/SBOM/grype not re-run in this session |
-| Independent backend/architecture/security review | pending | Independent review of `e17b546` produced the three remaining Phase A findings this slice remediates; re-review still required before Phase B |
+| Independent backend/architecture/security review | pending | Independent review of `353a242` produced the remaining P1 concurrency/authority fence this slice remediates; re-review still required before Phase B |
 
 # Blockers
 

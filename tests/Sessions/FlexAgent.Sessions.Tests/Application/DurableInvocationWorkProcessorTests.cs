@@ -1027,6 +1027,7 @@ public sealed class DurableInvocationWorkProcessorTests
 
             ClaimCount++;
             candidate.Item.State = DurableSessionWorkStates.Claimed;
+            candidate.Item.ClaimLeaseUntil = DateTimeOffset.UtcNow.Add(lease);
             candidate.LeaseExpired = false;
             candidate.QueueOrder = _queueClock++;
             _lastServed[new DurableWorkClaimPartitionKey(

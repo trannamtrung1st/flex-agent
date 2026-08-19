@@ -56,6 +56,29 @@ public interface IModelProviderAttemptProvenanceWriter
         SessionOwnership ownership,
         string agentInvocationId,
         CancellationToken cancellationToken);
+
+    Task<ProviderRequestReservationResult> TryReserveStartedAsync(
+        DurableInvocationWorkItem claimedWork,
+        string agentInvocationId,
+        int invocationAttemptOrdinal,
+        int maxProviderRequestAttempts,
+        ModelProviderAttemptProvenance started,
+        TimeSpan lease,
+        CancellationToken cancellationToken);
+}
+
+public sealed record ProviderRequestReservationResult(
+    bool Reserved,
+    bool LostClaimAuthority,
+    DateTimeOffset? RenewedClaimLeaseUntil = null)
+{
+    public static ProviderRequestReservationResult LostClaim { get; } = new(false, true);
+
+    public static ProviderRequestReservationResult BudgetExhausted(DateTimeOffset? renewedClaimLeaseUntil = null) =>
+        new(false, false, renewedClaimLeaseUntil);
+
+    public static ProviderRequestReservationResult Succeeded(DateTimeOffset? renewedClaimLeaseUntil) =>
+        new(true, false, renewedClaimLeaseUntil);
 }
 
 public sealed class MountedFileProviderSecretSource : IProviderCredentialSecretSource

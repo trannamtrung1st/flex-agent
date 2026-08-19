@@ -240,8 +240,8 @@ public sealed class DurableInvocationWorkProcessor(
             {
                 var context = InvocationContextAssembler.Assemble(loaded.Session);
                 var providerAttemptId = $"prat.{Guid.NewGuid():N}";
-                var started = await TryReserveProviderRequestAsync(
-                    claimed.Ownership,
+                var reservation = await TryReserveProviderRequestAsync(
+                    claimed,
                     claimed.AgentInvocationId,
                     invocation.Attempts.Count,
                     frozenResolution.Profile!,
@@ -249,12 +249,18 @@ public sealed class DurableInvocationWorkProcessor(
                     ModelProviderRequestPhases.Control,
                     invocation.Attempts.Count + 1,
                     cancellationToken);
-                if (started is null)
+                if (reservation.LostClaimAuthority)
+                {
+                    return RecordProcess(await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId));
+                }
+
+                if (reservation.Started is null)
                 {
                     attemptResult = new ModelExecutionFailed(ExecutionOutcomeCategories.AttemptsExhausted);
                 }
                 else
                 {
+                    var started = reservation.Started;
                     using var controlHeartbeat = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                     await using var heartbeat = ClaimLeaseHeartbeat.Start(
                         workStore,
@@ -452,8 +458,8 @@ public sealed class DurableInvocationWorkProcessor(
 
             var context = InvocationContextAssembler.Assemble(session);
             var providerAttemptId = $"prat.{Guid.NewGuid():N}";
-            var started = await TryReserveProviderRequestAsync(
-                claimed.Ownership,
+            var reservation = await TryReserveProviderRequestAsync(
+                claimed,
                 invocation.AgentInvocationId,
                 invocation.Attempts.Count,
                 frozenResolution.Profile!,
@@ -461,6 +467,12 @@ public sealed class DurableInvocationWorkProcessor(
                 ModelProviderRequestPhases.Content,
                 Math.Max(1, invocation.Attempts.Count),
                 cancellationToken);
+            if (reservation.LostClaimAuthority)
+            {
+                return await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId);
+            }
+
+            var started = reservation.Started;
             if (started is null)
             {
                 return await StopContentAsync(
@@ -858,24 +870,8 @@ public sealed class DurableInvocationWorkProcessor(
         return message is null || message.Fragments.Count == 0;
     }
 
-    private async Task<bool> ProviderRequestBudgetExhaustedAsync(
-        SessionOwnership ownership,
-        string agentInvocationId,
-        int invocationAttemptCount,
-        int maxProviderRequestAttempts,
-        CancellationToken cancellationToken)
-    {
-        if (provenanceWriter is null)
-        {
-            return invocationAttemptCount >= maxProviderRequestAttempts;
-        }
-
-        var used = await provenanceWriter.CountAsync(ownership, agentInvocationId, cancellationToken);
-        return used >= maxProviderRequestAttempts;
-    }
-
-    private async Task<ModelProviderAttemptProvenance?> TryReserveProviderRequestAsync(
-        SessionOwnership ownership,
+    private async Task<ProviderReservation> TryReserveProviderRequestAsync(
+        DurableInvocationWorkItem claimed,
         string agentInvocationId,
         int invocationAttemptCount,
         InstalledModelDeploymentProfile profile,
@@ -884,16 +880,6 @@ public sealed class DurableInvocationWorkProcessor(
         int invocationAttemptOrdinal,
         CancellationToken cancellationToken)
     {
-        if (await ProviderRequestBudgetExhaustedAsync(
-                ownership,
-                agentInvocationId,
-                invocationAttemptCount,
-                profile.MaxProviderRequestAttempts,
-                cancellationToken))
-        {
-            return null;
-        }
-
         var startedAt = DateTimeOffset.UtcNow;
         var started = new ModelProviderAttemptProvenance(
             profile.AdapterKind,
@@ -912,17 +898,46 @@ public sealed class DurableInvocationWorkProcessor(
             phase,
             providerRequestId,
             ModelProviderRequestFacts.Started);
-        if (provenanceWriter is not null)
+        if (provenanceWriter is null)
         {
-            await provenanceWriter.WriteAsync(
-                ownership,
-                agentInvocationId,
-                invocationAttemptOrdinal,
-                started,
-                cancellationToken);
+            if (invocationAttemptCount >= profile.MaxProviderRequestAttempts)
+            {
+                return ProviderReservation.BudgetExhausted;
+            }
+
+            return new ProviderReservation(started, LostClaimAuthority: false);
         }
 
-        return started;
+        var result = await provenanceWriter.TryReserveStartedAsync(
+            claimed,
+            agentInvocationId,
+            invocationAttemptOrdinal,
+            profile.MaxProviderRequestAttempts,
+            started,
+            settings.EffectiveClaimLease,
+            cancellationToken);
+        if (result.RenewedClaimLeaseUntil is not null)
+        {
+            claimed.ClaimLeaseUntil = result.RenewedClaimLeaseUntil;
+        }
+
+        if (result.LostClaimAuthority)
+        {
+            return ProviderReservation.LostClaim;
+        }
+
+        return result.Reserved
+            ? new ProviderReservation(started, LostClaimAuthority: false)
+            : ProviderReservation.BudgetExhausted;
+    }
+
+    private readonly record struct ProviderReservation(
+        ModelProviderAttemptProvenance? Started,
+        bool LostClaimAuthority)
+    {
+        public static ProviderReservation LostClaim { get; } = new(null, true);
+
+        public static ProviderReservation BudgetExhausted { get; } = new(null, false);
     }
 
     private async Task WriteProviderRequestFinishedAsync(

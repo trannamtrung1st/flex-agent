@@ -387,6 +387,57 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     }
 
     [Fact]
+    public async Task Expired_claim_cannot_reserve_a_provider_request_after_reclaim()
+    {
+        var prepared = await PrepareAdmittedWorkAsync("trig.crash.stale.reserve", "idem.crash.stale.reserve");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
+        var loadGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var executeGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var adapter = new HoldExecutePort(EnqueueNoAction(prepared.InvocationId, "adec.crash.stale.res01"))
+        {
+            Continue = executeGate,
+        };
+        var writer = new PostgresModelProviderAttemptProvenanceWriter(Fixture.Services.ConnectionAccessor);
+        var store = new PostgresDurableInvocationWorkStore(
+            Fixture.Services.ConnectionAccessor,
+            SessionPersistenceFixtures.Actor(prepared.Organization.ActorId));
+        var stalledGateway = new FaultInjectingSessionGateway(CreateGateway(prepared))
+        {
+            DelayLoad = loadGate.Task,
+        };
+        var staleProcessor = CreateProcessor(store, stalledGateway, adapter, prepared, provenanceWriter: writer);
+        var currentProcessor = CreateProcessor(
+            store,
+            CreateGateway(prepared),
+            adapter,
+            prepared,
+            provenanceWriter: writer);
+
+        var staleTask = staleProcessor.TryProcessNextAsync(CancellationToken);
+        await WaitUntilAsync(
+            async () => await ReadWorkStateAsync(prepared.Binding.Ownership) == DurableSessionWorkStates.Claimed,
+            "stale worker did not claim");
+        await ExpireLeaseAsync(prepared.Binding.Ownership);
+
+        var currentTask = currentProcessor.TryProcessNextAsync(CancellationToken);
+        await WaitUntilAsync(() => Task.FromResult(adapter.ExecuteCount == 1), "current worker did not reach the provider");
+        Assert.Equal(1, await CountStartedProviderRequestsAsync(prepared.Binding.Ownership, prepared.InvocationId));
+
+        loadGate.SetResult();
+        var stale = await staleTask;
+
+        Assert.Equal(DurableInvocationWorkOutcomes.RetryLater, stale.Outcome);
+        Assert.Equal(1, adapter.ExecuteCount);
+        Assert.Equal(1, await CountStartedProviderRequestsAsync(prepared.Binding.Ownership, prepared.InvocationId));
+
+        executeGate.SetResult();
+        var current = await currentTask;
+        Assert.Equal(DurableInvocationWorkOutcomes.Decided, current.Outcome);
+        Assert.Equal(1, adapter.ExecuteCount);
+        Assert.Equal(1, await CountStartedProviderRequestsAsync(prepared.Binding.Ownership, prepared.InvocationId));
+    }
+
+    [Fact]
     public async Task Concurrent_workers_complete_two_independent_sessions()
     {
         var first = await PrepareAdmittedWorkAsync("trig.crash.w1", "idem.crash.w1");
@@ -427,14 +478,16 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
         IInvocationWorkSessionGateway gateway,
         IModelExecutionPort adapter,
         PreparedWork prepared,
-        IAgentResponsePublicationPersistPort? publicationPersist = null) =>
+        IAgentResponsePublicationPersistPort? publicationPersist = null,
+        IModelProviderAttemptProvenanceWriter? provenanceWriter = null) =>
         new(
             store,
             gateway,
             adapter,
             new CompleteInvocationHandler(),
             CreateWorkerSettings(prepared.Organization.ActorId, prepared.Binding.Ownership.OrganizationId),
-            publicationPersist ?? CreatePublicationPersist());
+            publicationPersist ?? CreatePublicationPersist(),
+            provenanceWriter: provenanceWriter);
 
     private PostgresPublishAgentResponseCoordinator CreatePublicationPersist() =>
         new(
@@ -581,6 +634,43 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
                 Claimed = DurableSessionWorkStates.Claimed,
             });
         Assert.Equal(1, updated);
+    }
+
+    private async Task<int> CountStartedProviderRequestsAsync(SessionOwnership ownership, string invocationId)
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        return await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM session_invocation_provider_attempts
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+              AND agent_invocation_id = @InvocationId
+              AND fact_kind = @FactKind;
+            """,
+            new
+            {
+                ownership.OrganizationId,
+                ownership.SessionId,
+                InvocationId = invocationId,
+                FactKind = ModelProviderRequestFacts.Started,
+            });
+    }
+
+    private async Task WaitUntilAsync(Func<Task<bool>> condition, string failureMessage)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (await condition())
+            {
+                return;
+            }
+
+            await Task.Delay(20, CancellationToken);
+        }
+
+        Assert.Fail(failureMessage);
     }
 
     private async Task<string> ReadWorkStateAsync(SessionOwnership ownership, string? businessKey = null)
@@ -761,7 +851,9 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
 
         public int FailNextSave { get; set; }
 
-        public Task<LoadedInvocationWorkSession?> LoadAsync(
+        public Task? DelayLoad { get; set; }
+
+        public async Task<LoadedInvocationWorkSession?> LoadAsync(
             SessionOwnership ownership,
             CancellationToken cancellationToken)
         {
@@ -771,7 +863,14 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
                 throw new InvalidOperationException("Injected crash after claim.");
             }
 
-            return inner.LoadAsync(ownership, cancellationToken);
+            if (DelayLoad is not null)
+            {
+                var delay = DelayLoad;
+                DelayLoad = null;
+                await delay.WaitAsync(cancellationToken);
+            }
+
+            return await inner.LoadAsync(ownership, cancellationToken);
         }
 
         public Task<DateTimeOffset> ReadAuthoritativeUtcAsync(CancellationToken cancellationToken) =>
@@ -934,6 +1033,27 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
 
             return persisted;
         }
+    }
+
+    private sealed class HoldExecutePort(IModelExecutionPort inner) : IModelExecutionPort
+    {
+        public int ExecuteCount { get; private set; }
+
+        public required TaskCompletionSource Continue { get; init; }
+
+        public async Task<ModelExecutionAttemptResult> ExecuteAsync(
+            ModelExecutionAttemptRequest request,
+            CancellationToken cancellationToken)
+        {
+            ExecuteCount++;
+            await Continue.Task.WaitAsync(cancellationToken);
+            return await inner.ExecuteAsync(request, cancellationToken);
+        }
+
+        public IAsyncEnumerable<ModelContentEvent> StreamParticipantVisibleContentAsync(
+            ModelContentStreamRequest request,
+            CancellationToken cancellationToken) =>
+            inner.StreamParticipantVisibleContentAsync(request, cancellationToken);
     }
 
     private sealed class CountingModelExecutionPort(IModelExecutionPort inner) : IModelExecutionPort
