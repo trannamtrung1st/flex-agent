@@ -10,6 +10,7 @@ public static class ModelDeploymentAdapterKinds
 {
     public const string DirectOpenAi = "direct_openai";
     public const string DeterministicFake = "deterministic_fake";
+    public const string OpenRouter = "openrouter";
 }
 
 public static class ModelProviderRequestPhases
@@ -62,7 +63,8 @@ public sealed record InstalledModelDeploymentProfile(
     TimeSpan ControlTimeout,
     TimeSpan ContentTimeout,
     int MaxProviderRequestAttempts,
-    string ProviderId)
+    string ProviderId,
+    string? AdapterConfigurationDigest = null)
 {
     public static InstalledModelDeploymentProfile Create(
         string profileId,
@@ -78,7 +80,8 @@ public sealed record InstalledModelDeploymentProfile(
         TimeSpan controlTimeout,
         TimeSpan contentTimeout,
         int maxProviderRequestAttempts,
-        string providerId)
+        string providerId,
+        string? adapterConfigurationDigest = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(profileId);
         ArgumentException.ThrowIfNullOrWhiteSpace(profileVersion);
@@ -91,6 +94,23 @@ public sealed record InstalledModelDeploymentProfile(
         ArgumentException.ThrowIfNullOrWhiteSpace(credentialMode);
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
         var canonicalOrigin = global::FlexAgent.Sessions.Domain.ApprovedHttpsOrigin.Canonicalize(approvedHttpsOrigin);
+        var normalizedAdapterDigest = NormalizeAdapterConfigurationDigest(adapterConfigurationDigest);
+        if (string.Equals(adapterKind, ModelDeploymentAdapterKinds.OpenRouter, StringComparison.Ordinal))
+        {
+            if (normalizedAdapterDigest is null)
+            {
+                throw new ArgumentException(
+                    "OpenRouter installed profiles require an adapter-configuration digest.",
+                    nameof(adapterConfigurationDigest));
+            }
+
+            if (IsOpenRouterDiscoveryIdentity(requestedModel) || IsOpenRouterDiscoveryIdentity(resolvedModelVersion))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(requestedModel),
+                    "OpenRouter repeatable Sessions require one concrete :free model, not a discovery alias.");
+            }
+        }
 
         var digestSource = string.Join(
             "\n",
@@ -108,6 +128,11 @@ public sealed record InstalledModelDeploymentProfile(
             ((int)contentTimeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture),
             maxProviderRequestAttempts.ToString(System.Globalization.CultureInfo.InvariantCulture),
             providerId);
+        if (normalizedAdapterDigest is not null)
+        {
+            digestSource += "\n" + normalizedAdapterDigest;
+        }
+
         var digest = ProtectedContentRef.DigestUtf8(digestSource);
         return new InstalledModelDeploymentProfile(
             profileId,
@@ -124,8 +149,32 @@ public sealed record InstalledModelDeploymentProfile(
             controlTimeout,
             contentTimeout,
             maxProviderRequestAttempts,
-            providerId);
+            providerId,
+            normalizedAdapterDigest);
     }
+
+    private static string? NormalizeAdapterConfigurationDigest(string? adapterConfigurationDigest)
+    {
+        if (string.IsNullOrWhiteSpace(adapterConfigurationDigest))
+        {
+            return null;
+        }
+
+        if (adapterConfigurationDigest.Length != 64
+            || adapterConfigurationDigest.Any(ch => ch is < '0' or > '9' and (< 'a' or > 'f')))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(adapterConfigurationDigest),
+                "Adapter-configuration digest must be a lowercase SHA-256 hex string.");
+        }
+
+        return adapterConfigurationDigest;
+    }
+
+    private static bool IsOpenRouterDiscoveryIdentity(string model) =>
+        string.Equals(model, "openrouter/free", StringComparison.Ordinal)
+        || string.Equals(model, "openrouter/auto", StringComparison.Ordinal)
+        || !model.EndsWith(":free", StringComparison.Ordinal);
 }
 
 public sealed record ModelDeploymentCredentialCatalogRecord(

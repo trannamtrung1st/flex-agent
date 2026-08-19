@@ -2,6 +2,15 @@
   "version": 2,
   "dependencies": {
     "net10.0": {
+      "JsonSchema.Net": {
+        "type": "Direct",
+        "requested": "[9.4.0, )",
+        "resolved": "9.4.0",
+        "contentHash": "muE4nPuzbD9x5XA1mkXJNqX4mhz47oF3EY8qFLY1pyUY7lhXFKq65t/dSKIHeNSLBV17zwZuq24MD1em90rMNg==",
+        "dependencies": {
+          "JsonPointer.Net": "7.0.2"
+        }
+      },
       "xunit.v3.mtp-v2": {
         "type": "Direct",
         "requested": "[3.2.2, )",
@@ -178,20 +187,25 @@
           "FlexAgent.Sessions": "[1.0.0, )"
         }
       },
+      "flexagent.sessions.openrouter": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.Sessions": "[1.0.0, )"
+        }
+      },
+      "flexagent.sessions.tests": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.Sessions": "[1.0.0, )",
+          "FlexAgent.Sessions.Infrastructure": "[1.0.0, )",
+          "xunit.v3.mtp-v2": "[3.2.2, )"
+        }
+      },
       "Dapper": {
         "type": "CentralTransitive",
         "requested": "[2.1.79, )",
         "resolved": "2.1.79",
         "contentHash": "8YijbzgTfmqmQOnVNorYM6K++pxqnW3nJ4aC1sRHzxUA2CcuoJ9gsTem3kgBnPRMc38zZHl4Esb6hAezXIEEuw=="
-      },
-      "JsonSchema.Net": {
-        "type": "CentralTransitive",
-        "requested": "[9.4.0, )",
-        "resolved": "9.4.0",
-        "contentHash": "muE4nPuzbD9x5XA1mkXJNqX4mhz47oF3EY8qFLY1pyUY7lhXFKq65t/dSKIHeNSLBV17zwZuq24MD1em90rMNg==",
-        "dependencies": {
-          "JsonPointer.Net": "7.0.2"
-        }
       },
       "Npgsql": {
         "type": "CentralTransitive",

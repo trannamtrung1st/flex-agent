@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <RootNamespace>FlexAgent.Sessions.Tests</RootNamespace>
-    <AssemblyName>FlexAgent.Sessions.Tests</AssemblyName>
+    <RootNamespace>FlexAgent.Sessions.OpenRouter.Tests</RootNamespace>
+    <AssemblyName>FlexAgent.Sessions.OpenRouter.Tests</AssemblyName>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>
 
@@ -19,17 +19,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="JsonSchema.Net" />
     <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
     <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.Infrastructure\FlexAgent.Sessions.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.OpenRouter\FlexAgent.Sessions.OpenRouter.csproj" />
+    <ProjectReference Include="..\FlexAgent.Sessions.Tests\FlexAgent.Sessions.Tests.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <InternalsVisibleTo Include="FlexAgent.Sessions.OpenAi.Tests" />
-    <InternalsVisibleTo Include="FlexAgent.Sessions.OpenRouter.Tests" />
-  </ItemGroup>
-
 </Project>

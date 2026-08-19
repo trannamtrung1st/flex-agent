@@ -1,0 +1,19 @@
+[
+  {
+    "profileId": "openrouter.synthetic.example.do-not-enable",
+    "profileVersion": "1",
+    "adapterKind": "openrouter",
+    "adapterContractVersion": "sessions.openrouter.v1",
+    "approvedHttpsOrigin": "https://openrouter.ai/",
+    "requestedModel": "acme/example-instruct:free",
+    "resolvedModelVersion": "acme/example-instruct:free",
+    "capabilityProfileId": "p0.text.structured-control",
+    "credentialMode": "organization_byok",
+    "maxOutputTokens": 256,
+    "controlTimeoutMilliseconds": 30000,
+    "contentTimeoutMilliseconds": 60000,
+    "maxProviderRequestAttempts": 2,
+    "providerId": "openrouter.synthetic",
+    "adapterConfigurationDigest": "c51284e6f4974a027be4d063c1cbd142e44022359feafc7e8e92502bd2c38e9c"
+  }
+]

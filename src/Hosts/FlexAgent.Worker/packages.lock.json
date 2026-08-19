@@ -72,6 +72,12 @@
           "OpenAI": "[2.12.0, )"
         }
       },
+      "flexagent.sessions.openrouter": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.Sessions": "[1.0.0, )"
+        }
+      },
       "Dapper": {
         "type": "CentralTransitive",
         "requested": "[2.1.79, )",

@@ -1,4 +1,5 @@
 using FlexAgent.Sessions.OpenAi;
+using FlexAgent.Sessions.OpenRouter;
 using NetArchTest.Rules;
 using OpenAI;
 
@@ -25,6 +26,7 @@ public sealed class ProviderAdapterBoundaryTests
                  {
                      typeof(FlexAgent.Sessions.Domain.SessionOwnership).Assembly,
                      typeof(FlexAgent.Sessions.Infrastructure.PostgresTrustedSessionBindingSource).Assembly,
+                     typeof(OpenRouterModelExecutionAdapter).Assembly,
                      typeof(FlexAgent.Api.Program).Assembly,
                      typeof(FlexAgent.Worker.Program).Assembly,
                      typeof(FlexAgent.Contracts.Session.SessionLocatorV1).Assembly,
@@ -50,5 +52,37 @@ public sealed class ProviderAdapterBoundaryTests
     private sealed class OpenAiNegativeControl
     {
         public object Create() => new OpenAIClient("negative-control");
+    }
+
+    [Fact]
+    public void OpenRouter_adapter_does_not_reference_the_openai_sdk_or_direct_openai_adapter()
+    {
+        var assembly = typeof(OpenRouterModelExecutionAdapter).Assembly;
+        Assert.DoesNotContain(
+            assembly.GetReferencedAssemblies(),
+            referenced => string.Equals(referenced.Name, "OpenAI", StringComparison.Ordinal)
+                || string.Equals(referenced.Name, "FlexAgent.Sessions.OpenAi", StringComparison.Ordinal));
+
+        var openai = Types.InAssembly(assembly)
+            .ShouldNot()
+            .HaveDependencyOn("OpenAI")
+            .GetResult();
+        Assert.True(openai.IsSuccessful, string.Join(Environment.NewLine, openai.FailingTypeNames ?? []));
+
+        var direct = Types.InAssembly(assembly)
+            .ShouldNot()
+            .HaveDependencyOn("FlexAgent.Sessions.OpenAi")
+            .GetResult();
+        Assert.True(direct.IsSuccessful, string.Join(Environment.NewLine, direct.FailingTypeNames ?? []));
+    }
+
+    [Fact]
+    public void Direct_openai_adapter_does_not_reference_openrouter()
+    {
+        var result = Types.InAssembly(typeof(DirectOpenAiModelExecutionAdapter).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("FlexAgent.Sessions.OpenRouter")
+            .GetResult();
+        Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));
     }
 }

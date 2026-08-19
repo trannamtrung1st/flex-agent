@@ -21,6 +21,7 @@
     <InternalsVisibleTo Include="FlexAgent.Sessions.Infrastructure" />
     <InternalsVisibleTo Include="FlexAgent.Sessions.Tests" />
     <InternalsVisibleTo Include="FlexAgent.Sessions.OpenAi.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Sessions.OpenRouter.Tests" />
     <InternalsVisibleTo Include="FlexAgent.Postgres.Integration.Tests" />
   </ItemGroup>
 

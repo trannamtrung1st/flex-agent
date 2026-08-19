@@ -221,11 +221,12 @@ owner decision.
 
 ## Implementation status
 
-Approved design; implementation not started. The current code contains the
-Direct OpenAI adapter and deterministic/fake-provider evidence but no distinct
-OpenRouter adapter, path-aware profile, routing-policy mapping, or live
-synthetic qualification harness. See the separately tracked OpenRouter
-implementation task under `.work/active/`.
+Approved design. Deterministic adapter, profile, Worker opt-in, fake-transport,
+and architecture evidence exist behind `sessions.openrouter.v1`. Live OpenRouter
+network qualification and hosted Participant Text Session chat remain gated:
+live runs require owner privacy/spend preflight, and the Participant UI still
+uses the synthetic browser adapter. Passing fake-transport evidence does not
+enable production or participant-data use.
 
 ## References
 

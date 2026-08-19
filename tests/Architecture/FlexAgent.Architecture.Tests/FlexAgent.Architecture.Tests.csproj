@@ -30,6 +30,7 @@
     <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
     <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.Infrastructure\FlexAgent.Sessions.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.OpenAi\FlexAgent.Sessions.OpenAi.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.OpenRouter\FlexAgent.Sessions.OpenRouter.csproj" />
     <ProjectReference Include="..\..\..\src\Infrastructure\FlexAgent.Postgres\FlexAgent.Postgres.csproj" />
   </ItemGroup>
 

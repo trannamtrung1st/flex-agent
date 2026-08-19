@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FlexAgent.Sessions.OpenRouter</RootNamespace>
+    <AssemblyName>FlexAgent.Sessions.OpenRouter</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="agent-decision.v2.openrouter.schema.json"
+                      LogicalName="FlexAgent.Sessions.OpenRouter.agent-decision.v2.openrouter.schema.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="FlexAgent.Sessions.OpenRouter.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Architecture.Tests" />
+  </ItemGroup>
+</Project>

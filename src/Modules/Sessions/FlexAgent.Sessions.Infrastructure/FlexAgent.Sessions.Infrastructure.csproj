@@ -13,6 +13,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="FlexAgent.Postgres.Integration.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Sessions.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Sessions.OpenRouter.Tests" />
   </ItemGroup>
 
 </Project>

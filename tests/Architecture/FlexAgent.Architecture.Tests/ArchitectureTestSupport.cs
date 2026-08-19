@@ -23,6 +23,7 @@ internal static class ArchitectureTestSupport
         "FlexAgent.Worker",
         "FlexAgent.Contracts",
         "FlexAgent.SyntheticBrowser",
+        "FlexAgent.Sessions.OpenRouter",
         "OpenTelemetry",
     ];
 

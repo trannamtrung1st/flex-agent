@@ -4,6 +4,7 @@ using FlexAgent.Api;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
+using FlexAgent.Sessions.OpenRouter;
 using FlexAgent.Worker;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -314,6 +315,98 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         var capabilities = factory.Services.GetRequiredService<WorkerRuntimeCapabilities>();
         Assert.Equal("direct_openai", capabilities.ModelExecutionAdapter);
         Assert.False(capabilities.ModelExecutionQualified);
+    }
+
+    [Fact]
+    public void Worker_keeps_fail_closed_execution_when_openrouter_is_requested_without_preflight()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+            builder.UseSetting("Sessions:ModelExecution:Adapter", "openrouter");
+            builder.UseSetting("Sessions:ModelExecution:Qualified", "true");
+            builder.UseSetting("Sessions:ModelExecution:QualificationScope", "synthetic_development");
+        });
+
+        Assert.IsType<FailClosedModelExecutionPort>(
+            factory.Services.GetRequiredService<IModelExecutionPort>());
+        var capabilities = factory.Services.GetRequiredService<WorkerRuntimeCapabilities>();
+        Assert.Equal("openrouter", capabilities.ModelExecutionAdapter);
+        Assert.False(capabilities.ModelExecutionQualified);
+        Assert.Equal("synthetic_development", capabilities.ModelExecutionQualificationScope);
+        Assert.DoesNotContain("sk-", capabilities.ModelExecutionAdapter, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Worker_keeps_openrouter_fail_closed_in_production_even_when_files_exist()
+    {
+        using var artifacts = OpenRouterWorkerArtifacts.Create();
+        var oauthSecrets = Directory.CreateTempSubdirectory("flexagent-openrouter-oauth-");
+        File.WriteAllText(Path.Combine(oauthSecrets.FullName, "client-secret"), "unused-secret");
+        try
+        {
+            using var factory = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Production");
+                builder.UseSetting(
+                    "ConnectionStrings:Sessions",
+                    "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+                builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+                builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+                builder.UseSetting("Sessions:ModelExecution:Adapter", "openrouter");
+                builder.UseSetting("Sessions:ModelExecution:Qualified", "true");
+                builder.UseSetting("Sessions:ModelExecution:QualificationScope", "synthetic_development");
+                builder.UseSetting("Sessions:ModelExecution:PrivacyPreflightConfirmed", "true");
+                builder.UseSetting("Sessions:ModelExecution:InstalledProfilesPath", artifacts.ProfilesPath);
+                builder.UseSetting("Sessions:ModelExecution:CredentialCatalogPath", artifacts.CatalogPath);
+                builder.UseSetting("Sessions:ModelExecution:OpenRouterConfigurationsPath", artifacts.ConfigurationsPath);
+                builder.UseSetting("Sessions:ModelExecution:SecretDirectory", artifacts.SecretDirectory);
+                ApplyOauthWorkloadIdentity(builder, oauthSecrets.FullName);
+            });
+
+            Assert.IsType<FailClosedModelExecutionPort>(
+                factory.Services.GetRequiredService<IModelExecutionPort>());
+            Assert.False(factory.Services.GetRequiredService<WorkerRuntimeCapabilities>().ModelExecutionQualified);
+        }
+        finally
+        {
+            oauthSecrets.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Worker_composes_openrouter_only_when_synthetic_gates_pass()
+    {
+        using var artifacts = OpenRouterWorkerArtifacts.Create();
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+            builder.UseSetting("Sessions:ModelExecution:Adapter", "openrouter");
+            builder.UseSetting("Sessions:ModelExecution:Qualified", "true");
+            builder.UseSetting("Sessions:ModelExecution:QualificationScope", "synthetic_development");
+            builder.UseSetting("Sessions:ModelExecution:PrivacyPreflightConfirmed", "true");
+            builder.UseSetting("Sessions:ModelExecution:InstalledProfilesPath", artifacts.ProfilesPath);
+            builder.UseSetting("Sessions:ModelExecution:CredentialCatalogPath", artifacts.CatalogPath);
+            builder.UseSetting("Sessions:ModelExecution:OpenRouterConfigurationsPath", artifacts.ConfigurationsPath);
+            builder.UseSetting("Sessions:ModelExecution:SecretDirectory", artifacts.SecretDirectory);
+        });
+
+        Assert.IsType<OpenRouterModelExecutionAdapter>(
+            factory.Services.GetRequiredService<IModelExecutionPort>());
+        var capabilities = factory.Services.GetRequiredService<WorkerRuntimeCapabilities>();
+        Assert.Equal("openrouter", capabilities.ModelExecutionAdapter);
+        Assert.True(capabilities.ModelExecutionQualified);
+        Assert.Equal("synthetic_development", capabilities.ModelExecutionQualificationScope);
     }
 
     [Fact]
@@ -712,6 +805,112 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
 
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/live", cancellationToken)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/ready", cancellationToken)).StatusCode);
+    }
+
+    private sealed class OpenRouterWorkerArtifacts : IDisposable
+    {
+        private OpenRouterWorkerArtifacts(
+            string root,
+            string profilesPath,
+            string catalogPath,
+            string configurationsPath,
+            string secretDirectory)
+        {
+            Root = root;
+            ProfilesPath = profilesPath;
+            CatalogPath = catalogPath;
+            ConfigurationsPath = configurationsPath;
+            SecretDirectory = secretDirectory;
+        }
+
+        public string Root { get; }
+        public string ProfilesPath { get; }
+        public string CatalogPath { get; }
+        public string ConfigurationsPath { get; }
+        public string SecretDirectory { get; }
+
+        public static OpenRouterWorkerArtifacts Create()
+        {
+            var root = Directory.CreateTempSubdirectory("flex-agent-or-worker-").FullName;
+            var configuration = OpenRouterInstalledConfiguration.Create(
+                "openrouter.synthetic.example",
+                "1",
+                "meta-llama/llama-3.1-8b-instruct:free",
+                "meta-llama/llama-3.1-8b-instruct:free",
+                "Together",
+                "Together",
+                ModelDeploymentCredentialModes.OrganizationByok,
+                "openrouter.synthetic");
+            var profile = configuration.Profile;
+            var profilesPath = Path.Combine(root, "profiles.json");
+            var catalogPath = Path.Combine(root, "catalog.json");
+            var configurationsPath = Path.Combine(root, "openrouter.json");
+            var secretDirectory = Path.Combine(root, "secrets");
+            Directory.CreateDirectory(secretDirectory);
+            File.WriteAllText(profilesPath, $$"""
+                [
+                  {
+                    "profileId": "{{profile.ProfileId}}",
+                    "profileVersion": "{{profile.ProfileVersion}}",
+                    "adapterKind": "{{profile.AdapterKind}}",
+                    "adapterContractVersion": "{{profile.AdapterContractVersion}}",
+                    "approvedHttpsOrigin": "https://openrouter.ai/",
+                    "requestedModel": "{{profile.RequestedModel}}",
+                    "resolvedModelVersion": "{{profile.ResolvedModelVersion}}",
+                    "capabilityProfileId": "{{profile.CapabilityProfileId}}",
+                    "credentialMode": "{{profile.CredentialMode}}",
+                    "maxOutputTokens": {{profile.MaxOutputTokens}},
+                    "controlTimeoutMilliseconds": {{(int)profile.ControlTimeout.TotalMilliseconds}},
+                    "contentTimeoutMilliseconds": {{(int)profile.ContentTimeout.TotalMilliseconds}},
+                    "maxProviderRequestAttempts": {{profile.MaxProviderRequestAttempts}},
+                    "providerId": "{{profile.ProviderId}}",
+                    "adapterConfigurationDigest": "{{profile.AdapterConfigurationDigest}}"
+                  }
+                ]
+                """);
+            File.WriteAllText(catalogPath, """
+                [
+                  {
+                    "bindingReference": "bind.opaque.0001",
+                    "bindingVersion": "bind.v1",
+                    "ownerOrganizationId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                    "providerId": "openrouter.synthetic",
+                    "credentialMode": "organization_byok",
+                    "revoked": false,
+                    "secretName": "openrouter-api-key"
+                  }
+                ]
+                """);
+            File.WriteAllText(configurationsPath, $$"""
+                [
+                  {
+                    "profileId": "{{profile.ProfileId}}",
+                    "profileVersion": "{{profile.ProfileVersion}}",
+                    "profileDigest": "{{profile.ProfileDigest}}",
+                    "adapterConfigurationDigest": "{{profile.AdapterConfigurationDigest}}",
+                    "providerSlug": "Together",
+                    "expectedReturnedProviderIdentity": "Together"
+                  }
+                ]
+                """);
+            var keyPath = Path.Combine(secretDirectory, "openrouter-api-key");
+            File.WriteAllText(keyPath, "sk-or-canary-not-for-live");
+            if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsFreeBSD())
+            {
+                File.SetUnixFileMode(secretDirectory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+                File.SetUnixFileMode(keyPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
+
+            return new OpenRouterWorkerArtifacts(root, profilesPath, catalogPath, configurationsPath, secretDirectory);
+        }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(Root))
+            {
+                Directory.Delete(Root, recursive: true);
+            }
+        }
     }
 
     private static void ApplyOauthWorkloadIdentity(IWebHostBuilder builder, string secretDirectory)

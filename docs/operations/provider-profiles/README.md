@@ -13,10 +13,12 @@ model-provider profiles. It does not select a product-default model.
   blocker until that profile, mounted credential, and data-policy determination
   are supplied.
 - The approved [OpenRouter synthetic-development profile](openrouter-synthetic-development.md)
-  permits real OpenRouter calls and natural local chat with synthetic,
-  non-sensitive content. `openrouter/free` is discovery/smoke only; repeatable
-  Session testing pins one concrete `:free` model and one permitted provider
-  slug. This evidence does not qualify production or close Direct OpenAI Phase B.
+  has a distinct `sessions.openrouter.v1` adapter and Worker synthetic-development
+  opt-in. Fake-transport evidence exists; live OpenRouter qualification and hosted
+  Participant chat remain gated. `openrouter/free` is discovery/smoke only;
+  repeatable Session testing pins one concrete `:free` model and one permitted
+  provider slug. This evidence does not qualify production or close Direct OpenAI
+  Phase B.
 - Do not commit API keys, prompts, participant data, or raw provider payloads
   here.
 
@@ -27,6 +29,7 @@ repository, replace placeholders, and point Worker
 Set `Sessions:ModelExecution:Qualified=true` only after the exact profile has
 passed the Direct OpenAI subset of `GATE-STACK-PROVIDERS`.
 
-The OpenRouter profile is approved but not implemented. Do not point the
-current Direct OpenAI adapter at OpenRouter: the adapters have different kinds,
-base-path, routing, privacy, identity, and evidence contracts.
+Do not point the Direct OpenAI adapter at OpenRouter: the adapters have different
+kinds, base-path, routing, privacy, identity, and evidence contracts. OpenRouter
+operator examples are `openrouter-synthetic.profile.example.json` and
+`openrouter-synthetic.configuration.example.json`; they are not enablement.

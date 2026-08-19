@@ -23,6 +23,7 @@
   <ItemGroup>
         <ProjectReference Include="..\..\..\src\Hosts\FlexAgent.Api\FlexAgent.Api.csproj" />
         <ProjectReference Include="..\..\..\src\Hosts\FlexAgent.Worker\FlexAgent.Worker.csproj" />
+        <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.OpenRouter\FlexAgent.Sessions.OpenRouter.csproj" />
         <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
         <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.Infrastructure\FlexAgent.Sessions.Infrastructure.csproj" />
         <ProjectReference Include="..\..\..\src\Modules\IdentityAccess\FlexAgent.IdentityAccess\FlexAgent.IdentityAccess.csproj" />

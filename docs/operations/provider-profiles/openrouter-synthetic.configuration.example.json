@@ -1,0 +1,10 @@
+[
+  {
+    "profileId": "openrouter.synthetic.example.do-not-enable",
+    "profileVersion": "1",
+    "profileDigest": "9e97e833fcd6d47937439befce6b6419f92084d77a7a4af2c4982aff05d1d5e3",
+    "adapterConfigurationDigest": "c51284e6f4974a027be4d063c1cbd142e44022359feafc7e8e92502bd2c38e9c",
+    "providerSlug": "Together",
+    "expectedReturnedProviderIdentity": "Together"
+  }
+]

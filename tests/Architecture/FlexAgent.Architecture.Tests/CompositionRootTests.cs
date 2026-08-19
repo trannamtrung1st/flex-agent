@@ -30,7 +30,7 @@ public sealed class CompositionRootTests
     {
         var result = Types.InAssembly(typeof(FlexAgent.Api.Program).Assembly)
             .ShouldNot()
-            .HaveDependencyOnAny("OpenAI", "AWSSDK")
+            .HaveDependencyOnAny("OpenAI", "AWSSDK", "FlexAgent.Sessions.OpenRouter")
             .GetResult();
 
         Assert.True(result.IsSuccessful, string.Join(Environment.NewLine, result.FailingTypeNames ?? []));

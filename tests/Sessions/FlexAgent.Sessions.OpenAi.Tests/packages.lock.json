@@ -217,11 +217,32 @@
       "flexagent.canonicaljson": {
         "type": "Project"
       },
+      "flexagent.identityaccess": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.Postgres": "[1.0.0, )"
+        }
+      },
+      "flexagent.postgres": {
+        "type": "Project",
+        "dependencies": {
+          "Dapper": "[2.1.79, )",
+          "Npgsql": "[10.0.3, )"
+        }
+      },
       "flexagent.sessions": {
         "type": "Project",
         "dependencies": {
           "FlexAgent.CanonicalJson": "[1.0.0, )",
           "JsonSchema.Net": "[9.4.0, )"
+        }
+      },
+      "flexagent.sessions.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.IdentityAccess": "[1.0.0, )",
+          "FlexAgent.Postgres": "[1.0.0, )",
+          "FlexAgent.Sessions": "[1.0.0, )"
         }
       },
       "flexagent.sessions.openai": {
@@ -235,8 +256,15 @@
         "type": "Project",
         "dependencies": {
           "FlexAgent.Sessions": "[1.0.0, )",
+          "FlexAgent.Sessions.Infrastructure": "[1.0.0, )",
           "xunit.v3.mtp-v2": "[3.2.2, )"
         }
+      },
+      "Dapper": {
+        "type": "CentralTransitive",
+        "requested": "[2.1.79, )",
+        "resolved": "2.1.79",
+        "contentHash": "8YijbzgTfmqmQOnVNorYM6K++pxqnW3nJ4aC1sRHzxUA2CcuoJ9gsTem3kgBnPRMc38zZHl4Esb6hAezXIEEuw=="
       },
       "JsonSchema.Net": {
         "type": "CentralTransitive",
@@ -245,6 +273,15 @@
         "contentHash": "muE4nPuzbD9x5XA1mkXJNqX4mhz47oF3EY8qFLY1pyUY7lhXFKq65t/dSKIHeNSLBV17zwZuq24MD1em90rMNg==",
         "dependencies": {
           "JsonPointer.Net": "7.0.2"
+        }
+      },
+      "Npgsql": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.3, )",
+        "resolved": "10.0.3",
+        "contentHash": "7nb5YzXuvWWJxB0J8DiyL3we+X4FOctZrt0fIBnucOIaIevFEEwGQVZKtiu9olXdlNAK1eNgqSral6r/jlhI4w==",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.0"
         }
       },
       "OpenAI": {
