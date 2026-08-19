@@ -51,6 +51,11 @@ public interface IModelProviderAttemptProvenanceWriter
         int invocationAttemptOrdinal,
         ModelProviderAttemptProvenance provenance,
         CancellationToken cancellationToken);
+
+    Task<int> CountAsync(
+        SessionOwnership ownership,
+        string agentInvocationId,
+        CancellationToken cancellationToken);
 }
 
 public sealed class MountedFileProviderSecretSource : IProviderCredentialSecretSource

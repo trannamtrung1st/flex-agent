@@ -26,6 +26,7 @@ public static class ProviderContentNormalizer
         {
             ModelContentMetadata => new NormalizedContentSkipped(),
             ModelContentCompleted => new NormalizedContentCompleted(),
+            ModelContentFailed failed => new NormalizedContentFailed(failed.ReasonCategory),
             ModelContentTextDelta delta when string.IsNullOrEmpty(delta.ExactUtf8Text) =>
                 new NormalizedContentSkipped(),
             ModelContentTextDelta delta => new NormalizedContentDelta(delta.ExactUtf8Text),

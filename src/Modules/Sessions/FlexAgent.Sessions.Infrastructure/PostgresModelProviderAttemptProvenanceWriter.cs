@@ -76,6 +76,32 @@ public sealed class PostgresModelProviderAttemptProvenanceWriter(PostgresConnect
                 cancellationToken: cancellationToken));
     }
 
+    public async Task<int> CountAsync(
+        SessionOwnership ownership,
+        string agentInvocationId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ownership);
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentInvocationId);
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<int>(
+            new CommandDefinition(
+                """
+                SELECT COUNT(*)
+                FROM session_invocation_provider_attempts
+                WHERE organization_id = @OrganizationId
+                  AND session_id = @SessionId
+                  AND agent_invocation_id = @AgentInvocationId;
+                """,
+                new
+                {
+                    ownership.OrganizationId,
+                    ownership.SessionId,
+                    AgentInvocationId = agentInvocationId,
+                },
+                cancellationToken: cancellationToken));
+    }
+
     private static int ProviderRequestOrdinal(int invocationAttemptOrdinal, string? phase)
     {
         var attempt = Math.Max(1, invocationAttemptOrdinal);

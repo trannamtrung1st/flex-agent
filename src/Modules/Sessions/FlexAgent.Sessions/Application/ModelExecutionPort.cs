@@ -70,6 +70,11 @@ public sealed record ModelContentCompleted : ModelContentEvent
     public ModelProviderAttemptProvenance? Provenance { get; init; }
 }
 
+public sealed record ModelContentFailed(string ReasonCategory) : ModelContentEvent
+{
+    public ModelProviderAttemptProvenance? Provenance { get; init; }
+}
+
 /// <summary>
 /// Starts a content stream for an invocation/generation attempt. The request
 /// does not carry a provider cursor, committed ordinal, or byte position.

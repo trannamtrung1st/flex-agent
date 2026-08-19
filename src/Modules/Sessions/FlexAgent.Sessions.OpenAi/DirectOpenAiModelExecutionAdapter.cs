@@ -79,7 +79,7 @@ public sealed class DirectOpenAiModelExecutionAdapter(
                     ModelProviderRequestPhases.Control),
             };
         }
-        catch (Exception) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return Fail(ExecutionAttemptOutcomeCategories.Cancelled, startedAt, request, resolved.Value.Profile, null);
         }
@@ -130,24 +130,44 @@ public sealed class DirectOpenAiModelExecutionAdapter(
         while (true)
         {
             bool moved;
+            string? failureReason = null;
             try
             {
                 moved = await enumerator.MoveNextAsync();
             }
-            catch (Exception) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                yield break;
+                failureReason = ExecutionAttemptOutcomeCategories.Cancelled;
+                moved = false;
             }
             catch (TaskCanceledException)
             {
-                yield break;
+                failureReason = ExecutionFailureReasons.ProviderTimeout;
+                moved = false;
             }
             catch (ClientResultException)
             {
-                yield break;
+                failureReason = ExecutionFailureReasons.ProviderUnavailable;
+                moved = false;
             }
             catch (HttpRequestException)
             {
+                failureReason = ExecutionFailureReasons.ProviderUnavailable;
+                moved = false;
+            }
+
+            if (failureReason is not null)
+            {
+                yield return ContentFailure(
+                    resolved.Value.Profile,
+                    failureReason,
+                    request.ProviderAttemptId,
+                    startedAt);
+                if (string.Equals(failureReason, ExecutionAttemptOutcomeCategories.Cancelled, StringComparison.Ordinal))
+                {
+                    throw new OperationCanceledException(cancellationToken);
+                }
+
                 yield break;
             }
 
@@ -155,6 +175,11 @@ public sealed class DirectOpenAiModelExecutionAdapter(
             {
                 if (!observedResolvedModel)
                 {
+                    yield return ContentFailure(
+                        resolved.Value.Profile,
+                        ExecutionFailureReasons.ProviderUnavailable,
+                        request.ProviderAttemptId,
+                        startedAt);
                     yield break;
                 }
 
@@ -178,6 +203,11 @@ public sealed class DirectOpenAiModelExecutionAdapter(
             {
                 if (!ModelIdentityMatches(resolved.Value.Profile.ResolvedModelVersion, enumerator.Current.Model))
                 {
+                    yield return ContentFailure(
+                        resolved.Value.Profile,
+                        ExecutionFailureReasons.ProviderUnavailable,
+                        request.ProviderAttemptId,
+                        startedAt);
                     yield break;
                 }
 
@@ -341,6 +371,25 @@ public sealed class DirectOpenAiModelExecutionAdapter(
             completedAt,
             phase,
             providerAttemptId);
+
+    private static ModelContentFailed ContentFailure(
+        InstalledModelDeploymentProfile profile,
+        string reason,
+        string? providerAttemptId,
+        DateTimeOffset startedAt) =>
+        new(reason)
+        {
+            Provenance = CreateProvenance(
+                profile,
+                reason,
+                null,
+                null,
+                providerAttemptId,
+                startedAt,
+                DateTimeOffset.UtcNow,
+                profile.ResolvedModelVersion,
+                ModelProviderRequestPhases.Content),
+        };
 
     private static bool ModelIdentityMatches(string frozenResolvedModel, string providerModel) =>
         string.Equals(providerModel, frozenResolvedModel, StringComparison.Ordinal);

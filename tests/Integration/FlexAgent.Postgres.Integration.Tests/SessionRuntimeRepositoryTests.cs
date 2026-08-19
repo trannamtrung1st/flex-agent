@@ -419,6 +419,59 @@ public sealed class SessionRuntimeRepositoryTests(PostgresIntegrationFixture fix
     }
 
     [Fact]
+    public async Task Accepted_participant_message_text_survives_reload_into_provider_safe_context()
+    {
+        var organization = await Fixture.SeedOrganizationAsync();
+        var binding = SessionPersistenceFixtures.CreateBinding(organization.OrganizationId, cooldownSeconds: 0);
+        var actor = SessionPersistenceFixtures.Actor(organization.ActorId);
+        var repository = new PostgresSessionRuntimeRepository();
+        var acceptCoordinator = new PostgresAcceptParticipantMessageCoordinator(
+            Fixture.Services.ConnectionAccessor,
+            repository,
+            new AcceptParticipantMessageHandler());
+        var session = SessionRuntime.CreateActive(binding, new DateTimeOffset(2026, 8, 13, 0, 0, 0, TimeSpan.Zero));
+        const string participantText = "Explain dependency injection";
+
+        await using (var scope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken))
+        {
+            await repository.InsertActiveAsync(binding.Ownership, session, actor, scope.Transaction, CancellationToken);
+            await scope.CommitAsync(CancellationToken);
+        }
+
+        var admitted = await acceptCoordinator.AcceptAsync(
+            new AcceptParticipantMessageCommand(
+                actor,
+                binding.Ownership,
+                ExpectedSessionVersion: 0,
+                "msg.p.text",
+                "turn.text",
+                "slot.text",
+                "trig.p.text",
+                "idem.p.text",
+                Guid.NewGuid(),
+                "integration.test",
+                participantText),
+            binding,
+            CancellationToken);
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+
+        await using var loadScope = await PostgresTransactionScope.BeginAsync(Fixture.Services.ConnectionAccessor, CancellationToken);
+        var loaded = await repository.LoadForUpdateAsync(
+            binding.Ownership,
+            binding,
+            loadScope.Transaction,
+            CancellationToken);
+        await loadScope.CommitAsync(CancellationToken);
+
+        Assert.NotNull(loaded);
+        var payload = ProviderSafeInvocationContextSerializer.Serialize(
+            admitted.Invocation!.AgentInvocationId,
+            InvocationContextAssembler.Assemble(loaded!));
+        Assert.Contains(participantText, payload, StringComparison.Ordinal);
+        Assert.Equal(participantText, Assert.Single(loaded.VisibleTranscript).ExactUtf8Text);
+    }
+
+    [Fact]
     public async Task Decision_and_execution_outcome_remain_mutually_exclusive_after_persist()
     {
         var organization = await Fixture.SeedOrganizationAsync();

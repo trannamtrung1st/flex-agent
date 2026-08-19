@@ -36,6 +36,29 @@ public sealed class ProviderSafeInvocationContextSerializerTests
         Assert.DoesNotContain("sk-", payload, StringComparison.Ordinal);
         Assert.DoesNotContain("credential", payload, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Accept_participant_message_puts_exact_text_on_assembled_invocation_context()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var participantText = "Explain dependency injection";
+        var admitted = session.AcceptParticipantMessage(
+            "msg.p.text",
+            "turn.text",
+            "slot.text",
+            "trig.p.text",
+            "idem.p.text",
+            SessionRuntimeTestFixtures.T0,
+            exactUtf8Text: participantText);
+
+        Assert.True(admitted.Succeeded, admitted.OutcomeCode);
+        var payload = ProviderSafeInvocationContextSerializer.Serialize(
+            admitted.Invocation!.AgentInvocationId,
+            InvocationContextAssembler.Assemble(session));
+
+        Assert.Contains(participantText, payload, StringComparison.Ordinal);
+        Assert.DoesNotContain(session.Ownership.OrganizationId.ToString(), payload, StringComparison.Ordinal);
+    }
 }
 
 public sealed class ApprovedHttpsOriginTests

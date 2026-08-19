@@ -22,5 +22,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
     <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.OpenAi\FlexAgent.Sessions.OpenAi.csproj" />
+    <ProjectReference Include="..\FlexAgent.Sessions.Tests\FlexAgent.Sessions.Tests.csproj" />
   </ItemGroup>
 </Project>

@@ -92,7 +92,9 @@ public sealed class DirectOpenAiAdapterContractTests
 
         Assert.Equal("Hel", Assert.IsType<ModelContentTextDelta>(events[0]).ExactUtf8Text);
         Assert.Equal("lo", Assert.IsType<ModelContentTextDelta>(events[1]).ExactUtf8Text);
-        Assert.IsType<ModelContentCompleted>(events[^1]);
+        var completed = Assert.IsType<ModelContentCompleted>(events[^1]);
+        Assert.NotNull(completed.Provenance);
+        Assert.Equal(ModelProviderRequestPhases.Content, completed.Provenance.Phase);
     }
 
     [Fact]
@@ -164,7 +166,11 @@ public sealed class DirectOpenAiAdapterContractTests
             events.Add(item);
         }
 
-        Assert.Empty(events);
+        Assert.Single(events);
+        var failed = Assert.IsType<ModelContentFailed>(events[0]);
+        Assert.Equal(ExecutionFailureReasons.ProviderUnavailable, failed.ReasonCategory);
+        Assert.NotNull(failed.Provenance);
+        Assert.Equal(ModelProviderRequestPhases.Content, failed.Provenance.Phase);
     }
 
     [Fact]

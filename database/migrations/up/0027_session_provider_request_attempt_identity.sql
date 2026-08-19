@@ -1,10 +1,15 @@
 -- Distinguish Invocation attempt ordinal from each external provider request.
 -- Do not rewrite frozen 0001-0026.
+-- Temporarily disable the table's append-only UPDATE trigger so this
+-- migration-owned backfill can populate new columns on existing 0026 rows.
 
 ALTER TABLE session_invocation_provider_attempts
     ADD COLUMN provider_request_id TEXT,
     ADD COLUMN phase TEXT,
     ADD COLUMN provider_request_ordinal INT;
+
+ALTER TABLE session_invocation_provider_attempts
+    DISABLE TRIGGER trg_session_invocation_provider_attempts_no_update;
 
 UPDATE session_invocation_provider_attempts
 SET
@@ -12,6 +17,9 @@ SET
     phase = 'control',
     provider_request_ordinal = attempt_ordinal
 WHERE provider_request_id IS NULL;
+
+ALTER TABLE session_invocation_provider_attempts
+    ENABLE TRIGGER trg_session_invocation_provider_attempts_no_update;
 
 ALTER TABLE session_invocation_provider_attempts
     ALTER COLUMN provider_request_id SET NOT NULL,

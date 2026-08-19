@@ -333,6 +333,10 @@ pilot.
       cancel provider work when lease renewal throws; give each external request
       its own provenance identity and phase; canonicalize origin-only endpoints
       into the profile digest; enforce adapter contract version.
+- [x] Close remaining Phase A blockers from `dc727f2` review: persist participant
+      exact text through accept; make `0027` safe for populated `0026` rows;
+      treat claim-authority cancellation as retry through the Direct OpenAI
+      adapter; record failed provider requests and enforce the request budget.
 - [ ] Reconcile actual changes against governing specs, update truthful
       implementation-status and operator guidance, run independent backend,
       architecture, and security/privacy review, resolve blocking findings, and
@@ -340,12 +344,9 @@ pilot.
 
 # Current state
 
-Independent review of `bee700e` found Phase A incomplete. Remediating the six
-blocking/completeness findings without redesigning the adapter boundary:
-provider-safe InvocationContext serialization, frozen ResolvedModelVersion
-execution and match, fail-closed lease-renewal exceptions, per-request
-provenance identity/phase (`0027`), origin-only canonical endpoints, and
-adapter contract-version enforcement.
+Implemented the `dc727f2` review blockers. Phase B live qualification and
+independent re-review remain open. Next: owner-selected Direct OpenAI profile
+or another review pass.
 
 # Delivery phases
 
@@ -463,11 +464,20 @@ Interim defaults are working guidance only and do not approve a deployment.
   invocation attempts rather than provider requests, origin digest omitted
   path, and adapter contract version was not enforced. This remediation slice
   addresses those findings in place.
-- Accepted participant-message bodies are still identity/digest-only on
-  `SessionRuntime` (`AcceptParticipantMessage` does not persist exact text).
-  Provider-safe serialization includes `ExactUtf8Text` when the assembler has
-  it (Agent fragments, and tests). Live participant words remain a downstream
-  transcript-content gap, not an adapter-message-format gap.
+- Accepted participant-message bodies now flow through
+  `AcceptParticipantMessageCommand.ExactUtf8Text`, domain transcript items,
+  `0028` persistence, assembler, and provider-safe serialization. Integration
+  reload proves the real command path, not a hand-built context.
+- `0027` now disables the append-only UPDATE trigger only for the migration
+  backfill, then re-enables it. A populated-`0026` upgrade test covers existing
+  provider-attempt rows. Changing this already-shipped one-time script will
+  fail Grate checksums on databases that applied the previous `0027` text;
+  empty upgrades that never had rows are the expected local/CI case.
+- Claim-authority cancellation is treated as `RetryLater` even when the adapter
+  returns `Cancelled`. Direct OpenAI fake-transport plus heartbeat-throw covers
+  the live adapter path. Content failures now emit `ModelContentFailed` with
+  provenance. `MaxProviderRequestAttempts` is compared to durable provider
+  request count when the writer is present.
 
 # Verification
 

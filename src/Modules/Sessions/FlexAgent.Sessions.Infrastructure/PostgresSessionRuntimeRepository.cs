@@ -92,7 +92,7 @@ public sealed class PostgresSessionRuntimeRepository
         """;
 
     private const string LoadTranscriptSql = """
-        SELECT message_id, author_type, turn_id, protected_ref, content_digest
+        SELECT message_id, author_type, turn_id, protected_ref, content_digest, exact_utf8_text
         FROM session_visible_transcript_items
         WHERE organization_id = @OrganizationId
           AND activity_id = @ActivityId
@@ -460,10 +460,10 @@ public sealed class PostgresSessionRuntimeRepository
     private const string InsertTranscriptSql = """
         INSERT INTO session_visible_transcript_items (
             organization_id, activity_id, participant_id, attempt_id, session_id,
-            message_id, author_type, turn_id, protected_ref, content_digest)
+            message_id, author_type, turn_id, protected_ref, content_digest, exact_utf8_text)
         VALUES (
             @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
-            @MessageId, @AuthorType, @TurnId, @ProtectedRef, @ContentDigest)
+            @MessageId, @AuthorType, @TurnId, @ProtectedRef, @ContentDigest, @ExactUtf8Text)
         ON CONFLICT (organization_id, session_id, message_id) DO NOTHING;
         """;
 
@@ -1025,7 +1025,8 @@ public sealed class PostgresSessionRuntimeRepository
                 item.message_id,
                 item.author_type,
                 item.turn_id,
-                new ProtectedContentRef(item.protected_ref, item.content_digest)))
+                new ProtectedContentRef(item.protected_ref, item.content_digest),
+                item.exact_utf8_text))
             .ToArray();
 
         var lastAdmittedAtByFamily = invocationRows
@@ -1628,6 +1629,7 @@ public sealed class PostgresSessionRuntimeRepository
                         item.TurnId,
                         item.ContentRef.ProtectedRef,
                         item.ContentRef.ContentDigest,
+                        item.ExactUtf8Text,
                     },
                     transaction,
                     cancellationToken: cancellationToken));
@@ -2421,7 +2423,8 @@ public sealed class PostgresSessionRuntimeRepository
         string author_type,
         string? turn_id,
         string protected_ref,
-        string content_digest);
+        string content_digest,
+        string? exact_utf8_text);
 
     private sealed record SessionAgentMessageRow(
         string message_id,

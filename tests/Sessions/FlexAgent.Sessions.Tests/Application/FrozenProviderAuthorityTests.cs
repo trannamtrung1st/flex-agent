@@ -316,6 +316,41 @@ public sealed class FrozenProviderAuthorityProcessorTests
         Assert.True(store.RenewCount >= 1);
     }
 
+    [Fact]
+    public async Task Lease_renewal_exception_retries_when_the_adapter_returns_cancelled()
+    {
+        var session = SessionRuntimeTestFixtures.CreateActiveSession();
+        var admitted = session.AdmitTrustedTrigger(
+            SessionRuntimeTestFixtures.OpeningTrigger(),
+            "idem.opening.lease.swallow",
+            SessionRuntimeTestFixtures.T0);
+        var invocationId = admitted.Invocation!.AgentInvocationId;
+        var adapter = new SwallowingCancellationControlPort();
+        var store = new RestartStore(session.Ownership, invocationId) { ThrowOnRenew = true };
+        var processor = new DurableInvocationWorkProcessor(
+            store,
+            new MemoryGateway(session),
+            adapter,
+            new CompleteInvocationHandler(),
+            new DurableInvocationWorkSettings(
+                SessionRuntimeTestFixtures.CreateActor(),
+                "worker.session_runtime",
+                65_536,
+                InstalledProfiles: new InMemoryInstalledModelDeploymentProfileRegistry(
+                    SessionRuntimeTestFixtures.CreateInstalledProfile()),
+                CredentialCatalog: new InMemoryModelDeploymentCredentialCatalog(
+                    SessionRuntimeTestFixtures.CreateCatalogRecord(session.Ownership.OrganizationId)),
+                ClaimLease: TimeSpan.FromSeconds(30),
+                ClaimLeaseRenewalPeriod: TimeSpan.FromMilliseconds(20)),
+            PassThroughAgentResponsePublicationPersistPort.Succeed);
+
+        var result = await processor.TryProcessNextAsync(CancellationToken.None);
+
+        Assert.Equal(DurableInvocationWorkOutcomes.RetryLater, result.Outcome);
+        Assert.True(store.RenewCount >= 1);
+        Assert.False(session.Invocations[0].IsTerminal);
+    }
+
     private static DurableInvocationWorkProcessor CreateProcessor(
         IModelExecutionPort adapter,
         SessionRuntime session,
@@ -368,6 +403,27 @@ public sealed class FrozenProviderAuthorityProcessorTests
 
             return Inner.StreamParticipantVisibleContentAsync(request, cancellationToken);
         }
+    }
+
+    private sealed class SwallowingCancellationControlPort : IModelExecutionPort
+    {
+        public async Task<ModelExecutionAttemptResult> ExecuteAsync(
+            ModelExecutionAttemptRequest request,
+            CancellationToken cancellationToken)
+        {
+            var delayUntil = DateTime.UtcNow.AddMilliseconds(400);
+            while (DateTime.UtcNow < delayUntil && !cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(10, CancellationToken.None);
+            }
+
+            return new ModelExecutionFailed(ExecutionAttemptOutcomeCategories.Cancelled);
+        }
+
+        public IAsyncEnumerable<ModelContentEvent> StreamParticipantVisibleContentAsync(
+            ModelContentStreamRequest request,
+            CancellationToken cancellationToken) =>
+            AsyncEnumerable.Empty<ModelContentEvent>();
     }
 
     private sealed class BlockingControlPort : IModelExecutionPort

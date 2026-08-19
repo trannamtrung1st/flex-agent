@@ -93,6 +93,23 @@ public sealed class SessionRuntimeSchemaTests(PostgresIntegrationFixture fixture
     }
 
     [Fact]
+    public async Task Visible_transcript_items_store_exact_utf8_text()
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var columns = (await connection.QueryAsync<string>(
+            new CommandDefinition(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'session_visible_transcript_items';
+                """,
+                cancellationToken: CancellationToken))).AsList();
+
+        Assert.Contains("exact_utf8_text", columns);
+    }
+
+    [Fact]
     public async Task Timer_schedules_store_contract_lane_state_and_remaining_delay()
     {
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);

@@ -231,6 +231,13 @@
           "OpenAI": "[2.12.0, )"
         }
       },
+      "flexagent.sessions.tests": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.Sessions": "[1.0.0, )",
+          "xunit.v3.mtp-v2": "[3.2.2, )"
+        }
+      },
       "JsonSchema.Net": {
         "type": "CentralTransitive",
         "requested": "[9.4.0, )",

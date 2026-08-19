@@ -43,6 +43,7 @@ public sealed class MigrationUpgradeTests
     private const string Current0025ScriptName = "0025_service_principal_bindings_and_invocation_execute_delegation.sql";
     private const string Current0026ScriptName = "0026_session_frozen_model_deployment_and_provider_attempts.sql";
     private const string Current0027ScriptName = "0027_session_provider_request_attempt_identity.sql";
+    private const string Current0028ScriptName = "0028_session_visible_transcript_exact_text.sql";
 
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
@@ -92,7 +93,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -143,7 +145,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -192,7 +195,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -241,7 +245,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -290,7 +295,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -339,7 +345,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -388,7 +395,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -437,7 +445,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -551,7 +560,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -600,7 +610,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -649,7 +660,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -836,7 +848,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -890,7 +903,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -949,7 +963,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -1019,7 +1034,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -1109,7 +1125,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -1170,7 +1187,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
     }
 
     [Fact]
@@ -1599,7 +1617,8 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -1675,9 +1694,52 @@ public sealed class MigrationUpgradeTests
             Current0024ScriptName,
             Current0025ScriptName,
             Current0026ScriptName,
-            Current0027ScriptName);
+            Current0027ScriptName,
+            Current0028ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
+    }
+
+    [Fact]
+    public async Task Upgrade_from_populated_0026_backfills_provider_request_identity()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken,
+            inclusiveMaxScriptName: Current0026ScriptName);
+
+        var seeded = await SeedPopulated0026ProviderAttemptAsync(connectionString);
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            TestContext.Current.CancellationToken);
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var row = await connection.QuerySingleAsync<(string ProviderRequestId, string Phase, int ProviderRequestOrdinal)>(
+            """
+            SELECT provider_request_id, phase, provider_request_ordinal
+            FROM session_invocation_provider_attempts
+            WHERE organization_id = @OrganizationId
+              AND session_id = @SessionId
+              AND agent_invocation_id = @InvocationId;
+            """,
+            new
+            {
+                seeded.OrganizationId,
+                seeded.SessionId,
+                seeded.InvocationId,
+            });
+
+        Assert.Equal($"prat.migrated.{seeded.InvocationId}.1", row.ProviderRequestId);
+        Assert.Equal("control", row.Phase);
+        Assert.Equal(1, row.ProviderRequestOrdinal);
     }
 
     private static async Task AssertAppliedScriptsAsync(
@@ -1783,6 +1845,55 @@ public sealed class MigrationUpgradeTests
                 CreatedAt = createdAt,
             });
         return (delegationId, organizationId);
+    }
+
+    private static async Task<(Guid OrganizationId, Guid SessionId, string InvocationId)> SeedPopulated0026ProviderAttemptAsync(
+        string connectionString)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        var organizationId = Guid.NewGuid();
+        var activityId = Guid.NewGuid();
+        var participantId = Guid.NewGuid();
+        var attemptId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var invocationId = "ainv.populated0026";
+        var digest = new string('a', 64);
+        var startedAt = DateTimeOffset.UtcNow;
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO organizations (id, created_at) VALUES (@OrganizationId, @CreatedAt);
+            INSERT INTO session_runtimes (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                configuration_id, configuration_digest, manifest_id, lifecycle_state)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                'cfg-1', @Digest, 'man-1', 'active');
+            INSERT INTO session_invocation_provider_attempts (
+                organization_id, activity_id, participant_id, attempt_id, session_id,
+                agent_invocation_id, attempt_ordinal, adapter_kind, adapter_contract_version,
+                profile_id, profile_version, profile_digest, requested_model, resolved_model_version,
+                outcome_category, started_at, completed_at)
+            VALUES (
+                @OrganizationId, @ActivityId, @ParticipantId, @AttemptId, @SessionId,
+                @InvocationId, 1, 'direct_openai', 'sessions.openai.v1',
+                'direct-openai.unqualified.example', '1', @Digest, 'gpt-alias', 'gpt-pinned',
+                'decision_produced', @StartedAt, @StartedAt);
+            """,
+            new
+            {
+                OrganizationId = organizationId,
+                ActivityId = activityId,
+                ParticipantId = participantId,
+                AttemptId = attemptId,
+                SessionId = sessionId,
+                InvocationId = invocationId,
+                Digest = digest,
+                CreatedAt = startedAt,
+                StartedAt = startedAt,
+            });
+        return (organizationId, sessionId, invocationId);
     }
 
     private static async Task SeedPopulated0020RuntimeAsync(string connectionString)

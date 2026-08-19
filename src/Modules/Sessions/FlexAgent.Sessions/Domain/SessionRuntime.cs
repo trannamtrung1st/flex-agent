@@ -184,7 +184,8 @@ public sealed partial class SessionRuntime
         string triggerId,
         string idempotencyKey,
         DateTimeOffset authoritativeUtc,
-        long? expectedSessionVersion = null)
+        long? expectedSessionVersion = null,
+        string? exactUtf8Text = null)
     {
         var trigger = new TrustedTrigger(
             RuntimeTriggerIdentifiers.ParticipantInputFamily,
@@ -213,7 +214,8 @@ public sealed partial class SessionRuntime
                     identityKey,
                     existingByIdentity ?? existingByKey,
                     existingTurn,
-                    existingMessage))
+                    existingMessage,
+                    exactUtf8Text))
             {
                 return AdmitTrustedTrigger(trigger, idempotencyKey, authoritativeUtc);
             }
@@ -232,13 +234,17 @@ public sealed partial class SessionRuntime
         }
 
         _turns.Add(new Turn(turnId, TurnKinds.Participant, triggerId, new ResponseSlot(responseSlotId), NextAdmissionSequence()));
+        var trimmedText = string.IsNullOrWhiteSpace(exactUtf8Text) ? null : exactUtf8Text;
         var participantTranscript = new VisibleTranscriptItemRef(
             participantMessageId,
             TranscriptAuthorTypes.Participant,
             turnId,
             new ProtectedContentRef(
                 $"msg:{participantMessageId}",
-                ProtectedContentRef.DigestForReference($"msg:{participantMessageId}")));
+                trimmedText is null
+                    ? ProtectedContentRef.DigestForReference($"msg:{participantMessageId}")
+                    : ProtectedContentRef.DigestUtf8(trimmedText)),
+            trimmedText);
         _visibleTranscript.Add(participantTranscript);
 
         var result = AdmitTrustedTrigger(trigger, idempotencyKey, authoritativeUtc, expectedSessionVersion);
@@ -1648,7 +1654,8 @@ public sealed partial class SessionRuntime
         string identityKey,
         AgentInvocation? existingInvocation,
         Turn? existingTurn,
-        VisibleTranscriptItemRef? existingMessage) =>
+        VisibleTranscriptItemRef? existingMessage,
+        string? exactUtf8Text) =>
         existingInvocation is not null
         && existingTurn is not null
         && existingMessage is not null
@@ -1658,7 +1665,8 @@ public sealed partial class SessionRuntime
         && string.Equals(existingInvocation.Trigger.ResponseSlotId, responseSlotId, StringComparison.Ordinal)
         && string.Equals(existingTurn.ResponseSlot.ResponseSlotId, responseSlotId, StringComparison.Ordinal)
         && string.Equals(existingMessage.TurnId, turnId, StringComparison.Ordinal)
-        && string.Equals(existingMessage.MessageId, participantMessageId, StringComparison.Ordinal);
+        && string.Equals(existingMessage.MessageId, participantMessageId, StringComparison.Ordinal)
+        && string.Equals(existingMessage.ExactUtf8Text ?? string.Empty, exactUtf8Text ?? string.Empty, StringComparison.Ordinal);
 
     private bool HasCutoff() =>
         CutoffSequence is not null

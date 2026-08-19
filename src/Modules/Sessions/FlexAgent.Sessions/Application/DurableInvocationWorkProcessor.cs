@@ -230,7 +230,12 @@ public sealed class DurableInvocationWorkProcessor(
         else
         {
             var binding = frozenResolution.Binding!;
-            if (invocation.Attempts.Count >= frozenResolution.Profile!.MaxProviderRequestAttempts)
+            if (await ProviderRequestBudgetExhaustedAsync(
+                    claimed.Ownership,
+                    claimed.AgentInvocationId,
+                    invocation.Attempts.Count,
+                    frozenResolution.Profile!.MaxProviderRequestAttempts,
+                    cancellationToken))
             {
                 attemptResult = new ModelExecutionFailed(ExecutionOutcomeCategories.AttemptsExhausted);
             }
@@ -271,6 +276,21 @@ public sealed class DurableInvocationWorkProcessor(
                 }
                 catch (OperationCanceledException) when (controlHeartbeat.IsCancellationRequested)
                 {
+                    return RecordProcess(await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId));
+                }
+
+                if (controlHeartbeat.IsCancellationRequested)
+                {
+                    if (attemptResult.Provenance is not null && provenanceWriter is not null)
+                    {
+                        await provenanceWriter.WriteAsync(
+                            claimed.Ownership,
+                            claimed.AgentInvocationId,
+                            invocation.Attempts.Count + 1,
+                            attemptResult.Provenance,
+                            cancellationToken);
+                    }
+
                     return RecordProcess(await ReleaseForRetryAsync(claimed, claimed.AgentInvocationId));
                 }
 
@@ -423,6 +443,21 @@ public sealed class DurableInvocationWorkProcessor(
                     cancellationToken);
             }
 
+            if (await ProviderRequestBudgetExhaustedAsync(
+                    claimed.Ownership,
+                    invocation.AgentInvocationId,
+                    invocation.Attempts.Count,
+                    frozenResolution.Profile!.MaxProviderRequestAttempts,
+                    cancellationToken))
+            {
+                return await StopContentAsync(
+                    claimed,
+                    loaded,
+                    invocation.AgentInvocationId,
+                    DurableInvocationWorkOutcomes.PublicationFailed,
+                    cancellationToken);
+            }
+
             var context = InvocationContextAssembler.Assemble(session);
             var providerAttemptId = $"prat.{Guid.NewGuid():N}";
             using var streamHeartbeat = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -446,7 +481,7 @@ public sealed class DurableInvocationWorkProcessor(
                     frozenResolution.Binding.BindingVersion),
                 streamHeartbeat.Token))
             {
-                if (cancellationToken.IsCancellationRequested)
+                if (streamHeartbeat.IsCancellationRequested)
                 {
                     return await InterruptContentAsync(
                         claimed,
@@ -454,16 +489,32 @@ public sealed class DurableInvocationWorkProcessor(
                         invocation.AgentInvocationId);
                 }
 
-                if (contentEvent is ModelContentCompleted completed
-                    && completed.Provenance is not null
-                    && provenanceWriter is not null)
+                var provenance = contentEvent switch
+                {
+                    ModelContentCompleted completed => completed.Provenance,
+                    ModelContentFailed failed => failed.Provenance,
+                    _ => null,
+                };
+                if (provenance is not null && provenanceWriter is not null)
                 {
                     await provenanceWriter.WriteAsync(
                         claimed.Ownership,
                         invocation.AgentInvocationId,
                         Math.Max(1, invocation.Attempts.Count),
-                        completed.Provenance,
+                        provenance,
                         cancellationToken);
+                }
+
+                if (contentEvent is ModelContentFailed)
+                {
+                    return streamHeartbeat.IsCancellationRequested
+                        ? await InterruptContentAsync(claimed, loaded, invocation.AgentInvocationId)
+                        : await StopContentAsync(
+                            claimed,
+                            loaded,
+                            invocation.AgentInvocationId,
+                            DurableInvocationWorkOutcomes.PublicationIncomplete,
+                            cancellationToken);
                 }
 
                 var normalized = ProviderContentNormalizer.Normalize(contentEvent, assembled);
@@ -768,6 +819,22 @@ public sealed class DurableInvocationWorkProcessor(
         var message = session.AgentMessages.FirstOrDefault(item =>
             string.Equals(item.DrivingInvocationId, agentInvocationId, StringComparison.Ordinal));
         return message is null || message.Fragments.Count == 0;
+    }
+
+    private async Task<bool> ProviderRequestBudgetExhaustedAsync(
+        SessionOwnership ownership,
+        string agentInvocationId,
+        int invocationAttemptCount,
+        int maxProviderRequestAttempts,
+        CancellationToken cancellationToken)
+    {
+        if (provenanceWriter is null)
+        {
+            return invocationAttemptCount >= maxProviderRequestAttempts;
+        }
+
+        var used = await provenanceWriter.CountAsync(ownership, agentInvocationId, cancellationToken);
+        return used >= maxProviderRequestAttempts;
     }
 
     private async Task<DurableInvocationWorkProcessResult> InterruptContentAsync(
