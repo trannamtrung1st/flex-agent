@@ -10,16 +10,22 @@ sessions, protected-data lifecycle, and recovery placement.
 | **Status** | Approved |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
-| **Version** | 0.2 |
+| **Version** | 0.3 |
 | **Approved date** | 2026-08-06 |
+| **Last amended** | 2026-08-20 |
+| **Approval reference** | v0.3 authentication/session business decisions approved 2026-08-20; supersedes v0.2 |
 | **Applies to** | MVP reference deployment and any deployment that does not supply a stricter approved Organization policy |
 | **Governs** | Observable operational limits and lifecycle defaults; it does not select infrastructure products or make a compliance claim |
 
 These values resolve `Q-ARCH-10` through `Q-ARCH-13` from the initial MVP
-architecture review. Version 0.2 clarifies that external malware scanning is a
+architecture review. Version 0.2 clarified that external malware scanning is a
 policy-controlled validation step and is not mandatory for the initial
-text/Markdown-only categories. Organization policy may impose stricter limits
-or shorter retention where dependencies permit, but lower scopes may not widen
+text/Markdown-only categories. Version 0.3 approves pre-provisioned human
+identity mapping, one server-derived Organization per application session, and
+bounded upstream account-disablement and forced-logout propagation without
+making ordinary provider availability the authority for an existing session.
+Organization policy may impose stricter limits or shorter retention where
+dependencies permit, but lower scopes may not widen
 approved Organization bounds. A deployment-specific override must be explicit,
 versioned, authorized, auditable, and tested before protected data is accepted.
 
@@ -86,6 +92,22 @@ versioned, authorized, auditable, and tested before protected data is accepted.
 - `REQ-OPS-17`: The MVP reference deployment supports one configured OIDC issuer
   at a time while preserving the provider-neutral stable `(issuer, subject)`
   identity and adapter boundary needed for future multi-issuer support.
+- `REQ-OPS-27`: Successful OIDC authentication must resolve an exact,
+  pre-provisioned `(issuer, subject)` binding to an existing enabled Flex Agent
+  actor. An unknown, ambiguous, disabled, or rebound identity must fail closed
+  without creating an actor, Organization membership, grant, or permission.
+- `REQ-OPS-28`: Every Flex Agent application session must bind exactly one
+  currently authorized Organization context derived from trusted server
+  records. Login completion must fail safely when the actor has zero or
+  multiple eligible Organizations. The MVP must not accept a browser-selected
+  Organization; future multi-Organization support requires an approved,
+  authenticated context-selection or context-change flow.
+- `REQ-OPS-29`: Disabling the corresponding reference-provider account or
+  performing an authorized provider forced logout must terminate affected Flex
+  Agent application sessions within 60 seconds through a qualified trusted
+  propagation path. An ordinary provider outage must block new login or
+  reauthentication as applicable, but must neither revoke nor prolong an
+  otherwise-valid database-authoritative application session.
 
 ## Protected-data lifecycle defaults
 
@@ -153,10 +175,14 @@ versioned, authorized, auditable, and tested before protected data is accepted.
 - `AC-OPS-3`: Given a repository URL, archive, invalid UTF-8 file, or misleading
   filename, when intake processes it, then no external fetch, archive expansion,
   execution, or acceptance occurs.
-- `AC-OPS-4`: Given login, privilege change, expiry, revocation, and logout,
-  when protected requests and SSE connections are exercised, then cookie,
-  rotation, timing, and revocation behavior satisfies `REQ-OPS-9` through
-  `REQ-OPS-17` without exposing provider tokens to browser storage.
+- `AC-OPS-4`: Given known, unknown, disabled, zero-Organization, and
+  multi-Organization identities plus login, privilege change, expiry,
+  revocation, account disablement, provider forced logout, provider outage, and
+  local logout, when protected requests and SSE connections are exercised,
+  then identity resolution, Organization binding, cookie, rotation, timing,
+  and revocation behavior satisfies `REQ-OPS-9` through `REQ-OPS-17` and
+  `REQ-OPS-27` through `REQ-OPS-29` without exposing provider tokens to browser
+  storage or creating authorization from provider claims.
 - `AC-OPS-5`: Given records from every lifecycle row and an applicable hold,
   when the lifecycle worker runs across each boundary, then it disposes only
   eligible records, preserves dependency-safe lineage, and audits holds and

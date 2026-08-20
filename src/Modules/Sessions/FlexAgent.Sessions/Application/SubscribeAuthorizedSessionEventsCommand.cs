@@ -21,7 +21,10 @@ public sealed record SessionEventSubject(
     Guid? ParticipantId,
     string Relationship);
 
-public sealed record SessionEventSubscriptionAuthorization(bool IsPermitted);
+public sealed record SessionEventSubscriptionAuthorization(
+    bool IsPermitted,
+    string? Relationship = null,
+    Guid? OrganizationId = null);
 
 /// <summary>
 /// Current organization, participant, and relationship for an authenticated
@@ -104,8 +107,12 @@ public sealed class SubscribeAuthorizedSessionEventsHandler(
             return new SessionEventSubscriptionAuthorization(false);
         }
 
+        var permitted = await TryResolveParticipantBindingAsync(command, subject, cancellationToken)
+            .ConfigureAwait(false) is not null;
         return new SessionEventSubscriptionAuthorization(
-            await TryResolveParticipantBindingAsync(command, subject, cancellationToken).ConfigureAwait(false) is not null);
+            permitted,
+            permitted ? subject.Relationship : null,
+            permitted ? subject.OrganizationId : null);
     }
 
     public async Task<AuthorizedSessionEventReplayResult> ReplayAsync(

@@ -7,10 +7,11 @@
 | **Status** | Approved |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, UI/UX reviewer, Architecture Lead, Security/Privacy reviewer |
-| **Version** | 0.2 |
+| **Version** | 0.3 |
 | **Prepared date** | 2026-08-09 |
 | **Approved date** | 2026-08-09 |
-| **Approval reference** | Product decision confirmed after UI/UX, architecture, security/privacy, traceability, and repository consistency review |
+| **Last amended** | 2026-08-20 |
+| **Approval reference** | v0.3 confirms the fail-closed MVP behavior for zero or multiple eligible Organization contexts; supersedes v0.2 |
 | **Audience** | Product, design, engineering, security/privacy, QA, and implementation reviewers |
 | **Governs** | Platform-level Activity information architecture; end-to-end assessment Campaign journey for P0; capability-scoped navigation; cross-surface state handoffs; and shared interaction principles |
 
@@ -677,7 +678,7 @@ identifiers are retained for history.
 | `PROP-UX-3` | Use **Activities** as the durable platform label, **Campaign** as the managed multi-participant form, and **assessment Campaign** as the P0 use case. Use assessment/assignment wording for Participants where appropriate. | Approved | Keeps Flex Agent generic, preserves canonical concepts, and avoids a later navigation rename when non-Campaign Activity forms arrive. |
 | `PROP-UX-4` | Prioritize Home using the continuity, deadline-sensitive Participant work, assigned Review/Release, Campaign administration, P1 reusable-foundation draft, and recent-terminal bands defined by `IA-MVP-1`. | Approved | Makes the next safe action obvious, preserves live Session continuity, and derives urgency only from authorized server state. |
 | `PROP-UX-5` | Treat WCAG 2.2 AA as the MVP contractual accessibility target. | Approved | Gives interaction specifications, implementation, QA, and release readiness one measurable accessibility baseline. |
-| `PROP-UX-6` | Do not provide a general Organization switcher in the MVP shell; enter one currently authorized Organization context per application session and require an authenticated context change if multi-Organization membership is later enabled. | Approved | The approved MVP does not define multi-Organization navigation. This minimizes cross-tenant selection and stale-context risk while preserving a future explicit flow. |
+| `PROP-UX-6` | Do not provide a general Organization switcher in the MVP shell; enter exactly one server-derived, currently authorized Organization context per application session. If no eligible Organization exists or more than one exists, fail sign-in completion safely without offering a client-side selector. Multi-Organization membership requires a later approved authenticated context-selection or context-change flow. | Approved | The approved MVP does not define multi-Organization navigation. This minimizes cross-tenant selection, stale-context, and accidental cross-Organization disclosure risk while preserving a future explicit flow. |
 | `PROP-UX-7` | Show **Agents** and **Harnesses** as planned platform modules but keep their creation and general management journeys in P1. P0 assessment Campaign setup selects existing revisions only. | Approved | Preserves Agent/Harness reuse and the approved P0 boundary without presenting Flex Agent as assessment-only or exposing incomplete authoring controls. |
 | `PROP-UX-8` | Adopt the capability-scoped destinations in the navigation model: **Home**, **Activities**, **Agents**, **Harnesses**, **My work**, **Review work**, **Release work**, **Results**, and **Governance**, with tier availability shown explicitly. | Approved | Gives the generic platform a durable module structure while preventing P1 or deferred destinations from exposing unimplemented controls. |
 
@@ -686,7 +687,7 @@ identifiers are retained for history.
 | ID | Confirmed resolution | Consequence |
 | --- | --- | --- |
 | `Q-UX-1` | Use **Activities** for platform navigation; identify `Campaign` as form and `Assessment` as the P0 type/use case. | Navigation remains suitable for future non-Campaign Activity forms. |
-| `Q-UX-2` | Do not provide a general Organization switcher in P0. | Multi-Organization context change requires a later approved authentication and unsaved-work contract. |
+| `Q-UX-2` | Do not provide a general Organization switcher in P0; fail sign-in completion safely for zero or multiple eligible Organization contexts. | Multi-Organization selection or context change requires a later approved authentication, non-disclosing failure, and unsaved-work contract. |
 | `Q-UX-3` | Keep Review and Release as separate destinations and permission boundaries. | Approval and participant visibility remain visibly distinct. |
 | `Q-UX-4` | Participant Result views show only the frozen Result schema, authoritative Release time, correction status, and an Organization-configured support route when present. | The approved [Result and Release interaction specification](result-release.md) defines exact copy and empty/unavailable presentation without adding fields. |
 | `Q-UX-5` | Show assigned cases only; expose claim or reassignment only when the server returns a separately authorized bounded action. | Avoids a general case-search/staffing feature and reduces cross-Participant discovery risk. |

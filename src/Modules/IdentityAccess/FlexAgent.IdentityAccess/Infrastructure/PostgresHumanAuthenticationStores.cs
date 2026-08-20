@@ -1,0 +1,613 @@
+using Dapper;
+using FlexAgent.IdentityAccess.Application;
+using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.Postgres;
+using Npgsql;
+
+namespace FlexAgent.IdentityAccess.Infrastructure;
+
+public sealed class PostgresDatabaseClock(PostgresConnectionAccessor connectionAccessor) : IDatabaseClock
+{
+    public async Task<DateTimeOffset> GetUtcNowAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return await connection.ExecuteScalarAsync<DateTimeOffset>(
+            new CommandDefinition(
+                "SELECT clock_timestamp();",
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+}
+
+public sealed class PostgresHumanIdentityBindingStore(PostgresConnectionAccessor connectionAccessor)
+    : IHumanIdentityBindingStore
+{
+    public async Task<HumanIdentityBinding?> FindByIdentityAsync(
+        ExactIssuerSubject identity,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var row = await connection.QuerySingleOrDefaultAsync<BindingRow>(
+            new CommandDefinition(
+                """
+                SELECT binding_id, issuer, subject, actor_id, created_at, disabled_at
+                FROM human_identity_bindings
+                WHERE issuer = @Issuer AND subject = @Subject;
+                """,
+                new { identity.Issuer, identity.Subject },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return row is null ? null : row.ToBinding();
+    }
+
+    public async Task<IReadOnlyList<Guid>> ListEligibleOrganizationIdsAsync(
+        Guid actorId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var ids = await connection.QueryAsync<Guid>(
+            new CommandDefinition(
+                """
+                SELECT DISTINCT organization_id
+                FROM actor_organization_grants
+                WHERE actor_id = @ActorId
+                  AND revoked_at IS NULL;
+                """,
+                new { ActorId = actorId },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return ids.ToArray();
+    }
+
+    public async Task<(bool Exists, bool Disabled)> GetActorStateAsync(
+        Guid actorId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var disabledAt = await connection.ExecuteScalarAsync<DateTimeOffset?>(
+            new CommandDefinition(
+                """
+                SELECT disabled_at
+                FROM actors
+                WHERE id = @ActorId;
+                """,
+                new { ActorId = actorId },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var exists = await connection.ExecuteScalarAsync<int>(
+            new CommandDefinition(
+                "SELECT CASE WHEN EXISTS(SELECT 1 FROM actors WHERE id = @ActorId) THEN 1 ELSE 0 END;",
+                new { ActorId = actorId },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return (exists == 1, disabledAt is not null);
+    }
+
+    public async Task<string?> TryProvisionAsync(
+        HumanIdentityBinding binding,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(binding);
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        try
+        {
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO human_identity_bindings (
+                        binding_id, issuer, subject, actor_id, created_at, disabled_at)
+                    VALUES (
+                        @BindingId, @Issuer, @Subject, @ActorId, @CreatedAt, @DisabledAt);
+                    """,
+                    new
+                    {
+                        binding.BindingId,
+                        binding.Identity.Issuer,
+                        binding.Identity.Subject,
+                        binding.ActorId,
+                        binding.CreatedAt,
+                        binding.DisabledAt,
+                    },
+                    cancellationToken: cancellationToken)).ConfigureAwait(false);
+            return null;
+        }
+        catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            var existing = await FindByIdentityAsync(binding.Identity, cancellationToken).ConfigureAwait(false);
+            if (existing is not null && existing.ActorId != binding.ActorId)
+            {
+                return HumanAuthenticationReasonCodes.ReboundIdentity;
+            }
+
+            return HumanAuthenticationReasonCodes.UnknownSubject;
+        }
+    }
+
+    public async Task DisableByIdentityAsync(
+        ExactIssuerSubject identity,
+        DateTimeOffset disabledAt,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE human_identity_bindings
+                SET disabled_at = COALESCE(disabled_at, @DisabledAt)
+                WHERE issuer = @Issuer AND subject = @Subject;
+                """,
+                new { identity.Issuer, identity.Subject, DisabledAt = disabledAt },
+                transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE actors
+                SET disabled_at = COALESCE(disabled_at, @DisabledAt)
+                WHERE id = (
+                    SELECT actor_id
+                    FROM human_identity_bindings
+                    WHERE issuer = @Issuer AND subject = @Subject);
+                """,
+                new { identity.Issuer, identity.Subject, DisabledAt = disabledAt },
+                transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private sealed record BindingRow(
+        Guid BindingId,
+        string Issuer,
+        string Subject,
+        Guid ActorId,
+        DateTimeOffset CreatedAt,
+        DateTimeOffset? DisabledAt)
+    {
+        public HumanIdentityBinding ToBinding() =>
+            new(BindingId, new ExactIssuerSubject(Issuer, Subject), ActorId, CreatedAt, DisabledAt);
+    }
+}
+
+public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor connectionAccessor)
+    : IApplicationSessionStore
+{
+    public async Task InsertAsync(ApplicationSessionRecord session, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO application_sessions (
+                    application_session_id,
+                    actor_id,
+                    organization_id,
+                    issuer,
+                    subject,
+                    credential_digest,
+                    authentication_strength,
+                    provider_session_digest,
+                    created_at,
+                    last_seen_at,
+                    idle_expires_at,
+                    absolute_expires_at,
+                    revoked_at,
+                    rotated_at,
+                    predecessor_session_id,
+                    terminal_reason)
+                VALUES (
+                    @ApplicationSessionId,
+                    @ActorId,
+                    @OrganizationId,
+                    @Issuer,
+                    @Subject,
+                    @CredentialDigest,
+                    @AuthenticationStrength,
+                    @ProviderSessionDigest,
+                    @CreatedAt,
+                    @LastSeenAt,
+                    @IdleExpiresAt,
+                    @AbsoluteExpiresAt,
+                    @RevokedAt,
+                    @RotatedAt,
+                    @PredecessorSessionId,
+                    @TerminalReason);
+                """,
+                ToRow(session),
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    public async Task<ApplicationSessionRecord?> FindLiveByCredentialDigestAsync(
+        string credentialDigest,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var row = await connection.QuerySingleOrDefaultAsync<SessionRow>(
+            new CommandDefinition(
+                """
+                SELECT *
+                FROM application_sessions
+                WHERE credential_digest = @CredentialDigest
+                  AND revoked_at IS NULL
+                  AND rotated_at IS NULL;
+                """,
+                new { CredentialDigest = credentialDigest },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return row?.ToRecord();
+    }
+
+    public async Task<ApplicationSessionRecord?> GetByIdAsync(
+        Guid applicationSessionId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var row = await connection.QuerySingleOrDefaultAsync<SessionRow>(
+            new CommandDefinition(
+                """
+                SELECT *
+                FROM application_sessions
+                WHERE application_session_id = @ApplicationSessionId;
+                """,
+                new { ApplicationSessionId = applicationSessionId },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return row?.ToRecord();
+    }
+
+    public async Task TerminateLiveAsync(
+        Guid applicationSessionId,
+        DateTimeOffset terminatedAt,
+        string terminalReason,
+        bool rotated,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE application_sessions
+                SET credential_digest = NULL,
+                    rotated_at = CASE WHEN @Rotated THEN @TerminatedAt ELSE rotated_at END,
+                    revoked_at = CASE WHEN @Rotated THEN revoked_at ELSE @TerminatedAt END,
+                    terminal_reason = @TerminalReason
+                WHERE application_session_id = @ApplicationSessionId
+                  AND revoked_at IS NULL
+                  AND rotated_at IS NULL;
+                """,
+                new
+                {
+                    ApplicationSessionId = applicationSessionId,
+                    TerminatedAt = terminatedAt,
+                    TerminalReason = terminalReason,
+                    Rotated = rotated,
+                },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    public async Task TouchActivityAsync(
+        Guid applicationSessionId,
+        ApplicationSessionLifetime lifetime,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE application_sessions
+                SET last_seen_at = @LastSeenAt,
+                    idle_expires_at = @IdleExpiresAt
+                WHERE application_session_id = @ApplicationSessionId
+                  AND revoked_at IS NULL
+                  AND rotated_at IS NULL
+                  AND last_seen_at < @LastSeenAt;
+                """,
+                new
+                {
+                    ApplicationSessionId = applicationSessionId,
+                    lifetime.LastSeenAt,
+                    lifetime.IdleExpiresAt,
+                },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    public async Task<int> RevokeLiveByIdentityAsync(
+        ExactIssuerSubject identity,
+        DateTimeOffset revokedAt,
+        string terminalReason,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE application_sessions
+                SET credential_digest = NULL,
+                    revoked_at = @RevokedAt,
+                    terminal_reason = @TerminalReason
+                WHERE issuer = @Issuer
+                  AND subject = @Subject
+                  AND revoked_at IS NULL
+                  AND rotated_at IS NULL;
+                """,
+                new
+                {
+                    identity.Issuer,
+                    identity.Subject,
+                    RevokedAt = revokedAt,
+                    TerminalReason = terminalReason,
+                },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    public async Task<int> RevokeLiveByProviderSessionDigestAsync(
+        string providerSessionDigest,
+        DateTimeOffset revokedAt,
+        string terminalReason,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE application_sessions
+                SET credential_digest = NULL,
+                    revoked_at = @RevokedAt,
+                    terminal_reason = @TerminalReason
+                WHERE provider_session_digest = @ProviderSessionDigest
+                  AND revoked_at IS NULL
+                  AND rotated_at IS NULL;
+                """,
+                new
+                {
+                    ProviderSessionDigest = providerSessionDigest,
+                    RevokedAt = revokedAt,
+                    TerminalReason = terminalReason,
+                },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    private static object ToRow(ApplicationSessionRecord session) =>
+        new
+        {
+            session.ApplicationSessionId,
+            session.ActorId,
+            session.OrganizationId,
+            session.Identity.Issuer,
+            session.Identity.Subject,
+            session.CredentialDigest,
+            AuthenticationStrength = AuthenticationStrengthCodec.Encode(session.Strength),
+            session.ProviderSessionDigest,
+            session.Lifetime.CreatedAt,
+            session.Lifetime.LastSeenAt,
+            session.Lifetime.IdleExpiresAt,
+            session.Lifetime.AbsoluteExpiresAt,
+            session.RevokedAt,
+            session.RotatedAt,
+            session.PredecessorSessionId,
+            session.TerminalReason,
+        };
+
+    private sealed class SessionRow
+    {
+        public Guid ApplicationSessionId { get; init; }
+        public Guid ActorId { get; init; }
+        public Guid OrganizationId { get; init; }
+        public string Issuer { get; init; } = string.Empty;
+        public string Subject { get; init; } = string.Empty;
+        public string? CredentialDigest { get; init; }
+        public string AuthenticationStrength { get; init; } = string.Empty;
+        public string? ProviderSessionDigest { get; init; }
+        public DateTimeOffset CreatedAt { get; init; }
+        public DateTimeOffset LastSeenAt { get; init; }
+        public DateTimeOffset IdleExpiresAt { get; init; }
+        public DateTimeOffset AbsoluteExpiresAt { get; init; }
+        public DateTimeOffset? RevokedAt { get; init; }
+        public DateTimeOffset? RotatedAt { get; init; }
+        public Guid? PredecessorSessionId { get; init; }
+        public string? TerminalReason { get; init; }
+
+        public ApplicationSessionRecord ToRecord() =>
+            new(
+                ApplicationSessionId,
+                ActorId,
+                OrganizationId,
+                new ExactIssuerSubject(Issuer, Subject),
+                CredentialDigest,
+                AuthenticationStrengthCodec.Decode(AuthenticationStrength),
+                ProviderSessionDigest,
+                new ApplicationSessionLifetime(CreatedAt, LastSeenAt, IdleExpiresAt, AbsoluteExpiresAt),
+                RevokedAt,
+                RotatedAt,
+                PredecessorSessionId,
+                TerminalReason);
+    }
+}
+
+public sealed class PostgresOidcLoginTransactionStore(
+    PostgresConnectionAccessor connectionAccessor,
+    ISymmetricPayloadProtector protector) : IOidcLoginTransactionStore
+{
+    public async Task CreateAsync(OidcLoginTransaction transaction, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(transaction);
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO oidc_login_transactions (
+                    transaction_id,
+                    state_digest,
+                    nonce_ciphertext,
+                    code_verifier_ciphertext,
+                    return_path,
+                    created_at,
+                    expires_at,
+                    consumed_at,
+                    correlation_id)
+                VALUES (
+                    @TransactionId,
+                    @StateDigest,
+                    @NonceCiphertext,
+                    @CodeVerifierCiphertext,
+                    @ReturnPath,
+                    clock_timestamp(),
+                    @ExpiresAt,
+                    NULL,
+                    @CorrelationId);
+                """,
+                new
+                {
+                    transaction.TransactionId,
+                    transaction.StateDigest,
+                    NonceCiphertext = protector.Protect(transaction.Nonce),
+                    CodeVerifierCiphertext = protector.Protect(transaction.CodeVerifier),
+                    transaction.ReturnPath,
+                    transaction.ExpiresAt,
+                    transaction.CorrelationId,
+                },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    public async Task<OidcLoginTransaction?> ConsumeAsync(
+        string stateDigest,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var row = await connection.QuerySingleOrDefaultAsync<TransactionRow>(
+            new CommandDefinition(
+                """
+                UPDATE oidc_login_transactions
+                SET consumed_at = @Now
+                WHERE state_digest = @StateDigest
+                  AND consumed_at IS NULL
+                  AND expires_at > @Now
+                RETURNING transaction_id, state_digest, nonce_ciphertext, code_verifier_ciphertext,
+                          return_path, expires_at, correlation_id;
+                """,
+                new { StateDigest = stateDigest, Now = now },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (row is null)
+        {
+            return null;
+        }
+
+        return new OidcLoginTransaction(
+            row.TransactionId,
+            row.StateDigest,
+            protector.Unprotect(row.NonceCiphertext),
+            protector.Unprotect(row.CodeVerifierCiphertext),
+            row.ReturnPath,
+            row.ExpiresAt,
+            row.CorrelationId);
+    }
+
+    private sealed record TransactionRow(
+        Guid TransactionId,
+        string StateDigest,
+        byte[] NonceCiphertext,
+        byte[] CodeVerifierCiphertext,
+        string ReturnPath,
+        DateTimeOffset ExpiresAt,
+        Guid CorrelationId);
+}
+
+public sealed class PostgresAuthenticationSecurityEventWriter(PostgresConnectionAccessor connectionAccessor)
+    : IAuthenticationSecurityEventWriter
+{
+    public async Task WriteAsync(
+        AuthenticationSecurityEvent securityEvent,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(securityEvent);
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO authentication_security_events (
+                    event_id,
+                    occurred_at,
+                    event_type,
+                    outcome,
+                    reason_code,
+                    correlation_id,
+                    actor_id,
+                    organization_id,
+                    application_session_id)
+                VALUES (
+                    @EventId,
+                    @OccurredAt,
+                    @EventType,
+                    @Outcome,
+                    @ReasonCode,
+                    @CorrelationId,
+                    @ActorId,
+                    @OrganizationId,
+                    @ApplicationSessionId);
+                """,
+                securityEvent,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+}
+
+internal static class AuthenticationStrengthCodec
+{
+    public static string Encode(AuthenticationStrength strength)
+    {
+        ArgumentNullException.ThrowIfNull(strength);
+        var acr = strength.Acr ?? string.Empty;
+        var amr = string.Join(',', strength.Amr.Where(static value => !string.IsNullOrWhiteSpace(value)));
+        if (acr.Length + amr.Length > 256)
+        {
+            throw new InvalidOperationException("Authentication strength exceeded the bounded store size.");
+        }
+
+        return $"acr={acr};amr={amr}";
+    }
+
+    public static AuthenticationStrength Decode(string encoded)
+    {
+        if (string.IsNullOrWhiteSpace(encoded))
+        {
+            return AuthenticationStrength.Empty;
+        }
+
+        var acr = string.Empty;
+        var amr = Array.Empty<string>();
+        foreach (var part in encoded.Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pair = part.Split('=', 2);
+            if (pair.Length != 2)
+            {
+                continue;
+            }
+
+            if (pair[0] == "acr")
+            {
+                acr = pair[1];
+            }
+            else if (pair[0] == "amr")
+            {
+                amr = string.IsNullOrEmpty(pair[1])
+                    ? []
+                    : pair[1].Split(',', StringSplitOptions.RemoveEmptyEntries);
+            }
+        }
+
+        return new AuthenticationStrength(string.IsNullOrEmpty(acr) ? null : acr, amr);
+    }
+}

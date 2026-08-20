@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FlexAgent.Contracts.Transport;
+using FlexAgent.IdentityAccess.Application;
+using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using Microsoft.AspNetCore.Http.Features;
@@ -32,7 +34,7 @@ public static class SessionEventEndpointExtensions
         var options = context.RequestServices.GetRequiredService<SessionEventSubscriptionOptions>();
         var cancellationToken = context.RequestAborted;
 
-        var actor = await identity.TryAuthenticateAsync(context.Request, cancellationToken);
+        var actor = await identity.TryAuthenticateAsync(context.Request, cancellationToken, advanceActivity: true);
         if (actor is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -52,7 +54,9 @@ public static class SessionEventEndpointExtensions
             lastEventId);
 
         var authorization = await handler.AuthorizeAsync(command, cancellationToken);
-        if (!authorization.IsPermitted)
+        if (!authorization.IsPermitted
+            || !HasRequiredAuthenticationStrength(context, authorization.Relationship)
+            || !MatchesBoundOrganization(context, authorization.OrganizationId))
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             return;
@@ -118,9 +122,17 @@ public static class SessionEventEndpointExtensions
             now = DateTimeOffset.UtcNow;
             if (now >= nextRevalidateAt)
             {
+                var heldActor = await identity.TryAuthenticateAsync(
+                    context.Request,
+                    cancellationToken,
+                    advanceActivity: false);
                 var held = command with { UntrustedLastEventId = cursor };
-                var reauthorization = await handler.AuthorizeAsync(held, cancellationToken);
-                if (!reauthorization.IsPermitted)
+                var reauthorization = heldActor is null
+                    ? new SessionEventSubscriptionAuthorization(false)
+                    : await handler.AuthorizeAsync(held with { Actor = heldActor }, cancellationToken);
+                if (!reauthorization.IsPermitted
+                    || !HasRequiredAuthenticationStrength(context, reauthorization.Relationship)
+                    || !MatchesBoundOrganization(context, reauthorization.OrganizationId))
                 {
                     await context.Response.WriteAsync(": access-revoked\n\n", cancellationToken);
                     await context.Response.Body.FlushAsync(cancellationToken);
@@ -185,6 +197,38 @@ public static class SessionEventEndpointExtensions
         await context.Response.WriteAsync(comment, cancellationToken);
         await context.Response.Body.FlushAsync(cancellationToken);
         return false;
+    }
+
+    private static bool MatchesBoundOrganization(HttpContext context, Guid? organizationId)
+    {
+        if (context.Items[nameof(AuthenticatedApplicationSession)] is not AuthenticatedApplicationSession session)
+        {
+            return true;
+        }
+
+        return organizationId is not null && organizationId == session.OrganizationId;
+    }
+
+    private static bool HasRequiredAuthenticationStrength(HttpContext context, string? relationship)
+    {
+        var options = context.RequestServices.GetService<HumanAuthenticationHostOptions>();
+        if (options is null || !AuthenticationStrengthEvaluator.RequiresMfa(relationship, AuthorizationActions.SubscribeSessionEvents))
+        {
+            return true;
+        }
+
+        var session = context.Items[nameof(AuthenticatedApplicationSession)] as AuthenticatedApplicationSession;
+        if (session is null)
+        {
+            return true;
+        }
+
+        return AuthenticationStrengthEvaluator.Evaluate(
+            session.Strength,
+            relationship,
+            AuthorizationActions.SubscribeSessionEvents,
+            options.AcceptedAcr,
+            options.AcceptedAmr) is null;
     }
 
     private static bool IsDenied(string outcomeCode) =>

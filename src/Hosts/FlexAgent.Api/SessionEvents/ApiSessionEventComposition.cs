@@ -63,7 +63,8 @@ public interface ISessionEventIdentityAdapter
 {
     Task<TrustedRuntimeActor?> TryAuthenticateAsync(
         HttpRequest request,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool advanceActivity = true);
 }
 
 public sealed class DisabledSessionEventIdentityAdapter : ISessionEventIdentityAdapter
@@ -72,7 +73,8 @@ public sealed class DisabledSessionEventIdentityAdapter : ISessionEventIdentityA
 
     public Task<TrustedRuntimeActor?> TryAuthenticateAsync(
         HttpRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool advanceActivity = true)
     {
         ArgumentNullException.ThrowIfNull(request);
         return Task.FromResult<TrustedRuntimeActor?>(null);
@@ -84,7 +86,8 @@ public sealed class DevelopmentHarnessSessionEventIdentityAdapter(IConfiguration
 {
     public Task<TrustedRuntimeActor?> TryAuthenticateAsync(
         HttpRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool advanceActivity = true)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -187,10 +190,6 @@ internal static class ApiSessionEventComposition
         ArgumentNullException.ThrowIfNull(environment);
 
         services.AddSingleton(new SessionEventSubscriptionOptions());
-        services.AddSingleton<ISessionEventIdentityAdapter>(sp =>
-            SessionEventTestIdentity.IsEnabled(environment, configuration)
-                ? new DevelopmentHarnessSessionEventIdentityAdapter(configuration)
-                : DisabledSessionEventIdentityAdapter.Instance);
 
         var connectionString = configuration.GetConnectionString("Sessions");
         if (string.IsNullOrWhiteSpace(connectionString))

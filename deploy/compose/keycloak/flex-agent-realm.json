@@ -1,0 +1,44 @@
+{
+  "realm": "flex-agent",
+  "enabled": true,
+  "sslRequired": "none",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 43200,
+  "clients": [
+    {
+      "clientId": "flex-agent-api",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "flex-agent-contract-client-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:18082/auth/callback",
+        "http://localhost:18080/auth/callback"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "synthetic.participant",
+      "enabled": true,
+      "email": "synthetic.participant@example.test",
+      "emailVerified": true,
+      "firstName": "Synthetic",
+      "lastName": "Participant",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "synthetic-participant-password",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using FlexAgent.Api;
 using FlexAgent.SyntheticBrowser;
@@ -16,8 +17,14 @@ builder.Services.AddHealthChecks()
 
 builder.Services.AddSyntheticBrowser(builder.Configuration);
 builder.Services.AddProductionSessionEvents(builder.Configuration, builder.Environment);
+builder.Services.AddHumanAuthentication(builder.Configuration, builder.Environment);
 
 var app = builder.Build();
+var humanAuthentication = app.Services.GetRequiredService<HumanAuthenticationHostOptions>();
+if (humanAuthentication.TrustedProxies.Count > 0)
+{
+    app.UseForwardedHeaders();
+}
 
 app.MapGet("/", () => Results.Ok(new
 {
@@ -37,6 +44,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 
 app.MapSyntheticBrowserEndpoints();
+app.MapHumanAuthenticationEndpoints();
 app.MapProductionSessionEventEndpoints();
 
 app.Run();

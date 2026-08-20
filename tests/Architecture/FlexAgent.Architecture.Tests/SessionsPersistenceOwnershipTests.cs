@@ -19,6 +19,11 @@ public sealed class SessionsPersistenceOwnershipTests
         "configuration_source_version_idempotency",
         "audit_events",
         "outbox_items",
+        "human_identity_bindings",
+        "application_sessions",
+        "oidc_login_transactions",
+        "data_protection_keys",
+        "authentication_security_events",
     ];
 
     [Fact]

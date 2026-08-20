@@ -9,8 +9,8 @@
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.4 |
 | **Effective date** | 2026-08-14 |
-| **Last reviewed** | 2026-08-19 |
-| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; 2026-08-19 provider sequencing review preserved product meaning and synthetic-only OpenRouter scope; supersedes v0.3 |
+| **Last reviewed** | 2026-08-20 |
+| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; 2026-08-19 provider sequencing review preserved product meaning and synthetic-only OpenRouter scope; 2026-08-20 delivery review approved OIDC/application-session foundation as a separate predecessor to hosted Participant Session start; supersedes v0.3 |
 
 Vision, positioning, and principles. Canonical concepts, scope boundaries, and requirements live in linked product and requirements documents.
 
@@ -39,6 +39,12 @@ slices. Continue the remaining production gates: exact-profile live provider
 qualification, OIDC application-session, hosted Session start/configuration,
 and the ADR-010 evidence listed by
 [ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#traceability-and-downstream-work).
+The OIDC/application-session foundation is an independently executable next
+slice and does not create a product Session. Hosted Participant Session start
+is a separate successor and must not be exposed until the approved
+Activity/Cohort activation, Enrollment, Submission/Attempt entitlement,
+acknowledgment, resolved configuration, execution manifest, exact
+Submission-version binding, and ADR-005 atomic-start prerequisites exist.
 In parallel, complete the applicable compatibility evidence required by
 [ADR-008](../architecture/decisions/ADR-008-bounded-oss-component-set.md),
 including qualification of each enabled provider deployment profile and

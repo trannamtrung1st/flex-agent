@@ -1,0 +1,111 @@
+using Dapper;
+using FlexAgent.IdentityAccess.Application;
+using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.IdentityAccess.Infrastructure;
+using FlexAgent.Postgres;
+using FlexAgent.Postgres.Integration.Tests.Support;
+using Npgsql;
+
+namespace FlexAgent.Postgres.Integration.Tests;
+
+public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixture fixture)
+    : PostgresIntegrationTest(fixture)
+{
+    [Fact]
+    public async Task Migration_creates_human_authentication_tables_and_keeps_audit_append_only()
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var tables = (await connection.QueryAsync<string>(
+            """
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+              AND table_name IN (
+                'human_identity_bindings',
+                'application_sessions',
+                'oidc_login_transactions',
+                'data_protection_keys',
+                'authentication_security_events');
+            """)).ToArray();
+        Assert.Equal(5, tables.Length);
+
+        var writer = new PostgresAuthenticationSecurityEventWriter(Fixture.Services.ConnectionAccessor);
+        var eventId = Guid.NewGuid();
+        await writer.WriteAsync(
+            new AuthenticationSecurityEvent(
+                eventId,
+                DateTimeOffset.UtcNow,
+                AuthenticationSecurityEventTypes.LoginDenied,
+                "deny",
+                HumanAuthenticationReasonCodes.UnknownSubject,
+                Guid.NewGuid(),
+                null,
+                null,
+                null),
+            CancellationToken);
+
+        var update = async () => await connection.ExecuteAsync(
+            "UPDATE authentication_security_events SET outcome = 'permit' WHERE event_id = @EventId;",
+            new { EventId = eventId });
+        await Assert.ThrowsAsync<PostgresException>(update);
+    }
+
+    [Fact]
+    public async Task Coordinator_persists_digest_only_sessions_and_clears_them_on_rotation()
+    {
+        var seeded = await Fixture.SeedOrganizationAsync();
+        var issuer = "https://issuer.example/realms/flex";
+        var subject = "subject-" + seeded.ActorId.ToString("N")[..8];
+        var bindings = new PostgresHumanIdentityBindingStore(Fixture.Services.ConnectionAccessor);
+        var sessions = new PostgresApplicationSessionStore(Fixture.Services.ConnectionAccessor);
+        var audit = new PostgresAuthenticationSecurityEventWriter(Fixture.Services.ConnectionAccessor);
+        var digests = new HmacLookupDigestCalculator("integration-lookup-key-32-bytes!!"u8.ToArray());
+        var coordinator = new HumanAuthenticationCoordinator(
+            bindings,
+            sessions,
+            audit,
+            digests,
+            new PostgresDatabaseClock(Fixture.Services.ConnectionAccessor),
+            new HumanAuthenticationOptions { Issuer = issuer });
+
+        Assert.Null(await bindings.TryProvisionAsync(
+            new HumanIdentityBinding(
+                Guid.NewGuid(),
+                new ExactIssuerSubject(issuer, subject),
+                seeded.ActorId,
+                DateTimeOffset.UtcNow,
+                null),
+            CancellationToken));
+
+        var login = await coordinator.CompleteLoginAsync(
+            new ValidatedHumanLogin(
+                new ExactIssuerSubject(issuer, subject),
+                new AuthenticationStrength("acr:mfa", ["mfa"]),
+                "sid-1"),
+            null,
+            Guid.NewGuid(),
+            CancellationToken);
+        Assert.True(login.Succeeded);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var storedSecret = await connection.ExecuteScalarAsync<string?>(
+            "SELECT credential_digest FROM application_sessions WHERE application_session_id = @Id;",
+            new { Id = login.ApplicationSessionId });
+        Assert.NotEqual(login.RawCredential, storedSecret);
+        Assert.DoesNotContain("sid-1", storedSecret ?? string.Empty, StringComparison.Ordinal);
+
+        var rotated = await coordinator.RotateAsync(
+            login.ApplicationSessionId!.Value,
+            ApplicationSessionTerminalReasons.PrivilegeChange,
+            Guid.NewGuid(),
+            CancellationToken);
+        Assert.True(rotated.Succeeded);
+        Assert.Null(await coordinator.AuthenticateAsync(login.RawCredential!, false, CancellationToken));
+        Assert.NotNull(await coordinator.AuthenticateAsync(rotated.RawCredential!, false, CancellationToken));
+
+        var terminalDigest = await connection.ExecuteScalarAsync<string?>(
+            "SELECT credential_digest FROM application_sessions WHERE application_session_id = @Id;",
+            new { Id = login.ApplicationSessionId });
+        Assert.Null(terminalDigest);
+    }
+}
