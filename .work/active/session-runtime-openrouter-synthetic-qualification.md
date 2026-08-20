@@ -437,8 +437,13 @@ passed, natural chat is evidenced through the real Flex Agent path.
 - [x] Review tracked and untracked changes for secrets, live payloads, browser
       state, generated logs, credentials, or account metadata before staging
       anything.
-- [ ] Obtain independent backend, architecture, and security/privacy review;
-      resolve findings or record accepted residual risks and owner decisions.
+- [x] Obtain independent backend, architecture, and security/privacy review of
+      the synthetic OpenRouter adapter remediation series through `7e2e438`.
+      Reviewer found no remaining substantive correctness or architecture
+      issues; nine prior findings are closed. GitHub currently reports no
+      commit statuses for that SHA, so local OpenRouter 27/27 is recorded but
+      not independently confirmed from CI metadata. Live qualification and
+      hosted Participant chat remain gated and were not in this review scope.
 - [x] Recheck every governing requirement/acceptance ID and update authoritative
       status documents only where implemented evidence actually changes status.
 - [x] Reconcile this file with actual changes, commands, results, deviations,
@@ -497,16 +502,15 @@ Phases 8–9 remain owner-gated: live OpenRouter calls are opt-in
 (`FLEXAGENT_LIVE_OPENROUTER_QUALIFICATION=1` plus privacy preflight) and were
 not executed. No key was read.
 
-Migration head is unchanged (`0029`). Independent review of `964cfc5` found
-missing body/stream timeouts, prompt-cache vs response-cache confusion,
-unbounded SSE parsing, and overstated Phase 10 checkboxes. Phase 11 remediates
-those findings with fake-transport evidence (OpenRouter 21). Phase 12 then
-fixed the exact envelope bound, kept installed timeouts at 30/60 with a
-test-only timeout seam, rejected invalid SSE UTF-8, and added streaming
-stall/cancel coverage (OpenRouter 26). Phase 13 fail-closes escaped invalid
-surrogates via parser string extraction (OpenRouter 27). Do not mark this
-task complete: live
-qualification and hosted Participant chat remain gated.
+Migration head is unchanged (`0029`). Independent review of `7e2e438`
+(2026-08-20) approved the synthetic OpenRouter adapter remediation series and
+found no remaining adapter-level defects. Nine prior findings (timeouts, cache
+semantics, SSE bounds, checklist honesty, exact envelope limit, fixed 30/60
+timeouts, strict UTF-8, streaming timeout evidence, escaped surrogates) are
+closed. Do not mark this qualification task complete: live OpenRouter calls
+and hosted Participant chat remain gated. Next safe action is owner
+privacy/spend confirmation for Phases 8–9, plus a separately scoped hosted
+Participant-path task if natural chat is required.
 
 # Decisions
 
@@ -553,6 +557,10 @@ qualification and hosted Participant chat remain gated.
   fails. SSE payloads use a throwing UTF-8 decoder. Escaped invalid surrogates
   in provider JSON strings fail closed in the parser instead of escaping the
   adapter.
+- Independent review of `7e2e438` (2026-08-20) approved the adapter
+  remediation series. No further adapter iteration before the gated live
+  qualification step. Local OpenRouter 27/27 was not independently confirmed
+  from GitHub CI metadata.
 
 # Verification
 
@@ -567,7 +575,7 @@ qualification and hosted Participant chat remain gated.
 | Live synthetic qualification | blocked | Opt-in sentinel remains off; owner privacy/spend preflight not confirmed; no key read |
 | Interactive local Text Session | blocked | Phase 7: synthetic browser adapter; production HTTP SSE/OIDC still a documented gap (`docs/ui-ux/text-session.md`) |
 | Locked regression/supply chain/OCI/docs | partial | OpenRouter 27, Sessions 455, OpenAI 14, Runtime 129, Architecture 35 after Phase 13. Worker OCI COPY includes OpenRouter (architecture tests). Docker image build and `dotnet publish` not run |
-| Independent review | pending | Review of `964cfc5` findings remediated in Phase 11; external backend/architecture/security review still required |
+| Independent review (`7e2e438`) | passed | Adapter remediation series approved 2026-08-20: no remaining substantive correctness or architecture issues. Nine prior findings closed. Local OpenRouter 27/27 not independently verifiable from GitHub commit statuses. Live qualification and hosted Participant path remain gated |
 
 # Risks, interim defaults, and owner gates
 
@@ -643,4 +651,5 @@ the worktree changes.
 - [ ] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review
+- [x] Adapter remediation series is recorded as review-approved; the
+      qualification task remains open for live and hosted-path gates
