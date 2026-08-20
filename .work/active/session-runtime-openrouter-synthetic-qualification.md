@@ -461,6 +461,17 @@ traceable, and no requirement is marked complete on the strength of a demo.
       Bound the control envelope before Decision admission.
 - [x] Reconcile Phase 10 checklist markers with evidence actually collected.
 
+## Phase 12 — review remediation (exact envelope bound, fixed timeouts, strict UTF-8)
+
+- [x] Allow control envelopes of exactly `MaxControlEnvelopeUtf8Bytes` and reject
+      one extra byte via an EOF overflow probe.
+- [x] Keep installed OpenRouter timeouts fixed at 30/60 seconds; inject shorter
+      timeouts only through a test-only adapter seam.
+- [x] Decode SSE payloads with a throwing UTF-8 decoder; fail closed on invalid
+      bytes before and after the first visible fragment.
+- [x] Cover streaming stall-after-headers timeout and caller cancel, and keep
+      the verification table aligned with those tests.
+
 # Current state
 
 Deterministic Phases 0–6 are implemented: distinct `openrouter` adapter
@@ -483,8 +494,11 @@ not executed. No key was read.
 Migration head is unchanged (`0029`). Independent review of `964cfc5` found
 missing body/stream timeouts, prompt-cache vs response-cache confusion,
 unbounded SSE parsing, and overstated Phase 10 checkboxes. Phase 11 remediates
-those findings with fake-transport evidence (OpenRouter 21). Do not mark this
-task complete: live qualification and hosted Participant chat remain gated.
+those findings with fake-transport evidence (OpenRouter 21). Phase 12 then
+fixed the exact envelope bound, kept installed timeouts at 30/60 with a
+test-only timeout seam, rejected invalid SSE UTF-8, and added streaming
+stall/cancel coverage (OpenRouter 26). Do not mark this task complete: live
+qualification and hosted Participant chat remain gated.
 
 # Decisions
 
@@ -496,6 +510,9 @@ task complete: live qualification and hosted Participant chat remain gated.
 - Passing evidence remains synthetic-development-only.
 - Phase 7 interactive chat is out of this task until a hosted Participant
   Session/API/SSE path exists; the adapter-only harness is not Flex Agent chat.
+- Installed OpenRouter control/content timeouts remain fixed at 30/60 seconds.
+  Shorter timeouts exist only as an internal test seam on the adapter and are
+  not reconstructed from operator configuration files.
 
 # Findings / deviations
 
@@ -519,10 +536,13 @@ task complete: live qualification and hosted Participant chat remain gated.
   returned `openrouter/free` alias, and does not use the default HTTPS
   transport unless live opt-in and privacy preflight are both set.
 - Control and content operations use a linked timeout CTS for headers and
-  body/SSE, mapping caller cancel separately from provider timeout.
+  body/SSE, mapping caller cancel separately from provider timeout. Installed
+  profiles stay at 30/60 seconds; tests inject shorter timeouts on the adapter.
 - Response-cache denial uses `X-OpenRouter-Cache-Status: HIT`. Provider prompt
   `cached_tokens` is accepted. Streaming requires terminal metadata then
   `[DONE]`, with SSE-event and visible-content byte ceilings.
+- Control envelopes of exactly 262,144 UTF-8 bytes are admitted; one extra byte
+  fails. SSE payloads use a throwing UTF-8 decoder.
 
 # Verification
 
@@ -532,11 +552,11 @@ task complete: live qualification and hosted Participant chat remain gated.
 | Locked baseline restore | passed | `dotnet restore FlexAgent.slnx --locked-mode`; all solution projects restored with committed locks on 2026-08-20 |
 | Focused pre-implementation baseline | passed | Sessions 448/448; Direct OpenAI 14/14; Runtime 126/126; Architecture 33/33 on .NET SDK 10.0.100, macOS arm64 |
 | Architecture/operations approval | passed | ADR-008 `OSS-DEC-17`, ADR-010 `STACK-DEC-18`, and approved profile dated 2026-08-19 |
-| Fake-transport provider contracts | passed | OpenRouter 21/21 on 2026-08-20: headers, provider object, metadata/attempt/identity/usage, response-cache HIT vs prompt cached_tokens, body/stream timeout vs caller cancel, bounded envelope/SSE, terminal-then-DONE, discovery selected-endpoint, schema parity |
+| Fake-transport provider contracts | passed | OpenRouter 26/26 on 2026-08-20: headers, provider object, metadata/attempt/identity/usage, response-cache HIT vs prompt cached_tokens, control and streaming stall-after-headers timeout vs caller cancel, exact envelope limit and limit+1, strict SSE UTF-8, terminal-then-DONE, discovery selected-endpoint, schema parity |
 | Profile/credential/host isolation | passed | Digest regression; Infrastructure loaders; Unix owner-only secret tests; Worker Testing compose + Production fail-closed |
 | Live synthetic qualification | blocked | Opt-in sentinel remains off; owner privacy/spend preflight not confirmed; no key read |
 | Interactive local Text Session | blocked | Phase 7: synthetic browser adapter; production HTTP SSE/OIDC still a documented gap (`docs/ui-ux/text-session.md`) |
-| Locked regression/supply chain/OCI/docs | partial | Locked restore previously green; OpenRouter 21, Sessions 455, OpenAI 14, Runtime 129, Architecture 35 after Phase 11. Worker OCI COPY includes OpenRouter (architecture tests). Docker image build and `dotnet publish` not run |
+| Locked regression/supply chain/OCI/docs | partial | OpenRouter 26, Sessions 455, OpenAI 14, Runtime 129, Architecture 35 after Phase 12. Worker OCI COPY includes OpenRouter (architecture tests). Docker image build and `dotnet publish` not run |
 | Independent review | pending | Review of `964cfc5` findings remediated in Phase 11; external backend/architecture/security review still required |
 
 # Risks, interim defaults, and owner gates

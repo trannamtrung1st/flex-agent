@@ -158,8 +158,8 @@ public sealed class OpenRouterAdapterContractTests
     [Fact]
     public async Task Control_body_stall_after_headers_is_provider_timeout_not_caller_cancel()
     {
-        var harness = CreateHarness(controlTimeout: TimeSpan.FromMilliseconds(250));
-        var timedOut = await harness.Adapter(new StallAfterHeadersHandler())
+        var harness = CreateHarness();
+        var timedOut = await harness.Adapter(new StallAfterHeadersHandler(), testControlTimeout: TimeSpan.FromMilliseconds(250))
             .ExecuteAsync(harness.ControlRequest(), TestContext.Current.CancellationToken);
         Assert.Equal(
             ExecutionFailureReasons.ProviderTimeout,
@@ -188,6 +188,91 @@ public sealed class OpenRouterAdapterContractTests
         Assert.Equal(
             ExecutionFailureReasons.MalformedControl,
             Assert.IsType<ModelExecutionFailed>(result).ReasonCategory);
+    }
+
+    [Fact]
+    public async Task Control_accepts_an_envelope_at_the_byte_limit_and_rejects_one_extra_byte()
+    {
+        var harness = CreateHarness();
+        var json = harness.InvocationJson();
+        var exact = ControlBodyWithPadding(json, OpenRouterAdapterContracts.MaxControlEnvelopeUtf8Bytes);
+        Assert.Equal(OpenRouterAdapterContracts.MaxControlEnvelopeUtf8Bytes, Encoding.UTF8.GetByteCount(exact));
+        Assert.IsType<ModelExecutionStructuredControl>(
+            await harness.Adapter(new RecordingHandler(exact))
+                .ExecuteAsync(harness.ControlRequest(), TestContext.Current.CancellationToken));
+
+        var over = ControlBodyWithPadding(json, OpenRouterAdapterContracts.MaxControlEnvelopeUtf8Bytes + 1);
+        Assert.Equal(
+            ExecutionFailureReasons.MalformedControl,
+            Assert.IsType<ModelExecutionFailed>(
+                await harness.Adapter(new RecordingHandler(over))
+                    .ExecuteAsync(harness.ControlRequest(), TestContext.Current.CancellationToken)).ReasonCategory);
+    }
+
+    [Fact]
+    public async Task Streaming_body_stall_after_headers_is_provider_timeout_not_caller_cancel()
+    {
+        var harness = CreateHarness();
+        var events = new List<ModelContentEvent>();
+        await foreach (var item in harness.Adapter(
+                new StallAfterHeadersHandler(),
+                testContentTimeout: TimeSpan.FromMilliseconds(250))
+            .StreamParticipantVisibleContentAsync(harness.StreamRequest(), TestContext.Current.CancellationToken))
+        {
+            events.Add(item);
+        }
+
+        Assert.Equal(
+            ExecutionFailureReasons.ProviderTimeout,
+            Assert.IsType<ModelContentFailed>(Assert.Single(events)).ReasonCategory);
+
+        using var caller = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var pending = new List<ModelContentEvent>();
+        var enumerate = EnumerateAsync();
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        await caller.CancelAsync();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => enumerate);
+        Assert.Equal(
+            ExecutionAttemptOutcomeCategories.Cancelled,
+            Assert.IsType<ModelContentFailed>(Assert.Single(pending)).ReasonCategory);
+
+        async Task EnumerateAsync()
+        {
+            await foreach (var item in harness.Adapter(new StallAfterHeadersHandler())
+                .StreamParticipantVisibleContentAsync(harness.StreamRequest(), caller.Token))
+            {
+                pending.Add(item);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Streaming_rejects_malformed_utf8_before_and_after_the_first_fragment()
+    {
+        var harness = CreateHarness();
+        var before = new List<ModelContentEvent>();
+        await foreach (var item in harness.Adapter(new RawSseHandler(MalformedUtf8Sse(includeFragment: false)))
+            .StreamParticipantVisibleContentAsync(harness.StreamRequest(), TestContext.Current.CancellationToken))
+        {
+            before.Add(item);
+        }
+
+        Assert.Equal(
+            ExecutionFailureReasons.MalformedControl,
+            Assert.IsType<ModelContentFailed>(Assert.Single(before)).ReasonCategory);
+
+        var after = new List<ModelContentEvent>();
+        await foreach (var item in harness.Adapter(new RawSseHandler(MalformedUtf8Sse(includeFragment: true)))
+            .StreamParticipantVisibleContentAsync(harness.StreamRequest(), TestContext.Current.CancellationToken))
+        {
+            after.Add(item);
+        }
+
+        Assert.Equal("Hi", Assert.IsType<ModelContentTextDelta>(after[0]).ExactUtf8Text);
+        Assert.Equal(
+            ExecutionFailureReasons.ProviderUnavailable,
+            Assert.IsType<ModelContentFailed>(after[^1]).ReasonCategory);
+        Assert.DoesNotContain(after, item => item is ModelContentCompleted);
     }
 
     [Fact]
@@ -413,9 +498,7 @@ public sealed class OpenRouterAdapterContractTests
         Assert.NotEqual(CanarySecret, Environment.GetEnvironmentVariable("HOME"));
     }
 
-    internal static Harness CreateHarness(
-        TimeSpan? controlTimeout = null,
-        TimeSpan? contentTimeout = null)
+    internal static Harness CreateHarness()
     {
         var configuration = OpenRouterInstalledConfiguration.Create(
             "openrouter.synthetic.example",
@@ -425,9 +508,7 @@ public sealed class OpenRouterAdapterContractTests
             Provider,
             Provider,
             ModelDeploymentCredentialModes.OrganizationByok,
-            "openrouter.synthetic",
-            controlTimeout: controlTimeout,
-            contentTimeout: contentTimeout);
+            "openrouter.synthetic");
         var profile = configuration.Profile;
         var frozen = new FrozenModelDeploymentBinding(
             profile.ProfileId,
@@ -473,6 +554,32 @@ public sealed class OpenRouterAdapterContractTests
             + "},\"finish_reason\":\"stop\"}]" + usage + metadata + "}";
     }
 
+    private static string ControlBodyWithPadding(string content, int totalUtf8Bytes)
+    {
+        var prefix = ControlBody(content)[..^1] + ",\"padding\":\"";
+        const string suffix = "\"}";
+        var padding = totalUtf8Bytes - Encoding.UTF8.GetByteCount(prefix) - Encoding.UTF8.GetByteCount(suffix);
+        Assert.True(padding >= 0);
+        return prefix + new string('x', padding) + suffix;
+    }
+
+    private static byte[] MalformedUtf8Sse(bool includeFragment)
+    {
+        var builder = new MemoryStream();
+        builder.Write(": keep-alive\n\n"u8);
+        if (includeFragment)
+        {
+            builder.Write("data: {\"id\":\"gen-test\",\"model\":"u8);
+            builder.Write(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(Model)));
+            builder.Write(",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hi\"},\"finish_reason\":null}]}\n\n"u8);
+        }
+
+        builder.Write("data: "u8);
+        builder.WriteByte(0xFF);
+        builder.Write("\n\n"u8);
+        return builder.ToArray();
+    }
+
     private static string DiscoveryBody(
         string returnedModel,
         string selectedProvider,
@@ -499,8 +606,15 @@ public sealed class OpenRouterAdapterContractTests
         IProviderCredentialSecretSource Secrets,
         IOpenRouterInstalledConfigurationRegistry Configurations)
     {
-        public OpenRouterModelExecutionAdapter Adapter(HttpMessageHandler handler) =>
-            new(Profiles, Catalog, Secrets, Configurations, handler, privacyPreflightConfirmed: true);
+        public OpenRouterModelExecutionAdapter Adapter(
+            HttpMessageHandler handler,
+            TimeSpan? testControlTimeout = null,
+            TimeSpan? testContentTimeout = null) =>
+            new(Profiles, Catalog, Secrets, Configurations, handler, privacyPreflightConfirmed: true)
+            {
+                TestControlTimeout = testControlTimeout,
+                TestContentTimeout = testContentTimeout,
+            };
 
         public string InvocationJson() =>
             """
@@ -628,6 +742,16 @@ public sealed class OpenRouterAdapterContractTests
             var response = new HttpResponseMessage(HttpStatusCode.Redirect);
             response.Headers.Location = new Uri(location);
             return Task.FromResult(response);
+        }
+    }
+
+    private sealed class RawSseHandler(byte[] utf8) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var content = new ByteArrayContent(utf8);
+            content.Headers.TryAddWithoutValidation("Content-Type", "text/event-stream");
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
         }
     }
 

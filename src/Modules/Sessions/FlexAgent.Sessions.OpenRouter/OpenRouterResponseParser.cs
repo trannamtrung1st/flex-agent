@@ -200,19 +200,25 @@ internal sealed class BoundedReadStream(Stream inner, int maxUtf8Bytes) : Stream
 
     public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
     {
-        if (_remaining <= 0)
+        if (buffer.Length == 0)
         {
-            throw new OpenRouterTransportLimitExceededException();
+            return 0;
         }
 
-        var read = await inner.ReadAsync(buffer[..Math.Min(buffer.Length, _remaining)], cancellationToken);
-        _remaining -= read;
-        if (read == 0 && buffer.Length > 0 && _remaining <= 0)
+        if (_remaining > 0)
         {
-            throw new OpenRouterTransportLimitExceededException();
+            var read = await inner.ReadAsync(buffer[..Math.Min(buffer.Length, _remaining)], cancellationToken);
+            _remaining -= read;
+            return read;
         }
 
-        return read;
+        var extra = await inner.ReadAsync(new byte[1], cancellationToken);
+        if (extra == 0)
+        {
+            return 0;
+        }
+
+        throw new OpenRouterTransportLimitExceededException();
     }
 
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
@@ -222,6 +228,8 @@ internal sealed class BoundedReadStream(Stream inner, int maxUtf8Bytes) : Stream
 
 internal static class OpenRouterSseParser
 {
+    private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
     public static async IAsyncEnumerable<string> ReadDataPayloadsAsync(
         Stream stream,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
@@ -267,7 +275,7 @@ internal static class OpenRouterSseParser
 
         if (dataOpen)
         {
-            yield return Encoding.UTF8.GetString(payload.ToArray());
+            yield return StrictUtf8.GetString(payload.ToArray());
         }
     }
 
@@ -283,7 +291,7 @@ internal static class OpenRouterSseParser
             }
 
             dataOpen = false;
-            var completed = Encoding.UTF8.GetString(payload.ToArray());
+            var completed = StrictUtf8.GetString(payload.ToArray());
             payload.SetLength(0);
             return completed;
         }

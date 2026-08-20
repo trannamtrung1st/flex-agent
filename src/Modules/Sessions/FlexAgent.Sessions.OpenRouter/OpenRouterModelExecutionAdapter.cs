@@ -1,5 +1,6 @@
 using System.Net;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
@@ -15,6 +16,10 @@ public sealed class OpenRouterModelExecutionAdapter(
     bool privacyPreflightConfirmed = false) : IModelExecutionPort
 {
     public const string AdapterContractVersion = OpenRouterAdapterContracts.AdapterContractVersion;
+
+    internal TimeSpan? TestControlTimeout { get; init; }
+
+    internal TimeSpan? TestContentTimeout { get; init; }
 
     public async Task<ModelExecutionAttemptResult> ExecuteAsync(
         ModelExecutionAttemptRequest request,
@@ -47,7 +52,7 @@ public sealed class OpenRouterModelExecutionAdapter(
         try
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(resolved.Value.Profile.ControlTimeout);
+            timeoutCts.CancelAfter(TestControlTimeout ?? resolved.Value.Profile.ControlTimeout);
             var operation = timeoutCts.Token;
             using var lifetime = CreateClient();
             using var httpRequest = OpenRouterRequestFactory.CreateControl(
@@ -117,6 +122,10 @@ public sealed class OpenRouterModelExecutionAdapter(
         {
             return Fail(ExecutionFailureReasons.MalformedControl, startedAt, request, resolved.Value.Profile);
         }
+        catch (DecoderFallbackException)
+        {
+            return Fail(ExecutionFailureReasons.MalformedControl, startedAt, request, resolved.Value.Profile);
+        }
         catch (HttpRequestException)
         {
             return Fail(ExecutionFailureReasons.ProviderUnavailable, startedAt, request, resolved.Value.Profile);
@@ -150,7 +159,7 @@ public sealed class OpenRouterModelExecutionAdapter(
         }
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(resolved.Value.Profile.ContentTimeout);
+        timeoutCts.CancelAfter(TestContentTimeout ?? resolved.Value.Profile.ContentTimeout);
         var operation = timeoutCts.Token;
         var startedAt = DateTimeOffset.UtcNow;
         var publishedFragment = false;
@@ -231,6 +240,13 @@ public sealed class OpenRouterModelExecutionAdapter(
                 moved = false;
             }
             catch (OpenRouterTransportLimitExceededException)
+            {
+                failureReason = publishedFragment
+                    ? ExecutionFailureReasons.ProviderUnavailable
+                    : ExecutionFailureReasons.MalformedControl;
+                moved = false;
+            }
+            catch (DecoderFallbackException)
             {
                 failureReason = publishedFragment
                     ? ExecutionFailureReasons.ProviderUnavailable
