@@ -115,4 +115,27 @@ public sealed class OpenRouterLivePinnedRouteAcceptanceTests
             OpenRouterLiveQualification.NemotronNanoBackupProfileDigest,
             backup.Profile.ProfileDigest);
     }
+
+    [Fact]
+    public void Default_256_token_gpt_oss_identity_cannot_satisfy_the_phase21_route()
+    {
+        var historicalPolicy = OpenRouterInstalledConfiguration.Create(
+            OpenRouterLiveQualification.GptOssDarkbloomProfileId,
+            "1",
+            OpenRouterLiveQualification.GptOssDarkbloomModel,
+            OpenRouterLiveQualification.GptOssDarkbloomModel,
+            OpenRouterLiveQualification.GptOssDarkbloomProviderSlug,
+            OpenRouterLiveQualification.GptOssDarkbloomProviderIdentity,
+            "organization_byok",
+            "openrouter.synthetic");
+
+        Assert.False(
+            OpenRouterLivePinnedRouteAcceptance.TryAccept(
+                historicalPolicy,
+                OpenRouterLivePinnedRouteAcceptance.GptOssDarkbloom,
+                out var denial));
+        Assert.Equal("digest_mismatch", denial);
+        Assert.Equal(256, historicalPolicy.Profile.MaxOutputTokens);
+        Assert.Null(historicalPolicy.RequestPolicy.ReasoningEffort);
+    }
 }

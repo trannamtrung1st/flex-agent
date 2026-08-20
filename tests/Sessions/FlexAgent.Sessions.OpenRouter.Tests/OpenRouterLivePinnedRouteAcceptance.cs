@@ -8,7 +8,10 @@ internal sealed record OpenRouterLivePinnedRouteExpectation(
     string ProviderSlug,
     string ProviderIdentity,
     string AdapterDigest,
-    string ProfileDigest);
+    string ProfileDigest,
+    int MaxOutputTokens = 256,
+    string? ReasoningEffort = null,
+    bool ReasoningExcluded = false);
 
 internal static class OpenRouterLivePinnedRouteAcceptance
 {
@@ -23,6 +26,13 @@ internal static class OpenRouterLivePinnedRouteAcceptance
         OpenRouterLiveQualification.NemotronNanoBackupModel,
         OpenRouterLiveQualification.NemotronNanoBackupProviderSlug,
         OpenRouterLiveQualification.NemotronNanoBackupProviderIdentity);
+
+    public static readonly OpenRouterLivePinnedRouteExpectation GptOssDarkbloom = CreateExpectation(
+        OpenRouterLiveQualification.GptOssDarkbloomProfileId,
+        OpenRouterLiveQualification.GptOssDarkbloomModel,
+        OpenRouterLiveQualification.GptOssDarkbloomProviderSlug,
+        OpenRouterLiveQualification.GptOssDarkbloomProviderIdentity,
+        OpenRouterRequestPolicy.Phase21GptOss);
 
     public static bool TryAccept(
         OpenRouterInstalledConfiguration configuration,
@@ -58,6 +68,14 @@ internal static class OpenRouterLivePinnedRouteAcceptance
             return false;
         }
 
+        if (configuration.Profile.MaxOutputTokens != expected.MaxOutputTokens
+            || !string.Equals(configuration.RequestPolicy.ReasoningEffort, expected.ReasoningEffort, StringComparison.Ordinal)
+            || configuration.RequestPolicy.ReasoningExcluded != expected.ReasoningExcluded)
+        {
+            denialReason = "request_policy_mismatch";
+            return false;
+        }
+
         denialReason = string.Empty;
         return true;
     }
@@ -66,7 +84,8 @@ internal static class OpenRouterLivePinnedRouteAcceptance
         string profileId,
         string model,
         string providerSlug,
-        string providerIdentity)
+        string providerIdentity,
+        OpenRouterRequestPolicy? requestPolicy = null)
     {
         var created = OpenRouterInstalledConfiguration.Create(
             profileId,
@@ -76,13 +95,18 @@ internal static class OpenRouterLivePinnedRouteAcceptance
             providerSlug,
             providerIdentity,
             "organization_byok",
-            "openrouter.synthetic");
+            "openrouter.synthetic",
+            requestPolicy: requestPolicy);
+        var policy = created.RequestPolicy;
         return new OpenRouterLivePinnedRouteExpectation(
             profileId,
             model,
             providerSlug,
             providerIdentity,
             created.AdapterConfigurationDigest,
-            created.Profile.ProfileDigest);
+            created.Profile.ProfileDigest,
+            policy.MaxOutputTokens,
+            policy.ReasoningEffort,
+            policy.ReasoningExcluded);
     }
 }

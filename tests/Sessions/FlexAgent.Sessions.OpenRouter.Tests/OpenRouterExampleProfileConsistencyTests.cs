@@ -106,6 +106,24 @@ public sealed class OpenRouterExampleProfileConsistencyTests
         }
     }
 
+    [Fact]
+    public void Gpt_oss_darkbloom_constants_round_trip_through_fail_closed_loaders()
+    {
+        var created = OpenRouterInstalledConfiguration.Create(
+            OpenRouterLiveQualification.GptOssDarkbloomProfileId,
+            "1",
+            OpenRouterLiveQualification.GptOssDarkbloomModel,
+            OpenRouterLiveQualification.GptOssDarkbloomModel,
+            OpenRouterLiveQualification.GptOssDarkbloomProviderSlug,
+            OpenRouterLiveQualification.GptOssDarkbloomProviderIdentity,
+            ModelDeploymentCredentialModes.OrganizationByok,
+            "openrouter.synthetic",
+            requestPolicy: OpenRouterRequestPolicy.Phase21GptOss);
+        Assert.Equal(OpenRouterLiveQualification.GptOssDarkbloomAdapterDigest, created.AdapterConfigurationDigest);
+        Assert.Equal(OpenRouterLiveQualification.GptOssDarkbloomProfileDigest, created.Profile.ProfileDigest);
+        Assert.Equal(1024, created.Profile.MaxOutputTokens);
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

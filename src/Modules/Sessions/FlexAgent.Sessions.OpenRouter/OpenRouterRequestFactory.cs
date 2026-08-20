@@ -21,6 +21,7 @@ internal static class OpenRouterRequestFactory
             writer.WriteBoolean("stream", false);
             WriteMessages(writer, invocationId, context, control: true);
             WriteProvider(writer, configuration.ProviderSlug);
+            WriteReasoning(writer, configuration.RequestPolicy);
             writer.WritePropertyName("response_format");
             writer.WriteStartObject();
             writer.WriteString("type", "json_schema");
@@ -54,6 +55,7 @@ internal static class OpenRouterRequestFactory
             writer.WriteBoolean("stream", true);
             WriteMessages(writer, invocationId, context, control: false);
             WriteProvider(writer, configuration.ProviderSlug);
+            WriteReasoning(writer, configuration.RequestPolicy);
             writer.WriteEndObject();
         }
 
@@ -137,6 +139,20 @@ internal static class OpenRouterRequestFactory
         writer.WriteBoolean("require_parameters", true);
         writer.WriteString("data_collection", "allow");
         writer.WriteBoolean("zdr", false);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteReasoning(Utf8JsonWriter writer, OpenRouterRequestPolicy policy)
+    {
+        if (policy.ReasoningEffort is null || !policy.ReasoningExcluded)
+        {
+            return;
+        }
+
+        writer.WritePropertyName("reasoning");
+        writer.WriteStartObject();
+        writer.WriteString("effort", policy.ReasoningEffort);
+        writer.WriteBoolean("exclude", policy.ReasoningExcluded);
         writer.WriteEndObject();
     }
 }

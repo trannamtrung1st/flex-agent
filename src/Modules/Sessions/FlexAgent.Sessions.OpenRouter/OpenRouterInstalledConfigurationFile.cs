@@ -45,7 +45,8 @@ public static class OpenRouterInstalledConfigurationFile
                 expectedIdentity,
                 profile.CredentialMode,
                 profile.ProviderId,
-                profile.MaxProviderRequestAttempts);
+                profile.MaxProviderRequestAttempts,
+                OpenRouterRequestPolicy.ForInstalledProfile(profile));
             if (!string.Equals(created.Profile.ProfileDigest, profile.ProfileDigest, StringComparison.Ordinal)
                 || !string.Equals(created.AdapterConfigurationDigest, adapterDigest, StringComparison.Ordinal))
             {

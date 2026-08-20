@@ -9,6 +9,8 @@ public static class OpenRouterAdapterContracts
     public const string DiscoveryModel = "openrouter/free";
     public const string ChatCompletionsPath = "/api/v1/chat/completions";
     public const int MaxOutputTokens = 256;
+    public const int Phase21MaxOutputTokens = 1024;
+    public const int VisibleContentAcceptanceMaxOutputTokens = 256;
     public const int MaxApplicationAttempts = 2;
     public const int MaxControlEnvelopeUtf8Bytes = 262_144;
     public const int MaxSseEventUtf8Bytes = 65_536;
@@ -52,10 +54,38 @@ public static class OpenRouterDestination
     private static int EffectivePort(Uri uri) => uri.IsDefaultPort ? 443 : uri.Port;
 }
 
+public sealed record OpenRouterRequestPolicy(int MaxOutputTokens, string? ReasoningEffort, bool ReasoningExcluded)
+{
+    public static OpenRouterRequestPolicy Default { get; } =
+        new(OpenRouterAdapterContracts.MaxOutputTokens, null, false);
+
+    public static OpenRouterRequestPolicy Phase21GptOss { get; } =
+        new(OpenRouterAdapterContracts.Phase21MaxOutputTokens, "low", true);
+
+    public static OpenRouterRequestPolicy ForInstalledProfile(InstalledModelDeploymentProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        if (profile.MaxOutputTokens == OpenRouterAdapterContracts.MaxOutputTokens)
+        {
+            return Default;
+        }
+
+        if (profile.MaxOutputTokens == OpenRouterAdapterContracts.Phase21MaxOutputTokens)
+        {
+            return Phase21GptOss;
+        }
+
+        throw new ArgumentOutOfRangeException(
+            nameof(profile),
+            "OpenRouter installed profiles permit only the default 256-token policy or the Phase 21 1,024-token GPT-OSS policy.");
+    }
+}
+
 public sealed record OpenRouterInstalledConfiguration(
     InstalledModelDeploymentProfile Profile,
     string ProviderSlug,
-    string ExpectedReturnedProviderIdentity)
+    string ExpectedReturnedProviderIdentity,
+    OpenRouterRequestPolicy RequestPolicy)
 {
     public string AdapterConfigurationDigest =>
         Profile.AdapterConfigurationDigest
@@ -70,7 +100,8 @@ public sealed record OpenRouterInstalledConfiguration(
         string expectedReturnedProviderIdentity,
         string credentialMode,
         string providerId,
-        int maxProviderRequestAttempts = 2)
+        int maxProviderRequestAttempts = 2,
+        OpenRouterRequestPolicy? requestPolicy = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(providerSlug);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedReturnedProviderIdentity);
@@ -86,7 +117,24 @@ public sealed record OpenRouterInstalledConfiguration(
             throw new ArgumentOutOfRangeException(nameof(maxProviderRequestAttempts));
         }
 
-        var adapterDigest = ComputeAdapterConfigurationDigest(providerSlug, expectedReturnedProviderIdentity);
+        var policy = requestPolicy ?? OpenRouterRequestPolicy.Default;
+        if (!IsKnownRequestPolicy(policy))
+        {
+            throw new ArgumentOutOfRangeException(nameof(requestPolicy), "OpenRouter request policy is not an approved installed policy.");
+        }
+
+        if (policy == OpenRouterRequestPolicy.Phase21GptOss
+            && (!string.Equals(requestedModel, OpenRouterLiveQualification.GptOssDarkbloomModel, StringComparison.Ordinal)
+                || !string.Equals(resolvedModelVersion, OpenRouterLiveQualification.GptOssDarkbloomModel, StringComparison.Ordinal)
+                || !string.Equals(providerSlug, OpenRouterLiveQualification.GptOssDarkbloomProviderSlug, StringComparison.Ordinal)
+                || !string.Equals(expectedReturnedProviderIdentity, OpenRouterLiveQualification.GptOssDarkbloomProviderIdentity, StringComparison.Ordinal)))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(requestPolicy),
+                "The Phase 21 1,024-token reasoning policy is bound to the approved GPT-OSS/Darkbloom identity.");
+        }
+
+        var adapterDigest = ComputeAdapterConfigurationDigest(providerSlug, expectedReturnedProviderIdentity, policy);
         var profile = InstalledModelDeploymentProfile.Create(
             profileId,
             profileVersion,
@@ -97,19 +145,23 @@ public sealed record OpenRouterInstalledConfiguration(
             resolvedModelVersion,
             "p0.text.structured-control",
             credentialMode,
-            OpenRouterAdapterContracts.MaxOutputTokens,
+            policy.MaxOutputTokens,
             OpenRouterAdapterContracts.ControlTimeout,
             OpenRouterAdapterContracts.ContentTimeout,
             maxProviderRequestAttempts,
             providerId,
             adapterDigest);
-        return new OpenRouterInstalledConfiguration(profile, providerSlug, expectedReturnedProviderIdentity);
+        return new OpenRouterInstalledConfiguration(profile, providerSlug, expectedReturnedProviderIdentity, policy);
     }
 
-    public static string ComputeAdapterConfigurationDigest(string providerSlug, string expectedReturnedProviderIdentity)
+    public static string ComputeAdapterConfigurationDigest(
+        string providerSlug,
+        string expectedReturnedProviderIdentity,
+        OpenRouterRequestPolicy? requestPolicy = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(providerSlug);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedReturnedProviderIdentity);
+        var policy = requestPolicy ?? OpenRouterRequestPolicy.Default;
         var source = string.Join(
             "\n",
             ModelDeploymentAdapterKinds.OpenRouter,
@@ -124,8 +176,21 @@ public sealed record OpenRouterInstalledConfiguration(
             "zdr=false",
             "metadata=enabled",
             "cache=false");
+        if (policy == OpenRouterRequestPolicy.Phase21GptOss)
+        {
+            source = string.Join(
+                "\n",
+                source,
+                "max_tokens=1024",
+                "reasoning.effort=low",
+                "reasoning.exclude=true");
+        }
+
         return ProtectedContentRef.DigestUtf8(source);
     }
+
+    private static bool IsKnownRequestPolicy(OpenRouterRequestPolicy policy) =>
+        policy == OpenRouterRequestPolicy.Default || policy == OpenRouterRequestPolicy.Phase21GptOss;
 }
 
 public interface IOpenRouterInstalledConfigurationRegistry

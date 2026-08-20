@@ -5,17 +5,36 @@ namespace FlexAgent.Sessions.OpenRouter;
 
 public sealed class OpenRouterQualificationBudget
 {
-    private const string Format = "openrouter_qualification_budget.v1";
+    public const string HistoricalFormat = "openrouter_qualification_budget.v1";
+    public const string Phase21Format = "openrouter_qualification_budget.phase21.v1";
     private const int MaxStateBytes = 128;
     private static readonly UnixFileMode OwnerReadWrite =
         UnixFileMode.UserRead | UnixFileMode.UserWrite;
 
     private readonly string _path;
+    private readonly string _format;
+    private readonly int _maximum;
 
     public OpenRouterQualificationBudget(string path)
+        : this(path, HistoricalFormat, OpenRouterLiveQualification.MaxInferenceRequests)
+    {
+    }
+
+    public static OpenRouterQualificationBudget CreatePhase21(string path) =>
+        new(path, Phase21Format, OpenRouterLiveQualification.Phase21MaxInferenceRequests);
+
+    private OpenRouterQualificationBudget(string path, string format, int maximum)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentException.ThrowIfNullOrWhiteSpace(format);
+        if (maximum is < 1 or > OpenRouterLiveQualification.MaxInferenceRequests)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximum));
+        }
+
         _path = Path.GetFullPath(path);
+        _format = format;
+        _maximum = maximum;
     }
 
     public bool TryRead(out int reservedRequestCount)
@@ -51,7 +70,7 @@ public sealed class OpenRouterQualificationBudget
 
     public bool TryReserveExpected(int expectedCurrent, out int reservedRequestCount)
     {
-        if (expectedCurrent is < 0 or > OpenRouterLiveQualification.MaxInferenceRequests)
+        if (expectedCurrent is < 0 || expectedCurrent > _maximum)
         {
             reservedRequestCount = 0;
             return false;
@@ -107,7 +126,7 @@ public sealed class OpenRouterQualificationBudget
                 return false;
             }
 
-            if (current >= OpenRouterLiveQualification.MaxInferenceRequests)
+            if (current >= _maximum)
             {
                 reservedRequestCount = current;
                 return false;
@@ -117,7 +136,7 @@ public sealed class OpenRouterQualificationBudget
             var state = Encoding.UTF8.GetBytes(
                 string.Create(
                     CultureInfo.InvariantCulture,
-                    $"{Format}\n{reservedRequestCount}\n{OpenRouterLiveQualification.MaxInferenceRequests}\n"));
+                    $"{_format}\n{reservedRequestCount}\n{_maximum}\n"));
             stream.Position = 0;
             stream.Write(state);
             stream.SetLength(state.Length);
@@ -176,7 +195,7 @@ public sealed class OpenRouterQualificationBudget
             or ArgumentException
             or OverflowException;
 
-    private static bool TryReadState(FileStream stream, out int requestCount)
+    private bool TryReadState(FileStream stream, out int requestCount)
     {
         requestCount = 0;
         stream.Position = 0;
@@ -184,12 +203,12 @@ public sealed class OpenRouterQualificationBudget
         stream.ReadExactly(bytes);
         var lines = Encoding.UTF8.GetString(bytes).Split('\n');
         return lines.Length == 4
-            && lines[0] == Format
+            && lines[0] == _format
             && int.TryParse(lines[1], NumberStyles.None, CultureInfo.InvariantCulture, out requestCount)
             && requestCount >= 0
-            && requestCount <= OpenRouterLiveQualification.MaxInferenceRequests
+            && requestCount <= _maximum
             && int.TryParse(lines[2], NumberStyles.None, CultureInfo.InvariantCulture, out var configuredMaximum)
-            && configuredMaximum == OpenRouterLiveQualification.MaxInferenceRequests
+            && configuredMaximum == _maximum
             && lines[3].Length == 0;
     }
 

@@ -22,6 +22,44 @@ internal static class OpenRouterResponseParser
         return HasHit(response.Headers) || HasHit(response.Content.Headers);
     }
 
+    public static bool ContainsHiddenReasoning(JsonElement root)
+    {
+        if (HasReasoningProperty(root))
+        {
+            return true;
+        }
+
+        if (!root.TryGetProperty("choices", out var choices) || choices.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        foreach (var choice in choices.EnumerateArray())
+        {
+            if (choice.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            if (HasReasoningProperty(choice))
+            {
+                return true;
+            }
+
+            if (choice.TryGetProperty("message", out var message) && HasReasoningProperty(message))
+            {
+                return true;
+            }
+
+            if (choice.TryGetProperty("delta", out var delta) && HasReasoningProperty(delta))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static bool TryReadControlContent(JsonElement root, out string? content)
     {
         content = null;
@@ -199,6 +237,18 @@ internal static class OpenRouterResponseParser
     {
         value = null;
         return parent.TryGetProperty(name, out var element) && TryReadJsonString(element, out value);
+    }
+
+    private static bool HasReasoningProperty(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        return element.TryGetProperty("reasoning", out _)
+            || element.TryGetProperty("reasoning_details", out _)
+            || element.TryGetProperty("reasoning_content", out _);
     }
 
     private static bool HasHit(HttpHeaders headers) =>

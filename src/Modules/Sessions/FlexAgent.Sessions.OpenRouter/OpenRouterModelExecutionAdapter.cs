@@ -89,6 +89,11 @@ public sealed class OpenRouterModelExecutionAdapter(
                 return Fail(ExecutionFailureReasons.ProviderUnavailable, startedAt, request, resolved.Value.Profile);
             }
 
+            if (OpenRouterResponseParser.ContainsHiddenReasoning(document.RootElement))
+            {
+                return Fail(ExecutionFailureReasons.ProviderUnavailable, startedAt, request, resolved.Value.Profile);
+            }
+
             if (!OpenRouterResponseParser.TryReadControlContent(document.RootElement, out var content)
                 || string.IsNullOrEmpty(content))
             {
@@ -378,6 +383,24 @@ public sealed class OpenRouterModelExecutionAdapter(
             var parsed = document ?? throw new InvalidOperationException("OpenRouter SSE JSON parse produced no document.");
             using (parsed)
             {
+                if (OpenRouterResponseParser.ContainsHiddenReasoning(document.RootElement))
+                {
+                    yield return ContentFailure(
+                        resolved.Value.Profile,
+                        ExecutionFailureReasons.ProviderUnavailable,
+                        request.ProviderAttemptId,
+                        startedAt);
+                    await enumerator.DisposeAsync();
+                    if (stream is not null)
+                    {
+                        await stream.DisposeAsync();
+                    }
+
+                    response?.Dispose();
+                    lifetime.Dispose();
+                    yield break;
+                }
+
                 var hasDelta = OpenRouterResponseParser.TryReadDelta(document.RootElement, out var delta, out var malformedString);
                 if (malformedString)
                 {
@@ -651,6 +674,7 @@ public static class OpenRouterLiveQualification
     public const string EnableEnvironmentVariable = "FLEXAGENT_LIVE_OPENROUTER_QUALIFICATION";
     public const string SyntheticDataPolicyEnvironmentVariable = "FLEXAGENT_OPENROUTER_SYNTHETIC_DATA_POLICY_ACCEPTED";
     public const string BudgetPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_QUALIFICATION_BUDGET_PATH";
+    public const string Phase21BudgetPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_PHASE21_QUALIFICATION_BUDGET_PATH";
     public const string InstalledProfilesPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_INSTALLED_PROFILES_PATH";
     public const string ConfigurationsPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_CONFIGURATIONS_PATH";
     public const string ExpectedConsumedEnvironmentVariable = "FLEXAGENT_OPENROUTER_QUALIFICATION_EXPECTED_CONSUMED";
@@ -659,11 +683,14 @@ public static class OpenRouterLiveQualification
     public const string PinnedMatrixPhase = "pinned-matrix";
     public const string GemmaDarkbloomPhase = "gemma-darkbloom-matrix";
     public const string NemotronNanoBackupPhase = "nemotron-nano-backup-matrix";
+    public const string GptOssDarkbloomPhase = "gpt-oss-darkbloom-matrix";
     public const int DiscoveryRetiredAtConsumed = 6;
     public const int PinnedMatrixRetiredAtConsumed = 9;
     public const int GemmaDarkbloomStartsAtConsumed = 9;
     public const int NemotronNanoBackupStartsAtConsumed = 10;
+    public const int GptOssDarkbloomStartsAtConsumed = 0;
     public const int MaxInferenceRequests = 12;
+    public const int Phase21MaxInferenceRequests = 4;
     public const string GemmaDarkbloomProfileId = "openrouter.synthetic.local.gemma-4-26b-a4b-it";
     public const string GemmaDarkbloomModel = "google/gemma-4-26b-a4b-it:free";
     public const string GemmaDarkbloomProviderSlug = "darkbloom";
@@ -676,6 +703,12 @@ public static class OpenRouterLiveQualification
     public const string GemmaDarkbloomProfileDigest = "48a2e696b6d0970ea58d9a5a040ccc4ff25c4e6d089447aa2dbe66c21f5d7ad9";
     public const string NemotronNanoBackupAdapterDigest = "77754995939f05366000e0f90022e998cdc85d18b3f675b8d64307595b0361ac";
     public const string NemotronNanoBackupProfileDigest = "222f34dcffe90fc728ba02645872714ae7671cab2ee334af3736b295e34fa8fb";
+    public const string GptOssDarkbloomProfileId = "openrouter.synthetic.local.gpt-oss-20b";
+    public const string GptOssDarkbloomModel = "openai/gpt-oss-20b:free";
+    public const string GptOssDarkbloomProviderSlug = "darkbloom";
+    public const string GptOssDarkbloomProviderIdentity = "Darkbloom";
+    public const string GptOssDarkbloomAdapterDigest = "d392ac50dafcfedd6810afec54016d0e8867f6a7401b61558016382c08b9e7bd";
+    public const string GptOssDarkbloomProfileDigest = "64f98960972b425ed65e4db960836f59e4bebfd386f0076af295334f49a6ebf5";
 
     public static bool IsEnabled =>
         string.Equals(Environment.GetEnvironmentVariable(EnableEnvironmentVariable), "1", StringComparison.Ordinal);
@@ -745,6 +778,13 @@ public static class OpenRouterLiveQualification
             && currentConsumed != NemotronNanoBackupStartsAtConsumed)
         {
             denialReason = "nemotron_nano_backup_requires_consumed_10";
+            return false;
+        }
+
+        if (string.Equals(requiredPhase, GptOssDarkbloomPhase, StringComparison.Ordinal)
+            && currentConsumed != GptOssDarkbloomStartsAtConsumed)
+        {
+            denialReason = "gpt_oss_darkbloom_requires_consumed_0";
             return false;
         }
 

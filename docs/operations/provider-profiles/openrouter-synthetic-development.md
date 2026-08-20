@@ -9,7 +9,7 @@
 | **Approvers** | Product Lead, Architecture Lead |
 | **Effective date** | 2026-08-19 |
 | **Last reviewed** | 2026-08-20 |
-| **Decision reference** | Product Lead decisions on 2026-08-20 to (1) permit provider/OpenRouter retention and training for synthetic-only solo development, (2) approve and execute the bounded Gemma/Darkbloom Phase 20 candidate with a fail-closed result, and (3) approve `openai/gpt-oss-20b:free` / Darkbloom as the next separately budgeted Phase 21 candidate while deferring live verification and preserving all production, real-data, and enablement gates |
+| **Decision reference** | Product Lead decisions on 2026-08-20 to (1) permit provider/OpenRouter retention and training for synthetic-only solo development, (2) approve and execute the bounded Gemma/Darkbloom Phase 20 candidate with a fail-closed result, and (3) approve and live-verify `openai/gpt-oss-20b:free` / Darkbloom as the separately budgeted Phase 21 candidate with a fail-closed result, preserving all production, real-data, and enablement gates |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, documentation |
 | **Governs** | Local synthetic OpenRouter calls, capability discovery, pinned free-model Session testing, credential placement, data-policy/routing controls, bounded qualification evidence, and enablement limits |
 | **Related decisions** | [ADR-008 `OSS-DEC-17`](../../architecture/decisions/ADR-008-bounded-oss-component-set.md#approved-decisions) and [ADR-010 `STACK-DEC-18`](../../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#decision) |
@@ -120,7 +120,7 @@ admission on both approved candidates.
 
 | Field | Approved value or rule |
 | --- | --- |
-| Decision status | Candidate and bounded verification plan approved; deterministic implementation, operator pin, and live verification not started |
+| Decision status | Candidate approved and live-verified fail-closed; deterministic gates remain; operator pin exists outside Git; acceptance label not applied |
 | Model | `openai/gpt-oss-20b:free` |
 | Provider slug | `darkbloom` |
 | Expected returned provider identity | `Darkbloom` |
@@ -128,9 +128,9 @@ admission on both approved candidates.
 | Reasoning request | `reasoning.effort: "low"` and `reasoning.exclude: true`; reasoning remains counted in output usage and must not be persisted or exposed |
 | Phase 21 output ceiling | 1,024 total output tokens per request, including reasoning; this is a candidate-specific bound and does not rewrite historical 256-token evidence |
 | Visible-content acceptance | The content phase must still finish below 256 output tokens and contain visible, non-truncated Participant-facing text |
-| Qualification budget | New Phase 21 ledger, maximum 4 inference requests, concurrency 1, maximum USD 2; starts at 0/4 only after immediate owner confirmation |
+| Qualification budget | New Phase 21 ledger, maximum 4 inference requests, concurrency 1, maximum USD 2; now 1/4 after the fail-closed control probe |
 | Historical budget handling | Preserve the retention-accepted 11/12 and strict-policy 5/12 ledgers; do not spend or relabel historical slot 12 |
-| Verification state | Deferred by the owner; no credential inspection, operator file, network request, qualification label, or runtime enablement is authorized by this documentation update alone |
+| Verification state | Live control on 2026-08-20 returned HTTP 200, cache absent, validated model identity, and `malformed_control`. Content was not reserved. Phase 21 budget is 1/4. Catalog still listed the free Darkbloom structured-output route immediately before the request. Qualification label not applied |
 
 GPT-OSS 20B is selected because its native structured-output contract is a
 closer fit for `agent-decision.v2` than repeating the failed Gemma, Nemotron
@@ -144,7 +144,8 @@ Before any live request, Phase 21 must:
    advertises every sent parameter, including strict structured output and the
    selected reasoning controls;
 2. add deterministic request-shape, parser, budget, phase, identity, and
-   fail-closed tests before changing the live runner;
+   fail-closed tests before changing the live runner. Those deterministic
+   gates now exist; they do not authorize a pin or live request;
 3. create a distinct owner-only GPT-OSS operator profile outside Git, compute
    and load-verify its profile and adapter-configuration digests, and bind the
    runner to those exact values rather than environment-selected identity;
@@ -369,12 +370,17 @@ Participant Text Session chat remains gated on the synthetic browser adapter.
 Passing fake-transport, catalog, or partial live evidence does not enable
 production or participant-data use.
 
-Phase 21 planning now approves `openai/gpt-oss-20b:free` / `darkbloom` /
-`Darkbloom` as the next candidate with low, excluded reasoning, a distinct
-1,024-token candidate ceiling, and a fresh 0/4 budget. No Phase 21 code,
-operator pin, credential access, live request, or qualification evidence exists
-yet. Verification is deliberately deferred and the acceptance label remains
-unapplied.
+Phase 21 implemented a distinct `gpt-oss-darkbloom-matrix` gate, a separate
+`openrouter_qualification_budget.phase21.v1` ledger, and an explicit opt-in
+runner bound to `openai/gpt-oss-20b:free` / `darkbloom` / `Darkbloom` with
+`max_tokens:1024` and `reasoning:{effort:"low",exclude:true}`. Historical
+256-token profiles and the 5/12 and 11/12 ledgers remain unchanged. The
+2026-08-20 live control reserved slot 1/4, returned HTTP 200 with cache absent
+and validated model identity, then failed Decision admission as
+`malformed_control`. Content was not reserved. Sanitized evidence is
+[synthetic-development-phase21-2026-08-20.md](qualified/openrouter/synthetic-development-phase21-2026-08-20.md).
+The run is not labeled `qualified_for: synthetic_development`. Do not repeat
+this control request. Catalog advertisement is still not live qualification.
 
 ## References
 

@@ -25,8 +25,11 @@ model-provider profiles. It does not select a product-default model.
   so the run is not labeled `qualified_for: synthetic_development`. The next
   approved candidate is `openai/gpt-oss-20b:free` / `darkbloom` / `Darkbloom`
   under a separately budgeted Phase 21 with low, excluded reasoning and a
-  1,024-token candidate ceiling; implementation and live verification remain
-  pending, and no qualification label or enablement follows from the plan. Hosted
+  1,024-token candidate ceiling. Deterministic gates and an owner-only pin are
+  implemented. The 2026-08-20 live control reserved slot 1/4 and failed Decision
+  admission as `malformed_control` with HTTP 200, cache absent, and no content
+  reservation. No qualification label or enablement follows. Do not repeat that
+  control request. Hosted
   Participant chat remains gated. `openrouter/free` is discovery/smoke only;
   repeatable Session testing pins one concrete `:free` model and one permitted
   provider slug. This evidence does not qualify production or close the
