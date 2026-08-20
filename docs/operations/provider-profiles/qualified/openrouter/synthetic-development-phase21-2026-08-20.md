@@ -8,14 +8,14 @@
 | Model | `openai/gpt-oss-20b:free` |
 | Provider slug | `darkbloom` |
 | Expected identity | `Darkbloom` |
-| Profile digest | `64f98960972b425ed65e4db960836f59e4bebfd386f0076af295334f49a6ebf5` |
-| Adapter-configuration digest | `d392ac50dafcfedd6810afec54016d0e8867f6a7401b61558016382c08b9e7bd` |
-| Request policy | `max_tokens:1024`; `reasoning.effort:low`; `reasoning.exclude:true` |
-| Phase 21 budget after this run | 1/4 |
-| Historical strict-policy budget | 5/12 (unchanged) |
-| Retention-accepted budget | 11/12 (unchanged) |
-| Historical Lightning, Gemma, and Nano pins | preserved; not reused |
-| Acceptance label | not applied |
+| Profile digest | `fb1fb631fc25dcc05c07b19345c00986f4120d34e751b3a922d1df7bc3d04b48` |
+| Adapter-configuration digest | `7559112b33caad06504136309a0216e7bdf7643391a8bb7b4084245c517092fd` |
+| Request policy | `max_tokens:4096`; `reasoning.effort:low`; `reasoning.exclude:true`; 120-second control and content timeouts |
+| Control prompt | one valid v2 `no_action` example in the system text |
+| Phase 21 budget after this run | 8/8 |
+| Historical strict-policy budget | 5/24 (consumed unchanged) |
+| Retention-accepted budget | 21/24 (unchanged by this run) |
+| Acceptance label | `qualified_for: synthetic_development` |
 
 This file contains only sanitized operator facts. It does not contain keys, key
 fragments, account identifiers, prompts, model text, request or response bodies,
@@ -23,51 +23,52 @@ reasoning traces, or authorization headers.
 
 ## Result
 
-The Phase 21 live matrix is **incomplete**. The reserved structured-control
-probe reached HTTP 200 with cache absent and adapter-validated model identity,
-then failed Flex Agent Decision admission as `malformed_control`. Usage tokens
-were not recorded on the failed control. The runner stopped before reserving
-participant-visible content.
-
-Do not label this run:
+The Phase 21 live matrix **passed** on the owner-requested GPT-OSS retry after
+the control example prompt and 4,096-token pin. The explicit runner reserved
+control at 7/8, reserved content only after an admitted Decision, then
+`TryQualify` succeeded. The runner printed
+`qualified_for=synthetic_development` for
+`openai/gpt-oss-20b:free` / `Darkbloom`.
 
 ```text
 qualified_for: synthetic_development
 ```
 
-Malformed control is terminal for this candidate. Do not retry the same
-control request, spend the remaining 3/4 slots on another model, relax the
-schema, enable fallback, or switch to a paid model.
+This label applies only to the pinned synthetic-development GPT-OSS/Darkbloom
+route behind the Sessions OpenRouter adapter. It does not enable Production or
+Staging, authorize real or private data, or close hosted Participant chat.
 
 ## Sanitized request matrix
 
-| Slot | Phase | HTTP | Class | Cache | Usage | Outcome |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1/4 | GPT-OSS/Darkbloom control | 200 | `ok` | absent | none recorded | `malformed_control`; content not reserved |
+| Slot | Phase | Outcome |
+| --- | --- | --- |
+| 1–6/8 | earlier GPT-OSS control probes | fail-closed (`malformed_control`, timeout, or 429); content not reserved |
+| 7/8 | GPT-OSS/Darkbloom control after example prompt | admitted `ModelExecutionStructuredControl`; content reserved |
+| 8/8 | GPT-OSS/Darkbloom content | completed with at least one visible delta and output tokens below 4096 |
 
-Returned model identity matched the exact pinned route. No
-`X-OpenRouter-Cache-Status: HIT` was observed. Slots 2–4/4 remain unused.
+Per-request HTTP/usage lines from the passing run were not retained in the
+agent terminal capture. The passing xUnit result and the 6/8 → 8/8 ledger
+increment are the recorded evidence that both slots were consumed by a
+completed matrix.
 
 ## Observed and not observed
 
 Observed:
 
-- distinct Phase 21 0/4 ledger separate from historical 5/12 and 11/12 files
-- owner-only GPT-OSS operator files load-verified through the live runner
-- control-before-content stop after a non-admitted Decision
-- HTTP 200 identity and cache-denial on the control probe
+- catalog still listed free Darkbloom `structured_outputs` and `response_format` immediately before the retry
+- owner-only GPT-OSS pin load-verified through the live runner
+- admitted live structured Decision
+- participant-visible streaming that qualified under the current acceptance bound
 
 Not observed in this live run:
 
-- admitted live structured Decision
-- participant-visible streaming
-- timeout, caller cancellation, application retry, cutoff, or reconnect
 - Worker plus PostgreSQL durable admission/provenance against the live network
 - hosted Participant Text Session chat
+- Production or Staging enablement
 
 ## Enablement
 
-Passing or partial live evidence does not enable a runtime, authorize Production
-or Staging, or close the OpenAI-compatible endpoint qualification track
-(formerly Direct OpenAI Phase B). Hosted Participant chat remains a separate
-delivery gap. Do not reuse this GPT-OSS control request.
+This passing adapter-harness evidence does not turn on a runtime, authorize
+Production or Staging, or close the OpenAI-compatible endpoint qualification
+track (formerly Direct OpenAI Phase B). Hosted Participant chat remains a
+separate delivery gap.

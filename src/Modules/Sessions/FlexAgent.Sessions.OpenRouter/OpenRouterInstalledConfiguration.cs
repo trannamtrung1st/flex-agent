@@ -8,9 +8,11 @@ public static class OpenRouterAdapterContracts
     public const string QualificationScope = "synthetic_development";
     public const string DiscoveryModel = "openrouter/free";
     public const string ChatCompletionsPath = "/api/v1/chat/completions";
-    public const int MaxOutputTokens = 256;
-    public const int Phase21MaxOutputTokens = 1024;
-    public const int VisibleContentAcceptanceMaxOutputTokens = 256;
+    public const int MaxOutputTokens = 4096;
+    public const int Phase21MaxOutputTokens = 4096;
+    public const int VisibleContentAcceptanceMaxOutputTokens = 4096;
+    public const string ControlSystemPrompt =
+        "Return one JSON Agent Decision envelope and no participant-visible prose. Do not copy invocation-context field names. Example: {\"schema_version\":\"v2\",\"agent_decision_id\":\"adec.synthetic.0002\",\"agent_invocation_id\":\"ainv.synthetic.0002\",\"produced_at\":\"2026-08-20T00:00:00Z\",\"disposition\":\"no_action\",\"outputs\":[],\"requested_actions\":[],\"no_action\":{\"reason_category\":\"intentional_silence\"}}";
     public const int MaxApplicationAttempts = 2;
     public const int MaxControlEnvelopeUtf8Bytes = 262_144;
     public const int MaxSseEventUtf8Bytes = 65_536;
@@ -19,6 +21,8 @@ public static class OpenRouterAdapterContracts
     public static readonly Uri ApprovedOrigin = new("https://openrouter.ai/", UriKind.Absolute);
     public static readonly TimeSpan ControlTimeout = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan ContentTimeout = TimeSpan.FromSeconds(60);
+    public static readonly TimeSpan Phase21ControlTimeout = TimeSpan.FromMinutes(2);
+    public static readonly TimeSpan Phase21ContentTimeout = TimeSpan.FromMinutes(2);
 }
 
 public static class OpenRouterDestination
@@ -65,19 +69,23 @@ public sealed record OpenRouterRequestPolicy(int MaxOutputTokens, string? Reason
     public static OpenRouterRequestPolicy ForInstalledProfile(InstalledModelDeploymentProfile profile)
     {
         ArgumentNullException.ThrowIfNull(profile);
-        if (profile.MaxOutputTokens == OpenRouterAdapterContracts.MaxOutputTokens)
-        {
-            return Default;
-        }
-
-        if (profile.MaxOutputTokens == OpenRouterAdapterContracts.Phase21MaxOutputTokens)
+        if (profile.ControlTimeout == OpenRouterAdapterContracts.Phase21ControlTimeout
+            && profile.ContentTimeout == OpenRouterAdapterContracts.Phase21ContentTimeout
+            && profile.MaxOutputTokens == OpenRouterAdapterContracts.Phase21MaxOutputTokens)
         {
             return Phase21GptOss;
         }
 
+        if (profile.ControlTimeout == OpenRouterAdapterContracts.ControlTimeout
+            && profile.ContentTimeout == OpenRouterAdapterContracts.ContentTimeout
+            && profile.MaxOutputTokens == OpenRouterAdapterContracts.MaxOutputTokens)
+        {
+            return Default;
+        }
+
         throw new ArgumentOutOfRangeException(
             nameof(profile),
-            "OpenRouter installed profiles permit only the default 256-token policy or the Phase 21 1,024-token GPT-OSS policy.");
+            "OpenRouter installed profiles permit only the default 4,096-token policy or the Phase 21 4,096-token GPT-OSS reasoning policy.");
     }
 }
 
@@ -131,10 +139,16 @@ public sealed record OpenRouterInstalledConfiguration(
         {
             throw new ArgumentOutOfRangeException(
                 nameof(requestPolicy),
-                "The Phase 21 1,024-token reasoning policy is bound to the approved GPT-OSS/Darkbloom identity.");
+                "The Phase 21 reasoning policy is bound to the approved GPT-OSS/Darkbloom identity.");
         }
 
         var adapterDigest = ComputeAdapterConfigurationDigest(providerSlug, expectedReturnedProviderIdentity, policy);
+        var controlTimeout = policy == OpenRouterRequestPolicy.Phase21GptOss
+            ? OpenRouterAdapterContracts.Phase21ControlTimeout
+            : OpenRouterAdapterContracts.ControlTimeout;
+        var contentTimeout = policy == OpenRouterRequestPolicy.Phase21GptOss
+            ? OpenRouterAdapterContracts.Phase21ContentTimeout
+            : OpenRouterAdapterContracts.ContentTimeout;
         var profile = InstalledModelDeploymentProfile.Create(
             profileId,
             profileVersion,
@@ -146,8 +160,8 @@ public sealed record OpenRouterInstalledConfiguration(
             "p0.text.structured-control",
             credentialMode,
             policy.MaxOutputTokens,
-            OpenRouterAdapterContracts.ControlTimeout,
-            OpenRouterAdapterContracts.ContentTimeout,
+            controlTimeout,
+            contentTimeout,
             maxProviderRequestAttempts,
             providerId,
             adapterDigest);
@@ -175,13 +189,13 @@ public sealed record OpenRouterInstalledConfiguration(
             "data_collection=allow",
             "zdr=false",
             "metadata=enabled",
-            "cache=false");
+            "cache=false",
+            "max_tokens=" + policy.MaxOutputTokens.ToString(System.Globalization.CultureInfo.InvariantCulture));
         if (policy == OpenRouterRequestPolicy.Phase21GptOss)
         {
             source = string.Join(
                 "\n",
                 source,
-                "max_tokens=1024",
                 "reasoning.effort=low",
                 "reasoning.exclude=true");
         }

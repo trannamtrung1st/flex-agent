@@ -33,7 +33,7 @@ public sealed class OpenRouterAdapterContractTests
         Assert.DoesNotContain("X-Title", handler.HeaderNames, StringComparer.OrdinalIgnoreCase);
         using var body = JsonDocument.Parse(handler.Body);
         Assert.Equal(Model, body.RootElement.GetProperty("model").GetString());
-        Assert.Equal(256, body.RootElement.GetProperty("max_tokens").GetInt32());
+        Assert.Equal(4096, body.RootElement.GetProperty("max_tokens").GetInt32());
         var provider = body.RootElement.GetProperty("provider");
         Assert.Equal("Together", Assert.Single(provider.GetProperty("only").EnumerateArray()).GetString());
         Assert.False(provider.GetProperty("allow_fallbacks").GetBoolean());
@@ -42,7 +42,16 @@ public sealed class OpenRouterAdapterContractTests
         Assert.False(provider.GetProperty("zdr").GetBoolean());
         Assert.False(body.RootElement.TryGetProperty("plugins", out _));
         Assert.Equal("json_schema", body.RootElement.GetProperty("response_format").GetProperty("type").GetString());
+        Assert.Equal(
+            "agent_decision_v2",
+            body.RootElement.GetProperty("response_format").GetProperty("json_schema").GetProperty("name").GetString());
         Assert.True(body.RootElement.GetProperty("response_format").GetProperty("json_schema").GetProperty("strict").GetBoolean());
+        Assert.True(body.RootElement.GetProperty("response_format").GetProperty("json_schema").TryGetProperty("schema", out var schema));
+        Assert.Equal(JsonValueKind.Object, schema.ValueKind);
+        Assert.Equal(
+            OpenRouterAdapterContracts.ControlSystemPrompt,
+            body.RootElement.GetProperty("messages")[0].GetProperty("content").GetString());
+        Assert.Contains("schema_version", OpenRouterAdapterContracts.ControlSystemPrompt, StringComparison.Ordinal);
         Assert.DoesNotContain(CanarySecret, handler.Body, StringComparison.Ordinal);
     }
 

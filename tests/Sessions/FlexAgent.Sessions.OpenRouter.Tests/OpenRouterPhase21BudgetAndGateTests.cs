@@ -7,12 +7,12 @@ namespace FlexAgent.Sessions.OpenRouter.Tests;
 public sealed class OpenRouterPhase21BudgetAndGateTests
 {
     [Fact]
-    public void Gpt_oss_phase_authorizes_only_at_consumed_zero_on_its_own_ledger()
+    public void Gpt_oss_phase_authorizes_only_consumed_zero_through_seven_on_its_own_ledger()
     {
         Assert.Equal("gpt-oss-darkbloom-matrix", OpenRouterLiveQualification.GptOssDarkbloomPhase);
         Assert.Equal(0, OpenRouterLiveQualification.GptOssDarkbloomStartsAtConsumed);
-        Assert.Equal(4, OpenRouterLiveQualification.Phase21MaxInferenceRequests);
-        Assert.Equal(12, OpenRouterLiveQualification.MaxInferenceRequests);
+        Assert.Equal(8, OpenRouterLiveQualification.Phase21MaxInferenceRequests);
+        Assert.Equal(24, OpenRouterLiveQualification.MaxInferenceRequests);
 
         Assert.True(
             OpenRouterLiveQualification.TryAuthorizeReservation(
@@ -23,19 +23,82 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
                 out var authorized));
         Assert.Equal(string.Empty, authorized);
 
-        Assert.False(
+        Assert.True(
             OpenRouterLiveQualification.TryAuthorizeReservation(
                 OpenRouterLiveQualification.GptOssDarkbloomPhase,
                 OpenRouterLiveQualification.GptOssDarkbloomPhase,
                 currentConsumed: 1,
                 expectedConsumedText: "1",
-                out var stale));
-        Assert.Equal("gpt_oss_darkbloom_requires_consumed_0", stale);
+                out var retry));
+        Assert.Equal(string.Empty, retry);
+
+        Assert.True(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                currentConsumed: 2,
+                expectedConsumedText: "2",
+                out var secondRetry));
+        Assert.Equal(string.Empty, secondRetry);
+
+        Assert.True(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                currentConsumed: 3,
+                expectedConsumedText: "3",
+                out var finalRetry));
+        Assert.Equal(string.Empty, finalRetry);
+
+        Assert.True(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                currentConsumed: 4,
+                expectedConsumedText: "4",
+                out var ownerRetry));
+        Assert.Equal(string.Empty, ownerRetry);
+
+        Assert.True(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                currentConsumed: 5,
+                expectedConsumedText: "5",
+                out var ownerFinal));
+        Assert.Equal(string.Empty, ownerFinal);
+
+        Assert.True(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                currentConsumed: 6,
+                expectedConsumedText: "6",
+                out var tokenRetry));
+        Assert.Equal(string.Empty, tokenRetry);
+
+        Assert.True(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                currentConsumed: 7,
+                expectedConsumedText: "7",
+                out var tokenFinal));
+        Assert.Equal(string.Empty, tokenFinal);
 
         Assert.False(
             OpenRouterLiveQualification.TryAuthorizeReservation(
                 OpenRouterLiveQualification.GptOssDarkbloomPhase,
-                OpenRouterLiveQualification.GemmaDarkbloomPhase,
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                currentConsumed: 8,
+                expectedConsumedText: "8",
+                out var stale));
+        Assert.Equal("gpt_oss_darkbloom_requires_consumed_0_to_7", stale);
+
+        Assert.False(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                "gemma-darkbloom-matrix",
                 currentConsumed: 0,
                 expectedConsumedText: "0",
                 out var wrongPhase));
@@ -43,7 +106,7 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
     }
 
     [Fact]
-    public void Recorded_historical_eleven_of_twelve_refuses_every_live_phase_including_phase21()
+    public void Historical_counts_cannot_reopen_retired_candidates_or_exhausted_gpt_oss()
     {
         Assert.False(
             OpenRouterLiveQualification.TryAuthorizeReservation(
@@ -52,34 +115,16 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
                 currentConsumed: 11,
                 expectedConsumedText: "11",
                 out var phase21));
-        Assert.Equal("gpt_oss_darkbloom_requires_consumed_0", phase21);
+        Assert.Equal("gpt_oss_darkbloom_requires_consumed_0_to_7", phase21);
 
         Assert.False(
             OpenRouterLiveQualification.TryAuthorizeReservation(
-                OpenRouterLiveQualification.GemmaDarkbloomPhase,
-                OpenRouterLiveQualification.GemmaDarkbloomPhase,
-                currentConsumed: 11,
-                expectedConsumedText: "11",
-                out var gemma));
-        Assert.Equal("gemma_darkbloom_requires_consumed_9", gemma);
-
-        Assert.False(
-            OpenRouterLiveQualification.TryAuthorizeReservation(
-                OpenRouterLiveQualification.NemotronNanoBackupPhase,
-                OpenRouterLiveQualification.NemotronNanoBackupPhase,
-                currentConsumed: 11,
-                expectedConsumedText: "11",
-                out var nano));
-        Assert.Equal("nemotron_nano_backup_requires_consumed_10", nano);
-
-        Assert.False(
-            OpenRouterLiveQualification.TryAuthorizeReservation(
-                OpenRouterLiveQualification.PinnedMatrixPhase,
-                OpenRouterLiveQualification.PinnedMatrixPhase,
+                "pinned-matrix",
+                "pinned-matrix",
                 currentConsumed: 11,
                 expectedConsumedText: "11",
                 out var lightning));
-        Assert.Equal("pinned_matrix_already_recorded", lightning);
+        Assert.Equal("retired_candidate", lightning);
 
         Assert.False(
             OpenRouterLiveQualification.TryAuthorizeReservation(
@@ -92,12 +137,12 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
     }
 
     [Fact]
-    public void Phase21_budget_is_a_distinct_0_of_4_ledger_and_cannot_mutate_historical_state()
+    public void Phase21_budget_is_a_distinct_ledger_and_cannot_mutate_historical_state()
     {
         using var directory = new TemporaryDirectory();
         var historicalPath = Path.Combine(directory.Path, "historical");
         var phase21Path = Path.Combine(directory.Path, "phase21");
-        File.WriteAllText(historicalPath, "openrouter_qualification_budget.v1\n11\n12\n");
+        File.WriteAllText(historicalPath, "openrouter_qualification_budget.v1\n11\n24\n");
         File.WriteAllText(phase21Path, "openrouter_qualification_budget.v1\n5\n12\n");
         if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsFreeBSD())
         {
@@ -134,10 +179,18 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
         Assert.Equal(3, third);
         Assert.True(fresh.TryReserve(out var fourth));
         Assert.Equal(4, fourth);
+        Assert.True(fresh.TryReserve(out var fifth));
+        Assert.Equal(5, fifth);
+        Assert.True(fresh.TryReserve(out var sixth));
+        Assert.Equal(6, sixth);
+        Assert.True(fresh.TryReserve(out var seventh));
+        Assert.Equal(7, seventh);
+        Assert.True(fresh.TryReserve(out var eighth));
+        Assert.Equal(8, eighth);
         Assert.False(fresh.TryReserve(out var exhausted));
-        Assert.Equal(4, exhausted);
+        Assert.Equal(8, exhausted);
         Assert.Equal(
-            "openrouter_qualification_budget.phase21.v1\n4\n4\n",
+            "openrouter_qualification_budget.phase21.v1\n8\n8\n",
             File.ReadAllText(Path.Combine(directory.Path, "fresh")));
         Assert.Equal(historicalBytes, File.ReadAllBytes(historicalPath));
         Assert.Equal(fiveOfTwelve, File.ReadAllBytes(phase21Path));
@@ -162,7 +215,7 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
     }
 
     [Fact]
-    public void Visible_content_acceptance_stays_below_256_even_when_the_request_ceiling_is_1024()
+    public void Visible_content_at_the_acceptance_ceiling_is_truncated()
     {
         var control = new ModelExecutionStructuredControl(Admission());
         var truncated = new ModelContentCompleted

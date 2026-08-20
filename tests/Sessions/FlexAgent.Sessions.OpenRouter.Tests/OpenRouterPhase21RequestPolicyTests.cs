@@ -15,7 +15,7 @@ public sealed class OpenRouterPhase21RequestPolicyTests
     private const string ReasoningCanary = "hidden.reasoning.canary.do-not-expose";
 
     [Fact]
-    public void Phase21_create_pins_1024_tokens_low_excluded_reasoning_and_distinct_digests()
+    public void Phase21_create_pins_4096_tokens_low_excluded_reasoning_and_distinct_digests()
     {
         var created = OpenRouterInstalledConfiguration.Create(
             OpenRouterLiveQualification.GptOssDarkbloomProfileId,
@@ -29,38 +29,40 @@ public sealed class OpenRouterPhase21RequestPolicyTests
             requestPolicy: OpenRouterRequestPolicy.Phase21GptOss);
 
         Assert.Equal(OpenRouterAdapterContracts.Phase21MaxOutputTokens, created.Profile.MaxOutputTokens);
-        Assert.Equal(256, OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens);
+        Assert.Equal(TimeSpan.FromMinutes(2), created.Profile.ControlTimeout);
+        Assert.Equal(TimeSpan.FromMinutes(2), created.Profile.ContentTimeout);
+        Assert.Equal(4096, OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens);
         Assert.Equal("low", created.RequestPolicy.ReasoningEffort);
         Assert.True(created.RequestPolicy.ReasoningExcluded);
         Assert.Equal(OpenRouterLiveQualification.GptOssDarkbloomAdapterDigest, created.AdapterConfigurationDigest);
         Assert.Equal(OpenRouterLiveQualification.GptOssDarkbloomProfileDigest, created.Profile.ProfileDigest);
-        Assert.NotEqual(OpenRouterLiveQualification.GemmaDarkbloomAdapterDigest, created.AdapterConfigurationDigest);
-        Assert.Equal(256, OpenRouterAdapterContracts.MaxOutputTokens);
-        Assert.Equal(256, OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens);
+        Assert.NotEqual(
+            OpenRouterInstalledConfiguration.ComputeAdapterConfigurationDigest("Together", "Together"),
+            created.AdapterConfigurationDigest);
+        Assert.Equal(4096, OpenRouterAdapterContracts.MaxOutputTokens);
+        Assert.Equal(4096, OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens);
     }
 
     [Fact]
-    public void Default_create_keeps_256_tokens_no_reasoning_and_historical_digests()
+    public void Default_create_keeps_4096_tokens_no_reasoning_and_current_digests()
     {
-        var gemma = OpenRouterInstalledConfiguration.Create(
-            OpenRouterLiveQualification.GemmaDarkbloomProfileId,
+        var example = OpenRouterInstalledConfiguration.Create(
+            "openrouter.synthetic.example.do-not-enable",
             "1",
-            OpenRouterLiveQualification.GemmaDarkbloomModel,
-            OpenRouterLiveQualification.GemmaDarkbloomModel,
-            OpenRouterLiveQualification.GemmaDarkbloomProviderSlug,
-            OpenRouterLiveQualification.GemmaDarkbloomProviderIdentity,
+            "acme/example-instruct:free",
+            "acme/example-instruct:free",
+            "Together",
+            "Together",
             ModelDeploymentCredentialModes.OrganizationByok,
             "openrouter.synthetic");
 
-        Assert.Equal(OpenRouterAdapterContracts.MaxOutputTokens, gemma.Profile.MaxOutputTokens);
-        Assert.Null(gemma.RequestPolicy.ReasoningEffort);
-        Assert.False(gemma.RequestPolicy.ReasoningExcluded);
-        Assert.Equal(OpenRouterLiveQualification.GemmaDarkbloomAdapterDigest, gemma.AdapterConfigurationDigest);
-        Assert.Equal(OpenRouterLiveQualification.GemmaDarkbloomProfileDigest, gemma.Profile.ProfileDigest);
+        Assert.Equal(OpenRouterAdapterContracts.MaxOutputTokens, example.Profile.MaxOutputTokens);
+        Assert.Null(example.RequestPolicy.ReasoningEffort);
+        Assert.False(example.RequestPolicy.ReasoningExcluded);
     }
 
     [Fact]
-    public void Phase21_policy_rejects_identity_drift_and_default_policy_rejects_1024_on_other_routes()
+    public void Phase21_policy_rejects_identity_drift_and_non_gpt_oss_routes()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             OpenRouterInstalledConfiguration.Create(
@@ -76,12 +78,12 @@ public sealed class OpenRouterPhase21RequestPolicyTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             OpenRouterInstalledConfiguration.Create(
-                OpenRouterLiveQualification.GemmaDarkbloomProfileId,
+                "openrouter.synthetic.example.do-not-enable",
                 "1",
-                OpenRouterLiveQualification.GemmaDarkbloomModel,
-                OpenRouterLiveQualification.GemmaDarkbloomModel,
-                OpenRouterLiveQualification.GemmaDarkbloomProviderSlug,
-                OpenRouterLiveQualification.GemmaDarkbloomProviderIdentity,
+                "acme/example-instruct:free",
+                "acme/example-instruct:free",
+                "Together",
+                "Together",
                 ModelDeploymentCredentialModes.OrganizationByok,
                 "openrouter.synthetic",
                 requestPolicy: OpenRouterRequestPolicy.Phase21GptOss));
@@ -89,12 +91,12 @@ public sealed class OpenRouterPhase21RequestPolicyTests
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             OpenRouterRequestPolicy.ForInstalledProfile(
                 OpenRouterInstalledConfiguration.Create(
-                    OpenRouterLiveQualification.GemmaDarkbloomProfileId,
+                    "openrouter.synthetic.example.do-not-enable",
                     "1",
-                    OpenRouterLiveQualification.GemmaDarkbloomModel,
-                    OpenRouterLiveQualification.GemmaDarkbloomModel,
-                    OpenRouterLiveQualification.GemmaDarkbloomProviderSlug,
-                    OpenRouterLiveQualification.GemmaDarkbloomProviderIdentity,
+                    "acme/example-instruct:free",
+                    "acme/example-instruct:free",
+                    "Together",
+                    "Together",
                     ModelDeploymentCredentialModes.OrganizationByok,
                     "openrouter.synthetic").Profile with
                 {
@@ -103,7 +105,7 @@ public sealed class OpenRouterPhase21RequestPolicyTests
     }
 
     [Fact]
-    public async Task Phase21_control_and_content_requests_send_1024_tokens_and_low_excluded_reasoning()
+    public async Task Phase21_control_and_content_requests_send_4096_tokens_and_low_excluded_reasoning()
     {
         var harness = CreatePhase21Harness();
         var handler = new RecordingHandler(ControlBody(harness.InvocationJson()));
@@ -112,7 +114,7 @@ public sealed class OpenRouterPhase21RequestPolicyTests
         Assert.IsType<ModelExecutionStructuredControl>(result);
         using var control = JsonDocument.Parse(handler.Body);
         Assert.Equal(OpenRouterLiveQualification.GptOssDarkbloomModel, control.RootElement.GetProperty("model").GetString());
-        Assert.Equal(1024, control.RootElement.GetProperty("max_tokens").GetInt32());
+        Assert.Equal(4096, control.RootElement.GetProperty("max_tokens").GetInt32());
         Assert.Equal("json_schema", control.RootElement.GetProperty("response_format").GetProperty("type").GetString());
         Assert.True(control.RootElement.GetProperty("response_format").GetProperty("json_schema").GetProperty("strict").GetBoolean());
         var reasoning = control.RootElement.GetProperty("reasoning");
@@ -127,7 +129,7 @@ public sealed class OpenRouterPhase21RequestPolicyTests
         }
 
         using var content = JsonDocument.Parse(streamHandler.Body);
-        Assert.Equal(1024, content.RootElement.GetProperty("max_tokens").GetInt32());
+        Assert.Equal(4096, content.RootElement.GetProperty("max_tokens").GetInt32());
         Assert.True(content.RootElement.GetProperty("stream").GetBoolean());
         Assert.Equal("low", content.RootElement.GetProperty("reasoning").GetProperty("effort").GetString());
         Assert.True(content.RootElement.GetProperty("reasoning").GetProperty("exclude").GetBoolean());
@@ -141,7 +143,7 @@ public sealed class OpenRouterPhase21RequestPolicyTests
         var handler = new RecordingHandler(ControlBody(harness.InvocationJson(), model: "meta-llama/llama-3.1-8b-instruct:free", provider: "Together"));
         await harness.Adapter(handler).ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
         using var body = JsonDocument.Parse(handler.Body);
-        Assert.Equal(256, body.RootElement.GetProperty("max_tokens").GetInt32());
+        Assert.Equal(4096, body.RootElement.GetProperty("max_tokens").GetInt32());
         Assert.False(body.RootElement.TryGetProperty("reasoning", out _));
     }
 
@@ -235,16 +237,25 @@ public sealed class OpenRouterPhase21RequestPolicyTests
                     OpenRouterLivePinnedRouteAcceptance.GptOssDarkbloom,
                     out var denial));
             Assert.Equal(string.Empty, denial);
-            Assert.Equal(1024, loaded.Profile.MaxOutputTokens);
+            Assert.Equal(4096, loaded.Profile.MaxOutputTokens);
             Assert.Equal("low", loaded.RequestPolicy.ReasoningEffort);
             Assert.True(loaded.RequestPolicy.ReasoningExcluded);
 
+            var example = OpenRouterInstalledConfiguration.Create(
+                "openrouter.synthetic.example.do-not-enable",
+                "1",
+                "acme/example-instruct:free",
+                "acme/example-instruct:free",
+                "Together",
+                "Together",
+                ModelDeploymentCredentialModes.OrganizationByok,
+                "openrouter.synthetic");
             Assert.False(
                 OpenRouterLivePinnedRouteAcceptance.TryAccept(
-                    loaded,
-                    OpenRouterLivePinnedRouteAcceptance.GemmaDarkbloom,
-                    out var gemmaDenial));
-            Assert.Equal("profile_id_mismatch", gemmaDenial);
+                    example,
+                    OpenRouterLivePinnedRouteAcceptance.GptOssDarkbloom,
+                    out var exampleDenial));
+            Assert.Equal("profile_id_mismatch", exampleDenial);
         }
         finally
         {

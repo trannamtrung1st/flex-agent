@@ -5,34 +5,31 @@ namespace FlexAgent.Sessions.OpenRouter.Tests;
 public sealed class OpenRouterLivePinnedRouteAcceptanceTests
 {
     [Fact]
-    public void Gemma_darkbloom_route_accepts_only_the_approved_identity_and_digests()
+    public void Gpt_oss_route_accepts_only_the_qualified_identity_and_reasoning_policy()
     {
         var matching = OpenRouterInstalledConfiguration.Create(
-            OpenRouterLiveQualification.GemmaDarkbloomProfileId,
+            OpenRouterLiveQualification.GptOssDarkbloomProfileId,
             "1",
-            OpenRouterLiveQualification.GemmaDarkbloomModel,
-            OpenRouterLiveQualification.GemmaDarkbloomModel,
-            OpenRouterLiveQualification.GemmaDarkbloomProviderSlug,
-            OpenRouterLiveQualification.GemmaDarkbloomProviderIdentity,
+            OpenRouterLiveQualification.GptOssDarkbloomModel,
+            OpenRouterLiveQualification.GptOssDarkbloomModel,
+            OpenRouterLiveQualification.GptOssDarkbloomProviderSlug,
+            OpenRouterLiveQualification.GptOssDarkbloomProviderIdentity,
             "organization_byok",
-            "openrouter.synthetic");
+            "openrouter.synthetic",
+            requestPolicy: OpenRouterRequestPolicy.Phase21GptOss);
 
         Assert.True(
             OpenRouterLivePinnedRouteAcceptance.TryAccept(
                 matching,
-                OpenRouterLivePinnedRouteAcceptance.GemmaDarkbloom,
+                OpenRouterLivePinnedRouteAcceptance.GptOssDarkbloom,
                 out var accepted));
         Assert.Equal(string.Empty, accepted);
-        Assert.Equal(
-            OpenRouterLiveQualification.GemmaDarkbloomAdapterDigest,
-            matching.AdapterConfigurationDigest);
-        Assert.Equal(
-            OpenRouterLiveQualification.GemmaDarkbloomProfileDigest,
-            matching.Profile.ProfileDigest);
+        Assert.Equal(OpenRouterLiveQualification.GptOssDarkbloomAdapterDigest, matching.AdapterConfigurationDigest);
+        Assert.Equal(OpenRouterLiveQualification.GptOssDarkbloomProfileDigest, matching.Profile.ProfileDigest);
     }
 
     [Fact]
-    public void Historical_lightning_identity_cannot_satisfy_the_gemma_route()
+    public void Historical_lightning_identity_cannot_satisfy_the_gpt_oss_route()
     {
         var lightning = OpenRouterInstalledConfiguration.Create(
             "openrouter.synthetic.local.nemotron-3.5-lightning",
@@ -47,77 +44,29 @@ public sealed class OpenRouterLivePinnedRouteAcceptanceTests
         Assert.False(
             OpenRouterLivePinnedRouteAcceptance.TryAccept(
                 lightning,
-                OpenRouterLivePinnedRouteAcceptance.GemmaDarkbloom,
+                OpenRouterLivePinnedRouteAcceptance.GptOssDarkbloom,
                 out var denial));
         Assert.Equal("profile_id_mismatch", denial);
     }
 
     [Fact]
-    public void Sibling_google_ai_studio_provider_cannot_satisfy_the_gemma_route()
+    public void Sibling_provider_cannot_satisfy_the_gpt_oss_route()
     {
-        var studio = OpenRouterInstalledConfiguration.Create(
-            OpenRouterLiveQualification.GemmaDarkbloomProfileId,
-            "1",
-            OpenRouterLiveQualification.GemmaDarkbloomModel,
-            OpenRouterLiveQualification.GemmaDarkbloomModel,
-            "google-ai-studio",
-            "Google AI Studio",
-            "organization_byok",
-            "openrouter.synthetic");
-
-        Assert.False(
-            OpenRouterLivePinnedRouteAcceptance.TryAccept(
-                studio,
-                OpenRouterLivePinnedRouteAcceptance.GemmaDarkbloom,
-                out var denial));
-        Assert.Equal("provider_identity_mismatch", denial);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            OpenRouterInstalledConfiguration.Create(
+                OpenRouterLiveQualification.GptOssDarkbloomProfileId,
+                "1",
+                OpenRouterLiveQualification.GptOssDarkbloomModel,
+                OpenRouterLiveQualification.GptOssDarkbloomModel,
+                "google-ai-studio",
+                "Google AI Studio",
+                "organization_byok",
+                "openrouter.synthetic",
+                requestPolicy: OpenRouterRequestPolicy.Phase21GptOss));
     }
 
     [Fact]
-    public void Nemotron_nano_backup_route_rejects_the_primary_gemma_identity()
-    {
-        var gemma = OpenRouterInstalledConfiguration.Create(
-            OpenRouterLiveQualification.GemmaDarkbloomProfileId,
-            "1",
-            OpenRouterLiveQualification.GemmaDarkbloomModel,
-            OpenRouterLiveQualification.GemmaDarkbloomModel,
-            OpenRouterLiveQualification.GemmaDarkbloomProviderSlug,
-            OpenRouterLiveQualification.GemmaDarkbloomProviderIdentity,
-            "organization_byok",
-            "openrouter.synthetic");
-
-        Assert.False(
-            OpenRouterLivePinnedRouteAcceptance.TryAccept(
-                gemma,
-                OpenRouterLivePinnedRouteAcceptance.NemotronNanoBackup,
-                out var denial));
-        Assert.Equal("profile_id_mismatch", denial);
-
-        var backup = OpenRouterInstalledConfiguration.Create(
-            OpenRouterLiveQualification.NemotronNanoBackupProfileId,
-            "1",
-            OpenRouterLiveQualification.NemotronNanoBackupModel,
-            OpenRouterLiveQualification.NemotronNanoBackupModel,
-            OpenRouterLiveQualification.NemotronNanoBackupProviderSlug,
-            OpenRouterLiveQualification.NemotronNanoBackupProviderIdentity,
-            "organization_byok",
-            "openrouter.synthetic");
-        Assert.True(
-            OpenRouterLivePinnedRouteAcceptance.TryAccept(
-                backup,
-                OpenRouterLivePinnedRouteAcceptance.NemotronNanoBackup,
-                out var accepted));
-        Assert.Equal(string.Empty, accepted);
-        Assert.Equal(
-            OpenRouterLiveQualification.NemotronNanoBackupAdapterDigest,
-            backup.AdapterConfigurationDigest);
-        Assert.Equal(
-            OpenRouterLiveQualification.NemotronNanoBackupProfileDigest,
-            backup.Profile.ProfileDigest);
-    }
-
-    [Fact]
-    public void Default_256_token_gpt_oss_identity_cannot_satisfy_the_phase21_route()
+    public void Default_policy_gpt_oss_identity_cannot_satisfy_the_qualified_route()
     {
         var historicalPolicy = OpenRouterInstalledConfiguration.Create(
             OpenRouterLiveQualification.GptOssDarkbloomProfileId,
@@ -135,7 +84,7 @@ public sealed class OpenRouterLivePinnedRouteAcceptanceTests
                 OpenRouterLivePinnedRouteAcceptance.GptOssDarkbloom,
                 out var denial));
         Assert.Equal("digest_mismatch", denial);
-        Assert.Equal(256, historicalPolicy.Profile.MaxOutputTokens);
+        Assert.Equal(4096, historicalPolicy.Profile.MaxOutputTokens);
         Assert.Null(historicalPolicy.RequestPolicy.ReasoningEffort);
     }
 }

@@ -117,7 +117,7 @@ internal static class OpenRouterRequestFactory
         writer.WriteString(
             "content",
             control
-                ? "Return one JSON Agent Decision envelope and no participant-visible prose."
+                ? OpenRouterAdapterContracts.ControlSystemPrompt
                 : "Return only participant-visible message text.");
         writer.WriteEndObject();
         writer.WriteStartObject();

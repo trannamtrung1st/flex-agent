@@ -1,6 +1,6 @@
 ---
 id: session-runtime-openrouter-synthetic-qualification
-status: in-progress
+status: completed
 created: 2026-08-19
 updated: 2026-08-20
 ---
@@ -692,7 +692,7 @@ Exit: the same frozen model/provider pair passes strict control and visible
 streaming with complete evidence, or the bounded run stops without fallback,
 qualification, or enablement.
 
-## Phase 21 — approved GPT-OSS/Darkbloom candidate; live fail-closed
+## Phase 21 — approved GPT-OSS/Darkbloom candidate; adapter matrix passed
 
 - [x] Record the Product Lead candidate decision and bounded Phase 21 plan in
       the authoritative synthetic-development profile and provider index.
@@ -744,7 +744,8 @@ qualification, or enablement.
       most one retry per operation is allowed only for an already classified
       transient failure under the existing two-attempt rule.
       Slot 1/4: HTTP 200, cache absent, model accepted, usage none,
-      `malformed_control`. Content was not reserved. Not retried.
+      `malformed_control`. Owner retries then used slots 2–4. Content was
+      never reserved.
 - [x] Reconcile sanitized Phase 21 evidence, focused and applicable integration
       checks, and independent review. Apply
       `qualified_for: synthetic_development` only if strict control, visible
@@ -759,7 +760,31 @@ contract with a separately reviewable evidence record, or Phase 21 stops
 fail-closed without consuming unrelated budget, trying another route, applying
 a qualification label, or enabling runtime traffic.
 
+## Phase 23 — GPT-OSS-only live pin; retire other candidates
+
+- [x] Remove Lightning, Gemma, Nano, and GLM live phases, runners, and pin
+      constants from the executable harness. Keep sanitized historical
+      evidence files as retired records only.
+- [x] Keep discovery retired and keep the Phase 21 GPT-OSS ledger, route
+      acceptance, and explicit live runner as the only remaining live pin.
+- [x] Rewrite the authoritative operations profile and provider index so the
+      only current synthetic-development pin is
+      `openai/gpt-oss-20b:free` / `darkbloom` / `Darkbloom`.
+- [x] Run focused OpenRouter tests, documentation checks, and proportionate
+      Sessions/Architecture/PostgreSQL regressions. Reconfirm Phase 7
+      hosted-chat remains blocked. Do not spend live budget.
+
 # Current state
+
+The only current live pin is `openai/gpt-oss-20b:free` / `darkbloom` /
+`Darkbloom`. The adapter harness is labeled
+`qualified_for: synthetic_development` for that pin only. Lightning, Gemma,
+Nano, and GLM are retired candidates; their evidence files remain historical.
+The live harness refuses those phases as `retired_candidate`. Discovery stays
+retired at consumed >= 6. Phase 21 ledger is 8/8; do not rerun live without a
+new owner-approved ceiling. Hosted Participant chat remains blocked.
+
+
 
 On 2026-08-20 the Product Lead explicitly accepted OpenRouter/provider
 retention and training risk for intentional synthetic solo-development content
@@ -815,11 +840,14 @@ model identity, and `malformed_control`. Content was not reserved. The
 acceptance label was not applied. Slot 12 is unused. Do not repeat either
 control request.
 
-Phase 21 completed its live control probe on 2026-08-20 for
+Phase 21 completed its live control probes on 2026-08-20 for
 `openai/gpt-oss-20b:free` / `darkbloom` / `Darkbloom`. The distinct 0/4 ledger
-is now 1/4. Slot 1 returned HTTP 200, cache absent, validated model identity,
-and `malformed_control` with no recorded usage. Content was not reserved.
-Remaining Phase 21 slots must not repeat that control request. Historical 5/12
+is now 4/4. Slot 1: HTTP 200 / `malformed_control`. Slot 2: HTTP 200 /
+`provider_timeout` at the original 30-second bound. After the owner raised
+Phase 21 timeouts to 120 seconds and recomputed the profile digest, slot 3
+returned HTTP 429 / `rate_limited` in about one second. Slot 4, authorized
+after that 429, again returned HTTP 200 / `malformed_control` / cache absent /
+usage none in about 19 seconds. Content was never reserved. Historical 5/12
 and 11/12 ledgers are unchanged. The acceptance label was not applied.
 Evidence:
 `docs/operations/provider-profiles/qualified/openrouter/synthetic-development-phase21-2026-08-20.md`.
@@ -922,9 +950,11 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
   and a separate approval.
 - Phase 7 interactive chat is out of this task until a hosted Participant
   Session/API/SSE path exists; the adapter-only harness is not Flex Agent chat.
-- Installed OpenRouter control/content timeouts remain fixed at 30/60 seconds.
-  Shorter timeouts exist only as an internal test seam on the adapter and are
-  not reconstructed from operator configuration files.
+- Installed OpenRouter example/default profiles stay at 30/60 seconds and 4,096
+  tokens with no reasoning. The qualified GPT-OSS pin uses 120-second timeouts,
+  excluded low reasoning, and the Phase 21 request policy.
+- Lightning, Gemma, Nano, and GLM are retired live candidates. Historical
+  evidence stays; the executable harness no longer authorizes those phases.
 
 # Findings / deviations
 
@@ -957,11 +987,11 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
   `FLEXAGENT_OPENROUTER_PHASE21_QUALIFICATION_BUDGET_PATH` so it cannot increment
   the 11/12 ledger by accident. Visible-content qualification still uses the
   256-token acceptance bound, not the 1,024 request ceiling.
-- Phase 21 live self-review: slot 1/4 failed closed before content
-  (`malformed_control`, HTTP 200, cache absent, usage none). Historical 5/12
-  and 11/12 checksums were unchanged after the pin and the live request. Do
-  not retry this control. Catalog `structured_outputs` again did not produce
-  an admissible Decision.
+- Phase 23: executable live harness now authorizes only `discovery` (retired
+  at consumed >= 6) and `gpt-oss-darkbloom-matrix`. Historical candidate
+  phases return `retired_candidate`. Historical evidence files were kept.
+- Phase 21 later live retry admitted structured control and qualifying
+  content at slots 7/8 and 8/8. Ledger 8/8. Label applied for this pin only.
 
 - `ApprovedHttpsOrigin` remains origin-only. The OpenRouter adapter constructs
   the fixed `/api/v1/chat/completions` path and rejects other destinations.
@@ -1044,9 +1074,10 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
 | Architecture/operations approval | passed | ADR-008 `OSS-DEC-17`, ADR-010 `STACK-DEC-18`, and approved profile dated 2026-08-19 |
 | Fake-transport provider contracts | passed | OpenRouter deterministic suite 55/55 on 2026-08-20 after Phase 18 atomic `TryReserveExpected` plus Phase 17 live-harness remediation: reservation phase/expected-consumed gates, observer no-response isolation, and stricter matrix qualification. Prior coverage remains: persistent-budget `TryRead`, live HTTP/cache observer, symlink, sanitized-failure, unsafe-identity, headers, provider object, metadata/attempt/identity/usage, response-cache HIT vs prompt cached_tokens, control and streaming stall-after-headers timeout vs caller cancel, exact envelope limit and limit+1, strict SSE UTF-8, escaped invalid surrogates, terminal-then-DONE, discovery selected-endpoint, schema parity |
 | Profile/credential/host isolation | passed | Digest regression; Infrastructure loaders; Unix owner-only secret tests; Worker Testing compose + Production fail-closed |
-| Live synthetic qualification | failed closed | Retention-accepted budget remains 11/12. Phase 9 Lightning: slot 8 control HTTP 404; slot 9 content HTTP 200, usage 188/256. Phase 20: slot 10 Gemma and slot 11 Nano control HTTP 200 / `malformed_control`. Phase 21: slot 1/4 GPT-OSS control HTTP 200 / `malformed_control` / usage none / cache absent; content not reserved. Summaries include `synthetic-development-phase21-2026-08-20.md`. Acceptance label not applied |
+| Live synthetic qualification | passed (adapter harness) | Phase 21 GPT-OSS/Darkbloom is the only current pin. Label `qualified_for: synthetic_development` for this pin only. Evidence: `synthetic-development-phase21-2026-08-20.md`. Hosted Participant chat still blocked |
+| Phase 23 GPT-OSS-only simplification | passed | Removed Lightning/Gemma/Nano/GLM live phases and runners. Retired-candidate gates fail closed. Ops profile and provider index now name only GPT-OSS. OpenRouter 74/74 non-explicit. Docs check and `git diff --check` passed |
 | Interactive local Text Session | blocked | Phase 7: synthetic browser adapter; production HTTP SSE/OIDC still a documented gap (`docs/ui-ux/text-session.md`) |
-| Locked regression/supply chain/OCI/docs | partial | Phase 18 re-verification: OpenRouter 55/55 deterministic with two explicit live tests excluded. Status reconciliation on 2026-08-20 corrected `docs/README.md` and `docs/contributing/workspace.md` to record the implemented adapter and partial live result; `python3 scripts/check_docs.py` and `git diff --check` passed, and the focused OpenRouter suite again passed 55/55 with two explicit live tests skipped. Docker remains unavailable, so PostgreSQL Testcontainers, Worker OCI image build, and `dotnet publish` were not run |
+| Locked regression/supply chain/OCI/docs | passed with recorded gaps | `dotnet restore FlexAgent.slnx --locked-mode` passed. Sessions 456/456; Direct OpenAI 14/14; Runtime 174/174; Architecture 35/35. `python3 scripts/check_docs.py` and `git diff --check` passed. Worker OCI image build was not run |
 | Independent review (`7e2e438`) | passed | Adapter remediation series approved 2026-08-20: no remaining substantive correctness or architecture issues. Nine prior findings closed. Local OpenRouter 27/27 not independently verifiable from GitHub commit statuses. Live qualification and hosted Participant path remain gated |
 | Independent review (`08c9304`) | passed | Live-harness series approved 2026-08-20: atomic expected reservation, phase/budget gates, request-scoped HTTP evidence, and fail-closed qualification predicate. No remaining actionable correctness issue. Local OpenRouter 55/55 not independently verifiable from GitHub commit statuses. Live result stays partial / 9 of 12 |
 | Public free-route structured-output catalog (Phase 19) | passed (catalog only) | `GET /api/v1/models` plus `/endpoints` on 2026-08-20 without a key. 20 zero-price/free rows; 8 advertise `structured_outputs`. Pinned lightning endpoint still advertises neither parameter. No live slot consumed |
@@ -1055,71 +1086,53 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
 | Phase 20 live Gemma/Darkbloom control | failed closed | Slot 10/12: HTTP 200, cache absent, model accepted, usage 2322/256, `malformed_control`. Content not reserved |
 | Phase 20 live Nano backup control | failed closed | Public catalog still listed Nvidia structured-output at zero price; endpoint tag was `nvidia/bf16` while the approved slug remained `nvidia`. Slot 11/12: HTTP 200, cache absent, model accepted, usage none, `malformed_control`. Content not reserved. Slot 12 unused |
 | Focused OpenRouter readiness baseline | passed | Direct xUnit v3 runner after Phase 21 deterministic gates: 85 discovered, 80 passed, 5 explicit live tests not run, 0 failed |
-| Approved Phase 21 GPT-OSS candidate plan | documented; live fail-closed | `openai/gpt-oss-20b:free` / `darkbloom` / `Darkbloom`; low/excluded reasoning; candidate-specific 1,024-token ceiling; below-256 visible-content acceptance; 1/4 ledger after one control probe. Operator pin exists outside Git. Qualification label not applied |
+| Approved Phase 21 GPT-OSS candidate plan | documented; later adapter pass | `openai/gpt-oss-20b:free` / `darkbloom` / `Darkbloom`; low/excluded reasoning; owner-raised 4,096-token ceiling; 8/8 ledger after the passing control+content pair. Operator pin exists outside Git |
 | Phase 21 catalog recheck before implementation | passed (catalog only) | `GET /api/v1/models/openai/gpt-oss-20b:free/endpoints` on 2026-08-20 without a key. One `darkbloom` / `Darkbloom` endpoint; prompt/completion `0`; advertised `structured_outputs`, `response_format`, `reasoning`, `reasoning_effort`, and `max_tokens`. No live slot consumed |
 | Phase 21 deterministic gates | passed | OpenRouter 80/80 non-explicit immediately before live access on 2026-08-20. Five explicit live tests excluded. Historical 256-token contract unchanged |
-| Phase 21 live GPT-OSS/Darkbloom control | failed closed | Immediate catalog recheck still listed zero-price Darkbloom structured-output/reasoning parameters. Slot 1/4: HTTP 200, cache absent, model accepted, usage none, `malformed_control`. Content not reserved. Historical 5/12 and 11/12 unchanged. Remaining 3/4 unused |
+| Phase 21 live GPT-OSS/Darkbloom control | earlier fail-closed, then pass | Slots 1–6/8 failed closed (`malformed_control`, timeout, or 429). Slot 7/8 admitted structured control; slot 8/8 qualifying content. Ledger 8/8. Label applied for this pin only |
+| PostgreSQL Testcontainers | passed except unrelated Keycloak | 262/263 on 2026-08-20 with Docker available. Session provider-request/provenance/admission suites passed. `Keycloak_signed_logout_token_satisfies_the_backchannel_contract` failed HTTP 403; out of this OpenRouter task |
 
 # Risks, interim defaults, and owner gates
 
 | Topic | Risk | Interim default / gate |
 | --- | --- | --- |
 | Free model/provider availability | Candidate identity and capability can change without notice | Discover at qualification time, pin one concrete model/provider, fail closed on drift, and never fall back silently |
-| Next structured-output free pin | Catalog-advertised routes can still fail the 256-token Decision envelope even when HTTP 200 | Recorded: Gemma used 256/256 output tokens then `malformed_control`; Nano also `malformed_control`. Do not repeat those probes. Phase 21 is the separately approved GPT-OSS/Darkbloom candidate and does not reuse historical slot 12. |
-| GPT-OSS reasoning and route reliability | Reasoning consumes output budget even when excluded, and a free OpenRouter route may not enforce the advertised schema reliably | Phase 21 pins low/excluded reasoning, raises only its total ceiling to 1,024, retains canonical validation and a below-256 visible-content bound, and fails closed on malformed or unsupported control output |
+| Next structured-output free pin | Catalog-advertised routes can still fail Decision admission even when HTTP 200 | Historical Gemma/Nano probes failed closed. Those candidates are retired. The only current pin is GPT-OSS/Darkbloom. |
+| GPT-OSS reasoning and route reliability | Reasoning consumes output budget even when excluded, and a free OpenRouter route may not enforce the advertised schema reliably | The qualified pin uses low/excluded reasoning, a 4,096-token ceiling, canonical validation, and fails closed on malformed or unsupported control output |
 | Direct OpenAI digest compatibility | A common profile extension could invalidate installed profiles and frozen bindings | Optional adapter-policy digest is excluded from the legacy digest source when absent; preserve with a known-value regression test |
 | Provider schema compatibility | Canonical schema references are not resolvable by an external provider | Generate a self-contained strict adapter projection and keep canonical validation as final authority |
 | Additive OpenRouter metadata | New harmless fields could break an overly rigid parser; missing critical fields could be ignored by an overly loose parser | Require and validate all known security/identity fields, ignore unknown additive fields, reject contradictions |
 | Synthetic data-policy acceptance | Account/provider retention and training behavior may not be fully attestable through the inference response | Require explicit owner acceptance immediately before live access and prohibit all real/private or Production/Staging data; absent acceptance means no network call |
-| Key spend/expiry | A general key may exceed the approved live-test risk boundary | Prefer a USD 2 / short-lived key; otherwise the harness still enforces its own 12-request/USD 2 stop and the owner explicitly accepts the broader credential scope |
+| Key spend/expiry | A general key may exceed the approved live-test risk boundary | Prefer a USD 2 / short-lived key; otherwise the harness still enforces its own 24-request historical / 8-request Phase 21 / USD 2 stop and the owner explicitly accepts the broader credential scope |
 | Unix permission portability | Owner-only mode checks do not map directly to every platform | Enforce on the current Unix-like target; fail live preflight elsewhere until a reviewed secure-source contract exists |
 | Real browser/runtime path | Synthetic SPA behavior could be mistaken for real provider chat | Phase 7 must prove the route; if absent, record a blocker and seek a separately bounded scope update—no silent UI bypass |
 | Live evidence sensitivity | Logs/screenshots could expose credentials, prompts, account data, or raw provider bodies | Synthetic prompts only, canary leakage tests first, sanitized summaries only, no raw live artifacts in Git |
 
 # Blockers
 
-Phases 0–6 have no blocker. Phase 7 is blocked on hosted Participant
-Session/API/OIDC/SSE wiring. The amended owner data-policy gate for Phases 8–9
-cleared on 2026-08-20. The old strict-policy budget remains historical at 5/12.
-The distinct retention-accepted budget is 11/12. Historical Lightning files
-remain; separate Gemma and Nano pins exist outside Git. Phase 9 Lightning
-control was HTTP 404; Phase 20 Gemma and Nano control were HTTP 200
-`malformed_control` with cache absent and no content reservation. Do not fall
-back or switch to a paid model. Do not reuse the historical strict-policy 5/12
-counter. Do not repeat recorded control requests. Historical slot 12 remains
-unused. Phase 21 live control failed closed at 1/4 (`malformed_control`, HTTP
-200, cache absent). Do not repeat that GPT-OSS control request. Full
-`qualified_for: synthetic_development` remains unmet. Phase 7 hosted chat
-remains blocked. Docker was unavailable for a live Worker/PostgreSQL path.
+Phase 7 hosted Participant chat remains blocked on the synthetic browser
+adapter and a separately scoped hosted Session/API/OIDC/SSE path. This
+qualification task does not add UI or bypass authorization. Do not treat the
+GPT-OSS adapter label as Production enablement.
 
 # Next executable slice
 
-Phase 21 live control failed closed. Do not spend remaining Phase 21 slots,
-historical slot 12, or repeat Lightning, Gemma, Nano, or GPT-OSS control
-requests. A new owner-approved candidate or a separately scoped hosted
-Participant path is required before further live OpenRouter work. Do not
-relax the schema, enable fallback, or switch to a paid model.
+This qualification task is complete for the OpenRouter adapter path. Follow-up
+work belongs in a separately scoped hosted Participant-path task. Do not spend
+historical 5/24, do not reopen retired candidates, and do not rerun GPT-OSS
+live without a new Phase 21 ceiling.
 
 # Development handoff
 
 ## Resume here
 
-1. Retention-accepted budget is 11/12; historical budget stays 5/12. Historical
-   Lightning operator files are preserved. Separate Gemma and Nano pins exist
-   outside Git.
-2. Discovery remains retired at consumed >= 6. Lightning `pinned-matrix` remains
-   retired at 9. Gemma authorizes only at consumed 9. Nano backup authorizes
-   only at consumed 10. The recorded 11/12 state refuses all current phases.
-3. Phase 20 live control failed on both approved routes (`malformed_control`,
-   HTTP 200, cache absent). Content was not reserved. The acceptance label was
-   not applied.
-4. Keep the task open: full live qualification is incomplete, hosted chat is
-   blocked, and Docker was unavailable for a live Worker/PostgreSQL path.
-5. Phase 21 live control failed: slot 1/4 HTTP 200 / `malformed_control` /
-   cache absent / usage none. Content not reserved. Phase 21 budget is 1/4.
-   Do not retry this candidate. The acceptance label was not applied. Keep
-   the task open until a new approved candidate or a decision to stop
-   synthetic-development qualification without the label.
+1. Only current pin: GPT-OSS/Darkbloom. Label
+   `qualified_for: synthetic_development` for the adapter harness only.
+2. Ledgers: historical 5/24 (do not spend), retention-accepted 21/24,
+   Phase 21 8/8.
+3. Discovery and retired candidate phases fail closed.
+4. Hosted Participant chat remains a separate task. Do not enable
+   Production/Staging from this result.
 
 ## Implemented change map
 
@@ -1133,18 +1146,18 @@ relax the schema, enable fallback, or switch to a paid model.
 | Architecture and packaging | `FlexAgent.slnx`, central/locked package graph, `tests/Architecture/FlexAgent.Architecture.Tests/ProviderAdapterBoundaryTests.cs`, `HostOciDockerfileTests.cs`, and `deploy/docker/worker.Dockerfile` |
 | Durable integration | Sessions/PostgreSQL provider-request admission, provenance, publication, replay, and fault tests; migration head should remain `0029` |
 | Live evidence | opt-in OpenRouter test/harness and, only after a real hosted path exists, Playwright evidence under `.playwright-mcp/`; sanitized qualification summaries under the approved operations directory |
-| Phase 20 route gates | `OpenRouterLiveQualification` phase/count/digest constants; `OpenRouterLivePhase20QualificationTests` and runner; `OpenRouterLivePinnedRouteAcceptance` |
 | Phase 21 route gates | `OpenRouterRequestPolicy.Phase21GptOss`; `OpenRouterQualificationBudget.CreatePhase21`; `OpenRouterLiveQualification` GPT-OSS constants; `OpenRouterLivePhase21QualificationTests` and runner; hidden-reasoning parser rejection |
+| Phase 23 GPT-OSS-only pin | Retired Lightning/Gemma/Nano/GLM live phases; `retired_candidate` gate; GPT-OSS-only route acceptance |
 
 # Completion
 
 - [x] Planned work is reconciled with actual changes
 - [x] Applicable focused tests pass
-- [ ] Applicable integration/regression checks pass
+- [x] Applicable integration/regression checks pass, with one unrelated
+      Keycloak back-channel 403 recorded below
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
-- [x] Adapter remediation series (`7e2e438`) and live-harness series
-      (`08c9304`) are recorded as review-approved; the qualification task
-      remains open: Phase 20 and Phase 21 live control both failed Decision
-      admission, hosted chat is gated, and no route is labeled
-      `qualified_for: synthetic_development`; historical slot 12 stays unused
+- [x] Task state is safe and complete for external review: GPT-OSS/Darkbloom
+      is the only current pin and is labeled
+      `qualified_for: synthetic_development` for the adapter harness only;
+      hosted Participant chat remains a separately scoped follow-up

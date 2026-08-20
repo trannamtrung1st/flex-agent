@@ -1,5 +1,8 @@
 # OpenRouter synthetic-development Phase 20 evidence
 
+This Gemma/Nano probe is a historical retired candidate. The current live pin
+is GPT-OSS/Darkbloom.
+
 | Field | Value |
 | --- | --- |
 | UTC date | 2026-08-20 |
@@ -15,8 +18,8 @@
 | Backup expected identity | `Nvidia` |
 | Backup profile digest | `222f34dcffe90fc728ba02645872714ae7671cab2ee334af3736b295e34fa8fb` |
 | Backup adapter-configuration digest | `77754995939f05366000e0f90022e998cdc85d18b3f675b8d64307595b0361ac` |
-| Retention-accepted budget after this run | 11/12 |
-| Historical strict-policy budget | 5/12 (unchanged) |
+| Retention-accepted budget after this run | 11/12 originally; 15/18 after the owner 1.5× raise and retry wave |
+| Historical strict-policy budget | 5/18 (consumed unchanged; ceiling raised) |
 | Historical Lightning pin | preserved; not reused |
 | Acceptance label | not applied |
 
@@ -47,9 +50,11 @@ enable fallback, or switch to a paid model.
 | --- | --- | --- | --- | --- | --- | --- |
 | 10/12 | Gemma/Darkbloom control | 200 | `ok` | absent | 2322 in / 256 out | `malformed_control`; content not reserved |
 | 11/12 | Nemotron Nano/Nvidia control | 200 | `ok` | absent | none recorded | `malformed_control`; content not reserved |
+| 14/18 | Gemma/Darkbloom owner-retry control | 404 | `request_rejected` | absent | none | `provider_unavailable`; content not reserved |
+| 15/18 | Nemotron Nano/Nvidia owner-retry control | 200 | `ok` | absent | none recorded | `provider_unavailable`; content not reserved |
 
-Returned model identity matched the exact pinned route on both probes. No
-`X-OpenRouter-Cache-Status: HIT` was observed. Slot 12/12 remains unused.
+Returned model identity matched the exact pinned route on HTTP 200 probes. No
+`X-OpenRouter-Cache-Status: HIT` was observed.
 
 ## Observed and not observed
 

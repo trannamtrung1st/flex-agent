@@ -5,23 +5,14 @@ namespace FlexAgent.Sessions.OpenRouter.Tests;
 public sealed class OpenRouterLiveRunGateTests
 {
     [Fact]
-    public void Recorded_nine_of_twelve_state_refuses_both_live_phases_before_reserve()
+    public void Discovery_stays_retired_after_the_recorded_pin()
     {
         Assert.False(
             OpenRouterLiveQualification.TryAuthorizeReservation(
-                OpenRouterLiveQualification.PinnedMatrixPhase,
-                OpenRouterLiveQualification.PinnedMatrixPhase,
-                currentConsumed: 9,
-                expectedConsumedText: "9",
-                out var pinnedDenial));
-        Assert.Equal("pinned_matrix_already_recorded", pinnedDenial);
-
-        Assert.False(
-            OpenRouterLiveQualification.TryAuthorizeReservation(
                 OpenRouterLiveQualification.DiscoveryPhase,
                 OpenRouterLiveQualification.DiscoveryPhase,
-                currentConsumed: 9,
-                expectedConsumedText: "9",
+                currentConsumed: 6,
+                expectedConsumedText: "6",
                 out var discoveryDenial));
         Assert.Equal("discovery_retired", discoveryDenial);
     }
@@ -48,7 +39,7 @@ public sealed class OpenRouterLiveRunGateTests
     }
 
     [Fact]
-    public void Matching_fresh_counters_authorize_the_requested_phase_only()
+    public void Matching_fresh_discovery_authorizes_only_before_retirement()
     {
         Assert.True(
             OpenRouterLiveQualification.TryAuthorizeReservation(
@@ -58,107 +49,45 @@ public sealed class OpenRouterLiveRunGateTests
                 expectedConsumedText: "5",
                 out var discovery));
         Assert.Equal(string.Empty, discovery);
+    }
 
-        Assert.True(
+    [Fact]
+    public void Retired_candidate_phases_fail_closed_even_when_count_matches()
+    {
+        Assert.False(
             OpenRouterLiveQualification.TryAuthorizeReservation(
-                OpenRouterLiveQualification.PinnedMatrixPhase,
-                OpenRouterLiveQualification.PinnedMatrixPhase,
+                "pinned-matrix",
+                "pinned-matrix",
                 currentConsumed: 6,
                 expectedConsumedText: "6",
-                out var pinned));
-        Assert.Equal(string.Empty, pinned);
-    }
-
-    [Fact]
-    public void Gemma_darkbloom_phase_authorizes_only_at_recorded_nine_of_twelve()
-    {
-        Assert.True(
-            OpenRouterLiveQualification.TryAuthorizeReservation(
-                OpenRouterLiveQualification.GemmaDarkbloomPhase,
-                OpenRouterLiveQualification.GemmaDarkbloomPhase,
-                currentConsumed: 9,
-                expectedConsumedText: "9",
-                out var authorized));
-        Assert.Equal(string.Empty, authorized);
-
-        Assert.False(
-            OpenRouterLiveQualification.TryAuthorizeReservation(
-                OpenRouterLiveQualification.GemmaDarkbloomPhase,
-                OpenRouterLiveQualification.GemmaDarkbloomPhase,
-                currentConsumed: 8,
-                expectedConsumedText: "8",
-                out var stale));
-        Assert.Equal("gemma_darkbloom_requires_consumed_9", stale);
-
-        Assert.False(
-            OpenRouterLiveQualification.TryAuthorizeReservation(
-                OpenRouterLiveQualification.GemmaDarkbloomPhase,
-                OpenRouterLiveQualification.GemmaDarkbloomPhase,
-                currentConsumed: 10,
-                expectedConsumedText: "10",
-                out var advanced));
-        Assert.Equal("gemma_darkbloom_requires_consumed_9", advanced);
-
-        Assert.False(
-            OpenRouterLiveQualification.TryAuthorizeReservation(
-                OpenRouterLiveQualification.GemmaDarkbloomPhase,
-                OpenRouterLiveQualification.PinnedMatrixPhase,
-                currentConsumed: 9,
-                expectedConsumedText: "9",
-                out var wrongPhase));
-        Assert.Equal("phase_mismatch", wrongPhase);
-    }
-
-    [Fact]
-    public void Nemotron_nano_backup_phase_authorizes_only_at_recorded_ten_of_twelve()
-    {
-        Assert.True(
-            OpenRouterLiveQualification.TryAuthorizeReservation(
-                OpenRouterLiveQualification.NemotronNanoBackupPhase,
-                OpenRouterLiveQualification.NemotronNanoBackupPhase,
-                currentConsumed: 10,
-                expectedConsumedText: "10",
-                out var authorized));
-        Assert.Equal(string.Empty, authorized);
-
-        Assert.False(
-            OpenRouterLiveQualification.TryAuthorizeReservation(
-                OpenRouterLiveQualification.NemotronNanoBackupPhase,
-                OpenRouterLiveQualification.NemotronNanoBackupPhase,
-                currentConsumed: 9,
-                expectedConsumedText: "9",
-                out var early));
-        Assert.Equal("nemotron_nano_backup_requires_consumed_10", early);
-
-        Assert.False(
-            OpenRouterLiveQualification.TryAuthorizeReservation(
-                OpenRouterLiveQualification.NemotronNanoBackupPhase,
-                OpenRouterLiveQualification.GemmaDarkbloomPhase,
-                currentConsumed: 10,
-                expectedConsumedText: "10",
-                out var wrongPhase));
-        Assert.Equal("phase_mismatch", wrongPhase);
-
-        Assert.False(
-            OpenRouterLiveQualification.TryAuthorizeReservation(
-                OpenRouterLiveQualification.NemotronNanoBackupPhase,
-                OpenRouterLiveQualification.NemotronNanoBackupPhase,
-                currentConsumed: 11,
-                expectedConsumedText: "11",
-                out var afterRecorded));
-        Assert.Equal("nemotron_nano_backup_requires_consumed_10", afterRecorded);
-    }
-
-    [Fact]
-    public void Retired_lightning_phase_stays_closed_when_gemma_is_admissible()
-    {
-        Assert.False(
-            OpenRouterLiveQualification.TryAuthorizeReservation(
-                OpenRouterLiveQualification.PinnedMatrixPhase,
-                OpenRouterLiveQualification.PinnedMatrixPhase,
-                currentConsumed: 9,
-                expectedConsumedText: "9",
                 out var lightning));
-        Assert.Equal("pinned_matrix_already_recorded", lightning);
+        Assert.Equal("retired_candidate", lightning);
+
+        Assert.False(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                "gemma-darkbloom-matrix",
+                "gemma-darkbloom-matrix",
+                currentConsumed: 9,
+                expectedConsumedText: "9",
+                out var gemma));
+        Assert.Equal("retired_candidate", gemma);
+
+        Assert.False(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                "nemotron-nano-backup-matrix",
+                "nemotron-nano-backup-matrix",
+                currentConsumed: 10,
+                expectedConsumedText: "10",
+                out var nano));
+        Assert.Equal("retired_candidate", nano);
+
+        Assert.False(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                "glm-5-2-decart-matrix",
+                "glm-5-2-decart-matrix",
+                currentConsumed: 19,
+                expectedConsumedText: "19",
+                out var glm));
+        Assert.Equal("retired_candidate", glm);
     }
 }

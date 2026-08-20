@@ -51,8 +51,8 @@ internal static class OpenRouterLivePhase21QualificationRunner
         Assert.Equal(OpenRouterAdapterContracts.Phase21MaxOutputTokens, configuration.Profile.MaxOutputTokens);
         Assert.Equal("low", configuration.RequestPolicy.ReasoningEffort);
         Assert.True(configuration.RequestPolicy.ReasoningExcluded);
-        Assert.Equal(OpenRouterAdapterContracts.ControlTimeout, configuration.Profile.ControlTimeout);
-        Assert.Equal(OpenRouterAdapterContracts.ContentTimeout, configuration.Profile.ContentTimeout);
+        Assert.Equal(OpenRouterAdapterContracts.Phase21ControlTimeout, configuration.Profile.ControlTimeout);
+        Assert.Equal(OpenRouterAdapterContracts.Phase21ContentTimeout, configuration.Profile.ContentTimeout);
         Assert.Equal(OpenRouterAdapterContracts.MaxApplicationAttempts, configuration.Profile.MaxProviderRequestAttempts);
 
         var ownership = SessionRuntimeTestFixtures.CreateOwnership();

@@ -15,24 +15,13 @@ model-provider profiles. It does not select a product-default model.
   surfaces; they remain default-off and do not qualify the approved target.
 - The approved [OpenRouter synthetic-development profile](openrouter-synthetic-development.md)
   has a distinct `sessions.openrouter.v1` adapter and Worker synthetic-development
-  opt-in. Fake-transport evidence exists. A 2026-08-20 pinned live matrix proved
-  streaming on one `:free` pair and recorded a structured-control 404; it is not
-  labeled `qualified_for: synthetic_development`. The Product Lead subsequently
-  approved `google/gemma-4-26b-a4b-it:free` / `darkbloom` / `Darkbloom` as the
-  next bounded live qualification candidate. Phase 20 implemented the distinct
-  gate/runner, operator pins, and reserved control probes; both Gemma and the
-  Nano backup failed structured Decision admission without reserving content,
-  so the run is not labeled `qualified_for: synthetic_development`. The next
-  approved candidate is `openai/gpt-oss-20b:free` / `darkbloom` / `Darkbloom`
-  under a separately budgeted Phase 21 with low, excluded reasoning and a
-  1,024-token candidate ceiling. Deterministic gates and an owner-only pin are
-  implemented. The 2026-08-20 live control reserved slot 1/4 and failed Decision
-  admission as `malformed_control` with HTTP 200, cache absent, and no content
-  reservation. No qualification label or enablement follows. Do not repeat that
-  control request. Hosted
-  Participant chat remains gated. `openrouter/free` is discovery/smoke only;
-  repeatable Session testing pins one concrete `:free` model and one permitted
-  provider slug. This evidence does not qualify production or close the
+  opt-in. The only current live pin is `openai/gpt-oss-20b:free` /
+  `darkbloom` / `Darkbloom`. A 2026-08-20 adapter matrix admitted structured
+  control and qualifying visible content; that pin is labeled
+  `qualified_for: synthetic_development` only. Earlier Lightning, Gemma, Nano,
+  and GLM probes are historical fail-closed records and are not executable live
+  phases. Hosted Participant chat remains gated. `openrouter/free` is
+  discovery/smoke only. This evidence does not qualify production or close the
   OpenAI-compatible endpoint qualification track (formerly Direct OpenAI Phase
   B).
 - The [Keycloak OIDC contract profile](keycloak-oidc-contract.md) pins

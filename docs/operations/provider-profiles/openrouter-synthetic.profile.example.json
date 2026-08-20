@@ -9,11 +9,11 @@
     "resolvedModelVersion": "acme/example-instruct:free",
     "capabilityProfileId": "p0.text.structured-control",
     "credentialMode": "organization_byok",
-    "maxOutputTokens": 256,
+    "maxOutputTokens": 4096,
     "controlTimeoutMilliseconds": 30000,
     "contentTimeoutMilliseconds": 60000,
     "maxProviderRequestAttempts": 2,
     "providerId": "openrouter.synthetic",
-    "adapterConfigurationDigest": "0afa8c15014e27e46e318c10d58711f67a3cfef54b385e1c2010c868be4f0bc9"
+    "adapterConfigurationDigest": "a240fe2db7acafcb39752cddf0e75066049124705dade1819efd295df6fbfa5a"
   }
 ]

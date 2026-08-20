@@ -9,24 +9,12 @@ internal sealed record OpenRouterLivePinnedRouteExpectation(
     string ProviderIdentity,
     string AdapterDigest,
     string ProfileDigest,
-    int MaxOutputTokens = 256,
-    string? ReasoningEffort = null,
-    bool ReasoningExcluded = false);
+    int MaxOutputTokens,
+    string? ReasoningEffort,
+    bool ReasoningExcluded);
 
 internal static class OpenRouterLivePinnedRouteAcceptance
 {
-    public static readonly OpenRouterLivePinnedRouteExpectation GemmaDarkbloom = CreateExpectation(
-        OpenRouterLiveQualification.GemmaDarkbloomProfileId,
-        OpenRouterLiveQualification.GemmaDarkbloomModel,
-        OpenRouterLiveQualification.GemmaDarkbloomProviderSlug,
-        OpenRouterLiveQualification.GemmaDarkbloomProviderIdentity);
-
-    public static readonly OpenRouterLivePinnedRouteExpectation NemotronNanoBackup = CreateExpectation(
-        OpenRouterLiveQualification.NemotronNanoBackupProfileId,
-        OpenRouterLiveQualification.NemotronNanoBackupModel,
-        OpenRouterLiveQualification.NemotronNanoBackupProviderSlug,
-        OpenRouterLiveQualification.NemotronNanoBackupProviderIdentity);
-
     public static readonly OpenRouterLivePinnedRouteExpectation GptOssDarkbloom = CreateExpectation(
         OpenRouterLiveQualification.GptOssDarkbloomProfileId,
         OpenRouterLiveQualification.GptOssDarkbloomModel,
@@ -85,7 +73,7 @@ internal static class OpenRouterLivePinnedRouteAcceptance
         string model,
         string providerSlug,
         string providerIdentity,
-        OpenRouterRequestPolicy? requestPolicy = null)
+        OpenRouterRequestPolicy requestPolicy)
     {
         var created = OpenRouterInstalledConfiguration.Create(
             profileId,
