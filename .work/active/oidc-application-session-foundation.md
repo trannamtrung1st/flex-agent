@@ -379,13 +379,11 @@ ADR-010. The retained identifiers preserve planning traceability.
 
 # Current state
 
-The human-authentication foundation is complete for this slice. Docker-backed
-PostgreSQL/`0033`, Keycloak `26.7.0` signed back-channel logout, and NGINX
-restricted-route probes now have executable evidence. Close-out also fixed
-Npgsql/`DateTime` materialization so live PostgreSQL session rows and the
-database clock work, and mapped the Keycloak realm file as a file rather
-than a directory. Full `AC-OPS-4` stays Partial. The next successor remains
-hosted Participant Session start after Activity/Cohort, Enrollment,
+External review of `5f4feb8` **approves** the close-out. The two P3 notes are
+applied: keep only the value-type Dapper `DateTimeOffset` handler, and reject
+non-UTC `DateTime` kinds in `PostgresUtcTime`. This foundation slice is
+complete. Full `AC-OPS-4` stays Partial. The next successor remains hosted
+Participant Session start after Activity/Cohort, Enrollment,
 Submission/Attempt, acknowledgment, resolved configuration, manifest, and
 ADR-005 atomic start exist.
 
@@ -403,12 +401,20 @@ atomic Session-start boundary before exposing hosted Participant start.
   NGINX restricted-route probes. The remaining browser/multi-instance live
   matrix is recorded as a later qualification gap, not a missing foundation
   API.
-- Live PostgreSQL returns `timestamptz` as `DateTime`. IdentityAccess now
+- Live PostgreSQL returns `timestamptz` as UTC `DateTime`. IdentityAccess now
   materializes those columns as `DateTime` and converts through
   `PostgresUtcTime` so application-session authority uses UTC instants.
+- External review of `5f4feb8` approved the close-out on 2026-08-20. Applied
+  P3 cleanup: Dapper registers `T` and `Nullable<T>` from one handler, and
+  `ToUtcOffset` fails closed on Local/Unspecified `DateTime` so a
+  `timestamp without time zone` column cannot be silently reinterpreted.
 
 # Findings / deviations
 
+- External review of `5f4feb8` (approved): no new P1/P2. Docker-backed
+  sibling-session logout, signed Keycloak logout, UTC timestamp conversion,
+  and qualified readiness docs were accepted. P3 dead nullable Dapper handler
+  and silent Local/Unspecified reinterpretation are fixed.
 - Close-out (2026-08-20): Docker-backed `HumanAuthenticationPersistenceTests`
   failed first on `clock_timestamp()`/`timestamptz` `DateTime` mapping, then
   on Dapper constructor/`DateTimeOffset` materialization. Fixed by UTC
@@ -549,6 +555,8 @@ atomic Session-start boundary before exposing hosted Participant start.
 | Close-out Docker evidence | passed | Human-auth persistence, migration upgrade through `0033`, Keycloak back-channel, NGINX restricted routes, focused runtime/architecture, docs, whitespace, project gitleaks |
 | Close-out timestamp mapping | passed | Observed red: `InvalidCastException` then Dapper `DateTimeOffset` constructor mismatch; green after `PostgresUtcTime` and `DateTime` row mapping |
 | Confirmation pass | passed | Re-read UTC conversion, Dapper row mapping, Keycloak import path, and gitleaks allowlist; focused human-auth persistence, Keycloak back-channel, runtime, architecture, docs, whitespace, and project gitleaks re-run on 2026-08-20 |
+| `5f4feb8` approval | approved | External review found no P1/P2; P3 Dapper dual-handler and non-UTC DateTime reinterpretation cleaned up |
+| `5f4feb8` P3 cleanup tests | passed | `PostgresUtcTimeTests` plus human-auth persistence **8** and architecture **35** after handler/UTC fail-closed change |
 
 # Blockers
 
@@ -571,6 +579,6 @@ qualification gap, not an implementation blocker.
 - [x] Applicable focused, Docker-backed integration, migration, architecture, documentation, whitespace, and project gitleaks checks pass. Full locked-restore, supply-chain SBOM/OCI, and the remaining Keycloak browser matrix were not re-run
 - [x] Governing implementation-status rows are truthful and successor hosted-workflow dependencies are explicit
 - [x] Full `AC-OPS-4` remains explicitly Partial until production human-grant mutations and later protected feature endpoints adopt the rotation/session contract
-- [x] Independent backend/architecture and security/privacy findings from `5c0b539` are resolved; close-out mapping/import defects found in Docker evidence are fixed
+- [x] Independent backend/architecture and security/privacy findings from `5c0b539` and `5f4feb8` are resolved; close-out mapping/import defects and the two P3 hardening notes are fixed
 - [x] Remaining gaps or unverified behavior are recorded
 - [x] Task state is safe and complete for external review
