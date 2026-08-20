@@ -379,13 +379,14 @@ ADR-010. The retained identifiers preserve planning traceability.
 
 # Current state
 
-External review of `5f4feb8` **approves** the close-out. The two P3 notes are
-applied: keep only the value-type Dapper `DateTimeOffset` handler, and reject
-non-UTC `DateTime` kinds in `PostgresUtcTime`. This foundation slice is
-complete. Full `AC-OPS-4` stays Partial. The next successor remains hosted
-Participant Session start after Activity/Cohort, Enrollment,
-Submission/Attempt, acknowledgment, resolved configuration, manifest, and
-ADR-005 atomic start exist.
+External review of `5f4feb8` **approves** the close-out. Implementation CI for
+`acdea13` failed because `GrateToolMigrationTests` still expected 29 one-time
+scripts after `0030`–`0033`. The grate tool tests now derive the expected
+count from `database/migrations/up`. This foundation slice remains complete.
+Full `AC-OPS-4` stays Partial. The next successor remains hosted Participant
+Session start after Activity/Cohort, Enrollment, Submission/Attempt,
+acknowledgment, resolved configuration, manifest, and ADR-005 atomic start
+exist.
 
 The next successor after this task is **not** a direct Session-row creation
 endpoint. It must implement or depend on approved Activity/Cohort activation,
@@ -557,6 +558,7 @@ atomic Session-start boundary before exposing hosted Participant start.
 | Confirmation pass | passed | Re-read UTC conversion, Dapper row mapping, Keycloak import path, and gitleaks allowlist; focused human-auth persistence, Keycloak back-channel, runtime, architecture, docs, whitespace, and project gitleaks re-run on 2026-08-20 |
 | `5f4feb8` approval | approved | External review found no P1/P2; P3 Dapper dual-handler and non-UTC DateTime reinterpretation cleaned up |
 | `5f4feb8` P3 cleanup tests | passed | `PostgresUtcTimeTests` plus human-auth persistence **8** and architecture **35** after handler/UTC fail-closed change |
+| Implementation CI `acdea13` | fixed locally | [run 32360561195](https://github.com/trannamtrung1st/flex-agent/actions/runs/32360561195) `dotnet` exit 2; `GrateToolMigrationTests` expected 29 scripts after `0033` added four; now derives count from `database/migrations/up` and **12** passed |
 
 # Blockers
 

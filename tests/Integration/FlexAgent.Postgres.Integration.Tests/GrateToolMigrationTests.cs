@@ -7,7 +7,9 @@ namespace FlexAgent.Postgres.Integration.Tests;
 
 public sealed class GrateToolMigrationTests
 {
-    private const int ExpectedOneTimeScriptCount = 29;
+    private static readonly int ExpectedOneTimeScriptCount = Directory
+        .GetFiles(Path.Combine(FindRepositoryRoot(), "database", "migrations", "up"), "*.sql")
+        .Length;
 
     [Fact]
     public async Task Grate_tool_migrates_empty_database()
