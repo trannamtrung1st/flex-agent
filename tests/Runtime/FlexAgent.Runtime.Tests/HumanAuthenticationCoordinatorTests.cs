@@ -201,6 +201,38 @@ public sealed class HumanAuthenticationCoordinatorTests
     }
 
     [Fact]
+    public async Task Login_after_provider_logout_cannot_recreate_the_revoked_provider_session()
+    {
+        var harness = CreateHarness();
+        var actorId = Guid.NewGuid();
+        harness.Bindings.RegisterActor(actorId);
+        harness.Bindings.GrantOrganization(actorId, Guid.NewGuid());
+        await harness.Bindings.TryProvisionAsync(
+            new HumanIdentityBinding(Guid.NewGuid(), Identity, actorId, DateTimeOffset.UtcNow, null),
+            TestContext.Current.CancellationToken);
+        var login = await harness.Coordinator.CompleteLoginAsync(
+            Login("sid-revoked"),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        await harness.Coordinator.ApplyProviderForcedLogoutAsync(
+            "sid-revoked",
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+
+        var replayed = await harness.Coordinator.CompleteLoginAsync(
+            Login("sid-revoked"),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(login.Succeeded);
+        Assert.False(replayed.Succeeded);
+        Assert.Equal(HumanAuthenticationReasonCodes.RevokedSession, replayed.ReasonCode);
+        Assert.DoesNotContain(harness.Sessions.Snapshot, session => session.IsLive);
+    }
+
+    [Fact]
     public async Task Provider_lifecycle_revokes_matching_sessions_without_restoring_them()
     {
         var harness = CreateHarness();

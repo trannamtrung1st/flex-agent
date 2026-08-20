@@ -179,49 +179,90 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
 {
     public async Task InsertAsync(ApplicationSessionRecord session, CancellationToken cancellationToken = default)
     {
+        if (!await TryInsertLiveSessionAsync(session, cancellationToken).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException("Application session could not be inserted.");
+        }
+    }
+
+    public async Task<bool> TryInsertLiveSessionAsync(
+        ApplicationSessionRecord session,
+        CancellationToken cancellationToken = default)
+    {
         ArgumentNullException.ThrowIfNull(session);
         await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
             .ConfigureAwait(false);
-        await connection.ExecuteAsync(
-            new CommandDefinition(
-                """
-                INSERT INTO application_sessions (
-                    application_session_id,
-                    actor_id,
-                    organization_id,
-                    issuer,
-                    subject,
-                    credential_digest,
-                    authentication_strength,
-                    provider_session_digest,
-                    created_at,
-                    last_seen_at,
-                    idle_expires_at,
-                    absolute_expires_at,
-                    revoked_at,
-                    rotated_at,
-                    predecessor_session_id,
-                    terminal_reason)
-                VALUES (
-                    @ApplicationSessionId,
-                    @ActorId,
-                    @OrganizationId,
-                    @Issuer,
-                    @Subject,
-                    @CredentialDigest,
-                    @AuthenticationStrength,
-                    @ProviderSessionDigest,
-                    @CreatedAt,
-                    @LastSeenAt,
-                    @IdleExpiresAt,
-                    @AbsoluteExpiresAt,
-                    @RevokedAt,
-                    @RotatedAt,
-                    @PredecessorSessionId,
-                    @TerminalReason);
-                """,
-                ToRow(session),
-                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        await AcquireIdentityLogoutLockAsync(connection, transaction, session.Identity, cancellationToken)
+            .ConfigureAwait(false);
+        await AcquireProviderLogoutLockAsync(connection, transaction, session.ProviderSessionDigest, cancellationToken)
+            .ConfigureAwait(false);
+        if (await ProviderSessionIsRevokedAsync(connection, transaction, session.ProviderSessionDigest, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+
+        try
+        {
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO application_sessions (
+                        application_session_id,
+                        actor_id,
+                        organization_id,
+                        issuer,
+                        subject,
+                        credential_digest,
+                        authentication_strength,
+                        provider_session_digest,
+                        created_at,
+                        last_seen_at,
+                        idle_expires_at,
+                        absolute_expires_at,
+                        revoked_at,
+                        rotated_at,
+                        predecessor_session_id,
+                        terminal_reason)
+                    VALUES (
+                        @ApplicationSessionId,
+                        @ActorId,
+                        @OrganizationId,
+                        @Issuer,
+                        @Subject,
+                        @CredentialDigest,
+                        @AuthenticationStrength,
+                        @ProviderSessionDigest,
+                        @CreatedAt,
+                        @LastSeenAt,
+                        @IdleExpiresAt,
+                        @AbsoluteExpiresAt,
+                        @RevokedAt,
+                        @RotatedAt,
+                        @PredecessorSessionId,
+                        @TerminalReason);
+                    """,
+                    ToRow(session),
+                    transaction,
+                    cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+        catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+
+        if (await ProviderSessionIsRevokedAsync(connection, transaction, session.ProviderSessionDigest, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     public async Task<ApplicationSessionRecord?> FindLiveByCredentialDigestAsync(
@@ -583,7 +624,7 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
             return;
         }
 
-        var (k1, k2) = AdvisoryKey("provider", providerSessionDigest);
+        var (k1, k2) = PostgresAdvisoryKeys.Create("provider", providerSessionDigest);
         await connection.ExecuteAsync(
             new CommandDefinition(
                 "SELECT pg_advisory_xact_lock(@K1, @K2);",
@@ -598,7 +639,7 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
         ExactIssuerSubject identity,
         CancellationToken cancellationToken)
     {
-        var (k1, k2) = AdvisoryKey("identity", $"{identity.Issuer}\n{identity.Subject}");
+        var (k1, k2) = PostgresAdvisoryKeys.Create("identity", $"{identity.Issuer}\n{identity.Subject}");
         await connection.ExecuteAsync(
             new CommandDefinition(
                 "SELECT pg_advisory_xact_lock(@K1, @K2);",
@@ -676,12 +717,6 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 },
                 transaction,
                 cancellationToken: cancellationToken));
-
-    private static (long K1, long K2) AdvisoryKey(string kind, string value)
-    {
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(kind + "\n" + value));
-        return (BitConverter.ToInt64(hash, 0), BitConverter.ToInt64(hash, 8));
-    }
 
     private static object ToRow(ApplicationSessionRecord session) =>
         new
@@ -954,5 +989,16 @@ internal static class AuthenticationStrengthCodec
         }
 
         return new AuthenticationStrength(string.IsNullOrEmpty(acr) ? null : acr, amr);
+    }
+}
+
+internal static class PostgresAdvisoryKeys
+{
+    public static (int K1, int K2) Create(string kind, string value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(kind);
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(kind + "\n" + value));
+        return (BitConverter.ToInt32(hash, 0), BitConverter.ToInt32(hash, 4));
     }
 }

@@ -94,6 +94,10 @@ public interface IApplicationSessionStore
 {
     Task InsertAsync(ApplicationSessionRecord session, CancellationToken cancellationToken = default);
 
+    Task<bool> TryInsertLiveSessionAsync(
+        ApplicationSessionRecord session,
+        CancellationToken cancellationToken = default);
+
     Task<ApplicationSessionRecord?> FindLiveByCredentialDigestAsync(
         string credentialDigest,
         CancellationToken cancellationToken = default);

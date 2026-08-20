@@ -118,15 +118,34 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
     {
         ArgumentNullException.ThrowIfNull(session);
         cancellationToken.ThrowIfCancellationRequested();
-        lock (_gate)
+        if (!TryInsertCore(session, cancellationToken))
         {
-            if (HasSuccessor(session.PredecessorSessionId) || !_sessions.TryAdd(session.ApplicationSessionId, session))
-            {
-                throw new InvalidOperationException("Application session already exists.");
-            }
+            throw new InvalidOperationException("Application session already exists.");
         }
 
         return Task.CompletedTask;
+    }
+
+    public Task<bool> TryInsertLiveSessionAsync(
+        ApplicationSessionRecord session,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(TryInsertCore(session, cancellationToken));
+
+    private bool TryInsertCore(ApplicationSessionRecord session, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            if (HasSuccessor(session.PredecessorSessionId)
+                || ProviderSessionIsRevoked(session.ProviderSessionDigest)
+                || !_sessions.TryAdd(session.ApplicationSessionId, session))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public Task<ApplicationSessionRecord?> FindLiveByCredentialDigestAsync(

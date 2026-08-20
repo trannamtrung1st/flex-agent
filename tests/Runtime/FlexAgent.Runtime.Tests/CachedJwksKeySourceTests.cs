@@ -33,6 +33,27 @@ public sealed class CachedJwksKeySourceTests
         Assert.Equal(2, handler.Requests);
     }
 
+    [Fact]
+    public async Task Repeated_unknown_kids_do_not_refresh_during_the_forced_refresh_cooldown()
+    {
+        using var first = RSA.Create(2048);
+        var handler = new ScriptedHandler(JsonSerializer.Serialize(new { keys = new[] { ToJwk(first, "old") } }));
+        using var http = new HttpClient(handler);
+        var source = new CachedJwksKeySource(
+            http,
+            TimeProvider.System,
+            TimeSpan.FromMinutes(5),
+            TimeSpan.FromMinutes(1));
+
+        await source.TryGetKeysAsync("https://issuer.example/jwks", TestContext.Current.CancellationToken);
+        await Task.WhenAll(
+            source.TryGetKeysAsync("https://issuer.example/jwks", "missing-a", TestContext.Current.CancellationToken),
+            source.TryGetKeysAsync("https://issuer.example/jwks", "missing-b", TestContext.Current.CancellationToken));
+        await source.TryGetKeysAsync("https://issuer.example/jwks", "missing-c", TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, handler.Requests);
+    }
+
     private static object ToJwk(RSA rsa, string kid)
     {
         var parameters = rsa.ExportParameters(false);

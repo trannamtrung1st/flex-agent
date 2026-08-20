@@ -340,7 +340,11 @@ public sealed class HumanAuthenticationCoordinator(
             null,
             predecessorSessionId,
             null);
-        await sessions.InsertAsync(session, cancellationToken).ConfigureAwait(false);
+        if (!await sessions.TryInsertLiveSessionAsync(session, cancellationToken).ConfigureAwait(false))
+        {
+            return HumanAuthenticationResult.Deny(HumanAuthenticationReasonCodes.RevokedSession);
+        }
+
         return HumanAuthenticationResult.Permit(
             session.ApplicationSessionId,
             actorId,

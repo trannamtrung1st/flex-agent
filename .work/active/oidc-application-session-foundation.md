@@ -325,9 +325,8 @@ ADR-010. The retained identifiers preserve planning traceability.
       Held streams re-authenticate without advancing activity.
 - [x] Pinned Keycloak `26.7.0` / PostgreSQL 18 / NGINX `1.30.4` compose profile
       and contract documentation.
-- [x] External review of `be6ad7f`: browser-bound login correlation cookie,
-      atomic JTI+revocation, rotation-vs-provider-logout serialization, and
-      unknown-`kid` JWKS refresh.
+- [x] External review of `74ef167`: PostgreSQL advisory-lock `(integer, integer)`,
+      tombstone on initial login insert, and bounded unknown-`kid` JWKS refresh.
 - [>] Remaining evidence: Docker-backed PostgreSQL/migration/live Keycloak
       matrix, leakage scans, and independent security review. Docker is not
       running in this execution environment.
@@ -374,13 +373,13 @@ ADR-010. The retained identifiers preserve planning traceability.
 
 # Current state
 
-External review of `be6ad7f` P1s plus JWKS unknown-key refresh are
-implemented: login issues a browser-bound `flex_agent_oidc_correlation`
-cookie, logout JTI+revocation is one transaction (successful replay is
-idempotent 204), rotation and provider logout share digest/identity locks plus
-a provider-session tombstone, and unknown `kid` refreshes JWKS once. Docker
-still blocks PostgreSQL/`0032` and live Keycloak evidence. Full `AC-OPS-4`
-stays Partial. The foundation is not marked complete.
+Follow-up review of `74ef167` requested three remaining P1s. This revision
+uses two `integer` advisory-lock keys, rejects tombstoned provider sessions on
+initial live insert (`TryInsertLiveSessionAsync`), and bounds unknown-`kid`
+JWKS refresh with single-flight plus a per-URI cooldown while disposing the
+previous RSA set on replace. Docker still blocks PostgreSQL/`0032` and live
+Keycloak evidence. Full `AC-OPS-4` stays Partial. The foundation is not marked
+complete.
 
 The next successor after this task is **not** a direct Session-row creation
 endpoint. It must implement or depend on approved Activity/Cohort activation,
@@ -399,6 +398,10 @@ atomic Session-start boundary before exposing hosted Participant start.
 - External review of `be6ad7f` (fixed): provider logout tombstones the
   provider-session digest and shares advisory/identity locks with rotation so
   a successor cannot remain live after logout wins.
+- External review of `74ef167` (fixed): `pg_advisory_xact_lock` now uses two
+  `integer` keys; login insert shares the provider lock and tombstone;
+  unknown-`kid` JWKS refresh is single-flighted with a per-URI cooldown and
+  prior RSA keys are disposed on cache replace.
 - External review of `be6ad7f` (fixed): unknown JWKS `kid` refreshes the cache
   once before validation fails closed.
 - External review of `2a6ca65` (fixed): ID tokens require `iat` and measure
@@ -493,6 +496,11 @@ atomic Session-start boundary before exposing hosted Participant start.
 | Live Keycloak 26.7.0 back-channel logout | blocked | Same Docker unavailability; realm now sets `backchannel.logout.url`/`adminUrl`; `KeycloakBackChannelLogoutTests` compiled |
 | Leakage scans / supply-chain / OCI | not run | Not executed in this environment |
 | Independent security/privacy review | not run | Self-review findings recorded; external review still required |
+| `74ef167` follow-up runtime | passed | Focused human-auth/OIDC/JWKS/advisory runtime **41** passed on 2026-08-20, including login-after-logout tombstone and unknown-`kid` cooldown |
+| `74ef167` follow-up architecture | passed | `FlexAgent.Architecture.Tests` **35** passed on 2026-08-20 |
+| `74ef167` follow-up hosts | passed | `FlexAgent.Api` and `FlexAgent.Worker` built with 0 warnings |
+| `git diff --check` | passed | No whitespace errors after the `74ef167` follow-up |
+| `74ef167` confirmation pass | passed | Re-read advisory-key types, TryInsertLiveSession tombstone+locks, and JWKS single-flight/cooldown/dispose; focused runtime **41** and architecture **35** passed again on 2026-08-20 |
 
 # Blockers
 
