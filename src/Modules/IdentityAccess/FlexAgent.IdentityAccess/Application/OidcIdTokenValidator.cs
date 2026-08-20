@@ -31,6 +31,29 @@ public sealed record OidcValidationResult(bool Succeeded, string? ReasonCode, Va
     public static OidcValidationResult Permit(ValidatedOidcIdToken token) => new(true, null, token);
 }
 
+public sealed record ValidatedLogoutToken(
+    string Issuer,
+    string? Subject,
+    string? ProviderSessionId,
+    string JwtId);
+
+public sealed record OidcLogoutValidationResult(
+    bool Succeeded,
+    string? ReasonCode,
+    ValidatedLogoutToken? LogoutToken)
+{
+    public static OidcLogoutValidationResult Deny(string reasonCode) => new(false, reasonCode, null);
+
+    public static OidcLogoutValidationResult Permit(ValidatedLogoutToken token) => new(true, null, token);
+}
+
+public sealed record BackChannelLogoutResult(bool Accepted, int RevokedCount, string? ReasonCode)
+{
+    public static BackChannelLogoutResult Accept(int revokedCount) => new(true, revokedCount, null);
+
+    public static BackChannelLogoutResult Reject(string reasonCode) => new(false, 0, reasonCode);
+}
+
 public static class OidcIdTokenValidator
 {
     public static OidcValidationResult Validate(
@@ -83,7 +106,7 @@ public static class OidcIdTokenValidator
             || !TryReadString(payload, "nonce", out var nonce)
             || !string.Equals(nonce, expectedNonce, StringComparison.Ordinal)
             || !TryReadUnixTime(payload, "exp", out var expiresAt)
-            || !TryReadUnixTime(payload, "nbf", out var notBefore))
+            || !TryReadUnixTime(payload, "iat", out var issuedAt))
         {
             return OidcValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
         }
@@ -95,8 +118,8 @@ public static class OidcIdTokenValidator
         }
 
         var now = clock.GetUtcNow();
-        var skew = profile.BoundedClockSkew;
-        if (now + skew < notBefore || now - skew >= expiresAt || expiresAt - notBefore > profile.MaxLifetime)
+        if (!LifetimeIsAcceptable(issuedAt, expiresAt, profile, now)
+            || (TryReadUnixTime(payload, "nbf", out var notBefore) && now + profile.BoundedClockSkew < notBefore))
         {
             return OidcValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
         }
@@ -110,7 +133,7 @@ public static class OidcIdTokenValidator
                 string.IsNullOrWhiteSpace(providerSessionId) ? null : providerSessionId));
     }
 
-    public static OidcValidationResult ValidateLogoutToken(
+    public static OidcLogoutValidationResult ValidateLogoutToken(
         string? token,
         OidcValidationProfile profile,
         IReadOnlyDictionary<string, RSA> keysByKid,
@@ -122,7 +145,7 @@ public static class OidcIdTokenValidator
 
         if (string.IsNullOrWhiteSpace(token))
         {
-            return OidcValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
+            return OidcLogoutValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
         }
 
         var segments = token.Trim().Split('.');
@@ -130,7 +153,7 @@ public static class OidcIdTokenValidator
             || !TryReadJson(segments[0], out var header)
             || !TryReadJson(segments[1], out var payload))
         {
-            return OidcValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
+            return OidcLogoutValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
         }
 
         if (!header.TryGetProperty("alg", out var alg)
@@ -141,53 +164,73 @@ public static class OidcIdTokenValidator
             || string.IsNullOrWhiteSpace(kid.GetString())
             || !keysByKid.TryGetValue(kid.GetString()!, out var key))
         {
-            return OidcValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
+            return OidcLogoutValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
         }
 
         var signingInput = Encoding.ASCII.GetBytes($"{segments[0]}.{segments[1]}");
         if (!TryDecodeBase64Url(segments[2], out var signature)
             || !key.VerifyData(signingInput, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1))
         {
-            return OidcValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
+            return OidcLogoutValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
+        }
+
+        if (payload.TryGetProperty("nonce", out _))
+        {
+            return OidcLogoutValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
         }
 
         if (!TryReadString(payload, "iss", out var issuer)
             || !string.Equals(issuer, profile.Issuer, StringComparison.Ordinal)
             || !AudienceMatches(payload, profile.Audience)
-            || !TryReadString(payload, "sid", out var providerSessionId)
-            || !TryReadUnixTime(payload, "exp", out var expiresAt))
+            || !TryReadString(payload, "jti", out var jwtId)
+            || jwtId.Length > 256
+            || !TryReadUnixTime(payload, "exp", out var expiresAt)
+            || !TryReadUnixTime(payload, "iat", out var issuedAt)
+            || !HasBackChannelLogoutEvent(payload))
         {
-            return OidcValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
+            return OidcLogoutValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
         }
 
-        if (payload.TryGetProperty("events", out var events)
-            && events.ValueKind == JsonValueKind.Object
-            && !events.TryGetProperty("http://schemas.openid.net/event/backchannel-logout", out _))
+        var hasSub = TryReadString(payload, "sub", out var subject);
+        var hasSid = TryReadString(payload, "sid", out var providerSessionId);
+        if (!hasSub && !hasSid)
         {
-            return OidcValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
+            return OidcLogoutValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
         }
 
         var now = clock.GetUtcNow();
-        var skew = profile.BoundedClockSkew;
-        if (now - skew >= expiresAt)
+        if (!LifetimeIsAcceptable(issuedAt, expiresAt, profile, now)
+            || (TryReadUnixTime(payload, "nbf", out var notBefore) && now + profile.BoundedClockSkew < notBefore))
         {
-            return OidcValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
+            return OidcLogoutValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
         }
 
-        if (TryReadUnixTime(payload, "nbf", out var notBefore) && now + skew < notBefore)
-        {
-            return OidcValidationResult.Deny(HumanAuthenticationReasonCodes.InvalidProviderResponse);
-        }
-
-        var identity = ExactIssuerSubject.TryCreate(issuer, TryReadString(payload, "sub", out var subject) ? subject : "logout");
-        if (identity is null)
-        {
-            identity = new ExactIssuerSubject(issuer, "logout");
-        }
-
-        return OidcValidationResult.Permit(
-            new ValidatedOidcIdToken(identity, AuthenticationStrength.Empty, string.Empty, providerSessionId));
+        return OidcLogoutValidationResult.Permit(
+            new ValidatedLogoutToken(
+                issuer,
+                hasSub ? subject : null,
+                hasSid ? providerSessionId : null,
+                jwtId));
     }
+
+    private static bool LifetimeIsAcceptable(
+        DateTimeOffset issuedAt,
+        DateTimeOffset expiresAt,
+        OidcValidationProfile profile,
+        DateTimeOffset now)
+    {
+        var skew = profile.BoundedClockSkew;
+        return issuedAt <= expiresAt
+            && expiresAt - issuedAt <= profile.MaxLifetime
+            && now + skew >= issuedAt
+            && now - skew < expiresAt;
+    }
+
+    private static bool HasBackChannelLogoutEvent(JsonElement payload) =>
+        payload.TryGetProperty("events", out var events)
+        && events.ValueKind == JsonValueKind.Object
+        && events.TryGetProperty("http://schemas.openid.net/event/backchannel-logout", out var logoutEvent)
+        && logoutEvent.ValueKind == JsonValueKind.Object;
 
     private static AuthenticationStrength ReadStrength(JsonElement payload)
     {

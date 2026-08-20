@@ -325,6 +325,10 @@ ADR-010. The retained identifiers preserve planning traceability.
       Held streams re-authenticate without advancing activity.
 - [x] Pinned Keycloak `26.7.0` / PostgreSQL 18 / NGINX `1.30.4` compose profile
       and contract documentation.
+- [x] External review of `2a6ca65`: ID-token `iat`/`nbf`, atomic rotation +
+      unique predecessor, Identity vs Sessions datasource fail-closed, logout
+      token contract, Keycloak back-channel URL, and a Keycloak-signed logout
+      integration test (Docker still required to observe it).
 - [>] Remaining evidence: Docker-backed PostgreSQL/migration/live Keycloak
       matrix, leakage scans, and independent security review. Docker is not
       running in this execution environment.
@@ -371,12 +375,14 @@ ADR-010. The retained identifiers preserve planning traceability.
 
 # Current state
 
-Confirmation pass on 2026-08-20: back-channel logout, rotation lineage, bound
-Organization on SSE, lifetime/secret bounds, and `human.interactive` actor type
-are in place. Focused runtime 41 and architecture 35 tests plus docs/whitespace
-checks passed again. Docker is still unavailable, so PostgreSQL integration,
-migration-upgrade, and live Keycloak qualification remain unverified. Full
-`AC-OPS-4` stays Partial.
+External review P1s for `2a6ca65` are implemented: ID tokens require `iat`
+and treat `nbf` as optional; rotation is a single CAS transaction with a
+unique predecessor index; differing Identity/Sessions connection strings fail
+closed at startup; logout tokens require `iat`/`exp`/`jti`/`events`, reject
+`nonce`, and accept `sub` and/or `sid` with `jti` replay protection. Keycloak
+realm now configures back-channel logout. Docker is still unavailable, so
+PostgreSQL/`0031` and live Keycloak logout remain unverified here. Full
+`AC-OPS-4` stays Partial. The foundation is not marked complete.
 
 The next successor after this task is **not** a direct Session-row creation
 endpoint. It must implement or depend on approved Activity/Cohort activation,
@@ -386,9 +392,18 @@ atomic Session-start boundary before exposing hosted Participant start.
 
 # Findings / deviations
 
+- External review of `2a6ca65` (fixed): ID tokens require `iat` and measure
+  lifetime as `exp - iat`; `nbf` is validated only when present.
+- External review of `2a6ca65` (fixed): rotation is one transactional CAS
+  (exactly one live predecessor row, successor insert, unique predecessor).
+- External review of `2a6ca65` (fixed): differing `ConnectionStrings:Identity`
+  and `ConnectionStrings:Sessions` fail closed; split databases are unsupported.
+- External review of `2a6ca65` (fixed): logout tokens require `iat`, `exp`,
+  `jti`, and the back-channel `events` member, reject `nonce`, accept `sub`
+  and/or `sid`, and consume `jti` once. `sub`-only logout revokes identity
+  sessions without disabling the actor.
 - Follow-up review (fixed): unsigned back-channel logout tokens no longer
-  revoke sessions; logout tokens are validated for signature, issuer, audience,
-  `sid`, and expiry without requiring a login nonce.
+  revoke sessions; logout tokens are signature-validated without a login nonce.
 - Follow-up review (fixed): privilege-change rotation keeps the provider-session
   digest so forced logout still matches the rotated session.
 - Follow-up review (fixed): SSE denies when the application-session Organization
@@ -459,12 +474,12 @@ atomic Session-start boundary before exposing hosted Participant start.
 | Baseline tests | not run | Planning-only update; first execution step owns observed baseline evidence |
 | Live Keycloak/NGINX flow | not run | No reference composition exists yet |
 | UI/Playwright | not applicable to this plan revision | No product UI change is planned in this foundation; browser OIDC contract evidence remains required during implementation |
-| `HumanAuthenticationDomainTests` + coordinator + HTTP runtime | passed | 41 tests in `FlexAgent.Runtime.Tests` after the follow-up review fixes |
-| Architecture module/session ownership | passed | 35 tests in `FlexAgent.Architecture.Tests` |
-| `python3 scripts/check_docs.py` | passed | After Keycloak contract and traceability updates |
-| `git diff --check` | passed | No whitespace errors in the implementation diff |
-| PostgreSQL integration / migration 0030 | blocked | Docker socket unavailable (`unix:///var/run/docker.sock` connection refused) |
-| Live Keycloak 26.7.0 matrix | blocked | Same Docker unavailability; compose profile is present under `deploy/compose/` |
+| Review-fix confirmation pass | passed | Re-read validator/CAS rotate/logout/connection-string paths; focused runtime **35** and architecture **35** passed again on 2026-08-20. Docker still unavailable |
+| Architecture module/session ownership | passed | 35 tests in `FlexAgent.Architecture.Tests` after renaming `0031` so it is not treated as a Sessions script |
+| `python3 scripts/check_docs.py` | passed | After Keycloak back-channel URL documentation |
+| `git diff --check` | passed | No whitespace errors in the review-fix diff |
+| PostgreSQL integration / migration `0031` | blocked | Docker socket unavailable; `HumanAuthenticationPersistenceTests` and `MigrationUpgradeTests` compiled but were not executed |
+| Live Keycloak 26.7.0 back-channel logout | blocked | Same Docker unavailability; realm now sets `backchannel.logout.url`/`adminUrl`; `KeycloakBackChannelLogoutTests` compiled |
 | Leakage scans / supply-chain / OCI | not run | Not executed in this environment |
 | Independent security/privacy review | not run | Self-review findings recorded; external review still required |
 

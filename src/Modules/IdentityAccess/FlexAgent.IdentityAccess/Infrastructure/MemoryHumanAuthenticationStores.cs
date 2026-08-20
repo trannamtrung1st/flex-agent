@@ -108,6 +108,7 @@ public sealed class MemoryHumanIdentityBindingStore : IHumanIdentityBindingStore
 public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
 {
     private readonly ConcurrentDictionary<Guid, ApplicationSessionRecord> _sessions = new();
+    private readonly object _gate = new();
 
     public IReadOnlyCollection<ApplicationSessionRecord> Snapshot => _sessions.Values.ToArray();
 
@@ -115,9 +116,12 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
     {
         ArgumentNullException.ThrowIfNull(session);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!_sessions.TryAdd(session.ApplicationSessionId, session))
+        lock (_gate)
         {
-            throw new InvalidOperationException("Application session already exists.");
+            if (HasSuccessor(session.PredecessorSessionId) || !_sessions.TryAdd(session.ApplicationSessionId, session))
+            {
+                throw new InvalidOperationException("Application session already exists.");
+            }
         }
 
         return Task.CompletedTask;
@@ -150,17 +154,40 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        _sessions.AddOrUpdate(
-            applicationSessionId,
-            _ => throw new InvalidOperationException("Application session not found."),
-            (_, current) => current with
+        lock (_gate)
+        {
+            if (_sessions.TryGetValue(applicationSessionId, out var current) && current.IsLive)
             {
-                CredentialDigest = null,
-                RotatedAt = rotated ? terminatedAt : current.RotatedAt,
-                RevokedAt = rotated ? current.RevokedAt : terminatedAt,
-                TerminalReason = terminalReason,
-            });
+                _sessions[applicationSessionId] = Terminate(current, terminatedAt, terminalReason, rotated);
+            }
+        }
+
         return Task.CompletedTask;
+    }
+
+    public Task<bool> TryRotateAsync(
+        Guid predecessorSessionId,
+        DateTimeOffset terminatedAt,
+        string terminalReason,
+        ApplicationSessionRecord successor,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(successor);
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            if (!_sessions.TryGetValue(predecessorSessionId, out var current)
+                || !current.IsLive
+                || HasSuccessor(predecessorSessionId)
+                || successor.PredecessorSessionId != predecessorSessionId
+                || !_sessions.TryAdd(successor.ApplicationSessionId, successor))
+            {
+                return Task.FromResult(false);
+            }
+
+            _sessions[predecessorSessionId] = Terminate(current, terminatedAt, terminalReason, rotated: true);
+            return Task.FromResult(true);
+        }
     }
 
     public Task TouchActivityAsync(
@@ -221,6 +248,40 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
         }
 
         return count;
+    }
+
+    private bool HasSuccessor(Guid? predecessorSessionId) =>
+        predecessorSessionId is Guid predecessor
+        && _sessions.Values.Any(session => session.PredecessorSessionId == predecessor);
+
+    private static ApplicationSessionRecord Terminate(
+        ApplicationSessionRecord current,
+        DateTimeOffset terminatedAt,
+        string terminalReason,
+        bool rotated) =>
+        current with
+        {
+            CredentialDigest = null,
+            RotatedAt = rotated ? terminatedAt : current.RotatedAt,
+            RevokedAt = rotated ? current.RevokedAt : terminatedAt,
+            TerminalReason = terminalReason,
+        };
+}
+
+public sealed class MemoryLogoutTokenReplayStore : ILogoutTokenReplayStore
+{
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _consumed = new(StringComparer.Ordinal);
+
+    public Task<bool> TryConsumeAsync(
+        string issuer,
+        string jwtId,
+        DateTimeOffset consumedAt,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(issuer);
+        ArgumentException.ThrowIfNullOrWhiteSpace(jwtId);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(_consumed.TryAdd($"{issuer}\n{jwtId}", consumedAt));
     }
 }
 

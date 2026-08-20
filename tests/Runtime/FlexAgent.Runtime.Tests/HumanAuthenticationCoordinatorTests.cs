@@ -99,6 +99,77 @@ public sealed class HumanAuthenticationCoordinatorTests
     }
 
     [Fact]
+    public async Task Concurrent_rotations_of_one_predecessor_create_exactly_one_successor()
+    {
+        var harness = CreateHarness();
+        var actorId = Guid.NewGuid();
+        harness.Bindings.RegisterActor(actorId);
+        harness.Bindings.GrantOrganization(actorId, Guid.NewGuid());
+        await harness.Bindings.TryProvisionAsync(
+            new HumanIdentityBinding(Guid.NewGuid(), Identity, actorId, DateTimeOffset.UtcNow, null),
+            TestContext.Current.CancellationToken);
+        var login = await harness.Coordinator.CompleteLoginAsync(
+            Login(),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+
+        var first = harness.Coordinator.RotateAsync(
+            login.ApplicationSessionId!.Value,
+            ApplicationSessionTerminalReasons.PrivilegeChange,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        var second = harness.Coordinator.RotateAsync(
+            login.ApplicationSessionId.Value,
+            ApplicationSessionTerminalReasons.SensitiveReauthentication,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        var results = await Task.WhenAll(first, second);
+
+        Assert.Equal(1, results.Count(result => result.Succeeded));
+        Assert.Equal(1, results.Count(result => result.ReasonCode == HumanAuthenticationReasonCodes.MissingSession));
+        Assert.Equal(
+            1,
+            harness.Sessions.Snapshot.Count(session => session.PredecessorSessionId == login.ApplicationSessionId));
+        Assert.Equal(1, harness.Sessions.Snapshot.Count(session => session.IsLive));
+    }
+
+    [Fact]
+    public async Task Back_channel_sub_only_logout_revokes_identity_sessions_and_rejects_replay()
+    {
+        var harness = CreateHarness();
+        var actorId = Guid.NewGuid();
+        harness.Bindings.RegisterActor(actorId);
+        harness.Bindings.GrantOrganization(actorId, Guid.NewGuid());
+        await harness.Bindings.TryProvisionAsync(
+            new HumanIdentityBinding(Guid.NewGuid(), Identity, actorId, DateTimeOffset.UtcNow, null),
+            TestContext.Current.CancellationToken);
+        var login = await harness.Coordinator.CompleteLoginAsync(
+            Login(),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        var token = new ValidatedLogoutToken(Identity.Issuer, Identity.Subject, null, "jti-1");
+
+        var first = await harness.Coordinator.ApplyBackChannelLogoutAsync(
+            token,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        var replay = await harness.Coordinator.ApplyBackChannelLogoutAsync(
+            token,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(first.Accepted);
+        Assert.Equal(1, first.RevokedCount);
+        Assert.False(replay.Accepted);
+        Assert.Equal(HumanAuthenticationReasonCodes.ReplayOrConsumedTransaction, replay.ReasonCode);
+        Assert.Null(await harness.Coordinator.AuthenticateAsync(login.RawCredential!, false, TestContext.Current.CancellationToken));
+        var actor = await harness.Bindings.GetActorStateAsync(actorId, TestContext.Current.CancellationToken);
+        Assert.False(actor.Disabled);
+    }
+
+    [Fact]
     public async Task Provider_lifecycle_revokes_matching_sessions_without_restoring_them()
     {
         var harness = CreateHarness();
@@ -135,6 +206,7 @@ public sealed class HumanAuthenticationCoordinatorTests
             bindings,
             sessions,
             audit,
+            new MemoryLogoutTokenReplayStore(),
             new HmacLookupDigestCalculator("test-lookup-key-32-bytes-minimum!"u8.ToArray()),
             new SystemDatabaseClock(TimeProvider.System),
             new HumanAuthenticationOptions { Issuer = Identity.Issuer });

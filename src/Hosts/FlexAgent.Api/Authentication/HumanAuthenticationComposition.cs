@@ -57,8 +57,7 @@ internal static class HumanAuthenticationComposition
                 ? new MissingSecretSource()
                 : new MountedFileSecretSource(secretDirectory));
 
-        var connectionString = configuration.GetConnectionString("Identity")
-            ?? configuration.GetConnectionString("Sessions");
+        var connectionString = HumanAuthenticationPersistencePolicy.ResolveConnectionString(configuration);
         if (!string.IsNullOrWhiteSpace(connectionString))
         {
             if (services.All(descriptor => descriptor.ServiceType != typeof(NpgsqlDataSource)))
@@ -70,6 +69,7 @@ internal static class HumanAuthenticationComposition
             services.AddSingleton<IHumanIdentityBindingStore, PostgresHumanIdentityBindingStore>();
             services.AddSingleton<IApplicationSessionStore, PostgresApplicationSessionStore>();
             services.AddSingleton<IOidcLoginTransactionStore, PostgresOidcLoginTransactionStore>();
+            services.AddSingleton<ILogoutTokenReplayStore, PostgresLogoutTokenReplayStore>();
             services.AddSingleton<IAuthenticationSecurityEventWriter, PostgresAuthenticationSecurityEventWriter>();
             services.AddSingleton<IConfigureOptions<KeyManagementOptions>>(sp =>
                 new ConfigureNamedOptions<KeyManagementOptions>(
@@ -90,6 +90,7 @@ internal static class HumanAuthenticationComposition
             services.AddSingleton<MemoryApplicationSessionStore>();
             services.AddSingleton<IApplicationSessionStore>(sp => sp.GetRequiredService<MemoryApplicationSessionStore>());
             services.AddSingleton<IOidcLoginTransactionStore, MemoryOidcLoginTransactionStore>();
+            services.AddSingleton<ILogoutTokenReplayStore, MemoryLogoutTokenReplayStore>();
             services.AddSingleton<IAuthenticationSecurityEventWriter, MemoryAuthenticationSecurityEventWriter>();
             services.AddDataProtection().SetApplicationName("flex-agent-api");
         }
@@ -127,6 +128,7 @@ internal static class HumanAuthenticationComposition
                 sp.GetRequiredService<IHumanIdentityBindingStore>(),
                 sp.GetRequiredService<IApplicationSessionStore>(),
                 sp.GetRequiredService<IAuthenticationSecurityEventWriter>(),
+                sp.GetRequiredService<ILogoutTokenReplayStore>(),
                 sp.GetRequiredService<ILookupDigestCalculator>(),
                 sp.GetRequiredService<IDatabaseClock>(),
                 options.SessionOptions));
@@ -204,6 +206,25 @@ internal static class HumanAuthenticationComposition
         }
 
         return System.Security.Cryptography.SHA256.HashData("flex-agent-test-only"u8.ToArray());
+    }
+}
+
+public static class HumanAuthenticationPersistencePolicy
+{
+    public static string? ResolveConnectionString(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        var identity = configuration.GetConnectionString("Identity");
+        var sessions = configuration.GetConnectionString("Sessions");
+        if (!string.IsNullOrWhiteSpace(identity)
+            && !string.IsNullOrWhiteSpace(sessions)
+            && !string.Equals(identity, sessions, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "ConnectionStrings:Identity differs from ConnectionStrings:Sessions. Split Identity and Sessions databases are not supported; authentication would otherwise bind to the Sessions datasource.");
+        }
+
+        return string.IsNullOrWhiteSpace(identity) ? sessions : identity;
     }
 }
 

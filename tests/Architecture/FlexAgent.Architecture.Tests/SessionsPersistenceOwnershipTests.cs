@@ -24,6 +24,7 @@ public sealed class SessionsPersistenceOwnershipTests
         "oidc_login_transactions",
         "data_protection_keys",
         "authentication_security_events",
+        "consumed_logout_tokens",
     ];
 
     [Fact]

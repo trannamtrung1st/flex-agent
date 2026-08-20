@@ -36,3 +36,10 @@ Exercise PKCE login, logout, revocation, key rotation, clock skew, account
 disablement, back-channel logout, provider outage, and multi-instance callback
 against synthetic users only. New-login failures and existing-session
 revocation must be reported separately.
+
+The imported `flex-agent-api` client sets `backchannel.logout.url` and
+`adminUrl` to `http://host.docker.internal:18082/auth/backchannel-logout` so
+Keycloak can propagate logout to the host API. The fixture also enables
+direct-access grants only so CI can create a synthetic provider session and
+drive Keycloak logout without a browser. Do not copy that grant into
+Production.

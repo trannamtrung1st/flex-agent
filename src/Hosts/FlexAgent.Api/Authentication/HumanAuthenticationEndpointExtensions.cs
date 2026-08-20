@@ -237,17 +237,19 @@ public static class HumanAuthenticationEndpointExtensions
             options.ValidationProfile,
             keys,
             timeProvider);
-        if (!validated.Succeeded || string.IsNullOrWhiteSpace(validated.Token?.ProviderSessionId))
+        if (!validated.Succeeded || validated.LogoutToken is null)
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             return;
         }
 
-        await coordinator.ApplyProviderForcedLogoutAsync(
-            validated.Token.ProviderSessionId,
+        var applied = await coordinator.ApplyBackChannelLogoutAsync(
+            validated.LogoutToken,
             Guid.NewGuid(),
             context.RequestAborted);
-        context.Response.StatusCode = StatusCodes.Status204NoContent;
+        context.Response.StatusCode = applied.Accepted
+            ? StatusCodes.Status204NoContent
+            : StatusCodes.Status400BadRequest;
     }
 
     private static async Task ProviderLifecycle(

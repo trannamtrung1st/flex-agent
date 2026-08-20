@@ -25,9 +25,10 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
                 'application_sessions',
                 'oidc_login_transactions',
                 'data_protection_keys',
-                'authentication_security_events');
+                'authentication_security_events',
+                'consumed_logout_tokens');
             """)).ToArray();
-        Assert.Equal(5, tables.Length);
+        Assert.Equal(6, tables.Length);
 
         var writer = new PostgresAuthenticationSecurityEventWriter(Fixture.Services.ConnectionAccessor);
         var eventId = Guid.NewGuid();
@@ -64,6 +65,7 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
             bindings,
             sessions,
             audit,
+            new PostgresLogoutTokenReplayStore(Fixture.Services.ConnectionAccessor),
             digests,
             new PostgresDatabaseClock(Fixture.Services.ConnectionAccessor),
             new HumanAuthenticationOptions { Issuer = issuer });
@@ -107,5 +109,64 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
             "SELECT credential_digest FROM application_sessions WHERE application_session_id = @Id;",
             new { Id = login.ApplicationSessionId });
         Assert.Null(terminalDigest);
+    }
+
+    [Fact]
+    public async Task Concurrent_rotations_create_exactly_one_successor()
+    {
+        var seeded = await Fixture.SeedOrganizationAsync();
+        var issuer = "https://issuer.example/realms/flex";
+        var subject = "subject-" + seeded.ActorId.ToString("N")[..8];
+        var bindings = new PostgresHumanIdentityBindingStore(Fixture.Services.ConnectionAccessor);
+        var sessions = new PostgresApplicationSessionStore(Fixture.Services.ConnectionAccessor);
+        var audit = new PostgresAuthenticationSecurityEventWriter(Fixture.Services.ConnectionAccessor);
+        var coordinator = new HumanAuthenticationCoordinator(
+            bindings,
+            sessions,
+            audit,
+            new PostgresLogoutTokenReplayStore(Fixture.Services.ConnectionAccessor),
+            new HmacLookupDigestCalculator("integration-lookup-key-32-bytes!!"u8.ToArray()),
+            new PostgresDatabaseClock(Fixture.Services.ConnectionAccessor),
+            new HumanAuthenticationOptions { Issuer = issuer });
+        Assert.Null(await bindings.TryProvisionAsync(
+            new HumanIdentityBinding(
+                Guid.NewGuid(),
+                new ExactIssuerSubject(issuer, subject),
+                seeded.ActorId,
+                DateTimeOffset.UtcNow,
+                null),
+            CancellationToken));
+        var login = await coordinator.CompleteLoginAsync(
+            new ValidatedHumanLogin(
+                new ExactIssuerSubject(issuer, subject),
+                new AuthenticationStrength("acr:mfa", ["mfa"]),
+                "sid-1"),
+            null,
+            Guid.NewGuid(),
+            CancellationToken);
+
+        var results = await Task.WhenAll(
+            coordinator.RotateAsync(
+                login.ApplicationSessionId!.Value,
+                ApplicationSessionTerminalReasons.PrivilegeChange,
+                Guid.NewGuid(),
+                CancellationToken),
+            coordinator.RotateAsync(
+                login.ApplicationSessionId.Value,
+                ApplicationSessionTerminalReasons.SensitiveReauthentication,
+                Guid.NewGuid(),
+                CancellationToken));
+
+        Assert.Equal(1, results.Count(result => result.Succeeded));
+        Assert.Equal(1, results.Count(result => result.ReasonCode == HumanAuthenticationReasonCodes.MissingSession));
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var successors = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM application_sessions
+            WHERE predecessor_session_id = @Id;
+            """,
+            new { Id = login.ApplicationSessionId });
+        Assert.Equal(1, successors);
     }
 }

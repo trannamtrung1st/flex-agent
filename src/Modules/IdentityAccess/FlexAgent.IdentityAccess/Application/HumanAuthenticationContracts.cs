@@ -101,6 +101,13 @@ public interface IApplicationSessionStore
         bool rotated,
         CancellationToken cancellationToken = default);
 
+    Task<bool> TryRotateAsync(
+        Guid predecessorSessionId,
+        DateTimeOffset terminatedAt,
+        string terminalReason,
+        ApplicationSessionRecord successor,
+        CancellationToken cancellationToken = default);
+
     Task TouchActivityAsync(
         Guid applicationSessionId,
         ApplicationSessionLifetime lifetime,
@@ -134,6 +141,15 @@ public interface IAuthenticationSecurityEventWriter
     Task WriteAsync(AuthenticationSecurityEvent securityEvent, CancellationToken cancellationToken = default);
 }
 
+public interface ILogoutTokenReplayStore
+{
+    Task<bool> TryConsumeAsync(
+        string issuer,
+        string jwtId,
+        DateTimeOffset consumedAt,
+        CancellationToken cancellationToken = default);
+}
+
 public interface ILookupDigestCalculator
 {
     string Compute(string value);
@@ -165,6 +181,11 @@ public interface IHumanAuthenticationCoordinator
 
     Task<int> ApplyProviderForcedLogoutAsync(
         string providerSessionId,
+        Guid correlationId,
+        CancellationToken cancellationToken = default);
+
+    Task<BackChannelLogoutResult> ApplyBackChannelLogoutAsync(
+        ValidatedLogoutToken token,
         Guid correlationId,
         CancellationToken cancellationToken = default);
 

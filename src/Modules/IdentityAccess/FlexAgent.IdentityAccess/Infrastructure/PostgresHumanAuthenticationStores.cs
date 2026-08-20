@@ -291,6 +291,100 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    public async Task<bool> TryRotateAsync(
+        Guid predecessorSessionId,
+        DateTimeOffset terminatedAt,
+        string terminalReason,
+        ApplicationSessionRecord successor,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(successor);
+        if (successor.PredecessorSessionId != predecessorSessionId)
+        {
+            return false;
+        }
+
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        var affected = await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE application_sessions
+                SET credential_digest = NULL,
+                    rotated_at = @TerminatedAt,
+                    terminal_reason = @TerminalReason
+                WHERE application_session_id = @PredecessorSessionId
+                  AND revoked_at IS NULL
+                  AND rotated_at IS NULL;
+                """,
+                new
+                {
+                    PredecessorSessionId = predecessorSessionId,
+                    TerminatedAt = terminatedAt,
+                    TerminalReason = terminalReason,
+                },
+                transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (affected != 1)
+        {
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+
+        try
+        {
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO application_sessions (
+                        application_session_id,
+                        actor_id,
+                        organization_id,
+                        issuer,
+                        subject,
+                        credential_digest,
+                        authentication_strength,
+                        provider_session_digest,
+                        created_at,
+                        last_seen_at,
+                        idle_expires_at,
+                        absolute_expires_at,
+                        revoked_at,
+                        rotated_at,
+                        predecessor_session_id,
+                        terminal_reason)
+                    VALUES (
+                        @ApplicationSessionId,
+                        @ActorId,
+                        @OrganizationId,
+                        @Issuer,
+                        @Subject,
+                        @CredentialDigest,
+                        @AuthenticationStrength,
+                        @ProviderSessionDigest,
+                        @CreatedAt,
+                        @LastSeenAt,
+                        @IdleExpiresAt,
+                        @AbsoluteExpiresAt,
+                        @RevokedAt,
+                        @RotatedAt,
+                        @PredecessorSessionId,
+                        @TerminalReason);
+                    """,
+                    ToRow(successor),
+                    transaction,
+                    cancellationToken: cancellationToken)).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+    }
+
     public async Task TouchActivityAsync(
         Guid applicationSessionId,
         ApplicationSessionLifetime lifetime,
@@ -561,6 +655,38 @@ public sealed class PostgresAuthenticationSecurityEventWriter(PostgresConnection
                 """,
                 securityEvent,
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+}
+
+public sealed class PostgresLogoutTokenReplayStore(PostgresConnectionAccessor connectionAccessor)
+    : ILogoutTokenReplayStore
+{
+    public async Task<bool> TryConsumeAsync(
+        string issuer,
+        string jwtId,
+        DateTimeOffset consumedAt,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(issuer);
+        ArgumentException.ThrowIfNullOrWhiteSpace(jwtId);
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        try
+        {
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO consumed_logout_tokens (issuer, jti, consumed_at)
+                    VALUES (@Issuer, @JwtId, @ConsumedAt);
+                    """,
+                    new { Issuer = issuer, JwtId = jwtId, ConsumedAt = consumedAt },
+                    cancellationToken: cancellationToken)).ConfigureAwait(false);
+            return true;
+        }
+        catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            return false;
+        }
     }
 }
 

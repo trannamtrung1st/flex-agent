@@ -7,6 +7,7 @@ public sealed class HumanAuthenticationCoordinator(
     IHumanIdentityBindingStore bindings,
     IApplicationSessionStore sessions,
     IAuthenticationSecurityEventWriter audit,
+    ILogoutTokenReplayStore logoutTokens,
     ILookupDigestCalculator digests,
     IDatabaseClock clock,
     HumanAuthenticationOptions options) : IHumanAuthenticationCoordinator
@@ -114,31 +115,45 @@ public sealed class HumanAuthenticationCoordinator(
             return HumanAuthenticationResult.Deny(HumanAuthenticationReasonCodes.MissingSession);
         }
 
-        await sessions.TerminateLiveAsync(
-            current.ApplicationSessionId,
-            now,
-            terminalReason,
-            rotated: true,
-            cancellationToken).ConfigureAwait(false);
-        var rotated = await CreateSessionAsync(
+        var rawCredential = OpaqueSessionCredential.Create();
+        var successor = new ApplicationSessionRecord(
+            Guid.NewGuid(),
             current.ActorId,
             current.OrganizationId,
-            new ValidatedHumanLogin(current.Identity, current.Strength, null),
+            current.Identity,
+            digests.Compute(rawCredential),
+            current.Strength,
+            current.ProviderSessionDigest,
+            ApplicationSessionPolicy.CreateLifetime(now, options.Inactivity, options.AbsoluteLifetime),
+            null,
+            null,
             current.ApplicationSessionId,
-            now,
-            cancellationToken,
-            current.ProviderSessionDigest).ConfigureAwait(false);
+            null);
+        if (!await sessions.TryRotateAsync(
+                current.ApplicationSessionId,
+                now,
+                terminalReason,
+                successor,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return HumanAuthenticationResult.Deny(HumanAuthenticationReasonCodes.MissingSession);
+        }
+
         await WriteAsync(
             AuthenticationSecurityEventTypes.SessionRotated,
             "permit",
             terminalReason,
             correlationId,
             now,
-            rotated.ActorId,
-            rotated.OrganizationId,
-            rotated.ApplicationSessionId,
+            successor.ActorId,
+            successor.OrganizationId,
+            successor.ApplicationSessionId,
             cancellationToken).ConfigureAwait(false);
-        return rotated;
+        return HumanAuthenticationResult.Permit(
+            successor.ApplicationSessionId,
+            successor.ActorId,
+            successor.OrganizationId,
+            rawCredential);
     }
 
     public async Task<bool> LogoutAsync(
@@ -197,6 +212,56 @@ public sealed class HumanAuthenticationCoordinator(
             null,
             cancellationToken).ConfigureAwait(false);
         return count;
+    }
+
+    public async Task<BackChannelLogoutResult> ApplyBackChannelLogoutAsync(
+        ValidatedLogoutToken token,
+        Guid correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        var now = await clock.GetUtcNowAsync(cancellationToken).ConfigureAwait(false);
+        if (!await logoutTokens.TryConsumeAsync(token.Issuer, token.JwtId, now, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return BackChannelLogoutResult.Reject(HumanAuthenticationReasonCodes.ReplayOrConsumedTransaction);
+        }
+
+        var count = 0;
+        if (!string.IsNullOrWhiteSpace(token.ProviderSessionId))
+        {
+            count = await sessions.RevokeLiveByProviderSessionDigestAsync(
+                digests.Compute(token.ProviderSessionId),
+                now,
+                ApplicationSessionTerminalReasons.ProviderForcedLogout,
+                cancellationToken).ConfigureAwait(false);
+        }
+        else if (!string.IsNullOrWhiteSpace(token.Subject))
+        {
+            var identity = ExactIssuerSubject.TryCreate(token.Issuer, token.Subject);
+            if (identity is null)
+            {
+                return BackChannelLogoutResult.Reject(HumanAuthenticationReasonCodes.InvalidProviderResponse);
+            }
+
+            count = await sessions.RevokeLiveByIdentityAsync(
+                identity,
+                now,
+                ApplicationSessionTerminalReasons.ProviderForcedLogout,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        await WriteAsync(
+            AuthenticationSecurityEventTypes.ProviderLifecycleApplied,
+            "permit",
+            ApplicationSessionTerminalReasons.ProviderForcedLogout,
+            correlationId,
+            now,
+            null,
+            null,
+            null,
+            cancellationToken).ConfigureAwait(false);
+        return BackChannelLogoutResult.Accept(count);
     }
 
     public async Task<int> ApplyAccountDisablementAsync(

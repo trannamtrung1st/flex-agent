@@ -147,7 +147,7 @@ public sealed class HumanAuthenticationRuntimeTests
         {
             Content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
-                ["logout_token"] = CreateLogoutToken(rsa),
+                ["logout_token"] = CreateLogoutToken(rsa, includeSid: true),
             }),
         };
         using var validResponse = await client.SendAsync(valid, cancellationToken);
@@ -156,6 +156,61 @@ public sealed class HumanAuthenticationRuntimeTests
         using var after = await client.GetAsync("/auth/session", cancellationToken);
         var afterBody = await after.Content.ReadAsStringAsync(cancellationToken);
         Assert.Contains("\"authenticated\":false", afterBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Sub_only_logout_token_revokes_the_identity_and_rejects_nonce()
+    {
+        var rsa = RSA.Create(2048);
+        var tokens = new FakeOidcAuthorizationClient();
+        await using var factory = CreateFactory(rsa, tokens);
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var cancellationToken = TestContext.Current.CancellationToken;
+        SeedBinding(factory);
+        await LoginAsync(client, rsa, tokens, cancellationToken);
+
+        using var withNonce = new HttpRequestMessage(HttpMethod.Post, "/auth/backchannel-logout")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["logout_token"] = CreateLogoutToken(rsa, includeSid: false, includeNonce: true),
+            }),
+        };
+        using var nonceResponse = await client.SendAsync(withNonce, cancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, nonceResponse.StatusCode);
+
+        using var stillLive = await client.GetAsync("/auth/session", cancellationToken);
+        Assert.Contains(
+            "\"authenticated\":true",
+            await stillLive.Content.ReadAsStringAsync(cancellationToken),
+            StringComparison.Ordinal);
+
+        var subOnly = CreateLogoutToken(rsa, includeSid: false);
+        using var valid = new HttpRequestMessage(HttpMethod.Post, "/auth/backchannel-logout")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["logout_token"] = subOnly,
+            }),
+        };
+        using var validResponse = await client.SendAsync(valid, cancellationToken);
+        Assert.Equal(HttpStatusCode.NoContent, validResponse.StatusCode);
+
+        using var replay = new HttpRequestMessage(HttpMethod.Post, "/auth/backchannel-logout")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["logout_token"] = subOnly,
+            }),
+        };
+        using var replayResponse = await client.SendAsync(replay, cancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, replayResponse.StatusCode);
+
+        using var after = await client.GetAsync("/auth/session", cancellationToken);
+        Assert.Contains(
+            "\"authenticated\":false",
+            await after.Content.ReadAsStringAsync(cancellationToken),
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -240,20 +295,32 @@ public sealed class HumanAuthenticationRuntimeTests
         });
     }
 
-    private static string CreateLogoutToken(RSA rsa)
+    private static string CreateLogoutToken(RSA rsa, bool includeSid, bool includeNonce = false)
     {
         var now = DateTimeOffset.UtcNow;
         var header = JsonSerializer.Serialize(new { alg = "RS256", typ = "JWT", kid = "test" });
-        var payload = JsonSerializer.Serialize(new Dictionary<string, object?>
+        var payload = new Dictionary<string, object?>
         {
             ["iss"] = Issuer,
             ["aud"] = ClientId,
-            ["sid"] = "sid-1",
+            ["sub"] = Subject,
+            ["jti"] = "jti-" + Guid.NewGuid().ToString("N"),
+            ["iat"] = now.ToUnixTimeSeconds(),
             ["exp"] = now.AddMinutes(5).ToUnixTimeSeconds(),
             ["events"] = new Dictionary<string, object> { ["http://schemas.openid.net/event/backchannel-logout"] = new { } },
-        });
+        };
+        if (includeSid)
+        {
+            payload["sid"] = "sid-1";
+        }
+
+        if (includeNonce)
+        {
+            payload["nonce"] = "must-not-be-present";
+        }
+
         var encodedHeader = Encode(Encoding.UTF8.GetBytes(header));
-        var encodedPayload = Encode(Encoding.UTF8.GetBytes(payload));
+        var encodedPayload = Encode(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(payload)));
         var signingInput = $"{encodedHeader}.{encodedPayload}";
         var signature = Encode(rsa.SignData(Encoding.ASCII.GetBytes(signingInput), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
         return $"{signingInput}.{signature}";
