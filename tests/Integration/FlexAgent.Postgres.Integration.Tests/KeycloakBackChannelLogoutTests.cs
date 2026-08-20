@@ -36,7 +36,7 @@ public sealed class KeycloakBackChannelLogoutTests
                 "--hostname-strict=false")
             .WithEnvironment("KC_BOOTSTRAP_ADMIN_USERNAME", "admin")
             .WithEnvironment("KC_BOOTSTRAP_ADMIN_PASSWORD", "admin")
-            .WithResourceMapping(realmPath, "/opt/keycloak/data/import/flex-agent-realm.json")
+            .WithResourceMapping(realmPath, "/opt/keycloak/data/import/")
             .WithExtraHost("host.docker.internal", "host-gateway")
             .WithWaitStrategy(
                 Wait.ForUnixContainer()

@@ -56,7 +56,9 @@ Logout contract:
 - `sid` and `sub`: revoke the intersecting provider session only. Do not
   watermark the identity or revoke sibling sessions for the same subject.
 
-Live Keycloak/NGINX execution of this matrix remains a Docker-backed
-qualification gate. The application-session code path for these rules is
-independently reviewed; do not claim the full live matrix from unit tests
-alone.
+Docker-backed Keycloak `26.7.0` signed back-channel logout and NGINX
+restricted-route probes (`/realms/flex-agent` allowed, `/admin` and `/health`
+denied) have executable evidence. The remaining browser PKCE, MFA, key
+rotation, clock skew, account-disablement, outage, and multi-instance
+callback matrix is still a later qualification gate. Do not claim that
+remaining matrix from unit tests or the back-channel/NGINX probes alone.

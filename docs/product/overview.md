@@ -36,8 +36,10 @@ approved. The P0 Activity journey and all five P0 surface interaction
 specifications, including [Result and Release](../ui-ux/result-release.md), are
 also approved. Production HTTP SSE and Worker polling are implemented successor
 slices. The human OIDC application-session foundation is implemented and
-independently reviewed; Docker-backed PostgreSQL/`0033` and live Keycloak/NGINX
-qualification remain open and full `AC-OPS-4` stays Partial. Continue the
+independently reviewed, including Docker-backed PostgreSQL/`0033`, Keycloak
+`26.7.0` back-channel logout, and NGINX restricted-route probes. The remaining
+browser PKCE/MFA/key-rotation/clock-skew/multi-instance live matrix stays open
+and full `AC-OPS-4` stays Partial. Continue the
 remaining production gates: exact-profile live provider qualification, hosted
 Session start/configuration, and the ADR-010 evidence listed by
 [ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#traceability-and-downstream-work).

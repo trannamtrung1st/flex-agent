@@ -14,10 +14,11 @@ public sealed class PostgresDatabaseClock(PostgresConnectionAccessor connectionA
     {
         await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
             .ConfigureAwait(false);
-        return await connection.ExecuteScalarAsync<DateTimeOffset>(
+        var value = await connection.ExecuteScalarAsync(
             new CommandDefinition(
                 "SELECT clock_timestamp();",
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return PostgresUtcTime.ToUtcOffset(value);
     }
 }
 
@@ -68,7 +69,7 @@ public sealed class PostgresHumanIdentityBindingStore(PostgresConnectionAccessor
     {
         await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
             .ConfigureAwait(false);
-        var disabledAt = await connection.ExecuteScalarAsync<DateTimeOffset?>(
+        var disabledAt = await connection.ExecuteScalarAsync<object?>(
             new CommandDefinition(
                 """
                 SELECT disabled_at
@@ -82,7 +83,7 @@ public sealed class PostgresHumanIdentityBindingStore(PostgresConnectionAccessor
                 "SELECT CASE WHEN EXISTS(SELECT 1 FROM actors WHERE id = @ActorId) THEN 1 ELSE 0 END;",
                 new { ActorId = actorId },
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return (exists == 1, disabledAt is not null);
+        return (exists == 1, disabledAt is not null and not DBNull);
     }
 
     public async Task<string?> TryProvisionAsync(
@@ -161,16 +162,22 @@ public sealed class PostgresHumanIdentityBindingStore(PostgresConnectionAccessor
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private sealed record BindingRow(
-        Guid BindingId,
-        string Issuer,
-        string Subject,
-        Guid ActorId,
-        DateTimeOffset CreatedAt,
-        DateTimeOffset? DisabledAt)
+    private sealed class BindingRow
     {
+        public Guid BindingId { get; init; }
+        public string Issuer { get; init; } = string.Empty;
+        public string Subject { get; init; } = string.Empty;
+        public Guid ActorId { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public DateTime? DisabledAt { get; init; }
+
         public HumanIdentityBinding ToBinding() =>
-            new(BindingId, new ExactIssuerSubject(Issuer, Subject), ActorId, CreatedAt, DisabledAt);
+            new(
+                BindingId,
+                new ExactIssuerSubject(Issuer, Subject),
+                ActorId,
+                PostgresUtcTime.ToUtcOffset(CreatedAt),
+                DisabledAt is { } disabled ? PostgresUtcTime.ToUtcOffset(disabled) : null);
     }
 }
 
@@ -685,7 +692,7 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
         DateTimeOffset authenticatedAt,
         CancellationToken cancellationToken)
     {
-        var loggedOutAt = await connection.ExecuteScalarAsync<DateTimeOffset?>(
+        var loggedOutAt = await connection.ExecuteScalarAsync<object?>(
             new CommandDefinition(
                 """
                 SELECT logged_out_at
@@ -696,7 +703,8 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 new { identity.Issuer, identity.Subject },
                 transaction,
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return loggedOutAt is DateTimeOffset watermark && authenticatedAt <= watermark;
+        return loggedOutAt is not null and not DBNull
+            && authenticatedAt <= PostgresUtcTime.ToUtcOffset(loggedOutAt);
     }
 
     private static async Task AcquireProviderLogoutLockAsync(
@@ -840,12 +848,12 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
         public string? CredentialDigest { get; init; }
         public string AuthenticationStrength { get; init; } = string.Empty;
         public string? ProviderSessionDigest { get; init; }
-        public DateTimeOffset CreatedAt { get; init; }
-        public DateTimeOffset LastSeenAt { get; init; }
-        public DateTimeOffset IdleExpiresAt { get; init; }
-        public DateTimeOffset AbsoluteExpiresAt { get; init; }
-        public DateTimeOffset? RevokedAt { get; init; }
-        public DateTimeOffset? RotatedAt { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public DateTime LastSeenAt { get; init; }
+        public DateTime IdleExpiresAt { get; init; }
+        public DateTime AbsoluteExpiresAt { get; init; }
+        public DateTime? RevokedAt { get; init; }
+        public DateTime? RotatedAt { get; init; }
         public Guid? PredecessorSessionId { get; init; }
         public string? TerminalReason { get; init; }
 
@@ -858,9 +866,13 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 CredentialDigest,
                 AuthenticationStrengthCodec.Decode(AuthenticationStrength),
                 ProviderSessionDigest,
-                new ApplicationSessionLifetime(CreatedAt, LastSeenAt, IdleExpiresAt, AbsoluteExpiresAt),
-                RevokedAt,
-                RotatedAt,
+                new ApplicationSessionLifetime(
+                    PostgresUtcTime.ToUtcOffset(CreatedAt),
+                    PostgresUtcTime.ToUtcOffset(LastSeenAt),
+                    PostgresUtcTime.ToUtcOffset(IdleExpiresAt),
+                    PostgresUtcTime.ToUtcOffset(AbsoluteExpiresAt)),
+                RevokedAt is { } revoked ? PostgresUtcTime.ToUtcOffset(revoked) : null,
+                RotatedAt is { } rotated ? PostgresUtcTime.ToUtcOffset(rotated) : null,
                 PredecessorSessionId,
                 TerminalReason);
     }
@@ -949,19 +961,21 @@ public sealed class PostgresOidcLoginTransactionStore(
             protector.Unprotect(row.NonceCiphertext),
             protector.Unprotect(row.CodeVerifierCiphertext),
             row.ReturnPath,
-            row.ExpiresAt,
+            PostgresUtcTime.ToUtcOffset(row.ExpiresAt),
             row.CorrelationId);
     }
 
-    private sealed record TransactionRow(
-        Guid TransactionId,
-        string StateDigest,
-        string CorrelationDigest,
-        byte[] NonceCiphertext,
-        byte[] CodeVerifierCiphertext,
-        string ReturnPath,
-        DateTimeOffset ExpiresAt,
-        Guid CorrelationId);
+    private sealed class TransactionRow
+    {
+        public Guid TransactionId { get; init; }
+        public string StateDigest { get; init; } = string.Empty;
+        public string CorrelationDigest { get; init; } = string.Empty;
+        public byte[] NonceCiphertext { get; init; } = [];
+        public byte[] CodeVerifierCiphertext { get; init; } = [];
+        public string ReturnPath { get; init; } = string.Empty;
+        public DateTime ExpiresAt { get; init; }
+        public Guid CorrelationId { get; init; }
+    }
 }
 
 public sealed class PostgresAuthenticationSecurityEventWriter(PostgresConnectionAccessor connectionAccessor)

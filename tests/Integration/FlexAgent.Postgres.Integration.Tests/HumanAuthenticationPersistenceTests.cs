@@ -54,6 +54,18 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
     }
 
     [Fact]
+    public async Task Database_clock_returns_a_utc_instant_from_postgresql()
+    {
+        var clock = new PostgresDatabaseClock(Fixture.Services.ConnectionAccessor);
+        var before = DateTimeOffset.UtcNow.AddSeconds(-5);
+        var now = await clock.GetUtcNowAsync(CancellationToken);
+        var after = DateTimeOffset.UtcNow.AddSeconds(5);
+
+        Assert.Equal(TimeSpan.Zero, now.Offset);
+        Assert.InRange(now, before, after);
+    }
+
+    [Fact]
     public async Task Coordinator_persists_digest_only_sessions_and_clears_them_on_rotation()
     {
         var seeded = await Fixture.SeedOrganizationAsync();

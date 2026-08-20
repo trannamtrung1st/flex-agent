@@ -5,16 +5,22 @@ namespace FlexAgent.Postgres;
 
 public sealed class PostgresDataSourceFactory
 {
-    public NpgsqlDataSource Create(string connectionString) =>
-        NpgsqlDataSource.Create(connectionString);
+    public NpgsqlDataSource Create(string connectionString)
+    {
+        PostgresUtcTime.EnsureDapperHandlers();
+        return NpgsqlDataSource.Create(connectionString);
+    }
 }
 
 public sealed class PostgresConnectionAccessor(NpgsqlDataSource dataSource)
 {
     public NpgsqlDataSource DataSource { get; } = dataSource;
 
-    public ValueTask<NpgsqlConnection> OpenConnectionAsync(CancellationToken cancellationToken = default) =>
-        DataSource.OpenConnectionAsync(cancellationToken);
+    public ValueTask<NpgsqlConnection> OpenConnectionAsync(CancellationToken cancellationToken = default)
+    {
+        PostgresUtcTime.EnsureDapperHandlers();
+        return DataSource.OpenConnectionAsync(cancellationToken);
+    }
 }
 
 public sealed class PostgresTransactionScope : IAsyncDisposable

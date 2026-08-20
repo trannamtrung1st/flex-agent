@@ -13,3 +13,9 @@ description = "Documented synthetic idempotency_key values in JSON schema fixtur
 condition = "AND"
 paths = ['''(?i)contracts/fixtures/''']
 regexes = ['''(?i)^idem-synthetic-\d{4}$''']
+
+[[rules.allowlists]]
+description = "Synthetic Keycloak contract JDBC URL in local/CI compose."
+condition = "AND"
+paths = ['''(?i)deploy/compose/keycloak-contract\.compose\.yaml$''']
+regexes = ['''5432/keycloak''']

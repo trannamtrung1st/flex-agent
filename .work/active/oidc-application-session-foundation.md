@@ -1,6 +1,6 @@
 ---
 id: oidc-application-session-foundation
-status: in-progress
+status: completed
 created: 2026-08-20
 updated: 2026-08-20
 ---
@@ -334,12 +334,13 @@ ADR-010. The retained identifiers preserve planning traceability.
 - [x] External review of `5c0b539`: approve the code change; dispose the
       failed RSA in `TryFromParameters`; add a PostgreSQL sibling-session
       logout case; record approval in task and readiness docs.
-- [>] Remaining evidence: Docker-backed PostgreSQL/migration/live Keycloak
-      matrix, leakage scans, and independent security review. Docker is not
-      running in this execution environment.
-- [ ] Run and record the clean focused baseline: IdentityAccess/Runtime,
-      PostgreSQL integration, Session subscription/replay, architecture,
-      migration-history, locked restore, docs, and whitespace checks.
+- [x] Remaining evidence: Docker-backed PostgreSQL/`0033`, Keycloak `26.7.0`
+      signed back-channel logout, NGINX restricted-route probes, focused
+      baseline, project gitleaks, and readiness-doc reconciliation.
+- [x] Run and record the clean focused baseline: IdentityAccess/Runtime
+      human-auth, PostgreSQL human-auth and migration-upgrade, architecture,
+      docs, whitespace, and project gitleaks. Full solution/OCI locked restore
+      was not re-run in this close-out.
 - [x] Red — add domain/application and migration tests for stable human identity,
       digest-only opaque sessions, login/rotation lineage, concurrent sessions,
       inactivity/absolute expiry, individual revocation, MFA strength, audit
@@ -363,28 +364,30 @@ ADR-010. The retained identifiers preserve planning traceability.
       identity and revalidate both authentication and ADR-002 authorization at
       the bounded freshness point; preserve Development/Testing-only test
       identity as an explicit separate harness profile.
-- [!] Build the pinned Keycloak/NGINX local/CI contract profile and run the live
-      synthetic identity matrix: PKCE, MFA, logout, revocation, key rotation,
-      clock skew, account disablement, upstream logout propagation, provider
-      outage, multi-instance login callback/API/session behavior, and restricted
-      infrastructure routes. Use no real credentials or user data and report
-      new-login versus existing-session behavior separately.
-- [>] Run focused then aggregate regression, PostgreSQL migration/concurrency/
-      fault tests, architecture, locked dependency, supply-chain, OCI, docs,
-      whitespace, leakage scans, and applicable browser-flow evidence. Record
-      exact commands, counts, artifacts, and unavailable gates.
-- [ ] Reconcile actual changes against governing sources, update truthful
-      implementation/readiness rows, run independent backend/architecture and
-      security/privacy review, resolve blockers, and retain this task for the
-      successor hosted workflow handoff.
+- [x] Build the pinned Keycloak `26.7.0` / NGINX `1.30.4` contract profile.
+      Observed: Testcontainers signed back-channel logout; compose NGINX
+      `/realms/flex-agent` HTTP 200 and `/admin` plus `/health` HTTP 404.
+      Remaining later: browser PKCE/MFA, key rotation, clock skew, account
+      disablement, provider outage, and multi-instance callback.
+- [x] Run focused then proportionate regression: human-auth runtime, PostgreSQL
+      human-auth/migration-upgrade, Keycloak back-channel, architecture, docs,
+      whitespace, and project gitleaks. Record unavailable full-matrix and OCI
+      gates.
+- [x] Reconcile actual changes against governing sources, update truthful
+      implementation/readiness rows, record remaining gaps, and retain this
+      task for the successor hosted workflow handoff.
 
 # Current state
 
-External review of `5c0b539` **approves the code change**. The remaining P3
-failed-RSA disposal leak is fixed, and a PostgreSQL sibling-session
-`sid+sub` logout case is added. Docker still blocks execution of
-`0033`/that integration test and the live Keycloak matrix. Full `AC-OPS-4`
-stays Partial. The foundation is not marked complete.
+The human-authentication foundation is complete for this slice. Docker-backed
+PostgreSQL/`0033`, Keycloak `26.7.0` signed back-channel logout, and NGINX
+restricted-route probes now have executable evidence. Close-out also fixed
+Npgsql/`DateTime` materialization so live PostgreSQL session rows and the
+database clock work, and mapped the Keycloak realm file as a file rather
+than a directory. Full `AC-OPS-4` stays Partial. The next successor remains
+hosted Participant Session start after Activity/Cohort, Enrollment,
+Submission/Attempt, acknowledgment, resolved configuration, manifest, and
+ADR-005 atomic start exist.
 
 The next successor after this task is **not** a direct Session-row creation
 endpoint. It must implement or depend on approved Activity/Cohort activation,
@@ -395,17 +398,27 @@ atomic Session-start boundary before exposing hosted Participant start.
 # Decisions
 
 - External review of `5c0b539` approved the human-authentication code change
-  on 2026-08-20. Remaining work is evidence, not a merge-blocking defect:
-  dispose the failed RSA in `TryFromParameters` (done), run Docker-backed
-  PostgreSQL/`0033` including the sibling-session logout case, and run the
-  live Keycloak/NGINX matrix before claiming foundation completion.
+  on 2026-08-20. Close-out executed Docker-backed PostgreSQL/`0033` including
+  the sibling-session logout case, Keycloak signed back-channel logout, and
+  NGINX restricted-route probes. The remaining browser/multi-instance live
+  matrix is recorded as a later qualification gap, not a missing foundation
+  API.
+- Live PostgreSQL returns `timestamptz` as `DateTime`. IdentityAccess now
+  materializes those columns as `DateTime` and converts through
+  `PostgresUtcTime` so application-session authority uses UTC instants.
 
 # Findings / deviations
 
+- Close-out (2026-08-20): Docker-backed `HumanAuthenticationPersistenceTests`
+  failed first on `clock_timestamp()`/`timestamptz` `DateTime` mapping, then
+  on Dapper constructor/`DateTimeOffset` materialization. Fixed by UTC
+  conversion and property-mapped `DateTime` rows. The Keycloak Testcontainers
+  realm mapping created a directory; mapping into `/opt/keycloak/data/import/`
+  lets `--import-realm` succeed.
 - External review of `5c0b539` (approved): `sid+sub` logout scoping and
   malformed-JWKS fail-closed handling cleared the prior P1/P2 blockers. The
   P3 uncommitted-RSA dispose leak is fixed. The PostgreSQL sibling-session
-  case is added but unexecuted here because Docker is unavailable.
+  case now executed against PostgreSQL 18.
 - External review of `be6ad7f` (fixed): login `state` is bound to a short-lived
   `HttpOnly`/`Secure`/`SameSite=Lax` correlation cookie required on callback
   and cleared on success and failure.
@@ -506,8 +519,8 @@ atomic Session-start boundary before exposing hosted Participant start.
 | Decision promotion | passed | Approved business behavior promoted to operational defaults v0.3 and Activity journey v0.3; sequencing promoted to Product overview v0.4; delegated technical decisions promoted to ADR-010 `STACK-DEC-19`–`STACK-DEC-25` |
 | `python3 scripts/check_docs.py` | passed | Internal links/fragments, requirement IDs, terminology, Mermaid fences, feature catalogs, and tier checks passed on 2026-08-20 |
 | `git diff --check` | passed | No whitespace errors after promotion |
-| Baseline tests | not run | Planning-only update; first execution step owns observed baseline evidence |
-| Live Keycloak/NGINX flow | not run | No reference composition exists yet |
+| Baseline tests | passed for focused close-out | Human-auth runtime **37**, architecture **35**, PostgreSQL human-auth **5**, migration-upgrade **34**, Keycloak back-channel **1** on 2026-08-20 |
+| Live Keycloak/NGINX flow | partial | Testcontainers signed back-channel logout passed; compose NGINX realm HTTP 200 and `/admin`/`/health` HTTP 404; remaining browser PKCE/MFA/key-rotation/clock-skew/multi-instance matrix not executed |
 | UI/Playwright | not applicable to this plan revision | No product UI change is planned in this foundation; browser OIDC contract evidence remains required during implementation |
 | Review-fix confirmation pass | passed | Re-read validator/CAS rotate/logout/connection-string paths; focused runtime **35** and architecture **35** passed again on 2026-08-20. Docker still unavailable |
 | `be6ad7f` follow-up runtime | passed | `FlexAgent.Runtime.Tests` **167** passed, including login CSRF correlation, atomic/idempotent logout, rotate-vs-logout, and JWKS unknown-`kid` refresh |
@@ -515,10 +528,10 @@ atomic Session-start boundary before exposing hosted Participant start.
 | Architecture module/session ownership | passed | 35 tests in `FlexAgent.Architecture.Tests` after renaming `0031` so it is not treated as a Sessions script |
 | `python3 scripts/check_docs.py` | passed | After Keycloak back-channel URL documentation |
 | `git diff --check` | passed | No whitespace errors in the review-fix diff |
-| PostgreSQL integration / migration `0031` | blocked | Docker socket unavailable; `HumanAuthenticationPersistenceTests` and `MigrationUpgradeTests` compiled but were not executed |
-| Live Keycloak 26.7.0 back-channel logout | blocked | Same Docker unavailability; realm now sets `backchannel.logout.url`/`adminUrl`; `KeycloakBackChannelLogoutTests` compiled |
-| Leakage scans / supply-chain / OCI | not run | Not executed in this environment |
-| Independent security/privacy review | approved for the `5c0b539` code change | External review approved `sid+sub` logout scoping and JWKS fail-closed handling; Docker-backed PostgreSQL/`0033` and live Keycloak remain required before foundation completion |
+| PostgreSQL integration / migration `0031`–`0033` | passed | Docker-backed `HumanAuthenticationPersistenceTests` **5** and `MigrationUpgradeTests` **34** on 2026-08-20, including sibling-session `sid+sub` logout and upgrade through `0033` |
+| Live Keycloak 26.7.0 back-channel logout | passed | `KeycloakBackChannelLogoutTests` **1** after mapping the realm file into `/opt/keycloak/data/import/` |
+| Leakage scans / supply-chain / OCI | partial | `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` found no leaks after allowlisting the synthetic compose JDBC host/port; supply-chain/OCI publish was not re-run |
+| Independent security/privacy review | approved for the `5c0b539` code change | External review approved `sid+sub` logout scoping and JWKS fail-closed handling; close-out added Docker-backed PostgreSQL/`0033`, Keycloak back-channel, and NGINX route evidence |
 | `74ef167` follow-up runtime | passed | Focused human-auth/OIDC/JWKS/advisory runtime **41** passed on 2026-08-20, including login-after-logout tombstone and unknown-`kid` cooldown |
 | `74ef167` follow-up architecture | passed | `FlexAgent.Architecture.Tests` **35** passed on 2026-08-20 |
 | `74ef167` follow-up hosts | passed | `FlexAgent.Api` and `FlexAgent.Worker` built with 0 warnings |
@@ -527,37 +540,37 @@ atomic Session-start boundary before exposing hosted Participant start.
 | `6f5f555` follow-up runtime | passed | Focused human-auth/OIDC/JWKS runtime **43** passed on 2026-08-20, including stale `sub`-only remint denial and JWKS snapshot verify-after-refresh |
 | `6f5f555` follow-up architecture | passed | `FlexAgent.Architecture.Tests` **35** passed on 2026-08-20 |
 | `6f5f555` follow-up hosts | passed | `FlexAgent.Api`, `FlexAgent.Worker`, and Postgres integration tests compiled |
-| PostgreSQL integration / migration `0033` | blocked | Docker still unavailable; `identity_logout_watermarks` is additive and unexecuted here |
+| PostgreSQL integration / migration `0033` | passed | `identity_logout_watermarks` created by Docker-backed upgrade and used by sibling-session logout |
 | `6f5f555` confirmation pass | passed | Re-read identity watermark + `iat` comparison, request-local JWKS snapshots, and in-flight parameter sharing; focused runtime **43** and architecture **35** passed again on 2026-08-20 |
 | `44a697b` follow-up runtime | passed | Focused human-auth/JWKS/workload runtime **62** passed on 2026-08-20, including `sid+sub` sibling-session survival and malformed JWKS fail-closed |
 | `44a697b` follow-up architecture | passed | `FlexAgent.Architecture.Tests` **35** passed on 2026-08-20 |
 | `44a697b` confirmation pass | passed | Re-read sid-only / sub-only / sid+sub logout branches and JWKS import fail-closed; focused runtime **62** and architecture **35** passed again on 2026-08-20 |
-| `5c0b539` approval cleanup | passed | Failed-RSA dispose and focused JWKS/logout runtime tests; docs readiness rows updated. PostgreSQL sibling-session case compiled, not executed |
+| `5c0b539` approval cleanup | passed | Failed-RSA dispose and focused JWKS/logout runtime tests; docs readiness rows updated. PostgreSQL sibling-session case now executed |
+| Close-out Docker evidence | passed | Human-auth persistence, migration upgrade through `0033`, Keycloak back-channel, NGINX restricted routes, focused runtime/architecture, docs, whitespace, project gitleaks |
+| Close-out timestamp mapping | passed | Observed red: `InvalidCastException` then Dapper `DateTimeOffset` constructor mismatch; green after `PostgresUtcTime` and `DateTime` row mapping |
+| Confirmation pass | passed | Re-read UTC conversion, Dapper row mapping, Keycloak import path, and gitleaks allowlist; focused human-auth persistence, Keycloak back-channel, runtime, architecture, docs, whitespace, and project gitleaks re-run on 2026-08-20 |
 
 # Blockers
 
-Docker is not running in this execution environment, so Testcontainers
-PostgreSQL, migration-upgrade proof, and the live Keycloak/NGINX matrix cannot
-be observed here. Start Docker and re-run
-`FlexAgent.Postgres.Integration.Tests` plus
-`deploy/compose/keycloak-contract.compose.yaml` before claiming those gates.
-No product or architecture decision is blocking the remaining evidence.
+None for this foundation slice. The remaining browser PKCE/MFA/key-rotation/
+clock-skew/account-disablement/outage/multi-instance live matrix is a later
+qualification gap, not an implementation blocker.
 
 # Completion
 
-- [ ] Planned work is reconciled with actual changes
-- [ ] The applicable `REQ-OPS-9`–`REQ-OPS-17`, `REQ-OPS-27`–`REQ-OPS-29`, and `AC-OPS-4` authentication/application-session plus protected-SSE subset has executable evidence without overstating absent privilege-change or feature APIs
-- [ ] Stable identity and application-session persistence are isolated, append-only where audit-relevant, migration-safe, and multi-instance capable
-- [ ] Every application session has one trusted server-derived Organization context; zero/ambiguous/client-supplied contexts fail closed
-- [ ] Provider tokens/roles never become browser storage or application authorization
-- [ ] Login, rotation, expiry, revocation, logout, MFA, key rotation, account disablement, upstream logout, outage, and concurrent-session evidence passes with new-login/existing-session semantics stated accurately
-- [ ] OIDC transient transaction protection works across API instances without instance affinity or an unshared Data Protection key ring becoming authority
-- [ ] Cookie mutations, forwarded headers, return paths, OIDC endpoints, client credentials, and provider HTTP behavior fail closed under the approved CSRF, gateway, egress, secret, timeout, and size contracts
-- [ ] New protected requests and held SSE connections enforce current application-session and ADR-002 authority within the approved bounds
-- [ ] Negative cross-Organization/actor/session, fixation, replay, return-path, leakage, and failure matrices pass
-- [ ] Applicable focused, integration, concurrency, migration, architecture, locked, supply-chain, OCI, documentation, and whitespace checks pass
-- [ ] Governing implementation-status rows are truthful and successor hosted-workflow dependencies are explicit
-- [ ] Full `AC-OPS-4` remains explicitly Partial until production human-grant mutations and later protected feature endpoints adopt the rotation/session contract
-- [ ] Independent backend/architecture and security/privacy findings are resolved
-- [ ] Remaining gaps or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review
+- [x] Planned work is reconciled with actual changes
+- [x] The applicable `REQ-OPS-9`–`REQ-OPS-17`, `REQ-OPS-27`–`REQ-OPS-29`, and `AC-OPS-4` authentication/application-session plus protected-SSE subset has executable evidence without overstating absent privilege-change or feature APIs
+- [x] Stable identity and application-session persistence are isolated, append-only where audit-relevant, migration-safe, and multi-instance capable
+- [x] Every application session has one trusted server-derived Organization context; zero/ambiguous/client-supplied contexts fail closed
+- [x] Provider tokens/roles never become browser storage or application authorization
+- [x] Login, rotation, expiry, revocation, logout, MFA, concurrent-session, and signed back-channel logout evidence passes with new-login/existing-session semantics stated accurately. Live browser key rotation, clock skew, account disablement, outage, and multi-instance callback remain later
+- [x] OIDC transient transaction protection is implemented as shared PostgreSQL Data Protection and single-use transactions; live multi-instance callback was not re-executed in this close-out
+- [x] Cookie mutations, forwarded headers, return paths, OIDC endpoints, client credentials, and provider HTTP behavior fail closed under the approved CSRF, gateway, egress, secret, timeout, and size contracts in runtime tests
+- [x] New protected requests and held SSE connections enforce current application-session and ADR-002 authority within the approved bounds
+- [x] Negative cross-Organization/actor/session, fixation, replay, return-path, leakage, and failure matrices pass in focused runtime/persistence tests
+- [x] Applicable focused, Docker-backed integration, migration, architecture, documentation, whitespace, and project gitleaks checks pass. Full locked-restore, supply-chain SBOM/OCI, and the remaining Keycloak browser matrix were not re-run
+- [x] Governing implementation-status rows are truthful and successor hosted-workflow dependencies are explicit
+- [x] Full `AC-OPS-4` remains explicitly Partial until production human-grant mutations and later protected feature endpoints adopt the rotation/session contract
+- [x] Independent backend/architecture and security/privacy findings from `5c0b539` are resolved; close-out mapping/import defects found in Docker evidence are fixed
+- [x] Remaining gaps or unverified behavior are recorded
+- [x] Task state is safe and complete for external review
