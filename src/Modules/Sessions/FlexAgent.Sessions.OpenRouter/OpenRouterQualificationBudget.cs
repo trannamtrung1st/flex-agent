@@ -18,6 +18,34 @@ public sealed class OpenRouterQualificationBudget
         _path = Path.GetFullPath(path);
     }
 
+    public bool TryRead(out int reservedRequestCount)
+    {
+        reservedRequestCount = 0;
+        try
+        {
+            if (!TryOpenExistingState(FileAccess.Read, FileShare.Read, out var stream)
+                || stream is null)
+            {
+                return false;
+            }
+
+            using (stream)
+            {
+                if (stream.Length == 0)
+                {
+                    return true;
+                }
+
+                return TryReadState(stream, out reservedRequestCount);
+            }
+        }
+        catch (Exception ex) when (IsClosedFailure(ex))
+        {
+            reservedRequestCount = 0;
+            return false;
+        }
+    }
+
     public bool TryReserve(out int reservedRequestCount)
     {
         reservedRequestCount = 0;
@@ -76,17 +104,57 @@ public sealed class OpenRouterQualificationBudget
             stream.Flush(flushToDisk: true);
             return true;
         }
-        catch (Exception ex) when (ex is IOException
-            or UnauthorizedAccessException
-            or PlatformNotSupportedException
-            or NotSupportedException
-            or ArgumentException
-            or OverflowException)
+        catch (Exception ex) when (IsClosedFailure(ex))
         {
             reservedRequestCount = 0;
             return false;
         }
     }
+
+    private bool TryOpenExistingState(FileAccess access, FileShare share, out FileStream? stream)
+    {
+        stream = null;
+        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS() && !OperatingSystem.IsFreeBSD())
+        {
+            return false;
+        }
+
+        var directory = Path.GetDirectoryName(_path);
+        if (string.IsNullOrWhiteSpace(directory)
+            || !Directory.Exists(directory)
+            || !UnixOwnerOnlyMountedFileProviderSecretSource.HasOwnerOnlyDirectoryMode(directory)
+            || !File.Exists(_path)
+            || IsReparsePoint(_path))
+        {
+            return false;
+        }
+
+        var options = new FileStreamOptions
+        {
+            Mode = FileMode.Open,
+            Access = access,
+            Share = share,
+        };
+        stream = new FileStream(_path, options);
+        if (IsReparsePoint(_path)
+            || !UnixOwnerOnlyMountedFileProviderSecretSource.HasOwnerOnlyFileMode(_path)
+            || stream.Length > MaxStateBytes)
+        {
+            stream.Dispose();
+            stream = null;
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsClosedFailure(Exception ex) =>
+        ex is IOException
+            or UnauthorizedAccessException
+            or PlatformNotSupportedException
+            or NotSupportedException
+            or ArgumentException
+            or OverflowException;
 
     private static bool TryReadState(FileStream stream, out int requestCount)
     {

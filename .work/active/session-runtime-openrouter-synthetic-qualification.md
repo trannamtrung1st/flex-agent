@@ -408,33 +408,51 @@ qualification stops safely with sanitized evidence.
 
 ## Phase 9 — bounded live qualification and natural chat
 
-- [ ] Run the approved control and streaming contract matrix sequentially using
+- [x] Run the approved control and streaming contract matrix sequentially using
       only synthetic prompts. Verify returned model, provider, router attempt,
       cache status, usage, timeout, and cancellation evidence on each relevant
       request.
-- [ ] Use one shared qualification budget counter across discovery and pinned
+      Control: slot 7 unclassified `provider_unavailable`; slot 8 HTTP 404 /
+      `request_rejected`, cache absent. Content: slot 9 HTTP 200, cache absent,
+      identity and usage accepted, 1 fragment, completed. Timeout, cancellation,
+      and retry were not reached.
+- [x] Use one shared qualification budget counter across discovery and pinned
       requests in Phases 8–9; process restarts or failed assertions must not
       silently reset the 12-inference-request ceiling for the run.
-- [ ] Exercise both provider phases through the real Worker and PostgreSQL path;
+      Retention-accepted counter is 9/12 after slots 7–9. `TryRead` peeks without
+      incrementing. Historical counter remains 5/12.
+- [-] Exercise both provider phases through the real Worker and PostgreSQL path;
       verify durable request admission and provider-attempt provenance without
       persisting the raw key or unapproved raw provider payloads.
-- [ ] If Phase 7 proved a supported interactive path, conduct a short natural
+      Docker was unavailable, so the live Worker/PostgreSQL path was not run.
+      Deterministic reservation coverage remains Phase 6.
+- [-] If Phase 7 proved a supported interactive path, conduct a short natural
       Participant Text Session through the real API/Worker/PostgreSQL/SSE path.
       Use Playwright accessibility snapshots and screenshots at desktop and a
       narrow viewport, with synthetic accounts/content only and artifacts only
       under `.playwright-mcp/`.
-- [ ] Inspect loading, streaming, completion, timeout/error, retry/cutoff, and
+      Phase 7 remains blocked; no hosted chat in this phase.
+- [x] Inspect loading, streaming, completion, timeout/error, retry/cutoff, and
       reconnect behavior that the live run actually reaches. Do not claim
       states that were not observed.
-- [ ] Stop immediately on synthetic-data-policy uncertainty, any real/private
+      Observed: operator-file load, control 404, streaming, completion, usage.
+      Not observed: timeout, cancel, retry, cutoff, reconnect, Worker/Postgres.
+- [x] Stop immediately on synthetic-data-policy uncertainty, any real/private
       content, identity/provider drift, cache evidence, missing metadata,
       fallback, spend/request ceiling, or secret leakage.
-- [ ] Retain a sanitized summary labeled
-      `qualified_for: synthetic_development`; passing does not enable a runtime
-      by default or satisfy Direct OpenAI Phase B.
+      Slot 7 stopped before content because status was unclassified. Slot 8 404
+      was treated as control-route rejection, not a hard identity/cache stop, so
+      content still ran. No fallback or paid-model substitution.
+- [x] Retain a sanitized summary; apply `qualified_for: synthetic_development`
+      only if the live contract actually passed. Passing does not enable a
+      runtime by default or satisfy Direct OpenAI Phase B.
+      Summary retained at
+      `docs/operations/provider-profiles/qualified/openrouter/synthetic-development-phase9-2026-08-20.md`.
+      The acceptance label was **not** applied because structured control failed.
 
-Exit: the live provider contract passes within bounds and, only if Phase 7
-passed, natural chat is evidenced through the real Flex Agent path.
+Exit: not met. The pinned live contract is incomplete (control 404, content
+passed). Phase 7 chat remains blocked. Do not treat the Phase 9 checkboxes as
+full qualification.
 
 ## Phase 10 — full verification, review, and reconciliation
 
@@ -542,6 +560,27 @@ Exit: no actionable backend, architecture, security/privacy, documentation, or
 test defect remains in the changed surface; the Docker-dependent integration
 gap and live-provider next step are explicitly recorded.
 
+## Phase 16 — retention-accepted discovery and pin
+
+- [x] Rerun the deterministic OpenRouter gate immediately before another live
+      request. 34/34 on 2026-08-20 with the explicit live test excluded.
+- [x] Make one reserved discovery against the distinct retention-accepted
+      counter and capture sanitized identity through a temporary xUnit XML
+      report plus live output. Slot 6/12 returned
+      `nvidia/nemotron-3.5-lightning:free` / `Nvidia`. Historical 5/12 counter
+      was not reused.
+- [x] Pin that pair in operator-managed files outside source control using
+      provider slug `nvidia` and expected returned identity `Nvidia`. Recompute
+      and load-verify both digests through the real profile/configuration
+      loaders. Files are owner-only under the local OpenRouter operator
+      directory and are not in Git.
+- [x] Begin the Phase 9 control/streaming matrix against the pinned pair using
+      the same retention-accepted budget. Do not start hosted Participant chat.
+      Matrix ran; control 404, content passed; label not applied.
+
+Exit: one concrete `:free` model and provider are pinned with verified digests,
+or the run stops with sanitized failure evidence.
+
 # Current state
 
 On 2026-08-20 the Product Lead explicitly accepted OpenRouter/provider
@@ -565,6 +604,12 @@ Invocation processor. Discovery fake-HTTP coverage records the selected
 Phase 7 is blocked: Participant Text Session remains on the synthetic browser
 adapter; production HTTP SSE and OIDC application-session wiring are still
 documented delivery gaps. Do not claim interactive Flex Agent chat.
+
+Phase 9 ran against the pinned pair. Retention-accepted budget is 9/12.
+Structured control is unavailable on this free route (HTTP 404 /
+`request_rejected`). Streaming completed with adapter-validated identity, cache
+absent, router metadata, and usage 188/256. The acceptance label was not
+applied. Live Worker/PostgreSQL was skipped because Docker was unavailable.
 
 ## Historical strict-policy qualification run
 
@@ -636,12 +681,19 @@ a paid model.
 ## Retention-accepted qualification run
 
 Phase 14 supersedes the strict-policy routing fields without erasing its
-history. The amended run has a distinct persistent counter at 4/12. Discovery
-requests 1–3 passed, proving an eligible synthetic route exists, but the test
-platform suppressed the sanitized model/provider output. Request 4 returned
-sanitized HTTP 429 / `rate_limited`. No candidate has been recorded or pinned;
-wait for the rate-limit window and capture the next successful run through the
-structured test report before starting Phase 9.
+history. After an owner `continue`, the deterministic suite passed 34/34 and
+one reserved discovery consumed slot 6/12 of the distinct retention-accepted
+counter. Sanitized identity is
+`nvidia/nemotron-3.5-lightning:free` / `Nvidia`. That pair is pinned outside
+source control as `openrouter.synthetic.local.nemotron-3.5-lightning` with
+provider slug `nvidia`, expected identity `Nvidia`, adapter digest
+`77754995939f05366000e0f90022e998cdc85d18b3f675b8d64307595b0361ac`, and profile
+digest `52b47fe8a81ec93aad637d3d81fee665ee9a8230762ecad3204ad6963ca038ac`. Real
+loaders accepted both files. Historical budget remains 5/12. Phase 9 then
+consumed slots 7–9 of the retention-accepted counter. Slot 8 proved control
+HTTP 404 / `request_rejected`. Slot 9 proved streaming completion with usage
+188/256, cache absent, and adapter-validated identity. Three retention-accepted
+slots remain. The run is not labeled `qualified_for: synthetic_development`.
 
 # Decisions
 
@@ -680,10 +732,12 @@ structured test report before starting Phase 9.
   fails closed; Production/Staging stay fail closed.
 - Participant `/browser` remains synthetic. Hosted natural chat is blocked.
 - The historical strict-policy discovery stopped after 5/12 reserved requests.
-  The distinct retention-accepted run consumed 4/12: its first three discovery
-  calls passed, proving an eligible route exists, but the test platform
-  suppressed the sanitized model/provider output; request 4 returned sanitized
-  HTTP 429 `rate_limited`. No candidate has yet been recorded or pinned.
+  The distinct retention-accepted run is 9/12. Slot 6 captured sanitized
+  `nvidia/nemotron-3.5-lightning:free` / `Nvidia` and that pair is now pinned
+  outside Git. Slots 1–3 passed without recorded identity; slot 4 was
+  `rate_limited`; slot 5 was `timeout`. Slot 7 was an unclassified control
+  `provider_unavailable`. Slot 8 was control HTTP 404 / `request_rejected`.
+  Slot 9 was content HTTP 200 with cache absent and usage 188/256.
 - Discovery records the selected endpoint, not `available[0]`, rejects a
   returned `openrouter/free` alias, and does not use the default HTTPS
   transport unless live opt-in and synthetic-data-policy acceptance are both set.
@@ -706,6 +760,11 @@ structured test report before starting Phase 9.
   remediation series. No further adapter iteration before the gated live
   qualification step. Local OpenRouter 27/27 was not independently confirmed
   from GitHub CI metadata.
+- Phase 9 live matrix against the pinned Nvidia free route: structured control
+  is HTTP 404 / `request_rejected`; streaming completed with identity, cache
+  absent, and usage 188/256. The first reserved control (slot 7) lacked HTTP
+  classification. Remaining slots must not repeat the same control request.
+  Acceptance label not applied.
 
 # Verification
 
@@ -715,11 +774,11 @@ structured test report before starting Phase 9.
 | Locked baseline restore | passed | `dotnet restore FlexAgent.slnx --locked-mode`; all solution projects restored with committed locks on 2026-08-20 |
 | Focused pre-implementation baseline | passed | Sessions 448/448; Direct OpenAI 14/14; Runtime 126/126; Architecture 33/33 on .NET SDK 10.0.100, macOS arm64 |
 | Architecture/operations approval | passed | ADR-008 `OSS-DEC-17`, ADR-010 `STACK-DEC-18`, and approved profile dated 2026-08-19 |
-| Fake-transport provider contracts | passed | OpenRouter deterministic suite 34/34 on 2026-08-20 under the amended `data_collection:allow`, `zdr:false` profile after adding persistent-budget, symlink, sanitized-failure, and unsafe-identity coverage: headers, provider object, metadata/attempt/identity/usage, response-cache HIT vs prompt cached_tokens, control and streaming stall-after-headers timeout vs caller cancel, exact envelope limit and limit+1, strict SSE UTF-8, escaped invalid surrogates, terminal-then-DONE, discovery selected-endpoint, schema parity |
+| Fake-transport provider contracts | passed | OpenRouter deterministic suite 41/41 on 2026-08-20 under the amended `data_collection:allow`, `zdr:false` profile after adding persistent-budget `TryRead`, live HTTP/cache observer, symlink, sanitized-failure, and unsafe-identity coverage: headers, provider object, metadata/attempt/identity/usage, response-cache HIT vs prompt cached_tokens, control and streaming stall-after-headers timeout vs caller cancel, exact envelope limit and limit+1, strict SSE UTF-8, escaped invalid surrogates, terminal-then-DONE, discovery selected-endpoint, schema parity |
 | Profile/credential/host isolation | passed | Digest regression; Infrastructure loaders; Unix owner-only secret tests; Worker Testing compose + Production fail-closed |
-| Live synthetic qualification | partial | The amended retention-accepted profile has a distinct persistent budget. Requests 1–3/12 passed discovery, proving an eligible route; passing-test output did not expose the sanitized identity. Request 4/12 returned HTTP 429 `rate_limited`. Wait for the rate-limit window, then capture one successful run through a structured report and pin that model/provider. Phase 9 has not started |
+| Live synthetic qualification | partial | Retention-accepted budget is 9/12. Operator files still load with adapter digest `77754995939f05366000e0f90022e998cdc85d18b3f675b8d64307595b0361ac` and profile digest `52b47fe8a81ec93aad637d3d81fee665ee9a8230762ecad3204ad6963ca038ac`. Phase 9: slot 8 control HTTP 404 / `request_rejected`; slot 9 content HTTP 200, cache absent, usage 188/256, completed. Sanitized summary: `docs/operations/provider-profiles/qualified/openrouter/synthetic-development-phase9-2026-08-20.md`. Acceptance label not applied |
 | Interactive local Text Session | blocked | Phase 7: synthetic browser adapter; production HTTP SSE/OIDC still a documented gap (`docs/ui-ux/text-session.md`) |
-| Locked regression/supply chain/OCI/docs | partial | Full solution run on 2026-08-20: 832 non-PostgreSQL tests passed across Contract, Runtime, Sessions, Direct OpenAI, OpenRouter, Architecture, and Canonical JSON; OpenRouter is 34/34 deterministic with one explicit live test excluded. The 248 PostgreSQL Testcontainers cases could not start because Docker was unavailable. Docs validation passes. Worker OCI COPY includes OpenRouter (architecture tests). Docker image build and `dotnet publish` not run |
+| Locked regression/supply chain/OCI/docs | partial | Full solution run on 2026-08-20: 832 non-PostgreSQL tests passed across Contract, Runtime, Sessions, Direct OpenAI, OpenRouter, Architecture, and Canonical JSON. Phase 9 re-verification reran OpenRouter 41/41 deterministic with two explicit live tests excluded, plus Architecture 35/35. Docker remains unavailable, so PostgreSQL Testcontainers, Worker OCI image build, and `dotnet publish` were not run |
 | Independent review (`7e2e438`) | passed | Adapter remediation series approved 2026-08-20: no remaining substantive correctness or architecture issues. Nine prior findings closed. Local OpenRouter 27/27 not independently verifiable from GitHub commit statuses. Live qualification and hosted Participant path remain gated |
 
 # Risks, interim defaults, and owner gates
@@ -741,40 +800,34 @@ structured test report before starting Phase 9.
 Phases 0–6 have no blocker. Phase 7 is blocked on hosted Participant
 Session/API/OIDC/SSE wiring. The amended owner data-policy gate for Phases 8–9
 cleared on 2026-08-20. The old strict-policy budget remains historical at 5/12.
-The distinct retention-accepted budget is 4/12: three discoveries passed and
-the fourth was rate-limited, but no sanitized identity was captured from the
-passing tests. Phase 8 therefore has route evidence but no recorded candidate.
-Wait for the rate-limit window, then use a structured test report to capture
-one successful model/provider pair and pin it. Reuse the amended budget for
-Phase 9; do not fall back or switch to a paid model implicitly.
+The distinct retention-accepted budget is 9/12 and a concrete pair is pinned
+outside Git. Phase 9 ran: structured control is unavailable on this free route
+(HTTP 404), and streaming identity/cache/usage passed. Do not fall back or
+switch to a paid model. Do not reuse the historical strict-policy 5/12
+counter. Full `qualified_for: synthetic_development` remains unmet. Phase 7
+hosted chat remains blocked. Docker was unavailable for a live Worker/PostgreSQL
+path.
 
 # Next executable slice
 
-After the OpenRouter rate-limit window resets, rerun the deterministic
-OpenRouter gate and make one discovery request using the retention-accepted
-counter. Produce a structured xUnit report in a temporary directory so the
-sanitized model/provider output is recoverable from a passing test. Pin that
-exact pair in operator-managed files outside source control, recompute both
-digests, then begin the bounded Phase 9 control/streaming matrix. Do not start
-hosted Participant chat work in this task; Phase 7 remains separately blocked.
+Phase 9 recorded a partial live result against the pinned pair. Next safe
+actions are separately scoped: either wait for an independently eligible free
+route that accepts strict JSON Schema, or take a hosted Participant-path task
+once that wiring exists. Do not spend remaining slots repeating the same 404
+control request. Do not relax schema, fallbacks, or switch to a paid model.
 
 # Development handoff
 
 ## Resume here
 
-1. Confirm the worktree/commit and rerun the deterministic OpenRouter suite:
-
-   ```sh
-   dotnet test --project tests/Sessions/FlexAgent.Sessions.OpenRouter.Tests/FlexAgent.Sessions.OpenRouter.Tests.csproj --no-restore
-   ```
-
-2. Confirm the amended persistent counter remains 4/12 without printing or
-   reading the key, then wait for the rate-limit window to reset.
-3. Run one explicit discovery with structured temporary reporting, record only
-   the sanitized model/provider pair, and stop on any failure.
-4. Pin and verify that pair before beginning Phase 9. Keep the task open until
-   live provider qualification is complete or its remaining blocker is
-   explicitly retained.
+1. Retention-accepted budget is 9/12; historical budget stays 5/12. Operator
+   files still pin `nvidia/nemotron-3.5-lightning:free` / `nvidia` / `Nvidia`.
+2. Do not rerun the same structured-control request against this pair; it
+   already failed closed with HTTP 404 / `request_rejected`.
+3. Keep the task open: full live qualification is incomplete, hosted chat is
+   blocked, and Docker was unavailable for a live Worker/PostgreSQL path.
+4. A new eligible free route or a separately scoped hosted-path task is
+   required before claiming `qualified_for: synthetic_development`.
 
 ## Implemented change map
 

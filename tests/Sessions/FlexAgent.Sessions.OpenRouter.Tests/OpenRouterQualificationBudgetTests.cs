@@ -26,6 +26,26 @@ public sealed class OpenRouterQualificationBudgetTests
     }
 
     [Fact]
+    public void Current_count_can_be_read_without_creating_or_incrementing_state()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = Path.Combine(directory.Path, "budget");
+        var budget = new OpenRouterQualificationBudget(path);
+
+        Assert.False(budget.TryRead(out var missing));
+        Assert.Equal(0, missing);
+        Assert.False(File.Exists(path));
+
+        Assert.True(budget.TryReserve(out var first));
+        Assert.Equal(1, first);
+        var afterReserve = File.ReadAllBytes(path);
+
+        Assert.True(budget.TryRead(out var current));
+        Assert.Equal(1, current);
+        Assert.Equal(afterReserve, File.ReadAllBytes(path));
+    }
+
+    [Fact]
     public void Corrupt_or_incompatible_state_fails_closed_without_replacing_it()
     {
         using var directory = new TemporaryDirectory();
@@ -56,6 +76,9 @@ public sealed class OpenRouterQualificationBudgetTests
 
         Assert.False(budget.TryReserve(out var reserved));
         Assert.Equal(0, reserved);
+        Assert.Equal("openrouter_qualification_budget.v1\n0\n12\n", File.ReadAllText(target));
+        Assert.False(budget.TryRead(out var current));
+        Assert.Equal(0, current);
         Assert.Equal("openrouter_qualification_budget.v1\n0\n12\n", File.ReadAllText(target));
     }
 

@@ -241,11 +241,13 @@ owner decision.
 ## Implementation status
 
 Approved design. Deterministic adapter, profile, Worker opt-in, fake-transport,
-and architecture evidence exist behind `sessions.openrouter.v1`. Live OpenRouter
-network qualification and hosted Participant Text Session chat remain gated:
-live runs require explicit synthetic-data-policy/spend acceptance, and the
-Participant UI still uses the synthetic browser adapter. Passing fake-transport
-evidence does not enable production or participant-data use.
+and architecture evidence exist behind `sessions.openrouter.v1`. A pinned live
+Phase 9 matrix on 2026-08-20 proved streaming identity, cache-denial, metadata,
+and usage for `nvidia/nemotron-3.5-lightning:free` / `Nvidia`, and proved the
+same route rejects strict structured-control with HTTP 404. The run is not
+labeled `qualified_for: synthetic_development`. Hosted Participant Text Session
+chat remains gated on the synthetic browser adapter. Passing fake-transport or
+partial live evidence does not enable production or participant-data use.
 
 ## References
 

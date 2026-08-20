@@ -651,6 +651,8 @@ public static class OpenRouterLiveQualification
     public const string EnableEnvironmentVariable = "FLEXAGENT_LIVE_OPENROUTER_QUALIFICATION";
     public const string SyntheticDataPolicyEnvironmentVariable = "FLEXAGENT_OPENROUTER_SYNTHETIC_DATA_POLICY_ACCEPTED";
     public const string BudgetPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_QUALIFICATION_BUDGET_PATH";
+    public const string InstalledProfilesPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_INSTALLED_PROFILES_PATH";
+    public const string ConfigurationsPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_CONFIGURATIONS_PATH";
     public const int MaxInferenceRequests = 12;
 
     public static bool IsEnabled =>

@@ -14,8 +14,10 @@ model-provider profiles. It does not select a product-default model.
   are supplied.
 - The approved [OpenRouter synthetic-development profile](openrouter-synthetic-development.md)
   has a distinct `sessions.openrouter.v1` adapter and Worker synthetic-development
-  opt-in. Fake-transport evidence exists; live OpenRouter qualification and hosted
-  Participant chat remain gated. `openrouter/free` is discovery/smoke only;
+  opt-in. Fake-transport evidence exists. A 2026-08-20 pinned live matrix proved
+  streaming on one `:free` pair and recorded a structured-control 404; it is not
+  labeled `qualified_for: synthetic_development`. Hosted Participant chat remains
+  gated. `openrouter/free` is discovery/smoke only;
   repeatable Session testing pins one concrete `:free` model and one permitted
   provider slug. This evidence does not qualify production or close Direct OpenAI
   Phase B.
