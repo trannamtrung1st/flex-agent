@@ -181,10 +181,18 @@ public sealed class OpenRouterFinishReasonAndPolicyTests
             ContentTokensIn: 4,
             ContentTokensOut: 1,
             QualificationOutcome: "qualified_for=synthetic_development",
-            DenialReason: null);
+            DenialReason: null,
+            RecordedAtUtc: "2026-08-21T00:00:00Z",
+            ControlSlot: 7,
+            ContentSlot: 8,
+            SourceRevision: "d41220d");
         var json = record.ToSanitizedJson();
         Assert.Contains("\"control_finish_reason\"", json, StringComparison.Ordinal);
         Assert.Contains("\"content_finish_reason\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"recorded_at_utc\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"control_slot\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"content_slot\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"source_revision\"", json, StringComparison.Ordinal);
         Assert.Contains("openrouter.request-policy.v2", json, StringComparison.Ordinal);
         Assert.DoesNotContain("Bearer ", json, StringComparison.Ordinal);
         Assert.DoesNotContain("sk-or-", json, StringComparison.Ordinal);
@@ -218,7 +226,11 @@ public sealed class OpenRouterFinishReasonAndPolicyTests
             ContentTokensIn: 4,
             ContentTokensOut: 1,
             QualificationOutcome: "denied",
-            DenialReason: "length_truncated");
+            DenialReason: "length_truncated",
+            RecordedAtUtc: "2026-08-21T00:00:00Z",
+            ControlSlot: 1,
+            ContentSlot: null,
+            SourceRevision: "d41220d");
 
         Assert.True(OpenRouterSanitizedQualificationEvidence.TryWriteAtomic(path, record));
         Assert.True(File.Exists(path));
@@ -227,6 +239,9 @@ public sealed class OpenRouterFinishReasonAndPolicyTests
         Assert.Equal(
             "FLEXAGENT_OPENROUTER_PHASE21_EVIDENCE_PATH",
             OpenRouterLiveQualification.Phase21EvidencePathEnvironmentVariable);
+        Assert.Equal(
+            "FLEXAGENT_OPENROUTER_SOURCE_REVISION",
+            OpenRouterLiveQualification.SourceRevisionEnvironmentVariable);
     }
 
     private static ValidatedAgentDecisionEnvelope Admission()

@@ -25,7 +25,11 @@ internal sealed record OpenRouterSanitizedQualificationRecord(
     int? ContentTokensIn,
     int? ContentTokensOut,
     string QualificationOutcome,
-    string? DenialReason)
+    string? DenialReason,
+    string? RecordedAtUtc = null,
+    int? ControlSlot = null,
+    int? ContentSlot = null,
+    string? SourceRevision = null)
 {
     public const string CurrentSchemaVersion = "openrouter.sanitized-qualification.v1";
 

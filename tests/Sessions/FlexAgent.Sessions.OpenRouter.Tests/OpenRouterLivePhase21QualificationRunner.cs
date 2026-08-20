@@ -107,7 +107,9 @@ internal static class OpenRouterLivePhase21QualificationRunner
                 completed: null,
                 failed: null,
                 qualified: false,
-                denial: contentDenial);
+                denial: contentDenial,
+                controlSlot: controlSlot,
+                contentSlot: null);
             Assert.Fail(
                 $"Sanitized control not admitted; content was not reserved: denial={contentDenial} outcome={OutcomeName(control)} reason={Reason(control)} http={observer.StatusCode?.ToString() ?? "none"} class={observer.StatusClassification} cache={observer.CacheClassification} slot={controlSlot}/{OpenRouterLiveQualification.Phase21MaxInferenceRequests}.");
         }
@@ -160,7 +162,9 @@ internal static class OpenRouterLivePhase21QualificationRunner
             completed,
             failed,
             qualified,
-            qualificationDenial);
+            qualificationDenial,
+            controlSlot,
+            contentSlot);
         if (!qualified)
         {
             Assert.Fail(
@@ -187,7 +191,9 @@ internal static class OpenRouterLivePhase21QualificationRunner
         ModelContentCompleted? completed,
         ModelContentFailed? failed,
         bool qualified,
-        string denial)
+        string denial,
+        int controlSlot,
+        int? contentSlot)
     {
         var record = new OpenRouterSanitizedQualificationRecord(
             SchemaVersion: OpenRouterSanitizedQualificationRecord.CurrentSchemaVersion,
@@ -214,13 +220,23 @@ internal static class OpenRouterLivePhase21QualificationRunner
             QualificationOutcome: qualified
                 ? "qualified_for=synthetic_development"
                 : "denied",
-            DenialReason: qualified ? null : denial);
+            DenialReason: qualified ? null : denial,
+            RecordedAtUtc: DateTimeOffset.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture),
+            ControlSlot: controlSlot,
+            ContentSlot: contentSlot,
+            SourceRevision: SourceRevision());
         var sanitizedJson = record.ToSanitizedJson();
         AssertNoSensitiveLeak(sanitizedJson);
         output.WriteLine("sanitized_record {0}", sanitizedJson);
         Assert.True(
             OpenRouterSanitizedQualificationEvidence.TryWriteAtomic(evidencePath, record),
             $"Sanitized evidence could not be written to {OpenRouterLiveQualification.Phase21EvidencePathEnvironmentVariable}.");
+    }
+
+    private static string? SourceRevision()
+    {
+        var value = Environment.GetEnvironmentVariable(OpenRouterLiveQualification.SourceRevisionEnvironmentVariable);
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
     private static void WriteSanitized(

@@ -714,6 +714,7 @@ public static class OpenRouterLiveQualification
     public const string BudgetPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_QUALIFICATION_BUDGET_PATH";
     public const string Phase21BudgetPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_PHASE21_QUALIFICATION_BUDGET_PATH";
     public const string Phase21EvidencePathEnvironmentVariable = "FLEXAGENT_OPENROUTER_PHASE21_EVIDENCE_PATH";
+    public const string SourceRevisionEnvironmentVariable = "FLEXAGENT_OPENROUTER_SOURCE_REVISION";
     public const string InstalledProfilesPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_INSTALLED_PROFILES_PATH";
     public const string ConfigurationsPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_CONFIGURATIONS_PATH";
     public const string ExpectedConsumedEnvironmentVariable = "FLEXAGENT_OPENROUTER_QUALIFICATION_EXPECTED_CONSUMED";

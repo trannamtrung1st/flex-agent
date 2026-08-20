@@ -57,3 +57,17 @@ digests before any future live run.
 Close the OpenRouter adapter qualification slice only after an owner-approved
 new budget ceiling produces a machine-written sanitized record with
 `finish_reason: stop` on both phases and content tokens below 256.
+
+## Independent review (`d41220d`)
+
+Approved 2026-08-21 for the **live qualification step only**. The review found
+no remaining P0/P1 correctness blocker in the deterministic OpenRouter path.
+Streamed non-`stop` content fails as `content_truncated`; `TryQualify` reads
+both finish reasons from provenance; sanitized JSON is written atomically.
+
+This approval does **not** restore `qualified_for: synthetic_development`.
+Restore that label only after a persisted record shows control=`stop`,
+content=`stop`, content output tokens below 256, matching route/digests, and
+a qualified outcome. PostgreSQL `TerminalFinishReason` persistence remains
+deferred until the hosted Session path. GitHub commit statuses were not
+available for this SHA.

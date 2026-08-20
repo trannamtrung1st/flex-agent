@@ -61,7 +61,7 @@ historical. The live harness refuses those phases as `retired_candidate`.
 
 | Field | Approved value or rule |
 | --- | --- |
-| Decision status | Historical 2026-08-20 adapter matrix used a weaker truncation predicate and is not sufficient to close this slice. Keep the GPT-OSS/Darkbloom pin; do not re-apply `qualified_for` until a new owner-authorized live matrix emits a sanitized record under the Phase 24 predicate |
+| Decision status | Historical 2026-08-20 adapter matrix is not sufficient to close this slice. Independent review of `d41220d` approved the deterministic Phase 24/25 contract for an owner-authorized live rerun only. Do not re-apply `qualified_for` until that run persists a passing sanitized record |
 | Model | `openai/gpt-oss-20b:free` |
 | Provider slug | `darkbloom` |
 | Expected returned provider identity | `Darkbloom` |
