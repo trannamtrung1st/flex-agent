@@ -90,6 +90,7 @@ internal static class OpenRouterLivePhase21QualificationRunner
         var control = await adapter.ExecuteAsync(
             ControlRequest(ownership, frozen, configuration.Profile, "ainv.or21ctl001", "synthetic.openrouter.phase21.gptoss.control"),
             TestContext.Current.CancellationToken);
+        var controlObservation = observer.Current;
         WriteSanitized(output, "control", controlSlot, control, observer);
         AssertNoSensitiveLeak(control.ToString());
         AssertPinnedProvenance(control.Provenance, configuration.Profile, OpenRouterLiveQualification.GptOssDarkbloomModel, ModelProviderRequestPhases.Control);
@@ -133,22 +134,54 @@ internal static class OpenRouterLivePhase21QualificationRunner
             AssertPinnedProvenance(completed.Provenance, configuration.Profile, OpenRouterLiveQualification.GptOssDarkbloomModel, ModelProviderRequestPhases.Content);
         }
 
-        if (!OpenRouterLiveMatrixQualification.TryQualify(
-                control,
-                events,
-                OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
-                out var qualificationDenial))
+        var qualified = OpenRouterLiveMatrixQualification.TryQualify(
+            control,
+            events,
+            OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
+            completed?.Provenance?.TerminalFinishReason,
+            out var qualificationDenial);
+        var record = new OpenRouterSanitizedQualificationRecord(
+            SchemaVersion: OpenRouterSanitizedQualificationRecord.CurrentSchemaVersion,
+            RequestPolicyVersion: OpenRouterAdapterContracts.RequestPolicyVersion,
+            AdapterContractVersion: OpenRouterAdapterContracts.AdapterContractVersion,
+            QualificationScope: OpenRouterAdapterContracts.QualificationScope,
+            Model: OpenRouterLiveQualification.GptOssDarkbloomModel,
+            ProviderIdentity: OpenRouterLiveQualification.GptOssDarkbloomProviderIdentity,
+            ProfileDigest: configuration.Profile.ProfileDigest,
+            AdapterConfigurationDigest: configuration.AdapterConfigurationDigest,
+            ControlHttp: controlObservation.StatusCode,
+            ControlClass: controlObservation.StatusClassification,
+            ControlCache: controlObservation.CacheClassification,
+            ControlFinishReason: control.Provenance?.TerminalFinishReason,
+            ControlTokensIn: control.Provenance?.InputTokenCount,
+            ControlTokensOut: control.Provenance?.OutputTokenCount,
+            ContentHttp: observer.StatusCode,
+            ContentClass: observer.StatusClassification,
+            ContentCache: observer.CacheClassification,
+            ContentFinishReason: completed?.Provenance?.TerminalFinishReason,
+            ContentTokensIn: completed?.Provenance?.InputTokenCount,
+            ContentTokensOut: completed?.Provenance?.OutputTokenCount,
+            QualificationOutcome: qualified
+                ? "qualified_for=synthetic_development"
+                : "denied",
+            DenialReason: qualified ? null : qualificationDenial);
+        var sanitizedJson = record.ToSanitizedJson();
+        AssertNoSensitiveLeak(sanitizedJson);
+        output.WriteLine("sanitized_record {0}", sanitizedJson);
+        if (!qualified)
         {
             Assert.Fail(
-                $"Sanitized matrix incomplete: denial={qualificationDenial} control={OutcomeName(control)} reason={Reason(control)} content_completed={completed is not null} content_failed={failed?.ReasonCategory ?? "none"} deltas={deltas.Length} visible_utf8={deltas.Sum(delta => System.Text.Encoding.UTF8.GetByteCount(delta.ExactUtf8Text))} tokens_out={completed?.Provenance?.OutputTokenCount?.ToString() ?? "none"} content_http={observer.StatusCode?.ToString() ?? "none"} content_class={observer.StatusClassification} content_cache={observer.CacheClassification}.");
+                $"Sanitized matrix incomplete: denial={qualificationDenial} control={OutcomeName(control)} reason={Reason(control)} content_completed={completed is not null} content_failed={failed?.ReasonCategory ?? "none"} deltas={deltas.Length} visible_utf8={deltas.Sum(delta => System.Text.Encoding.UTF8.GetByteCount(delta.ExactUtf8Text))} tokens_out={completed?.Provenance?.OutputTokenCount?.ToString() ?? "none"} finish_reason={completed?.Provenance?.TerminalFinishReason ?? "none"} content_http={observer.StatusCode?.ToString() ?? "none"} content_class={observer.StatusClassification} content_cache={observer.CacheClassification}.");
         }
 
         output.WriteLine(
-            "sanitized_matrix qualified_for=synthetic_development model={0} provider={1} control_slot={2} content_slot={3}",
+            "sanitized_matrix qualified_for=synthetic_development model={0} provider={1} control_slot={2} content_slot={3} finish_reason={4} request_policy={5}",
             OpenRouterLiveQualification.GptOssDarkbloomModel,
             OpenRouterLiveQualification.GptOssDarkbloomProviderIdentity,
             controlSlot,
-            contentSlot);
+            contentSlot,
+            completed?.Provenance?.TerminalFinishReason ?? "none",
+            OpenRouterAdapterContracts.RequestPolicyVersion);
     }
 
     private static void WriteSanitized(

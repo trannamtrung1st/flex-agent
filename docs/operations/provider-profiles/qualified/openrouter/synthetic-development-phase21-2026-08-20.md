@@ -15,7 +15,7 @@
 | Phase 21 budget after this run | 8/8 |
 | Historical strict-policy budget | 5/24 (consumed unchanged) |
 | Retention-accepted budget | 21/24 (unchanged by this run) |
-| Acceptance label | `qualified_for: synthetic_development` |
+| Acceptance label | Historical `qualified_for: synthetic_development` under the pre-Phase-24 predicate. Not sufficient to close the slice |
 
 This file contains only sanitized operator facts. It does not contain keys, key
 fragments, account identifiers, prompts, model text, request or response bodies,
@@ -34,9 +34,17 @@ control at 7/8, reserved content only after an admitted Decision, then
 qualified_for: synthetic_development
 ```
 
-This label applies only to the pinned synthetic-development GPT-OSS/Darkbloom
-route behind the Sessions OpenRouter adapter. It does not enable Production or
-Staging, authorize real or private data, or close hosted Participant chat.
+This historical label applied only to the pinned synthetic-development
+GPT-OSS/Darkbloom route behind the Sessions OpenRouter adapter. It does not
+enable Production or Staging, authorize real or private data, or close hosted
+Participant chat.
+
+Phase 24 (2026-08-21) later required an explicit parsed `finish_reason` of
+`stop`, 256-token visible-content acceptance headroom against a 4,096-token
+GPT-OSS request ceiling, and `openrouter.request-policy.v2` in the adapter
+digest. This file does not contain those facts. HTTP/usage lines for slots 7
+and 8 were not retained. Do not invent them. Do not treat the 6/8 → 8/8
+budget increment as proof of the later success properties.
 
 ## Sanitized request matrix
 

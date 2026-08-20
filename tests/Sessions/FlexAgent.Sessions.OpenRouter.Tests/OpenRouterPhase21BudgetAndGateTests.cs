@@ -227,6 +227,7 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
                 control,
                 [new ModelContentTextDelta("Hi"), truncated],
                 OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
+                "stop",
                 out var denial));
         Assert.Equal("length_truncated", denial);
 
@@ -236,6 +237,7 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
                 control,
                 [new ModelContentTextDelta("Hi"), accepted],
                 OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
+                "stop",
                 out var ok));
         Assert.Equal(string.Empty, ok);
     }

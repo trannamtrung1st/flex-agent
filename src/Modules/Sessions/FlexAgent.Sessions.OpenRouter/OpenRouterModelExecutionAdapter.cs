@@ -94,6 +94,18 @@ public sealed class OpenRouterModelExecutionAdapter(
                 return Fail(ExecutionFailureReasons.ProviderUnavailable, startedAt, request, resolved.Value.Profile);
             }
 
+            if (!OpenRouterAdapterContracts.IsApprovedNonTruncationFinishReason(facts.FinishReason))
+            {
+                return Fail(
+                    ExecutionFailureReasons.MalformedControl,
+                    startedAt,
+                    request,
+                    resolved.Value.Profile,
+                    facts.InputTokens,
+                    facts.OutputTokens,
+                    facts.FinishReason);
+            }
+
             if (!OpenRouterResponseParser.TryReadControlContent(document.RootElement, out var content)
                 || string.IsNullOrEmpty(content))
             {
@@ -112,7 +124,8 @@ public sealed class OpenRouterModelExecutionAdapter(
                     request.ProviderAttemptId,
                     startedAt,
                     DateTimeOffset.UtcNow,
-                    ModelProviderRequestPhases.Control),
+                    ModelProviderRequestPhases.Control,
+                    facts.FinishReason),
             };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -508,7 +521,8 @@ public sealed class OpenRouterModelExecutionAdapter(
                 request.ProviderAttemptId,
                 startedAt,
                 DateTimeOffset.UtcNow,
-                ModelProviderRequestPhases.Content),
+                ModelProviderRequestPhases.Content,
+                facts.FinishReason),
         };
     }
 
@@ -601,7 +615,10 @@ public sealed class OpenRouterModelExecutionAdapter(
         string reason,
         DateTimeOffset startedAt,
         ModelExecutionAttemptRequest request,
-        InstalledModelDeploymentProfile? profile) =>
+        InstalledModelDeploymentProfile? profile,
+        int? inputTokens = null,
+        int? outputTokens = null,
+        string? terminalFinishReason = null) =>
         new ModelExecutionFailed(reason)
         {
             Provenance = profile is null
@@ -609,12 +626,13 @@ public sealed class OpenRouterModelExecutionAdapter(
                 : CreateProvenance(
                     profile,
                     reason,
-                    null,
-                    null,
+                    inputTokens,
+                    outputTokens,
                     request.ProviderAttemptId,
                     startedAt,
                     DateTimeOffset.UtcNow,
-                    ModelProviderRequestPhases.Control),
+                    ModelProviderRequestPhases.Control,
+                    terminalFinishReason),
         };
 
     private static ModelProviderAttemptProvenance CreateProvenance(
@@ -625,7 +643,8 @@ public sealed class OpenRouterModelExecutionAdapter(
         string? providerAttemptId,
         DateTimeOffset startedAt,
         DateTimeOffset completedAt,
-        string phase) =>
+        string phase,
+        string? terminalFinishReason = null) =>
         new(
             profile.AdapterKind,
             AdapterContractVersion,
@@ -641,7 +660,9 @@ public sealed class OpenRouterModelExecutionAdapter(
             startedAt,
             completedAt,
             phase,
-            providerAttemptId);
+            providerAttemptId,
+            ModelProviderRequestFacts.Finished,
+            terminalFinishReason);
 
     private static ModelContentFailed ContentFailure(
         InstalledModelDeploymentProfile profile,
@@ -689,8 +710,8 @@ public static class OpenRouterLiveQualification
     public const string GptOssDarkbloomModel = "openai/gpt-oss-20b:free";
     public const string GptOssDarkbloomProviderSlug = "darkbloom";
     public const string GptOssDarkbloomProviderIdentity = "Darkbloom";
-    public const string GptOssDarkbloomAdapterDigest = "7559112b33caad06504136309a0216e7bdf7643391a8bb7b4084245c517092fd";
-    public const string GptOssDarkbloomProfileDigest = "fb1fb631fc25dcc05c07b19345c00986f4120d34e751b3a922d1df7bc3d04b48";
+    public const string GptOssDarkbloomAdapterDigest = "a291c5a83dade637fe78fd68b0cb964ecbb704b48723ecad348eaa8a53810e7a";
+    public const string GptOssDarkbloomProfileDigest = "9b4c641463dd33ab3c8900f00089eebb08e8abb9d1700592ba23292d0e7ce611";
 
     public static bool IsEnabled =>
         string.Equals(Environment.GetEnvironmentVariable(EnableEnvironmentVariable), "1", StringComparison.Ordinal);

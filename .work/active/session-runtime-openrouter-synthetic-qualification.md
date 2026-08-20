@@ -1,8 +1,8 @@
 ---
 id: session-runtime-openrouter-synthetic-qualification
-status: completed
+status: in-progress
 created: 2026-08-19
-updated: 2026-08-20
+updated: 2026-08-21
 ---
 
 # Goal
@@ -774,15 +774,31 @@ a qualification label, or enabling runtime traffic.
       Sessions/Architecture/PostgreSQL regressions. Reconfirm Phase 7
       hosted-chat remains blocked. Do not spend live budget.
 
+## Phase 24 — finish-reason qualification, isolate 4096, bind prompt policy
+
+- [x] Require parsed `finish_reason` and an approved non-truncation value
+      (`stop`) plus headroom below the request ceiling before
+      `TryQualify` can pass.
+- [x] Restore default `MaxOutputTokens=256` and 30/60-second timeouts; keep
+      4096 plus excluded reasoning on GPT-OSS only.
+- [x] Bind `openrouter.request-policy.v2` into the adapter-configuration
+      digest and generate the control example with the current invocation ID.
+- [x] Add a machine-produced sanitized evidence record shape. Do not invent
+      HTTP/usage for the prior 94c9d6 slots. Do not spend live budget.
+- [ ] Close the slice only after an owner-authorized live matrix emits a
+      sanitized passing record under the new predicate.
+
 # Current state
 
 The only current live pin is `openai/gpt-oss-20b:free` / `darkbloom` /
-`Darkbloom`. The adapter harness is labeled
-`qualified_for: synthetic_development` for that pin only. Lightning, Gemma,
-Nano, and GLM are retired candidates; their evidence files remain historical.
-The live harness refuses those phases as `retired_candidate`. Discovery stays
-retired at consumed >= 6. Phase 21 ledger is 8/8; do not rerun live without a
-new owner-approved ceiling. Hosted Participant chat remains blocked.
+`Darkbloom`. Phase 24 corrected finish-reason qualification, isolated 4096
+to GPT-OSS, bound `openrouter.request-policy.v2`, and added a sanitized
+evidence record shape. The 2026-08-20 Phase 21 label is historical and not
+sufficient to close this slice. Lightning, Gemma, Nano, and GLM are retired
+candidates; their evidence files remain historical. The live harness refuses
+those phases as `retired_candidate`. Discovery stays retired at consumed >= 6.
+Phase 21 ledger is 8/8; do not rerun live without a new owner-approved
+ceiling. Hosted Participant chat remains blocked.
 
 
 
@@ -1074,8 +1090,9 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
 | Architecture/operations approval | passed | ADR-008 `OSS-DEC-17`, ADR-010 `STACK-DEC-18`, and approved profile dated 2026-08-19 |
 | Fake-transport provider contracts | passed | OpenRouter deterministic suite 55/55 on 2026-08-20 after Phase 18 atomic `TryReserveExpected` plus Phase 17 live-harness remediation: reservation phase/expected-consumed gates, observer no-response isolation, and stricter matrix qualification. Prior coverage remains: persistent-budget `TryRead`, live HTTP/cache observer, symlink, sanitized-failure, unsafe-identity, headers, provider object, metadata/attempt/identity/usage, response-cache HIT vs prompt cached_tokens, control and streaming stall-after-headers timeout vs caller cancel, exact envelope limit and limit+1, strict SSE UTF-8, escaped invalid surrogates, terminal-then-DONE, discovery selected-endpoint, schema parity |
 | Profile/credential/host isolation | passed | Digest regression; Infrastructure loaders; Unix owner-only secret tests; Worker Testing compose + Production fail-closed |
-| Live synthetic qualification | passed (adapter harness) | Phase 21 GPT-OSS/Darkbloom is the only current pin. Label `qualified_for: synthetic_development` for this pin only. Evidence: `synthetic-development-phase21-2026-08-20.md`. Hosted Participant chat still blocked |
+| Live synthetic qualification | open — contract corrected, live re-run not authorized | Phase 21 GPT-OSS/Darkbloom remains the only pin. Historical 2026-08-20 label used a weaker truncation predicate. Phase 24 evidence: `synthetic-development-phase24-2026-08-21.md`. Hosted Participant chat still blocked |
 | Phase 23 GPT-OSS-only simplification | passed | Removed Lightning/Gemma/Nano/GLM live phases and runners. Retired-candidate gates fail closed. Ops profile and provider index now name only GPT-OSS. OpenRouter 74/74 non-explicit. Docs check and `git diff --check` passed |
+| Phase 24 finish-reason and policy isolation | passed (deterministic) | OpenRouter 82/82 non-explicit, 2 explicit skipped. Sessions 456/456. Architecture provider-boundary 4/4. `python3 scripts/check_docs.py` and `git diff --check` passed. No live budget spent |
 | Interactive local Text Session | blocked | Phase 7: synthetic browser adapter; production HTTP SSE/OIDC still a documented gap (`docs/ui-ux/text-session.md`) |
 | Locked regression/supply chain/OCI/docs | passed with recorded gaps | `dotnet restore FlexAgent.slnx --locked-mode` passed. Sessions 456/456; Direct OpenAI 14/14; Runtime 174/174; Architecture 35/35. `python3 scripts/check_docs.py` and `git diff --check` passed. Worker OCI image build was not run |
 | Independent review (`7e2e438`) | passed | Adapter remediation series approved 2026-08-20: no remaining substantive correctness or architecture issues. Nine prior findings closed. Local OpenRouter 27/27 not independently verifiable from GitHub commit statuses. Live qualification and hosted Participant path remain gated |
@@ -1117,17 +1134,19 @@ GPT-OSS adapter label as Production enablement.
 
 # Next executable slice
 
-This qualification task is complete for the OpenRouter adapter path. Follow-up
-work belongs in a separately scoped hosted Participant-path task. Do not spend
-historical 5/24, do not reopen retired candidates, and do not rerun GPT-OSS
-live without a new Phase 21 ceiling.
+Owner-authorized Phase 21 ceiling increase, regenerate operator pin files
+against the Phase 24 digests, run the explicit GPT-OSS matrix once, and
+commit the machine-produced sanitized record if `finish_reason` is `stop`
+and content tokens are below 256. Do not spend historical 5/24 and do not
+reopen retired candidates.
 
 # Development handoff
 
 ## Resume here
 
-1. Only current pin: GPT-OSS/Darkbloom. Label
-   `qualified_for: synthetic_development` for the adapter harness only.
+1. Only current pin: GPT-OSS/Darkbloom. Do not re-apply
+   `qualified_for: synthetic_development` until a sanitized Phase 24 live
+   record exists.
 2. Ledgers: historical 5/24 (do not spend), retention-accepted 21/24,
    Phase 21 8/8.
 3. Discovery and retired candidate phases fail closed.
@@ -1148,16 +1167,16 @@ live without a new Phase 21 ceiling.
 | Live evidence | opt-in OpenRouter test/harness and, only after a real hosted path exists, Playwright evidence under `.playwright-mcp/`; sanitized qualification summaries under the approved operations directory |
 | Phase 21 route gates | `OpenRouterRequestPolicy.Phase21GptOss`; `OpenRouterQualificationBudget.CreatePhase21`; `OpenRouterLiveQualification` GPT-OSS constants; `OpenRouterLivePhase21QualificationTests` and runner; hidden-reasoning parser rejection |
 | Phase 23 GPT-OSS-only pin | Retired Lightning/Gemma/Nano/GLM live phases; `retired_candidate` gate; GPT-OSS-only route acceptance |
+| Phase 24 finish-reason and policy identity | `OpenRouterResponseParser` finish_reason; `OpenRouterRequestPolicy` 256 vs 4096; `request_policy_version` in adapter digest; invocation-bound `ControlSystemPrompt`; `OpenRouterSanitizedQualificationRecord` |
 
 # Completion
 
 - [x] Planned work is reconciled with actual changes
 - [x] Applicable focused tests pass
-- [x] Applicable integration/regression checks pass, with one unrelated
-      Keycloak back-channel 403 recorded below
+- [x] Applicable integration/regression checks pass for the deterministic
+      contract change (Sessions 456/456). PostgreSQL persistence of
+      `TerminalFinishReason` was not added and was not re-run
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
-- [x] Task state is safe and complete for external review: GPT-OSS/Darkbloom
-      is the only current pin and is labeled
-      `qualified_for: synthetic_development` for the adapter harness only;
-      hosted Participant chat remains a separately scoped follow-up
+- [ ] Task state is safe and complete for external review: wait for a
+      sanitized Phase 24 live record before closing the adapter-harness slice

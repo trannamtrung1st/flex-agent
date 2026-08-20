@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.OpenRouter;
@@ -8,11 +9,24 @@ public static class OpenRouterAdapterContracts
     public const string QualificationScope = "synthetic_development";
     public const string DiscoveryModel = "openrouter/free";
     public const string ChatCompletionsPath = "/api/v1/chat/completions";
-    public const int MaxOutputTokens = 4096;
+    public const int MaxOutputTokens = 256;
     public const int Phase21MaxOutputTokens = 4096;
-    public const int VisibleContentAcceptanceMaxOutputTokens = 4096;
-    public const string ControlSystemPrompt =
-        "Return one JSON Agent Decision envelope and no participant-visible prose. Do not copy invocation-context field names. Example: {\"schema_version\":\"v2\",\"agent_decision_id\":\"adec.synthetic.0002\",\"agent_invocation_id\":\"ainv.synthetic.0002\",\"produced_at\":\"2026-08-20T00:00:00Z\",\"disposition\":\"no_action\",\"outputs\":[],\"requested_actions\":[],\"no_action\":{\"reason_category\":\"intentional_silence\"}}";
+    public const int VisibleContentAcceptanceMaxOutputTokens = 256;
+    public const string RequestPolicyVersion = "openrouter.request-policy.v2";
+    public const string ApprovedNonTruncationFinishReason = "stop";
+
+    public static bool IsApprovedNonTruncationFinishReason(string? finishReason) =>
+        string.Equals(finishReason, ApprovedNonTruncationFinishReason, StringComparison.Ordinal);
+
+    public static string ControlSystemPrompt(string invocationId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(invocationId);
+        return "Return one JSON Agent Decision envelope and no participant-visible prose. Set agent_invocation_id to the exact current invocation ID "
+            + invocationId
+            + ". Do not invent a different invocation ID or copy other invocation-context field names. Example: {\"schema_version\":\"v2\",\"agent_decision_id\":\"adec.synthetic.0002\",\"agent_invocation_id\":"
+            + JsonSerializer.Serialize(invocationId)
+            + ",\"produced_at\":\"2026-08-20T00:00:00Z\",\"disposition\":\"no_action\",\"outputs\":[],\"requested_actions\":[],\"no_action\":{\"reason_category\":\"intentional_silence\"}}";
+    }
     public const int MaxApplicationAttempts = 2;
     public const int MaxControlEnvelopeUtf8Bytes = 262_144;
     public const int MaxSseEventUtf8Bytes = 65_536;
@@ -85,7 +99,7 @@ public sealed record OpenRouterRequestPolicy(int MaxOutputTokens, string? Reason
 
         throw new ArgumentOutOfRangeException(
             nameof(profile),
-            "OpenRouter installed profiles permit only the default 4,096-token policy or the Phase 21 4,096-token GPT-OSS reasoning policy.");
+            "OpenRouter installed profiles permit only the default 256-token policy or the Phase 21 4,096-token GPT-OSS reasoning policy.");
     }
 }
 
@@ -190,6 +204,7 @@ public sealed record OpenRouterInstalledConfiguration(
             "zdr=false",
             "metadata=enabled",
             "cache=false",
+            "request_policy_version=" + OpenRouterAdapterContracts.RequestPolicyVersion,
             "max_tokens=" + policy.MaxOutputTokens.ToString(System.Globalization.CultureInfo.InvariantCulture));
         if (policy == OpenRouterRequestPolicy.Phase21GptOss)
         {

@@ -49,6 +49,7 @@ public sealed class OpenRouterExampleProfileConsistencyTests
         Assert.Equal(OpenRouterLiveQualification.GptOssDarkbloomAdapterDigest, created.AdapterConfigurationDigest);
         Assert.Equal(OpenRouterLiveQualification.GptOssDarkbloomProfileDigest, created.Profile.ProfileDigest);
         Assert.Equal(4096, created.Profile.MaxOutputTokens);
+        Assert.Equal(256, OpenRouterAdapterContracts.MaxOutputTokens);
     }
 
     private static string FindRepositoryRoot()

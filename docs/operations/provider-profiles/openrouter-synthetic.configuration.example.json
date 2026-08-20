@@ -2,8 +2,8 @@
   {
     "profileId": "openrouter.synthetic.example.do-not-enable",
     "profileVersion": "1",
-    "profileDigest": "c1fe26e9819db07324bd6b7c9ed38850668f7c4e03a59b7b9db208b5126e6a73",
-    "adapterConfigurationDigest": "a240fe2db7acafcb39752cddf0e75066049124705dade1819efd295df6fbfa5a",
+    "profileDigest": "e39ba87a916bd923902c00cc35ec44a2292609afadacf842dc56b11ec8f68843",
+    "adapterConfigurationDigest": "59279bf0f44c972bdce48d2dcbfa75ae910b841677484afe578df880bb23ac48",
     "providerSlug": "Together",
     "expectedReturnedProviderIdentity": "Together"
   }

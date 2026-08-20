@@ -19,7 +19,8 @@ public sealed class OpenRouterLiveMatrixQualificationTests
             OpenRouterLiveMatrixQualification.TryQualify(
                 control,
                 [completed],
-                OpenRouterAdapterContracts.MaxOutputTokens,
+                OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
+                "stop",
                 out var denial));
         Assert.Equal("missing_visible_content", denial);
     }
@@ -30,14 +31,15 @@ public sealed class OpenRouterLiveMatrixQualificationTests
         var control = new ModelExecutionStructuredControl(Admission());
         var completed = new ModelContentCompleted
         {
-            Provenance = Provenance(OpenRouterAdapterContracts.MaxOutputTokens),
+            Provenance = Provenance(OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens),
         };
 
         Assert.False(
             OpenRouterLiveMatrixQualification.TryQualify(
                 control,
                 [new ModelContentTextDelta("Hi"), completed],
-                OpenRouterAdapterContracts.MaxOutputTokens,
+                OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
+                "stop",
                 out var denial));
         Assert.Equal("length_truncated", denial);
     }
@@ -51,7 +53,8 @@ public sealed class OpenRouterLiveMatrixQualificationTests
             OpenRouterLiveMatrixQualification.TryQualify(
                 control,
                 [new ModelContentTextDelta("Hi"), new ModelContentFailed(ExecutionFailureReasons.ProviderUnavailable)],
-                OpenRouterAdapterContracts.MaxOutputTokens,
+                OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
+                "stop",
                 out var denial));
         Assert.Equal("content_failed", denial);
     }
@@ -69,7 +72,8 @@ public sealed class OpenRouterLiveMatrixQualificationTests
             OpenRouterLiveMatrixQualification.TryQualify(
                 control,
                 [new ModelContentTextDelta("Hello"), completed],
-                OpenRouterAdapterContracts.MaxOutputTokens,
+                OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
+                "stop",
                 out var denial));
         Assert.Equal(string.Empty, denial);
     }

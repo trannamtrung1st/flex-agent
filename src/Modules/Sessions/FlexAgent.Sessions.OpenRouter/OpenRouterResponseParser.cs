@@ -10,7 +10,8 @@ internal sealed record OpenRouterTerminalFacts(
     string SelectedProvider,
     int Attempt,
     int? InputTokens,
-    int? OutputTokens);
+    int? OutputTokens,
+    string FinishReason);
 
 internal sealed class OpenRouterTransportLimitExceededException : Exception;
 
@@ -152,8 +153,32 @@ internal static class OpenRouterResponseParser
             return false;
         }
 
-        facts = new OpenRouterTerminalFacts(expectedModel, selected, attempt, promptTokens, completionTokens);
+        if (!TryReadFinishReason(root, out var finishReason) || string.IsNullOrWhiteSpace(finishReason))
+        {
+            return false;
+        }
+
+        facts = new OpenRouterTerminalFacts(
+            expectedModel,
+            selected,
+            attempt,
+            promptTokens,
+            completionTokens,
+            finishReason);
         return true;
+    }
+
+    private static bool TryReadFinishReason(JsonElement root, out string? finishReason)
+    {
+        finishReason = null;
+        if (!root.TryGetProperty("choices", out var choices)
+            || choices.ValueKind != JsonValueKind.Array
+            || choices.GetArrayLength() < 1)
+        {
+            return false;
+        }
+
+        return TryReadJsonString(choices[0], "finish_reason", out finishReason);
     }
 
     public static bool TryReadSelectedProvider(JsonElement root, out string selected)

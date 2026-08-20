@@ -9,6 +9,7 @@ internal static class OpenRouterLiveMatrixQualification
         ModelExecutionAttemptResult control,
         IReadOnlyList<ModelContentEvent> events,
         int maxOutputTokens,
+        string? finishReason,
         out string denialReason)
     {
         ArgumentNullException.ThrowIfNull(control);
@@ -40,7 +41,8 @@ internal static class OpenRouterLiveMatrixQualification
             return false;
         }
 
-        if (completed.Provenance?.OutputTokenCount is null
+        if (!OpenRouterAdapterContracts.IsApprovedNonTruncationFinishReason(finishReason)
+            || completed.Provenance?.OutputTokenCount is null
             || completed.Provenance.OutputTokenCount >= maxOutputTokens)
         {
             denialReason = "length_truncated";

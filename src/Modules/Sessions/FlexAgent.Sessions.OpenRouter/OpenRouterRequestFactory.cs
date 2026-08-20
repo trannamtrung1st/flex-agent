@@ -117,7 +117,7 @@ internal static class OpenRouterRequestFactory
         writer.WriteString(
             "content",
             control
-                ? OpenRouterAdapterContracts.ControlSystemPrompt
+                ? OpenRouterAdapterContracts.ControlSystemPrompt(invocationId)
                 : "Return only participant-visible message text.");
         writer.WriteEndObject();
         writer.WriteStartObject();

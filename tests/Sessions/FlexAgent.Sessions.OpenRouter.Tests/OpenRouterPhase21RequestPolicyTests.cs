@@ -31,7 +31,7 @@ public sealed class OpenRouterPhase21RequestPolicyTests
         Assert.Equal(OpenRouterAdapterContracts.Phase21MaxOutputTokens, created.Profile.MaxOutputTokens);
         Assert.Equal(TimeSpan.FromMinutes(2), created.Profile.ControlTimeout);
         Assert.Equal(TimeSpan.FromMinutes(2), created.Profile.ContentTimeout);
-        Assert.Equal(4096, OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens);
+        Assert.Equal(256, OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens);
         Assert.Equal("low", created.RequestPolicy.ReasoningEffort);
         Assert.True(created.RequestPolicy.ReasoningExcluded);
         Assert.Equal(OpenRouterLiveQualification.GptOssDarkbloomAdapterDigest, created.AdapterConfigurationDigest);
@@ -39,12 +39,12 @@ public sealed class OpenRouterPhase21RequestPolicyTests
         Assert.NotEqual(
             OpenRouterInstalledConfiguration.ComputeAdapterConfigurationDigest("Together", "Together"),
             created.AdapterConfigurationDigest);
-        Assert.Equal(4096, OpenRouterAdapterContracts.MaxOutputTokens);
-        Assert.Equal(4096, OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens);
+        Assert.Equal(256, OpenRouterAdapterContracts.MaxOutputTokens);
+        Assert.Equal(256, OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens);
     }
 
     [Fact]
-    public void Default_create_keeps_4096_tokens_no_reasoning_and_current_digests()
+    public void Default_create_keeps_256_tokens_no_reasoning_and_current_digests()
     {
         var example = OpenRouterInstalledConfiguration.Create(
             "openrouter.synthetic.example.do-not-enable",
@@ -143,7 +143,7 @@ public sealed class OpenRouterPhase21RequestPolicyTests
         var handler = new RecordingHandler(ControlBody(harness.InvocationJson(), model: "meta-llama/llama-3.1-8b-instruct:free", provider: "Together"));
         await harness.Adapter(handler).ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
         using var body = JsonDocument.Parse(handler.Body);
-        Assert.Equal(4096, body.RootElement.GetProperty("max_tokens").GetInt32());
+        Assert.Equal(256, body.RootElement.GetProperty("max_tokens").GetInt32());
         Assert.False(body.RootElement.TryGetProperty("reasoning", out _));
     }
 

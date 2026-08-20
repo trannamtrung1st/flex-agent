@@ -16,14 +16,15 @@ model-provider profiles. It does not select a product-default model.
 - The approved [OpenRouter synthetic-development profile](openrouter-synthetic-development.md)
   has a distinct `sessions.openrouter.v1` adapter and Worker synthetic-development
   opt-in. The only current live pin is `openai/gpt-oss-20b:free` /
-  `darkbloom` / `Darkbloom`. A 2026-08-20 adapter matrix admitted structured
-  control and qualifying visible content; that pin is labeled
-  `qualified_for: synthetic_development` only. Earlier Lightning, Gemma, Nano,
-  and GLM probes are historical fail-closed records and are not executable live
-  phases. Hosted Participant chat remains gated. `openrouter/free` is
-  discovery/smoke only. This evidence does not qualify production or close the
-  OpenAI-compatible endpoint qualification track (formerly Direct OpenAI Phase
-  B).
+  `darkbloom` / `Darkbloom`.   A 2026-08-20 adapter matrix admitted structured
+  control and visible content under a weaker truncation predicate. Phase 24
+  requires `finish_reason: stop`, 256-token acceptance headroom, and
+  `openrouter.request-policy.v2` before the slice can close. Earlier Lightning,
+  Gemma, Nano, and GLM probes are historical fail-closed records and are not
+  executable live phases. Hosted Participant chat remains gated.
+  `openrouter/free` is discovery/smoke only. This evidence does not qualify
+  production or close the OpenAI-compatible endpoint qualification track
+  (formerly Direct OpenAI Phase B).
 - The [Keycloak OIDC contract profile](keycloak-oidc-contract.md) pins
   Keycloak `26.7.0` for local/CI human-authentication qualification. It is not
   a Production or real-Participant enablement.

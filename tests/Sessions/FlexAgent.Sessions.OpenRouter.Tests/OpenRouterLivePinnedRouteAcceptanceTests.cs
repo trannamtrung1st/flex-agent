@@ -84,7 +84,7 @@ public sealed class OpenRouterLivePinnedRouteAcceptanceTests
                 OpenRouterLivePinnedRouteAcceptance.GptOssDarkbloom,
                 out var denial));
         Assert.Equal("digest_mismatch", denial);
-        Assert.Equal(4096, historicalPolicy.Profile.MaxOutputTokens);
+        Assert.Equal(256, historicalPolicy.Profile.MaxOutputTokens);
         Assert.Null(historicalPolicy.RequestPolicy.ReasoningEffort);
     }
 }

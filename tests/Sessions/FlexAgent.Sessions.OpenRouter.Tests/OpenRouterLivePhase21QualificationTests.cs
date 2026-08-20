@@ -16,10 +16,10 @@ public sealed class OpenRouterLivePhase21QualificationTests(ITestOutputHelper ou
         Assert.Equal("Darkbloom", OpenRouterLiveQualification.GptOssDarkbloomProviderIdentity);
         Assert.Equal("openrouter.synthetic.local.gpt-oss-20b", OpenRouterLiveQualification.GptOssDarkbloomProfileId);
         Assert.Equal(
-            "7559112b33caad06504136309a0216e7bdf7643391a8bb7b4084245c517092fd",
+            "a291c5a83dade637fe78fd68b0cb964ecbb704b48723ecad348eaa8a53810e7a",
             OpenRouterLiveQualification.GptOssDarkbloomAdapterDigest);
         Assert.Equal(
-            "fb1fb631fc25dcc05c07b19345c00986f4120d34e751b3a922d1df7bc3d04b48",
+            "9b4c641463dd33ab3c8900f00089eebb08e8abb9d1700592ba23292d0e7ce611",
             OpenRouterLiveQualification.GptOssDarkbloomProfileDigest);
         Assert.Equal(
             "FLEXAGENT_OPENROUTER_PHASE21_QUALIFICATION_BUDGET_PATH",

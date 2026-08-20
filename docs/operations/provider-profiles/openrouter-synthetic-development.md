@@ -8,8 +8,8 @@
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead |
 | **Effective date** | 2026-08-19 |
-| **Last reviewed** | 2026-08-20 |
-| **Decision reference** | Product Lead decisions on 2026-08-20 to (1) permit provider/OpenRouter retention and training for synthetic-only solo development and (2) pin `openai/gpt-oss-20b:free` / Darkbloom as the only current synthetic-development live route after its adapter matrix passed. Earlier Lightning, Gemma, Nano, and GLM probes are historical fail-closed records only. Production, real-data, and hosted-chat gates remain |
+| **Last reviewed** | 2026-08-21 |
+| **Decision reference** | Product Lead decisions on 2026-08-20 to (1) permit provider/OpenRouter retention and training for synthetic-only solo development and (2) pin `openai/gpt-oss-20b:free` / Darkbloom as the only current synthetic-development live route. A 2026-08-21 contract correction requires parsed `finish_reason: stop`, 256-token visible-content acceptance headroom, `openrouter.request-policy.v2`, and a machine-produced sanitized evidence record before the adapter-harness slice can close. Earlier Lightning, Gemma, Nano, and GLM probes are historical fail-closed records only. Production, real-data, and hosted-chat gates remain |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, documentation |
 | **Governs** | Local synthetic OpenRouter calls, capability discovery, pinned free-model Session testing, credential placement, data-policy/routing controls, bounded qualification evidence, and enablement limits |
 | **Related decisions** | [ADR-008 `OSS-DEC-17`](../../architecture/decisions/ADR-008-bounded-oss-component-set.md#approved-decisions) and [ADR-010 `STACK-DEC-18`](../../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#decision) |
@@ -61,19 +61,20 @@ historical. The live harness refuses those phases as `retired_candidate`.
 
 | Field | Approved value or rule |
 | --- | --- |
-| Decision status | Adapter live matrix passed on 2026-08-20; `qualified_for: synthetic_development` for this pin only |
+| Decision status | Historical 2026-08-20 adapter matrix used a weaker truncation predicate and is not sufficient to close this slice. Keep the GPT-OSS/Darkbloom pin; do not re-apply `qualified_for` until a new owner-authorized live matrix emits a sanitized record under the Phase 24 predicate |
 | Model | `openai/gpt-oss-20b:free` |
 | Provider slug | `darkbloom` |
 | Expected returned provider identity | `Darkbloom` |
 | Live phase | `gpt-oss-darkbloom-matrix` |
 | Profile ID | `openrouter.synthetic.local.gpt-oss-20b` |
+| Request-policy version | `openrouter.request-policy.v2` (bound into the adapter-configuration digest) |
 | Reasoning request | `reasoning.effort: "low"` and `reasoning.exclude: true`; reasoning remains counted in output usage and must not be persisted or exposed |
-| Output ceiling | 4,096 total output tokens per request, including reasoning |
-| Visible-content acceptance | The content phase must finish below 4,096 output tokens and contain visible, non-truncated Participant-facing text |
-| Timeouts | 120-second control and content timeouts |
-| Qualification budget | Distinct Phase 21 ledger, maximum 8 inference requests, concurrency 1, maximum USD 2; consumed 8/8 after the passing matrix |
+| Output ceiling | 4,096 total output tokens per GPT-OSS request, including reasoning. The generic OpenRouter default remains 256 tokens and 30/60-second timeouts |
+| Visible-content acceptance | Parsed `finish_reason` must be exactly `stop`, and reported content output tokens must be below 256. A `length` finish below the 4,096 request ceiling does not qualify |
+| Timeouts | 120-second control and content timeouts on the GPT-OSS policy only |
+| Qualification budget | Distinct Phase 21 ledger, maximum 8 inference requests, concurrency 1, maximum USD 2; consumed 8/8. Do not rerun without a new owner-approved ceiling |
 | Historical budget handling | Shared ceiling is 24. Preserve consumed counts on the retention-accepted and strict-policy ledgers; do not reset them |
-| Verification state | Evidence: [synthetic-development-phase21-2026-08-20.md](qualified/openrouter/synthetic-development-phase21-2026-08-20.md) |
+| Verification state | Historical: [synthetic-development-phase21-2026-08-20.md](qualified/openrouter/synthetic-development-phase21-2026-08-20.md). Corrective contract: [synthetic-development-phase24-2026-08-21.md](qualified/openrouter/synthetic-development-phase24-2026-08-21.md) |
 
 This label applies only to the Sessions OpenRouter adapter harness for
 synthetic local development. It does not enable Production or Staging,
@@ -285,14 +286,19 @@ owner decision.
 Approved design. Deterministic adapter, profile, Worker opt-in, fake-transport,
 and architecture evidence exist behind `sessions.openrouter.v1`. The only
 current live pin is `openai/gpt-oss-20b:free` / `darkbloom` / `Darkbloom`.
-The 2026-08-20 adapter matrix admitted structured control and qualifying
-visible content. The Phase 21 ledger is 8/8. Sanitized evidence is
+The 2026-08-20 adapter matrix admitted structured control and visible content
+under a weaker truncation predicate (`output tokens < request ceiling`, no
+`finish_reason`). Phase 24 keeps the GPT-OSS-only pin and request policy, but
+that historical label is not sufficient to close the slice. The Phase 21
+ledger remains 8/8. Do not rerun live without a new owner-approved ceiling.
+Historical evidence:
 [synthetic-development-phase21-2026-08-20.md](qualified/openrouter/synthetic-development-phase21-2026-08-20.md).
-The adapter path is labeled `qualified_for: synthetic_development` for this
-pin only. Earlier Lightning, Gemma, Nano, and GLM probes remain historical
-fail-closed records and are no longer executable live phases. Hosted
-Participant Text Session chat remains gated on the synthetic browser adapter.
-Passing this label does not enable Production, Staging, or participant-data use.
+Corrective contract:
+[synthetic-development-phase24-2026-08-21.md](qualified/openrouter/synthetic-development-phase24-2026-08-21.md).
+Earlier Lightning, Gemma, Nano, and GLM probes remain historical fail-closed
+records and are no longer executable live phases. Hosted Participant Text
+Session chat remains gated on the synthetic browser adapter. Do not enable
+Production, Staging, or participant-data use.
 
 ## References
 
