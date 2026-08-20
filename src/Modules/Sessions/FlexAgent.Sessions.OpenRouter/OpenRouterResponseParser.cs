@@ -35,18 +35,18 @@ internal static class OpenRouterResponseParser
         var choice = choices[0];
         if (choice.TryGetProperty("message", out var message)
             && message.TryGetProperty("content", out var messageContent)
-            && messageContent.ValueKind == JsonValueKind.String)
+            && TryReadJsonString(messageContent, out content))
         {
-            content = messageContent.GetString();
             return !string.IsNullOrEmpty(content);
         }
 
         return false;
     }
 
-    public static bool TryReadDelta(JsonElement root, out string? delta)
+    public static bool TryReadDelta(JsonElement root, out string? delta, out bool malformedString)
     {
         delta = null;
+        malformedString = false;
         if (!root.TryGetProperty("choices", out var choices)
             || choices.ValueKind != JsonValueKind.Array
             || choices.GetArrayLength() == 0)
@@ -62,7 +62,12 @@ internal static class OpenRouterResponseParser
             return false;
         }
 
-        delta = content.GetString();
+        if (!TryReadJsonString(content, out delta))
+        {
+            malformedString = true;
+            return false;
+        }
+
         return !string.IsNullOrEmpty(delta);
     }
 
@@ -81,9 +86,8 @@ internal static class OpenRouterResponseParser
             return false;
         }
 
-        if (!root.TryGetProperty("model", out var modelElement)
-            || modelElement.ValueKind != JsonValueKind.String
-            || !string.Equals(modelElement.GetString(), expectedModel, StringComparison.Ordinal))
+        if (!TryReadJsonString(root, "model", out var returnedModel)
+            || !string.Equals(returnedModel, expectedModel, StringComparison.Ordinal))
         {
             return false;
         }
@@ -147,8 +151,8 @@ internal static class OpenRouterResponseParser
                 continue;
             }
 
-            if (!endpoint.TryGetProperty("provider", out var provider)
-                || provider.ValueKind != JsonValueKind.String)
+            if (!TryReadJsonString(endpoint, "provider", out var providerName)
+                || string.IsNullOrWhiteSpace(providerName))
             {
                 return false;
             }
@@ -158,7 +162,7 @@ internal static class OpenRouterResponseParser
                 return false;
             }
 
-            found = provider.GetString();
+            found = providerName;
         }
 
         if (string.IsNullOrWhiteSpace(found)
@@ -170,6 +174,31 @@ internal static class OpenRouterResponseParser
 
         selected = found;
         return true;
+    }
+
+    public static bool TryReadJsonString(JsonElement element, out string? value)
+    {
+        value = null;
+        if (element.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        try
+        {
+            value = element.GetString();
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    public static bool TryReadJsonString(JsonElement parent, string name, out string? value)
+    {
+        value = null;
+        return parent.TryGetProperty(name, out var element) && TryReadJsonString(element, out value);
     }
 
     private static bool HasHit(HttpHeaders headers) =>

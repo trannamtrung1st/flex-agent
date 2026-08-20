@@ -472,6 +472,12 @@ traceable, and no requirement is marked complete on the strength of a demo.
 - [x] Cover streaming stall-after-headers timeout and caller cancel, and keep
       the verification table aligned with those tests.
 
+## Phase 13 — escaped invalid surrogate fail-closed
+
+- [x] Reject JSON strings that `GetString()` cannot materialize (lone
+      `\uD800` escapes) as typed adapter failures, not unhandled exceptions.
+      Cover control content, stream deltas, and model/provider identity.
+
 # Current state
 
 Deterministic Phases 0–6 are implemented: distinct `openrouter` adapter
@@ -497,7 +503,9 @@ unbounded SSE parsing, and overstated Phase 10 checkboxes. Phase 11 remediates
 those findings with fake-transport evidence (OpenRouter 21). Phase 12 then
 fixed the exact envelope bound, kept installed timeouts at 30/60 with a
 test-only timeout seam, rejected invalid SSE UTF-8, and added streaming
-stall/cancel coverage (OpenRouter 26). Do not mark this task complete: live
+stall/cancel coverage (OpenRouter 26). Phase 13 fail-closes escaped invalid
+surrogates via parser string extraction (OpenRouter 27). Do not mark this
+task complete: live
 qualification and hosted Participant chat remain gated.
 
 # Decisions
@@ -542,7 +550,9 @@ qualification and hosted Participant chat remain gated.
   `cached_tokens` is accepted. Streaming requires terminal metadata then
   `[DONE]`, with SSE-event and visible-content byte ceilings.
 - Control envelopes of exactly 262,144 UTF-8 bytes are admitted; one extra byte
-  fails. SSE payloads use a throwing UTF-8 decoder.
+  fails. SSE payloads use a throwing UTF-8 decoder. Escaped invalid surrogates
+  in provider JSON strings fail closed in the parser instead of escaping the
+  adapter.
 
 # Verification
 
@@ -552,11 +562,11 @@ qualification and hosted Participant chat remain gated.
 | Locked baseline restore | passed | `dotnet restore FlexAgent.slnx --locked-mode`; all solution projects restored with committed locks on 2026-08-20 |
 | Focused pre-implementation baseline | passed | Sessions 448/448; Direct OpenAI 14/14; Runtime 126/126; Architecture 33/33 on .NET SDK 10.0.100, macOS arm64 |
 | Architecture/operations approval | passed | ADR-008 `OSS-DEC-17`, ADR-010 `STACK-DEC-18`, and approved profile dated 2026-08-19 |
-| Fake-transport provider contracts | passed | OpenRouter 26/26 on 2026-08-20: headers, provider object, metadata/attempt/identity/usage, response-cache HIT vs prompt cached_tokens, control and streaming stall-after-headers timeout vs caller cancel, exact envelope limit and limit+1, strict SSE UTF-8, terminal-then-DONE, discovery selected-endpoint, schema parity |
+| Fake-transport provider contracts | passed | OpenRouter 27/27 on 2026-08-20: headers, provider object, metadata/attempt/identity/usage, response-cache HIT vs prompt cached_tokens, control and streaming stall-after-headers timeout vs caller cancel, exact envelope limit and limit+1, strict SSE UTF-8, escaped invalid surrogates, terminal-then-DONE, discovery selected-endpoint, schema parity |
 | Profile/credential/host isolation | passed | Digest regression; Infrastructure loaders; Unix owner-only secret tests; Worker Testing compose + Production fail-closed |
 | Live synthetic qualification | blocked | Opt-in sentinel remains off; owner privacy/spend preflight not confirmed; no key read |
 | Interactive local Text Session | blocked | Phase 7: synthetic browser adapter; production HTTP SSE/OIDC still a documented gap (`docs/ui-ux/text-session.md`) |
-| Locked regression/supply chain/OCI/docs | partial | OpenRouter 26, Sessions 455, OpenAI 14, Runtime 129, Architecture 35 after Phase 12. Worker OCI COPY includes OpenRouter (architecture tests). Docker image build and `dotnet publish` not run |
+| Locked regression/supply chain/OCI/docs | partial | OpenRouter 27, Sessions 455, OpenAI 14, Runtime 129, Architecture 35 after Phase 13. Worker OCI COPY includes OpenRouter (architecture tests). Docker image build and `dotnet publish` not run |
 | Independent review | pending | Review of `964cfc5` findings remediated in Phase 11; external backend/architecture/security review still required |
 
 # Risks, interim defaults, and owner gates

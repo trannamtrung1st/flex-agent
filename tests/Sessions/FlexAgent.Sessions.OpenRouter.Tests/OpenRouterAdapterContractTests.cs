@@ -276,6 +276,43 @@ public sealed class OpenRouterAdapterContractTests
     }
 
     [Fact]
+    public async Task Escaped_invalid_surrogates_fail_closed_instead_of_escaping_the_adapter()
+    {
+        var harness = CreateHarness();
+        var json = harness.InvocationJson();
+        var control = await harness.Adapter(new RecordingHandler(ControlBody(json, rawAssistantContentJson: "\"\\uD800\"")))
+            .ExecuteAsync(harness.ControlRequest(), TestContext.Current.CancellationToken);
+        Assert.Equal(
+            ExecutionFailureReasons.MalformedControl,
+            Assert.IsType<ModelExecutionFailed>(control).ReasonCategory);
+
+        var model = await harness.Adapter(new RecordingHandler(ControlBody(json, rawModelJson: "\"\\uD800\"")))
+            .ExecuteAsync(harness.ControlRequest(), TestContext.Current.CancellationToken);
+        Assert.Equal(
+            ExecutionFailureReasons.ProviderUnavailable,
+            Assert.IsType<ModelExecutionFailed>(model).ReasonCategory);
+
+        var provider = await harness.Adapter(new RecordingHandler(ControlBody(json, rawProviderJson: "\"\\uD800\"")))
+            .ExecuteAsync(harness.ControlRequest(), TestContext.Current.CancellationToken);
+        Assert.Equal(
+            ExecutionFailureReasons.ProviderUnavailable,
+            Assert.IsType<ModelExecutionFailed>(provider).ReasonCategory);
+
+        var events = new List<ModelContentEvent>();
+        await foreach (var item in harness.Adapter(new StreamingHandler(["Hi"], escapedInvalidSurrogate: true))
+            .StreamParticipantVisibleContentAsync(harness.StreamRequest(), TestContext.Current.CancellationToken))
+        {
+            events.Add(item);
+        }
+
+        Assert.Equal("Hi", Assert.IsType<ModelContentTextDelta>(events[0]).ExactUtf8Text);
+        Assert.Equal(
+            ExecutionFailureReasons.ProviderUnavailable,
+            Assert.IsType<ModelContentFailed>(events[^1]).ReasonCategory);
+        Assert.DoesNotContain(events, item => item is ModelContentCompleted);
+    }
+
+    [Fact]
     public async Task Streaming_requires_exactly_one_terminal_metadata_then_done()
     {
         var harness = CreateHarness();
@@ -536,20 +573,25 @@ public sealed class OpenRouterAdapterContractTests
         int attempt = 1,
         int cachedTokens = 0,
         string model = Model,
-        bool includeUsage = true)
+        bool includeUsage = true,
+        string? rawAssistantContentJson = null,
+        string? rawModelJson = null,
+        string? rawProviderJson = null)
     {
-        var encoded = JsonSerializer.Serialize(content);
+        var encoded = rawAssistantContentJson ?? JsonSerializer.Serialize(content);
+        var encodedModel = rawModelJson ?? JsonSerializer.Serialize(model);
+        var encodedProvider = rawProviderJson ?? JsonSerializer.Serialize(provider);
         var metadata = includeMetadata
             ? ",\"openrouter_metadata\":{\"attempt\":" + attempt
-              + ",\"endpoints\":{\"available\":[{\"provider\":" + JsonSerializer.Serialize(provider)
-              + ",\"model\":" + JsonSerializer.Serialize(model)
+              + ",\"endpoints\":{\"available\":[{\"provider\":" + encodedProvider
+              + ",\"model\":" + encodedModel
               + ",\"selected\":true}]}}"
             : string.Empty;
         var usage = includeUsage
             ? ",\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":4,\"prompt_tokens_details\":{\"cached_tokens\":"
               + cachedTokens + "}}"
             : string.Empty;
-        return "{\"id\":\"gen-test\",\"model\":" + JsonSerializer.Serialize(model)
+        return "{\"id\":\"gen-test\",\"model\":" + encodedModel
             + ",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":" + encoded
             + "},\"finish_reason\":\"stop\"}]" + usage + metadata + "}";
     }
@@ -801,7 +843,8 @@ public sealed class OpenRouterAdapterContractTests
         bool omitDone = false,
         bool duplicateTerminal = false,
         bool extraAfterTerminal = false,
-        bool oversizedEvent = false) : HttpMessageHandler
+        bool oversizedEvent = false,
+        bool escapedInvalidSurrogate = false) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -825,6 +868,13 @@ public sealed class OpenRouterAdapterContractTests
                 {
                     break;
                 }
+            }
+
+            if (escapedInvalidSurrogate)
+            {
+                builder.Append("data: {\"id\":\"gen-test\",\"model\":")
+                    .Append(JsonSerializer.Serialize(Model))
+                    .Append(",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\uD800\"},\"finish_reason\":null}]}\n\n");
             }
 
             if (!truncateAfterFirst)

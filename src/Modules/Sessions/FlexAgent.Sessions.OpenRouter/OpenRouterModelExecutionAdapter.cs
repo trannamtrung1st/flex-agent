@@ -378,7 +378,28 @@ public sealed class OpenRouterModelExecutionAdapter(
             var parsed = document ?? throw new InvalidOperationException("OpenRouter SSE JSON parse produced no document.");
             using (parsed)
             {
-                if (OpenRouterResponseParser.TryReadDelta(document.RootElement, out var delta) && !string.IsNullOrEmpty(delta))
+                var hasDelta = OpenRouterResponseParser.TryReadDelta(document.RootElement, out var delta, out var malformedString);
+                if (malformedString)
+                {
+                    yield return ContentFailure(
+                        resolved.Value.Profile,
+                        publishedFragment
+                            ? ExecutionFailureReasons.ProviderUnavailable
+                            : ExecutionFailureReasons.MalformedControl,
+                        request.ProviderAttemptId,
+                        startedAt);
+                    await enumerator.DisposeAsync();
+                    if (stream is not null)
+                    {
+                        await stream.DisposeAsync();
+                    }
+
+                    response?.Dispose();
+                    lifetime.Dispose();
+                    yield break;
+                }
+
+                if (hasDelta && !string.IsNullOrEmpty(delta))
                 {
                     visibleUtf8Bytes += System.Text.Encoding.UTF8.GetByteCount(delta);
                     if (visibleUtf8Bytes > OpenRouterAdapterContracts.MaxVisibleContentUtf8Bytes)
@@ -673,11 +694,10 @@ public sealed class OpenRouterDiscoveryClient(HttpMessageHandler? transport = nu
             await using var stream = await response.Content.ReadAsStreamAsync(operation);
             await using var boundedBody = new BoundedReadStream(stream, OpenRouterAdapterContracts.MaxControlEnvelopeUtf8Bytes);
             using var document = await JsonDocument.ParseAsync(boundedBody, cancellationToken: operation);
-            if (!document.RootElement.TryGetProperty("model", out var model)
-                || model.ValueKind != JsonValueKind.String
-                || string.IsNullOrWhiteSpace(model.GetString())
-                || string.Equals(model.GetString(), OpenRouterAdapterContracts.DiscoveryModel, StringComparison.Ordinal)
-                || !model.GetString()!.EndsWith(":free", StringComparison.Ordinal))
+            if (!OpenRouterResponseParser.TryReadJsonString(document.RootElement, "model", out var model)
+                || string.IsNullOrWhiteSpace(model)
+                || string.Equals(model, OpenRouterAdapterContracts.DiscoveryModel, StringComparison.Ordinal)
+                || !model.EndsWith(":free", StringComparison.Ordinal))
             {
                 return null;
             }
@@ -692,7 +712,7 @@ public sealed class OpenRouterDiscoveryClient(HttpMessageHandler? transport = nu
 
             if (!OpenRouterResponseParser.TryReadTerminalFacts(
                     document.RootElement,
-                    model.GetString()!,
+                    model,
                     selectedProvider,
                     out var facts,
                     out _)
