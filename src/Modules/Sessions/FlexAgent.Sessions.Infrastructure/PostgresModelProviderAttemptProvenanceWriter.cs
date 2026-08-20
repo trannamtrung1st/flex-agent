@@ -124,6 +124,11 @@ public sealed class PostgresModelProviderAttemptProvenanceWriter(
             throw new ArgumentOutOfRangeException(nameof(lease));
         }
 
+        if (!string.Equals(agentInvocationId, claimedWork.AgentInvocationId, StringComparison.Ordinal))
+        {
+            return ProviderRequestReservationResult.LostClaim;
+        }
+
         var ownership = claimedWork.Ownership;
         await using var scope = await PostgresTransactionScope.BeginAsync(connectionAccessor, cancellationToken);
         try
@@ -160,7 +165,7 @@ public sealed class PostgresModelProviderAttemptProvenanceWriter(
                     {
                         ownership.OrganizationId,
                         ownership.SessionId,
-                        AgentInvocationId = agentInvocationId,
+                        AgentInvocationId = claimedWork.AgentInvocationId,
                     },
                     scope.Transaction,
                     cancellationToken: cancellationToken));
@@ -176,7 +181,7 @@ public sealed class PostgresModelProviderAttemptProvenanceWriter(
                     InsertSql,
                     InsertArgs(
                         ownership,
-                        agentInvocationId,
+                        claimedWork.AgentInvocationId,
                         invocationAttemptOrdinal,
                         started with { FactKind = ModelProviderRequestFacts.Started }),
                     scope.Transaction,

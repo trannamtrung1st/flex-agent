@@ -441,6 +441,52 @@ public sealed class DurableInvocationWorkCrashRecoveryTests(PostgresIntegrationF
     }
 
     [Fact]
+    public async Task Mismatched_invocation_cannot_reserve_a_provider_request()
+    {
+        var prepared = await PrepareAdmittedWorkAsync("trig.crash.mismatch.reserve", "idem.crash.mismatch.reserve");
+        await using var otherWork = await HoldOtherClaimableWorkAsync(prepared.Binding.Ownership);
+        var store = new PostgresDurableInvocationWorkStore(
+            Fixture.Services.ConnectionAccessor,
+            SessionPersistenceFixtures.Actor(prepared.Organization.ActorId));
+        var claimed = await store.TryClaimExecuteInvocationAsync(TimeSpan.FromSeconds(30), CancellationToken);
+        Assert.NotNull(claimed);
+        Assert.Equal(prepared.InvocationId, claimed.AgentInvocationId);
+
+        var profile = SessionPersistenceFixtures.CreateInstalledProfile();
+        var at = DateTimeOffset.UtcNow;
+        var denied = await CreateAdmission(prepared).TryReserveAsync(
+            claimed,
+            "ainv.reserve.other",
+            1,
+            2,
+            new ModelProviderAttemptProvenance(
+                profile.AdapterKind,
+                profile.AdapterContractVersion,
+                profile.ProfileId,
+                profile.ProfileVersion,
+                profile.ProfileDigest,
+                profile.RequestedModel,
+                profile.ResolvedModelVersion,
+                ExecutionAttemptOutcomeCategories.ProviderRequestStarted,
+                null,
+                null,
+                "pref.prat.mismatch",
+                at,
+                at,
+                ModelProviderRequestPhases.Control,
+                "prat.mismatch",
+                ModelProviderRequestFacts.Started),
+            TimeSpan.FromSeconds(30),
+            CancellationToken);
+
+        Assert.True(denied.LostClaimAuthority);
+        Assert.False(denied.Reserved);
+        Assert.Null(denied.RenewedClaimLeaseUntil);
+        Assert.Equal(0, await CountStartedProviderRequestsAsync(prepared.Binding.Ownership, prepared.InvocationId));
+        Assert.Equal(0, await CountStartedProviderRequestsAsync(prepared.Binding.Ownership, "ainv.reserve.other"));
+    }
+
+    [Fact]
     public async Task Revoked_delegation_cannot_reserve_a_provider_request_after_disclosure()
     {
         var prepared = await PrepareAdmittedWorkAsync("trig.crash.revoke.reserve", "idem.crash.revoke.reserve");

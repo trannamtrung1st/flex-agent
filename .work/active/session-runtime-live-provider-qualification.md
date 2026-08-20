@@ -2,7 +2,7 @@
 id: session-runtime-live-provider-qualification
 status: in-progress
 created: 2026-08-18
-updated: 2026-08-19
+updated: 2026-08-20
 predecessors:
   - session-runtime-worker-host-wiring
   - session-runtime-worker-identity-invocation-delegation
@@ -352,8 +352,11 @@ pilot.
       authorization dependencies on PostgreSQL admission, and cover
       service-principal-binding revoke at reservation.
 - [x] Record independent review of `4a6e314`: no P0/P1; leftover invocation-id
-      coupling is hardening backlog; deterministic Phase A may proceed to
-      Phase B qualification.
+      coupling was recorded as hardening backlog; deterministic Phase A may
+      proceed to Phase B qualification.
+- [x] Close the leftover P2 from `4a6e314`: `TryReserveAsync` fails closed
+      unless the supplied invocation id equals `claimedWork.AgentInvocationId`,
+      and both admission implementations budget/insert only that claimed id.
 - [ ] Reconcile remaining Phase B qualification, locked/supply-chain/OCI
       checks, and final task completion after exact-profile evidence exists.
 
@@ -361,11 +364,11 @@ pilot.
 
 Independent review of `4a6e314` approved the deterministic Phase A
 provider-execution/admission slice: no P0/P1 findings. The leftover P2
-(admission should derive `agentInvocationId` from the claimed work item) is
-hardening backlog and is not holding Phase B. Next: exact-profile live
-qualification when an owner-selected Direct OpenAI profile and credential
-exist. The task remains incomplete until Phase B and remaining completion
-checkboxes.
+(admission must bind reservation to `claimedWork.AgentInvocationId`) is now
+closed: a mismatched invocation id fails closed without a `started` fact or
+lease renewal. Next: exact-profile live qualification when an owner-selected
+Direct OpenAI profile and credential exist. The task remains incomplete until
+Phase B and remaining completion checkboxes.
 
 On 2026-08-19 the Product Lead separately approved the OpenRouter
 synthetic-development profile and its implementation task. That work may
@@ -536,11 +539,11 @@ Interim defaults are working guidance only and do not approve a deployment.
   `Revoked_principal_binding_cannot_reserve_a_provider_request_after_disclosure`
   covers OAuth principal-binding revoke at the same reservation commit.
 - Independent review of `4a6e314` (2026-08-19): no P0/P1. Do not derive a
-  further Phase A remediation commit from that review. Remaining P2: bind
-  `TryReserveAsync` to `claimedWork.AgentInvocationId` internally so a future
-  caller cannot fence invocation A while budgeting invocation B. Current
-  processor supplies matching IDs; treat as hardening backlog, not a Phase B
-  gate.
+  further Phase A remediation commit from that review. Remaining P2 is now
+  closed: `TryReserveAsync` compares the supplied invocation id to
+  `claimedWork.AgentInvocationId`, returns `LostClaim` on mismatch, and
+  counts/inserts only the claimed id. The processor also reserves with the
+  claimed id for both control and content.
 - P0 participant-message admission requires non-empty exact UTF-8 text.
   `AcceptParticipantMessageCommand.ExactUtf8Text` is required; missing or blank
   text fails closed with `trigger_admission.missing_participant_content`.
@@ -559,14 +562,15 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Plan readiness review | complete | Backend/architecture/security consistency pass on 2026-08-19 added frozen per-Session provider authority, restart-safe phases, retry ownership, secret hardening, egress/SSRF, qualification scope, and threat-model gates |
 | Current-source .NET baseline | passed | After required PostgreSQL admission auth: `dotnet test --solution FlexAgent.slnx` **1034 passed**, 0 failed (2026-08-19). Prior `4373f70` count was 1033 |
 | Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAi.Tests` **14 passed** including fake-HTTP crash-after-request reservation (no second HTTP) and lease-renewal `RetryLater` |
+| Invocation-id reservation binding (`4a6e314` P2) | passed | In-memory writer tests 4/4. Postgres `Mismatched_invocation_cannot_reserve_a_provider_request` passed on 2026-08-20 |
 | Credential/profile isolation tests | passed | `FrozenModelDeploymentResolverTests` plus processor frozen-authority tests; secret symlink/size in WorkloadIdentity tests; no-fallback matrix for missing/revoked/wrong-org/provider mismatch |
 | Lease/auth/lifecycle concurrency tests | passed | Claim-lease heartbeat; overlapping reclaim; Postgres delegation revoke and principal-binding revoke at reservation (no started fact, no HTTP, lease not extended) |
-| PostgreSQL migration/provenance/recovery tests | passed | Additive `0029` unchanged; crash-recovery class **16 passed**; claim class **15 passed**; full Postgres integration included in the 1034 solution run |
+| PostgreSQL migration/provenance/recovery tests | passed | Additive `0029` unchanged; crash-recovery class **17 passed** on 2026-08-20 including mismatched-invocation reservation; claim class **15 passed**; earlier full Postgres integration was included in the 1034 solution run |
 | Architecture/module dependency tests | passed | Architecture **33 passed**; official SDK isolated to `FlexAgent.Sessions.OpenAi` with negative control |
 | Sessions domain/application tests | passed | `FlexAgent.Sessions.Tests` **448 passed** including revoked-authorization reservation |
 | Exact Direct OpenAI profile qualification | blocked | Opt-in synthetic evidence for one owner-selected immutable profile is not available; does not close synthetic OpenRouter/vLLM portions of `GATE-STACK-PROVIDERS` |
 | Locked regression, supply chain, OCI, docs, whitespace | partial | `python3 scripts/check_docs.py` passed; `git diff --check` passed. OCI image rebuild/SBOM/grype not re-run in this session |
-| Independent backend/architecture/security review | approved for deterministic Phase A | Independent review of `4a6e314`: no P0/P1; `4373f70` P2s closed; leftover invocation-id coupling recorded as hardening backlog. GitHub connector still has no combined status checks for this SHA. Proceed to Phase B rather than another admission-remediation commit |
+| Independent backend/architecture/security review | approved for deterministic Phase A | Independent review of `4a6e314`: no P0/P1; `4373f70` P2s closed; leftover invocation-id coupling closed on 2026-08-20 by claimed-work binding. GitHub connector still has no combined status checks for that SHA. Phase B remains the completion gate |
 
 # Blockers
 
@@ -590,6 +594,6 @@ Interim defaults are working guidance only and do not approve a deployment.
 - [ ] Applicable focused, integration, concurrency, recovery, architecture, locked regression, supply-chain, OCI, documentation, and whitespace checks pass
 - [x] Governing specifications and implementation-status tables are rechecked and remain truthful
 - [x] Full start-time immutable-model enforcement and the synthetic OpenRouter/vLLM portions of `GATE-STACK-PROVIDERS` remain explicitly recorded unless separately implemented and verified
-- [x] Independent backend, architecture, and security/privacy findings for the deterministic Phase A admission/execution slice are resolved at `4a6e314`; leftover invocation-id coupling is recorded as hardening backlog
+- [x] Independent backend, architecture, and security/privacy findings for the deterministic Phase A admission/execution slice are resolved at `4a6e314`; leftover invocation-id coupling is closed by claimed-work binding
 - [x] Remaining gaps or unverified behavior are recorded
 - [ ] Task state is safe and complete for external review

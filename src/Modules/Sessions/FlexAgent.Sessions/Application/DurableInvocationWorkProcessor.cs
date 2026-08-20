@@ -461,7 +461,7 @@ public sealed class DurableInvocationWorkProcessor(
             var providerAttemptId = $"prat.{Guid.NewGuid():N}";
             var reservation = await TryReserveProviderRequestAsync(
                 claimed,
-                invocation.AgentInvocationId,
+                claimed.AgentInvocationId,
                 frozenResolution.Profile!,
                 providerAttemptId,
                 ModelProviderRequestPhases.Content,
@@ -897,9 +897,14 @@ public sealed class DurableInvocationWorkProcessor(
             phase,
             providerRequestId,
             ModelProviderRequestFacts.Started);
+        if (!string.Equals(agentInvocationId, claimed.AgentInvocationId, StringComparison.Ordinal))
+        {
+            return ProviderReservation.LostClaim;
+        }
+
         var result = await _requestAdmission.TryReserveAsync(
             claimed,
-            agentInvocationId,
+            claimed.AgentInvocationId,
             invocationAttemptOrdinal,
             profile.MaxProviderRequestAttempts,
             started,

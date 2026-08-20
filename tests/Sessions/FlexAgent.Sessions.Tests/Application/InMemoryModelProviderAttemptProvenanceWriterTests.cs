@@ -78,6 +78,34 @@ public sealed class InMemoryModelProviderAttemptProvenanceWriterTests
     }
 
     [Fact]
+    public async Task Mismatched_invocation_cannot_reserve_against_claimed_work()
+    {
+        var writer = new InMemoryModelProviderAttemptProvenanceWriter();
+        var ownership = SessionRuntimeTestFixtures.CreateOwnership();
+        var work = new DurableInvocationWorkItem(
+            Guid.NewGuid(),
+            ownership,
+            "ainv.reserve.claimed",
+            DurableSessionWorkStates.Claimed,
+            DateTimeOffset.UtcNow.AddSeconds(30));
+
+        var denied = await writer.TryReserveAsync(
+            work,
+            "ainv.reserve.other",
+            1,
+            2,
+            Started("prat.mismatch"),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.True(denied.LostClaimAuthority);
+        Assert.False(denied.Reserved);
+        Assert.Null(denied.RenewedClaimLeaseUntil);
+        Assert.Equal(0, await writer.CountAsync(ownership, work.AgentInvocationId, CancellationToken.None));
+        Assert.Equal(0, await writer.CountAsync(ownership, "ainv.reserve.other", CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Concurrent_reservations_cannot_exceed_the_request_budget()
     {
         var writer = new InMemoryModelProviderAttemptProvenanceWriter();

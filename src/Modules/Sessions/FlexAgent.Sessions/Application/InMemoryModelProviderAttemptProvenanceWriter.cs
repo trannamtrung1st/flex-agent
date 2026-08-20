@@ -70,6 +70,11 @@ public sealed class InMemoryModelProviderAttemptProvenanceWriter : IProviderRequ
             throw new ArgumentOutOfRangeException(nameof(lease));
         }
 
+        if (!string.Equals(agentInvocationId, claimedWork.AgentInvocationId, StringComparison.Ordinal))
+        {
+            return Task.FromResult(ProviderRequestReservationResult.LostClaim);
+        }
+
         lock (_gate)
         {
             if (claimedWork.State != DurableSessionWorkStates.Claimed
@@ -80,14 +85,14 @@ public sealed class InMemoryModelProviderAttemptProvenanceWriter : IProviderRequ
                 return Task.FromResult(ProviderRequestReservationResult.LostClaim);
             }
 
-            if (CountCore(claimedWork.Ownership, agentInvocationId) >= maxProviderRequestAttempts)
+            if (CountCore(claimedWork.Ownership, claimedWork.AgentInvocationId) >= maxProviderRequestAttempts)
             {
                 var held = DateTimeOffset.UtcNow.Add(lease);
                 claimedWork.ClaimLeaseUntil = held;
                 return Task.FromResult(ProviderRequestReservationResult.BudgetExhausted(held));
             }
 
-            WriteCore(claimedWork.Ownership, agentInvocationId, invocationAttemptOrdinal, started with
+            WriteCore(claimedWork.Ownership, claimedWork.AgentInvocationId, invocationAttemptOrdinal, started with
             {
                 FactKind = ModelProviderRequestFacts.Started,
             });
