@@ -39,6 +39,46 @@ public sealed class HumanAuthenticationRuntimeTests
         Assert.Contains("state=", location, StringComparison.Ordinal);
         Assert.Contains("nonce=", location, StringComparison.Ordinal);
         Assert.DoesNotContain("client_secret", location, StringComparison.Ordinal);
+        var correlation = login.Headers.GetValues("Set-Cookie").Single(value =>
+            value.StartsWith(HumanAuthenticationHostOptions.CorrelationCookieName, StringComparison.Ordinal));
+        Assert.Contains("httponly", correlation, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("samesite=lax", correlation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Callback_rejects_state_that_is_not_bound_to_this_browser()
+    {
+        var rsa = RSA.Create(2048);
+        var tokens = new FakeOidcAuthorizationClient();
+        await using var factory = CreateFactory(rsa, tokens);
+        var attacker = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var victim = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var cancellationToken = TestContext.Current.CancellationToken;
+        SeedBinding(factory);
+
+        using var login = await attacker.GetAsync("/auth/login?return_path=/work", cancellationToken);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(login.Headers.Location!.Query);
+        tokens.IdToken = CreateIdToken(rsa, query["nonce"].ToString());
+
+        using var stolen = await victim.GetAsync(
+            $"/auth/callback?code=one-time-code&state={Uri.EscapeDataString(query["state"].ToString())}",
+            cancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, stolen.StatusCode);
+        var stolenCookies = stolen.Headers.TryGetValues("Set-Cookie", out var setCookies)
+            ? string.Join('\n', setCookies)
+            : string.Empty;
+        Assert.DoesNotContain(HumanAuthenticationHostOptions.CookieName + "=", stolenCookies, StringComparison.Ordinal);
+
+        using var legitimate = await attacker.GetAsync(
+            $"/auth/callback?code=one-time-code&state={Uri.EscapeDataString(query["state"].ToString())}",
+            cancellationToken);
+        Assert.Equal(HttpStatusCode.Redirect, legitimate.StatusCode);
+        var sessionCookie = legitimate.Headers.GetValues("Set-Cookie").Single(value =>
+            value.StartsWith(HumanAuthenticationHostOptions.CookieName, StringComparison.Ordinal));
+        Assert.Contains("httponly", sessionCookie, StringComparison.OrdinalIgnoreCase);
+        var cleared = legitimate.Headers.GetValues("Set-Cookie").Single(value =>
+            value.StartsWith(HumanAuthenticationHostOptions.CorrelationCookieName, StringComparison.Ordinal));
+        Assert.Contains("1970", cleared, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -204,7 +244,7 @@ public sealed class HumanAuthenticationRuntimeTests
             }),
         };
         using var replayResponse = await client.SendAsync(replay, cancellationToken);
-        Assert.Equal(HttpStatusCode.BadRequest, replayResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, replayResponse.StatusCode);
 
         using var after = await client.GetAsync("/auth/session", cancellationToken);
         Assert.Contains(
@@ -385,6 +425,12 @@ public sealed class HumanAuthenticationRuntimeTests
     {
         public Task<IReadOnlyDictionary<string, RSA>?> TryGetKeysAsync(
             string jwksUri,
+            CancellationToken cancellationToken = default) =>
+            TryGetKeysAsync(jwksUri, requiredKid: null, cancellationToken);
+
+        public Task<IReadOnlyDictionary<string, RSA>?> TryGetKeysAsync(
+            string jwksUri,
+            string? requiredKid,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyDictionary<string, RSA>?>(keys);
     }

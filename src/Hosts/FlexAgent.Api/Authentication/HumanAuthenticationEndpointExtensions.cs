@@ -41,18 +41,21 @@ public static class HumanAuthenticationEndpointExtensions
 
         var now = await clock.GetUtcNowAsync(context.RequestAborted);
         var state = OpaqueSessionCredential.Create();
+        var correlation = OpaqueSessionCredential.Create();
         var nonce = OpaqueSessionCredential.Create();
         var verifier = OpaqueSessionCredential.Create();
         await transactions.CreateAsync(
             new OidcLoginTransaction(
                 Guid.NewGuid(),
                 digests.Compute(state),
+                digests.Compute(correlation),
                 nonce,
                 verifier,
                 returnPath,
                 now.AddMinutes(10),
                 Guid.NewGuid()),
             context.RequestAborted);
+        AppendCorrelationCookie(context, correlation, options, persistent: true);
 
         var challenge = Sha256Base64Url(verifier);
         var location = options.AuthorizationEndpoint
@@ -94,16 +97,30 @@ public static class HumanAuthenticationEndpointExtensions
 
         if (Guid.TryParse(context.Request.Query["organization_id"].FirstOrDefault(), out var clientOrganization))
         {
+            ClearCorrelationCookie(context, options);
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             await context.Response.WriteAsJsonAsync(
                 new { error = HumanAuthenticationReasonCodes.ClientSuppliedOrganizationRejected });
             return;
         }
 
+        var presentedCorrelation = context.Request.Cookies[HumanAuthenticationHostOptions.CorrelationCookieName];
+        if (string.IsNullOrWhiteSpace(presentedCorrelation))
+        {
+            ClearCorrelationCookie(context, options);
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
         var now = await clock.GetUtcNowAsync(context.RequestAborted);
-        var transaction = await transactions.ConsumeAsync(digests.Compute(state), now, context.RequestAborted);
+        var transaction = await transactions.ConsumeAsync(
+            digests.Compute(state),
+            digests.Compute(presentedCorrelation),
+            now,
+            context.RequestAborted);
         if (transaction is null)
         {
+            ClearCorrelationCookie(context, options);
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             await context.Response.WriteAsJsonAsync(
                 new { error = HumanAuthenticationReasonCodes.ReplayOrConsumedTransaction });
@@ -113,14 +130,19 @@ public static class HumanAuthenticationEndpointExtensions
         var exchange = await tokens.ExchangeAuthorizationCodeAsync(code, transaction.CodeVerifier, context.RequestAborted);
         if (exchange.IdToken is null)
         {
+            ClearCorrelationCookie(context, options);
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             await context.Response.WriteAsJsonAsync(new { error = exchange.ErrorReason });
             return;
         }
 
-        var keys = await jwks.TryGetKeysAsync(options.JwksUri, context.RequestAborted);
+        var keys = await jwks.TryGetKeysAsync(
+            options.JwksUri,
+            OidcIdTokenValidator.TryReadSigningKeyId(exchange.IdToken),
+            context.RequestAborted);
         if (keys is null)
         {
+            ClearCorrelationCookie(context, options);
             context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             await context.Response.WriteAsJsonAsync(new { error = HumanAuthenticationReasonCodes.ProviderUnavailable });
             return;
@@ -134,6 +156,7 @@ public static class HumanAuthenticationEndpointExtensions
             timeProvider);
         if (!validated.Succeeded || validated.Token is null)
         {
+            ClearCorrelationCookie(context, options);
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             await context.Response.WriteAsJsonAsync(new { error = validated.ReasonCode });
             return;
@@ -149,11 +172,13 @@ public static class HumanAuthenticationEndpointExtensions
             context.RequestAborted);
         if (!completed.Succeeded || completed.RawCredential is null)
         {
+            ClearCorrelationCookie(context, options);
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             await context.Response.WriteAsJsonAsync(new { error = completed.ReasonCode });
             return;
         }
 
+        ClearCorrelationCookie(context, options);
         AppendSessionCookie(context, completed.RawCredential, options, persistent: true);
         context.Response.Redirect(transaction.ReturnPath);
     }
@@ -225,7 +250,10 @@ public static class HumanAuthenticationEndpointExtensions
 
         var form = await context.Request.ReadFormAsync(context.RequestAborted);
         var logoutToken = form["logout_token"].FirstOrDefault();
-        var keys = await jwks.TryGetKeysAsync(options.JwksUri, context.RequestAborted);
+        var keys = await jwks.TryGetKeysAsync(
+            options.JwksUri,
+            OidcIdTokenValidator.TryReadSigningKeyId(logoutToken),
+            context.RequestAborted);
         if (keys is null || string.IsNullOrWhiteSpace(logoutToken))
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
@@ -283,6 +311,26 @@ public static class HumanAuthenticationEndpointExtensions
         await coordinator.ApplyAccountDisablementAsync(identity, Guid.NewGuid(), context.RequestAborted);
         context.Response.StatusCode = StatusCodes.Status204NoContent;
     }
+
+    private static void AppendCorrelationCookie(
+        HttpContext context,
+        string value,
+        HumanAuthenticationHostOptions options,
+        bool persistent) =>
+        context.Response.Cookies.Append(
+            HumanAuthenticationHostOptions.CorrelationCookieName,
+            value,
+            new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = context.Request.IsHttps || options.RequireHttpsEndpoints,
+                SameSite = SameSiteMode.Lax,
+                Path = "/auth",
+                Expires = persistent ? DateTimeOffset.UtcNow.AddMinutes(10) : DateTimeOffset.UnixEpoch,
+            });
+
+    private static void ClearCorrelationCookie(HttpContext context, HumanAuthenticationHostOptions options) =>
+        AppendCorrelationCookie(context, string.Empty, options, persistent: false);
 
     public static void AppendSessionCookie(
         HttpContext context,

@@ -228,6 +228,12 @@ public sealed class OAuthWorkloadIdentitySourceTests(PostgresIntegrationFixture 
         public Task<IReadOnlyDictionary<string, RSA>?> TryGetKeysAsync(
             string jwksUri,
             CancellationToken cancellationToken = default) =>
+            TryGetKeysAsync(jwksUri, requiredKid: null, cancellationToken);
+
+        public Task<IReadOnlyDictionary<string, RSA>?> TryGetKeysAsync(
+            string jwksUri,
+            string? requiredKid,
+            CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyDictionary<string, RSA>?>(
                 new Dictionary<string, RSA>(StringComparer.Ordinal) { [KeyId] = rsa });
     }

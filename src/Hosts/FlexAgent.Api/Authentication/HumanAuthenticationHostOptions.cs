@@ -6,6 +6,7 @@ namespace FlexAgent.Api;
 public sealed class HumanAuthenticationHostOptions
 {
     public const string CookieName = "flex_agent_application_session";
+    public const string CorrelationCookieName = "flex_agent_oidc_correlation";
     public const string AntiforgeryCookieName = "flex_agent_antiforgery";
     public const string AntiforgeryHeaderName = "X-Flex-CSRF";
     public const string LifecycleKeyHeaderName = "X-Flex-Auth-Lifecycle-Key";

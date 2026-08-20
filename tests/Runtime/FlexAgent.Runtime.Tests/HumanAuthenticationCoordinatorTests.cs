@@ -162,11 +162,42 @@ public sealed class HumanAuthenticationCoordinatorTests
 
         Assert.True(first.Accepted);
         Assert.Equal(1, first.RevokedCount);
-        Assert.False(replay.Accepted);
-        Assert.Equal(HumanAuthenticationReasonCodes.ReplayOrConsumedTransaction, replay.ReasonCode);
+        Assert.True(replay.Accepted);
+        Assert.Equal(0, replay.RevokedCount);
         Assert.Null(await harness.Coordinator.AuthenticateAsync(login.RawCredential!, false, TestContext.Current.CancellationToken));
         var actor = await harness.Bindings.GetActorStateAsync(actorId, TestContext.Current.CancellationToken);
         Assert.False(actor.Disabled);
+    }
+
+    [Fact]
+    public async Task Provider_logout_and_rotation_cannot_leave_a_live_successor()
+    {
+        var harness = CreateHarness();
+        var actorId = Guid.NewGuid();
+        harness.Bindings.RegisterActor(actorId);
+        harness.Bindings.GrantOrganization(actorId, Guid.NewGuid());
+        await harness.Bindings.TryProvisionAsync(
+            new HumanIdentityBinding(Guid.NewGuid(), Identity, actorId, DateTimeOffset.UtcNow, null),
+            TestContext.Current.CancellationToken);
+        var login = await harness.Coordinator.CompleteLoginAsync(
+            Login("sid-race"),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+
+        await Task.WhenAll(
+            harness.Coordinator.RotateAsync(
+                login.ApplicationSessionId!.Value,
+                ApplicationSessionTerminalReasons.PrivilegeChange,
+                Guid.NewGuid(),
+                TestContext.Current.CancellationToken),
+            harness.Coordinator.ApplyProviderForcedLogoutAsync(
+                "sid-race",
+                Guid.NewGuid(),
+                TestContext.Current.CancellationToken));
+
+        Assert.DoesNotContain(harness.Sessions.Snapshot, session => session.IsLive);
+        Assert.Null(await harness.Coordinator.AuthenticateAsync(login.RawCredential!, false, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -206,7 +237,6 @@ public sealed class HumanAuthenticationCoordinatorTests
             bindings,
             sessions,
             audit,
-            new MemoryLogoutTokenReplayStore(),
             new HmacLookupDigestCalculator("test-lookup-key-32-bytes-minimum!"u8.ToArray()),
             new SystemDatabaseClock(TimeProvider.System),
             new HumanAuthenticationOptions { Issuer = Identity.Issuer });

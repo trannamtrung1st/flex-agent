@@ -25,6 +25,7 @@ public sealed class SessionsPersistenceOwnershipTests
         "data_protection_keys",
         "authentication_security_events",
         "consumed_logout_tokens",
+        "revoked_provider_sessions",
     ];
 
     [Fact]

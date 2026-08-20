@@ -56,6 +56,22 @@ public sealed record BackChannelLogoutResult(bool Accepted, int RevokedCount, st
 
 public static class OidcIdTokenValidator
 {
+    public static string? TryReadSigningKeyId(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return null;
+        }
+
+        var segments = token.Trim().Split('.');
+        if (segments.Length != 3 || !TryReadJson(segments[0], out var header))
+        {
+            return null;
+        }
+
+        return TryReadString(header, "kid", out var kid) ? kid : null;
+    }
+
     public static OidcValidationResult Validate(
         string? token,
         string expectedNonce,

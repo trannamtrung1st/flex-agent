@@ -128,7 +128,6 @@ internal static class HumanAuthenticationComposition
                 sp.GetRequiredService<IHumanIdentityBindingStore>(),
                 sp.GetRequiredService<IApplicationSessionStore>(),
                 sp.GetRequiredService<IAuthenticationSecurityEventWriter>(),
-                sp.GetRequiredService<ILogoutTokenReplayStore>(),
                 sp.GetRequiredService<ILookupDigestCalculator>(),
                 sp.GetRequiredService<IDatabaseClock>(),
                 options.SessionOptions));

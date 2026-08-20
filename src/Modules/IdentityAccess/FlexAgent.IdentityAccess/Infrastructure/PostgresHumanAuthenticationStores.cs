@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Dapper;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
@@ -307,6 +309,17 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
         await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
             .ConfigureAwait(false);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        await AcquireIdentityLogoutLockAsync(connection, transaction, successor.Identity, cancellationToken)
+            .ConfigureAwait(false);
+        await AcquireProviderLogoutLockAsync(connection, transaction, successor.ProviderSessionDigest, cancellationToken)
+            .ConfigureAwait(false);
+        if (await ProviderSessionIsRevokedAsync(connection, transaction, successor.ProviderSessionDigest, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+
         var affected = await connection.ExecuteAsync(
             new CommandDefinition(
                 """
@@ -375,6 +388,16 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                     ToRow(successor),
                     transaction,
                     cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (await ProviderSessionIsRevokedAsync(
+                    connection,
+                    transaction,
+                    successor.ProviderSessionDigest,
+                    cancellationToken).ConfigureAwait(false))
+            {
+                await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+                return false;
+            }
+
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             return true;
         }
@@ -451,7 +474,190 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
     {
         await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
             .ConfigureAwait(false);
-        return await connection.ExecuteAsync(
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        await AcquireProviderLogoutLockAsync(connection, transaction, providerSessionDigest, cancellationToken)
+            .ConfigureAwait(false);
+        await TombstoneProviderSessionAsync(connection, transaction, providerSessionDigest, revokedAt, cancellationToken)
+            .ConfigureAwait(false);
+        var count = await RevokeLiveByProviderSessionDigestCoreAsync(
+            connection,
+            transaction,
+            providerSessionDigest,
+            revokedAt,
+            terminalReason,
+            cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return count;
+    }
+
+    public async Task<ForcedLogoutApplyResult> TryApplyForcedLogoutAsync(
+        string issuer,
+        string jwtId,
+        string? providerSessionDigest,
+        ExactIssuerSubject? identity,
+        DateTimeOffset revokedAt,
+        string terminalReason,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(issuer);
+        ArgumentException.ThrowIfNullOrWhiteSpace(jwtId);
+        await using var connection = await connectionAccessor.OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO consumed_logout_tokens (issuer, jti, consumed_at)
+                    VALUES (@Issuer, @JwtId, @RevokedAt);
+                    """,
+                    new { Issuer = issuer, JwtId = jwtId, RevokedAt = revokedAt },
+                    transaction,
+                    cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+        catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            return ForcedLogoutApplyResult.Duplicate();
+        }
+
+        var count = 0;
+        if (!string.IsNullOrWhiteSpace(providerSessionDigest))
+        {
+            await AcquireProviderLogoutLockAsync(connection, transaction, providerSessionDigest, cancellationToken)
+                .ConfigureAwait(false);
+            await TombstoneProviderSessionAsync(
+                connection,
+                transaction,
+                providerSessionDigest,
+                revokedAt,
+                cancellationToken).ConfigureAwait(false);
+            count = await RevokeLiveByProviderSessionDigestCoreAsync(
+                connection,
+                transaction,
+                providerSessionDigest,
+                revokedAt,
+                terminalReason,
+                cancellationToken).ConfigureAwait(false);
+        }
+        else if (identity is not null)
+        {
+            await AcquireIdentityLogoutLockAsync(connection, transaction, identity, cancellationToken)
+                .ConfigureAwait(false);
+            count = await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE application_sessions
+                    SET credential_digest = NULL,
+                        revoked_at = @RevokedAt,
+                        terminal_reason = @TerminalReason
+                    WHERE issuer = @Issuer
+                      AND subject = @Subject
+                      AND revoked_at IS NULL
+                      AND rotated_at IS NULL;
+                    """,
+                    new
+                    {
+                        identity.Issuer,
+                        identity.Subject,
+                        RevokedAt = revokedAt,
+                        TerminalReason = terminalReason,
+                    },
+                    transaction,
+                    cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return ForcedLogoutApplyResult.Applied(count);
+    }
+
+    private static async Task AcquireProviderLogoutLockAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string? providerSessionDigest,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(providerSessionDigest))
+        {
+            return;
+        }
+
+        var (k1, k2) = AdvisoryKey("provider", providerSessionDigest);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                "SELECT pg_advisory_xact_lock(@K1, @K2);",
+                new { K1 = k1, K2 = k2 },
+                transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    private static async Task AcquireIdentityLogoutLockAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        ExactIssuerSubject identity,
+        CancellationToken cancellationToken)
+    {
+        var (k1, k2) = AdvisoryKey("identity", $"{identity.Issuer}\n{identity.Subject}");
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                "SELECT pg_advisory_xact_lock(@K1, @K2);",
+                new { K1 = k1, K2 = k2 },
+                transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    private static async Task TombstoneProviderSessionAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string providerSessionDigest,
+        DateTimeOffset revokedAt,
+        CancellationToken cancellationToken) =>
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO revoked_provider_sessions (provider_session_digest, revoked_at)
+                VALUES (@ProviderSessionDigest, @RevokedAt)
+                ON CONFLICT (provider_session_digest) DO NOTHING;
+                """,
+                new { ProviderSessionDigest = providerSessionDigest, RevokedAt = revokedAt },
+                transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+    private static async Task<bool> ProviderSessionIsRevokedAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string? providerSessionDigest,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(providerSessionDigest))
+        {
+            return false;
+        }
+
+        var found = await connection.ExecuteScalarAsync<int>(
+            new CommandDefinition(
+                """
+                SELECT CASE WHEN EXISTS(
+                    SELECT 1
+                    FROM revoked_provider_sessions
+                    WHERE provider_session_digest = @ProviderSessionDigest)
+                THEN 1 ELSE 0 END;
+                """,
+                new { ProviderSessionDigest = providerSessionDigest },
+                transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return found == 1;
+    }
+
+    private static Task<int> RevokeLiveByProviderSessionDigestCoreAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string providerSessionDigest,
+        DateTimeOffset revokedAt,
+        string terminalReason,
+        CancellationToken cancellationToken) =>
+        connection.ExecuteAsync(
             new CommandDefinition(
                 """
                 UPDATE application_sessions
@@ -468,7 +674,13 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                     RevokedAt = revokedAt,
                     TerminalReason = terminalReason,
                 },
-                cancellationToken: cancellationToken)).ConfigureAwait(false);
+                transaction,
+                cancellationToken: cancellationToken));
+
+    private static (long K1, long K2) AdvisoryKey(string kind, string value)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(kind + "\n" + value));
+        return (BitConverter.ToInt64(hash, 0), BitConverter.ToInt64(hash, 8));
     }
 
     private static object ToRow(ApplicationSessionRecord session) =>
@@ -549,7 +761,8 @@ public sealed class PostgresOidcLoginTransactionStore(
                     created_at,
                     expires_at,
                     consumed_at,
-                    correlation_id)
+                    correlation_id,
+                    correlation_digest)
                 VALUES (
                     @TransactionId,
                     @StateDigest,
@@ -559,7 +772,8 @@ public sealed class PostgresOidcLoginTransactionStore(
                     clock_timestamp(),
                     @ExpiresAt,
                     NULL,
-                    @CorrelationId);
+                    @CorrelationId,
+                    @CorrelationDigest);
                 """,
                 new
                 {
@@ -570,12 +784,14 @@ public sealed class PostgresOidcLoginTransactionStore(
                     transaction.ReturnPath,
                     transaction.ExpiresAt,
                     transaction.CorrelationId,
+                    transaction.CorrelationDigest,
                 },
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     public async Task<OidcLoginTransaction?> ConsumeAsync(
         string stateDigest,
+        string correlationDigest,
         DateTimeOffset now,
         CancellationToken cancellationToken = default)
     {
@@ -587,12 +803,13 @@ public sealed class PostgresOidcLoginTransactionStore(
                 UPDATE oidc_login_transactions
                 SET consumed_at = @Now
                 WHERE state_digest = @StateDigest
+                  AND correlation_digest = @CorrelationDigest
                   AND consumed_at IS NULL
                   AND expires_at > @Now
-                RETURNING transaction_id, state_digest, nonce_ciphertext, code_verifier_ciphertext,
-                          return_path, expires_at, correlation_id;
+                RETURNING transaction_id, state_digest, correlation_digest, nonce_ciphertext,
+                          code_verifier_ciphertext, return_path, expires_at, correlation_id;
                 """,
-                new { StateDigest = stateDigest, Now = now },
+                new { StateDigest = stateDigest, CorrelationDigest = correlationDigest, Now = now },
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
         if (row is null)
         {
@@ -602,6 +819,7 @@ public sealed class PostgresOidcLoginTransactionStore(
         return new OidcLoginTransaction(
             row.TransactionId,
             row.StateDigest,
+            row.CorrelationDigest,
             protector.Unprotect(row.NonceCiphertext),
             protector.Unprotect(row.CodeVerifierCiphertext),
             row.ReturnPath,
@@ -612,6 +830,7 @@ public sealed class PostgresOidcLoginTransactionStore(
     private sealed record TransactionRow(
         Guid TransactionId,
         string StateDigest,
+        string CorrelationDigest,
         byte[] NonceCiphertext,
         byte[] CodeVerifierCiphertext,
         string ReturnPath,

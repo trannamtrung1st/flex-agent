@@ -36,11 +36,19 @@ public sealed record AuthenticatedApplicationSession(
 public sealed record OidcLoginTransaction(
     Guid TransactionId,
     string StateDigest,
+    string CorrelationDigest,
     string Nonce,
     string CodeVerifier,
     string ReturnPath,
     DateTimeOffset ExpiresAt,
     Guid CorrelationId);
+
+public sealed record ForcedLogoutApplyResult(bool Accepted, bool AlreadyApplied, int RevokedCount)
+{
+    public static ForcedLogoutApplyResult Applied(int revokedCount) => new(true, false, revokedCount);
+
+    public static ForcedLogoutApplyResult Duplicate() => new(true, true, 0);
+}
 
 public sealed record AuthenticationSecurityEvent(
     Guid EventId,
@@ -124,6 +132,15 @@ public interface IApplicationSessionStore
         DateTimeOffset revokedAt,
         string terminalReason,
         CancellationToken cancellationToken = default);
+
+    Task<ForcedLogoutApplyResult> TryApplyForcedLogoutAsync(
+        string issuer,
+        string jwtId,
+        string? providerSessionDigest,
+        ExactIssuerSubject? identity,
+        DateTimeOffset revokedAt,
+        string terminalReason,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IOidcLoginTransactionStore
@@ -132,6 +149,7 @@ public interface IOidcLoginTransactionStore
 
     Task<OidcLoginTransaction?> ConsumeAsync(
         string stateDigest,
+        string correlationDigest,
         DateTimeOffset now,
         CancellationToken cancellationToken = default);
 }

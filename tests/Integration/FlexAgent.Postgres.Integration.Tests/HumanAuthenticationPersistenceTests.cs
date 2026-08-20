@@ -26,9 +26,10 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
                 'oidc_login_transactions',
                 'data_protection_keys',
                 'authentication_security_events',
-                'consumed_logout_tokens');
+                'consumed_logout_tokens',
+                'revoked_provider_sessions');
             """)).ToArray();
-        Assert.Equal(6, tables.Length);
+        Assert.Equal(7, tables.Length);
 
         var writer = new PostgresAuthenticationSecurityEventWriter(Fixture.Services.ConnectionAccessor);
         var eventId = Guid.NewGuid();
@@ -65,7 +66,6 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
             bindings,
             sessions,
             audit,
-            new PostgresLogoutTokenReplayStore(Fixture.Services.ConnectionAccessor),
             digests,
             new PostgresDatabaseClock(Fixture.Services.ConnectionAccessor),
             new HumanAuthenticationOptions { Issuer = issuer });
@@ -124,7 +124,6 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
             bindings,
             sessions,
             audit,
-            new PostgresLogoutTokenReplayStore(Fixture.Services.ConnectionAccessor),
             new HmacLookupDigestCalculator("integration-lookup-key-32-bytes!!"u8.ToArray()),
             new PostgresDatabaseClock(Fixture.Services.ConnectionAccessor),
             new HumanAuthenticationOptions { Issuer = issuer });

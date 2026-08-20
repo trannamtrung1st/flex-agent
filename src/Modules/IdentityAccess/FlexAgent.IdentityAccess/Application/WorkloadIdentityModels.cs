@@ -136,6 +136,11 @@ public interface IJwksKeySource
     Task<IReadOnlyDictionary<string, System.Security.Cryptography.RSA>?> TryGetKeysAsync(
         string jwksUri,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyDictionary<string, System.Security.Cryptography.RSA>?> TryGetKeysAsync(
+        string jwksUri,
+        string? requiredKid,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IRecoverableAuthorityGate

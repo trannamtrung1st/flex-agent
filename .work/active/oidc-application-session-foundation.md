@@ -325,10 +325,9 @@ ADR-010. The retained identifiers preserve planning traceability.
       Held streams re-authenticate without advancing activity.
 - [x] Pinned Keycloak `26.7.0` / PostgreSQL 18 / NGINX `1.30.4` compose profile
       and contract documentation.
-- [x] External review of `2a6ca65`: ID-token `iat`/`nbf`, atomic rotation +
-      unique predecessor, Identity vs Sessions datasource fail-closed, logout
-      token contract, Keycloak back-channel URL, and a Keycloak-signed logout
-      integration test (Docker still required to observe it).
+- [x] External review of `be6ad7f`: browser-bound login correlation cookie,
+      atomic JTI+revocation, rotation-vs-provider-logout serialization, and
+      unknown-`kid` JWKS refresh.
 - [>] Remaining evidence: Docker-backed PostgreSQL/migration/live Keycloak
       matrix, leakage scans, and independent security review. Docker is not
       running in this execution environment.
@@ -375,14 +374,13 @@ ADR-010. The retained identifiers preserve planning traceability.
 
 # Current state
 
-External review P1s for `2a6ca65` are implemented: ID tokens require `iat`
-and treat `nbf` as optional; rotation is a single CAS transaction with a
-unique predecessor index; differing Identity/Sessions connection strings fail
-closed at startup; logout tokens require `iat`/`exp`/`jti`/`events`, reject
-`nonce`, and accept `sub` and/or `sid` with `jti` replay protection. Keycloak
-realm now configures back-channel logout. Docker is still unavailable, so
-PostgreSQL/`0031` and live Keycloak logout remain unverified here. Full
-`AC-OPS-4` stays Partial. The foundation is not marked complete.
+External review of `be6ad7f` P1s plus JWKS unknown-key refresh are
+implemented: login issues a browser-bound `flex_agent_oidc_correlation`
+cookie, logout JTI+revocation is one transaction (successful replay is
+idempotent 204), rotation and provider logout share digest/identity locks plus
+a provider-session tombstone, and unknown `kid` refreshes JWKS once. Docker
+still blocks PostgreSQL/`0032` and live Keycloak evidence. Full `AC-OPS-4`
+stays Partial. The foundation is not marked complete.
 
 The next successor after this task is **not** a direct Session-row creation
 endpoint. It must implement or depend on approved Activity/Cohort activation,
@@ -392,6 +390,17 @@ atomic Session-start boundary before exposing hosted Participant start.
 
 # Findings / deviations
 
+- External review of `be6ad7f` (fixed): login `state` is bound to a short-lived
+  `HttpOnly`/`Secure`/`SameSite=Lax` correlation cookie required on callback
+  and cleared on success and failure.
+- External review of `be6ad7f` (fixed): logout `jti` claim and session
+  revocation commit in one transaction; a successful replay is idempotent 204
+  so the OP can retransmit after a recoverable error.
+- External review of `be6ad7f` (fixed): provider logout tombstones the
+  provider-session digest and shares advisory/identity locks with rotation so
+  a successor cannot remain live after logout wins.
+- External review of `be6ad7f` (fixed): unknown JWKS `kid` refreshes the cache
+  once before validation fails closed.
 - External review of `2a6ca65` (fixed): ID tokens require `iat` and measure
   lifetime as `exp - iat`; `nbf` is validated only when present.
 - External review of `2a6ca65` (fixed): rotation is one transactional CAS
@@ -475,6 +484,8 @@ atomic Session-start boundary before exposing hosted Participant start.
 | Live Keycloak/NGINX flow | not run | No reference composition exists yet |
 | UI/Playwright | not applicable to this plan revision | No product UI change is planned in this foundation; browser OIDC contract evidence remains required during implementation |
 | Review-fix confirmation pass | passed | Re-read validator/CAS rotate/logout/connection-string paths; focused runtime **35** and architecture **35** passed again on 2026-08-20. Docker still unavailable |
+| `be6ad7f` follow-up runtime | passed | `FlexAgent.Runtime.Tests` **167** passed, including login CSRF correlation, atomic/idempotent logout, rotate-vs-logout, and JWKS unknown-`kid` refresh |
+| `be6ad7f` follow-up confirmation pass | passed | Re-read correlation cookie, atomic JTI+revoke, rotate/logout locks+tombstone, and unknown-`kid` JWKS refresh; focused runtime **20** and architecture **35** passed again on 2026-08-20. Docker still unavailable |
 | Architecture module/session ownership | passed | 35 tests in `FlexAgent.Architecture.Tests` after renaming `0031` so it is not treated as a Sessions script |
 | `python3 scripts/check_docs.py` | passed | After Keycloak back-channel URL documentation |
 | `git diff --check` | passed | No whitespace errors in the review-fix diff |

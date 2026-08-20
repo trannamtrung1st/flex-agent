@@ -13,8 +13,14 @@ public sealed class CachedJwksKeySource(
     private DateTimeOffset _cachedUntil;
     private IReadOnlyDictionary<string, RSA>? _cachedKeys;
 
+    public Task<IReadOnlyDictionary<string, RSA>?> TryGetKeysAsync(
+        string jwksUri,
+        CancellationToken cancellationToken = default) =>
+        TryGetKeysAsync(jwksUri, requiredKid: null, cancellationToken);
+
     public async Task<IReadOnlyDictionary<string, RSA>?> TryGetKeysAsync(
         string jwksUri,
+        string? requiredKid,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(jwksUri);
@@ -23,7 +29,8 @@ public sealed class CachedJwksKeySource(
         {
             if (_cachedKeys is not null
                 && string.Equals(_cachedUri, jwksUri, StringComparison.Ordinal)
-                && now < _cachedUntil)
+                && now < _cachedUntil
+                && (string.IsNullOrWhiteSpace(requiredKid) || _cachedKeys.ContainsKey(requiredKid)))
             {
                 return _cachedKeys;
             }

@@ -108,6 +108,8 @@ public sealed class MemoryHumanIdentityBindingStore : IHumanIdentityBindingStore
 public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
 {
     private readonly ConcurrentDictionary<Guid, ApplicationSessionRecord> _sessions = new();
+    private readonly HashSet<string> _revokedProviderSessions = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _consumedLogoutTokens = new(StringComparer.Ordinal);
     private readonly object _gate = new();
 
     public IReadOnlyCollection<ApplicationSessionRecord> Snapshot => _sessions.Values.ToArray();
@@ -180,6 +182,7 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
                 || !current.IsLive
                 || HasSuccessor(predecessorSessionId)
                 || successor.PredecessorSessionId != predecessorSessionId
+                || ProviderSessionIsRevoked(successor.ProviderSessionDigest)
                 || !_sessions.TryAdd(successor.ApplicationSessionId, successor))
             {
                 return Task.FromResult(false);
@@ -210,10 +213,13 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(RevokeWhere(
-            session => session.IsLive && session.Identity.Matches(identity.Issuer, identity.Subject),
-            revokedAt,
-            terminalReason));
+        lock (_gate)
+        {
+            return Task.FromResult(RevokeWhere(
+                session => session.IsLive && session.Identity.Matches(identity.Issuer, identity.Subject),
+                revokedAt,
+                terminalReason));
+        }
     }
 
     public Task<int> RevokeLiveByProviderSessionDigestAsync(
@@ -223,11 +229,60 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(RevokeWhere(
-            session => session.IsLive
-                && string.Equals(session.ProviderSessionDigest, providerSessionDigest, StringComparison.Ordinal),
-            revokedAt,
-            terminalReason));
+        lock (_gate)
+        {
+            _revokedProviderSessions.Add(providerSessionDigest);
+            return Task.FromResult(RevokeWhere(
+                session => session.IsLive
+                    && string.Equals(session.ProviderSessionDigest, providerSessionDigest, StringComparison.Ordinal),
+                revokedAt,
+                terminalReason));
+        }
+    }
+
+    public Task<ForcedLogoutApplyResult> TryApplyForcedLogoutAsync(
+        string issuer,
+        string jwtId,
+        string? providerSessionDigest,
+        ExactIssuerSubject? identity,
+        DateTimeOffset revokedAt,
+        string terminalReason,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(issuer);
+        ArgumentException.ThrowIfNullOrWhiteSpace(jwtId);
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            var key = $"{issuer}\n{jwtId}";
+            if (!_consumedLogoutTokens.Add(key))
+            {
+                return Task.FromResult(ForcedLogoutApplyResult.Duplicate());
+            }
+
+            var count = 0;
+            if (!string.IsNullOrWhiteSpace(providerSessionDigest))
+            {
+                _revokedProviderSessions.Add(providerSessionDigest);
+                count = RevokeWhere(
+                    session => session.IsLive
+                        && string.Equals(
+                            session.ProviderSessionDigest,
+                            providerSessionDigest,
+                            StringComparison.Ordinal),
+                    revokedAt,
+                    terminalReason);
+            }
+            else if (identity is not null)
+            {
+                count = RevokeWhere(
+                    session => session.IsLive && session.Identity.Matches(identity.Issuer, identity.Subject),
+                    revokedAt,
+                    terminalReason);
+            }
+
+            return Task.FromResult(ForcedLogoutApplyResult.Applied(count));
+        }
     }
 
     private int RevokeWhere(
@@ -253,6 +308,10 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
     private bool HasSuccessor(Guid? predecessorSessionId) =>
         predecessorSessionId is Guid predecessor
         && _sessions.Values.Any(session => session.PredecessorSessionId == predecessor);
+
+    private bool ProviderSessionIsRevoked(string? providerSessionDigest) =>
+        !string.IsNullOrWhiteSpace(providerSessionDigest)
+        && _revokedProviderSessions.Contains(providerSessionDigest);
 
     private static ApplicationSessionRecord Terminate(
         ApplicationSessionRecord current,
@@ -303,11 +362,15 @@ public sealed class MemoryOidcLoginTransactionStore : IOidcLoginTransactionStore
 
     public Task<OidcLoginTransaction?> ConsumeAsync(
         string stateDigest,
+        string correlationDigest,
         DateTimeOffset now,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!_transactions.TryRemove(stateDigest, out var transaction) || transaction.ExpiresAt <= now)
+        if (!_transactions.TryGetValue(stateDigest, out var transaction)
+            || transaction.ExpiresAt <= now
+            || !string.Equals(transaction.CorrelationDigest, correlationDigest, StringComparison.Ordinal)
+            || !_transactions.TryRemove(stateDigest, out transaction))
         {
             return Task.FromResult<OidcLoginTransaction?>(null);
         }
