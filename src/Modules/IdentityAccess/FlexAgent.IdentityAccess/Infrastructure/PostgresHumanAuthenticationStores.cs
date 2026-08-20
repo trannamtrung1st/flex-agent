@@ -591,20 +591,14 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
         }
 
         var count = 0;
-        if (identity is not null)
-        {
-            await AcquireIdentityLogoutLockAsync(connection, transaction, identity, cancellationToken)
-                .ConfigureAwait(false);
-            await UpsertIdentityLogoutWatermarkAsync(
-                connection,
-                transaction,
-                identity,
-                logoutIssuedAt,
-                cancellationToken).ConfigureAwait(false);
-        }
-
         if (!string.IsNullOrWhiteSpace(providerSessionDigest))
         {
+            if (identity is not null)
+            {
+                await AcquireIdentityLogoutLockAsync(connection, transaction, identity, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             await AcquireProviderLogoutLockAsync(connection, transaction, providerSessionDigest, cancellationToken)
                 .ConfigureAwait(false);
             await TombstoneProviderSessionAsync(
@@ -619,11 +613,19 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 providerSessionDigest,
                 revokedAt,
                 terminalReason,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                identity).ConfigureAwait(false);
         }
-
-        if (identity is not null)
+        else if (identity is not null)
         {
+            await AcquireIdentityLogoutLockAsync(connection, transaction, identity, cancellationToken)
+                .ConfigureAwait(false);
+            await UpsertIdentityLogoutWatermarkAsync(
+                connection,
+                transaction,
+                identity,
+                logoutIssuedAt,
+                cancellationToken).ConfigureAwait(false);
             count += await connection.ExecuteAsync(
                 new CommandDefinition(
                     """
@@ -781,7 +783,8 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
         string providerSessionDigest,
         DateTimeOffset revokedAt,
         string terminalReason,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken,
+        ExactIssuerSubject? identity = null) =>
         connection.ExecuteAsync(
             new CommandDefinition(
                 """
@@ -791,13 +794,17 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                     terminal_reason = @TerminalReason
                 WHERE provider_session_digest = @ProviderSessionDigest
                   AND revoked_at IS NULL
-                  AND rotated_at IS NULL;
+                  AND rotated_at IS NULL
+                  AND (@Issuer IS NULL OR issuer = @Issuer)
+                  AND (@Subject IS NULL OR subject = @Subject);
                 """,
                 new
                 {
                     ProviderSessionDigest = providerSessionDigest,
                     RevokedAt = revokedAt,
                     TerminalReason = terminalReason,
+                    Issuer = identity?.Issuer,
+                    Subject = identity?.Subject,
                 },
                 transaction,
                 cancellationToken: cancellationToken));

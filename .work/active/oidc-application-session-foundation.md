@@ -329,6 +329,8 @@ ADR-010. The retained identifiers preserve planning traceability.
       tombstone on initial login insert, and bounded unknown-`kid` JWKS refresh.
 - [x] External review of `6f5f555`: identity logout watermark vs late `sub`-only
       callback, and JWKS request-local RSA snapshots.
+- [x] External review of `44a697b`: scope `sid+sub` logout to one provider
+      session, and fail closed on malformed JWKS RSA parameters.
 - [>] Remaining evidence: Docker-backed PostgreSQL/migration/live Keycloak
       matrix, leakage scans, and independent security review. Docker is not
       running in this execution environment.
@@ -375,12 +377,13 @@ ADR-010. The retained identifiers preserve planning traceability.
 
 # Current state
 
-Follow-up review of `6f5f555` requested a `sub`-only logout watermark and
-request-local JWKS RSA snapshots. This revision retains ID-token and logout
-`iat`, persists `identity_logout_watermarks`, rejects stale login inserts, and
-materializes disposable JWKS snapshots from cached RSA parameters. Docker
-still blocks PostgreSQL/`0033` and live Keycloak evidence. Full `AC-OPS-4`
-stays Partial. The foundation is not marked complete.
+Follow-up review of `44a697b` requested `sid+sub` logout scoping and
+exception-safe JWKS import. Logout with both claims now tombstones only that
+provider session (intersected with `(iss, sub)` when both are present) and
+does not write an identity watermark. Malformed RSA JWKS parameters are
+skipped or return null instead of throwing. Docker still blocks
+PostgreSQL/`0033` and live Keycloak evidence. Full `AC-OPS-4` stays Partial.
+The foundation is not marked complete.
 
 The next successor after this task is **not** a direct Session-row creation
 endpoint. It must implement or depend on approved Activity/Cohort activation,
@@ -399,6 +402,9 @@ atomic Session-start boundary before exposing hosted Participant start.
 - External review of `be6ad7f` (fixed): provider logout tombstones the
   provider-session digest and shares advisory/identity locks with rotation so
   a successor cannot remain live after logout wins.
+- External review of `44a697b` (fixed): a logout token with both `sid` and
+  `sub` revokes only the intersecting provider session and does not watermark
+  the identity. Malformed JWKS RSA parameters fail closed without throwing.
 - External review of `6f5f555` (fixed): `sub`-only logout writes an
   `(issuer, subject)` watermark from logout `iat`; login insert rejects an
   ID-token `iat` at or before that watermark. JWKS cache stores parameters and
@@ -510,6 +516,9 @@ atomic Session-start boundary before exposing hosted Participant start.
 | `6f5f555` follow-up hosts | passed | `FlexAgent.Api`, `FlexAgent.Worker`, and Postgres integration tests compiled |
 | PostgreSQL integration / migration `0033` | blocked | Docker still unavailable; `identity_logout_watermarks` is additive and unexecuted here |
 | `6f5f555` confirmation pass | passed | Re-read identity watermark + `iat` comparison, request-local JWKS snapshots, and in-flight parameter sharing; focused runtime **43** and architecture **35** passed again on 2026-08-20 |
+| `44a697b` follow-up runtime | passed | Focused human-auth/JWKS/workload runtime **62** passed on 2026-08-20, including `sid+sub` sibling-session survival and malformed JWKS fail-closed |
+| `44a697b` follow-up architecture | passed | `FlexAgent.Architecture.Tests` **35** passed on 2026-08-20 |
+| `44a697b` confirmation pass | passed | Re-read sid-only / sub-only / sid+sub logout branches and JWKS import fail-closed; focused runtime **62** and architecture **35** passed again on 2026-08-20 |
 
 # Blockers
 

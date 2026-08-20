@@ -3,6 +3,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Infrastructure;
 
 namespace FlexAgent.Runtime.Tests;
@@ -75,6 +76,28 @@ public sealed class CachedJwksKeySourceTests
 
         Assert.True(cached!.Keys["old"].VerifyData(payload, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
         Assert.True(refreshed!.ContainsKey("new"));
+    }
+
+    [Fact]
+    public async Task Malformed_rsa_parameters_fail_closed_without_throwing()
+    {
+        var handler = new ScriptedHandler(JsonSerializer.Serialize(new
+        {
+            keys = new[]
+            {
+                new { kty = "RSA", kid = "bad", n = "AA", e = "AQAB" },
+            },
+        }));
+        using var http = new HttpClient(handler);
+        var source = new CachedJwksKeySource(http, TimeProvider.System, TimeSpan.FromMinutes(5));
+
+        var snapshot = await source.TryGetKeysAsync("https://issuer.example/jwks", TestContext.Current.CancellationToken);
+
+        Assert.Null(snapshot);
+        Assert.Null(JwksKeySnapshot.TryFromParameters(new Dictionary<string, RSAParameters>(StringComparer.Ordinal)
+        {
+            ["bad"] = new() { Modulus = [0x00], Exponent = [0x01, 0x00, 0x01] },
+        }));
     }
 
     private static object ToJwk(RSA rsa, string kid)

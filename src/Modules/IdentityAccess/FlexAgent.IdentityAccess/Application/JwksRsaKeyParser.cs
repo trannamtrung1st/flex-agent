@@ -15,15 +15,7 @@ public static class JwksRsaKeyParser
             return null;
         }
 
-        var parsed = new Dictionary<string, RSA>(StringComparer.Ordinal);
-        foreach (var (kid, value) in parameters)
-        {
-            var rsa = RSA.Create();
-            rsa.ImportParameters(value);
-            parsed[kid] = rsa;
-        }
-
-        return parsed;
+        return JwksKeySnapshot.TryFromParameters(parameters)?.Keys;
     }
 
     public static IReadOnlyDictionary<string, RSAParameters>? TryParseParameters(string? jwksJson)
@@ -61,11 +53,17 @@ public static class JwksRsaKeyParser
                     continue;
                 }
 
-                parsed[kidElement.GetString()!] = new RSAParameters
+                var candidate = new RSAParameters
                 {
                     Modulus = modulus,
                     Exponent = exponent,
                 };
+                if (!IsUsableRsaPublicKey(candidate))
+                {
+                    continue;
+                }
+
+                parsed[kidElement.GetString()!] = candidate;
             }
 
             return parsed.Count == 0 ? null : parsed;
@@ -77,6 +75,20 @@ public static class JwksRsaKeyParser
         catch (CryptographicException)
         {
             return null;
+        }
+    }
+
+    private static bool IsUsableRsaPublicKey(RSAParameters parameters)
+    {
+        try
+        {
+            using var rsa = RSA.Create();
+            rsa.ImportParameters(parameters);
+            return true;
+        }
+        catch (CryptographicException)
+        {
+            return false;
         }
     }
 

@@ -282,6 +282,58 @@ public sealed class HumanAuthenticationCoordinatorTests
     }
 
     [Fact]
+    public async Task Back_channel_sid_and_sub_logout_revokes_only_the_identified_provider_session()
+    {
+        var harness = CreateHarness();
+        var actorId = Guid.NewGuid();
+        harness.Bindings.RegisterActor(actorId);
+        harness.Bindings.GrantOrganization(actorId, Guid.NewGuid());
+        await harness.Bindings.TryProvisionAsync(
+            new HumanIdentityBinding(Guid.NewGuid(), Identity, actorId, DateTimeOffset.UtcNow, null),
+            TestContext.Current.CancellationToken);
+        var authenticatedAt = DateTimeOffset.UnixEpoch.AddHours(2);
+        var first = await harness.Coordinator.CompleteLoginAsync(
+            Login("sid-a", authenticatedAt),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        var second = await harness.Coordinator.CompleteLoginAsync(
+            Login("sid-b", authenticatedAt),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+
+        var applied = await harness.Coordinator.ApplyBackChannelLogoutAsync(
+            new ValidatedLogoutToken(
+                Identity.Issuer,
+                Identity.Subject,
+                "sid-a",
+                "jti-sid-and-sub",
+                authenticatedAt.AddMinutes(1)),
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        var remintedTarget = await harness.Coordinator.CompleteLoginAsync(
+            Login("sid-a", authenticatedAt),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        var remintedSibling = await harness.Coordinator.CompleteLoginAsync(
+            Login("sid-c", authenticatedAt),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(first.Succeeded);
+        Assert.True(second.Succeeded);
+        Assert.True(applied.Accepted);
+        Assert.Equal(1, applied.RevokedCount);
+        Assert.Null(await harness.Coordinator.AuthenticateAsync(first.RawCredential!, false, TestContext.Current.CancellationToken));
+        Assert.NotNull(await harness.Coordinator.AuthenticateAsync(second.RawCredential!, false, TestContext.Current.CancellationToken));
+        Assert.False(remintedTarget.Succeeded);
+        Assert.True(remintedSibling.Succeeded);
+    }
+
+    [Fact]
     public async Task Provider_lifecycle_revokes_matching_sessions_without_restoring_them()
     {
         var harness = CreateHarness();

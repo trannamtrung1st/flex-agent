@@ -18,18 +18,30 @@ public sealed class JwksKeySnapshot : IDisposable
 
     public bool ContainsKey(string kid) => _keys.ContainsKey(kid);
 
-    public static JwksKeySnapshot FromParameters(IReadOnlyDictionary<string, RSAParameters> parameters)
+    public static JwksKeySnapshot? TryFromParameters(IReadOnlyDictionary<string, RSAParameters> parameters)
     {
         ArgumentNullException.ThrowIfNull(parameters);
         var keys = new Dictionary<string, RSA>(StringComparer.Ordinal);
-        foreach (var (kid, value) in parameters)
+        try
         {
-            var rsa = RSA.Create();
-            rsa.ImportParameters(value);
-            keys[kid] = rsa;
+            foreach (var (kid, value) in parameters)
+            {
+                var rsa = RSA.Create();
+                rsa.ImportParameters(value);
+                keys[kid] = rsa;
+            }
+        }
+        catch (CryptographicException)
+        {
+            foreach (var key in keys.Values)
+            {
+                key.Dispose();
+            }
+
+            return null;
         }
 
-        return new JwksKeySnapshot(keys, ownsKeys: true);
+        return keys.Count == 0 ? null : new JwksKeySnapshot(keys, ownsKeys: true);
     }
 
     public static JwksKeySnapshot Borrowed(IReadOnlyDictionary<string, RSA> keys)

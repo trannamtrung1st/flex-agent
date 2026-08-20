@@ -287,11 +287,6 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
                 return Task.FromResult(ForcedLogoutApplyResult.Duplicate());
             }
 
-            if (identity is not null)
-            {
-                RecordIdentityLogoutWatermark(identity, logoutIssuedAt);
-            }
-
             var count = 0;
             if (!string.IsNullOrWhiteSpace(providerSessionDigest))
             {
@@ -301,13 +296,15 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
                         && string.Equals(
                             session.ProviderSessionDigest,
                             providerSessionDigest,
-                            StringComparison.Ordinal),
+                            StringComparison.Ordinal)
+                        && (identity is null
+                            || session.Identity.Matches(identity.Issuer, identity.Subject)),
                     revokedAt,
                     terminalReason);
             }
-
-            if (identity is not null)
+            else if (identity is not null)
             {
+                RecordIdentityLogoutWatermark(identity, logoutIssuedAt);
                 count += RevokeWhere(
                     session => session.IsLive && session.Identity.Matches(identity.Issuer, identity.Subject),
                     revokedAt,

@@ -37,7 +37,7 @@ public sealed class CachedJwksKeySource(
         {
             if (TryGetFreshCache(jwksUri, requiredKid, now, out var cached) && cached is not null)
             {
-                return JwksKeySnapshot.FromParameters(cached);
+                return JwksKeySnapshot.TryFromParameters(cached);
             }
 
             var forcedUnknownKid = HasLiveCache(jwksUri, now)
@@ -46,7 +46,7 @@ public sealed class CachedJwksKeySource(
                 && !_cachedParameters.ContainsKey(requiredKid);
             if (forcedUnknownKid && ForcedRefreshOnCooldown(jwksUri, now) && _cachedParameters is not null)
             {
-                return JwksKeySnapshot.FromParameters(_cachedParameters);
+                return JwksKeySnapshot.TryFromParameters(_cachedParameters);
             }
 
             if (_refreshInFlight.TryGetValue(jwksUri, out var inFlight))
@@ -63,7 +63,7 @@ public sealed class CachedJwksKeySource(
         try
         {
             var parameters = await pending.ConfigureAwait(false);
-            return parameters is null ? null : JwksKeySnapshot.FromParameters(parameters);
+            return parameters is null ? null : JwksKeySnapshot.TryFromParameters(parameters);
         }
         finally
         {
