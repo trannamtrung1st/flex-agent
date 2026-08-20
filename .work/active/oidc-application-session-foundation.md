@@ -559,6 +559,7 @@ atomic Session-start boundary before exposing hosted Participant start.
 | `5f4feb8` approval | approved | External review found no P1/P2; P3 Dapper dual-handler and non-UTC DateTime reinterpretation cleaned up |
 | `5f4feb8` P3 cleanup tests | passed | `PostgresUtcTimeTests` plus human-auth persistence **8** and architecture **35** after handler/UTC fail-closed change |
 | Implementation CI `acdea13` | fixed locally | [run 32360561195](https://github.com/trannamtrung1st/flex-agent/actions/runs/32360561195) `dotnet` exit 2; `GrateToolMigrationTests` expected 29 scripts after `0033` added four; now derives count from `database/migrations/up` and **12** passed |
+| CI-fix confirmation pass | passed | Re-read grate expected-count derivation against 33 `database/migrations/up` scripts; grate/UTC/human-auth **20** passed again on 2026-08-20. `0b1847e` Implementation was still in progress at confirmation time |
 
 # Blockers
 
