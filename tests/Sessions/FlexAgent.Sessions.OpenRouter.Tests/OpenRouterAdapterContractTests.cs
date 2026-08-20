@@ -38,8 +38,8 @@ public sealed class OpenRouterAdapterContractTests
         Assert.Equal("Together", Assert.Single(provider.GetProperty("only").EnumerateArray()).GetString());
         Assert.False(provider.GetProperty("allow_fallbacks").GetBoolean());
         Assert.True(provider.GetProperty("require_parameters").GetBoolean());
-        Assert.Equal("deny", provider.GetProperty("data_collection").GetString());
-        Assert.True(provider.GetProperty("zdr").GetBoolean());
+        Assert.Equal("allow", provider.GetProperty("data_collection").GetString());
+        Assert.False(provider.GetProperty("zdr").GetBoolean());
         Assert.False(body.RootElement.TryGetProperty("plugins", out _));
         Assert.Equal("json_schema", body.RootElement.GetProperty("response_format").GetProperty("type").GetString());
         Assert.True(body.RootElement.GetProperty("response_format").GetProperty("json_schema").GetProperty("strict").GetBoolean());
@@ -66,8 +66,8 @@ public sealed class OpenRouterAdapterContractTests
         Assert.False(body.RootElement.GetProperty("provider").TryGetProperty("only", out _));
         Assert.False(body.RootElement.GetProperty("provider").GetProperty("allow_fallbacks").GetBoolean());
         Assert.True(body.RootElement.GetProperty("provider").GetProperty("require_parameters").GetBoolean());
-        Assert.Equal("deny", body.RootElement.GetProperty("provider").GetProperty("data_collection").GetString());
-        Assert.True(body.RootElement.GetProperty("provider").GetProperty("zdr").GetBoolean());
+        Assert.Equal("allow", body.RootElement.GetProperty("provider").GetProperty("data_collection").GetString());
+        Assert.False(body.RootElement.GetProperty("provider").GetProperty("zdr").GetBoolean());
     }
 
     [Fact]
@@ -93,6 +93,46 @@ public sealed class OpenRouterAdapterContractTests
     }
 
     [Fact]
+    public async Task Discovery_reports_only_sanitized_failure_categories()
+    {
+        var unauthorized = await new OpenRouterDiscoveryClient(new StatusHandler(401))
+            .DiscoverOutcomeAsync(CanarySecret, CancellationToken.None);
+        Assert.Null(unauthorized.Candidate);
+        Assert.Equal(OpenRouterDiscoveryFailureReasons.Authentication, unauthorized.FailureReason);
+        Assert.Equal(401, unauthorized.HttpStatusCode);
+
+        var missingMetadata = await new OpenRouterDiscoveryClient(
+                new RecordingHandler(DiscoveryBody(Model, Provider).Replace("\"openrouter_metadata\"", "\"ignored_metadata\"", StringComparison.Ordinal)))
+            .DiscoverOutcomeAsync(CanarySecret, CancellationToken.None);
+        Assert.Null(missingMetadata.Candidate);
+        Assert.Equal(OpenRouterDiscoveryFailureReasons.MissingProviderMetadata, missingMetadata.FailureReason);
+        Assert.Equal(200, missingMetadata.HttpStatusCode);
+
+        var cacheHit = await new OpenRouterDiscoveryClient(
+                new RecordingHandler(DiscoveryBody(Model, Provider), cacheStatus: "HIT"))
+            .DiscoverOutcomeAsync(CanarySecret, CancellationToken.None);
+        Assert.Null(cacheHit.Candidate);
+        Assert.Equal(OpenRouterDiscoveryFailureReasons.ResponseCacheHit, cacheHit.FailureReason);
+        Assert.Equal(200, cacheHit.HttpStatusCode);
+    }
+
+    [Fact]
+    public async Task Discovery_rejects_provider_controlled_identity_values_that_are_unsafe_for_evidence()
+    {
+        var unsafeModel = await new OpenRouterDiscoveryClient(
+                new RecordingHandler(DiscoveryBody("model\ninjected:free", Provider)))
+            .DiscoverOutcomeAsync(CanarySecret, CancellationToken.None);
+        Assert.Null(unsafeModel.Candidate);
+        Assert.Equal(OpenRouterDiscoveryFailureReasons.ModelIdentity, unsafeModel.FailureReason);
+
+        var unsafeProvider = await new OpenRouterDiscoveryClient(
+                new RecordingHandler(DiscoveryBody(Model, "Together\ninjected")))
+            .DiscoverOutcomeAsync(CanarySecret, CancellationToken.None);
+        Assert.Null(unsafeProvider.Candidate);
+        Assert.Equal(OpenRouterDiscoveryFailureReasons.ProviderIdentity, unsafeProvider.FailureReason);
+    }
+
+    [Fact]
     public async Task Discovery_alias_and_digest_mismatch_fail_before_network_io()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
@@ -114,7 +154,7 @@ public sealed class OpenRouterAdapterContractTests
             harness.Secrets,
             wrong,
             new CountingHandler(),
-            privacyPreflightConfirmed: true);
+            syntheticDataPolicyAccepted: true);
         var result = await adapter.ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
         Assert.Equal(
             ExecutionFailureReasons.CredentialBindingFailed,
@@ -470,7 +510,7 @@ public sealed class OpenRouterAdapterContractTests
             harness.Secrets,
             harness.Configurations,
             counting,
-            privacyPreflightConfirmed: false);
+            syntheticDataPolicyAccepted: false);
         var result = await closed.ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
         Assert.Equal(0, counting.Requests);
         Assert.Equal(ExecutionFailureReasons.ProviderUnavailable, Assert.IsType<ModelExecutionFailed>(result).ReasonCategory);
@@ -652,7 +692,7 @@ public sealed class OpenRouterAdapterContractTests
             HttpMessageHandler handler,
             TimeSpan? testControlTimeout = null,
             TimeSpan? testContentTimeout = null) =>
-            new(Profiles, Catalog, Secrets, Configurations, handler, privacyPreflightConfirmed: true)
+            new(Profiles, Catalog, Secrets, Configurations, handler, syntheticDataPolicyAccepted: true)
             {
                 TestControlTimeout = testControlTimeout,
                 TestContentTimeout = testContentTimeout,

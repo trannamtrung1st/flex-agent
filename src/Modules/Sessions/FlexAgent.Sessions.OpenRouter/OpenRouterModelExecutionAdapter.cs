@@ -13,7 +13,7 @@ public sealed class OpenRouterModelExecutionAdapter(
     IProviderCredentialSecretSource secrets,
     IOpenRouterInstalledConfigurationRegistry configurations,
     HttpMessageHandler? transport = null,
-    bool privacyPreflightConfirmed = false) : IModelExecutionPort
+    bool syntheticDataPolicyAccepted = false) : IModelExecutionPort
 {
     public const string AdapterContractVersion = OpenRouterAdapterContracts.AdapterContractVersion;
 
@@ -27,7 +27,7 @@ public sealed class OpenRouterModelExecutionAdapter(
     {
         ArgumentNullException.ThrowIfNull(request);
         var startedAt = DateTimeOffset.UtcNow;
-        if (!privacyPreflightConfirmed)
+        if (!syntheticDataPolicyAccepted)
         {
             return Fail(ExecutionFailureReasons.ProviderUnavailable, startedAt, request, null);
         }
@@ -141,7 +141,7 @@ public sealed class OpenRouterModelExecutionAdapter(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (!privacyPreflightConfirmed)
+        if (!syntheticDataPolicyAccepted)
         {
             yield break;
         }
@@ -649,28 +649,33 @@ public sealed class OpenRouterModelExecutionAdapter(
 public static class OpenRouterLiveQualification
 {
     public const string EnableEnvironmentVariable = "FLEXAGENT_LIVE_OPENROUTER_QUALIFICATION";
-    public const string PrivacyEnvironmentVariable = "FLEXAGENT_OPENROUTER_PRIVACY_PREFLIGHT";
+    public const string SyntheticDataPolicyEnvironmentVariable = "FLEXAGENT_OPENROUTER_SYNTHETIC_DATA_POLICY_ACCEPTED";
     public const string BudgetPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_QUALIFICATION_BUDGET_PATH";
     public const int MaxInferenceRequests = 12;
 
     public static bool IsEnabled =>
         string.Equals(Environment.GetEnvironmentVariable(EnableEnvironmentVariable), "1", StringComparison.Ordinal);
 
-    public static bool PrivacyPreflightConfirmed =>
-        string.Equals(Environment.GetEnvironmentVariable(PrivacyEnvironmentVariable), "1", StringComparison.Ordinal);
+    public static bool SyntheticDataPolicyAccepted =>
+        string.Equals(Environment.GetEnvironmentVariable(SyntheticDataPolicyEnvironmentVariable), "1", StringComparison.Ordinal);
 }
 
 public sealed class OpenRouterDiscoveryClient(HttpMessageHandler? transport = null)
 {
     public async Task<OpenRouterDiscoveryCandidate?> DiscoverAsync(
         string secret,
+        CancellationToken cancellationToken) =>
+        (await DiscoverOutcomeAsync(secret, cancellationToken)).Candidate;
+
+    public async Task<OpenRouterDiscoveryOutcome> DiscoverOutcomeAsync(
+        string secret,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(secret);
         if (transport is null
-            && (!OpenRouterLiveQualification.IsEnabled || !OpenRouterLiveQualification.PrivacyPreflightConfirmed))
+            && (!OpenRouterLiveQualification.IsEnabled || !OpenRouterLiveQualification.SyntheticDataPolicyAccepted))
         {
-            return null;
+            return OpenRouterDiscoveryOutcome.Failed(OpenRouterDiscoveryFailureReasons.PreflightDenied);
         }
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -686,9 +691,17 @@ public sealed class OpenRouterDiscoveryClient(HttpMessageHandler? transport = nu
         try
         {
             using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, operation);
-            if (!response.IsSuccessStatusCode || OpenRouterResponseParser.IsResponseCacheHit(response))
+            var status = (int)response.StatusCode;
+            if (!response.IsSuccessStatusCode)
             {
-                return null;
+                return OpenRouterDiscoveryOutcome.Failed(StatusFailure(status), status);
+            }
+
+            if (OpenRouterResponseParser.IsResponseCacheHit(response))
+            {
+                return OpenRouterDiscoveryOutcome.Failed(
+                    OpenRouterDiscoveryFailureReasons.ResponseCacheHit,
+                    status);
             }
 
             await using var stream = await response.Content.ReadAsStreamAsync(operation);
@@ -696,10 +709,13 @@ public sealed class OpenRouterDiscoveryClient(HttpMessageHandler? transport = nu
             using var document = await JsonDocument.ParseAsync(boundedBody, cancellationToken: operation);
             if (!OpenRouterResponseParser.TryReadJsonString(document.RootElement, "model", out var model)
                 || string.IsNullOrWhiteSpace(model)
+                || !IsSafeModelIdentity(model)
                 || string.Equals(model, OpenRouterAdapterContracts.DiscoveryModel, StringComparison.Ordinal)
                 || !model.EndsWith(":free", StringComparison.Ordinal))
             {
-                return null;
+                return OpenRouterDiscoveryOutcome.Failed(
+                    OpenRouterDiscoveryFailureReasons.ModelIdentity,
+                    status);
             }
 
             if (!OpenRouterResponseParser.TryReadSelectedProvider(
@@ -707,7 +723,16 @@ public sealed class OpenRouterDiscoveryClient(HttpMessageHandler? transport = nu
                     out var selectedProvider)
                 || string.IsNullOrWhiteSpace(selectedProvider))
             {
-                return null;
+                return OpenRouterDiscoveryOutcome.Failed(
+                    OpenRouterDiscoveryFailureReasons.MissingProviderMetadata,
+                    status);
+            }
+
+            if (!IsSafeProviderIdentity(selectedProvider))
+            {
+                return OpenRouterDiscoveryOutcome.Failed(
+                    OpenRouterDiscoveryFailureReasons.ProviderIdentity,
+                    status);
             }
 
             if (!OpenRouterResponseParser.TryReadTerminalFacts(
@@ -718,16 +743,94 @@ public sealed class OpenRouterDiscoveryClient(HttpMessageHandler? transport = nu
                     out _)
                 || facts is null)
             {
-                return null;
+                return OpenRouterDiscoveryOutcome.Failed(
+                    OpenRouterDiscoveryFailureReasons.InvalidTerminalFacts,
+                    status);
             }
 
-            return new OpenRouterDiscoveryCandidate(facts.ReturnedModel, facts.SelectedProvider);
+            return OpenRouterDiscoveryOutcome.Succeeded(
+                new OpenRouterDiscoveryCandidate(facts.ReturnedModel, facts.SelectedProvider),
+                status);
         }
-        catch (Exception ex) when (ex is OperationCanceledException or HttpRequestException or JsonException or OpenRouterTransportLimitExceededException)
+        catch (OperationCanceledException)
         {
-            return null;
+            return OpenRouterDiscoveryOutcome.Failed(
+                cancellationToken.IsCancellationRequested
+                    ? OpenRouterDiscoveryFailureReasons.Cancelled
+                    : OpenRouterDiscoveryFailureReasons.Timeout);
+        }
+        catch (HttpRequestException)
+        {
+            return OpenRouterDiscoveryOutcome.Failed(OpenRouterDiscoveryFailureReasons.Transport);
+        }
+        catch (JsonException)
+        {
+            return OpenRouterDiscoveryOutcome.Failed(OpenRouterDiscoveryFailureReasons.MalformedResponse);
+        }
+        catch (OpenRouterTransportLimitExceededException)
+        {
+            return OpenRouterDiscoveryOutcome.Failed(OpenRouterDiscoveryFailureReasons.ResponseTooLarge);
         }
     }
+
+    private static string StatusFailure(int status) => status switch
+    {
+        401 => OpenRouterDiscoveryFailureReasons.Authentication,
+        402 => OpenRouterDiscoveryFailureReasons.PaymentRequired,
+        403 => OpenRouterDiscoveryFailureReasons.PolicyDenied,
+        408 => OpenRouterDiscoveryFailureReasons.Timeout,
+        429 => OpenRouterDiscoveryFailureReasons.RateLimited,
+        >= 500 => OpenRouterDiscoveryFailureReasons.ProviderUnavailable,
+        _ => OpenRouterDiscoveryFailureReasons.RequestRejected,
+    };
+
+    private static bool IsSafeModelIdentity(string value) =>
+        value.Length <= 256
+        && value.All(character =>
+            char.IsAsciiLetterOrDigit(character)
+            || character is '-' or '_' or '.' or ':' or '/');
+
+    private static bool IsSafeProviderIdentity(string value) =>
+        value.Length <= 256
+        && value.All(character =>
+            !char.IsControl(character)
+            && char.GetUnicodeCategory(character) is not System.Globalization.UnicodeCategory.LineSeparator
+                and not System.Globalization.UnicodeCategory.ParagraphSeparator);
 }
 
 public sealed record OpenRouterDiscoveryCandidate(string Model, string ProviderIdentity);
+
+public sealed record OpenRouterDiscoveryOutcome(
+    OpenRouterDiscoveryCandidate? Candidate,
+    string? FailureReason,
+    int? HttpStatusCode)
+{
+    public static OpenRouterDiscoveryOutcome Succeeded(
+        OpenRouterDiscoveryCandidate candidate,
+        int status) => new(candidate, null, status);
+
+    public static OpenRouterDiscoveryOutcome Failed(
+        string reason,
+        int? status = null) => new(null, reason, status);
+}
+
+public static class OpenRouterDiscoveryFailureReasons
+{
+    public const string PreflightDenied = "preflight_denied";
+    public const string Authentication = "authentication";
+    public const string PaymentRequired = "payment_required";
+    public const string PolicyDenied = "policy_denied";
+    public const string RateLimited = "rate_limited";
+    public const string ProviderUnavailable = "provider_unavailable";
+    public const string RequestRejected = "request_rejected";
+    public const string ResponseCacheHit = "response_cache_hit";
+    public const string ModelIdentity = "model_identity";
+    public const string ProviderIdentity = "provider_identity";
+    public const string MissingProviderMetadata = "missing_provider_metadata";
+    public const string InvalidTerminalFacts = "invalid_terminal_facts";
+    public const string Timeout = "timeout";
+    public const string Cancelled = "cancelled";
+    public const string Transport = "transport";
+    public const string MalformedResponse = "malformed_response";
+    public const string ResponseTooLarge = "response_too_large";
+}

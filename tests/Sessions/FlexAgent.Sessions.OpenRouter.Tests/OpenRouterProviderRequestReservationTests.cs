@@ -53,7 +53,7 @@ public sealed class OpenRouterProviderRequestReservationTests
             new StaticSecretSource("sk-or-canary-secret-do-not-leak"),
             new InMemoryOpenRouterInstalledConfigurationRegistry(configuration),
             handler,
-            privacyPreflightConfirmed: true);
+            syntheticDataPolicyAccepted: true);
         var writer = new InMemoryModelProviderAttemptProvenanceWriter { ThrowOnFinished = true };
         var store = new RestartStore(session.Ownership, invocationId);
         var processor = new DurableInvocationWorkProcessor(

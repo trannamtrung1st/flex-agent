@@ -107,7 +107,7 @@ separate machine-readable lock manifest.
 | `OSS-DEC-14` | Support operator-provisioned deployment profiles and Organization-scoped BYOK profiles for installed adapters in the MVP. Preserve the same profile boundary for a later optional Organization-owned model endpoint, enabled only after its additional gates pass. | Raw keys are never stored in product records or entered by Participants. Adapter, model, and credential selection—and endpoint selection when enabled—are frozen and audited by reference; missing, revoked, mismatched, or cross-Organization bindings fail closed without silent fallback. |
 | `OSS-DEC-15` | Do not select a normative model family, model artifact, quantization, or hardware envelope. Qualify concrete provider deployment profiles independently against the model-provider gate, and permit multiple qualified profiles to coexist. | Certification belongs to the exact adapter/provider/endpoint/model/version-or-fingerprint/capability/credential-policy combination. Replacing a model or adding an Organization model does not change domain contracts, but the new profile must pass its applicable gates before real use. |
 | `OSS-DEC-16` | Keep `grafana/otel-lgtm` operator-pulled and optional for local development and CI; do not bundle or redistribute it in the MVP distribution. | LGTM is development infrastructure, not product runtime or the production monitoring stack. This resolves `Q-OSS-2` for the MVP without making a legal conclusion about future redistribution. |
-| `OSS-DEC-17` | Permit real OpenRouter calls for local synthetic development under the approved [OpenRouter synthetic-development profile](../../operations/provider-profiles/openrouter-synthetic-development.md). `openrouter/free` may be used only for capability discovery and smoke testing; repeatable interactive Session testing must pin a concrete `:free` model and one permitted provider slug. | Natural local chat may exercise the real provider path with synthetic, non-sensitive content, but neither a random free-router result nor a pinned free model becomes production-qualified. Direct OpenAI qualification remains separate, runtime enablement remains explicit, and every missing identity, privacy, credential, routing, or budget control fails closed. |
+| `OSS-DEC-17` | Permit real OpenRouter calls for local synthetic development under the approved [OpenRouter synthetic-development profile](../../operations/provider-profiles/openrouter-synthetic-development.md). `openrouter/free` may be used only for capability discovery and smoke testing; repeatable interactive Session testing must pin a concrete `:free` model and one permitted provider slug. The 2026-08-20 development amendment permits provider/OpenRouter retention and training only for intentional synthetic content behind explicit owner acceptance. | Natural local chat may exercise the real provider path with synthetic, non-sensitive content, but neither a random free-router result nor a pinned free model becomes production-qualified. The relaxed development data policy is not authorization for real Participant/customer data or Production/Staging. Direct OpenAI qualification remains separate, runtime enablement remains explicit, and every missing identity, synthetic-data-policy acceptance, credential, routing, or budget control fails closed. |
 
 ## Selected OSS components
 
@@ -242,11 +242,13 @@ concrete model before it is represented as a repeatable Session test.
 
 The synthetic profile must use Chat Completions with strict JSON Schema where
 structured control is required, require support for every sent parameter,
-disable fallbacks, deny data-collecting routes, require zero-data-retention
-routing, restrict repeatable requests to one permitted provider, expose and
-validate router metadata, disable response caching, and fail when no eligible
-route or attestable identity exists. Only synthetic, non-sensitive content may
-cross the boundary. The key remains an operator-mounted file outside the
+disable fallbacks, explicitly allow data-collecting routes without enforcing
+request-level ZDR under the approved synthetic-only risk acceptance, restrict
+repeatable requests to one permitted provider, expose and validate router
+metadata, disable response caching, and fail when no eligible route or
+attestable identity exists. Only intentional synthetic, non-sensitive content
+may cross the boundary. Real Participant/customer data and Production/Staging
+remain prohibited. The key remains an operator-mounted file outside the
 repository, and committed evidence contains sanitized identity, capability,
 usage, latency, cost, and outcome facts only. Exact operating bounds and the
 default-off progression are governed by the

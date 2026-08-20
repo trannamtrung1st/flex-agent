@@ -120,8 +120,8 @@ public sealed record OpenRouterInstalledConfiguration(
             expectedReturnedProviderIdentity,
             "allow_fallbacks=false",
             "require_parameters=true",
-            "data_collection=deny",
-            "zdr=true",
+            "data_collection=allow",
+            "zdr=false",
             "metadata=enabled",
             "cache=false");
         return ProtectedContentRef.DigestUtf8(source);

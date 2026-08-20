@@ -14,6 +14,6 @@
     "contentTimeoutMilliseconds": 60000,
     "maxProviderRequestAttempts": 2,
     "providerId": "openrouter.synthetic",
-    "adapterConfigurationDigest": "c51284e6f4974a027be4d063c1cbd142e44022359feafc7e8e92502bd2c38e9c"
+    "adapterConfigurationDigest": "0afa8c15014e27e46e318c10d58711f67a3cfef54b385e1c2010c868be4f0bc9"
   }
 ]

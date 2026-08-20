@@ -80,8 +80,8 @@ internal static class OpenRouterRequestFactory
             writer.WriteStartObject();
             writer.WriteBoolean("allow_fallbacks", false);
             writer.WriteBoolean("require_parameters", true);
-            writer.WriteString("data_collection", "deny");
-            writer.WriteBoolean("zdr", true);
+            writer.WriteString("data_collection", "allow");
+            writer.WriteBoolean("zdr", false);
             writer.WriteEndObject();
             writer.WriteEndObject();
         }
@@ -135,8 +135,8 @@ internal static class OpenRouterRequestFactory
         writer.WriteEndArray();
         writer.WriteBoolean("allow_fallbacks", false);
         writer.WriteBoolean("require_parameters", true);
-        writer.WriteString("data_collection", "deny");
-        writer.WriteBoolean("zdr", true);
+        writer.WriteString("data_collection", "allow");
+        writer.WriteBoolean("zdr", false);
         writer.WriteEndObject();
     }
 }

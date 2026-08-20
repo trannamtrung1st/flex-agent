@@ -45,8 +45,9 @@ fail-closed provider controls.
 - Model the fixed `https://openrouter.ai/api/v1` base path without weakening
   SSRF protections or accepting arbitrary runtime URLs.
 - Map strict JSON Schema, streaming, no-fallback, required-parameter,
-  data-collection-denial, ZDR, concrete-model, one-provider allowlist, router
-  metadata, and response-cache-denial controls.
+  explicit synthetic-development data-collection allowance, no request-level
+  ZDR requirement, concrete-model, one-provider allowlist, router metadata,
+  and response-cache-denial controls.
 - Record and validate returned model, selected provider, and attempt count;
   reject missing metadata, cache hits, mismatch, fallback, or drift for a
   pinned development Session.
@@ -56,8 +57,8 @@ fail-closed provider controls.
   persistence, telemetry, error, or artifact exposure; reject symlinks,
   non-regular files, and group/other directory or file permissions on Unix-like
   systems.
-- Require an operator preflight confirming OpenRouter private input/output
-  logging and use of inputs/outputs are disabled before opt-in live execution.
+- Require explicit owner acceptance that every disclosed value is synthetic
+  and may be retained or used for training before opt-in live execution.
 - Build default-off fake-transport contracts and an opt-in live harness with
   the approved request, concurrency, timeout, token, attempt, and cost bounds.
 - Exercise real interactive local text chat with a concrete `:free` model after
@@ -72,7 +73,7 @@ fail-closed provider controls.
 - Production qualification, automatic enablement, OpenRouter as a product
   default, or closing Direct OpenAI Phase B.
 - Dynamic/free/latest routing in repeatable Sessions, silent fallback,
-  multiple models in one Invocation, or relaxed privacy controls.
+  multiple models in one Invocation, or disclosure of any real/private data.
 - Responses API beta, tools, web search, reasoning-trace capture, voice,
   Interaction Controller, or another MVP capability.
 - Commits, pushes, deployments, releases, or production traffic unless
@@ -89,7 +90,7 @@ fail-closed provider controls.
 | `REQ-SESS-78`–`REQ-SESS-85`, `AC-SESS-42`–`AC-SESS-48` — versioned output envelope, known typed-item representability, independent item validation, and reconstructable provenance | Self-contained provider schema, canonical Decision reader, existing output/action policy validation, provider-attempt provenance | Schema parity with canonical v2 fixtures; known `voice` and deferred action kinds remain schema-valid but P0-denied; unknown kinds fail schema; model/provider/attempt/usage facts; cache/mismatch rejection |
 | `OSS-DEC-12`, `OSS-DEC-14`, `OSS-DEC-15`, `OSS-DEC-17` | Separate provider adapter, fixed dependency boundary, default-off synthetic profile | Architecture dependency tests; package/lock review; qualification-scope and environment gates |
 | `STACK-DEC-11`, `STACK-DEC-18`, `GATE-STACK-PROVIDERS` | `FlexAgent.Sessions.OpenRouter`, Worker composition, solution/OCI graph | Project-reference and Dockerfile-copy tests; locked restore/build/publish; sanitized live evidence |
-| Approved OpenRouter profile routing/privacy controls | Adapter request builder, fixed transport, discovery harness, host preflight | Exact request/header/body assertions; one provider; one router attempt; metadata required; cache denied; privacy attestation required; request/cost ceilings |
+| Approved OpenRouter profile routing/data-policy controls | Adapter request builder, fixed transport, discovery harness, host acceptance gate | Exact request/header/body assertions; one provider; one router attempt; metadata required; cache denied; explicit synthetic-data-policy acceptance required; request/cost ceilings |
 | `docs/ui-ux/text-session.md` `AC-SESS-5`–`AC-SESS-7`, `AC-SESS-31`–`AC-SESS-48` | Existing Participant Text Session only if a supported real runtime path is proven | Playwright accessibility snapshots and desktop/narrow screenshots through real interactions; otherwise record the exact integration blocker and do not claim end-to-end chat |
 
 # Implementation decisions
@@ -131,9 +132,10 @@ fail-closed provider controls.
   operator, but only an explicitly created profile containing one concrete
   `:free` model and one provider can execute a Session.
 - Permit OpenRouter composition only in Development or Testing with exact
-  qualification scope `synthetic_development`, an explicit privacy preflight,
-  and the existing `Qualified` opt-in. Production and Staging remain fail
-  closed even if a profile and key are present.
+  qualification scope `synthetic_development`, explicit acceptance of the
+  synthetic-only retention/training policy, and the existing `Qualified`
+  opt-in. Production and Staging remain fail closed even if a profile and key
+  are present. The retired privacy-preflight setting is not sufficient.
 - Enforce existing Flex Agent request admission before every network call.
   The adapter performs no internal retry; each OpenRouter response must report
   router attempt `1`. The existing application layer owns the maximum two
@@ -213,7 +215,8 @@ network code is enabled.
       and the absence of optional plugins or unapproved headers.
 - [x] Red: assert the nested `provider` object contains exactly one allowlisted
       provider, `allow_fallbacks:false`, `require_parameters:true`,
-      `data_collection:"deny"`, and `zdr:true`.
+      `data_collection:"allow"`, and `zdr:false` under the synthetic-only
+      development decision.
 - [x] Red: assert the request pins the concrete model and max-token bound and
       rejects discovery aliases, changed models, provider drift, unknown
       credential modes, and policy/profile digest mismatch before network I/O.
@@ -284,6 +287,8 @@ cancellation, and partial-publication cases without violating Session semantics.
 - [x] Add an explicit operator privacy attestation/preflight covering both
       private input/output logging and OpenRouter use of inputs/outputs. Missing
       or false attestation keeps readiness and model execution fail closed.
+      Superseded on 2026-08-20 by Phase 14's explicit synthetic-data-policy
+      acceptance gate; the old setting no longer enables execution.
 - [x] Prove only the exact approved HTTPS host and fixed path are reachable;
       reject redirects, alternate hosts/ports/schemes/paths, and literal
       private/link-local IP destinations without following them. Do not claim
@@ -299,12 +304,12 @@ before live composition.
 ## Phase 5 — Worker composition and readiness, red then green
 
 - [x] Red: cover unsupported adapter, unqualified profile, wrong environment,
-      missing `synthetic_development` scope, missing privacy preflight, missing
+      missing `synthetic_development` scope, missing data-policy acceptance, missing
       files, mixed adapter profiles, policy-digest mismatch, wrong provider,
       revoked credential, and insecure secret modes.
 - [x] Use explicit host settings for the additional gates:
       `Sessions:ModelExecution:QualificationScope=synthetic_development`,
-      `Sessions:ModelExecution:PrivacyPreflightConfirmed=true`, and an
+      `Sessions:ModelExecution:SyntheticDataPolicyAccepted=true`, and an
       OpenRouter configuration-file path. Missing, misspelled, or conflicting
       values fail closed; no compiled default may opt into provider traffic.
 - [x] Green: compose the OpenRouter adapter only when all exact gates pass in
@@ -369,25 +374,34 @@ substituted.
 Exit: either a supported deterministic real chat path is proven, or the task
 has an explicit bounded blocker and follow-up decision; ambiguity is not hidden.
 
-## Phase 8 — bounded live discovery
+## Phase 8 — historical strict-policy bounded live discovery (superseded)
 
-- [!] Owner gate: confirm the two OpenRouter account privacy controls are
+- [x] Owner gate: confirm the two OpenRouter account privacy controls are
       disabled and confirm the test key's spend/expiry boundary. Do not inspect,
-      print, copy, or commit the key.
-- [ ] Recheck mounted secret metadata, live opt-in, concurrency `1`, maximum 12
+      print, copy, or commit the key. Confirmed by the owner on 2026-08-20 for
+      the original strict-policy run; Phase 14 governs the amended profile.
+- [x] Recheck mounted secret metadata, live opt-in, concurrency `1`, maximum 12
       total inference requests, maximum two Flex Agent attempts per operation,
       256 output tokens, 30/60-second timeouts, and USD 2 stop threshold.
-- [ ] Run deterministic suites immediately before enabling the live harness.
-- [ ] Make one discovery-only `openrouter/free` request through the isolated
+- [x] Run deterministic suites immediately before enabling the live harness.
+      OpenRouter deterministic suite: 31 passed, 1 explicit live test excluded
+      after persistent-budget and sanitized-classification coverage.
+- [!] Make one discovery-only `openrouter/free` request through the isolated
       discovery client as the approved bounded discovery/smoke run. Retain only
       sanitized candidate model/provider facts; retain no raw prompt, response,
-      authorization, headers, or account data.
-- [ ] Select one eligible concrete `:free` model and provider, then generate an
+      authorization, headers, or account data. Slots 1–4/12 on 2026-08-20
+      produced no candidate (`rate_limited` / 429 and `request_rejected` / 404).
+      A later eligibility recheck plus deterministic gate (31/31, live excluded)
+      authorized one new reserved request; slot 5/12 returned sanitized
+      `request_rejected` / HTTP 404. No further retry followed.
+- [!] Select one eligible concrete `:free` model and provider, then generate an
       operator-managed pinned profile/config outside source control. Recompute
       and verify both common and adapter-policy digests before Session use.
-- [ ] If no candidate satisfies strict schema, streaming, privacy, metadata,
+      Blocked because discovery produced no admissible candidate.
+- [x] If no candidate satisfies strict schema, streaming, privacy, metadata,
       cache-denial, and provider-pinning requirements, stop without fallback
-      and record the bounded failure.
+      and record the bounded failure. Stopped after 5/12 reserved requests;
+      Phase 9 did not start.
 
 Exit: a single concrete model/provider is pinned for the live matrix, or live
 qualification stops safely with sanitized evidence.
@@ -412,9 +426,9 @@ qualification stops safely with sanitized evidence.
 - [ ] Inspect loading, streaming, completion, timeout/error, retry/cutoff, and
       reconnect behavior that the live run actually reaches. Do not claim
       states that were not observed.
-- [ ] Stop immediately on privacy uncertainty, identity/provider drift, cache
-      evidence, missing metadata, fallback, spend/request ceiling, secret
-      leakage, or unexpected sensitive content.
+- [ ] Stop immediately on synthetic-data-policy uncertainty, any real/private
+      content, identity/provider drift, cache evidence, missing metadata,
+      fallback, spend/request ceiling, or secret leakage.
 - [ ] Retain a sanitized summary labeled
       `qualified_for: synthetic_development`; passing does not enable a runtime
       by default or satisfy Direct OpenAI Phase B.
@@ -483,7 +497,61 @@ traceable, and no requirement is marked complete on the strength of a demo.
       `\uD800` escapes) as typed adapter failures, not unhandled exceptions.
       Cover control content, stream deltas, and model/provider identity.
 
+## Phase 14 — synthetic retention/training development amendment
+
+- [x] Record the Product Lead's 2026-08-20 decision allowing OpenRouter and
+      selected providers to retain or train on intentional synthetic local
+      development content only.
+- [x] Preserve the prohibition on Production, Staging, and all real
+      Participant/customer, Submission, transcript, Evidence, Evaluation,
+      Result, Release, memory, credential, and private-source data.
+- [x] Red: require `data_collection:"allow"`, `zdr:false`, a new explicit
+      synthetic-data-policy acceptance name, and proof that the retired
+      privacy-preflight setting alone remains fail closed.
+- [x] Green: update request construction, immutable adapter digest, live
+      discovery gate, and Worker composition without weakening routing,
+      fallback, cache, credential, environment, or budget controls.
+- [x] Regenerate example profile digests and run focused, architecture, and
+      documentation verification.
+- [x] Start a distinct persistent live qualification budget for the amended
+      profile; preserve the prior strict-policy budget and its five consumed
+      requests as historical evidence.
+
+Exit: the amended synthetic profile is explicit and auditable, deterministic
+tests pass, the old gate cannot authorize traffic, and any live run uses a new
+persistent budget without erasing the prior history.
+
+## Phase 15 — final consistency, security, and delivery review
+
+- [x] Re-review backend correctness, external-provider trust boundaries,
+      security/privacy, documentation authority, tests, and delivery state.
+      Frontend review is not applicable because the diff contains no UI code or
+      user-observable browser state.
+- [x] Red/green: reject provider-controlled discovery model/provider identity
+      values that could inject control characters into sanitized evidence;
+      bound both identities before profile pinning.
+- [x] Add Unix regression coverage proving dangling budget-state links and
+      symlinked budget directories fail closed without creating a target.
+- [x] Reconcile the stale Phase 1 handoff with the actual next live-discovery
+      and pinning step.
+- [x] Run the full solution. All 832 non-PostgreSQL tests passed; the 248
+      PostgreSQL Testcontainers cases could not start because Docker is not
+      running. No persistence or migration surface changed in this amendment.
+
+Exit: no actionable backend, architecture, security/privacy, documentation, or
+test defect remains in the changed surface; the Docker-dependent integration
+gap and live-provider next step are explicitly recorded.
+
 # Current state
+
+On 2026-08-20 the Product Lead explicitly accepted OpenRouter/provider
+retention and training risk for intentional synthetic solo-development content
+so development can proceed before production hardening. This does not widen the
+boundary to Production, Staging, or any real/private data. The amended profile
+uses `data_collection:"allow"` and `zdr:false` behind a newly named explicit
+acceptance gate; the retired privacy-preflight flag is intentionally
+insufficient. The prior strict-policy qualification run remains historical at
+5/12 consumed requests and will not be reset or reused for the amended profile.
 
 Deterministic Phases 0–6 are implemented: distinct `openrouter` adapter
 (`sessions.openrouter.v1`), backward-compatible optional adapter-configuration
@@ -498,19 +566,82 @@ Phase 7 is blocked: Participant Text Session remains on the synthetic browser
 adapter; production HTTP SSE and OIDC application-session wiring are still
 documented delivery gaps. Do not claim interactive Flex Agent chat.
 
-Phases 8–9 remain owner-gated: live OpenRouter calls are opt-in
-(`FLEXAGENT_LIVE_OPENROUTER_QUALIFICATION=1` plus privacy preflight) and were
-not executed. No key was read.
+## Historical strict-policy qualification run
+
+The Phase 8–9 owner gate cleared on 2026-08-20. Live calls remain opt-in through
+`FLEXAGENT_LIVE_OPENROUTER_QUALIFICATION=1` plus privacy preflight; key contents
+were never printed or retained.
+
+The owner privacy and short-lived-key gate cleared on 2026-08-20. Mounted-file
+metadata passes the approved local convention (`0700` regular directory,
+`0600` regular file); key contents were not printed. Pre-live inspection found
+that the budget-path constant and 12-request bound have no executable runner or
+persistent counter yet. Interim default: add and test that fail-closed runner
+before the first network request rather than make an ad-hoc call that could
+silently reset the shared Phase 8–9 budget.
+
+The persistent counter and explicit live discovery runner were then added and
+the deterministic suite passed (31 passed; live case explicitly excluded).
+The first live discovery request consumed slot 1/12 and failed closed because
+the response did not produce an admissible concrete `:free` model/provider
+candidate. No raw provider body, header, generation ID, prompt, or key was
+retained. Sanitized failure classification was added before the one permitted
+diagnostic retry.
+
+Sanitized classification tests passed, and the second request reported HTTP
+429 / `rate_limited`. The run stopped with 2/12 slots consumed and ten slots
+untouched. Phase 8 has no pinnable candidate; Phase 9 did not start. Resume only
+after the OpenRouter free-model rate-limit window resets or the owner supplies
+an independently approved eligible key/account boundary. Do not bypass the
+profile with a paid model, fallback, or relaxed routing/privacy controls.
+
+After an explicit owner request to try again, the deterministic gate passed
+31/31 and one new bounded request reserved slot 3/12. OpenRouter returned
+sanitized HTTP 404 / `request_rejected`; no raw error body was retained. Current
+OpenRouter documentation permits 404 when no allowed provider is available for
+the selected model, so this is consistent with (but does not prove) the strict
+privacy/routing filters leaving no eligible free route. Discovery stopped with
+nine slots untouched and Phase 9 remains blocked.
+
+One final owner-authorized attempt reran the deterministic gate (31/31) and
+reserved slot 4/12. It returned sanitized HTTP 429 / `rate_limited`. The run
+stopped with eight slots untouched; immediate retries are exhausted and Phase 9
+remains blocked.
+
+The next owner-requested verification rechecked public free-route eligibility
+without using the key: the catalog listed 17 `:free` models and at least one
+zero-price ZDR text endpoint (`z-ai/glm-5.2:free` / Decart). That does not
+prove a route under the combined discovery filters (`zdr`, `data_collection`
+deny, `require_parameters`, and no fallbacks). Mounted-secret metadata still
+matched `0700`/`0600`. Persistent budget was 4/12. Deterministic OpenRouter
+tests passed 31/31 with the live case excluded. One reserved discovery request
+then consumed slot 5/12 and returned sanitized HTTP 404 / `request_rejected`.
+No raw body, header, prompt, or key was retained. Discovery stopped with seven
+slots untouched; Phase 9 remains blocked.
 
 Migration head is unchanged (`0029`). Independent review of `7e2e438`
 (2026-08-20) approved the synthetic OpenRouter adapter remediation series and
 found no remaining adapter-level defects. Nine prior findings (timeouts, cache
 semantics, SSE bounds, checklist honesty, exact envelope limit, fixed 30/60
 timeouts, strict UTF-8, streaming timeout evidence, escaped surrogates) are
-closed. Do not mark this qualification task complete: live OpenRouter calls
-and hosted Participant chat remain gated. Next safe action is owner
-privacy/spend confirmation for Phases 8–9, plus a separately scoped hosted
-Participant-path task if natural chat is required.
+closed. Do not mark this qualification task complete: live OpenRouter
+qualification has no admissible discovery candidate and hosted Participant chat
+remains gated. Next safe action is to treat combined privacy/routing filters as
+the likely 404 cause, not a transient 429, and either wait for an independently
+approved eligible free route or obtain a separately approved key/account
+boundary; use a separately scoped hosted Participant-path task if natural chat
+is required. Do not relax ZDR, data-collection denial, fallbacks, or switch to
+a paid model.
+
+## Retention-accepted qualification run
+
+Phase 14 supersedes the strict-policy routing fields without erasing its
+history. The amended run has a distinct persistent counter at 4/12. Discovery
+requests 1–3 passed, proving an eligible synthetic route exists, but the test
+platform suppressed the sanitized model/provider output. Request 4 returned
+sanitized HTTP 429 / `rate_limited`. No candidate has been recorded or pinned;
+wait for the rate-limit window and capture the next successful run through the
+structured test report before starting Phase 9.
 
 # Decisions
 
@@ -520,6 +651,10 @@ Participant-path task if natural chat is required.
   one concrete `:free` model and provider for both provider phases.
 - Privacy, identity, capability, credential, and budget controls fail closed.
 - Passing evidence remains synthetic-development-only.
+- For the amended synthetic-development profile only, OpenRouter/provider
+  retention and training are accepted through an explicit gate. Production,
+  Staging, and real/private data remain prohibited and require later hardening
+  and a separate approval.
 - Phase 7 interactive chat is out of this task until a hosted Participant
   Session/API/SSE path exists; the adapter-only harness is not Flex Agent chat.
 - Installed OpenRouter control/content timeouts remain fixed at 30/60 seconds.
@@ -540,13 +675,23 @@ Participant-path task if natural chat is required.
 - OpenRouter secrets use a Unix owner-only decorator; Direct OpenAI keeps the
   portable mounted-file source.
 - Worker OpenRouter composition requires Development/Testing,
-  `QualificationScope=synthetic_development`, privacy preflight, and does not
-  mix adapter kinds. Production/Staging stay fail closed.
+  `QualificationScope=synthetic_development`, explicit synthetic-data-policy
+  acceptance, and does not mix adapter kinds. The retired privacy flag alone
+  fails closed; Production/Staging stay fail closed.
 - Participant `/browser` remains synthetic. Hosted natural chat is blocked.
-- Live qualification was not run; the opt-in sentinel remains disabled.
+- The historical strict-policy discovery stopped after 5/12 reserved requests.
+  The distinct retention-accepted run consumed 4/12: its first three discovery
+  calls passed, proving an eligible route exists, but the test platform
+  suppressed the sanitized model/provider output; request 4 returned sanitized
+  HTTP 429 `rate_limited`. No candidate has yet been recorded or pinned.
 - Discovery records the selected endpoint, not `available[0]`, rejects a
   returned `openrouter/free` alias, and does not use the default HTTPS
-  transport unless live opt-in and privacy preflight are both set.
+  transport unless live opt-in and synthetic-data-policy acceptance are both set.
+- Fresh cross-cutting review rejected provider-controlled discovery model or
+  provider identities containing log-breaking control characters and bounded
+  both identity fields before sanitized evidence or profile pinning. Budget
+  regressions also prove dangling state links and symlinked directories fail
+  closed on the current supported Unix target.
 - Control and content operations use a linked timeout CTS for headers and
   body/SSE, mapping caller cancel separately from provider timeout. Installed
   profiles stay at 30/60 seconds; tests inject shorter timeouts on the adapter.
@@ -570,11 +715,11 @@ Participant-path task if natural chat is required.
 | Locked baseline restore | passed | `dotnet restore FlexAgent.slnx --locked-mode`; all solution projects restored with committed locks on 2026-08-20 |
 | Focused pre-implementation baseline | passed | Sessions 448/448; Direct OpenAI 14/14; Runtime 126/126; Architecture 33/33 on .NET SDK 10.0.100, macOS arm64 |
 | Architecture/operations approval | passed | ADR-008 `OSS-DEC-17`, ADR-010 `STACK-DEC-18`, and approved profile dated 2026-08-19 |
-| Fake-transport provider contracts | passed | OpenRouter 27/27 on 2026-08-20: headers, provider object, metadata/attempt/identity/usage, response-cache HIT vs prompt cached_tokens, control and streaming stall-after-headers timeout vs caller cancel, exact envelope limit and limit+1, strict SSE UTF-8, escaped invalid surrogates, terminal-then-DONE, discovery selected-endpoint, schema parity |
+| Fake-transport provider contracts | passed | OpenRouter deterministic suite 34/34 on 2026-08-20 under the amended `data_collection:allow`, `zdr:false` profile after adding persistent-budget, symlink, sanitized-failure, and unsafe-identity coverage: headers, provider object, metadata/attempt/identity/usage, response-cache HIT vs prompt cached_tokens, control and streaming stall-after-headers timeout vs caller cancel, exact envelope limit and limit+1, strict SSE UTF-8, escaped invalid surrogates, terminal-then-DONE, discovery selected-endpoint, schema parity |
 | Profile/credential/host isolation | passed | Digest regression; Infrastructure loaders; Unix owner-only secret tests; Worker Testing compose + Production fail-closed |
-| Live synthetic qualification | blocked | Opt-in sentinel remains off; owner privacy/spend preflight not confirmed; no key read |
+| Live synthetic qualification | partial | The amended retention-accepted profile has a distinct persistent budget. Requests 1–3/12 passed discovery, proving an eligible route; passing-test output did not expose the sanitized identity. Request 4/12 returned HTTP 429 `rate_limited`. Wait for the rate-limit window, then capture one successful run through a structured report and pin that model/provider. Phase 9 has not started |
 | Interactive local Text Session | blocked | Phase 7: synthetic browser adapter; production HTTP SSE/OIDC still a documented gap (`docs/ui-ux/text-session.md`) |
-| Locked regression/supply chain/OCI/docs | partial | OpenRouter 27, Sessions 455, OpenAI 14, Runtime 129, Architecture 35 after Phase 13. Worker OCI COPY includes OpenRouter (architecture tests). Docker image build and `dotnet publish` not run |
+| Locked regression/supply chain/OCI/docs | partial | Full solution run on 2026-08-20: 832 non-PostgreSQL tests passed across Contract, Runtime, Sessions, Direct OpenAI, OpenRouter, Architecture, and Canonical JSON; OpenRouter is 34/34 deterministic with one explicit live test excluded. The 248 PostgreSQL Testcontainers cases could not start because Docker was unavailable. Docs validation passes. Worker OCI COPY includes OpenRouter (architecture tests). Docker image build and `dotnet publish` not run |
 | Independent review (`7e2e438`) | passed | Adapter remediation series approved 2026-08-20: no remaining substantive correctness or architecture issues. Nine prior findings closed. Local OpenRouter 27/27 not independently verifiable from GitHub commit statuses. Live qualification and hosted Participant path remain gated |
 
 # Risks, interim defaults, and owner gates
@@ -585,7 +730,7 @@ Participant-path task if natural chat is required.
 | Direct OpenAI digest compatibility | A common profile extension could invalidate installed profiles and frozen bindings | Optional adapter-policy digest is excluded from the legacy digest source when absent; preserve with a known-value regression test |
 | Provider schema compatibility | Canonical schema references are not resolvable by an external provider | Generate a self-contained strict adapter projection and keep canonical validation as final authority |
 | Additive OpenRouter metadata | New harmless fields could break an overly rigid parser; missing critical fields could be ignored by an overly loose parser | Require and validate all known security/identity fields, ignore unknown additive fields, reject contradictions |
-| Account privacy state | Account-level toggles may not be queryable through the inference contract | Require explicit owner attestation immediately before live access; absent confirmation means no network call |
+| Synthetic data-policy acceptance | Account/provider retention and training behavior may not be fully attestable through the inference response | Require explicit owner acceptance immediately before live access and prohibit all real/private or Production/Staging data; absent acceptance means no network call |
 | Key spend/expiry | A general key may exceed the approved live-test risk boundary | Prefer a USD 2 / short-lived key; otherwise the harness still enforces its own 12-request/USD 2 stop and the owner explicitly accepts the broader credential scope |
 | Unix permission portability | Owner-only mode checks do not map directly to every platform | Enforce on the current Unix-like target; fail live preflight elsewhere until a reviewed secure-source contract exists |
 | Real browser/runtime path | Synthetic SPA behavior could be mistaken for real provider chat | Phase 7 must prove the route; if absent, record a blocker and seek a separately bounded scope update—no silent UI bypass |
@@ -594,44 +739,44 @@ Participant-path task if natural chat is required.
 # Blockers
 
 Phases 0–6 have no blocker. Phase 7 is blocked on hosted Participant
-Session/API/OIDC/SSE wiring. Phases 8–9 are blocked until the owner confirms
-both OpenRouter privacy toggles and the accepted key spend/expiry boundary.
-Do not enable live traffic from this session.
+Session/API/OIDC/SSE wiring. The amended owner data-policy gate for Phases 8–9
+cleared on 2026-08-20. The old strict-policy budget remains historical at 5/12.
+The distinct retention-accepted budget is 4/12: three discoveries passed and
+the fourth was rate-limited, but no sanitized identity was captured from the
+passing tests. Phase 8 therefore has route evidence but no recorded candidate.
+Wait for the rate-limit window, then use a structured test report to capture
+one successful model/provider pair and pin it. Reuse the amended budget for
+Phase 9; do not fall back or switch to a paid model implicitly.
 
-# First executable slice
+# Next executable slice
 
-Start with Phases 0–1 only: capture the green baseline, add failing profile and
-architecture tests, then introduce the separate project boundary and
-backward-compatible adapter-policy digest. Do not construct `HttpClient`, read
-the mounted key, or make a live request in this slice. The first review point is
-the Direct OpenAI digest regression plus the dependency/OCI graph. The readiness
-baseline above is green; rerun it at implementation start if `HEAD`, locks, or
-the worktree changes.
+After the OpenRouter rate-limit window resets, rerun the deterministic
+OpenRouter gate and make one discovery request using the retention-accepted
+counter. Produce a structured xUnit report in a temporary directory so the
+sanitized model/provider output is recoverable from a passing test. Pin that
+exact pair in operator-managed files outside source control, recompute both
+digests, then begin the bounded Phase 9 control/streaming matrix. Do not start
+hosted Participant chat work in this task; Phase 7 remains separately blocked.
 
 # Development handoff
 
-## Start here
+## Resume here
 
-1. Change front matter to `status: in-progress`, mark the first Phase 0 item
-   `[>]`, and keep this file current after each red/green boundary.
-2. Capture a locked baseline before editing behavior:
+1. Confirm the worktree/commit and rerun the deterministic OpenRouter suite:
 
    ```sh
-   dotnet restore FlexAgent.slnx --locked-mode
-   dotnet test --project tests/Sessions/FlexAgent.Sessions.Tests/FlexAgent.Sessions.Tests.csproj --no-restore
-   dotnet test --project tests/Sessions/FlexAgent.Sessions.OpenAi.Tests/FlexAgent.Sessions.OpenAi.Tests.csproj --no-restore
-   dotnet test --project tests/Runtime/FlexAgent.Runtime.Tests/FlexAgent.Runtime.Tests.csproj --no-restore
-   dotnet test --project tests/Architecture/FlexAgent.Architecture.Tests/FlexAgent.Architecture.Tests.csproj --no-restore
+   dotnet test --project tests/Sessions/FlexAgent.Sessions.OpenRouter.Tests/FlexAgent.Sessions.OpenRouter.Tests.csproj --no-restore
    ```
 
-3. Perform Phase 1 in strict TDD order. The first failing tests should cover
-   the OpenRouter adapter kind, required adapter-configuration digest, rejection
-   of `openrouter/free` as frozen identity, and the known Direct OpenAI digest.
-4. Stop for the first review after Phase 1. Do not start provider transport or
-   read the mounted key until the profile/digest, dependency, lock, and Worker
-   OCI input-closure checks are green.
+2. Confirm the amended persistent counter remains 4/12 without printing or
+   reading the key, then wait for the rate-limit window to reset.
+3. Run one explicit discovery with structured temporary reporting, record only
+   the sanitized model/provider pair, and stop on any failure.
+4. Pin and verify that pair before beginning Phase 9. Keep the task open until
+   live provider qualification is complete or its remaining blocker is
+   explicitly retained.
 
-## Initial change map
+## Implemented change map
 
 | Concern | Primary implementation/test surfaces |
 | --- | --- |

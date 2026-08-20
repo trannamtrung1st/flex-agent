@@ -419,9 +419,11 @@ internal static class WorkerDurableWorkSampling
         bool qualified)
     {
         var scope = configuration["Sessions:ModelExecution:QualificationScope"];
-        var privacy = configuration.GetValue("Sessions:ModelExecution:PrivacyPreflightConfirmed", false);
+        var syntheticDataPolicyAccepted = configuration.GetValue(
+            "Sessions:ModelExecution:SyntheticDataPolicyAccepted",
+            false);
         if (!qualified
-            || !privacy
+            || !syntheticDataPolicyAccepted
             || !string.Equals(scope, OpenRouterAdapterContracts.QualificationScope, StringComparison.Ordinal)
             || (!environment.IsDevelopment() && !environment.IsEnvironment("Testing")))
         {
@@ -467,7 +469,7 @@ internal static class WorkerDurableWorkSampling
             var registry = new InMemoryInstalledModelDeploymentProfileRegistry(profiles);
             var configurations = new InMemoryOpenRouterInstalledConfigurationRegistry(loaded);
             return new WorkerModelExecutionComposition(
-                new OpenRouterModelExecutionAdapter(registry, catalog, secrets, configurations, privacyPreflightConfirmed: true),
+                new OpenRouterModelExecutionAdapter(registry, catalog, secrets, configurations, syntheticDataPolicyAccepted: true),
                 registry,
                 catalog,
                 "openrouter",

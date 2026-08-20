@@ -9,13 +9,21 @@
 | **Approvers** | Product Lead, Architecture Lead |
 | **Effective date** | 2026-08-19 |
 | **Last reviewed** | 2026-08-20 |
+| **Decision reference** | Product Lead decision on 2026-08-20 to permit provider/OpenRouter retention and training for synthetic-only solo development while preserving all production and real-data gates |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, documentation |
-| **Governs** | Local synthetic OpenRouter calls, capability discovery, pinned free-model Session testing, credential placement, privacy/routing controls, bounded qualification evidence, and enablement limits |
+| **Governs** | Local synthetic OpenRouter calls, capability discovery, pinned free-model Session testing, credential placement, data-policy/routing controls, bounded qualification evidence, and enablement limits |
 | **Related decisions** | [ADR-008 `OSS-DEC-17`](../../architecture/decisions/ADR-008-bounded-oss-component-set.md#approved-decisions) and [ADR-010 `STACK-DEC-18`](../../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#decision) |
 
 This profile governs development and operations behavior. It does not change the
 assessment MVP, approve OpenRouter for real Participant data, qualify a
 production provider profile, or close Direct OpenAI Phase B.
+
+The 2026-08-20 development amendment accepts that OpenRouter and selected model
+providers may retain synthetic prompts/responses and may use them for training
+or product improvement. This risk acceptance is limited to intentional
+synthetic local development. It is not consent or authorization for real
+Participant, customer, Submission, transcript, Evidence, Evaluation, Result,
+Release, memory, credential, private-source, or production data.
 
 ## Approved outcome
 
@@ -52,6 +60,10 @@ Allowed content:
 - generated or intentionally synthetic documents and conversation history;
 - non-sensitive failure, cancellation, retry, reconnect, and recovery cases.
 
+Allowed synthetic content is treated as externally retained and potentially
+reused for training. Developers must not put material into this profile unless
+they are willing for it to leave the project boundary under those terms.
+
 Prohibited content:
 
 - real Participant or customer identity or contact data;
@@ -83,9 +95,10 @@ The approved adapter target is:
 | Fallback | Disabled; no alternate model, provider, payer, or endpoint substitution |
 | Parameter support | Required for every parameter sent by Flex Agent |
 | Provider pin | One provider slug in `provider.only` for repeatable Session requests |
+| Development data policy | `data_collection: "allow"`; do not enforce request-level ZDR. Provider/OpenRouter retention and training are accepted only for synthetic content |
 | Router evidence | `X-OpenRouter-Metadata: enabled`; selected model/provider and attempt count are validated, while unknown additive metadata fields are ignored |
-| Response cache | `X-OpenRouter-Cache: false`; reject `X-OpenRouter-Cache-Status: HIT`. Missing router metadata also fails. Provider `prompt_tokens_details.cached_tokens` is not a response-cache hit and is allowed under ZDR. |
-| Returned identity | Response model and selected provider identity are recorded and checked against the active development profile |
+| Response cache | `X-OpenRouter-Cache: false`; reject `X-OpenRouter-Cache-Status: HIT`. Missing router metadata also fails. Provider `prompt_tokens_details.cached_tokens` is not an OpenRouter response-cache hit and remains admissible under this retention-accepted synthetic profile. |
+| Returned identity | Response model and selected provider identity are recorded and checked against the active development profile. Discovery rejects overlong or control-character-bearing identity values before they can enter sanitized evidence or pinned configuration |
 
 Every request must include the equivalent of this provider object; the pinned
 repeatable profile replaces the placeholder with its one reviewed provider
@@ -97,15 +110,16 @@ slug:
     "only": ["<permitted-provider-slug>"],
     "allow_fallbacks": false,
     "require_parameters": true,
-    "data_collection": "deny",
-    "zdr": true
+    "data_collection": "allow",
+    "zdr": false
   }
 }
 ```
 
 The discovery request may omit `provider.only` because its purpose is to find
 an eligible model and provider. It must retain the other provider controls,
-must enable router metadata, and must disable response caching. Structured
+including the explicit synthetic-development data policy, must enable router
+metadata, and must disable response caching. Structured
 control requests additionally send `response_format.type=json_schema`,
 `json_schema.strict=true`, a closed schema, and no response-healing plugin.
 Visible-content requests stream; router metadata arrives in the terminal chunk.
@@ -119,17 +133,20 @@ may retrieve the generation record using its generation ID for diagnosis. That
 lookup does not replace missing successful-response attempt evidence and cannot
 turn the request into a passing qualification result.
 
-If no free route satisfies the capability and privacy controls, the call must
-fail. The developer must not silently remove strict structured output, permit
-data collection, disable ZDR, enable fallback, or substitute a paid/different
-model to obtain a successful response.
+If no free route satisfies the capability and routing controls, the call must
+fail. The developer must not silently remove strict structured output, enable
+fallback, or substitute a paid/different model to obtain a successful response.
+Changing the synthetic-development data policy again requires another explicit
+Product Lead decision and a new profile digest.
 
 ## Credential handling
 
 - Use a dedicated OpenRouter qualification key when practical.
-- Before a live run, the owner must verify in OpenRouter settings that private
-  input/output logging and OpenRouter use of inputs/outputs are both disabled.
-  Per-request provider filtering does not replace this account-level check.
+- Before a live run, the owner must explicitly attest that all disclosed
+  content is synthetic and accept the current account-level logging,
+  retention, training, and OpenRouter use-of-input/output settings. Missing
+  acceptance means no network call. The acceptance sentinel is development-only
+  and cannot authorize real or production data.
 - Store it as a regular mounted file outside the repository; do not pass it
   through browser/API input, source, JSON profiles, `.env`, command arguments,
   `.work/`, logs, telemetry, test fixtures, screenshots, or committed evidence.
@@ -168,7 +185,7 @@ rate-limit cases may consume the same 12-inference-request budget. Bounded
 generation-metadata lookups used only to attest a completed inference do not
 consume an inference slot, but they share the same concurrency and timeout
 controls. The harness stops on budget exhaustion, unexpected identity,
-privacy/routing-policy drift, secret failure, or any prohibited fallback.
+data-policy or routing-policy drift, secret failure, or any prohibited fallback.
 
 ## Evidence and acceptance
 
@@ -192,7 +209,8 @@ hidden reasoning.
 Acceptance requires executable evidence for streaming, strict structured
 output without response healing, cancellation, timeout, bounded retry, failure
 normalization, usage/provenance, identity matching, router metadata, cache
-denial, privacy filters, credential isolation, budget enforcement, and
+denial, explicit synthetic-data-policy acceptance, credential isolation,
+budget enforcement, and
 fail-closed no-fallback behavior. A successful result may be labeled only:
 
 ```text
@@ -216,17 +234,18 @@ owner decision.
   governing Session specification and must not fabricate an Agent Decision or
   visible message.
 - Revoked/missing credentials, route drift, missing router metadata, a cache
-  hit, unexpected returned identity, unsupported parameters, privacy-filter
-  failure, and budget exhaustion fail before further disclosure or publication.
+  hit, unexpected returned identity, unsupported parameters, missing synthetic
+  data-policy acceptance, and budget exhaustion fail before further disclosure
+  or publication.
 
 ## Implementation status
 
 Approved design. Deterministic adapter, profile, Worker opt-in, fake-transport,
 and architecture evidence exist behind `sessions.openrouter.v1`. Live OpenRouter
 network qualification and hosted Participant Text Session chat remain gated:
-live runs require owner privacy/spend preflight, and the Participant UI still
-uses the synthetic browser adapter. Passing fake-transport evidence does not
-enable production or participant-data use.
+live runs require explicit synthetic-data-policy/spend acceptance, and the
+Participant UI still uses the synthetic browser adapter. Passing fake-transport
+evidence does not enable production or participant-data use.
 
 ## References
 

@@ -318,7 +318,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
     }
 
     [Fact]
-    public void Worker_keeps_fail_closed_execution_when_openrouter_is_requested_without_preflight()
+    public void Worker_keeps_fail_closed_execution_when_openrouter_has_only_the_retired_privacy_preflight()
     {
         using var factory = _factory.WithWebHostBuilder(builder =>
         {
@@ -331,6 +331,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
             builder.UseSetting("Sessions:ModelExecution:Adapter", "openrouter");
             builder.UseSetting("Sessions:ModelExecution:Qualified", "true");
             builder.UseSetting("Sessions:ModelExecution:QualificationScope", "synthetic_development");
+            builder.UseSetting("Sessions:ModelExecution:PrivacyPreflightConfirmed", "true");
         });
 
         Assert.IsType<FailClosedModelExecutionPort>(
@@ -361,7 +362,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
                 builder.UseSetting("Sessions:ModelExecution:Adapter", "openrouter");
                 builder.UseSetting("Sessions:ModelExecution:Qualified", "true");
                 builder.UseSetting("Sessions:ModelExecution:QualificationScope", "synthetic_development");
-                builder.UseSetting("Sessions:ModelExecution:PrivacyPreflightConfirmed", "true");
+                builder.UseSetting("Sessions:ModelExecution:SyntheticDataPolicyAccepted", "true");
                 builder.UseSetting("Sessions:ModelExecution:InstalledProfilesPath", artifacts.ProfilesPath);
                 builder.UseSetting("Sessions:ModelExecution:CredentialCatalogPath", artifacts.CatalogPath);
                 builder.UseSetting("Sessions:ModelExecution:OpenRouterConfigurationsPath", artifacts.ConfigurationsPath);
@@ -394,7 +395,7 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
             builder.UseSetting("Sessions:ModelExecution:Adapter", "openrouter");
             builder.UseSetting("Sessions:ModelExecution:Qualified", "true");
             builder.UseSetting("Sessions:ModelExecution:QualificationScope", "synthetic_development");
-            builder.UseSetting("Sessions:ModelExecution:PrivacyPreflightConfirmed", "true");
+            builder.UseSetting("Sessions:ModelExecution:SyntheticDataPolicyAccepted", "true");
             builder.UseSetting("Sessions:ModelExecution:InstalledProfilesPath", artifacts.ProfilesPath);
             builder.UseSetting("Sessions:ModelExecution:CredentialCatalogPath", artifacts.CatalogPath);
             builder.UseSetting("Sessions:ModelExecution:OpenRouterConfigurationsPath", artifacts.ConfigurationsPath);
