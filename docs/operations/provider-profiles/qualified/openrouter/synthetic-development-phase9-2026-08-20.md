@@ -64,5 +64,6 @@ Not observed in this live run:
 ## Enablement
 
 Passing or partial live evidence does not enable a runtime, authorize Production
-or Staging, or close Direct OpenAI Phase B. Hosted Participant chat remains a
-separate delivery gap.
+or Staging, or close the OpenAI-compatible endpoint qualification track
+(formerly Direct OpenAI Phase B). Hosted Participant chat remains a separate
+delivery gap.

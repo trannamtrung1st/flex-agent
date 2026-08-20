@@ -9,14 +9,15 @@
 | **Approvers** | Product Lead, Architecture Lead |
 | **Effective date** | 2026-08-19 |
 | **Last reviewed** | 2026-08-20 |
-| **Decision reference** | Product Lead decisions on 2026-08-20 to (1) permit provider/OpenRouter retention and training for synthetic-only solo development and (2) approve Gemma/Darkbloom as the next bounded live qualification candidate while preserving all production, real-data, and enablement gates |
+| **Decision reference** | Product Lead decisions on 2026-08-20 to (1) permit provider/OpenRouter retention and training for synthetic-only solo development, (2) approve and execute the bounded Gemma/Darkbloom Phase 20 candidate with a fail-closed result, and (3) approve `openai/gpt-oss-20b:free` / Darkbloom as the next separately budgeted Phase 21 candidate while deferring live verification and preserving all production, real-data, and enablement gates |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, documentation |
 | **Governs** | Local synthetic OpenRouter calls, capability discovery, pinned free-model Session testing, credential placement, data-policy/routing controls, bounded qualification evidence, and enablement limits |
 | **Related decisions** | [ADR-008 `OSS-DEC-17`](../../architecture/decisions/ADR-008-bounded-oss-component-set.md#approved-decisions) and [ADR-010 `STACK-DEC-18`](../../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#decision) |
 
 This profile governs development and operations behavior. It does not change the
 assessment MVP, approve OpenRouter for real Participant data, qualify a
-production provider profile, or close Direct OpenAI Phase B.
+production provider profile, or close the OpenAI-compatible endpoint
+qualification track (formerly Direct OpenAI Phase B).
 
 The 2026-08-20 development amendment accepts that OpenRouter and selected model
 providers may retain synthetic prompts/responses and may use them for training
@@ -115,6 +116,53 @@ The Phase 20 repository blockers are closed:
 Those gates do not qualify the route. Live Phase 20 control failed Decision
 admission on both approved candidates.
 
+## Approved Phase 21 GPT-OSS candidate
+
+| Field | Approved value or rule |
+| --- | --- |
+| Decision status | Candidate and bounded verification plan approved; deterministic implementation, operator pin, and live verification not started |
+| Model | `openai/gpt-oss-20b:free` |
+| Provider slug | `darkbloom` |
+| Expected returned provider identity | `Darkbloom` |
+| Selection basis | OpenAI documents GPT-OSS 20B as supporting structured outputs and configurable reasoning; the 2026-08-20 OpenRouter catalog advertised `structured_outputs` and `response_format` for the exact free Darkbloom route |
+| Reasoning request | `reasoning.effort: "low"` and `reasoning.exclude: true`; reasoning remains counted in output usage and must not be persisted or exposed |
+| Phase 21 output ceiling | 1,024 total output tokens per request, including reasoning; this is a candidate-specific bound and does not rewrite historical 256-token evidence |
+| Visible-content acceptance | The content phase must still finish below 256 output tokens and contain visible, non-truncated Participant-facing text |
+| Qualification budget | New Phase 21 ledger, maximum 4 inference requests, concurrency 1, maximum USD 2; starts at 0/4 only after immediate owner confirmation |
+| Historical budget handling | Preserve the retention-accepted 11/12 and strict-policy 5/12 ledgers; do not spend or relabel historical slot 12 |
+| Verification state | Deferred by the owner; no credential inspection, operator file, network request, qualification label, or runtime enablement is authorized by this documentation update alone |
+
+GPT-OSS 20B is selected because its native structured-output contract is a
+closer fit for `agent-decision.v2` than repeating the failed Gemma, Nemotron
+Nano, or Lightning probes. Candidate selection is not a reliability claim.
+OpenRouter route behavior remains independently variable, and catalog support
+does not prove that the exact free provider can return an admissible Decision.
+
+Before any live request, Phase 21 must:
+
+1. recheck that the exact free Darkbloom endpoint is present, zero-priced, and
+   advertises every sent parameter, including strict structured output and the
+   selected reasoning controls;
+2. add deterministic request-shape, parser, budget, phase, identity, and
+   fail-closed tests before changing the live runner;
+3. create a distinct owner-only GPT-OSS operator profile outside Git, compute
+   and load-verify its profile and adapter-configuration digests, and bind the
+   runner to those exact values rather than environment-selected identity;
+4. keep the historical Phase 9 and Phase 20 pins, ledgers, runners, and evidence
+   immutable and independently inspectable;
+5. obtain immediate owner confirmation of the synthetic-only data-policy,
+   credential spend/expiry boundary, new 0/4 ledger, and exact candidate; and
+6. reserve participant-visible content only after the same frozen pair returns
+   one canonically admitted structured Agent Decision. A malformed, truncated,
+   unsupported, cached, fallback, identity-mismatched, or policy-drifted result
+   stops without content publication or qualification.
+
+The four-request ceiling provides one control request, one content request only
+after control passes, and at most one bounded transient retry per operation
+under the existing two-attempt rule. A schema, capability, identity, cache,
+policy, or malformed-output failure is not transient and must not be retried.
+Unused requests confer no permission to test another model or provider.
+
 ## Data boundary
 
 Allowed content:
@@ -148,7 +196,7 @@ The approved adapter target is:
 
 | Field | Approved value or rule |
 | --- | --- |
-| Adapter kind | Distinct `openrouter` adapter; never `direct_openai` |
+| Adapter kind | Distinct `openrouter` adapter; never `openai_compatible` (and never the legacy `direct_openai`) |
 | Contract | Versioned Sessions-owned adapter behind the provider-neutral execution port |
 | API surface | OpenAI-compatible Chat Completions |
 | Base URL | `https://openrouter.ai/api/v1` |
@@ -235,10 +283,10 @@ use the mounted-file boundary.
 
 | Bound | Approved value |
 | --- | --- |
-| Maximum inference requests in one qualification run | 12 |
+| Maximum inference requests in one qualification run | Historical run: 12; separately approved Phase 21 GPT-OSS run: 4 |
 | Maximum concurrent requests | 1 |
 | Maximum Flex Agent inference attempts per operation | 2; every OpenRouter request must report router attempt `1` |
-| Maximum output tokens per request | 256 |
+| Maximum output tokens per request | Historical and default OpenRouter profile: 256; Phase 21 GPT-OSS candidate: 1,024 total including reasoning, while visible-content acceptance remains below 256 |
 | Structured-control timeout | 30 seconds |
 | Participant-content timeout | 60 seconds |
 | Maximum total provider spend | USD 2 |
@@ -321,6 +369,13 @@ Participant Text Session chat remains gated on the synthetic browser adapter.
 Passing fake-transport, catalog, or partial live evidence does not enable
 production or participant-data use.
 
+Phase 21 planning now approves `openai/gpt-oss-20b:free` / `darkbloom` /
+`Darkbloom` as the next candidate with low, excluded reasoning, a distinct
+1,024-token candidate ceiling, and a fresh 0/4 budget. No Phase 21 code,
+operator pin, credential access, live request, or qualification evidence exists
+yet. Verification is deliberately deferred and the acceptance label remains
+unapplied.
+
 ## References
 
 - [Provider profile index](README.md)
@@ -338,3 +393,6 @@ production or participant-data use.
 - [OpenRouter generation metadata](https://openrouter.ai/docs/api/api-reference/generations/get-generation)
 - [Gemma free-route endpoint catalog](https://openrouter.ai/api/v1/models/google/gemma-4-26b-a4b-it-20260403%3Afree/endpoints)
 - [Nemotron Nano free-route endpoint catalog](https://openrouter.ai/api/v1/models/nvidia/nemotron-nano-9b-v2%3Afree/endpoints)
+- [OpenAI GPT-OSS 20B model documentation](https://developers.openai.com/api/docs/models/gpt-oss-20b)
+- [OpenRouter GPT-OSS 20B free model](https://openrouter.ai/openai/gpt-oss-20b:free)
+- [OpenRouter reasoning-token controls](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens)

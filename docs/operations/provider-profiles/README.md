@@ -7,11 +7,12 @@ model-provider profiles. It does not select a product-default model.
 - A real Session uses the frozen trusted binding, not Worker-global
   `Sessions:ModelDeployment:*` values, for provider, endpoint, model, and
   credential-binding identity.
-- Direct OpenAI fake-transport contract tests are the deterministic evidence for
-  the adapter. Live qualification against one exact owner-selected profile is
-  opt-in (`FLEXAGENT_LIVE_OPENAI_QUALIFICATION=1`) and remains a completion
-  blocker until that profile, mounted credential, and data-policy determination
-  are supplied.
+- The approved target is the vendor-neutral `openai_compatible` adapter contract
+  for an exact operator-selected external, Organization-hosted, self-hosted, or
+  managed endpoint. OpenAI-hosted service is not preferred or assumed. The
+  current `direct_openai` adapter, `sessions.openai.v1` contract, environment
+  variable, and `FlexAgent.Sessions.OpenAi` tests are legacy implementation
+  surfaces; they remain default-off and do not qualify the approved target.
 - The approved [OpenRouter synthetic-development profile](openrouter-synthetic-development.md)
   has a distinct `sessions.openrouter.v1` adapter and Worker synthetic-development
   opt-in. Fake-transport evidence exists. A 2026-08-20 pinned live matrix proved
@@ -21,25 +22,42 @@ model-provider profiles. It does not select a product-default model.
   next bounded live qualification candidate. Phase 20 implemented the distinct
   gate/runner, operator pins, and reserved control probes; both Gemma and the
   Nano backup failed structured Decision admission without reserving content,
-  so the run is not labeled `qualified_for: synthetic_development`. Hosted
+  so the run is not labeled `qualified_for: synthetic_development`. The next
+  approved candidate is `openai/gpt-oss-20b:free` / `darkbloom` / `Darkbloom`
+  under a separately budgeted Phase 21 with low, excluded reasoning and a
+  1,024-token candidate ceiling; implementation and live verification remain
+  pending, and no qualification label or enablement follows from the plan. Hosted
   Participant chat remains gated. `openrouter/free` is discovery/smoke only;
   repeatable Session testing pins one concrete `:free` model and one permitted
-  provider slug. This evidence does not qualify production or close Direct OpenAI
-  Phase B.
+  provider slug. This evidence does not qualify production or close the
+  OpenAI-compatible endpoint qualification track (formerly Direct OpenAI Phase
+  B).
 - The [Keycloak OIDC contract profile](keycloak-oidc-contract.md) pins
   Keycloak `26.7.0` for local/CI human-authentication qualification. It is not
   a Production or real-Participant enablement.
 - Do not commit API keys, prompts, participant data, or raw provider payloads
   here.
 
-Example shape: `direct-openai.profile.example.json`. Copy it outside the
-repository, replace placeholders, and point Worker
-`Sessions:ModelExecution:InstalledProfilesPath` and
-`Sessions:ModelExecution:CredentialCatalogPath` at the operator-managed files.
-Set `Sessions:ModelExecution:Qualified=true` only after the exact profile has
-passed the Direct OpenAI subset of `GATE-STACK-PROVIDERS`.
+Target shape: `openai-compatible.profile.example.json`. It documents the
+approved future identifiers and is intentionally marked non-enableable because
+the runtime migration has not been implemented. Do not point Worker at this
+example or set `Sessions:ModelExecution:Qualified=true` yet. After the
+implementation migration, copy the target shape outside the repository,
+replace placeholders, and qualify the exact provider/operator, endpoint,
+model/version-or-fingerprint, capability profile, credential mode, and data
+policy against `GATE-STACK-PROVIDERS`.
 
-Do not point the Direct OpenAI adapter at OpenRouter: the adapters have different
-kinds, base-path, routing, privacy, identity, and evidence contracts. OpenRouter
+Organization-hosted private endpoints require the additional approved
+destination-policy evidence for canonical origin/base path, DNS resolution and
+rebinding, private/link-local/metadata destinations, redirects, TLS trust,
+egress, endpoint ownership, credential isolation, and cross-Organization
+denial. The legacy adapter's literal-IP and same-origin checks are retained as
+partial controls, but they do not resolve DNS or prove rebinding resistance.
+The legacy adapter therefore remains disabled for private endpoints and must
+not be treated as satisfying this gate.
+
+Do not point the generic OpenAI-compatible adapter at OpenRouter: the adapters
+have different kinds, base-path, routing, privacy, identity, and evidence
+contracts. OpenRouter
 operator examples are `openrouter-synthetic.profile.example.json` and
 `openrouter-synthetic.configuration.example.json`; they are not enablement.

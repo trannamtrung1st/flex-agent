@@ -1,0 +1,19 @@
+[
+  {
+    "profileId": "openai-compatible.example.do-not-enable",
+    "profileVersion": "1",
+    "adapterKind": "openai_compatible",
+    "adapterContractVersion": "sessions.openai_compatible.v1",
+    "approvedHttpsOrigin": "https://models.organization.example/",
+    "requestedModel": "replace-with-operator-selected-model",
+    "resolvedModelVersion": "replace-with-immutable-version-or-fingerprint",
+    "capabilityProfileId": "p0.text.structured-control",
+    "credentialMode": "organization_byok",
+    "maxOutputTokens": 256,
+    "controlTimeoutMilliseconds": 30000,
+    "contentTimeoutMilliseconds": 60000,
+    "maxProviderRequestAttempts": 2,
+    "providerId": "replace-with-actual-provider-or-runtime-id",
+    "adapterConfigurationDigest": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+]

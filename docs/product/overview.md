@@ -10,7 +10,7 @@
 | **Version** | 0.4 |
 | **Effective date** | 2026-08-14 |
 | **Last reviewed** | 2026-08-20 |
-| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; 2026-08-19 provider sequencing review preserved product meaning and synthetic-only OpenRouter scope; 2026-08-20 delivery review approved OIDC/application-session foundation as a separate predecessor to hosted Participant Session start; supersedes v0.3 |
+| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; 2026-08-19 provider sequencing review preserved product meaning and synthetic-only OpenRouter scope; 2026-08-20 delivery review approved OIDC/application-session foundation as a separate predecessor to hosted Participant Session start; 2026-08-20 vendor-neutral OpenAI-compatible endpoint decision preserved model-provider replaceability and product scope; supersedes v0.3 |
 
 Vision, positioning, and principles. Canonical concepts, scope boundaries, and requirements live in linked product and requirements documents.
 
@@ -55,7 +55,8 @@ provider-credential/Organization-endpoint isolation. The approved
 [OpenRouter synthetic-development profile](../operations/provider-profiles/openrouter-synthetic-development.md)
 may exercise real free-model calls and natural local chat with synthetic,
 non-sensitive content, but it does not qualify production, accept Participant
-data, or close the separately blocked Direct OpenAI Phase B. An affected
+data, or close the separately blocked OpenAI-compatible endpoint qualification
+track (formerly Direct OpenAI Phase B). An affected
 integration must not be accepted or enabled for real use until its gates pass,
 and the production pilot remains blocked on the evidence listed in
 [MVP architecture implementation readiness](../architecture/mvp-architecture.md#implementation-readiness).
@@ -115,6 +116,13 @@ use an allowed provider/model profile without redefining those concepts;
 qualification, credential isolation, endpoint approval, and frozen execution
 provenance remain mandatory, and self-service model-plugin installation is not
 an MVP requirement.
+
+OpenAI compatibility is a replaceable execution protocol, not a provider or
+model commitment. Organizations may use an approved Organization-hosted,
+on-premises, managed, or external compatible endpoint without changing product
+meaning. OpenAI-hosted service is not preferred or assumed; if selected, it is
+qualified through the same exact-profile boundary as any other compatible
+endpoint.
 
 ## Product validation
 

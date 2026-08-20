@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved — 2026-08-06; amended 2026-08-08 and 2026-08-19
+Approved — 2026-08-06; amended 2026-08-08, 2026-08-19, and 2026-08-20
 
 Component-family and provider-boundary selection is approved. A profile is not
 production-certified until the applicable compatibility, security, recovery,
@@ -18,8 +18,8 @@ one model, provider, or runtime part of Flex Agent's product identity.
 | **Decision owners** | Architecture Lead, Operations owner |
 | **Approvers** | Product Lead, Architecture Lead, Operations owner, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, documentation |
-| **Last amended** | 2026-08-19 |
-| **Amendment reference** | Product Lead approval on 2026-08-19 of the bounded OpenRouter synthetic-development profile; preserves the 2026-08-08 model-neutral provider-profile decision |
+| **Last amended** | 2026-08-20 |
+| **Amendment reference** | Product Lead approval on 2026-08-20 to replace the vendor-specific Direct OpenAI target with one vendor-neutral OpenAI-compatible endpoint contract; OpenAI-hosted service remains only a potentially qualified endpoint and Organization-hosted/on-premises runtimes are first-class targets. Preserves the 2026-08-19 bounded OpenRouter synthetic-development decision and the 2026-08-08 model-neutral provider-profile decision. |
 | **Resolves** | `Q-ARCH-14` and `Q-ARCH-15` in the [MVP architecture](../mvp-architecture.md#approved-decision-disposition); `Q-OSS-1` and `Q-OSS-2` in this ADR |
 | **Governs** | Reference infrastructure products, provider/deployment defaults, supported version lines, profile placement, compatibility evidence, and replacement policy |
 
@@ -61,6 +61,8 @@ separate machine-readable lock manifest.
 - The gateway provides transport controls, not domain authorization.
 - Model providers are external sensitive-data boundaries and never become
   workflow or evaluation authorities.
+- OpenAI compatibility describes a versioned wire-protocol subset, not the
+  endpoint operator, model developer, hosting location, or trust level.
 - Provider credentials resolve only from trusted deployment or Organization
   secret bindings. Participant, Session, Activity, or browser input can never
   supply or widen a credential binding, and credential failure never triggers
@@ -102,12 +104,12 @@ separate machine-readable lock manifest.
 | `OSS-DEC-9` | Use Docker Engine and the Compose Specification through Docker Compose `5.x` for local development, CI, and a single-host evaluation pilot. | The evaluation pilot is non-production and synthetic-data-only. Kubernetes is deferred; a later `kind` profile may test adapters but is not a production topology. |
 | `OSS-DEC-10` | Make backup execution an operator/configuration-management responsibility using component-native facilities. | Flex Agent does not ship a backup manager, scheduler, UI, pgBackRest, or restic as an MVP baseline. |
 | `OSS-DEC-11` | Do not package PostgreSQL HA for the MVP. | A synthetic evaluation pilot may be explicitly non-HA. A production pilot must satisfy ADR-006's resilience/recovery baseline or record an explicitly approved weaker target and risk acceptance. Patroni remains a later evidence-driven option. |
-| `OSS-DEC-12` | Use a provider-neutral `ModelProvider` contract with a deterministic fake, approved native provider adapters, and an OpenAI-compatible adapter for approved external or self-hosted endpoints. Direct OpenAI is the first implementation adapter; vLLM is an optional reference self-hosted runtime, not an exclusive runtime or model selection. | Provider and model changes remain outside domain policy. Dynamic/free routing is never used for a frozen real assessment. Additional native or protocol-compatible adapters may be added after contract, security, privacy, and supply-chain review. |
+| `OSS-DEC-12` | Use a provider-neutral `ModelProvider` contract with a deterministic fake, approved native provider adapters, and one vendor-neutral OpenAI-compatible adapter for approved external, Organization-hosted, or self-hosted endpoints. The adapter targets the explicitly qualified OpenAI-compatible Chat Completions subset and does not imply OpenAI-hosted service or OpenAI-developed models. OpenAI-hosted service may use this same path only as another exact qualified endpoint; it receives no preferred status or separate Direct OpenAI contract. vLLM is an optional reference self-hosted runtime, not an exclusive runtime or model selection. | Provider and model changes remain outside domain policy. Compatibility is evidence for an exact adapter/provider/endpoint/model profile, never an origin-only assumption. Dynamic/free routing is never used for a frozen real assessment. Additional native or protocol-compatible adapters may be added after contract, security, privacy, and supply-chain review. |
 | `OSS-DEC-13` | Require pinned artifacts, immutable digests, SBOMs, vulnerability scanning, provenance where available, and controlled updates. | A product family/version in this ADR is not permission to use a floating image tag. |
 | `OSS-DEC-14` | Support operator-provisioned deployment profiles and Organization-scoped BYOK profiles for installed adapters in the MVP. Preserve the same profile boundary for a later optional Organization-owned model endpoint, enabled only after its additional gates pass. | Raw keys are never stored in product records or entered by Participants. Adapter, model, and credential selection—and endpoint selection when enabled—are frozen and audited by reference; missing, revoked, mismatched, or cross-Organization bindings fail closed without silent fallback. |
 | `OSS-DEC-15` | Do not select a normative model family, model artifact, quantization, or hardware envelope. Qualify concrete provider deployment profiles independently against the model-provider gate, and permit multiple qualified profiles to coexist. | Certification belongs to the exact adapter/provider/endpoint/model/version-or-fingerprint/capability/credential-policy combination. Replacing a model or adding an Organization model does not change domain contracts, but the new profile must pass its applicable gates before real use. |
 | `OSS-DEC-16` | Keep `grafana/otel-lgtm` operator-pulled and optional for local development and CI; do not bundle or redistribute it in the MVP distribution. | LGTM is development infrastructure, not product runtime or the production monitoring stack. This resolves `Q-OSS-2` for the MVP without making a legal conclusion about future redistribution. |
-| `OSS-DEC-17` | Permit real OpenRouter calls for local synthetic development under the approved [OpenRouter synthetic-development profile](../../operations/provider-profiles/openrouter-synthetic-development.md). `openrouter/free` may be used only for capability discovery and smoke testing; repeatable interactive Session testing must pin a concrete `:free` model and one permitted provider slug. The 2026-08-20 development amendment permits provider/OpenRouter retention and training only for intentional synthetic content behind explicit owner acceptance. | Natural local chat may exercise the real provider path with synthetic, non-sensitive content, but neither a random free-router result nor a pinned free model becomes production-qualified. The relaxed development data policy is not authorization for real Participant/customer data or Production/Staging. Direct OpenAI qualification remains separate, runtime enablement remains explicit, and every missing identity, synthetic-data-policy acceptance, credential, routing, or budget control fails closed. |
+| `OSS-DEC-17` | Permit real OpenRouter calls for local synthetic development under the approved [OpenRouter synthetic-development profile](../../operations/provider-profiles/openrouter-synthetic-development.md). `openrouter/free` may be used only for capability discovery and smoke testing; repeatable interactive Session testing must pin a concrete `:free` model and one permitted provider slug. The 2026-08-20 development amendment permits provider/OpenRouter retention and training only for intentional synthetic content behind explicit owner acceptance. | Natural local chat may exercise the real provider path with synthetic, non-sensitive content, but neither a random free-router result nor a pinned free model becomes production-qualified. The relaxed development data policy is not authorization for real Participant/customer data or Production/Staging. OpenAI-compatible endpoint qualification remains separate, runtime enablement remains explicit, and every missing identity, synthetic-data-policy acceptance, credential, routing, or budget control fails closed. |
 
 ## Selected OSS components
 
@@ -217,7 +219,7 @@ Approved profiles are:
 | Profile | Provider configuration | Constraint |
 | --- | --- | --- |
 | Automated tests | Deterministic fake/in-memory provider | Required for repeatable tests; no remote free model is a deterministic test oracle. |
-| Local exploratory development | Distinct OpenRouter adapter using its OpenAI-compatible Chat Completions surface; `openrouter/free` or a specific `:free` model may be used under the approved synthetic-development profile | Synthetic data only. Dynamic/free routing cannot create a frozen real assessment manifest, and OpenRouter must not be substituted into the Direct OpenAI adapter profile. |
+| Local exploratory development | Distinct OpenRouter adapter using its OpenAI-compatible Chat Completions surface; `openrouter/free` or a specific `:free` model may be used under the approved synthetic-development profile | Synthetic data only. Dynamic/free routing cannot create a frozen real assessment manifest, and OpenRouter must not be substituted into the generic OpenAI-compatible adapter profile. |
 | Deployment-managed external provider | An installed native or protocol-compatible adapter with an operator-managed endpoint/deployment and credential binding | No model is the product default. The exact profile must pass quality, structured-output, latency, privacy, identity, and capacity gates before real use. |
 | Optional Organization-owned model extension | An installed approved adapter with an Organization-scoped endpoint/deployment, model reference, capability profile, and BYOK binding | Not an MVP acceptance dependency. Before enablement, the endpoint is operator-approved and server-resolved; Organization configuration cannot introduce arbitrary runtime code, unvalidated URLs, cross-Organization credentials, or silent fallback. |
 | Self-hosted | An installed protocol-compatible or native adapter pointed to an operator-approved runtime such as vLLM | Each concrete runtime/model artifact profile pins source, revision, digest, quantization where applicable, hardware envelope, and license evidence before real use. No particular model family is required. |
@@ -302,11 +304,41 @@ executable adapter code are prohibited. A self-service plugin installation
 surface requires a separate threat model, signing/provenance policy, isolation
 boundary, feature specification, and ADR.
 
-Direct OpenAI is the first implemented external adapter, not the preferred or
-core model. The same BYOK contract may support additional native or compatible
-adapters after approval; none becomes an MVP domain dependency. OpenRouter
-credentials and OpenRouter BYOK pass-through remain
-synthetic-development-only in the MVP.
+The approved external-adapter target is OpenAI-compatible rather than Direct
+OpenAI. It represents a bounded protocol contract and never implies an OpenAI
+provider, model family, account, or public network destination. An
+Organization-hosted or on-premises runtime is a first-class target when its
+exact endpoint, model identity, capability behavior, credential mode, data
+policy, and network controls pass the applicable gates. OpenAI-hosted service
+may be selected only through the same qualification path and receives no
+preferred status. OpenRouter credentials and OpenRouter BYOK pass-through
+remain synthetic-development-only in the MVP because its routing, privacy,
+identity, metadata, and base-path behavior require its distinct adapter.
+
+The initial OpenAI-compatible surface is the versioned Chat Completions subset
+actually exercised by Flex Agent, including structured control and
+participant-visible streaming. A compatible-looking URL or successful basic
+request is not qualification. The endpoint must prove every required request,
+response, model-identity, usage/provenance, timeout, cancellation, retry, and
+failure behavior without silent fallback.
+
+Organization-hosted private endpoints remain operator-installed and
+allowlisted; they are never accepted from Activity, Session, Participant, or
+browser input. Private-network enablement requires an explicit destination
+policy covering canonical origin and base path, DNS resolution and rebinding,
+private/link-local/metadata ranges, redirects, TLS trust, egress, and endpoint
+ownership. The versioned adapter configuration and its digest-bound deployment
+profile must cover the exact base path and destination-policy identity; the
+origin field alone is insufficient compatibility or authorization evidence.
+
+In this decision, an Organization-hosted or on-premises target means an
+operator-installed deployment profile. It does not authorize Organization
+self-service endpoint entry or adapter installation; that later path remains
+outside MVP acceptance under `OSS-DEC-14`. Until the private-destination policy
+and its negative tests exist, the legacy adapter remains disabled for private
+endpoints. Its literal-IP and same-origin checks are partial controls, not DNS
+resolution/rebinding evidence, and must not be represented as satisfying this
+gate.
 
 Cursor SDK is not selected. Its agent harness, filesystem/tool permissions,
 public-beta stability, and usage model add complexity not required for bounded
@@ -331,7 +363,7 @@ classification determines which profile and evidence gates apply.
 | Profile | Included defaults | Explicit limitation |
 | --- | --- | --- |
 | Local development and CI | NGINX, Keycloak, PostgreSQL, SeaweedFS, OpenTelemetry Collector, optional `otel-lgtm`, synthetic mounted secrets, Docker Compose, disabled-by-approved-policy external scanning, fake provider for automation, and optional OpenRouter free models for manual synthetic testing | Disposable and single-host. No real participant data, production security, durability, HA, RPO, or RTO claim. |
-| On-premises single-host evaluation pilot | Same application contracts and reference components; operator-mounted secrets; operator-owned OTLP backend; component-native backup procedure; explicitly selected scanner mode; fake provider or direct OpenAI | Synthetic data only; explicitly non-production and non-HA, with no durability, RPO, or RTO claim. |
+| On-premises single-host evaluation pilot | Same application contracts and reference components; operator-mounted secrets; operator-owned OTLP backend; component-native backup procedure; explicitly selected scanner mode; fake provider or an exact qualified OpenAI-compatible endpoint | Synthetic data only; explicitly non-production and non-HA, with no durability, RPO, or RTO claim. Private endpoint routing remains disabled until its explicit destination-policy gate passes. |
 | Production-pilot candidate | Redundant stateless application and gateway instances; operator-supplied PostgreSQL HA and replicated artifact storage; operator secret and telemetry facilities; external recovery copies; approved model provider and credential binding | Orchestrator-neutral and uncertified until security, provider/privacy, credential isolation, upgrade, backup/restore, load, failover, and recovery gates pass. |
 | Optional managed deployment | Compatible managed identity, PostgreSQL, S3, secret, OTLP, and model services behind the same contracts | Every substitute needs contract tests and must preserve data meaning, authorization, export, and recovery portability. |
 

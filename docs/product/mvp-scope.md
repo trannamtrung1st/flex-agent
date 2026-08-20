@@ -11,8 +11,8 @@ First product experience, platform direction, explicit non-goals, and deferred c
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.4 |
 | **Effective date** | 2026-08-14 |
-| **Last reviewed** | 2026-08-19 |
-| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; 2026-08-19 provider/host sequencing review preserved scope; supersedes v0.3 |
+| **Last reviewed** | 2026-08-20 |
+| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; 2026-08-19 provider/host sequencing review and 2026-08-20 vendor-neutral OpenAI-compatible endpoint decision preserved product scope; supersedes v0.3 |
 | **Related decisions** | Approved [Concept model v0.5](concept-model.md), [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
 
 Version 0.4 is **approved** and supersedes v0.3. It preserves the seven-step MVP
@@ -217,7 +217,8 @@ In parallel, complete ADR-008's applicable compatibility and
 provider-credential evidence. The approved
 [OpenRouter synthetic-development profile](../operations/provider-profiles/openrouter-synthetic-development.md)
 may use real free-model calls for non-sensitive local chat but cannot qualify a
-real assessment provider or replace Direct OpenAI Phase B. Qualify at least one
+real assessment provider or replace the OpenAI-compatible endpoint
+qualification track (formerly Direct OpenAI Phase B). Qualify at least one
 concrete provider deployment profile for each claimed execution profile without
 making its model a product dependency. Canonical Session runtime schemas and fixtures exist;
 HTTP runtime validation and live-provider contract suites remain open. An

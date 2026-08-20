@@ -72,6 +72,7 @@ Not observed in this live run:
 ## Enablement
 
 Passing or partial live evidence does not enable a runtime, authorize Production
-or Staging, or close Direct OpenAI Phase B. Hosted Participant chat remains a
-separate delivery gap. A further live slot requires a new owner-approved phase
-and candidate; do not reuse Gemma or Nano control requests.
+or Staging, or close the OpenAI-compatible endpoint qualification track
+(formerly Direct OpenAI Phase B). Hosted Participant chat remains a separate
+delivery gap. A further live slot requires a new owner-approved phase and
+candidate; do not reuse Gemma or Nano control requests.

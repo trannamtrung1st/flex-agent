@@ -50,14 +50,17 @@ workspace boundaries, and application dependency policy. Its schema, RFC 8785,
 database, provider, artifact, session, and operability gates remain required
 implementation evidence.
 
-The 2026-08-19 approved amendments to
+The 2026-08-19 and 2026-08-20 approved amendments to
 [ADR-008](decisions/ADR-008-bounded-oss-component-set.md) and
 [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md)
-authorize a distinct
+authorize the vendor-neutral OpenAI-compatible endpoint target and a distinct
 [OpenRouter synthetic-development profile](../operations/provider-profiles/openrouter-synthetic-development.md).
 It permits real external calls and natural local text chat with synthetic,
 non-sensitive content while keeping random free routing out of frozen Sessions,
-production qualification, and the Direct OpenAI evidence track.
+production qualification, and the separate OpenAI-compatible endpoint evidence
+track. OpenAI-hosted service is merely one potentially qualified compatible
+endpoint; Organization-hosted and on-premises runtimes are first-class targets
+subject to exact-profile and private-destination gates.
 
 The [backend module architecture](backend-module-architecture.md) is approved
 as the implementation guide for applying ADR-006 and ADR-010 consistently. It
