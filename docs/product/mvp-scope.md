@@ -204,8 +204,9 @@ Continue remaining production gates after the Sessions runtime slice defined by
 Structured Agent Invocation/Decision, next-timer, and P0-compatible output
 envelope behavior exists in Sessions, contracts, PostgreSQL, and the synthetic
 Participant path. Production HTTP SSE and Worker polling are implemented host
-successors; exact-profile provider qualification, OIDC application-session,
-hosted Session start/configuration, and other production gates remain against
+successors; the human OIDC application-session foundation is implemented and
+independently reviewed while Docker-backed Keycloak/`0033` evidence remains
+open. Exact-profile provider qualification, hosted Session start/configuration, and other production gates remain against
 approved Concept model v0.5, MVP scope v0.4, and current approved feature
 specifications,
 [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md),

@@ -26,9 +26,18 @@ public sealed class JwksKeySnapshot : IDisposable
         {
             foreach (var (kid, value) in parameters)
             {
-                var rsa = RSA.Create();
-                rsa.ImportParameters(value);
-                keys[kid] = rsa;
+                RSA? rsa = null;
+                try
+                {
+                    rsa = RSA.Create();
+                    rsa.ImportParameters(value);
+                    keys[kid] = rsa;
+                    rsa = null;
+                }
+                finally
+                {
+                    rsa?.Dispose();
+                }
             }
         }
         catch (CryptographicException)

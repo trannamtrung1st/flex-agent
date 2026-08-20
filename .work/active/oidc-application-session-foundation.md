@@ -331,6 +331,9 @@ ADR-010. The retained identifiers preserve planning traceability.
       callback, and JWKS request-local RSA snapshots.
 - [x] External review of `44a697b`: scope `sid+sub` logout to one provider
       session, and fail closed on malformed JWKS RSA parameters.
+- [x] External review of `5c0b539`: approve the code change; dispose the
+      failed RSA in `TryFromParameters`; add a PostgreSQL sibling-session
+      logout case; record approval in task and readiness docs.
 - [>] Remaining evidence: Docker-backed PostgreSQL/migration/live Keycloak
       matrix, leakage scans, and independent security review. Docker is not
       running in this execution environment.
@@ -377,13 +380,11 @@ ADR-010. The retained identifiers preserve planning traceability.
 
 # Current state
 
-Follow-up review of `44a697b` requested `sid+sub` logout scoping and
-exception-safe JWKS import. Logout with both claims now tombstones only that
-provider session (intersected with `(iss, sub)` when both are present) and
-does not write an identity watermark. Malformed RSA JWKS parameters are
-skipped or return null instead of throwing. Docker still blocks
-PostgreSQL/`0033` and live Keycloak evidence. Full `AC-OPS-4` stays Partial.
-The foundation is not marked complete.
+External review of `5c0b539` **approves the code change**. The remaining P3
+failed-RSA disposal leak is fixed, and a PostgreSQL sibling-session
+`sid+sub` logout case is added. Docker still blocks execution of
+`0033`/that integration test and the live Keycloak matrix. Full `AC-OPS-4`
+stays Partial. The foundation is not marked complete.
 
 The next successor after this task is **not** a direct Session-row creation
 endpoint. It must implement or depend on approved Activity/Cohort activation,
@@ -391,8 +392,20 @@ Enrollment, Submission/Attempt entitlement, acknowledgment, resolved
 configuration, manifest, exact Submission-version binding, and the ADR-005
 atomic Session-start boundary before exposing hosted Participant start.
 
+# Decisions
+
+- External review of `5c0b539` approved the human-authentication code change
+  on 2026-08-20. Remaining work is evidence, not a merge-blocking defect:
+  dispose the failed RSA in `TryFromParameters` (done), run Docker-backed
+  PostgreSQL/`0033` including the sibling-session logout case, and run the
+  live Keycloak/NGINX matrix before claiming foundation completion.
+
 # Findings / deviations
 
+- External review of `5c0b539` (approved): `sid+sub` logout scoping and
+  malformed-JWKS fail-closed handling cleared the prior P1/P2 blockers. The
+  P3 uncommitted-RSA dispose leak is fixed. The PostgreSQL sibling-session
+  case is added but unexecuted here because Docker is unavailable.
 - External review of `be6ad7f` (fixed): login `state` is bound to a short-lived
   `HttpOnly`/`Secure`/`SameSite=Lax` correlation cookie required on callback
   and cleared on success and failure.
@@ -505,7 +518,7 @@ atomic Session-start boundary before exposing hosted Participant start.
 | PostgreSQL integration / migration `0031` | blocked | Docker socket unavailable; `HumanAuthenticationPersistenceTests` and `MigrationUpgradeTests` compiled but were not executed |
 | Live Keycloak 26.7.0 back-channel logout | blocked | Same Docker unavailability; realm now sets `backchannel.logout.url`/`adminUrl`; `KeycloakBackChannelLogoutTests` compiled |
 | Leakage scans / supply-chain / OCI | not run | Not executed in this environment |
-| Independent security/privacy review | not run | Self-review findings recorded; external review still required |
+| Independent security/privacy review | approved for the `5c0b539` code change | External review approved `sid+sub` logout scoping and JWKS fail-closed handling; Docker-backed PostgreSQL/`0033` and live Keycloak remain required before foundation completion |
 | `74ef167` follow-up runtime | passed | Focused human-auth/OIDC/JWKS/advisory runtime **41** passed on 2026-08-20, including login-after-logout tombstone and unknown-`kid` cooldown |
 | `74ef167` follow-up architecture | passed | `FlexAgent.Architecture.Tests` **35** passed on 2026-08-20 |
 | `74ef167` follow-up hosts | passed | `FlexAgent.Api` and `FlexAgent.Worker` built with 0 warnings |
@@ -519,6 +532,7 @@ atomic Session-start boundary before exposing hosted Participant start.
 | `44a697b` follow-up runtime | passed | Focused human-auth/JWKS/workload runtime **62** passed on 2026-08-20, including `sid+sub` sibling-session survival and malformed JWKS fail-closed |
 | `44a697b` follow-up architecture | passed | `FlexAgent.Architecture.Tests` **35** passed on 2026-08-20 |
 | `44a697b` confirmation pass | passed | Re-read sid-only / sub-only / sid+sub logout branches and JWKS import fail-closed; focused runtime **62** and architecture **35** passed again on 2026-08-20 |
+| `5c0b539` approval cleanup | passed | Failed-RSA dispose and focused JWKS/logout runtime tests; docs readiness rows updated. PostgreSQL sibling-session case compiled, not executed |
 
 # Blockers
 

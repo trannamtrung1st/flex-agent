@@ -171,4 +171,71 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
             new { Id = login.ApplicationSessionId });
         Assert.Equal(1, successors);
     }
+
+    [Fact]
+    public async Task Sid_and_sub_logout_revokes_only_the_identified_provider_session()
+    {
+        var seeded = await Fixture.SeedOrganizationAsync();
+        var issuer = "https://issuer.example/realms/flex";
+        var subject = "subject-" + seeded.ActorId.ToString("N")[..8];
+        var identity = new ExactIssuerSubject(issuer, subject);
+        var bindings = new PostgresHumanIdentityBindingStore(Fixture.Services.ConnectionAccessor);
+        var sessions = new PostgresApplicationSessionStore(Fixture.Services.ConnectionAccessor);
+        var audit = new PostgresAuthenticationSecurityEventWriter(Fixture.Services.ConnectionAccessor);
+        var coordinator = new HumanAuthenticationCoordinator(
+            bindings,
+            sessions,
+            audit,
+            new HmacLookupDigestCalculator("integration-lookup-key-32-bytes!!"u8.ToArray()),
+            new PostgresDatabaseClock(Fixture.Services.ConnectionAccessor),
+            new HumanAuthenticationOptions { Issuer = issuer });
+        Assert.Null(await bindings.TryProvisionAsync(
+            new HumanIdentityBinding(Guid.NewGuid(), identity, seeded.ActorId, DateTimeOffset.UtcNow, null),
+            CancellationToken));
+        var authenticatedAt = DateTimeOffset.UnixEpoch.AddHours(2);
+        var first = await coordinator.CompleteLoginAsync(
+            new ValidatedHumanLogin(identity, new AuthenticationStrength("acr:mfa", ["mfa"]), "sid-a", authenticatedAt),
+            null,
+            Guid.NewGuid(),
+            CancellationToken);
+        var second = await coordinator.CompleteLoginAsync(
+            new ValidatedHumanLogin(identity, new AuthenticationStrength("acr:mfa", ["mfa"]), "sid-b", authenticatedAt),
+            null,
+            Guid.NewGuid(),
+            CancellationToken);
+
+        var applied = await coordinator.ApplyBackChannelLogoutAsync(
+            new ValidatedLogoutToken(issuer, subject, "sid-a", "jti-sid-and-sub", authenticatedAt.AddMinutes(1)),
+            Guid.NewGuid(),
+            CancellationToken);
+        var remintedTarget = await coordinator.CompleteLoginAsync(
+            new ValidatedHumanLogin(identity, new AuthenticationStrength("acr:mfa", ["mfa"]), "sid-a", authenticatedAt),
+            null,
+            Guid.NewGuid(),
+            CancellationToken);
+        var remintedSibling = await coordinator.CompleteLoginAsync(
+            new ValidatedHumanLogin(identity, new AuthenticationStrength("acr:mfa", ["mfa"]), "sid-c", authenticatedAt),
+            null,
+            Guid.NewGuid(),
+            CancellationToken);
+
+        Assert.True(first.Succeeded);
+        Assert.True(second.Succeeded);
+        Assert.True(applied.Accepted);
+        Assert.Equal(1, applied.RevokedCount);
+        Assert.Null(await coordinator.AuthenticateAsync(first.RawCredential!, false, CancellationToken));
+        Assert.NotNull(await coordinator.AuthenticateAsync(second.RawCredential!, false, CancellationToken));
+        Assert.False(remintedTarget.Succeeded);
+        Assert.True(remintedSibling.Succeeded);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var watermarks = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM identity_logout_watermarks
+            WHERE issuer = @Issuer
+              AND subject = @Subject;
+            """,
+            new { Issuer = issuer, Subject = subject });
+        Assert.Equal(0, watermarks);
+    }
 }

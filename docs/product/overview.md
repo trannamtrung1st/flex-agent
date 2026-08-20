@@ -35,12 +35,13 @@ OSS-first self-hostable
 approved. The P0 Activity journey and all five P0 surface interaction
 specifications, including [Result and Release](../ui-ux/result-release.md), are
 also approved. Production HTTP SSE and Worker polling are implemented successor
-slices. Continue the remaining production gates: exact-profile live provider
-qualification, OIDC application-session, hosted Session start/configuration,
-and the ADR-010 evidence listed by
+slices. The human OIDC application-session foundation is implemented and
+independently reviewed; Docker-backed PostgreSQL/`0033` and live Keycloak/NGINX
+qualification remain open and full `AC-OPS-4` stays Partial. Continue the
+remaining production gates: exact-profile live provider qualification, hosted
+Session start/configuration, and the ADR-010 evidence listed by
 [ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#traceability-and-downstream-work).
-The OIDC/application-session foundation is an independently executable next
-slice and does not create a product Session. Hosted Participant Session start
+The OIDC/application-session foundation does not create a product Session. Hosted Participant Session start
 is a separate successor and must not be exposed until the approved
 Activity/Cohort activation, Enrollment, Submission/Attempt entitlement,
 acknowledgment, resolved configuration, execution manifest, exact

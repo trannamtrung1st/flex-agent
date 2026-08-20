@@ -43,3 +43,20 @@ Keycloak can propagate logout to the host API. The fixture also enables
 direct-access grants only so CI can create a synthetic provider session and
 drive Keycloak logout without a browser. Do not copy that grant into
 Production.
+
+## Logout-token scope
+
+Validated back-channel Logout Tokens follow the OpenID Connect Back-Channel
+Logout contract:
+
+- `sid` only: tombstone and revoke that provider session.
+- `sub` only: write an `(issuer, subject)` logout watermark and revoke all
+  matching application sessions. A later login may succeed only with a newer
+  ID-token `iat`.
+- `sid` and `sub`: revoke the intersecting provider session only. Do not
+  watermark the identity or revoke sibling sessions for the same subject.
+
+Live Keycloak/NGINX execution of this matrix remains a Docker-backed
+qualification gate. The application-session code path for these rules is
+independently reviewed; do not claim the full live matrix from unit tests
+alone.
