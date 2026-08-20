@@ -2,35 +2,67 @@ using FlexAgent.Sessions.OpenRouter;
 
 namespace FlexAgent.Sessions.OpenRouter.Tests;
 
+internal sealed record OpenRouterSanitizedLiveObservation(
+    int? StatusCode,
+    string CacheClassification,
+    string StatusClassification,
+    bool ResponseReceived)
+{
+    public static OpenRouterSanitizedLiveObservation NoResponse { get; } =
+        new(null, "none", "no_response", false);
+}
+
 internal sealed class OpenRouterSanitizedLiveObserver(HttpMessageHandler inner) : DelegatingHandler(inner)
 {
+    private readonly List<OpenRouterSanitizedLiveObservation> _observations = [];
+
     public int Requests { get; private set; }
 
-    public int? StatusCode { get; private set; }
+    public IReadOnlyList<OpenRouterSanitizedLiveObservation> Observations => _observations;
 
-    public string CacheClassification { get; private set; } = "absent";
+    public OpenRouterSanitizedLiveObservation Current { get; private set; } =
+        OpenRouterSanitizedLiveObservation.NoResponse;
 
-    public string StatusClassification { get; private set; } = "none";
+    public int? StatusCode => Current.StatusCode;
+
+    public string CacheClassification => Current.CacheClassification;
+
+    public string StatusClassification => Current.StatusClassification;
 
     public bool IsHttpHardStop =>
-        string.Equals(StatusClassification, OpenRouterDiscoveryFailureReasons.RateLimited, StringComparison.Ordinal)
-        || string.Equals(StatusClassification, OpenRouterDiscoveryFailureReasons.Authentication, StringComparison.Ordinal)
-        || string.Equals(StatusClassification, OpenRouterDiscoveryFailureReasons.PaymentRequired, StringComparison.Ordinal)
-        || string.Equals(StatusClassification, OpenRouterDiscoveryFailureReasons.PolicyDenied, StringComparison.Ordinal)
-        || string.Equals(StatusClassification, OpenRouterDiscoveryFailureReasons.Timeout, StringComparison.Ordinal)
-        || string.Equals(StatusClassification, OpenRouterDiscoveryFailureReasons.ProviderUnavailable, StringComparison.Ordinal)
-        || string.Equals(StatusClassification, OpenRouterDiscoveryFailureReasons.ResponseCacheHit, StringComparison.Ordinal);
+        Current.ResponseReceived
+        && (string.Equals(StatusClassification, OpenRouterDiscoveryFailureReasons.RateLimited, StringComparison.Ordinal)
+            || string.Equals(StatusClassification, OpenRouterDiscoveryFailureReasons.Authentication, StringComparison.Ordinal)
+            || string.Equals(StatusClassification, OpenRouterDiscoveryFailureReasons.PaymentRequired, StringComparison.Ordinal)
+            || string.Equals(StatusClassification, OpenRouterDiscoveryFailureReasons.PolicyDenied, StringComparison.Ordinal)
+            || string.Equals(StatusClassification, OpenRouterDiscoveryFailureReasons.Timeout, StringComparison.Ordinal)
+            || string.Equals(StatusClassification, OpenRouterDiscoveryFailureReasons.ProviderUnavailable, StringComparison.Ordinal)
+            || string.Equals(StatusClassification, OpenRouterDiscoveryFailureReasons.ResponseCacheHit, StringComparison.Ordinal));
 
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
         Requests++;
-        var response = await base.SendAsync(request, cancellationToken);
-        StatusCode = (int)response.StatusCode;
-        CacheClassification = ClassifyCache(response);
-        StatusClassification = Classify(StatusCode.Value, CacheClassification);
-        return response;
+        Current = OpenRouterSanitizedLiveObservation.NoResponse;
+        _observations.Add(Current);
+        try
+        {
+            var response = await base.SendAsync(request, cancellationToken);
+            Current = new OpenRouterSanitizedLiveObservation(
+                (int)response.StatusCode,
+                ClassifyCache(response),
+                Classify((int)response.StatusCode, ClassifyCache(response)),
+                true);
+            _observations[^1] = Current;
+            return response;
+        }
+        catch
+        {
+            Current = OpenRouterSanitizedLiveObservation.NoResponse;
+            _observations[^1] = Current;
+            throw;
+        }
     }
 
     public static string Classify(int status, string cacheClassification)

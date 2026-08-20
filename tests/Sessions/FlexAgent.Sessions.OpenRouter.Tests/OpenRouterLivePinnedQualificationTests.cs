@@ -6,6 +6,7 @@ using FlexAgent.Sessions.Tests.Domain;
 
 namespace FlexAgent.Sessions.OpenRouter.Tests;
 
+[Collection("OpenRouterLiveQualification")]
 public sealed class OpenRouterLivePinnedQualificationTests(ITestOutputHelper output)
 {
     private const string ExpectedProfileId = "openrouter.synthetic.local.nemotron-3.5-lightning";
@@ -28,6 +29,12 @@ public sealed class OpenRouterLivePinnedQualificationTests(ITestOutputHelper out
         Assert.Equal(
             "FLEXAGENT_OPENROUTER_CONFIGURATIONS_PATH",
             OpenRouterLiveQualification.ConfigurationsPathEnvironmentVariable);
+        Assert.Equal(
+            "FLEXAGENT_OPENROUTER_QUALIFICATION_EXPECTED_CONSUMED",
+            OpenRouterLiveQualification.ExpectedConsumedEnvironmentVariable);
+        Assert.Equal(
+            "FLEXAGENT_OPENROUTER_LIVE_PHASE",
+            OpenRouterLiveQualification.PhaseEnvironmentVariable);
     }
 
     [Fact(Explicit = true, Timeout = 180_000)]
@@ -49,6 +56,12 @@ public sealed class OpenRouterLivePinnedQualificationTests(ITestOutputHelper out
             "sanitized_budget before={0}/{1}",
             alreadyConsumed,
             OpenRouterLiveQualification.MaxInferenceRequests);
+        Assert.True(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                OpenRouterLiveQualification.PinnedMatrixPhase,
+                alreadyConsumed,
+                out var denial),
+            $"Sanitized pinned matrix refused before reserve: {denial} consumed={alreadyConsumed}.");
 
         var profiles = InstalledModelDeploymentProfileFile.Load(profilesPath);
         var configurations = OpenRouterInstalledConfigurationFile.Load(configurationsPath, profiles);
@@ -152,10 +165,14 @@ public sealed class OpenRouterLivePinnedQualificationTests(ITestOutputHelper out
                 $"Sanitized content hard-stop: reason={failed.ReasonCategory} http={observer.StatusCode?.ToString() ?? "none"} class={observer.StatusClassification} cache={observer.CacheClassification} slot={contentSlot}/{OpenRouterLiveQualification.MaxInferenceRequests}.");
         }
 
-        if (control is not ModelExecutionStructuredControl || completed is null)
+        if (!OpenRouterLiveMatrixQualification.TryQualify(
+                control,
+                events,
+                configuration.Profile.MaxOutputTokens,
+                out var qualificationDenial))
         {
             Assert.Fail(
-                $"Sanitized matrix incomplete: control={OutcomeName(control)} reason={Reason(control)} control_http={controlHttp} control_class={controlClass} control_cache={controlCache} content_completed={completed is not null} content_failed={failed?.ReasonCategory ?? "none"} content_http={observer.StatusCode?.ToString() ?? "none"} content_class={observer.StatusClassification} content_cache={observer.CacheClassification}.");
+                $"Sanitized matrix incomplete: denial={qualificationDenial} control={OutcomeName(control)} reason={Reason(control)} control_http={controlHttp} control_class={controlClass} control_cache={controlCache} content_completed={completed is not null} content_failed={failed?.ReasonCategory ?? "none"} deltas={deltas.Length} visible_utf8={deltas.Sum(delta => System.Text.Encoding.UTF8.GetByteCount(delta.ExactUtf8Text))} tokens_out={completed?.Provenance?.OutputTokenCount?.ToString() ?? "none"} content_http={observer.StatusCode?.ToString() ?? "none"} content_class={observer.StatusClassification} content_received={observer.Current.ResponseReceived} content_cache={observer.CacheClassification}.");
         }
 
         output.WriteLine(

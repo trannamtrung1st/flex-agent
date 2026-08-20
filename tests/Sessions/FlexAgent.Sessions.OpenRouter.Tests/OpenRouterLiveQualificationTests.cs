@@ -2,6 +2,7 @@ using FlexAgent.Sessions.OpenRouter;
 
 namespace FlexAgent.Sessions.OpenRouter.Tests;
 
+[Collection("OpenRouterLiveQualification")]
 public sealed class OpenRouterLiveQualificationTests(ITestOutputHelper output)
 {
     [Fact(Explicit = true)]
@@ -18,6 +19,13 @@ public sealed class OpenRouterLiveQualificationTests(ITestOutputHelper output)
             OpenRouterLiveQualification.BudgetPathEnvironmentVariable);
         Assert.False(string.IsNullOrWhiteSpace(budgetPath));
         var budget = new OpenRouterQualificationBudget(budgetPath);
+        Assert.True(budget.TryRead(out var alreadyConsumed));
+        Assert.True(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                OpenRouterLiveQualification.DiscoveryPhase,
+                alreadyConsumed,
+                out var denial),
+            $"Sanitized live discovery refused before reserve: {denial} consumed={alreadyConsumed}.");
         Assert.True(
             budget.TryReserve(out var reservedRequestCount),
             "The persistent qualification budget is unavailable, corrupt, busy, or exhausted.");

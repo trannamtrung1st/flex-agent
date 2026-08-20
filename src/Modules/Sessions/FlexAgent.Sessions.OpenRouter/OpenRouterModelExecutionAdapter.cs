@@ -653,6 +653,12 @@ public static class OpenRouterLiveQualification
     public const string BudgetPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_QUALIFICATION_BUDGET_PATH";
     public const string InstalledProfilesPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_INSTALLED_PROFILES_PATH";
     public const string ConfigurationsPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_CONFIGURATIONS_PATH";
+    public const string ExpectedConsumedEnvironmentVariable = "FLEXAGENT_OPENROUTER_QUALIFICATION_EXPECTED_CONSUMED";
+    public const string PhaseEnvironmentVariable = "FLEXAGENT_OPENROUTER_LIVE_PHASE";
+    public const string DiscoveryPhase = "discovery";
+    public const string PinnedMatrixPhase = "pinned-matrix";
+    public const int DiscoveryRetiredAtConsumed = 6;
+    public const int PinnedMatrixRetiredAtConsumed = 9;
     public const int MaxInferenceRequests = 12;
 
     public static bool IsEnabled =>
@@ -660,6 +666,61 @@ public static class OpenRouterLiveQualification
 
     public static bool SyntheticDataPolicyAccepted =>
         string.Equals(Environment.GetEnvironmentVariable(SyntheticDataPolicyEnvironmentVariable), "1", StringComparison.Ordinal);
+
+    public static bool TryAuthorizeReservation(
+        string requiredPhase,
+        int currentConsumed,
+        out string denialReason) =>
+        TryAuthorizeReservation(
+            requiredPhase,
+            Environment.GetEnvironmentVariable(PhaseEnvironmentVariable),
+            currentConsumed,
+            Environment.GetEnvironmentVariable(ExpectedConsumedEnvironmentVariable),
+            out denialReason);
+
+    public static bool TryAuthorizeReservation(
+        string requiredPhase,
+        string? configuredPhase,
+        int currentConsumed,
+        string? expectedConsumedText,
+        out string denialReason)
+    {
+        if (!string.Equals(configuredPhase, requiredPhase, StringComparison.Ordinal))
+        {
+            denialReason = "phase_mismatch";
+            return false;
+        }
+
+        if (!int.TryParse(
+                expectedConsumedText,
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var expected)
+            || expected != currentConsumed
+            || expected < 0
+            || expected > MaxInferenceRequests)
+        {
+            denialReason = "expected_consumed_mismatch";
+            return false;
+        }
+
+        if (string.Equals(requiredPhase, DiscoveryPhase, StringComparison.Ordinal)
+            && currentConsumed >= DiscoveryRetiredAtConsumed)
+        {
+            denialReason = "discovery_retired";
+            return false;
+        }
+
+        if (string.Equals(requiredPhase, PinnedMatrixPhase, StringComparison.Ordinal)
+            && currentConsumed >= PinnedMatrixRetiredAtConsumed)
+        {
+            denialReason = "pinned_matrix_already_recorded";
+            return false;
+        }
+
+        denialReason = string.Empty;
+        return true;
+    }
 }
 
 public sealed class OpenRouterDiscoveryClient(HttpMessageHandler? transport = null)
