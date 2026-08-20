@@ -9,8 +9,8 @@
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.4 |
 | **Effective date** | 2026-08-14 |
-| **Last reviewed** | 2026-08-20 |
-| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; 2026-08-19 provider sequencing review preserved product meaning and synthetic-only OpenRouter scope; 2026-08-20 delivery review approved OIDC/application-session foundation as a separate predecessor to hosted Participant Session start; 2026-08-20 vendor-neutral OpenAI-compatible endpoint decision preserved model-provider replaceability and product scope; supersedes v0.3 |
+| **Last reviewed** | 2026-08-21 |
+| **Approval reference** | v0.4 P0-compatible Agent-output envelope approved 2026-08-14; 2026-08-19 provider sequencing review preserved product meaning and synthetic-only OpenRouter scope; 2026-08-20 delivery review approved OIDC/application-session foundation as a separate predecessor to hosted Participant Session start; 2026-08-20 vendor-neutral OpenAI-compatible endpoint decision preserved model-provider replaceability and product scope; 2026-08-21 delivery sequencing review separated deterministic adapter migration from exact-profile live qualification without changing enablement gates; supersedes v0.3 |
 
 Vision, positioning, and principles. Canonical concepts, scope boundaries, and requirements live in linked product and requirements documents.
 
@@ -56,7 +56,11 @@ provider-credential/Organization-endpoint isolation. The approved
 may exercise real free-model calls and natural local chat with synthetic,
 non-sensitive content, but it does not qualify production, accept Participant
 data, or close the separately blocked OpenAI-compatible endpoint qualification
-track (formerly Direct OpenAI Phase B). An affected
+track (formerly Direct OpenAI Phase B). The deterministic migration from the
+legacy Direct OpenAI implementation to the vendor-neutral adapter may complete
+without a selected live profile, but the adapter must remain default-off until
+one exact compatible profile passes its separate live qualification gate. An
+affected
 integration must not be accepted or enabled for real use until its gates pass,
 and the production pilot remains blocked on the evidence listed in
 [MVP architecture implementation readiness](../architecture/mvp-architecture.md#implementation-readiness).

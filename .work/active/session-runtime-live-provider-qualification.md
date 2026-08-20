@@ -2,7 +2,7 @@
 id: session-runtime-live-provider-qualification
 status: in-progress
 created: 2026-08-18
-updated: 2026-08-20
+updated: 2026-08-21
 predecessors:
   - session-runtime-worker-host-wiring
   - session-runtime-worker-identity-invocation-delegation
@@ -13,9 +13,9 @@ predecessors:
 Migrate the legacy Direct OpenAI implementation to the approved vendor-neutral
 OpenAI-compatible adapter (`openai_compatible` /
 `sessions.openai_compatible.v1`) behind the existing provider-neutral Sessions
-execution port, then qualify one exact operator-installed compatible endpoint.
-The endpoint may be Organization-hosted/on-premises, self-hosted, managed, or
-OpenAI-hosted; no provider or model receives preferred status.
+execution port. Complete the migration through deterministic contract,
+isolation, recovery, operability, and destination-policy evidence without
+requiring a live endpoint that has not yet been selected.
 
 Resolve only a frozen, digest-bound deployment profile, versioned adapter
 configuration, and opaque deployment-default or Organization-scoped credential
@@ -24,12 +24,15 @@ Preserve durable-before-display publication, current Worker authorization,
 append-only provenance, and fail-closed behavior without changing payer,
 provider, endpoint, model, capability, or network destination implicitly.
 
-Completion requires executable adapter, isolation, recovery, operability,
-private/public destination-policy evidence, and qualification evidence for one
-exact deployment profile. It closes only that OpenAI-compatible profile subset
-of `GATE-STACK-PROVIDERS`; the distinct synthetic OpenRouter track remains
-separately gated. It does not make a provider/model a product default, enable
-Organization self-service endpoint entry, or certify a production pilot.
+Migration completion requires the executable adapter, isolation, recovery,
+operability, deterministic public/private destination-policy evidence, and a
+bounded qualification harness that is ready to bind an exact profile. Running
+that harness against a live endpoint is a deferred successor gate. Until one
+exact profile passes it, the adapter remains default-off and cannot close the
+OpenAI-compatible profile subset of `GATE-STACK-PROVIDERS`. The distinct
+synthetic OpenRouter track remains separately gated. This task does not make a
+provider/model a product default, enable Organization self-service endpoint
+entry, qualify real use, or certify a production pilot.
 
 # Governing sources
 
@@ -144,13 +147,12 @@ Organization self-service endpoint entry, or certify a production pilot.
   lane, persistence, and frozen-binding gates. All protected lanes and provider
   selection remain default-off and fail closed.
 - Produce repeatable fake-transport provider contract tests plus a bounded,
-  opt-in live qualification harness using synthetic data. Record exact profile,
-  capability, latency, throughput/capacity, cost, failure, privacy/data-policy,
-  credential-isolation, dependency, license, SBOM, and vulnerability evidence
-  required by ADR-008 and the OpenAI-compatible subset of
-  `GATE-STACK-PROVIDERS`. The first exact target may be a qualified on-premises
-  runtime such as vLLM; record synthetic OpenRouter evidence as a separate gate
-  rather than claiming the complete cross-provider gate.
+  opt-in qualification harness that can later consume an exact installed
+  profile and synthetic data. Migration verification covers the harness gates,
+  redaction, budget, and fail-closed behavior without fabricating live
+  capability, latency, capacity, cost, privacy/data-policy, or immutable-model
+  evidence. A successor qualification task records those facts when an owner
+  selects an exact endpoint. OpenRouter evidence remains a separate gate.
 - Reconcile authoritative implementation-status tables, workspace/operator
   guidance, package locks, qualification evidence, and this task after tests
   pass.
@@ -179,6 +181,9 @@ Organization self-service endpoint entry, or certify a production pilot.
   authority
 - Real participant data during qualification until the concrete provider data,
   retention, residency, and privacy policy has explicit approval
+- Running live OpenAI-compatible qualification, applying a qualification label,
+  or enabling any compatible endpoint before an owner supplies and approves an
+  exact profile, credential, destination policy, and bounded synthetic run
 - Commits, pushes, pull requests, deployments, releases, or enabling production
   traffic unless separately requested
 
@@ -273,7 +278,7 @@ Organization self-service endpoint entry, or certify a production pilot.
 | Provenance and minimization (`REQ-RSC-33`, `REQ-RSC-50`, `REQ-SESS-70`, `REQ-SESS-85`) | Append-only attempt/manifest records and allowlisted telemetry | Exact adapter/model/profile/outcome/usage reconstruction; no prompt, output, credential, token, protected IDs, or raw provider body in generic records or diagnostics |
 | Module and supply-chain gates (`ADR-008`, `ADR-010`) | Separate adapter assembly, central package pin, lock files, solution/OCI/SBOM inputs, architecture rules | Official SDK confined to adapter; negative architecture control; locked restore, license/SBOM/vulnerability/secret checks, OCI build |
 | Network/egress boundary (`ADR-008` model-provider gate) | Digest-bound OpenAI-compatible adapter configuration plus bounded HTTP/SDK transport | Exact HTTPS origin and base path; public-only and explicit private-allowlist policies; redirect escape, loopback, link-local, metadata, unspecified/multicast/reserved address, mixed DNS answer, rebinding, proxy/header substitution, DNS/connection timeout, and endpoint mismatch fail closed |
-| Exact profile qualification (`ADR-008`, OpenAI-compatible subset of `GATE-STACK-PROVIDERS`) | Opt-in synthetic qualification harness and retained evidence | Streaming, structured output, timeout/cancel/retry/outage, latency/capacity/cost, returned model identity plus operator artifact/deployment fingerprint, data policy, correlation, credential isolation, and network policy for one exact profile; OpenRouter remains a distinct evidence track |
+| Qualification readiness and deferred exact-profile evidence (`ADR-008`, OpenAI-compatible subset of `GATE-STACK-PROVIDERS`) | Opt-in synthetic qualification harness plus a successor exact-profile run | Deterministic harness gates, budgets, redaction, no-fallback, and failure behavior pass during migration; a later live run must add latency/capacity/cost, returned model identity plus operator artifact/deployment fingerprint, data policy, correlation, credential isolation, and network-policy evidence before enablement; OpenRouter remains a distinct track |
 
 # Security and privacy threat model
 
@@ -364,13 +369,10 @@ Organization self-service endpoint entry, or certify a production pilot.
       delegation, Sessions persistence, lane flag, and numeric bounds are all
       valid. Prove missing/stale/mismatched configuration keeps readiness honest
       and provider work disabled without affecting liveness or unrelated lanes.
-- [!] Build and run the opt-in synthetic live qualification harness for one
-      owner-selected exact Direct OpenAI profile. Record capability, immutable
-      identity, data-policy, streaming, structured-output, cancellation,
-      timeout, retry/outage, latency, capacity, cost, usage, credential
-      isolation, and no-fallback evidence; do not enable real traffic when any
-      gate is missing. Mark only the Direct OpenAI profile subset satisfied and
-      retain synthetic OpenRouter/vLLM contract evidence as a separate gap.
+- [-] Historical Direct OpenAI live qualification was intentionally skipped
+      after the vendor-neutral target superseded it. Do not spend live calls or
+      apply a qualification label to the legacy identity; retain its
+      deterministic evidence only as migration input.
 - [x] Run focused adapter/Sessions/Runtime/PostgreSQL/architecture tests, then
       locked solution, package/supply-chain, OCI, documentation, whitespace,
       and applicable failure/recovery checks. Record exact commands and counts.
@@ -399,7 +401,7 @@ Organization self-service endpoint entry, or certify a production pilot.
       service-principal-binding revoke at reservation.
 - [x] Record independent review of `4a6e314`: no P0/P1; leftover invocation-id
       coupling was recorded as hardening backlog; deterministic Phase A may
-      proceed to Phase B qualification.
+      proceed to Phase B migration.
 - [x] Close the leftover P2 from `4a6e314`: `TryReserveAsync` fails closed
       unless the supplied invocation id equals `claimedWork.AgentInvocationId`,
       and both admission implementations budget/insert only that claimed id.
@@ -433,11 +435,13 @@ Organization self-service endpoint entry, or certify a production pilot.
       cancellation, retry ownership, failure normalization, and provenance. If
       the current SDK cannot meet the contract, replace it only inside the
       adapter boundary.
-- [ ] Red/green — update Worker composition so only a qualified
-      `openai_compatible` profile plus matching adapter configuration can
-      enable the port. Preserve default-off behavior, frozen Session authority,
-      mounted-secret isolation, claim fencing, current authorization, no
-      fallback, and truthful readiness diagnostics.
+- [ ] Red/green — update Worker composition so only an installed
+      `openai_compatible` profile plus matching adapter configuration and an
+      accepted exact-profile qualification record can enable the port. Prove
+      deterministic test fixtures cannot create real enablement authority.
+      Preserve default-off behavior, frozen Session authority, mounted-secret
+      isolation, claim fencing, current authorization, no fallback, and
+      truthful readiness diagnostics.
 - [ ] Preserve history without reinterpretation: do not rewrite migrations
       `0001`–`0033` or append-only `direct_openai` provenance. Add upgrade and
       reconstruction tests showing legacy rows remain inspectable, legacy
@@ -448,13 +452,14 @@ Organization self-service endpoint entry, or certify a production pilot.
       then the locked full solution, OCI build, SBOM/license/vulnerability and
       secret checks, documentation validation, JSON/example consistency, and
       whitespace checks. Obtain independent backend and security/privacy review.
-- [ ] Run the bounded synthetic-only qualification harness against one exact
-      owner-approved compatible deployment profile—preferably the intended
-      operator-managed on-premises runtime when available—and retain sanitized
-      identity, capability, network-policy, privacy, capacity/cost, and failure
-      evidence. Do not claim qualification without the live evidence.
+- [-] Defer the bounded synthetic-only live qualification run to a successor
+      task created when an owner supplies one exact approved compatible
+      deployment profile, credential, destination policy, and run budget. Do
+      not claim qualification or enablement from deterministic migration
+      evidence.
 - [ ] Reconcile implementation status, operator guidance, qualification
-      evidence, remaining OpenRouter gaps, and final task completion.
+      readiness, the deferred exact-profile gate, remaining OpenRouter gaps,
+      and final migration completion.
 
 # Current state
 
@@ -469,14 +474,16 @@ The current code is intentionally divergent: it still exposes
 `direct_openai`, `sessions.openai.v1`, `FlexAgent.Sessions.OpenAi`, an origin-only
 profile, and a partial literal-IP/same-origin guard. The next implementation
 step is the red contract-identity and fail-closed legacy test slice described
-above. No live provider is qualified and all live composition remains
-default-off.
+above. No exact OpenAI-compatible live profile is selected or qualified, but
+that is not a blocker to deterministic migration. All compatible live
+composition remains default-off.
 
 On 2026-08-19 the Product Lead separately approved the OpenRouter
-synthetic-development profile and its implementation task. That work may
-exercise real free-model calls with synthetic, non-sensitive content, but it
-does not provide this task's exact OpenAI-compatible evidence or authorize
-production/Participant data.
+synthetic-development profile and its implementation task. Its historical live
+evidence and the later Phase 28 `qualified_for: synthetic_development` label are
+not OpenAI-compatible qualification evidence, and the OpenRouter track remains
+independently gated. It cannot authorize production/Participant data or
+substitute for this migration or its deferred exact-profile successor.
 
 # Delivery phases
 
@@ -490,11 +497,13 @@ production/Participant data.
   rename, digest-bound base-path/destination configuration, DNS/rebinding-safe
   public/private endpoint enforcement, fail-closed legacy handling, and full
   deterministic regression evidence.
-- **Phase C — exact-profile qualification:** bounded synthetic calls against one
-  owner-selected compatible profile plus privacy/data-policy, network policy,
-  capacity, cost, immutable-identity, operational, and credential-isolation
-  evidence. The task remains incomplete if Phase C cannot run; deterministic
-  evidence must not be represented as live qualification.
+- **Deferred successor — exact-profile qualification:** after migration, run
+  bounded synthetic calls against one owner-selected compatible profile and
+  retain privacy/data-policy, network-policy, capacity, cost,
+  immutable-identity, operational, and credential-isolation evidence. This
+  successor remains mandatory before enablement but is not a migration
+  completion criterion. Deterministic evidence must never be represented as
+  live qualification.
 
 # Decisions
 
@@ -519,6 +528,10 @@ production/Participant data.
 - Qualification is attached to one exact provider deployment profile. Runtime
   configuration may select only installed, operator-approved profiles; it
   cannot construct arbitrary endpoints or silently substitute another profile.
+- Deterministic adapter migration and exact-profile live qualification are
+  separate delivery gates. Migration may complete without a selected live
+  endpoint, but no compatible endpoint may be enabled until its successor
+  qualification passes.
 - A real Session's frozen trusted binding, not Worker-global configuration,
   selects its behaviorally material provider profile and opaque credential
   binding. Host configuration may install/locate adapters and registries only.
@@ -588,11 +601,12 @@ Interim defaults are working guidance only and do not approve a deployment.
   failures, and disabled when it cannot be observed or bounded. Rationale:
   stacked hidden retries can exceed time/cost budgets and duplicate work.
 - **Can live qualification run in this development environment?** Interim
-  default: fake-transport contract tests are blocking and deterministic; live
-  qualification is opt-in, bounded, synthetic-only, secret-file based, and
-  remains an explicit completion blocker when an exact approved profile or
-  credential is unavailable. Rationale: tests must not fabricate provider
-  evidence or expose/cost an account implicitly.
+  default: do not run it until an owner supplies an exact approved profile,
+  credential, destination policy, and budget. Fake-transport contract tests are
+  blocking for migration; live qualification is an opt-in, bounded,
+  synthetic-only successor and is not a migration completion blocker.
+  Rationale: tests must not fabricate provider evidence or expose/cost an
+  account implicitly.
 
 # Findings / deviations
 
@@ -694,6 +708,7 @@ Interim defaults are working guidance only and do not approve a deployment.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
+| Deterministic migration / live-qualification delivery split | passed | Product, architecture, requirements, operations, contributor status, and this task now permit deterministic migration completion without an exact live profile while preserving default-off composition and exact-profile qualification as a mandatory successor before enablement. `python3 scripts/check_docs.py` and `git diff --check` pass on 2026-08-21. |
 | OpenAI-compatible documentation/change-set review | passed with corrections | ADR/product/requirements/operations diff checked against current adapter, Worker composition, profile digest, PostgreSQL provenance, and endpoint guard on 2026-08-20. Corrected stale ADR amendment status, clarified operator-installed versus Organization self-service scope, required digest-bound base-path/destination configuration, and removed the DNS/rebinding security overclaim. `python3 scripts/check_docs.py`, JSON parse, and `git diff --check` pass. |
 | Governing source and current-seam inventory | complete | Product foundation, RSC/Session/Auth requirements, ADR-008/010/012/016, Session runtime, backend module guide, current ports/composition, and predecessor task state reviewed 2026-08-18 |
 | Predecessor remediation protected | complete | Worker identity/readiness remediation landed separately as `94c1412`; this planning edit is restricted to the new task file |
@@ -706,18 +721,19 @@ Interim defaults are working guidance only and do not approve a deployment.
 | PostgreSQL migration/provenance/recovery tests | passed | Additive `0029` unchanged; crash-recovery class **17 passed** on 2026-08-20 including mismatched-invocation reservation; claim class **15 passed**; earlier full Postgres integration was included in the 1034 solution run |
 | Architecture/module dependency tests | passed | Architecture **33 passed**; official SDK isolated to `FlexAgent.Sessions.OpenAi` with negative control |
 | Sessions domain/application tests | passed | `FlexAgent.Sessions.Tests` **448 passed** including revoked-authorization reservation |
-| Exact OpenAI-compatible profile qualification | blocked | The target adapter migration and opt-in synthetic evidence for one owner-selected immutable profile are not available; OpenRouter remains a distinct evidence track |
+| Exact OpenAI-compatible profile qualification | deferred successor | No exact profile is selected. Deterministic migration may complete, but the adapter remains default-off and no compatible endpoint is qualified or enabled until a later bounded live run passes. OpenRouter remains a distinct evidence track |
 | Locked regression, supply chain, OCI, docs, whitespace | partial | `python3 scripts/check_docs.py` passed; `git diff --check` passed. OCI image rebuild/SBOM/grype not re-run in this session |
 | Independent backend/architecture/security review | approved for deterministic Phase A | Independent review of `4a6e314`: no P0/P1; `4373f70` P2s closed; leftover invocation-id coupling closed on 2026-08-20 by claimed-work binding. GitHub connector still has no combined status checks for that SHA. Phase B remains the completion gate |
 
 # Blockers
 
-- Deterministic migration work has no external blocker. Final live-profile
-  qualification requires an owner-selected exact OpenAI-compatible profile,
-  approved synthetic-use credential delivered through the mounted-file secret
-  boundary, applicable provider data-policy and destination-policy evidence,
-  reachable infrastructure, and permission to incur bounded calls/cost. The
-  task cannot claim qualification or completion without those inputs.
+- Deterministic migration work has no external blocker. Exact-profile live
+  qualification is a deferred successor requiring an owner-selected
+  OpenAI-compatible profile, approved synthetic-use credential delivered
+  through the mounted-file secret boundary, applicable provider data-policy
+  and destination-policy evidence, reachable infrastructure, and permission to
+  incur bounded calls/cost. Those missing inputs block enablement and the
+  successor qualification task, not migration completion.
 
 # Completion
 
@@ -731,7 +747,7 @@ Interim defaults are working guidance only and do not approve a deployment.
 - [x] Structured control, participant-visible streaming, usage/provenance, timeout, cancellation, retry, and failure normalization pass contract tests
 - [x] Long provider calls preserve claim lease, current authority, lifecycle/cutoff, idempotency, and durable-before-display invariants
 - [x] Required execution/manifest provenance is append-only, reconstructable, and free of raw sensitive provider material
-- [ ] One exact OpenAI-compatible deployment profile passes ADR-008 and its subset of `GATE-STACK-PROVIDERS`; distinct OpenRouter evidence is recorded without overstating the full gate
+- [-] Exact-profile live qualification is deferred to a successor and remains a mandatory enablement gate; deterministic migration evidence is not represented as qualification, and distinct OpenRouter evidence is not substituted
 - [ ] Applicable focused, integration, concurrency, recovery, architecture, locked regression, supply-chain, OCI, documentation, and whitespace checks pass
 - [x] Governing specifications and implementation-status tables are rechecked and remain truthful
 - [x] Full start-time immutable-model enforcement and the synthetic OpenRouter/vLLM portions of `GATE-STACK-PROVIDERS` remain explicitly recorded unless separately implemented and verified

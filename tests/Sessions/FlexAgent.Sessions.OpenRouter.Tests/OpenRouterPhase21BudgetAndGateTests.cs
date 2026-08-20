@@ -7,11 +7,11 @@ namespace FlexAgent.Sessions.OpenRouter.Tests;
 public sealed class OpenRouterPhase21BudgetAndGateTests
 {
     [Fact]
-    public void Gpt_oss_phase_authorizes_only_consumed_zero_through_seven_on_its_own_ledger()
+    public void Gpt_oss_phase_authorizes_only_consumed_zero_through_eleven_on_its_own_ledger()
     {
         Assert.Equal("gpt-oss-darkbloom-matrix", OpenRouterLiveQualification.GptOssDarkbloomPhase);
         Assert.Equal(0, OpenRouterLiveQualification.GptOssDarkbloomStartsAtConsumed);
-        Assert.Equal(8, OpenRouterLiveQualification.Phase21MaxInferenceRequests);
+        Assert.Equal(12, OpenRouterLiveQualification.Phase21MaxInferenceRequests);
         Assert.Equal(24, OpenRouterLiveQualification.MaxInferenceRequests);
 
         Assert.True(
@@ -86,14 +86,50 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
                 out var tokenFinal));
         Assert.Equal(string.Empty, tokenFinal);
 
-        Assert.False(
+        Assert.True(
             OpenRouterLiveQualification.TryAuthorizeReservation(
                 OpenRouterLiveQualification.GptOssDarkbloomPhase,
                 OpenRouterLiveQualification.GptOssDarkbloomPhase,
                 currentConsumed: 8,
                 expectedConsumedText: "8",
+                out var ownerRerun));
+        Assert.Equal(string.Empty, ownerRerun);
+
+        Assert.True(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                currentConsumed: 9,
+                expectedConsumedText: "9",
+                out var ownerRerunContent));
+        Assert.Equal(string.Empty, ownerRerunContent);
+
+        Assert.True(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                currentConsumed: 10,
+                expectedConsumedText: "10",
+                out var ownerRetryTen));
+        Assert.Equal(string.Empty, ownerRetryTen);
+
+        Assert.True(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                currentConsumed: 11,
+                expectedConsumedText: "11",
+                out var ownerRetryEleven));
+        Assert.Equal(string.Empty, ownerRetryEleven);
+
+        Assert.False(
+            OpenRouterLiveQualification.TryAuthorizeReservation(
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                OpenRouterLiveQualification.GptOssDarkbloomPhase,
+                currentConsumed: 12,
+                expectedConsumedText: "12",
                 out var stale));
-        Assert.Equal("gpt_oss_darkbloom_requires_consumed_0_to_7", stale);
+        Assert.Equal("gpt_oss_darkbloom_requires_consumed_0_to_11", stale);
 
         Assert.False(
             OpenRouterLiveQualification.TryAuthorizeReservation(
@@ -112,10 +148,10 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
             OpenRouterLiveQualification.TryAuthorizeReservation(
                 OpenRouterLiveQualification.GptOssDarkbloomPhase,
                 OpenRouterLiveQualification.GptOssDarkbloomPhase,
-                currentConsumed: 11,
-                expectedConsumedText: "11",
+                currentConsumed: 12,
+                expectedConsumedText: "12",
                 out var phase21));
-        Assert.Equal("gpt_oss_darkbloom_requires_consumed_0_to_7", phase21);
+        Assert.Equal("gpt_oss_darkbloom_requires_consumed_0_to_11", phase21);
 
         Assert.False(
             OpenRouterLiveQualification.TryAuthorizeReservation(
@@ -187,10 +223,18 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
         Assert.Equal(7, seventh);
         Assert.True(fresh.TryReserve(out var eighth));
         Assert.Equal(8, eighth);
+        Assert.True(fresh.TryReserve(out var ninth));
+        Assert.Equal(9, ninth);
+        Assert.True(fresh.TryReserve(out var tenth));
+        Assert.Equal(10, tenth);
+        Assert.True(fresh.TryReserve(out var eleventh));
+        Assert.Equal(11, eleventh);
+        Assert.True(fresh.TryReserve(out var twelfth));
+        Assert.Equal(12, twelfth);
         Assert.False(fresh.TryReserve(out var exhausted));
-        Assert.Equal(8, exhausted);
+        Assert.Equal(12, exhausted);
         Assert.Equal(
-            "openrouter_qualification_budget.phase21.v1\n8\n8\n",
+            "openrouter_qualification_budget.phase21.v1\n12\n12\n",
             File.ReadAllText(Path.Combine(directory.Path, "fresh")));
         Assert.Equal(historicalBytes, File.ReadAllBytes(historicalPath));
         Assert.Equal(fiveOfTwelve, File.ReadAllBytes(phase21Path));

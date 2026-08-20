@@ -16,12 +16,12 @@ model-provider profiles. It does not select a product-default model.
 - The approved [OpenRouter synthetic-development profile](openrouter-synthetic-development.md)
   has a distinct `sessions.openrouter.v1` adapter and Worker synthetic-development
   opt-in. The only current live pin is `openai/gpt-oss-20b:free` /
-  `darkbloom` / `Darkbloom`.   A 2026-08-20 adapter matrix admitted structured
-  control and visible content under a weaker truncation predicate. Phase 24
-  requires `finish_reason: stop`, 256-token acceptance headroom, and
-  `openrouter.request-policy.v2` before the slice can close. Earlier Lightning,
-  Gemma, Nano, and GLM probes are historical fail-closed records and are not
-  executable live phases. Hosted Participant chat remains gated.
+  `darkbloom` / `Darkbloom`. Phase 28 labels that pin
+  `qualified_for: synthetic_development` under
+  `finish_reason: stop`, 256-token acceptance headroom, and
+  `openrouter.request-policy.v2`. Earlier Lightning, Gemma, Nano, and GLM
+  probes are historical fail-closed records and are not executable live
+  phases. Hosted Participant chat remains gated.
   `openrouter/free` is discovery/smoke only. This evidence does not qualify
   production or close the OpenAI-compatible endpoint qualification track
   (formerly Direct OpenAI Phase B).
@@ -34,11 +34,14 @@ model-provider profiles. It does not select a product-default model.
 Target shape: `openai-compatible.profile.example.json`. It documents the
 approved future identifiers and is intentionally marked non-enableable because
 the runtime migration has not been implemented. Do not point Worker at this
-example or set `Sessions:ModelExecution:Qualified=true` yet. After the
-implementation migration, copy the target shape outside the repository,
-replace placeholders, and qualify the exact provider/operator, endpoint,
+example or set `Sessions:ModelExecution:Qualified=true` yet. The deterministic
+runtime migration may complete with fake-transport, isolation, destination,
+failure, and qualification-harness tests even when no exact live profile is
+available. That completion does not qualify or enable the adapter. Afterwards,
+copy the target shape outside the repository, replace placeholders, and run a
+separate bounded qualification for the exact provider/operator, endpoint,
 model/version-or-fingerprint, capability profile, credential mode, and data
-policy against `GATE-STACK-PROVIDERS`.
+policy against `GATE-STACK-PROVIDERS` before real use.
 
 Organization-hosted private endpoints require the additional approved
 destination-policy evidence for canonical origin/base path, DNS resolution and

@@ -54,9 +54,9 @@ digests before any future live run.
 
 ## Closing condition
 
-Close the OpenRouter adapter qualification slice only after an owner-approved
-new budget ceiling produces a machine-written sanitized record with
-`finish_reason: stop` on both phases and content tokens below 256.
+Closed by [synthetic-development-phase28-2026-08-21.md](synthetic-development-phase28-2026-08-21.md):
+machine-written sanitized record with `finish_reason: stop` on both phases and
+content tokens 20.
 
 ## Independent review (`d41220d`)
 

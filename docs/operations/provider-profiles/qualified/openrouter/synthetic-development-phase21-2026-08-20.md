@@ -44,7 +44,9 @@ Phase 24 (2026-08-21) later required an explicit parsed `finish_reason` of
 GPT-OSS request ceiling, and `openrouter.request-policy.v2` in the adapter
 digest. This file does not contain those facts. HTTP/usage lines for slots 7
 and 8 were not retained. Do not invent them. Do not treat the 6/8 → 8/8
-budget increment as proof of the later success properties.
+budget increment as proof of the later success properties. The Phase 24/25
+predicate later passed on
+[synthetic-development-phase28-2026-08-21.md](synthetic-development-phase28-2026-08-21.md).
 
 ## Sanitized request matrix
 

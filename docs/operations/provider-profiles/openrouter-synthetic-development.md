@@ -61,7 +61,7 @@ historical. The live harness refuses those phases as `retired_candidate`.
 
 | Field | Approved value or rule |
 | --- | --- |
-| Decision status | Historical 2026-08-20 adapter matrix is not sufficient to close this slice. Independent review of `d41220d` approved the deterministic Phase 24/25 contract for an owner-authorized live rerun only. Do not re-apply `qualified_for` until that run persists a passing sanitized record |
+| Decision status | Qualified for synthetic local development only. Phase 28 persisted a passing sanitized record under the Phase 24/25 predicate (`finish_reason: stop` on both phases and content output tokens below 256) |
 | Model | `openai/gpt-oss-20b:free` |
 | Provider slug | `darkbloom` |
 | Expected returned provider identity | `Darkbloom` |
@@ -72,16 +72,17 @@ historical. The live harness refuses those phases as `retired_candidate`.
 | Output ceiling | 4,096 total output tokens per GPT-OSS request, including reasoning. The generic OpenRouter default remains 256 tokens and 30/60-second timeouts |
 | Visible-content acceptance | Parsed `finish_reason` must be exactly `stop` on both phases. Streamed non-`stop` content fails as `content_truncated`. Qualification reads those reasons from provenance and also requires content output tokens below 256 |
 | Timeouts | 120-second control and content timeouts on the GPT-OSS policy only |
-| Qualification budget | Distinct Phase 21 ledger, maximum 8 inference requests, concurrency 1, maximum USD 2; consumed 8/8. Do not rerun without a new owner-approved ceiling |
+| Qualification budget | Distinct Phase 21 ledger, maximum 12 inference requests, concurrency 1, maximum USD 2; consumed 11/12 after the passing Phase 28 pair. Historical 5/24 unchanged |
 | Historical budget handling | Shared ceiling is 24. Preserve consumed counts on the retention-accepted and strict-policy ledgers; do not reset them |
-| Verification state | Historical: [synthetic-development-phase21-2026-08-20.md](qualified/openrouter/synthetic-development-phase21-2026-08-20.md). Corrective contract: [synthetic-development-phase24-2026-08-21.md](qualified/openrouter/synthetic-development-phase24-2026-08-21.md) |
+| Verification state | Historical: [synthetic-development-phase21-2026-08-20.md](qualified/openrouter/synthetic-development-phase21-2026-08-20.md). Corrective contract: [synthetic-development-phase24-2026-08-21.md](qualified/openrouter/synthetic-development-phase24-2026-08-21.md). Failed-closed retry: [synthetic-development-phase27-2026-08-21.md](qualified/openrouter/synthetic-development-phase27-2026-08-21.md). Current passing live: [synthetic-development-phase28-2026-08-21.md](qualified/openrouter/synthetic-development-phase28-2026-08-21.md) |
 
 This label applies only to the Sessions OpenRouter adapter harness for
 synthetic local development. It does not enable Production or Staging,
 authorize real or private data, or close hosted Participant chat.
 
-Do not spend the exhausted Phase 21 ledger without a new owner-approved
-ceiling. Do not spend historical 5/24. Do not reopen retired candidates.
+Do not spend historical 5/24. Do not reopen retired candidates. One unused
+Phase 21 slot remains (12/12). Do not spend it without a new owner-approved
+purpose.
 
 ## Historical retired candidates
 
@@ -214,10 +215,10 @@ use the mounted-file boundary.
 
 | Bound | Approved value |
 | --- | --- |
-| Maximum inference requests in one qualification run | Shared historical ledger maximum 24 (do not spend remaining historical slots); Phase 21 GPT-OSS ledger maximum 8, consumed 8/8 |
+| Maximum inference requests in one qualification run | Shared historical ledger maximum 24 (do not spend remaining historical slots); Phase 21 GPT-OSS ledger maximum 12, consumed 11/12 after the passing Phase 28 pair |
 | Maximum concurrent requests | 1 |
 | Maximum Flex Agent inference attempts per operation | 2; every OpenRouter request must report router attempt `1` |
-| Maximum output tokens per request | 4,096 for the qualified GPT-OSS pin and the non-enableable example profile |
+| Maximum output tokens per request | 4,096 for the GPT-OSS pin; 256 for the non-enableable default example |
 | Structured-control timeout | 120 seconds on the qualified GPT-OSS pin; 30 seconds on the non-enableable example profile |
 | Participant-content timeout | 120 seconds on the qualified GPT-OSS pin; 60 seconds on the non-enableable example profile |
 | Maximum total provider spend | USD 2 |
@@ -288,9 +289,10 @@ and architecture evidence exist behind `sessions.openrouter.v1`. The only
 current live pin is `openai/gpt-oss-20b:free` / `darkbloom` / `Darkbloom`.
 The 2026-08-20 adapter matrix admitted structured control and visible content
 under a weaker truncation predicate (`output tokens < request ceiling`, no
-`finish_reason`). Phase 24 keeps the GPT-OSS-only pin and request policy, but
-that historical label is not sufficient to close the slice. The Phase 21
-ledger remains 8/8. Do not rerun live without a new owner-approved ceiling.
+`finish_reason`). Phase 24/25 keep the GPT-OSS-only pin and require parsed
+`finish_reason: stop` plus content tokens below 256. Phase 28 closed the
+adapter-harness slice for this pin:
+[synthetic-development-phase28-2026-08-21.md](qualified/openrouter/synthetic-development-phase28-2026-08-21.md).
 Historical evidence:
 [synthetic-development-phase21-2026-08-20.md](qualified/openrouter/synthetic-development-phase21-2026-08-20.md).
 Corrective contract:

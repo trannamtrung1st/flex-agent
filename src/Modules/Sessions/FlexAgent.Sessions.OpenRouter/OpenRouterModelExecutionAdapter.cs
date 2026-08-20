@@ -724,7 +724,7 @@ public static class OpenRouterLiveQualification
     public const int DiscoveryRetiredAtConsumed = 6;
     public const int GptOssDarkbloomStartsAtConsumed = 0;
     public const int MaxInferenceRequests = 24;
-    public const int Phase21MaxInferenceRequests = 8;
+    public const int Phase21MaxInferenceRequests = 12;
     public const string GptOssDarkbloomProfileId = "openrouter.synthetic.local.gpt-oss-20b";
     public const string GptOssDarkbloomModel = "openai/gpt-oss-20b:free";
     public const string GptOssDarkbloomProviderSlug = "darkbloom";
@@ -793,7 +793,7 @@ public static class OpenRouterLiveQualification
             && (currentConsumed < GptOssDarkbloomStartsAtConsumed
                 || currentConsumed >= Phase21MaxInferenceRequests))
         {
-            denialReason = "gpt_oss_darkbloom_requires_consumed_0_to_7";
+            denialReason = "gpt_oss_darkbloom_requires_consumed_0_to_11";
             return false;
         }
 

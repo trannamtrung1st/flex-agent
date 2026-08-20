@@ -60,7 +60,10 @@ non-sensitive content while keeping random free routing out of frozen Sessions,
 production qualification, and the separate OpenAI-compatible endpoint evidence
 track. OpenAI-hosted service is merely one potentially qualified compatible
 endpoint; Organization-hosted and on-premises runtimes are first-class targets
-subject to exact-profile and private-destination gates.
+subject to exact-profile and private-destination gates. The deterministic
+adapter migration may complete without an exact live profile, but that does
+not qualify or enable the adapter; live qualification remains a separate
+successor gate before real use.
 
 The [backend module architecture](backend-module-architecture.md) is approved
 as the implementation guide for applying ADR-006 and ADR-010 consistently. It

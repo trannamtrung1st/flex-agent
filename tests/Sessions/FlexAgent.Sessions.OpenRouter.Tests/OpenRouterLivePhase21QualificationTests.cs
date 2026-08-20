@@ -10,7 +10,7 @@ public sealed class OpenRouterLivePhase21QualificationTests(ITestOutputHelper ou
     {
         Assert.Equal("gpt-oss-darkbloom-matrix", OpenRouterLiveQualification.GptOssDarkbloomPhase);
         Assert.Equal(0, OpenRouterLiveQualification.GptOssDarkbloomStartsAtConsumed);
-        Assert.Equal(8, OpenRouterLiveQualification.Phase21MaxInferenceRequests);
+        Assert.Equal(12, OpenRouterLiveQualification.Phase21MaxInferenceRequests);
         Assert.Equal("openai/gpt-oss-20b:free", OpenRouterLiveQualification.GptOssDarkbloomModel);
         Assert.Equal("darkbloom", OpenRouterLiveQualification.GptOssDarkbloomProviderSlug);
         Assert.Equal("Darkbloom", OpenRouterLiveQualification.GptOssDarkbloomProviderIdentity);
