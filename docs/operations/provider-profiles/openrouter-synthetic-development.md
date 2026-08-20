@@ -9,7 +9,7 @@
 | **Approvers** | Product Lead, Architecture Lead |
 | **Effective date** | 2026-08-19 |
 | **Last reviewed** | 2026-08-20 |
-| **Decision reference** | Product Lead decision on 2026-08-20 to permit provider/OpenRouter retention and training for synthetic-only solo development while preserving all production and real-data gates |
+| **Decision reference** | Product Lead decisions on 2026-08-20 to (1) permit provider/OpenRouter retention and training for synthetic-only solo development and (2) approve Gemma/Darkbloom as the next bounded live qualification candidate while preserving all production, real-data, and enablement gates |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, documentation |
 | **Governs** | Local synthetic OpenRouter calls, capability discovery, pinned free-model Session testing, credential placement, data-policy/routing controls, bounded qualification evidence, and enablement limits |
 | **Related decisions** | [ADR-008 `OSS-DEC-17`](../../architecture/decisions/ADR-008-bounded-oss-component-set.md#approved-decisions) and [ADR-010 `STACK-DEC-18`](../../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#decision) |
@@ -50,6 +50,70 @@ The progression is:
 `openrouter/free` randomly selects from its current eligible pool. It is not a
 resolved model version, a deterministic test oracle, or acceptable frozen
 identity for a real assessment Session.
+
+## Approved next live qualification candidate
+
+| Field | Approved value or rule |
+| --- | --- |
+| Decision status | Approved candidate selection executed; live structured control failed closed; not qualified |
+| Primary model | `google/gemma-4-26b-a4b-it:free` |
+| Provider slug | `darkbloom` |
+| Expected returned provider identity | `Darkbloom` |
+| Excluded sibling endpoint | `google-ai-studio`; its catalog endpoint does not advertise `structured_outputs` |
+| Backup candidate | `nvidia/nemotron-nano-9b-v2:free` / `nvidia` / `Nvidia` |
+| Catalog verification | Rechecked 2026-08-20 against the exact free-route endpoint catalogs; primary fields still match the approved pair |
+| Backup availability limit | OpenRouter currently reports an expiration date of 2026-08-24; recheck immediately before any backup pin |
+| Qualification budget state | Retention-accepted counter is `11/12` after Phase 20; the historical strict-policy counter remains `5/12` and must not be reused |
+| First live action | Recorded: reserved Gemma/Darkbloom control at consumed `9` (slot 10) and Nano/Nvidia backup control at consumed `10` (slot 11). Both failed Decision admission. Slot `12` is unused |
+
+The Product Lead approves the primary pair above as the next explicit
+operator-managed pin for bounded synthetic-development qualification. Public
+catalog fields advertise both `structured_outputs` and `response_format` for
+the Darkbloom endpoint, and reasoning is not mandatory or default-on. Those
+facts make it the preferred first probe under the 256-output-token bound, but
+they are not live capability evidence and do not qualify or enable the route.
+
+The qualification sequence must:
+
+1. preserve the historical Lightning operator pin and Phase 9 evidence;
+2. implement and deterministically verify the distinct hardened Phase 20 gate
+   and runner described below;
+3. create a separately identified Gemma/Darkbloom operator profile and
+   configuration outside Git, then recompute and load-verify both digests;
+4. run the immediate endpoint, credential, budget, and deterministic preflight,
+   then reserve exactly one control request as
+   the first live action;
+5. run participant-visible streaming on the same frozen pair only after strict
+   control passes, and require visible, non-truncated content below the
+   256-token ceiling; and
+6. retain sanitized evidence and apply no qualification label unless both live
+   phases and every existing acceptance gate pass.
+
+If the primary control probe fails, the backup is a new deliberate operator
+pin after the failure is recorded. It is not an automatic router fallback and
+does not permit changing `allow_fallbacks:false`. Starting from `9/12`, a
+primary control failure followed by backup control and content would consume
+the three remaining slots and leave no retry or transient-failure contingency.
+Because the backup is cataloged to expire on 2026-08-24, an absent, expired, or
+changed backup route must fail closed before reservation and return to owner
+selection; it does not authorize an unreviewed replacement.
+
+### Implementation-readiness gates
+
+The Phase 20 repository blockers are closed:
+
+- Distinct `gemma-darkbloom-matrix` and `nemotron-nano-backup-matrix` phases
+  exist. Historical discovery and Lightning `pinned-matrix` remain retired at
+  their recorded counts and were not reused.
+- The Phase 20 runner reserves participant-visible content only after an
+  admitted structured Agent Decision. Both live control failures stopped before
+  a second reservation.
+- Deterministic tests prove exact phase/count admission, stale or wrong phase
+  refusal, exact operator identity and digest checks, and zero content
+  reservation after unsuccessful control.
+
+Those gates do not qualify the route. Live Phase 20 control failed Decision
+admission on both approved candidates.
 
 ## Data boundary
 
@@ -245,9 +309,17 @@ and architecture evidence exist behind `sessions.openrouter.v1`. A pinned live
 Phase 9 matrix on 2026-08-20 proved streaming identity, cache-denial, metadata,
 and usage for `nvidia/nemotron-3.5-lightning:free` / `Nvidia`, and proved the
 same route rejects strict structured-control with HTTP 404. The run is not
-labeled `qualified_for: synthetic_development`. Hosted Participant Text Session
-chat remains gated on the synthetic browser adapter. Passing fake-transport or
-partial live evidence does not enable production or participant-data use.
+labeled `qualified_for: synthetic_development`. Phase 20 implemented the
+route-specific gates and runners, wrote separate owner-only Gemma and Nano
+operator pins, and reserved two structured-control probes on 2026-08-20. Both
+returned HTTP 200 with cache absent and validated model identity, then failed
+Decision admission as `malformed_control` without reserving content. Sanitized
+evidence is
+[synthetic-development-phase20-2026-08-20.md](qualified/openrouter/synthetic-development-phase20-2026-08-20.md).
+The run is not labeled `qualified_for: synthetic_development`. Hosted
+Participant Text Session chat remains gated on the synthetic browser adapter.
+Passing fake-transport, catalog, or partial live evidence does not enable
+production or participant-data use.
 
 ## References
 
@@ -264,3 +336,5 @@ partial live evidence does not enable production or participant-data use.
 - [OpenRouter response caching](https://openrouter.ai/docs/guides/features/response-caching)
 - [OpenRouter data collection](https://openrouter.ai/docs/guides/privacy/data-collection)
 - [OpenRouter generation metadata](https://openrouter.ai/docs/api/api-reference/generations/get-generation)
+- [Gemma free-route endpoint catalog](https://openrouter.ai/api/v1/models/google/gemma-4-26b-a4b-it-20260403%3Afree/endpoints)
+- [Nemotron Nano free-route endpoint catalog](https://openrouter.ai/api/v1/models/nvidia/nemotron-nano-9b-v2%3Afree/endpoints)

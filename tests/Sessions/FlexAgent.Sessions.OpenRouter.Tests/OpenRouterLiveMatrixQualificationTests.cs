@@ -74,6 +74,22 @@ public sealed class OpenRouterLiveMatrixQualificationTests
         Assert.Equal(string.Empty, denial);
     }
 
+    [Fact]
+    public void Content_reservation_requires_an_admitted_structured_decision()
+    {
+        Assert.True(
+            OpenRouterLiveMatrixQualification.TryAuthorizeContentAfterControl(
+                new ModelExecutionStructuredControl(Admission()),
+                out var admitted));
+        Assert.Equal(string.Empty, admitted);
+
+        Assert.False(
+            OpenRouterLiveMatrixQualification.TryAuthorizeContentAfterControl(
+                new ModelExecutionFailed(ExecutionFailureReasons.ProviderUnavailable),
+                out var rejected));
+        Assert.Equal("control_not_admitted", rejected);
+    }
+
     private static ValidatedAgentDecisionEnvelope Admission()
     {
         var utf8 =

@@ -608,6 +608,90 @@ or the run stops with sanitized failure evidence.
       remains partial at 9/12 and is not labeled
       `qualified_for: synthetic_development`.
 
+## Phase 19 — public catalog eligibility recheck (no live inference)
+
+- [x] Recheck the public OpenRouter models and endpoints catalogs without
+      using the mounted key or consuming a budget slot.
+- [x] Compare advertised `structured_outputs` / `response_format` support
+      against the pinned `nvidia/nemotron-3.5-lightning:free` / `Nvidia` pair
+      and against current `:free` endpoints.
+- [x] Confirm discovery still omits `response_format`, so `openrouter/free`
+      plus `require_parameters:true` can still select a streaming-only free
+      route that later 404s on strict control.
+
+Exit: catalog evidence only. Do not treat advertised parameters as live
+qualification. Do not spend remaining slots repeating the recorded lightning
+control 404.
+
+## Phase 19 catalog ranking and approved route decision
+
+- [x] Rank advertised `:free` structured-output endpoints for the 256-token
+      control bound, text-only request surface, no-fallback pin, and
+      non-mandatory reasoning. Do not pin or spend a live slot in this step.
+
+Product Lead decision approved on 2026-08-20: use
+`google/gemma-4-26b-a4b-it:free` with provider slug `darkbloom` and expected
+returned identity `Darkbloom`. The sibling `google-ai-studio` endpoint lacks
+`structured_outputs`; do not pin it. Fallback candidate if that route 404s:
+`nvidia/nemotron-nano-9b-v2:free` / `nvidia` / `Nvidia`. Do not prefer
+`gpt-oss-20b`, `lfm-2.5`, `glm-5.2`, or `nemotron-3-super` first because
+mandatory or default-on reasoning competes with the 256-token Decision
+envelope.
+
+## Phase 20 — approved Gemma/Darkbloom pin and gated live matrix
+
+- [x] Record Product Lead approval of the Gemma/Darkbloom route selection in
+      the authoritative synthetic-development operations profile. Approval is
+      candidate selection only; it is not qualification or enablement.
+- [x] Recheck repository, operator-state, credential-metadata, budget, and exact
+      public endpoint readiness without reading the key or spending a slot.
+      Primary remains catalog-eligible. Existing operator files still pin
+      Lightning with owner-only modes; the retention-accepted counter is `9/12`.
+      The backup catalog reports expiration on 2026-08-24.
+- [x] Red: add deterministic tests for a distinct Gemma/Darkbloom phase that
+      starts only at expected consumed count `9`, refuses stale/wrong phase and
+      route identity, preserves the retired Lightning phase, and cannot reserve
+      content after any result other than an admitted structured Agent Decision.
+- [x] Green: implement the smallest route-specific Phase 20 gate and explicit
+      live runner. Keep the historical Lightning runner and evidence unchanged;
+      bind exact profile ID, model, provider slug/identity, digests, and a short
+      synthetic content prompt. Do not make route identity environment-driven.
+- [x] Add the conditional backup phase gate at exact consumed count `10`, with
+      exact Nemotron/Nvidia identity and the same control-before-content rule.
+      The backup remains unusable unless primary failure is sanitized and the
+      exact endpoint is still free, present, unexpired, and parameter-compatible.
+- [x] Run the focused OpenRouter suite and route/gate negative tests with both
+      explicit live cases excluded. Recheck docs and diff hygiene. Do not enable
+      live access while deterministic verification is incomplete.
+- [x] Preserve the historical Lightning operator files. Create separately named
+      owner-only Gemma/Darkbloom profile and configuration files outside Git,
+      recompute both digests, verify them through the real loaders, and pin the
+      exact digest constants in the explicit runner.
+- [x] Immediately before live access, recheck exact endpoint capability and
+      zero pricing, budget `9/12`, owner-only modes, key spend/expiry boundary,
+      and explicit synthetic-data-policy acceptance. Any drift stops before
+      reservation.
+- [x] Run the explicit primary Phase 20 matrix with expected consumed `9`.
+      Reserve slot 10 for control; reserve slot 11 for visible streaming only
+      after admitted structured control. Require validated identity, metadata,
+      cache denial, usage, visible content, and output below 256 tokens.
+      Slot 10: HTTP 200, cache absent, identity accepted, usage 2322/256,
+      `malformed_control`. Content was not reserved.
+- [x] If primary control fails, record the sanitized failure before creating and
+      load-verifying a separate backup operator pin. Run backup only at expected
+      consumed `10`; slots 11–12 leave no contingency. An expired or changed
+      backup returns to owner selection without spending another slot.
+      Slot 11: HTTP 200, cache absent, identity accepted, usage none,
+      `malformed_control`. Content was not reserved. Slot 12 unused.
+- [x] Reconcile sanitized evidence and apply
+      `qualified_for: synthetic_development` only if every existing gate passes.
+      Label not applied. Evidence:
+      `docs/operations/provider-profiles/qualified/openrouter/synthetic-development-phase20-2026-08-20.md`.
+
+Exit: the same frozen model/provider pair passes strict control and visible
+streaming with complete evidence, or the bounded run stops without fallback,
+qualification, or enablement.
+
 # Current state
 
 On 2026-08-20 the Product Lead explicitly accepted OpenRouter/provider
@@ -643,8 +727,26 @@ reserve, isolate per-request HTTP observations, and require visible
 non-truncated content before printing `qualified_for`. Phase 18 makes the
 expected count compare-and-increment atomic under the exclusive budget lock so
 two processes that both observed `6` cannot both reserve. Independent review
-of `08c9304` (2026-08-20) approved that harness surface. The qualification
-task stays open for a new eligible free route and the hosted Participant path.
+of `08c9304` (2026-08-20) approved that harness surface.
+
+Phase 19 public-catalog recheck on 2026-08-20 (no key, no budget slot):
+OpenRouter now advertises several `:free` endpoints with both
+`structured_outputs` and `response_format`. The previously pinned
+`nvidia/nemotron-3.5-lightning:free` / `Nvidia` endpoint still advertises
+neither, so repeating its control request cannot clear the blocker. Catalog
+advertisement is not live qualification under `require_parameters`, no
+fallback, metadata, cache denial, and the Flex Agent Decision schema. The
+qualification task stays open for a new live pin of a catalog-eligible free
+route and the hosted Participant path.
+
+Phase 20 completed on 2026-08-20. Distinct `gemma-darkbloom-matrix` and
+`nemotron-nano-backup-matrix` gates and runners are implemented. Historical
+Lightning operator files remain. Separate owner-only Gemma and Nano pins were
+load-verified. Retention-accepted budget is now 11/12. Slot 10 Gemma control
+and slot 11 Nano control both returned HTTP 200, cache absent, validated
+model identity, and `malformed_control`. Content was not reserved. The
+acceptance label was not applied. Slot 12 is unused. Do not repeat either
+control request.
 
 ## Historical strict-policy qualification run
 
@@ -750,6 +852,22 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
 
 # Findings / deviations
 
+- Phase 20 implementation: distinct phases `gemma-darkbloom-matrix` (consumed
+  9 only) and `nemotron-nano-backup-matrix` (consumed 10 only). Historical
+  Lightning runner unchanged. Content reservation requires
+  `ModelExecutionStructuredControl`.
+- Phase 20 self-review: live Gemma and Nano control both failed closed before
+  content. Gemma usage 2322/256 indicates the Decision JSON was truncated at
+  the installed output bound. Nano recorded no usage tokens on the failed
+  control. Catalog `structured_outputs` did not produce an admissible Decision.
+- Phase 20 self-review: Nano adapter digest equals the Lightning adapter digest
+  because both use `nvidia` / `Nvidia` and the same immutable request-policy
+  source; profile digests differ. This is expected, not a pin mix-up.
+- Exact public catalogs rechecked on 2026-08-20: Gemma free still exposes
+  `darkbloom` / `Darkbloom` with `response_format` and `structured_outputs`;
+  Google AI Studio still lacks `structured_outputs`. The Nemotron Nano backup
+  is currently present but reports expiration on 2026-08-24.
+
 - `ApprovedHttpsOrigin` remains origin-only. The OpenRouter adapter constructs
   the fixed `/api/v1/chat/completions` path and rejects other destinations.
 - Optional adapter-configuration digest is excluded from the legacy digest
@@ -767,7 +885,7 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
   fails closed; Production/Staging stay fail closed.
 - Participant `/browser` remains synthetic. Hosted natural chat is blocked.
 - The historical strict-policy discovery stopped after 5/12 reserved requests.
-  The distinct retention-accepted run is 9/12. Slot 6 captured sanitized
+  The distinct retention-accepted run is 11/12. Slot 6 captured sanitized
   `nvidia/nemotron-3.5-lightning:free` / `Nvidia` and that pair is now pinned
   outside Git. Slots 1–3 passed without recorded identity; slot 4 was
   `rate_limited`; slot 5 was `timeout`. Slot 7 was an unclassified control
@@ -810,6 +928,16 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
 - Independent review of `08c9304` (2026-08-20) approved the live-harness
   remediation series. No remaining actionable correctness issue. Local
   OpenRouter 55/55 was not independently confirmed from GitHub CI metadata.
+- Phase 19 public catalog/endpoints recheck (2026-08-20, no inference): the
+  pinned lightning route still lacks `structured_outputs` and
+  `response_format`. Other `:free` endpoints now advertise both, including
+  `openai/gpt-oss-20b:free` / Darkbloom, `z-ai/glm-5.2:free` / Decart,
+  `google/gemma-4-26b-a4b-it:free` / Darkbloom, `liquid/lfm-2.5-2.6b:free` /
+  Liquid, `nvidia/nemotron-nano-9b-v2:free` / Nvidia,
+  `nvidia/nemotron-3-super-120b-a12b:free` / Nvidia, and
+  `dots-studio/dots-3-note-preview:free` / AtlasCloud. `openrouter/free` lists
+  those parameters at model level but has no concrete endpoints document.
+  Discovery still does not send `response_format`.
 
 # Verification
 
@@ -821,17 +949,24 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
 | Architecture/operations approval | passed | ADR-008 `OSS-DEC-17`, ADR-010 `STACK-DEC-18`, and approved profile dated 2026-08-19 |
 | Fake-transport provider contracts | passed | OpenRouter deterministic suite 55/55 on 2026-08-20 after Phase 18 atomic `TryReserveExpected` plus Phase 17 live-harness remediation: reservation phase/expected-consumed gates, observer no-response isolation, and stricter matrix qualification. Prior coverage remains: persistent-budget `TryRead`, live HTTP/cache observer, symlink, sanitized-failure, unsafe-identity, headers, provider object, metadata/attempt/identity/usage, response-cache HIT vs prompt cached_tokens, control and streaming stall-after-headers timeout vs caller cancel, exact envelope limit and limit+1, strict SSE UTF-8, escaped invalid surrogates, terminal-then-DONE, discovery selected-endpoint, schema parity |
 | Profile/credential/host isolation | passed | Digest regression; Infrastructure loaders; Unix owner-only secret tests; Worker Testing compose + Production fail-closed |
-| Live synthetic qualification | partial | Retention-accepted budget is 9/12. Operator files still load with adapter digest `77754995939f05366000e0f90022e998cdc85d18b3f675b8d64307595b0361ac` and profile digest `52b47fe8a81ec93aad637d3d81fee665ee9a8230762ecad3204ad6963ca038ac`. Phase 9: slot 8 control HTTP 404 / `request_rejected`; slot 9 content HTTP 200, cache absent, usage 188/256, completed. Sanitized summary: `docs/operations/provider-profiles/qualified/openrouter/synthetic-development-phase9-2026-08-20.md`. Acceptance label not applied |
+| Live synthetic qualification | partial | Retention-accepted budget is 11/12. Phase 9 Lightning: slot 8 control HTTP 404; slot 9 content HTTP 200, usage 188/256. Phase 20: slot 10 Gemma control HTTP 200 / `malformed_control` / usage 2322/256 / cache absent; slot 11 Nano control HTTP 200 / `malformed_control` / usage none / cache absent. Content not reserved. Summaries: `docs/operations/provider-profiles/qualified/openrouter/synthetic-development-phase9-2026-08-20.md` and `synthetic-development-phase20-2026-08-20.md`. Acceptance label not applied |
 | Interactive local Text Session | blocked | Phase 7: synthetic browser adapter; production HTTP SSE/OIDC still a documented gap (`docs/ui-ux/text-session.md`) |
 | Locked regression/supply chain/OCI/docs | partial | Phase 18 re-verification: OpenRouter 55/55 deterministic with two explicit live tests excluded. Status reconciliation on 2026-08-20 corrected `docs/README.md` and `docs/contributing/workspace.md` to record the implemented adapter and partial live result; `python3 scripts/check_docs.py` and `git diff --check` passed, and the focused OpenRouter suite again passed 55/55 with two explicit live tests skipped. Docker remains unavailable, so PostgreSQL Testcontainers, Worker OCI image build, and `dotnet publish` were not run |
 | Independent review (`7e2e438`) | passed | Adapter remediation series approved 2026-08-20: no remaining substantive correctness or architecture issues. Nine prior findings closed. Local OpenRouter 27/27 not independently verifiable from GitHub commit statuses. Live qualification and hosted Participant path remain gated |
 | Independent review (`08c9304`) | passed | Live-harness series approved 2026-08-20: atomic expected reservation, phase/budget gates, request-scoped HTTP evidence, and fail-closed qualification predicate. No remaining actionable correctness issue. Local OpenRouter 55/55 not independently verifiable from GitHub commit statuses. Live result stays partial / 9 of 12 |
+| Public free-route structured-output catalog (Phase 19) | passed (catalog only) | `GET /api/v1/models` plus `/endpoints` on 2026-08-20 without a key. 20 zero-price/free rows; 8 advertise `structured_outputs`. Pinned lightning endpoint still advertises neither parameter. No live slot consumed |
+| Approved Phase 20 candidate decision | passed (documentation) | Authoritative profile, provider-profile index, documentation maturity summary, and active handoff updated on 2026-08-20. `python3 scripts/check_docs.py` and `git diff --check` passed. No operator pin was written and no live slot was consumed |
+| Phase 20 exact endpoint and operator readiness review | passed | Rechecked immediately before reservation on 2026-08-20. Gemma/Darkbloom still advertises both structured-output parameters at zero price. Lightning files preserved. Gemma operator files written `0600`. Retention-accepted budget was `9/12` before the first Phase 20 reserve |
+| Phase 20 live Gemma/Darkbloom control | failed closed | Slot 10/12: HTTP 200, cache absent, model accepted, usage 2322/256, `malformed_control`. Content not reserved |
+| Phase 20 live Nano backup control | failed closed | Public catalog still listed Nvidia structured-output at zero price; endpoint tag was `nvidia/bf16` while the approved slug remained `nvidia`. Slot 11/12: HTTP 200, cache absent, model accepted, usage none, `malformed_control`. Content not reserved. Slot 12 unused |
+| Focused OpenRouter readiness baseline | passed | Direct xUnit v3 runner after Phase 20: 69 discovered, 65 passed, 4 explicit live tests not run, 0 failed |
 
 # Risks, interim defaults, and owner gates
 
 | Topic | Risk | Interim default / gate |
 | --- | --- | --- |
 | Free model/provider availability | Candidate identity and capability can change without notice | Discover at qualification time, pin one concrete model/provider, fail closed on drift, and never fall back silently |
+| Next structured-output free pin | Catalog-advertised routes can still fail the 256-token Decision envelope even when HTTP 200 | Recorded: Gemma used 256/256 output tokens then `malformed_control`; Nano also `malformed_control`. Do not repeat those probes. A new candidate needs an owner decision and a new phase |
 | Direct OpenAI digest compatibility | A common profile extension could invalidate installed profiles and frozen bindings | Optional adapter-policy digest is excluded from the legacy digest source when absent; preserve with a known-value regression test |
 | Provider schema compatibility | Canonical schema references are not resolvable by an external provider | Generate a self-contained strict adapter projection and keep canonical validation as final authority |
 | Additive OpenRouter metadata | New harmless fields could break an overly rigid parser; missing critical fields could be ignored by an overly loose parser | Require and validate all known security/identity fields, ignore unknown additive fields, reject contradictions |
@@ -846,38 +981,41 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
 Phases 0–6 have no blocker. Phase 7 is blocked on hosted Participant
 Session/API/OIDC/SSE wiring. The amended owner data-policy gate for Phases 8–9
 cleared on 2026-08-20. The old strict-policy budget remains historical at 5/12.
-The distinct retention-accepted budget is 9/12 and a concrete pair is pinned
-outside Git. Phase 9 ran: structured control is unavailable on this free route
-(HTTP 404), and streaming identity/cache/usage passed. Do not fall back or
-switch to a paid model. Do not reuse the historical strict-policy 5/12
-counter. Full `qualified_for: synthetic_development` remains unmet. Phase 7
-hosted chat remains blocked. Docker was unavailable for a live Worker/PostgreSQL
-path.
+The distinct retention-accepted budget is 11/12. Historical Lightning files
+remain; separate Gemma and Nano pins exist outside Git. Phase 9 Lightning
+control was HTTP 404; Phase 20 Gemma and Nano control were HTTP 200
+`malformed_control` with cache absent and no content reservation. Do not fall
+back or switch to a paid model. Do not reuse the historical strict-policy 5/12
+counter. Do not repeat recorded control requests. Slot 12 is unused and requires
+a new owner-approved phase and candidate. Full
+`qualified_for: synthetic_development` remains unmet. Phase 7 hosted chat
+remains blocked. Docker was unavailable for a live Worker/PostgreSQL path.
 
 # Next executable slice
 
-Phase 9 recorded a partial live result against the pinned pair. Next safe
-actions are separately scoped: either wait for an independently eligible free
-route that accepts strict JSON Schema, or take a hosted Participant-path task
-once that wiring exists. Do not spend remaining slots repeating the same 404
-control request. Do not relax schema, fallbacks, or switch to a paid model.
+Phase 20 is executed and not qualified. Retention-accepted budget is 11/12.
+Do not reuse Gemma, Nano, or Lightning control requests. Do not spend slot 12
+without a new Product Lead candidate and a new live phase. Do not relax schema,
+fallbacks, or switch to a paid model. Hosted Participant chat remains a
+separately scoped path. The remaining 256-token Decision envelope is the
+likely live blocker on advertised free structured-output routes.
 
 # Development handoff
 
 ## Resume here
 
-1. Retention-accepted budget is 9/12; historical budget stays 5/12. Operator
-   files still pin `nvidia/nemotron-3.5-lightning:free` / `nvidia` / `Nvidia`.
-2. Live runners now refuse this recorded 9/12 Nvidia matrix before reserve.
-   Discovery is retired at consumed >= 6. A future run needs a new phase
-   (`FLEXAGENT_OPENROUTER_LIVE_PHASE`), a matching
-   `FLEXAGENT_OPENROUTER_QUALIFICATION_EXPECTED_CONSUMED`, and must not reuse
-   this pair's already-recorded control request.
-3. Live-harness review of `08c9304` is approved. Keep the task open: full live
-   qualification is incomplete, hosted chat is blocked, and Docker was
-   unavailable for a live Worker/PostgreSQL path.
-4. A new eligible free route or a separately scoped hosted-path task is
-   required before claiming `qualified_for: synthetic_development`.
+1. Retention-accepted budget is 11/12; historical budget stays 5/12. Historical
+   Lightning operator files are preserved. Separate Gemma and Nano pins exist
+   outside Git.
+2. Discovery remains retired at consumed >= 6. Lightning `pinned-matrix` remains
+   retired at 9. Gemma authorizes only at consumed 9. Nano backup authorizes
+   only at consumed 10. The recorded 11/12 state refuses all current phases.
+3. Phase 20 live control failed on both approved routes (`malformed_control`,
+   HTTP 200, cache absent). Content was not reserved. The acceptance label was
+   not applied.
+4. Keep the task open: full live qualification is incomplete, hosted chat is
+   blocked, Docker was unavailable for a live Worker/PostgreSQL path, and slot
+   12 requires a new owner-approved candidate and phase.
 
 ## Implemented change map
 
@@ -890,7 +1028,8 @@ control request. Do not relax schema, fallbacks, or switch to a paid model.
 | Worker opt-in/readiness | `src/Hosts/FlexAgent.Worker/WorkerDurableWorkSampling.cs`; `tests/Runtime/FlexAgent.Runtime.Tests/HostRuntimeTests.cs` |
 | Architecture and packaging | `FlexAgent.slnx`, central/locked package graph, `tests/Architecture/FlexAgent.Architecture.Tests/ProviderAdapterBoundaryTests.cs`, `HostOciDockerfileTests.cs`, and `deploy/docker/worker.Dockerfile` |
 | Durable integration | Sessions/PostgreSQL provider-request admission, provenance, publication, replay, and fault tests; migration head should remain `0029` |
-| Live evidence | opt-in OpenRouter test/harness and, only after a real hosted path exists, Playwright evidence under `.playwright-mcp/`; sanitized qualification summary under the approved operations directory |
+| Live evidence | opt-in OpenRouter test/harness and, only after a real hosted path exists, Playwright evidence under `.playwright-mcp/`; sanitized qualification summaries under the approved operations directory |
+| Phase 20 route gates | `OpenRouterLiveQualification` phase/count/digest constants; `OpenRouterLivePhase20QualificationTests` and runner; `OpenRouterLivePinnedRouteAcceptance` |
 
 # Completion
 
@@ -901,4 +1040,5 @@ control request. Do not relax schema, fallbacks, or switch to a paid model.
 - [x] Remaining gaps or unverified behavior are recorded
 - [x] Adapter remediation series (`7e2e438`) and live-harness series
       (`08c9304`) are recorded as review-approved; the qualification task
-      remains open for a new eligible free route and hosted-path gates
+      remains open: Phase 20 live control failed, hosted chat is gated, and
+      slot 12 plus a new candidate still require owner approval

@@ -16,8 +16,13 @@ model-provider profiles. It does not select a product-default model.
   has a distinct `sessions.openrouter.v1` adapter and Worker synthetic-development
   opt-in. Fake-transport evidence exists. A 2026-08-20 pinned live matrix proved
   streaming on one `:free` pair and recorded a structured-control 404; it is not
-  labeled `qualified_for: synthetic_development`. Hosted Participant chat remains
-  gated. `openrouter/free` is discovery/smoke only;
+  labeled `qualified_for: synthetic_development`. The Product Lead subsequently
+  approved `google/gemma-4-26b-a4b-it:free` / `darkbloom` / `Darkbloom` as the
+  next bounded live qualification candidate. Phase 20 implemented the distinct
+  gate/runner, operator pins, and reserved control probes; both Gemma and the
+  Nano backup failed structured Decision admission without reserving content,
+  so the run is not labeled `qualified_for: synthetic_development`. Hosted
+  Participant chat remains gated. `openrouter/free` is discovery/smoke only;
   repeatable Session testing pins one concrete `:free` model and one permitted
   provider slug. This evidence does not qualify production or close Direct OpenAI
   Phase B.

@@ -50,4 +50,19 @@ internal static class OpenRouterLiveMatrixQualification
         denialReason = string.Empty;
         return true;
     }
+
+    public static bool TryAuthorizeContentAfterControl(
+        ModelExecutionAttemptResult control,
+        out string denialReason)
+    {
+        ArgumentNullException.ThrowIfNull(control);
+        if (control is not ModelExecutionStructuredControl)
+        {
+            denialReason = "control_not_admitted";
+            return false;
+        }
+
+        denialReason = string.Empty;
+        return true;
+    }
 }

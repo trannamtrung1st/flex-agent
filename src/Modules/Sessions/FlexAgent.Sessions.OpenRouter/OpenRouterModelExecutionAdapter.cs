@@ -657,9 +657,25 @@ public static class OpenRouterLiveQualification
     public const string PhaseEnvironmentVariable = "FLEXAGENT_OPENROUTER_LIVE_PHASE";
     public const string DiscoveryPhase = "discovery";
     public const string PinnedMatrixPhase = "pinned-matrix";
+    public const string GemmaDarkbloomPhase = "gemma-darkbloom-matrix";
+    public const string NemotronNanoBackupPhase = "nemotron-nano-backup-matrix";
     public const int DiscoveryRetiredAtConsumed = 6;
     public const int PinnedMatrixRetiredAtConsumed = 9;
+    public const int GemmaDarkbloomStartsAtConsumed = 9;
+    public const int NemotronNanoBackupStartsAtConsumed = 10;
     public const int MaxInferenceRequests = 12;
+    public const string GemmaDarkbloomProfileId = "openrouter.synthetic.local.gemma-4-26b-a4b-it";
+    public const string GemmaDarkbloomModel = "google/gemma-4-26b-a4b-it:free";
+    public const string GemmaDarkbloomProviderSlug = "darkbloom";
+    public const string GemmaDarkbloomProviderIdentity = "Darkbloom";
+    public const string NemotronNanoBackupProfileId = "openrouter.synthetic.local.nemotron-nano-9b-v2";
+    public const string NemotronNanoBackupModel = "nvidia/nemotron-nano-9b-v2:free";
+    public const string NemotronNanoBackupProviderSlug = "nvidia";
+    public const string NemotronNanoBackupProviderIdentity = "Nvidia";
+    public const string GemmaDarkbloomAdapterDigest = "e442124b72a4a9d71ec3f5c39f64ce7d3a661de3e9211ef0641bc297ec631e52";
+    public const string GemmaDarkbloomProfileDigest = "48a2e696b6d0970ea58d9a5a040ccc4ff25c4e6d089447aa2dbe66c21f5d7ad9";
+    public const string NemotronNanoBackupAdapterDigest = "77754995939f05366000e0f90022e998cdc85d18b3f675b8d64307595b0361ac";
+    public const string NemotronNanoBackupProfileDigest = "222f34dcffe90fc728ba02645872714ae7671cab2ee334af3736b295e34fa8fb";
 
     public static bool IsEnabled =>
         string.Equals(Environment.GetEnvironmentVariable(EnableEnvironmentVariable), "1", StringComparison.Ordinal);
@@ -715,6 +731,20 @@ public static class OpenRouterLiveQualification
             && currentConsumed >= PinnedMatrixRetiredAtConsumed)
         {
             denialReason = "pinned_matrix_already_recorded";
+            return false;
+        }
+
+        if (string.Equals(requiredPhase, GemmaDarkbloomPhase, StringComparison.Ordinal)
+            && currentConsumed != GemmaDarkbloomStartsAtConsumed)
+        {
+            denialReason = "gemma_darkbloom_requires_consumed_9";
+            return false;
+        }
+
+        if (string.Equals(requiredPhase, NemotronNanoBackupPhase, StringComparison.Ordinal)
+            && currentConsumed != NemotronNanoBackupStartsAtConsumed)
+        {
+            denialReason = "nemotron_nano_backup_requires_consumed_10";
             return false;
         }
 
