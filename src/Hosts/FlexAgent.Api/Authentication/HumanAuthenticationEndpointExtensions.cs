@@ -136,7 +136,7 @@ public static class HumanAuthenticationEndpointExtensions
             return;
         }
 
-        var keys = await jwks.TryGetKeysAsync(
+        using var keys = await jwks.TryGetKeysAsync(
             options.JwksUri,
             OidcIdTokenValidator.TryReadSigningKeyId(exchange.IdToken),
             context.RequestAborted);
@@ -152,7 +152,7 @@ public static class HumanAuthenticationEndpointExtensions
             exchange.IdToken,
             transaction.Nonce,
             options.ValidationProfile,
-            keys,
+            keys.Keys,
             timeProvider);
         if (!validated.Succeeded || validated.Token is null)
         {
@@ -166,7 +166,8 @@ public static class HumanAuthenticationEndpointExtensions
             new ValidatedHumanLogin(
                 validated.Token.Identity,
                 validated.Token.Strength,
-                validated.Token.ProviderSessionId),
+                validated.Token.ProviderSessionId,
+                validated.Token.IssuedAt),
             clientSuppliedOrganizationId: null,
             transaction.CorrelationId,
             context.RequestAborted);
@@ -250,7 +251,7 @@ public static class HumanAuthenticationEndpointExtensions
 
         var form = await context.Request.ReadFormAsync(context.RequestAborted);
         var logoutToken = form["logout_token"].FirstOrDefault();
-        var keys = await jwks.TryGetKeysAsync(
+        using var keys = await jwks.TryGetKeysAsync(
             options.JwksUri,
             OidcIdTokenValidator.TryReadSigningKeyId(logoutToken),
             context.RequestAborted);
@@ -263,7 +264,7 @@ public static class HumanAuthenticationEndpointExtensions
         var validated = OidcIdTokenValidator.ValidateLogoutToken(
             logoutToken,
             options.ValidationProfile,
-            keys,
+            keys.Keys,
             timeProvider);
         if (!validated.Succeeded || validated.LogoutToken is null)
         {

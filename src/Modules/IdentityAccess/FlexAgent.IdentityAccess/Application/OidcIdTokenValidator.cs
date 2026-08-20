@@ -22,7 +22,8 @@ public sealed record ValidatedOidcIdToken(
     ExactIssuerSubject Identity,
     AuthenticationStrength Strength,
     string Nonce,
-    string? ProviderSessionId);
+    string? ProviderSessionId,
+    DateTimeOffset IssuedAt);
 
 public sealed record OidcValidationResult(bool Succeeded, string? ReasonCode, ValidatedOidcIdToken? Token)
 {
@@ -35,7 +36,8 @@ public sealed record ValidatedLogoutToken(
     string Issuer,
     string? Subject,
     string? ProviderSessionId,
-    string JwtId);
+    string JwtId,
+    DateTimeOffset IssuedAt);
 
 public sealed record OidcLogoutValidationResult(
     bool Succeeded,
@@ -146,7 +148,8 @@ public static class OidcIdTokenValidator
                 identity,
                 ReadStrength(payload),
                 nonce,
-                string.IsNullOrWhiteSpace(providerSessionId) ? null : providerSessionId));
+                string.IsNullOrWhiteSpace(providerSessionId) ? null : providerSessionId,
+                issuedAt));
     }
 
     public static OidcLogoutValidationResult ValidateLogoutToken(
@@ -226,7 +229,8 @@ public static class OidcIdTokenValidator
                 issuer,
                 hasSub ? subject : null,
                 hasSid ? providerSessionId : null,
-                jwtId));
+                jwtId,
+                issuedAt));
     }
 
     private static bool LifetimeIsAcceptable(

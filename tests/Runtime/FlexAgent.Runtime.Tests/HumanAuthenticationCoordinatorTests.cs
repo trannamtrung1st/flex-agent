@@ -15,7 +15,7 @@ public sealed class HumanAuthenticationCoordinatorTests
     {
         var harness = CreateHarness();
         var unknown = await harness.Coordinator.CompleteLoginAsync(
-            new ValidatedHumanLogin(Identity, AuthenticationStrength.Empty, "sid-1"),
+            new ValidatedHumanLogin(Identity, AuthenticationStrength.Empty, "sid-1", DateTimeOffset.UtcNow),
             null,
             Guid.NewGuid(),
             TestContext.Current.CancellationToken);
@@ -30,7 +30,7 @@ public sealed class HumanAuthenticationCoordinatorTests
             TestContext.Current.CancellationToken));
 
         var login = await harness.Coordinator.CompleteLoginAsync(
-            new ValidatedHumanLogin(Identity, new AuthenticationStrength("acr:mfa", ["mfa"]), "sid-1"),
+            new ValidatedHumanLogin(Identity, new AuthenticationStrength("acr:mfa", ["mfa"]), "sid-1", DateTimeOffset.UtcNow),
             null,
             Guid.NewGuid(),
             TestContext.Current.CancellationToken);
@@ -45,7 +45,7 @@ public sealed class HumanAuthenticationCoordinatorTests
         var extraOrg = Guid.NewGuid();
         harness.Bindings.GrantOrganization(actorId, extraOrg);
         var ambiguous = await harness.Coordinator.CompleteLoginAsync(
-            new ValidatedHumanLogin(Identity, AuthenticationStrength.Empty, null),
+            new ValidatedHumanLogin(Identity, AuthenticationStrength.Empty, null, DateTimeOffset.UtcNow),
             null,
             Guid.NewGuid(),
             TestContext.Current.CancellationToken);
@@ -149,7 +149,12 @@ public sealed class HumanAuthenticationCoordinatorTests
             null,
             Guid.NewGuid(),
             TestContext.Current.CancellationToken);
-        var token = new ValidatedLogoutToken(Identity.Issuer, Identity.Subject, null, "jti-1");
+        var token = new ValidatedLogoutToken(
+            Identity.Issuer,
+            Identity.Subject,
+            null,
+            "jti-1",
+            DateTimeOffset.UtcNow);
 
         var first = await harness.Coordinator.ApplyBackChannelLogoutAsync(
             token,
@@ -233,6 +238,50 @@ public sealed class HumanAuthenticationCoordinatorTests
     }
 
     [Fact]
+    public async Task Login_after_sub_only_logout_cannot_recreate_a_stale_identity_session()
+    {
+        var harness = CreateHarness();
+        var actorId = Guid.NewGuid();
+        harness.Bindings.RegisterActor(actorId);
+        harness.Bindings.GrantOrganization(actorId, Guid.NewGuid());
+        await harness.Bindings.TryProvisionAsync(
+            new HumanIdentityBinding(Guid.NewGuid(), Identity, actorId, DateTimeOffset.UtcNow, null),
+            TestContext.Current.CancellationToken);
+        var authenticatedAt = DateTimeOffset.UnixEpoch.AddHours(1);
+        var login = await harness.Coordinator.CompleteLoginAsync(
+            Login("sid-stale", authenticatedAt),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        await harness.Coordinator.ApplyBackChannelLogoutAsync(
+            new ValidatedLogoutToken(
+                Identity.Issuer,
+                Identity.Subject,
+                null,
+                "jti-sub-only",
+                authenticatedAt.AddMinutes(1)),
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+
+        var stale = await harness.Coordinator.CompleteLoginAsync(
+            Login("sid-late", authenticatedAt),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+        var fresh = await harness.Coordinator.CompleteLoginAsync(
+            Login("sid-fresh", authenticatedAt.AddMinutes(2)),
+            null,
+            Guid.NewGuid(),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(login.Succeeded);
+        Assert.False(stale.Succeeded);
+        Assert.Equal(HumanAuthenticationReasonCodes.RevokedSession, stale.ReasonCode);
+        Assert.True(fresh.Succeeded);
+        Assert.NotNull(await harness.Coordinator.AuthenticateAsync(fresh.RawCredential!, false, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task Provider_lifecycle_revokes_matching_sessions_without_restoring_them()
     {
         var harness = CreateHarness();
@@ -257,8 +306,10 @@ public sealed class HumanAuthenticationCoordinatorTests
         Assert.Equal(HumanAuthenticationReasonCodes.ReboundIdentity, rebound);
     }
 
-    private static ValidatedHumanLogin Login(string providerSessionId = "sid-1") =>
-        new(Identity, new AuthenticationStrength("acr:mfa", ["mfa"]), providerSessionId);
+    private static ValidatedHumanLogin Login(
+        string providerSessionId = "sid-1",
+        DateTimeOffset? authenticatedAt = null) =>
+        new(Identity, new AuthenticationStrength("acr:mfa", ["mfa"]), providerSessionId, authenticatedAt ?? DateTimeOffset.UtcNow);
 
     private static Harness CreateHarness()
     {

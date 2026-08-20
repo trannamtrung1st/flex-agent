@@ -179,7 +179,8 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
 {
     public async Task InsertAsync(ApplicationSessionRecord session, CancellationToken cancellationToken = default)
     {
-        if (!await TryInsertLiveSessionAsync(session, cancellationToken).ConfigureAwait(false))
+        if (!await TryInsertLiveSessionAsync(session, session.Lifetime.CreatedAt, cancellationToken)
+                .ConfigureAwait(false))
         {
             throw new InvalidOperationException("Application session could not be inserted.");
         }
@@ -187,6 +188,7 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
 
     public async Task<bool> TryInsertLiveSessionAsync(
         ApplicationSessionRecord session,
+        DateTimeOffset authenticatedAt,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(session);
@@ -198,7 +200,13 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
         await AcquireProviderLogoutLockAsync(connection, transaction, session.ProviderSessionDigest, cancellationToken)
             .ConfigureAwait(false);
         if (await ProviderSessionIsRevokedAsync(connection, transaction, session.ProviderSessionDigest, cancellationToken)
-                .ConfigureAwait(false))
+                .ConfigureAwait(false)
+            || await IdentityLogoutWatermarkBlocksAsync(
+                connection,
+                transaction,
+                session.Identity,
+                authenticatedAt,
+                cancellationToken).ConfigureAwait(false))
         {
             await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
             return false;
@@ -255,7 +263,13 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
         }
 
         if (await ProviderSessionIsRevokedAsync(connection, transaction, session.ProviderSessionDigest, cancellationToken)
-                .ConfigureAwait(false))
+                .ConfigureAwait(false)
+            || await IdentityLogoutWatermarkBlocksAsync(
+                connection,
+                transaction,
+                session.Identity,
+                authenticatedAt,
+                cancellationToken).ConfigureAwait(false))
         {
             await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
             return false;
@@ -355,7 +369,13 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
         await AcquireProviderLogoutLockAsync(connection, transaction, successor.ProviderSessionDigest, cancellationToken)
             .ConfigureAwait(false);
         if (await ProviderSessionIsRevokedAsync(connection, transaction, successor.ProviderSessionDigest, cancellationToken)
-                .ConfigureAwait(false))
+                .ConfigureAwait(false)
+            || await IdentityLogoutWatermarkBlocksAsync(
+                connection,
+                transaction,
+                successor.Identity,
+                successor.Lifetime.CreatedAt,
+                cancellationToken).ConfigureAwait(false))
         {
             await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
             return false;
@@ -433,6 +453,12 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                     connection,
                     transaction,
                     successor.ProviderSessionDigest,
+                    cancellationToken).ConfigureAwait(false)
+                || await IdentityLogoutWatermarkBlocksAsync(
+                    connection,
+                    transaction,
+                    successor.Identity,
+                    successor.Lifetime.CreatedAt,
                     cancellationToken).ConfigureAwait(false))
             {
                 await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
@@ -537,6 +563,7 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
         string? providerSessionDigest,
         ExactIssuerSubject? identity,
         DateTimeOffset revokedAt,
+        DateTimeOffset logoutIssuedAt,
         string terminalReason,
         CancellationToken cancellationToken = default)
     {
@@ -564,6 +591,18 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
         }
 
         var count = 0;
+        if (identity is not null)
+        {
+            await AcquireIdentityLogoutLockAsync(connection, transaction, identity, cancellationToken)
+                .ConfigureAwait(false);
+            await UpsertIdentityLogoutWatermarkAsync(
+                connection,
+                transaction,
+                identity,
+                logoutIssuedAt,
+                cancellationToken).ConfigureAwait(false);
+        }
+
         if (!string.IsNullOrWhiteSpace(providerSessionDigest))
         {
             await AcquireProviderLogoutLockAsync(connection, transaction, providerSessionDigest, cancellationToken)
@@ -574,7 +613,7 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 providerSessionDigest,
                 revokedAt,
                 cancellationToken).ConfigureAwait(false);
-            count = await RevokeLiveByProviderSessionDigestCoreAsync(
+            count += await RevokeLiveByProviderSessionDigestCoreAsync(
                 connection,
                 transaction,
                 providerSessionDigest,
@@ -582,11 +621,10 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 terminalReason,
                 cancellationToken).ConfigureAwait(false);
         }
-        else if (identity is not null)
+
+        if (identity is not null)
         {
-            await AcquireIdentityLogoutLockAsync(connection, transaction, identity, cancellationToken)
-                .ConfigureAwait(false);
-            count = await connection.ExecuteAsync(
+            count += await connection.ExecuteAsync(
                 new CommandDefinition(
                     """
                     UPDATE application_sessions
@@ -611,6 +649,52 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
 
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         return ForcedLogoutApplyResult.Applied(count);
+    }
+
+    private static async Task UpsertIdentityLogoutWatermarkAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        ExactIssuerSubject identity,
+        DateTimeOffset logoutIssuedAt,
+        CancellationToken cancellationToken)
+    {
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO identity_logout_watermarks (issuer, subject, logged_out_at)
+                VALUES (@Issuer, @Subject, @LoggedOutAt)
+                ON CONFLICT (issuer, subject)
+                DO UPDATE SET logged_out_at = GREATEST(identity_logout_watermarks.logged_out_at, EXCLUDED.logged_out_at);
+                """,
+                new
+                {
+                    identity.Issuer,
+                    identity.Subject,
+                    LoggedOutAt = logoutIssuedAt,
+                },
+                transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    private static async Task<bool> IdentityLogoutWatermarkBlocksAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        ExactIssuerSubject identity,
+        DateTimeOffset authenticatedAt,
+        CancellationToken cancellationToken)
+    {
+        var loggedOutAt = await connection.ExecuteScalarAsync<DateTimeOffset?>(
+            new CommandDefinition(
+                """
+                SELECT logged_out_at
+                FROM identity_logout_watermarks
+                WHERE issuer = @Issuer
+                  AND subject = @Subject;
+                """,
+                new { identity.Issuer, identity.Subject },
+                transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return loggedOutAt is DateTimeOffset watermark && authenticatedAt <= watermark;
     }
 
     private static async Task AcquireProviderLogoutLockAsync(

@@ -5,7 +5,8 @@ namespace FlexAgent.IdentityAccess.Application;
 public sealed record ValidatedHumanLogin(
     ExactIssuerSubject Identity,
     AuthenticationStrength Strength,
-    string? ProviderSessionId);
+    string? ProviderSessionId,
+    DateTimeOffset AuthenticatedAt);
 
 public sealed record HumanAuthenticationResult(
     bool Succeeded,
@@ -96,6 +97,7 @@ public interface IApplicationSessionStore
 
     Task<bool> TryInsertLiveSessionAsync(
         ApplicationSessionRecord session,
+        DateTimeOffset authenticatedAt,
         CancellationToken cancellationToken = default);
 
     Task<ApplicationSessionRecord?> FindLiveByCredentialDigestAsync(
@@ -143,6 +145,7 @@ public interface IApplicationSessionStore
         string? providerSessionDigest,
         ExactIssuerSubject? identity,
         DateTimeOffset revokedAt,
+        DateTimeOffset logoutIssuedAt,
         string terminalReason,
         CancellationToken cancellationToken = default);
 }

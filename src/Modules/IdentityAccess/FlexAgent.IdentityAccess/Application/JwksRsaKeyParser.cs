@@ -9,6 +9,25 @@ public static class JwksRsaKeyParser
 {
     public static IReadOnlyDictionary<string, RSA>? TryParse(string? jwksJson)
     {
+        var parameters = TryParseParameters(jwksJson);
+        if (parameters is null)
+        {
+            return null;
+        }
+
+        var parsed = new Dictionary<string, RSA>(StringComparer.Ordinal);
+        foreach (var (kid, value) in parameters)
+        {
+            var rsa = RSA.Create();
+            rsa.ImportParameters(value);
+            parsed[kid] = rsa;
+        }
+
+        return parsed;
+    }
+
+    public static IReadOnlyDictionary<string, RSAParameters>? TryParseParameters(string? jwksJson)
+    {
         if (string.IsNullOrWhiteSpace(jwksJson))
         {
             return null;
@@ -23,7 +42,7 @@ public static class JwksRsaKeyParser
                 return null;
             }
 
-            var parsed = new Dictionary<string, RSA>(StringComparer.Ordinal);
+            var parsed = new Dictionary<string, RSAParameters>(StringComparer.Ordinal);
             foreach (var key in keys.EnumerateArray())
             {
                 if (!key.TryGetProperty("kty", out var kty)
@@ -42,13 +61,11 @@ public static class JwksRsaKeyParser
                     continue;
                 }
 
-                var rsa = RSA.Create();
-                rsa.ImportParameters(new RSAParameters
+                parsed[kidElement.GetString()!] = new RSAParameters
                 {
                     Modulus = modulus,
                     Exponent = exponent,
-                });
-                parsed[kidElement.GetString()!] = rsa;
+                };
             }
 
             return parsed.Count == 0 ? null : parsed;

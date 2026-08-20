@@ -26,6 +26,7 @@ public sealed class SessionsPersistenceOwnershipTests
         "authentication_security_events",
         "consumed_logout_tokens",
         "revoked_provider_sessions",
+        "identity_logout_watermarks",
     ];
 
     [Fact]

@@ -90,7 +90,7 @@ public sealed class OAuthWorkloadIdentitySource(
             return null;
         }
 
-        IReadOnlyDictionary<string, System.Security.Cryptography.RSA>? keys;
+        JwksKeySnapshot? keys;
         try
         {
             keys = await jwksKeySource.TryGetKeysAsync(jwksUri, cancellationToken).ConfigureAwait(false);
@@ -109,31 +109,34 @@ public sealed class OAuthWorkloadIdentitySource(
             return null;
         }
 
-        var authentication = SignedJwtAccessTokenValidator.Validate(token, validationProfile, keys, clock);
-        if (!authentication.IsAuthenticated || authentication.Proof is null)
+        using (keys)
         {
-            return null;
-        }
+            var authentication = SignedJwtAccessTokenValidator.Validate(token, validationProfile, keys.Keys, clock);
+            if (!authentication.IsAuthenticated || authentication.Proof is null)
+            {
+                return null;
+            }
 
-        var proof = authentication.Proof;
-        var binding = await LoadCurrentBindingAsync(
-            proof.Issuer,
-            proof.Subject,
-            proof.Audience,
-            cancellationToken).ConfigureAwait(false);
-        var context = CreateContext(proof, binding);
-        lock (_gate)
-        {
-            _current = context;
-        }
+            var proof = authentication.Proof;
+            var binding = await LoadCurrentBindingAsync(
+                proof.Issuer,
+                proof.Subject,
+                proof.Audience,
+                cancellationToken).ConfigureAwait(false);
+            var context = CreateContext(proof, binding);
+            lock (_gate)
+            {
+                _current = context;
+            }
 
-        if (!IsUsableBinding(binding))
-        {
-            authorityGate?.SetState(RecoverableAuthorityStates.IdentityDenied);
-            return null;
-        }
+            if (!IsUsableBinding(binding))
+            {
+                authorityGate?.SetState(RecoverableAuthorityStates.IdentityDenied);
+                return null;
+            }
 
-        return context;
+            return context;
+        }
     }
 
     private async Task<AuthenticatedWorkloadContext?> ObserveBindingAsync(

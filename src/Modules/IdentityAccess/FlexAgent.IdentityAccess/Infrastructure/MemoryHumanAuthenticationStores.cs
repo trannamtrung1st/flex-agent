@@ -110,6 +110,7 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
     private readonly ConcurrentDictionary<Guid, ApplicationSessionRecord> _sessions = new();
     private readonly HashSet<string> _revokedProviderSessions = new(StringComparer.Ordinal);
     private readonly HashSet<string> _consumedLogoutTokens = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DateTimeOffset> _identityLogoutWatermarks = new(StringComparer.Ordinal);
     private readonly object _gate = new();
 
     public IReadOnlyCollection<ApplicationSessionRecord> Snapshot => _sessions.Values.ToArray();
@@ -118,7 +119,7 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
     {
         ArgumentNullException.ThrowIfNull(session);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!TryInsertCore(session, cancellationToken))
+        if (!TryInsertCore(session, session.Lifetime.CreatedAt, cancellationToken))
         {
             throw new InvalidOperationException("Application session already exists.");
         }
@@ -128,10 +129,14 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
 
     public Task<bool> TryInsertLiveSessionAsync(
         ApplicationSessionRecord session,
+        DateTimeOffset authenticatedAt,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(TryInsertCore(session, cancellationToken));
+        Task.FromResult(TryInsertCore(session, authenticatedAt, cancellationToken));
 
-    private bool TryInsertCore(ApplicationSessionRecord session, CancellationToken cancellationToken)
+    private bool TryInsertCore(
+        ApplicationSessionRecord session,
+        DateTimeOffset authenticatedAt,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
         cancellationToken.ThrowIfCancellationRequested();
@@ -139,6 +144,7 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
         {
             if (HasSuccessor(session.PredecessorSessionId)
                 || ProviderSessionIsRevoked(session.ProviderSessionDigest)
+                || IdentityLogoutWatermarkBlocks(session.Identity, authenticatedAt)
                 || !_sessions.TryAdd(session.ApplicationSessionId, session))
             {
                 return false;
@@ -202,6 +208,7 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
                 || HasSuccessor(predecessorSessionId)
                 || successor.PredecessorSessionId != predecessorSessionId
                 || ProviderSessionIsRevoked(successor.ProviderSessionDigest)
+                || IdentityLogoutWatermarkBlocks(successor.Identity, successor.Lifetime.CreatedAt)
                 || !_sessions.TryAdd(successor.ApplicationSessionId, successor))
             {
                 return Task.FromResult(false);
@@ -265,6 +272,7 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
         string? providerSessionDigest,
         ExactIssuerSubject? identity,
         DateTimeOffset revokedAt,
+        DateTimeOffset logoutIssuedAt,
         string terminalReason,
         CancellationToken cancellationToken = default)
     {
@@ -279,11 +287,16 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
                 return Task.FromResult(ForcedLogoutApplyResult.Duplicate());
             }
 
+            if (identity is not null)
+            {
+                RecordIdentityLogoutWatermark(identity, logoutIssuedAt);
+            }
+
             var count = 0;
             if (!string.IsNullOrWhiteSpace(providerSessionDigest))
             {
                 _revokedProviderSessions.Add(providerSessionDigest);
-                count = RevokeWhere(
+                count += RevokeWhere(
                     session => session.IsLive
                         && string.Equals(
                             session.ProviderSessionDigest,
@@ -292,9 +305,10 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
                     revokedAt,
                     terminalReason);
             }
-            else if (identity is not null)
+
+            if (identity is not null)
             {
-                count = RevokeWhere(
+                count += RevokeWhere(
                     session => session.IsLive && session.Identity.Matches(identity.Issuer, identity.Subject),
                     revokedAt,
                     terminalReason);
@@ -331,6 +345,21 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
     private bool ProviderSessionIsRevoked(string? providerSessionDigest) =>
         !string.IsNullOrWhiteSpace(providerSessionDigest)
         && _revokedProviderSessions.Contains(providerSessionDigest);
+
+    private bool IdentityLogoutWatermarkBlocks(ExactIssuerSubject identity, DateTimeOffset authenticatedAt) =>
+        _identityLogoutWatermarks.TryGetValue(Key(identity), out var loggedOutAt)
+        && authenticatedAt <= loggedOutAt;
+
+    private void RecordIdentityLogoutWatermark(ExactIssuerSubject identity, DateTimeOffset logoutIssuedAt)
+    {
+        var key = Key(identity);
+        if (!_identityLogoutWatermarks.TryGetValue(key, out var current) || logoutIssuedAt > current)
+        {
+            _identityLogoutWatermarks[key] = logoutIssuedAt;
+        }
+    }
+
+    private static string Key(ExactIssuerSubject identity) => $"{identity.Issuer}\n{identity.Subject}";
 
     private static ApplicationSessionRecord Terminate(
         ApplicationSessionRecord current,

@@ -27,9 +27,10 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
                 'data_protection_keys',
                 'authentication_security_events',
                 'consumed_logout_tokens',
-                'revoked_provider_sessions');
+                'revoked_provider_sessions',
+                'identity_logout_watermarks');
             """)).ToArray();
-        Assert.Equal(7, tables.Length);
+        Assert.Equal(8, tables.Length);
 
         var writer = new PostgresAuthenticationSecurityEventWriter(Fixture.Services.ConnectionAccessor);
         var eventId = Guid.NewGuid();
@@ -83,7 +84,8 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
             new ValidatedHumanLogin(
                 new ExactIssuerSubject(issuer, subject),
                 new AuthenticationStrength("acr:mfa", ["mfa"]),
-                "sid-1"),
+                "sid-1",
+                DateTimeOffset.UtcNow),
             null,
             Guid.NewGuid(),
             CancellationToken);
@@ -139,7 +141,8 @@ public sealed class HumanAuthenticationPersistenceTests(PostgresIntegrationFixtu
             new ValidatedHumanLogin(
                 new ExactIssuerSubject(issuer, subject),
                 new AuthenticationStrength("acr:mfa", ["mfa"]),
-                "sid-1"),
+                "sid-1",
+                DateTimeOffset.UtcNow),
             null,
             Guid.NewGuid(),
             CancellationToken);

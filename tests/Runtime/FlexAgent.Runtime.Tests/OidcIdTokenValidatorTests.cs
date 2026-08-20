@@ -32,6 +32,7 @@ public sealed class OidcIdTokenValidatorTests
 
         Assert.True(accepted.Succeeded);
         Assert.Equal("subject-1", accepted.Token!.Identity.Subject);
+        Assert.True(accepted.Token.IssuedAt > DateTimeOffset.UtcNow.AddMinutes(-2));
         Assert.False(rejected.Succeeded);
         Assert.Equal(HumanAuthenticationReasonCodes.InvalidProviderResponse, rejected.ReasonCode);
     }
@@ -108,6 +109,7 @@ public sealed class OidcIdTokenValidatorTests
         Assert.True(accepted.Succeeded);
         Assert.Equal("subject-1", accepted.LogoutToken!.Subject);
         Assert.Null(accepted.LogoutToken.ProviderSessionId);
+        Assert.True(accepted.LogoutToken.IssuedAt > DateTimeOffset.UtcNow.AddMinutes(-2));
         Assert.False(rejected.Succeeded);
     }
 

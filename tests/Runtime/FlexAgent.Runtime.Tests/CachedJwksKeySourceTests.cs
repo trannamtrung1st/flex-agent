@@ -20,8 +20,8 @@ public sealed class CachedJwksKeySourceTests
         using var http = new HttpClient(handler);
         var source = new CachedJwksKeySource(http, TimeProvider.System, TimeSpan.FromMinutes(5));
 
-        var cached = await source.TryGetKeysAsync("https://issuer.example/jwks", TestContext.Current.CancellationToken);
-        var refreshed = await source.TryGetKeysAsync(
+        using var cached = await source.TryGetKeysAsync("https://issuer.example/jwks", TestContext.Current.CancellationToken);
+        using var refreshed = await source.TryGetKeysAsync(
             "https://issuer.example/jwks",
             "new",
             TestContext.Current.CancellationToken);
@@ -52,6 +52,29 @@ public sealed class CachedJwksKeySourceTests
         await source.TryGetKeysAsync("https://issuer.example/jwks", "missing-c", TestContext.Current.CancellationToken);
 
         Assert.Equal(2, handler.Requests);
+    }
+
+    [Fact]
+    public async Task Refresh_does_not_dispose_rsa_keys_already_handed_to_callers()
+    {
+        using var first = RSA.Create(2048);
+        using var second = RSA.Create(2048);
+        var payload = "verify-me"u8.ToArray();
+        var signature = first.SignData(payload, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        var handler = new ScriptedHandler(
+            JsonSerializer.Serialize(new { keys = new[] { ToJwk(first, "old") } }),
+            JsonSerializer.Serialize(new { keys = new[] { ToJwk(first, "old"), ToJwk(second, "new") } }));
+        using var http = new HttpClient(handler);
+        var source = new CachedJwksKeySource(http, TimeProvider.System, TimeSpan.FromMinutes(5));
+
+        using var cached = await source.TryGetKeysAsync("https://issuer.example/jwks", TestContext.Current.CancellationToken);
+        using var refreshed = await source.TryGetKeysAsync(
+            "https://issuer.example/jwks",
+            "new",
+            TestContext.Current.CancellationToken);
+
+        Assert.True(cached!.Keys["old"].VerifyData(payload, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
+        Assert.True(refreshed!.ContainsKey("new"));
     }
 
     private static object ToJwk(RSA rsa, string kid)

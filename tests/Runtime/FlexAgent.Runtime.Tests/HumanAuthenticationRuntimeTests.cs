@@ -423,15 +423,15 @@ public sealed class HumanAuthenticationRuntimeTests
 
     private sealed class StaticJwksKeySource(IReadOnlyDictionary<string, RSA> keys) : IJwksKeySource
     {
-        public Task<IReadOnlyDictionary<string, RSA>?> TryGetKeysAsync(
+        public Task<JwksKeySnapshot?> TryGetKeysAsync(
             string jwksUri,
             CancellationToken cancellationToken = default) =>
             TryGetKeysAsync(jwksUri, requiredKid: null, cancellationToken);
 
-        public Task<IReadOnlyDictionary<string, RSA>?> TryGetKeysAsync(
+        public Task<JwksKeySnapshot?> TryGetKeysAsync(
             string jwksUri,
             string? requiredKid,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyDictionary<string, RSA>?>(keys);
+            Task.FromResult<JwksKeySnapshot?>(JwksKeySnapshot.Borrowed(keys));
     }
 }

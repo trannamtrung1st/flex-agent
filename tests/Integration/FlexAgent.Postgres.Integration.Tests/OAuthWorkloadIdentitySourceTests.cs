@@ -225,17 +225,17 @@ public sealed class OAuthWorkloadIdentitySourceTests(PostgresIntegrationFixture 
 
     private sealed class StaticJwksSource(RSA rsa) : IJwksKeySource
     {
-        public Task<IReadOnlyDictionary<string, RSA>?> TryGetKeysAsync(
+        public Task<JwksKeySnapshot?> TryGetKeysAsync(
             string jwksUri,
             CancellationToken cancellationToken = default) =>
             TryGetKeysAsync(jwksUri, requiredKid: null, cancellationToken);
 
-        public Task<IReadOnlyDictionary<string, RSA>?> TryGetKeysAsync(
+        public Task<JwksKeySnapshot?> TryGetKeysAsync(
             string jwksUri,
             string? requiredKid,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyDictionary<string, RSA>?>(
-                new Dictionary<string, RSA>(StringComparer.Ordinal) { [KeyId] = rsa });
+            Task.FromResult<JwksKeySnapshot?>(
+                JwksKeySnapshot.Borrowed(new Dictionary<string, RSA>(StringComparer.Ordinal) { [KeyId] = rsa }));
     }
 
     private sealed class StaticSecretSource(string name, string value) : ISecretSource

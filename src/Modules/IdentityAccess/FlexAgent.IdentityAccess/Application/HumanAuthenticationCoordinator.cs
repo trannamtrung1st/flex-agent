@@ -43,6 +43,21 @@ public sealed class HumanAuthenticationCoordinator(
             predecessorSessionId: null,
             now,
             cancellationToken).ConfigureAwait(false);
+        if (!created.Succeeded)
+        {
+            await WriteAsync(
+                AuthenticationSecurityEventTypes.LoginDenied,
+                "deny",
+                created.ReasonCode!,
+                correlationId,
+                now,
+                resolution.ActorId,
+                resolution.OrganizationId,
+                null,
+                cancellationToken).ConfigureAwait(false);
+            return created;
+        }
+
         await WriteAsync(
             AuthenticationSecurityEventTypes.LoginCompleted,
             "permit",
@@ -234,8 +249,9 @@ public sealed class HumanAuthenticationCoordinator(
             token.Issuer,
             token.JwtId,
             string.IsNullOrWhiteSpace(token.ProviderSessionId) ? null : digests.Compute(token.ProviderSessionId),
-            string.IsNullOrWhiteSpace(token.ProviderSessionId) ? identity : null,
+            identity,
             now,
+            token.IssuedAt,
             ApplicationSessionTerminalReasons.ProviderForcedLogout,
             cancellationToken).ConfigureAwait(false);
         await WriteAsync(
@@ -340,7 +356,8 @@ public sealed class HumanAuthenticationCoordinator(
             null,
             predecessorSessionId,
             null);
-        if (!await sessions.TryInsertLiveSessionAsync(session, cancellationToken).ConfigureAwait(false))
+        if (!await sessions.TryInsertLiveSessionAsync(session, login.AuthenticatedAt, cancellationToken)
+                .ConfigureAwait(false))
         {
             return HumanAuthenticationResult.Deny(HumanAuthenticationReasonCodes.RevokedSession);
         }
