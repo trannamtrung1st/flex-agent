@@ -2,30 +2,31 @@ using System.Net;
 using System.Text;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
+using FlexAgent.Sessions.OpenAiCompatible;
 using FlexAgent.Sessions.Tests.Domain;
 
-namespace FlexAgent.Sessions.OpenAi.Tests;
+namespace FlexAgent.Sessions.OpenAiCompatible.Tests;
 
-public sealed class DirectOpenAiLeaseHeartbeatTests
+public sealed class OpenAiCompatibleLeaseHeartbeatTests
 {
     [Fact]
-    public async Task Lease_renewal_exception_retries_through_the_direct_openai_adapter()
+    public async Task Lease_renewal_exception_retries_through_the_openai_compatible_adapter()
     {
-        var profile = InstalledModelDeploymentProfile.Create(
-            "direct-openai.unqualified.example",
+        var configuration = OpenAiCompatibleInstalledConfiguration.Create(
+            "openai-compatible.unqualified.test",
             "1",
-            ModelDeploymentAdapterKinds.DirectOpenAi,
-            DirectOpenAiModelExecutionAdapter.AdapterContractVersion,
-            new Uri("https://api.openai.com/"),
+            new Uri("https://models.organization.example/"),
             "synthetic.model.pinned",
             "synthetic.model.pinned.2026-01-01",
-            "p0.text.structured-control",
             ModelDeploymentCredentialModes.OrganizationByok,
+            "openai.compatible.test",
+            "/v1",
+            OpenAiCompatibleDestinationPolicy.PublicOnly,
             256,
             TimeSpan.FromSeconds(5),
             TimeSpan.FromSeconds(5),
-            2,
-            "openai.direct");
+            2);
+        var profile = configuration.Profile;
         var frozen = new FrozenModelDeploymentBinding(
             profile.ProfileId,
             profile.ProfileVersion,
@@ -42,14 +43,16 @@ public sealed class DirectOpenAiLeaseHeartbeatTests
             "idem.opening.openai.lease",
             SessionRuntimeTestFixtures.T0);
         var invocationId = admitted.Invocation!.AgentInvocationId;
-        var adapter = new DirectOpenAiModelExecutionAdapter(
+        var adapter = new OpenAiCompatibleModelExecutionAdapter(
             new InMemoryInstalledModelDeploymentProfileRegistry(profile),
             new InMemoryModelDeploymentCredentialCatalog(
                 SessionRuntimeTestFixtures.CreateCatalogRecord(
                     session.Ownership.OrganizationId,
-                    providerId: "openai.direct")),
+                    providerId: "openai.compatible.test")),
             new StaticSecretSource("sk-test-not-for-production"),
-            new DelayedOpenAiHandler());
+            new InMemoryOpenAiCompatibleInstalledConfigurationRegistry(configuration),
+            new DelayedCompatibleHandler(),
+            new PublicTestResolver());
         var store = new RenewThrowStore(session.Ownership, invocationId);
         var processor = new DurableInvocationWorkProcessor(
             store,
@@ -64,7 +67,7 @@ public sealed class DirectOpenAiLeaseHeartbeatTests
                 CredentialCatalog: new InMemoryModelDeploymentCredentialCatalog(
                     SessionRuntimeTestFixtures.CreateCatalogRecord(
                         session.Ownership.OrganizationId,
-                        providerId: "openai.direct")),
+                        providerId: "openai.compatible.test")),
                 ClaimLease: TimeSpan.FromSeconds(30),
                 ClaimLeaseRenewalPeriod: TimeSpan.FromMilliseconds(20)),
             PassThroughAgentResponsePublicationPersistPort.Succeed,
@@ -76,13 +79,19 @@ public sealed class DirectOpenAiLeaseHeartbeatTests
         Assert.False(session.Invocations[0].IsTerminal);
     }
 
+    private sealed class PublicTestResolver : IEndpointAddressResolver
+    {
+        public Task<IReadOnlyList<IPAddress>> ResolveAsync(string host, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IPAddress>>([IPAddress.Parse("203.0.113.10")]);
+    }
+
     private sealed class StaticSecretSource(string value) : IProviderCredentialSecretSource
     {
         public Task<ProviderSecret?> TryReadAsync(string secretName, CancellationToken cancellationToken = default) =>
             Task.FromResult<ProviderSecret?>(new ProviderSecret(value));
     }
 
-    private sealed class DelayedOpenAiHandler : HttpMessageHandler
+    private sealed class DelayedCompatibleHandler : HttpMessageHandler
     {
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,

@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <RootNamespace>FlexAgent.Sessions.OpenAi.Tests</RootNamespace>
-    <AssemblyName>FlexAgent.Sessions.OpenAi.Tests</AssemblyName>
+    <RootNamespace>FlexAgent.Sessions.OpenAiCompatible.Tests</RootNamespace>
+    <AssemblyName>FlexAgent.Sessions.OpenAiCompatible.Tests</AssemblyName>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>
 
@@ -21,7 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
-    <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.OpenAi\FlexAgent.Sessions.OpenAi.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.OpenAiCompatible\FlexAgent.Sessions.OpenAiCompatible.csproj" />
     <ProjectReference Include="..\FlexAgent.Sessions.Tests\FlexAgent.Sessions.Tests.csproj" />
   </ItemGroup>
 </Project>

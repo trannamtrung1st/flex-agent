@@ -2,31 +2,31 @@ using System.Net;
 using System.Text;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
-using FlexAgent.Sessions.OpenAi;
+using FlexAgent.Sessions.OpenAiCompatible;
 using FlexAgent.Sessions.Tests.Domain;
 
-namespace FlexAgent.Sessions.OpenAi.Tests;
+namespace FlexAgent.Sessions.OpenAiCompatible.Tests;
 
-public sealed class DirectOpenAiProviderRequestReservationTests
+public sealed class OpenAiCompatibleProviderRequestReservationTests
 {
     [Fact]
     public async Task Crash_after_http_before_finished_fact_does_not_send_another_provider_request()
     {
-        var profile = InstalledModelDeploymentProfile.Create(
-            "direct-openai.unqualified.example",
+        var configuration = OpenAiCompatibleInstalledConfiguration.Create(
+            "openai-compatible.unqualified.test",
             "1",
-            ModelDeploymentAdapterKinds.DirectOpenAi,
-            DirectOpenAiModelExecutionAdapter.AdapterContractVersion,
-            new Uri("https://api.openai.com/"),
+            new Uri("https://models.organization.example/"),
             "synthetic.model.pinned",
             "synthetic.model.pinned.2026-01-01",
-            "p0.text.structured-control",
             ModelDeploymentCredentialModes.OrganizationByok,
+            "openai.compatible.test",
+            "/v1",
+            OpenAiCompatibleDestinationPolicy.PublicOnly,
             256,
             TimeSpan.FromSeconds(5),
             TimeSpan.FromSeconds(5),
-            1,
-            "openai.direct");
+            1);
+        var profile = configuration.Profile;
         var frozen = new FrozenModelDeploymentBinding(
             profile.ProfileId,
             profile.ProfileVersion,
@@ -47,15 +47,17 @@ public sealed class DirectOpenAiProviderRequestReservationTests
             "{\"schema_version\":\"v2\",\"agent_decision_id\":\"adec.reserve01\",\"agent_invocation_id\":\""
             + invocationId
             + "\",\"produced_at\":\"2026-08-14T00:00:00Z\",\"disposition\":\"no_action\",\"outputs\":[],\"requested_actions\":[],\"no_action\":{\"reason_category\":\"intentional_silence\"}}";
-        var handler = new CountingOpenAiHandler(envelope);
-        var adapter = new DirectOpenAiModelExecutionAdapter(
+        var handler = new CountingCompatibleHandler(envelope);
+        var adapter = new OpenAiCompatibleModelExecutionAdapter(
             new InMemoryInstalledModelDeploymentProfileRegistry(profile),
             new InMemoryModelDeploymentCredentialCatalog(
                 SessionRuntimeTestFixtures.CreateCatalogRecord(
                     session.Ownership.OrganizationId,
-                    providerId: "openai.direct")),
+                    providerId: "openai.compatible.test")),
             new StaticSecretSource("sk-test-not-for-production"),
-            handler);
+            new InMemoryOpenAiCompatibleInstalledConfigurationRegistry(configuration),
+            handler,
+            new PublicTestResolver());
         var writer = new InMemoryModelProviderAttemptProvenanceWriter { ThrowOnFinished = true };
         var store = new RestartStore(session.Ownership, invocationId);
         var processor = new DurableInvocationWorkProcessor(
@@ -71,7 +73,7 @@ public sealed class DirectOpenAiProviderRequestReservationTests
                 CredentialCatalog: new InMemoryModelDeploymentCredentialCatalog(
                     SessionRuntimeTestFixtures.CreateCatalogRecord(
                         session.Ownership.OrganizationId,
-                        providerId: "openai.direct"))),
+                        providerId: "openai.compatible.test"))),
             PassThroughAgentResponsePublicationPersistPort.Succeed,
             writer);
 
@@ -90,7 +92,7 @@ public sealed class DirectOpenAiProviderRequestReservationTests
         Assert.Null(session.Invocations[0].Decision);
     }
 
-    private sealed class CountingOpenAiHandler(string content) : HttpMessageHandler
+    private sealed class CountingCompatibleHandler(string content) : HttpMessageHandler
     {
         public int RequestCount { get; private set; }
 
@@ -109,6 +111,12 @@ public sealed class DirectOpenAiProviderRequestReservationTests
                 Content = new StringContent(json, Encoding.UTF8, "application/json"),
             });
         }
+    }
+
+    private sealed class PublicTestResolver : IEndpointAddressResolver
+    {
+        public Task<IReadOnlyList<IPAddress>> ResolveAsync(string host, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IPAddress>>([IPAddress.Parse("203.0.113.10")]);
     }
 
     private sealed class StaticSecretSource(string value) : IProviderCredentialSecretSource

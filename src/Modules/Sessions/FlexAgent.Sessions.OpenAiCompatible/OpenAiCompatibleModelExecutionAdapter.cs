@@ -1,20 +1,21 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
-using System.Net;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using OpenAI;
 using OpenAI.Chat;
 
-namespace FlexAgent.Sessions.OpenAi;
+namespace FlexAgent.Sessions.OpenAiCompatible;
 
-public sealed class DirectOpenAiModelExecutionAdapter(
+public sealed class OpenAiCompatibleModelExecutionAdapter(
     IInstalledModelDeploymentProfileRegistry profiles,
     IModelDeploymentCredentialCatalog catalog,
     IProviderCredentialSecretSource secrets,
-    HttpMessageHandler? transport = null) : IModelExecutionPort
+    IOpenAiCompatibleInstalledConfigurationRegistry configurations,
+    HttpMessageHandler? transport = null,
+    IEndpointAddressResolver? resolver = null) : IModelExecutionPort
 {
-    public const string AdapterContractVersion = "sessions.openai.v1";
+    public const string AdapterContractVersion = OpenAiCompatibleAdapterContracts.AdapterContractVersion;
 
     public async Task<ModelExecutionAttemptResult> ExecuteAsync(
         ModelExecutionAttemptRequest request,
@@ -28,24 +29,24 @@ public sealed class DirectOpenAiModelExecutionAdapter(
             return Fail(failure!, startedAt, request, profile: null, usage: null);
         }
 
-        using var secret = await secrets.TryReadAsync(resolved.Value.SecretName, cancellationToken);
+        using var secret = await secrets.TryReadAsync(resolved.SecretName, cancellationToken);
         if (secret is null)
         {
             return Fail(
                 ExecutionFailureReasons.CredentialBindingFailed,
                 startedAt,
                 request,
-                resolved.Value.Profile,
+                resolved.Profile,
                 null);
         }
 
         try
         {
-            using var lifetime = CreateClient(resolved.Value.Profile, secret, resolved.Value.Profile.ControlTimeout);
-            var chat = lifetime.Client.GetChatClient(resolved.Value.Profile.ResolvedModelVersion);
+            using var lifetime = CreateClient(resolved.Configuration, secret, resolved.Profile.ControlTimeout);
+            var chat = lifetime.Client.GetChatClient(resolved.Profile.ResolvedModelVersion);
             var options = new ChatCompletionOptions
             {
-                MaxOutputTokenCount = resolved.Value.Profile.MaxOutputTokens,
+                MaxOutputTokenCount = resolved.Profile.MaxOutputTokens,
                 ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat(),
             };
             var completion = await chat.CompleteChatAsync(
@@ -54,13 +55,13 @@ public sealed class DirectOpenAiModelExecutionAdapter(
                 cancellationToken);
             if (completion.Value.Content.Count == 0 || string.IsNullOrEmpty(completion.Value.Content[0].Text))
             {
-                return Fail(ExecutionFailureReasons.MalformedControl, startedAt, request, resolved.Value.Profile, null);
+                return Fail(ExecutionFailureReasons.MalformedControl, startedAt, request, resolved.Profile, null);
             }
 
             if (string.IsNullOrWhiteSpace(completion.Value.Model)
-                || !ModelIdentityMatches(resolved.Value.Profile.ResolvedModelVersion, completion.Value.Model))
+                || !ModelIdentityMatches(resolved.Profile.ResolvedModelVersion, completion.Value.Model))
             {
-                return Fail(ExecutionFailureReasons.ProviderUnavailable, startedAt, request, resolved.Value.Profile, null);
+                return Fail(ExecutionFailureReasons.ProviderUnavailable, startedAt, request, resolved.Profile, null);
             }
 
             var utf8 = System.Text.Encoding.UTF8.GetBytes(completion.Value.Content[0].Text);
@@ -68,32 +69,32 @@ public sealed class DirectOpenAiModelExecutionAdapter(
             return outcome with
             {
                 Provenance = CreateProvenance(
-                    resolved.Value.Profile,
+                    resolved.Profile,
                     Outcome(outcome),
                     completion.Value.Usage?.InputTokenCount,
                     completion.Value.Usage?.OutputTokenCount,
                     request.ProviderAttemptId,
                     startedAt,
                     DateTimeOffset.UtcNow,
-                    resolved.Value.Profile.ResolvedModelVersion,
+                    resolved.Profile.ResolvedModelVersion,
                     ModelProviderRequestPhases.Control),
             };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return Fail(ExecutionAttemptOutcomeCategories.Cancelled, startedAt, request, resolved.Value.Profile, null);
+            return Fail(ExecutionAttemptOutcomeCategories.Cancelled, startedAt, request, resolved.Profile, null);
         }
         catch (TaskCanceledException)
         {
-            return Fail(ExecutionFailureReasons.ProviderTimeout, startedAt, request, resolved.Value.Profile, null);
+            return Fail(ExecutionFailureReasons.ProviderTimeout, startedAt, request, resolved.Profile, null);
         }
         catch (ClientResultException exception)
         {
-            return Fail(MapStatus(exception.Status), startedAt, request, resolved.Value.Profile, null);
+            return Fail(MapStatus(exception.Status), startedAt, request, resolved.Profile, null);
         }
         catch (HttpRequestException)
         {
-            return Fail(ExecutionFailureReasons.ProviderUnavailable, startedAt, request, resolved.Value.Profile, null);
+            return Fail(ExecutionFailureReasons.ProviderUnavailable, startedAt, request, resolved.Profile, null);
         }
     }
 
@@ -108,17 +109,17 @@ public sealed class DirectOpenAiModelExecutionAdapter(
             yield break;
         }
 
-        using var secret = await secrets.TryReadAsync(resolved.Value.SecretName, cancellationToken);
+        using var secret = await secrets.TryReadAsync(resolved.SecretName, cancellationToken);
         if (secret is null)
         {
             yield break;
         }
 
-        using var lifetime = CreateClient(resolved.Value.Profile, secret, resolved.Value.Profile.ContentTimeout);
-        var chat = lifetime.Client.GetChatClient(resolved.Value.Profile.ResolvedModelVersion);
+        using var lifetime = CreateClient(resolved.Configuration, secret, resolved.Profile.ContentTimeout);
+        var chat = lifetime.Client.GetChatClient(resolved.Profile.ResolvedModelVersion);
         ChatCompletionOptions options = new()
         {
-            MaxOutputTokenCount = resolved.Value.Profile.MaxOutputTokens,
+            MaxOutputTokenCount = resolved.Profile.MaxOutputTokens,
         };
         var startedAt = DateTimeOffset.UtcNow;
         var observedResolvedModel = false;
@@ -159,7 +160,7 @@ public sealed class DirectOpenAiModelExecutionAdapter(
             if (failureReason is not null)
             {
                 yield return ContentFailure(
-                    resolved.Value.Profile,
+                    resolved.Profile,
                     failureReason,
                     request.ProviderAttemptId,
                     startedAt);
@@ -176,7 +177,7 @@ public sealed class DirectOpenAiModelExecutionAdapter(
                 if (!observedResolvedModel)
                 {
                     yield return ContentFailure(
-                        resolved.Value.Profile,
+                        resolved.Profile,
                         ExecutionFailureReasons.ProviderUnavailable,
                         request.ProviderAttemptId,
                         startedAt);
@@ -186,14 +187,14 @@ public sealed class DirectOpenAiModelExecutionAdapter(
                 yield return new ModelContentCompleted
                 {
                     Provenance = CreateProvenance(
-                        resolved.Value.Profile,
+                        resolved.Profile,
                         ExecutionAttemptOutcomeCategories.ContentProduced,
                         null,
                         null,
                         request.ProviderAttemptId,
                         startedAt,
                         DateTimeOffset.UtcNow,
-                        resolved.Value.Profile.ResolvedModelVersion,
+                        resolved.Profile.ResolvedModelVersion,
                         ModelProviderRequestPhases.Content),
                 };
                 yield break;
@@ -201,10 +202,10 @@ public sealed class DirectOpenAiModelExecutionAdapter(
 
             if (!string.IsNullOrWhiteSpace(enumerator.Current.Model))
             {
-                if (!ModelIdentityMatches(resolved.Value.Profile.ResolvedModelVersion, enumerator.Current.Model))
+                if (!ModelIdentityMatches(resolved.Profile.ResolvedModelVersion, enumerator.Current.Model))
                 {
                     yield return ContentFailure(
-                        resolved.Value.Profile,
+                        resolved.Profile,
                         ExecutionFailureReasons.ProviderUnavailable,
                         request.ProviderAttemptId,
                         startedAt);
@@ -224,7 +225,7 @@ public sealed class DirectOpenAiModelExecutionAdapter(
         }
     }
 
-    private (InstalledModelDeploymentProfile Profile, string SecretName)? TryResolve(
+    private ResolvedExecution? TryResolve(
         FrozenModelDeploymentBinding? frozen,
         SessionOwnership ownership,
         out string? failure)
@@ -241,27 +242,41 @@ public sealed class DirectOpenAiModelExecutionAdapter(
             return null;
         }
 
-        if (!string.Equals(resolution.Profile.AdapterKind, ModelDeploymentAdapterKinds.DirectOpenAi, StringComparison.Ordinal)
+        if (string.Equals(resolution.Profile.AdapterKind, OpenAiCompatibleAdapterContracts.HistoricalAdapterKind, StringComparison.Ordinal)
+            || string.Equals(resolution.Profile.AdapterContractVersion, OpenAiCompatibleAdapterContracts.HistoricalAdapterContractVersion, StringComparison.Ordinal)
+            || !string.Equals(resolution.Profile.AdapterKind, OpenAiCompatibleAdapterContracts.AdapterKind, StringComparison.Ordinal)
             || !string.Equals(resolution.Profile.AdapterContractVersion, AdapterContractVersion, StringComparison.Ordinal))
         {
             return null;
         }
 
+        var configuration = configurations.TryGet(
+            resolution.Profile.ProfileId,
+            resolution.Profile.ProfileVersion,
+            resolution.Profile.ProfileDigest);
+        if (configuration is null
+            || !string.Equals(configuration.AdapterConfigurationDigest, resolution.Profile.AdapterConfigurationDigest, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
         failure = null;
-        return (resolution.Profile, resolution.SecretName);
+        return new ResolvedExecution(resolution.Profile, resolution.SecretName, configuration);
     }
 
-    private ClientLifetime CreateClient(InstalledModelDeploymentProfile profile, ProviderSecret secret, TimeSpan timeout)
+    private ClientLifetime CreateClient(
+        OpenAiCompatibleInstalledConfiguration configuration,
+        ProviderSecret secret,
+        TimeSpan timeout)
     {
-        var inner = transport ?? new HttpClientHandler { AllowAutoRedirect = false };
-        var bounded = new ApprovedOriginHandler(profile.ApprovedHttpsOrigin, inner);
+        var bounded = OpenAiCompatibleTransportFactory.Create(configuration, transport, resolver);
         var http = new HttpClient(bounded, disposeHandler: transport is null)
         {
             Timeout = timeout,
         };
         var options = new OpenAIClientOptions
         {
-            Endpoint = ApprovedHttpsOrigin.Canonicalize(profile.ApprovedHttpsOrigin),
+            Endpoint = configuration.Endpoint,
             Transport = new HttpClientPipelineTransport(http),
             RetryPolicy = new ClientRetryPolicy(0),
             NetworkTimeout = timeout,
@@ -394,80 +409,15 @@ public sealed class DirectOpenAiModelExecutionAdapter(
     private static bool ModelIdentityMatches(string frozenResolvedModel, string providerModel) =>
         string.Equals(providerModel, frozenResolvedModel, StringComparison.Ordinal);
 
+    private sealed record ResolvedExecution(
+        InstalledModelDeploymentProfile Profile,
+        string SecretName,
+        OpenAiCompatibleInstalledConfiguration Configuration);
+
     private sealed class ClientLifetime(OpenAIClient client, HttpClient http) : IDisposable
     {
         public OpenAIClient Client { get; } = client;
 
         public void Dispose() => http.Dispose();
-    }
-}
-
-internal sealed class ApprovedOriginHandler(Uri approvedOrigin, HttpMessageHandler inner) : DelegatingHandler(inner)
-{
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        if (request.RequestUri is null || !ApprovedOrigin.IsAllowed(request.RequestUri, approvedOrigin))
-        {
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Forbidden)
-            {
-                ReasonPhrase = "origin_denied",
-            });
-        }
-
-        return base.SendAsync(request, cancellationToken);
-    }
-}
-
-internal static class ApprovedOrigin
-{
-    public static bool IsAllowed(Uri destination, Uri approved)
-    {
-        if (!string.Equals(destination.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(approved.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
-            || !string.IsNullOrEmpty(destination.UserInfo)
-            || !string.Equals(destination.Host, approved.Host, StringComparison.OrdinalIgnoreCase)
-            || EffectivePort(destination) != EffectivePort(approved))
-        {
-            return false;
-        }
-
-        if (IPAddress.TryParse(destination.Host, out var address)
-            && (IPAddress.IsLoopback(address)
-                || IsLinkLocalOrMetadataOrPrivate(address)))
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    private static int EffectivePort(Uri uri) => uri.IsDefaultPort ? 443 : uri.Port;
-
-    private static bool IsLinkLocalOrMetadataOrPrivate(IPAddress address)
-    {
-        if (address.IsIPv6LinkLocal || address.IsIPv6SiteLocal)
-        {
-            return true;
-        }
-
-        var bytes = address.GetAddressBytes();
-        if (bytes.Length == 4)
-        {
-            if (bytes[0] == 10
-                || (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
-                || (bytes[0] == 192 && bytes[1] == 168)
-                || (bytes[0] == 169 && bytes[1] == 254)
-                || (bytes[0] == 169 && bytes[1] == 254 && bytes[2] == 169 && bytes[3] == 254))
-            {
-                return true;
-            }
-
-            if (bytes[0] == 169 && bytes[1] == 254)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

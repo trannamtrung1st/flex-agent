@@ -1822,9 +1822,10 @@ public sealed class MigrationUpgradeTests
 
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
-        var row = await connection.QuerySingleAsync<(string ProviderRequestId, string Phase, int ProviderRequestOrdinal, string FactKind)>(
+        var row = await connection.QuerySingleAsync<(string ProviderRequestId, string Phase, int ProviderRequestOrdinal, string FactKind, string AdapterKind, string AdapterContractVersion)>(
             """
-            SELECT provider_request_id, phase, provider_request_ordinal, fact_kind
+            SELECT provider_request_id, phase, provider_request_ordinal, fact_kind,
+                   adapter_kind, adapter_contract_version
             FROM session_invocation_provider_attempts
             WHERE organization_id = @OrganizationId
               AND session_id = @SessionId
@@ -1841,6 +1842,8 @@ public sealed class MigrationUpgradeTests
         Assert.Equal("control", row.Phase);
         Assert.Equal(1, row.ProviderRequestOrdinal);
         Assert.Equal("finished", row.FactKind);
+        Assert.Equal("direct_openai", row.AdapterKind);
+        Assert.Equal("sessions.openai.v1", row.AdapterContractVersion);
     }
 
     private static async Task AssertAppliedScriptsAsync(

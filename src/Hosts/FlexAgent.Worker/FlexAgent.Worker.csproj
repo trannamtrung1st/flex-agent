@@ -10,7 +10,7 @@
     <ProjectReference Include="..\..\Modules\IdentityAccess\FlexAgent.IdentityAccess\FlexAgent.IdentityAccess.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\FlexAgent.Sessions.Infrastructure\FlexAgent.Sessions.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\Modules\Sessions\FlexAgent.Sessions.OpenAi\FlexAgent.Sessions.OpenAi.csproj" />
+    <ProjectReference Include="..\..\Modules\Sessions\FlexAgent.Sessions.OpenAiCompatible\FlexAgent.Sessions.OpenAiCompatible.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\FlexAgent.Sessions.OpenRouter\FlexAgent.Sessions.OpenRouter.csproj" />
   </ItemGroup>
 </Project>

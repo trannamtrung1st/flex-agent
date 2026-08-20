@@ -65,7 +65,7 @@
           "FlexAgent.Sessions": "[1.0.0, )"
         }
       },
-      "flexagent.sessions.openai": {
+      "flexagent.sessions.openaicompatible": {
         "type": "Project",
         "dependencies": {
           "FlexAgent.Sessions": "[1.0.0, )",

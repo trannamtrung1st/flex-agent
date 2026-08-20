@@ -31,6 +31,7 @@ public sealed class OpenRouterFrozenProfileTests
     public void OpenRouter_kind_cannot_be_represented_as_direct_openai()
     {
         Assert.NotEqual(ModelDeploymentAdapterKinds.DirectOpenAi, ModelDeploymentAdapterKinds.OpenRouter);
+        Assert.NotEqual(ModelDeploymentAdapterKinds.OpenAiCompatible, ModelDeploymentAdapterKinds.OpenRouter);
         Assert.Equal("openrouter", ModelDeploymentAdapterKinds.OpenRouter);
     }
 

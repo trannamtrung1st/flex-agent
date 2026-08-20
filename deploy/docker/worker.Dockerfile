@@ -9,7 +9,7 @@ COPY src/Infrastructure/FlexAgent.Postgres/ src/Infrastructure/FlexAgent.Postgre
 COPY src/Modules/IdentityAccess/FlexAgent.IdentityAccess/ src/Modules/IdentityAccess/FlexAgent.IdentityAccess/
 COPY src/Modules/Sessions/FlexAgent.Sessions/ src/Modules/Sessions/FlexAgent.Sessions/
 COPY src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/ src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/
-COPY src/Modules/Sessions/FlexAgent.Sessions.OpenAi/ src/Modules/Sessions/FlexAgent.Sessions.OpenAi/
+COPY src/Modules/Sessions/FlexAgent.Sessions.OpenAiCompatible/ src/Modules/Sessions/FlexAgent.Sessions.OpenAiCompatible/
 COPY src/Modules/Sessions/FlexAgent.Sessions.OpenRouter/ src/Modules/Sessions/FlexAgent.Sessions.OpenRouter/
 COPY src/Hosts/FlexAgent.Worker/ src/Hosts/FlexAgent.Worker/
 COPY contracts/schemas/v1/common/primitives.v1.schema.json contracts/schemas/v1/common/primitives.v1.schema.json

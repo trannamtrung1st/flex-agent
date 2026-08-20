@@ -499,7 +499,7 @@
           "FlexAgent.Sessions": "[1.0.0, )"
         }
       },
-      "flexagent.sessions.openai": {
+      "flexagent.sessions.openaicompatible": {
         "type": "Project",
         "dependencies": {
           "FlexAgent.Sessions": "[1.0.0, )",
@@ -524,7 +524,7 @@
           "FlexAgent.IdentityAccess": "[1.0.0, )",
           "FlexAgent.Sessions": "[1.0.0, )",
           "FlexAgent.Sessions.Infrastructure": "[1.0.0, )",
-          "FlexAgent.Sessions.OpenAi": "[1.0.0, )",
+          "FlexAgent.Sessions.OpenAiCompatible": "[1.0.0, )",
           "FlexAgent.Sessions.OpenRouter": "[1.0.0, )"
         }
       },

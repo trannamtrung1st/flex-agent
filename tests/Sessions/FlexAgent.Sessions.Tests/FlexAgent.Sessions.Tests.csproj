@@ -28,7 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="FlexAgent.Sessions.OpenAi.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Sessions.OpenAiCompatible.Tests" />
     <InternalsVisibleTo Include="FlexAgent.Sessions.OpenRouter.Tests" />
   </ItemGroup>
 

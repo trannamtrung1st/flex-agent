@@ -4,7 +4,7 @@ using FlexAgent.Postgres;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
-using FlexAgent.Sessions.OpenAi;
+using FlexAgent.Sessions.OpenAiCompatible;
 using FlexAgent.Sessions.OpenRouter;
 using Npgsql;
 
@@ -369,47 +369,85 @@ internal static class WorkerDurableWorkSampling
             return ComposeOpenRouter(configuration, environment, qualified);
         }
 
-        if (!string.Equals(adapter, "direct_openai", StringComparison.Ordinal) || !qualified)
+        if (string.Equals(adapter, OpenAiCompatibleAdapterContracts.HistoricalAdapterKind, StringComparison.Ordinal)
+            || string.Equals(adapter, "sessions.openai.v1", StringComparison.Ordinal))
         {
             return WorkerModelExecutionComposition.FailClosed(adapter);
+        }
+
+        if (!string.Equals(adapter, OpenAiCompatibleAdapterContracts.AdapterKind, StringComparison.Ordinal))
+        {
+            return WorkerModelExecutionComposition.FailClosed(adapter);
+        }
+
+        return ComposeOpenAiCompatible(configuration, environment, qualified);
+    }
+
+    private static WorkerModelExecutionComposition ComposeOpenAiCompatible(
+        IConfiguration configuration,
+        IHostEnvironment environment,
+        bool qualified)
+    {
+        if (!qualified || (!environment.IsDevelopment() && !environment.IsEnvironment("Testing")))
+        {
+            return WorkerModelExecutionComposition.FailClosed(OpenAiCompatibleAdapterContracts.AdapterKind);
         }
 
         var profilesPath = configuration["Sessions:ModelExecution:InstalledProfilesPath"];
         var secretDirectory = configuration["Sessions:ModelExecution:SecretDirectory"];
         var catalogPath = configuration["Sessions:ModelExecution:CredentialCatalogPath"];
+        var configurationsPath = configuration["Sessions:ModelExecution:OpenAiCompatibleConfigurationsPath"];
+        var qualificationRecordPath = configuration["Sessions:ModelExecution:QualificationRecordPath"];
         if (string.IsNullOrWhiteSpace(profilesPath)
             || string.IsNullOrWhiteSpace(secretDirectory)
             || string.IsNullOrWhiteSpace(catalogPath)
+            || string.IsNullOrWhiteSpace(configurationsPath)
+            || string.IsNullOrWhiteSpace(qualificationRecordPath)
             || !File.Exists(profilesPath)
             || !File.Exists(catalogPath)
+            || !File.Exists(configurationsPath)
+            || !File.Exists(qualificationRecordPath)
             || !Directory.Exists(secretDirectory))
         {
-            return WorkerModelExecutionComposition.FailClosed("direct_openai");
+            return WorkerModelExecutionComposition.FailClosed(OpenAiCompatibleAdapterContracts.AdapterKind);
         }
 
         try
         {
             var profiles = InstalledModelDeploymentProfileFile.Load(profilesPath);
-            if (profiles.Length == 0
-                || profiles.Any(profile =>
-                    !string.Equals(profile.AdapterKind, ModelDeploymentAdapterKinds.DirectOpenAi, StringComparison.Ordinal)))
+            if (profiles.Length != 1
+                || !string.Equals(profiles[0].AdapterKind, OpenAiCompatibleAdapterContracts.AdapterKind, StringComparison.Ordinal)
+                || OpenAiCompatibleQualificationRecords.IsNonEnableableIdentity(profiles[0].ProfileId))
             {
-                return WorkerModelExecutionComposition.FailClosed("direct_openai");
+                return WorkerModelExecutionComposition.FailClosed(OpenAiCompatibleAdapterContracts.AdapterKind);
+            }
+
+            var loaded = OpenAiCompatibleInstalledConfigurationFile.Load(configurationsPath, profiles);
+            if (loaded.Length != 1)
+            {
+                return WorkerModelExecutionComposition.FailClosed(OpenAiCompatibleAdapterContracts.AdapterKind);
+            }
+
+            var qualification = OpenAiCompatibleQualificationRecords.Load(qualificationRecordPath);
+            if (!OpenAiCompatibleQualificationRecords.TryAccept(qualification, loaded[0]))
+            {
+                return WorkerModelExecutionComposition.FailClosed(OpenAiCompatibleAdapterContracts.AdapterKind);
             }
 
             var catalog = InstalledCredentialCatalogFile.Load(catalogPath);
             var secrets = new MountedFileProviderSecretSource(secretDirectory);
             var registry = new InMemoryInstalledModelDeploymentProfileRegistry(profiles);
+            var configurations = new InMemoryOpenAiCompatibleInstalledConfigurationRegistry(loaded);
             return new WorkerModelExecutionComposition(
-                new DirectOpenAiModelExecutionAdapter(registry, catalog, secrets),
+                new OpenAiCompatibleModelExecutionAdapter(registry, catalog, secrets, configurations),
                 registry,
                 catalog,
-                "direct_openai",
+                OpenAiCompatibleAdapterContracts.AdapterKind,
                 true);
         }
-        catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException or ArgumentException or FormatException or UriFormatException)
+        catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException or ArgumentException or FormatException or UriFormatException or InvalidOperationException)
         {
-            return WorkerModelExecutionComposition.FailClosed("direct_openai");
+            return WorkerModelExecutionComposition.FailClosed(OpenAiCompatibleAdapterContracts.AdapterKind);
         }
     }
 

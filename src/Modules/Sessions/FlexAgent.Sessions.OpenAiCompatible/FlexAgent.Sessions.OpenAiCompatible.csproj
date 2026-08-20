@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <RootNamespace>FlexAgent.Sessions.OpenAi</RootNamespace>
-    <AssemblyName>FlexAgent.Sessions.OpenAi</AssemblyName>
+    <RootNamespace>FlexAgent.Sessions.OpenAiCompatible</RootNamespace>
+    <AssemblyName>FlexAgent.Sessions.OpenAiCompatible</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -10,6 +10,6 @@
     <PackageReference Include="OpenAI" />
   </ItemGroup>
   <ItemGroup>
-    <InternalsVisibleTo Include="FlexAgent.Sessions.OpenAi.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Sessions.OpenAiCompatible.Tests" />
   </ItemGroup>
 </Project>

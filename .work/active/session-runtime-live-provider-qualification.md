@@ -409,46 +409,46 @@ entry, qualify real use, or certify a production pilot.
       product scope, ADR authority, current code, durable identifiers, and the
       endpoint trust boundary; correct stale status, scope ambiguity, and the
       legacy DNS-control overclaim.
-- [ ] Red — pin the target adapter kind `openai_compatible`, contract
+- [x] Red — pin the target adapter kind `openai_compatible`, contract
       `sessions.openai_compatible.v1`, project/namespace/class names, and
       example-profile digest. Prove `direct_openai` configuration cannot enable
       execution and legacy stored provenance remains readable without becoming
       executable authority.
-- [ ] Green — rename the adapter and test projects/namespaces/classes; update
+- [x] Green — rename the adapter and test projects/namespaces/classes; update
       solution, Worker project references/composition/readiness, Docker copy
       inputs, architecture boundaries, package locks, and qualification opt-in
       naming. Keep OpenRouter independent and keep the provider SDK isolated.
-- [ ] Red/green — add a versioned OpenAI-compatible adapter-configuration file
+- [x] Red/green — add a versioned OpenAI-compatible adapter-configuration file
       and registry. Require its digest in every `openai_compatible` installed
       profile and bind the exact API base path plus destination-policy identity
       into profile resolution and provenance; reject missing, extra,
       mismatched, duplicate, or cross-profile configuration.
-- [ ] Red/green — replace the partial origin guard with an injectable endpoint
+- [x] Red/green — replace the partial origin guard with an injectable endpoint
       destination policy and resolver/connector. Cover public-only and explicit
       private-CIDR allowlists, all DNS answers, mixed answers, rebinding/TOCTOU,
       IPv4/IPv6 loopback/link-local/metadata/unspecified/multicast/reserved
       ranges, redirect and proxy denial, TLS hostname/SNI preservation, system
       trust, exact port, and base-path confinement.
-- [ ] Red/green — requalify the two-phase Chat Completions subset against fake
+- [x] Red/green — requalify the two-phase Chat Completions subset against fake
       transports at multiple compatible base paths. Pin request shape,
       structured control, streaming deltas, model identity, usage, timeouts,
       cancellation, retry ownership, failure normalization, and provenance. If
       the current SDK cannot meet the contract, replace it only inside the
       adapter boundary.
-- [ ] Red/green — update Worker composition so only an installed
+- [x] Red/green — update Worker composition so only an installed
       `openai_compatible` profile plus matching adapter configuration and an
       accepted exact-profile qualification record can enable the port. Prove
       deterministic test fixtures cannot create real enablement authority.
       Preserve default-off behavior, frozen Session authority, mounted-secret
       isolation, claim fencing, current authorization, no fallback, and
       truthful readiness diagnostics.
-- [ ] Preserve history without reinterpretation: do not rewrite migrations
+- [x] Preserve history without reinterpretation: do not rewrite migrations
       `0001`–`0033` or append-only `direct_openai` provenance. Add upgrade and
       reconstruction tests showing legacy rows remain inspectable, legacy
       active bindings fail closed, and new attempts record only the new adapter
       kind/contract/profile digest. Add a new migration only if newly required
       provenance cannot be represented by existing append-only fields.
-- [ ] Run focused domain, adapter, Runtime, Architecture, and PostgreSQL tests,
+- [>] Run focused domain, adapter, Runtime, Architecture, and PostgreSQL tests,
       then the locked full solution, OCI build, SBOM/license/vulnerability and
       secret checks, documentation validation, JSON/example consistency, and
       whitespace checks. Obtain independent backend and security/privacy review.
@@ -457,26 +457,30 @@ entry, qualify real use, or certify a production pilot.
       deployment profile, credential, destination policy, and run budget. Do
       not claim qualification or enablement from deterministic migration
       evidence.
-- [ ] Reconcile implementation status, operator guidance, qualification
+- [x] Reconcile implementation status, operator guidance, qualification
       readiness, the deferred exact-profile gate, remaining OpenRouter gaps,
-      and final migration completion.
+      and final migration completion. Independent Phase B review and
+      OCI/SBOM/grype remain open on the previous verification step.
 
 # Current state
 
-Independent review of `4a6e314` approved the deterministic legacy Phase A
-provider-execution/admission slice: no P0/P1 findings. Its leftover P2
-(admission must bind reservation to `claimedWork.AgentInvocationId`) remains
-closed. On 2026-08-20, ADR-008 and ADR-010 superseded the vendor-specific target
-with `openai_compatible` / `sessions.openai_compatible.v1` and made an exact
-operator-installed on-premises endpoint a first-class compatibility target.
+Phase B deterministic migration is implemented. The executable adapter identity
+is `openai_compatible` / `sessions.openai_compatible.v1` in
+`FlexAgent.Sessions.OpenAiCompatible`. Historical `direct_openai` /
+`sessions.openai.v1` constants, profile digests, and append-only rows remain
+readable and cannot enable the port. Installed compatible profiles require a
+digest-bound adapter configuration that pins API base path and destination
+policy. Worker composition stays default-off in Production and rejects the
+committed example artifacts; Testing/Development can compose the adapter only
+when a non-example profile, matching configuration, mounted secrets, and an
+accepted `qualifiedFor: exact_profile` record all match. That Testing gate is
+not live qualification.
 
-The current code is intentionally divergent: it still exposes
-`direct_openai`, `sessions.openai.v1`, `FlexAgent.Sessions.OpenAi`, an origin-only
-profile, and a partial literal-IP/same-origin guard. The next implementation
-step is the red contract-identity and fail-closed legacy test slice described
-above. No exact OpenAI-compatible live profile is selected or qualified, but
-that is not a blocker to deterministic migration. All compatible live
-composition remains default-off.
+No exact OpenAI-compatible live profile is selected. Live qualification remains
+a deferred successor. Independent backend/security review of this Phase B
+change-set has not been obtained. The full-solution run on 2026-08-21 had one
+unrelated Keycloak back-channel 403; focused provider, Sessions, Runtime, and
+Architecture suites were green.
 
 On 2026-08-19 the Product Lead separately approved the OpenRouter
 synthetic-development profile and its implementation task. Its historical live
@@ -634,10 +638,10 @@ Interim defaults are working guidance only and do not approve a deployment.
   hosted configuration resolution and Session start remain out of scope. It
   owns runtime consumption/revalidation and must retain start-time enforcement
   as an explicit downstream gap.
-- ADR-010's `GATE-STACK-PROVIDERS` names fake, Direct OpenAI, synthetic
-  OpenRouter, and vLLM contract evidence. This task implements and qualifies the
-  Direct OpenAI subset only and must not mark the complete cross-provider gate
-  satisfied.
+- ADR-010's `GATE-STACK-PROVIDERS` names fake, generic OpenAI-compatible,
+  synthetic OpenRouter, and vLLM contract evidence. This task completed the
+  deterministic OpenAI-compatible migration subset only and must not mark the
+  complete cross-provider gate satisfied.
 - Independent review of `bee700e` (2026-08-19) treated the adapter boundary as
   sound but Phase A incomplete: minimized context was not sent, requested-model
   aliases were executed, lease-renewal throws failed open, provenance keyed
@@ -695,6 +699,19 @@ Interim defaults are working guidance only and do not approve a deployment.
   `claimedWork.AgentInvocationId`, returns `LostClaim` on mismatch, and
   counts/inserts only the claimed id. The processor also reserves with the
   claimed id for both control and content.
+- Official OpenAI .NET SDK is retained as internal transport: fake-transport
+  tests pin request URIs at `/v1/chat/completions`, `/openai/v1/chat/completions`,
+  and `/api/chat/completions` when `OpenAIClientOptions.Endpoint` includes the
+  digest-bound base path.
+- Worker Testing/Development composition can enable the adapter only for a
+  non-example installed profile plus matching configuration and
+  `qualifiedFor: exact_profile`. Committed `*.example.do-not-enable` artifacts
+  and `direct_openai` settings cannot enable. Production remains fail-closed.
+  This is composition-gate evidence, not live qualification.
+- Deterministic destination-policy tests cover URI confinement and resolved
+  address classification. Live TLS SNI/hostname verification is implied by
+  `SocketsHttpHandler` plus IP-pinned `ConnectCallback` and was not separately
+  handshake-tested in this slice.
 - P0 participant-message admission requires non-empty exact UTF-8 text.
   `AcceptParticipantMessageCommand.ExactUtf8Text` is required; missing or blank
   text fails closed with `trigger_admission.missing_participant_content`.
@@ -714,16 +731,17 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Predecessor remediation protected | complete | Worker identity/readiness remediation landed separately as `94c1412`; this planning edit is restricted to the new task file |
 | Plan readiness review | complete | Backend/architecture/security consistency pass on 2026-08-19 added frozen per-Session provider authority, restart-safe phases, retry ownership, secret hardening, egress/SSRF, qualification scope, and threat-model gates |
 | Current-source .NET baseline | passed | After required PostgreSQL admission auth: `dotnet test --solution FlexAgent.slnx` **1034 passed**, 0 failed (2026-08-19). Prior `4373f70` count was 1033 |
-| Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAi.Tests` **14 passed** including fake-HTTP crash-after-request reservation (no second HTTP) and lease-renewal `RetryLater` |
+| Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAiCompatible.Tests` **24 passed** on 2026-08-21: fake-transport control/stream at `/v1`, `/openai/v1`, `/api`; legacy identity fail-closed; destination-policy negatives; example digest consistency; lease `RetryLater`; crash-after-HTTP reservation |
 | Invocation-id reservation binding (`4a6e314` P2) | passed | In-memory writer tests 4/4. Postgres `Mismatched_invocation_cannot_reserve_a_provider_request` passed on 2026-08-20 |
 | Credential/profile isolation tests | passed | `FrozenModelDeploymentResolverTests` plus processor frozen-authority tests; secret symlink/size in WorkloadIdentity tests; no-fallback matrix for missing/revoked/wrong-org/provider mismatch |
 | Lease/auth/lifecycle concurrency tests | passed | Claim-lease heartbeat; overlapping reclaim; Postgres delegation revoke and principal-binding revoke at reservation (no started fact, no HTTP, lease not extended) |
-| PostgreSQL migration/provenance/recovery tests | passed | Additive `0029` unchanged; crash-recovery class **17 passed** on 2026-08-20 including mismatched-invocation reservation; claim class **15 passed**; earlier full Postgres integration was included in the 1034 solution run |
-| Architecture/module dependency tests | passed | Architecture **33 passed**; official SDK isolated to `FlexAgent.Sessions.OpenAi` with negative control |
-| Sessions domain/application tests | passed | `FlexAgent.Sessions.Tests` **448 passed** including revoked-authorization reservation |
-| Exact OpenAI-compatible profile qualification | deferred successor | No exact profile is selected. Deterministic migration may complete, but the adapter remains default-off and no compatible endpoint is qualified or enabled until a later bounded live run passes. OpenRouter remains a distinct evidence track |
-| Locked regression, supply chain, OCI, docs, whitespace | partial | `python3 scripts/check_docs.py` passed; `git diff --check` passed. OCI image rebuild/SBOM/grype not re-run in this session |
-| Independent backend/architecture/security review | approved for deterministic Phase A | Independent review of `4a6e314`: no P0/P1; `4373f70` P2s closed; leftover invocation-id coupling closed on 2026-08-20 by claimed-work binding. GitHub connector still has no combined status checks for that SHA. Phase B remains the completion gate |
+| PostgreSQL migration/provenance/recovery tests | passed | Additive `0029` unchanged; no new migration. `Upgrade_from_populated_0026_backfills_provider_request_identity` passed on 2026-08-21 and asserts leftover `direct_openai` / `sessions.openai.v1` bytes |
+| Architecture/module dependency tests | passed | Architecture **35 passed**; official SDK isolated to `FlexAgent.Sessions.OpenAiCompatible` with negative control; OpenRouter remains independent |
+| Sessions domain/application tests | passed | `FlexAgent.Sessions.Tests` **461 passed** including pinned example digest `6bbfa471…` and historical Direct OpenAI digest `11fd39ad…` |
+| Exact OpenAI-compatible profile qualification | deferred successor | No exact profile is selected. Deterministic migration is implemented, but the adapter remains default-off and no compatible endpoint is qualified or enabled until a later bounded live run passes. OpenRouter remains a distinct evidence track |
+| Worker composition / legacy fail-closed | passed | Runtime tests: `direct_openai` with and without files stays fail-closed; committed example artifacts stay fail-closed; Testing compose succeeds only for a non-example `exact_profile` record; Production stays fail-closed even with enableable files plus OAuth identity. Readiness names OpenAI-compatible vs legacy Direct OpenAI honestly |
+| Locked regression, supply chain, OCI, docs, whitespace | partial | `dotnet restore FlexAgent.slnx --locked-mode` passed. `python3 scripts/check_docs.py` and `git diff --check` passed. Example JSON parsed. Full solution **1204 passed**, 2 skipped, 1 failed: `Keycloak_signed_logout_token_satisfies_the_backchannel_contract` HTTP 403 (unrelated to this adapter). OCI image rebuild/SBOM/grype not re-run |
+| Independent backend/architecture/security review | pending for Phase B | Phase A review of `4a6e314` remains historical. This Phase B rename, destination-policy, and composition gate needs a fresh independent backend and security/privacy review |
 
 # Blockers
 
@@ -738,10 +756,10 @@ Interim defaults are working guidance only and do not approve a deployment.
 # Completion
 
 - [x] Planned work is reconciled with actual changes and the final predecessor baseline
-- [ ] Only `openai_compatible` / `sessions.openai_compatible.v1` can enable the generic adapter; legacy Direct OpenAI identities remain historical and fail closed
-- [ ] The adapter project/namespace/class, Worker composition/readiness, solution/OCI inputs, tests, locks, and qualification harness use vendor-neutral naming while any retained SDK stays isolated
-- [ ] Exact base path and destination-policy identity are bound through a required adapter-configuration digest
-- [ ] Public and explicitly allowed private endpoints pass DNS/rebinding-safe destination tests without redirects, unapproved proxies, TLS bypass, or client-supplied authority
+- [x] Only `openai_compatible` / `sessions.openai_compatible.v1` can enable the generic adapter; legacy Direct OpenAI identities remain historical and fail closed
+- [x] The adapter project/namespace/class, Worker composition/readiness, solution/OCI inputs, tests, locks, and qualification harness use vendor-neutral naming while any retained SDK stays isolated
+- [x] Exact base path and destination-policy identity are bound through a required adapter-configuration digest
+- [x] Public and explicitly allowed private endpoints pass DNS/rebinding-safe destination tests without redirects, unapproved proxies, TLS bypass, or client-supplied authority
 - [x] Frozen profile, deployment-default, and Organization BYOK resolution fail closed with no cross-scope or silent fallback
 - [x] Real Session provider/model/endpoint/capability and opaque credential-binding authority comes from the frozen trusted Session binding, not mutable Worker-global settings
 - [x] Structured control, participant-visible streaming, usage/provenance, timeout, cancellation, retry, and failure normalization pass contract tests
@@ -753,4 +771,4 @@ Interim defaults are working guidance only and do not approve a deployment.
 - [x] Full start-time immutable-model enforcement and the synthetic OpenRouter/vLLM portions of `GATE-STACK-PROVIDERS` remain explicitly recorded unless separately implemented and verified
 - [x] Independent backend, architecture, and security/privacy findings for the deterministic Phase A admission/execution slice are resolved at `4a6e314`; leftover invocation-id coupling is closed by claimed-work binding
 - [x] Remaining gaps or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review
+- [ ] Task state is safe and complete for external review after independent Phase B review and remaining supply-chain/OCI evidence

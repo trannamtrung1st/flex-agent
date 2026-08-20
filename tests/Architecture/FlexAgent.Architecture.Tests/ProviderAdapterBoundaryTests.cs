@@ -1,4 +1,4 @@
-using FlexAgent.Sessions.OpenAi;
+using FlexAgent.Sessions.OpenAiCompatible;
 using FlexAgent.Sessions.OpenRouter;
 using NetArchTest.Rules;
 using OpenAI;
@@ -8,15 +8,15 @@ namespace FlexAgent.Architecture.Tests;
 public sealed class ProviderAdapterBoundaryTests
 {
     [Fact]
-    public void Only_the_sessions_openai_adapter_references_the_openai_sdk()
+    public void Only_the_sessions_openai_compatible_adapter_references_the_openai_sdk()
     {
         Assert.Contains(
-            typeof(DirectOpenAiModelExecutionAdapter).Assembly.GetReferencedAssemblies(),
+            typeof(OpenAiCompatibleModelExecutionAdapter).Assembly.GetReferencedAssemblies(),
             assembly => string.Equals(assembly.Name, "OpenAI", StringComparison.Ordinal));
         Assert.True(
-            Types.InAssembly(typeof(DirectOpenAiModelExecutionAdapter).Assembly)
+            Types.InAssembly(typeof(OpenAiCompatibleModelExecutionAdapter).Assembly)
                 .That()
-                .HaveName(nameof(DirectOpenAiModelExecutionAdapter))
+                .HaveName(nameof(OpenAiCompatibleModelExecutionAdapter))
                 .Should()
                 .HaveDependencyOn("OpenAI")
                 .GetResult()
@@ -55,12 +55,13 @@ public sealed class ProviderAdapterBoundaryTests
     }
 
     [Fact]
-    public void OpenRouter_adapter_does_not_reference_the_openai_sdk_or_direct_openai_adapter()
+    public void OpenRouter_adapter_does_not_reference_the_openai_sdk_or_openai_compatible_adapter()
     {
         var assembly = typeof(OpenRouterModelExecutionAdapter).Assembly;
         Assert.DoesNotContain(
             assembly.GetReferencedAssemblies(),
             referenced => string.Equals(referenced.Name, "OpenAI", StringComparison.Ordinal)
+                || string.Equals(referenced.Name, "FlexAgent.Sessions.OpenAiCompatible", StringComparison.Ordinal)
                 || string.Equals(referenced.Name, "FlexAgent.Sessions.OpenAi", StringComparison.Ordinal));
 
         var openai = Types.InAssembly(assembly)
@@ -69,17 +70,17 @@ public sealed class ProviderAdapterBoundaryTests
             .GetResult();
         Assert.True(openai.IsSuccessful, string.Join(Environment.NewLine, openai.FailingTypeNames ?? []));
 
-        var direct = Types.InAssembly(assembly)
+        var compatible = Types.InAssembly(assembly)
             .ShouldNot()
-            .HaveDependencyOn("FlexAgent.Sessions.OpenAi")
+            .HaveDependencyOn("FlexAgent.Sessions.OpenAiCompatible")
             .GetResult();
-        Assert.True(direct.IsSuccessful, string.Join(Environment.NewLine, direct.FailingTypeNames ?? []));
+        Assert.True(compatible.IsSuccessful, string.Join(Environment.NewLine, compatible.FailingTypeNames ?? []));
     }
 
     [Fact]
-    public void Direct_openai_adapter_does_not_reference_openrouter()
+    public void OpenAi_compatible_adapter_does_not_reference_openrouter()
     {
-        var result = Types.InAssembly(typeof(DirectOpenAiModelExecutionAdapter).Assembly)
+        var result = Types.InAssembly(typeof(OpenAiCompatibleModelExecutionAdapter).Assembly)
             .ShouldNot()
             .HaveDependencyOn("FlexAgent.Sessions.OpenRouter")
             .GetResult();

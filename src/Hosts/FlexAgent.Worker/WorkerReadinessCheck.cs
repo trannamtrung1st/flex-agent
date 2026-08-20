@@ -32,13 +32,16 @@ public sealed class WorkerReadinessCheck(
 
         if (ProtectedLaneEnabled(capabilities)
             && capabilities.DurableWorkClaimingEnabled
-            && (string.Equals(capabilities.ModelExecutionAdapter, "direct_openai", StringComparison.Ordinal)
+            && (string.Equals(capabilities.ModelExecutionAdapter, "openai_compatible", StringComparison.Ordinal)
+                || string.Equals(capabilities.ModelExecutionAdapter, "direct_openai", StringComparison.Ordinal)
                 || string.Equals(capabilities.ModelExecutionAdapter, "openrouter", StringComparison.Ordinal))
             && !capabilities.ModelExecutionQualified)
         {
             var adapterName = string.Equals(capabilities.ModelExecutionAdapter, "openrouter", StringComparison.Ordinal)
                 ? "OpenRouter"
-                : "Direct OpenAI";
+                : string.Equals(capabilities.ModelExecutionAdapter, "openai_compatible", StringComparison.Ordinal)
+                    ? "OpenAI-compatible"
+                    : "legacy Direct OpenAI";
             return Task.FromResult(
                 HealthCheckResult.Degraded($"{adapterName} adapter is requested but not qualified."));
         }

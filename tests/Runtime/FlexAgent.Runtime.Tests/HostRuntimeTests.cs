@@ -4,6 +4,7 @@ using FlexAgent.Api;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
+using FlexAgent.Sessions.OpenAiCompatible;
 using FlexAgent.Sessions.OpenRouter;
 using FlexAgent.Worker;
 using Microsoft.AspNetCore.Hosting;
@@ -315,6 +316,128 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
         var capabilities = factory.Services.GetRequiredService<WorkerRuntimeCapabilities>();
         Assert.Equal("direct_openai", capabilities.ModelExecutionAdapter);
         Assert.False(capabilities.ModelExecutionQualified);
+    }
+
+    [Fact]
+    public void Worker_keeps_fail_closed_when_direct_openai_files_are_present()
+    {
+        using var artifacts = OpenAiCompatibleWorkerArtifacts.CreateExample();
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+            builder.UseSetting("Sessions:ModelExecution:Adapter", "direct_openai");
+            builder.UseSetting("Sessions:ModelExecution:Qualified", "true");
+            builder.UseSetting("Sessions:ModelExecution:InstalledProfilesPath", artifacts.ProfilesPath);
+            builder.UseSetting("Sessions:ModelExecution:CredentialCatalogPath", artifacts.CatalogPath);
+            builder.UseSetting("Sessions:ModelExecution:SecretDirectory", artifacts.SecretDirectory);
+            builder.UseSetting("Sessions:ModelExecution:OpenAiCompatibleConfigurationsPath", artifacts.ConfigurationsPath);
+            builder.UseSetting("Sessions:ModelExecution:QualificationRecordPath", artifacts.QualificationRecordPath);
+        });
+
+        Assert.IsType<FailClosedModelExecutionPort>(
+            factory.Services.GetRequiredService<IModelExecutionPort>());
+        var capabilities = factory.Services.GetRequiredService<WorkerRuntimeCapabilities>();
+        Assert.Equal("direct_openai", capabilities.ModelExecutionAdapter);
+        Assert.False(capabilities.ModelExecutionQualified);
+    }
+
+    [Fact]
+    public void Worker_keeps_fail_closed_for_committed_openai_compatible_example_artifacts()
+    {
+        using var artifacts = OpenAiCompatibleWorkerArtifacts.CreateExample();
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+            builder.UseSetting("Sessions:ModelExecution:Adapter", "openai_compatible");
+            builder.UseSetting("Sessions:ModelExecution:Qualified", "true");
+            builder.UseSetting("Sessions:ModelExecution:InstalledProfilesPath", artifacts.ProfilesPath);
+            builder.UseSetting("Sessions:ModelExecution:CredentialCatalogPath", artifacts.CatalogPath);
+            builder.UseSetting("Sessions:ModelExecution:SecretDirectory", artifacts.SecretDirectory);
+            builder.UseSetting("Sessions:ModelExecution:OpenAiCompatibleConfigurationsPath", artifacts.ConfigurationsPath);
+            builder.UseSetting("Sessions:ModelExecution:QualificationRecordPath", artifacts.QualificationRecordPath);
+        });
+
+        Assert.IsType<FailClosedModelExecutionPort>(
+            factory.Services.GetRequiredService<IModelExecutionPort>());
+        var capabilities = factory.Services.GetRequiredService<WorkerRuntimeCapabilities>();
+        Assert.Equal("openai_compatible", capabilities.ModelExecutionAdapter);
+        Assert.False(capabilities.ModelExecutionQualified);
+    }
+
+    [Fact]
+    public void Worker_composes_openai_compatible_only_when_exact_profile_qualification_record_matches()
+    {
+        using var artifacts = OpenAiCompatibleWorkerArtifacts.CreateEnableable();
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting(
+                "ConnectionStrings:Sessions",
+                "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+            builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+            builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+            builder.UseSetting("Sessions:ModelExecution:Adapter", "openai_compatible");
+            builder.UseSetting("Sessions:ModelExecution:Qualified", "true");
+            builder.UseSetting("Sessions:ModelExecution:InstalledProfilesPath", artifacts.ProfilesPath);
+            builder.UseSetting("Sessions:ModelExecution:CredentialCatalogPath", artifacts.CatalogPath);
+            builder.UseSetting("Sessions:ModelExecution:SecretDirectory", artifacts.SecretDirectory);
+            builder.UseSetting("Sessions:ModelExecution:OpenAiCompatibleConfigurationsPath", artifacts.ConfigurationsPath);
+            builder.UseSetting("Sessions:ModelExecution:QualificationRecordPath", artifacts.QualificationRecordPath);
+        });
+
+        Assert.IsType<OpenAiCompatibleModelExecutionAdapter>(
+            factory.Services.GetRequiredService<IModelExecutionPort>());
+        var capabilities = factory.Services.GetRequiredService<WorkerRuntimeCapabilities>();
+        Assert.Equal("openai_compatible", capabilities.ModelExecutionAdapter);
+        Assert.True(capabilities.ModelExecutionQualified);
+    }
+
+    [Fact]
+    public void Worker_keeps_openai_compatible_fail_closed_in_production_even_when_enableable_files_exist()
+    {
+        using var artifacts = OpenAiCompatibleWorkerArtifacts.CreateEnableable();
+        var oauthSecrets = Directory.CreateTempSubdirectory("flexagent-oai-oauth-");
+        File.WriteAllText(Path.Combine(oauthSecrets.FullName, "client-secret"), "unused-secret");
+        try
+        {
+            using var factory = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Production");
+                builder.UseSetting(
+                    "ConnectionStrings:Sessions",
+                    "Host=localhost;Database=flexagent;Username=flexagent;Password=unused");
+                builder.UseSetting("Sessions:InvocationProcessing:Enabled", "true");
+                builder.UseSetting("Sessions:WorkerServiceActorId", TestWorkerServiceActorId.ToString("D"));
+                builder.UseSetting("Sessions:ModelExecution:Adapter", "openai_compatible");
+                builder.UseSetting("Sessions:ModelExecution:Qualified", "true");
+                builder.UseSetting("Sessions:ModelExecution:InstalledProfilesPath", artifacts.ProfilesPath);
+                builder.UseSetting("Sessions:ModelExecution:CredentialCatalogPath", artifacts.CatalogPath);
+                builder.UseSetting("Sessions:ModelExecution:SecretDirectory", artifacts.SecretDirectory);
+                builder.UseSetting("Sessions:ModelExecution:OpenAiCompatibleConfigurationsPath", artifacts.ConfigurationsPath);
+                builder.UseSetting("Sessions:ModelExecution:QualificationRecordPath", artifacts.QualificationRecordPath);
+                ApplyOauthWorkloadIdentity(builder, oauthSecrets.FullName);
+            });
+
+            Assert.IsType<FailClosedModelExecutionPort>(
+                factory.Services.GetRequiredService<IModelExecutionPort>());
+            var capabilities = factory.Services.GetRequiredService<WorkerRuntimeCapabilities>();
+            Assert.Equal("openai_compatible", capabilities.ModelExecutionAdapter);
+            Assert.False(capabilities.ModelExecutionQualified);
+        }
+        finally
+        {
+            oauthSecrets.Delete(recursive: true);
+        }
     }
 
     [Fact]
@@ -806,6 +929,145 @@ public sealed class WorkerRuntimeTests : IClassFixture<WebApplicationFactory<Wor
 
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/live", cancellationToken)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/ready", cancellationToken)).StatusCode);
+    }
+
+    private sealed class OpenAiCompatibleWorkerArtifacts : IDisposable
+    {
+        private OpenAiCompatibleWorkerArtifacts(
+            string root,
+            string profilesPath,
+            string catalogPath,
+            string configurationsPath,
+            string qualificationRecordPath,
+            string secretDirectory)
+        {
+            Root = root;
+            ProfilesPath = profilesPath;
+            CatalogPath = catalogPath;
+            ConfigurationsPath = configurationsPath;
+            QualificationRecordPath = qualificationRecordPath;
+            SecretDirectory = secretDirectory;
+        }
+
+        public string Root { get; }
+        public string ProfilesPath { get; }
+        public string CatalogPath { get; }
+        public string ConfigurationsPath { get; }
+        public string QualificationRecordPath { get; }
+        public string SecretDirectory { get; }
+
+        public static OpenAiCompatibleWorkerArtifacts CreateExample() =>
+            Create(
+                OpenAiCompatibleInstalledConfiguration.Create(
+                    "openai-compatible.example.do-not-enable",
+                    "1",
+                    new Uri("https://models.organization.example/"),
+                    "replace-with-operator-selected-model",
+                    "replace-with-immutable-version-or-fingerprint",
+                    ModelDeploymentCredentialModes.OrganizationByok,
+                    "replace-with-actual-provider-or-runtime-id",
+                    "/v1"),
+                OpenAiCompatibleQualificationRecords.DoNotEnable);
+
+        public static OpenAiCompatibleWorkerArtifacts CreateEnableable() =>
+            Create(
+                OpenAiCompatibleInstalledConfiguration.Create(
+                    "openai-compatible.worker-gate.test",
+                    "1",
+                    new Uri("https://models.organization.example/"),
+                    "synthetic.model.pinned",
+                    "synthetic.model.pinned.2026-01-01",
+                    ModelDeploymentCredentialModes.OrganizationByok,
+                    "openai.compatible.test",
+                    "/v1"),
+                OpenAiCompatibleQualificationRecords.ExactProfile);
+
+        private static OpenAiCompatibleWorkerArtifacts Create(
+            OpenAiCompatibleInstalledConfiguration configuration,
+            string qualifiedFor)
+        {
+            var root = Directory.CreateTempSubdirectory("flex-agent-oai-worker-").FullName;
+            var profile = configuration.Profile;
+            var profilesPath = Path.Combine(root, "profiles.json");
+            var catalogPath = Path.Combine(root, "catalog.json");
+            var configurationsPath = Path.Combine(root, "openai-compatible.json");
+            var qualificationRecordPath = Path.Combine(root, "qualification.json");
+            var secretDirectory = Path.Combine(root, "secrets");
+            Directory.CreateDirectory(secretDirectory);
+            File.WriteAllText(profilesPath, $$"""
+                [
+                  {
+                    "profileId": "{{profile.ProfileId}}",
+                    "profileVersion": "{{profile.ProfileVersion}}",
+                    "adapterKind": "{{profile.AdapterKind}}",
+                    "adapterContractVersion": "{{profile.AdapterContractVersion}}",
+                    "approvedHttpsOrigin": "https://models.organization.example/",
+                    "requestedModel": "{{profile.RequestedModel}}",
+                    "resolvedModelVersion": "{{profile.ResolvedModelVersion}}",
+                    "capabilityProfileId": "{{profile.CapabilityProfileId}}",
+                    "credentialMode": "{{profile.CredentialMode}}",
+                    "maxOutputTokens": {{profile.MaxOutputTokens}},
+                    "controlTimeoutMilliseconds": {{(int)profile.ControlTimeout.TotalMilliseconds}},
+                    "contentTimeoutMilliseconds": {{(int)profile.ContentTimeout.TotalMilliseconds}},
+                    "maxProviderRequestAttempts": {{profile.MaxProviderRequestAttempts}},
+                    "providerId": "{{profile.ProviderId}}",
+                    "adapterConfigurationDigest": "{{profile.AdapterConfigurationDigest}}"
+                  }
+                ]
+                """);
+            File.WriteAllText(catalogPath, """
+                [
+                  {
+                    "bindingReference": "bind.opaque.0001",
+                    "bindingVersion": "bind.v1",
+                    "ownerOrganizationId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                    "providerId": "openai.compatible.test",
+                    "credentialMode": "organization_byok",
+                    "revoked": false,
+                    "secretName": "org-a-openai"
+                  }
+                ]
+                """);
+            File.WriteAllText(configurationsPath, $$"""
+                [
+                  {
+                    "profileId": "{{profile.ProfileId}}",
+                    "profileVersion": "{{profile.ProfileVersion}}",
+                    "profileDigest": "{{profile.ProfileDigest}}",
+                    "adapterConfigurationDigest": "{{profile.AdapterConfigurationDigest}}",
+                    "apiBasePath": "/v1",
+                    "destinationPolicy": "public_only"
+                  }
+                ]
+                """);
+            File.WriteAllText(qualificationRecordPath, $$"""
+                {
+                  "adapterKind": "openai_compatible",
+                  "adapterContractVersion": "sessions.openai_compatible.v1",
+                  "profileId": "{{profile.ProfileId}}",
+                  "profileVersion": "{{profile.ProfileVersion}}",
+                  "profileDigest": "{{profile.ProfileDigest}}",
+                  "adapterConfigurationDigest": "{{profile.AdapterConfigurationDigest}}",
+                  "qualifiedFor": "{{qualifiedFor}}"
+                }
+                """);
+            File.WriteAllText(Path.Combine(secretDirectory, "org-a-openai"), "sk-test-not-for-production");
+            return new OpenAiCompatibleWorkerArtifacts(
+                root,
+                profilesPath,
+                catalogPath,
+                configurationsPath,
+                qualificationRecordPath,
+                secretDirectory);
+        }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(Root))
+            {
+                Directory.Delete(Root, recursive: true);
+            }
+        }
     }
 
     private sealed class OpenRouterWorkerArtifacts : IDisposable

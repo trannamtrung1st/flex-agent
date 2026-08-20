@@ -1,0 +1,10 @@
+[
+  {
+    "profileId": "openai-compatible.example.do-not-enable",
+    "profileVersion": "1",
+    "profileDigest": "6bbfa4715615a50f006679381333a17a074fec74a2f7967c97c64338e05428c7",
+    "adapterConfigurationDigest": "66f729ceff48a979b8ec5d2bc8c76250a4807ce886ec46ff8a9aaff48669a858",
+    "apiBasePath": "/v1",
+    "destinationPolicy": "public_only"
+  }
+]

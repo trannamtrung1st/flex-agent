@@ -2,11 +2,11 @@ using System.Net;
 using System.Text;
 using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
-using FlexAgent.Sessions.OpenAi;
+using FlexAgent.Sessions.OpenAiCompatible;
 
-namespace FlexAgent.Sessions.OpenAi.Tests;
+namespace FlexAgent.Sessions.OpenAiCompatible.Tests;
 
-public sealed class DirectOpenAiAdapterContractTests
+public sealed class OpenAiCompatibleAdapterContractTests
 {
     [Fact]
     public async Task Fake_transport_returns_structured_control_and_provenance_without_network()
@@ -15,18 +15,35 @@ public sealed class DirectOpenAiAdapterContractTests
         var json = """
             {"schema_version":"v2","agent_decision_id":"adec.00000001","agent_invocation_id":"ainv.00000001","produced_at":"2026-08-14T00:00:00Z","disposition":"no_action","outputs":[],"requested_actions":[],"no_action":{"reason_category":"intentional_silence"}}
             """;
-        var adapter = harness.Adapter(new ScriptedOpenAiHandler(json, stream: false));
+        var adapter = harness.Adapter(new ScriptedCompatibleHandler(json, stream: false));
 
         var result = await adapter.ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
 
         var control = Assert.IsType<ModelExecutionStructuredControl>(result);
         Assert.Equal(DecisionDispositions.NoAction, control.Envelope.Disposition);
         Assert.NotNull(result.Provenance);
-        Assert.Equal(ModelDeploymentAdapterKinds.DirectOpenAi, result.Provenance!.AdapterKind);
+        Assert.Equal(ModelDeploymentAdapterKinds.OpenAiCompatible, result.Provenance!.AdapterKind);
+        Assert.Equal(OpenAiCompatibleAdapterContracts.AdapterContractVersion, result.Provenance.AdapterContractVersion);
         Assert.Equal("synthetic.model.pinned", result.Provenance.RequestedModel);
         Assert.Equal("synthetic.model.pinned.2026-01-01", result.Provenance.ResolvedModelVersion);
         Assert.Equal(ModelProviderRequestPhases.Control, result.Provenance.Phase);
         Assert.DoesNotContain("sk-", result.Provenance.ProviderRequestRef ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Fake_transport_pins_request_uri_to_configured_base_paths()
+    {
+        foreach (var basePath in new[] { "/v1", "/openai/v1", "/api" })
+        {
+            var harness = CreateHarness(apiBasePath: basePath);
+            var json = """
+                {"schema_version":"v2","agent_decision_id":"adec.00000001","agent_invocation_id":"ainv.00000001","produced_at":"2026-08-14T00:00:00Z","disposition":"no_action","outputs":[],"requested_actions":[],"no_action":{"reason_category":"intentional_silence"}}
+                """;
+            var handler = new ScriptedCompatibleHandler(json, stream: false, expectedPath: basePath + "/chat/completions");
+            var result = await harness.Adapter(handler).ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
+            Assert.IsType<ModelExecutionStructuredControl>(result);
+            Assert.Equal("https://models.organization.example" + basePath + "/chat/completions", handler.CapturedRequestUri);
+        }
     }
 
     [Fact]
@@ -36,7 +53,7 @@ public sealed class DirectOpenAiAdapterContractTests
         var json = """
             {"schema_version":"v2","agent_decision_id":"adec.00000001","agent_invocation_id":"ainv.00000001","produced_at":"2026-08-14T00:00:00Z","disposition":"no_action","outputs":[],"requested_actions":[],"no_action":{"reason_category":"intentional_silence"}}
             """;
-        var handler = new ScriptedOpenAiHandler(json, stream: false, returnedModel: "gpt-pinned-2026-08-01");
+        var handler = new ScriptedCompatibleHandler(json, stream: false, returnedModel: "gpt-pinned-2026-08-01");
         var adapter = harness.Adapter(handler);
         var participantText = "What is the next assessment question?";
 
@@ -57,7 +74,7 @@ public sealed class DirectOpenAiAdapterContractTests
         var json = """
             {"schema_version":"v2","agent_decision_id":"adec.00000001","agent_invocation_id":"ainv.00000001","produced_at":"2026-08-14T00:00:00Z","disposition":"no_action","outputs":[],"requested_actions":[],"no_action":{"reason_category":"intentional_silence"}}
             """;
-        var drifted = await harness.Adapter(new ScriptedOpenAiHandler(json, stream: false, returnedModel: "gpt-alias"))
+        var drifted = await harness.Adapter(new ScriptedCompatibleHandler(json, stream: false, returnedModel: "gpt-alias"))
             .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
         Assert.Equal(
             ExecutionFailureReasons.ProviderUnavailable,
@@ -65,24 +82,73 @@ public sealed class DirectOpenAiAdapterContractTests
     }
 
     [Fact]
-    public async Task Mismatched_adapter_contract_version_fails_closed()
+    public async Task Legacy_direct_openai_identity_and_mismatched_contract_fail_closed()
     {
-        var harness = CreateHarness(contractVersion: "sessions.openai.v2");
         var json = """
             {"schema_version":"v2","agent_decision_id":"adec.00000001","agent_invocation_id":"ainv.00000001","produced_at":"2026-08-14T00:00:00Z","disposition":"no_action","outputs":[],"requested_actions":[],"no_action":{"reason_category":"intentional_silence"}}
             """;
-        var result = await harness.Adapter(new ScriptedOpenAiHandler(json, stream: false))
-            .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
+        var mismatchedHarness = CreateHarness(contractVersion: "sessions.openai.v2");
+        var mismatched = await mismatchedHarness
+            .Adapter(new ScriptedCompatibleHandler(json, stream: false))
+            .ExecuteAsync(mismatchedHarness.ControlRequest(), CancellationToken.None);
         Assert.Equal(
             ExecutionFailureReasons.CredentialBindingFailed,
-            Assert.IsType<ModelExecutionFailed>(result).ReasonCategory);
+            Assert.IsType<ModelExecutionFailed>(mismatched).ReasonCategory);
+
+        var compatible = CreateHarness();
+        var legacyProfile = InstalledModelDeploymentProfile.Create(
+            "direct-openai.unqualified.example",
+            "1",
+            ModelDeploymentAdapterKinds.DirectOpenAi,
+            "sessions.openai.v1",
+            new Uri("https://api.openai.com/"),
+            "synthetic.model.pinned",
+            "synthetic.model.pinned.2026-01-01",
+            "p0.text.structured-control",
+            ModelDeploymentCredentialModes.OrganizationByok,
+            256,
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(5),
+            1,
+            "openai.direct");
+        var legacyFrozen = new FrozenModelDeploymentBinding(
+            legacyProfile.ProfileId,
+            legacyProfile.ProfileVersion,
+            legacyProfile.ProfileDigest,
+            legacyProfile.ProviderId,
+            ModelDeploymentCredentialModes.OrganizationByok,
+            "bind.opaque.0001",
+            "bind.v1");
+        var legacyCatalog = new InMemoryModelDeploymentCredentialCatalog(
+            new ModelDeploymentCredentialCatalogRecord(
+                "bind.opaque.0001",
+                "bind.v1",
+                compatible.Ownership.OrganizationId,
+                "openai.direct",
+                ModelDeploymentCredentialModes.OrganizationByok,
+                false,
+                "org-a-openai"));
+        var legacyAdapter = new OpenAiCompatibleModelExecutionAdapter(
+            new InMemoryInstalledModelDeploymentProfileRegistry(legacyProfile),
+            legacyCatalog,
+            compatible.Secrets,
+            compatible.Configurations);
+        var request = compatible.ControlRequest() with
+        {
+            FrozenDeployment = legacyFrozen,
+            ProviderId = legacyFrozen.ProviderId,
+        };
+        var legacy = await legacyAdapter.ExecuteAsync(request, CancellationToken.None);
+        Assert.Equal(
+            ExecutionFailureReasons.CredentialBindingFailed,
+            Assert.IsType<ModelExecutionFailed>(legacy).ReasonCategory);
     }
 
     [Fact]
     public async Task Fake_transport_streams_non_overlapping_text_deltas()
     {
         var harness = CreateHarness();
-        var adapter = harness.Adapter(new ScriptedOpenAiHandler("Hel", stream: true, secondDelta: "lo"));
+        var adapter = harness.Adapter(new ScriptedCompatibleHandler("Hel", stream: true, secondDelta: "lo"));
 
         var events = new List<ModelContentEvent>();
         await foreach (var item in adapter.StreamParticipantVisibleContentAsync(harness.StreamRequest(), CancellationToken.None))
@@ -101,13 +167,13 @@ public sealed class DirectOpenAiAdapterContractTests
     public async Task Rate_limit_and_malformed_control_are_normalized_failures()
     {
         var harness = CreateHarness();
-        var limited = await harness.Adapter(new StatusOpenAiHandler(429))
+        var limited = await harness.Adapter(new StatusCompatibleHandler(429))
             .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
         Assert.Equal(
             ExecutionFailureReasons.ProviderUnavailable,
             Assert.IsType<ModelExecutionFailed>(limited).ReasonCategory);
 
-        var malformed = await harness.Adapter(new ScriptedOpenAiHandler("{ not json", stream: false))
+        var malformed = await harness.Adapter(new ScriptedCompatibleHandler("{ not json", stream: false))
             .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
         Assert.Equal(
             ExecutionFailureReasons.MalformedControl,
@@ -115,40 +181,41 @@ public sealed class DirectOpenAiAdapterContractTests
     }
 
     [Fact]
-    public async Task Unapproved_origin_and_loopback_redirect_fail_closed()
+    public async Task Unapproved_origin_redirect_and_loopback_fail_closed()
     {
         var harness = CreateHarness();
-        var loopback = await harness.Adapter(new RedirectOpenAiHandler("https://127.0.0.1/v1/chat/completions"))
+        var loopback = await harness.Adapter(new RedirectCompatibleHandler("https://127.0.0.1/v1/chat/completions"))
             .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
         Assert.Equal(
             ExecutionFailureReasons.ProviderUnavailable,
             Assert.IsType<ModelExecutionFailed>(loopback).ReasonCategory);
 
-        Assert.False(ApprovedOrigin.IsAllowed(new Uri("http://api.openai.com/"), harness.Profile.ApprovedHttpsOrigin));
-        Assert.False(ApprovedOrigin.IsAllowed(new Uri("https://example.com/"), harness.Profile.ApprovedHttpsOrigin));
-        Assert.False(ApprovedOrigin.IsAllowed(new Uri("https://127.0.0.1/"), harness.Profile.ApprovedHttpsOrigin));
-        Assert.False(ApprovedOrigin.IsAllowed(new Uri("https://169.254.169.254/"), harness.Profile.ApprovedHttpsOrigin));
-        Assert.False(ApprovedOrigin.IsAllowed(new Uri("https://10.0.0.1/"), harness.Profile.ApprovedHttpsOrigin));
-        Assert.True(ApprovedOrigin.IsAllowed(new Uri("https://api.openai.com/v1/chat/completions"), harness.Profile.ApprovedHttpsOrigin));
+        var origin = new Uri("https://models.organization.example/");
+        Assert.False(OpenAiCompatibleDestinationPolicyEvaluator.UriMatchesApprovedEndpoint(
+            new Uri("http://models.organization.example/v1/chat/completions"), origin, "/v1"));
+        Assert.False(OpenAiCompatibleDestinationPolicyEvaluator.UriMatchesApprovedEndpoint(
+            new Uri("https://example.com/v1/chat/completions"), origin, "/v1"));
+        Assert.True(OpenAiCompatibleDestinationPolicyEvaluator.UriMatchesApprovedEndpoint(
+            new Uri("https://models.organization.example/v1/chat/completions"), origin, "/v1"));
     }
 
     [Fact]
     public async Task Timeout_outage_and_oversized_control_are_normalized_failures()
     {
         var harness = CreateHarness();
-        var timedOut = await harness.Adapter(new StatusOpenAiHandler(408))
+        var timedOut = await harness.Adapter(new StatusCompatibleHandler(408))
             .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
         Assert.Equal(
             ExecutionFailureReasons.ProviderTimeout,
             Assert.IsType<ModelExecutionFailed>(timedOut).ReasonCategory);
 
-        var outage = await harness.Adapter(new ThrowingOpenAiHandler())
+        var outage = await harness.Adapter(new ThrowingCompatibleHandler())
             .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
         Assert.Equal(
             ExecutionFailureReasons.ProviderUnavailable,
             Assert.IsType<ModelExecutionFailed>(outage).ReasonCategory);
 
-        var oversized = await harness.Adapter(new ScriptedOpenAiHandler(new string('x', 200), stream: false))
+        var oversized = await harness.Adapter(new ScriptedCompatibleHandler(new string('x', 200), stream: false))
             .ExecuteAsync(harness.ControlRequest(maxControlUtf8Bytes: 16), CancellationToken.None);
         Assert.Equal(
             ExecutionFailureReasons.MalformedControl,
@@ -160,7 +227,7 @@ public sealed class DirectOpenAiAdapterContractTests
     {
         var harness = CreateHarness();
         var events = new List<ModelContentEvent>();
-        await foreach (var item in harness.Adapter(new StatusOpenAiHandler(500))
+        await foreach (var item in harness.Adapter(new StatusCompatibleHandler(500))
             .StreamParticipantVisibleContentAsync(harness.StreamRequest(), CancellationToken.None))
         {
             events.Add(item);
@@ -179,7 +246,7 @@ public sealed class DirectOpenAiAdapterContractTests
         var harness = CreateHarness();
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
-        var result = await harness.Adapter(new ScriptedOpenAiHandler("{}", stream: false))
+        var result = await harness.Adapter(new ScriptedCompatibleHandler("{}", stream: false))
             .ExecuteAsync(harness.ControlRequest(), cts.Token);
         Assert.Equal(
             ExecutionAttemptOutcomeCategories.Cancelled,
@@ -194,26 +261,59 @@ public sealed class DirectOpenAiAdapterContractTests
         Assert.DoesNotContain("sk-live", secret.ToString(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Missing_adapter_configuration_fails_closed()
+    {
+        var harness = CreateHarness();
+        var adapter = new OpenAiCompatibleModelExecutionAdapter(
+            harness.Profiles,
+            harness.Catalog,
+            harness.Secrets,
+            new InMemoryOpenAiCompatibleInstalledConfigurationRegistry());
+        var result = await adapter.ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
+        Assert.Equal(
+            ExecutionFailureReasons.CredentialBindingFailed,
+            Assert.IsType<ModelExecutionFailed>(result).ReasonCategory);
+    }
+
     private static Harness CreateHarness(
         string requestedModel = "synthetic.model.pinned",
         string resolvedModel = "synthetic.model.pinned.2026-01-01",
-        string contractVersion = DirectOpenAiModelExecutionAdapter.AdapterContractVersion)
+        string contractVersion = OpenAiCompatibleAdapterContracts.AdapterContractVersion,
+        string apiBasePath = "/v1")
     {
-        var profile = InstalledModelDeploymentProfile.Create(
-            "direct-openai.unqualified.example",
+        var configuration = OpenAiCompatibleInstalledConfiguration.Create(
+            "openai-compatible.unqualified.test",
             "1",
-            ModelDeploymentAdapterKinds.DirectOpenAi,
-            contractVersion,
-            new Uri("https://api.openai.com/"),
+            new Uri("https://models.organization.example/"),
             requestedModel,
             resolvedModel,
-            "p0.text.structured-control",
             ModelDeploymentCredentialModes.OrganizationByok,
+            "openai.compatible.test",
+            apiBasePath,
+            OpenAiCompatibleDestinationPolicy.PublicOnly,
             256,
             TimeSpan.FromSeconds(5),
             TimeSpan.FromSeconds(5),
-            1,
-            "openai.direct");
+            1);
+        var profile = contractVersion == OpenAiCompatibleAdapterContracts.AdapterContractVersion
+            ? configuration.Profile
+            : InstalledModelDeploymentProfile.Create(
+                configuration.Profile.ProfileId,
+                configuration.Profile.ProfileVersion,
+                ModelDeploymentAdapterKinds.OpenAiCompatible,
+                contractVersion,
+                configuration.Profile.ApprovedHttpsOrigin,
+                requestedModel,
+                resolvedModel,
+                "p0.text.structured-control",
+                ModelDeploymentCredentialModes.OrganizationByok,
+                256,
+                TimeSpan.FromSeconds(5),
+                TimeSpan.FromSeconds(5),
+                1,
+                "openai.compatible.test",
+                configuration.AdapterConfigurationDigest);
         var frozen = new FrozenModelDeploymentBinding(
             profile.ProfileId,
             profile.ProfileVersion,
@@ -234,12 +334,13 @@ public sealed class DirectOpenAiAdapterContractTests
                 "bind.opaque.0001",
                 "bind.v1",
                 ownership.OrganizationId,
-                "openai.direct",
+                "openai.compatible.test",
                 ModelDeploymentCredentialModes.OrganizationByok,
                 false,
                 "org-a-openai"));
         var secrets = new StaticSecretSource("sk-test-not-for-production");
-        return new Harness(profile, frozen, ownership, profiles, catalog, secrets);
+        var configurations = new InMemoryOpenAiCompatibleInstalledConfigurationRegistry(configuration);
+        return new Harness(profile, frozen, ownership, profiles, catalog, secrets, configurations);
     }
 
     private sealed record Harness(
@@ -248,10 +349,11 @@ public sealed class DirectOpenAiAdapterContractTests
         SessionOwnership Ownership,
         IInstalledModelDeploymentProfileRegistry Profiles,
         IModelDeploymentCredentialCatalog Catalog,
-        IProviderCredentialSecretSource Secrets)
+        IProviderCredentialSecretSource Secrets,
+        IOpenAiCompatibleInstalledConfigurationRegistry Configurations)
     {
-        public DirectOpenAiModelExecutionAdapter Adapter(HttpMessageHandler handler) =>
-            new(Profiles, Catalog, Secrets, handler);
+        public OpenAiCompatibleModelExecutionAdapter Adapter(HttpMessageHandler handler) =>
+            new(Profiles, Catalog, Secrets, Configurations, handler, new PublicTestResolver());
 
         public ModelExecutionAttemptRequest ControlRequest(
             int maxControlUtf8Bytes = 65_536,
@@ -313,23 +415,33 @@ public sealed class DirectOpenAiAdapterContractTests
                 Frozen.CredentialBindingVersion);
     }
 
+    private sealed class PublicTestResolver : IEndpointAddressResolver
+    {
+        public Task<IReadOnlyList<IPAddress>> ResolveAsync(string host, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IPAddress>>([IPAddress.Parse("203.0.113.10")]);
+    }
+
     private sealed class StaticSecretSource(string value) : IProviderCredentialSecretSource
     {
         public Task<ProviderSecret?> TryReadAsync(string secretName, CancellationToken cancellationToken = default) =>
             Task.FromResult<ProviderSecret?>(new ProviderSecret(value));
     }
 
-    private sealed class ScriptedOpenAiHandler(
+    private sealed class ScriptedCompatibleHandler(
         string content,
         bool stream,
         string? secondDelta = null,
-        string? returnedModel = "synthetic.model.pinned.2026-01-01") : HttpMessageHandler
+        string? returnedModel = "synthetic.model.pinned.2026-01-01",
+        string expectedPath = "/v1/chat/completions") : HttpMessageHandler
     {
         public string CapturedRequestBody { get; private set; } = string.Empty;
 
+        public string CapturedRequestUri { get; private set; } = string.Empty;
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Assert.StartsWith("https://api.openai.com", request.RequestUri?.GetLeftPart(UriPartial.Authority), StringComparison.Ordinal);
+            CapturedRequestUri = request.RequestUri?.GetLeftPart(UriPartial.Path) ?? string.Empty;
+            Assert.Equal("https://models.organization.example" + expectedPath, CapturedRequestUri);
             if (request.Content is not null)
             {
                 CapturedRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
@@ -363,7 +475,7 @@ public sealed class DirectOpenAiAdapterContractTests
             $"data: {{\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":{System.Text.Json.JsonSerializer.Serialize(returnedModel)},\"choices\":[{{\"index\":0,\"delta\":{{\"content\":{System.Text.Json.JsonSerializer.Serialize(text)}}},\"finish_reason\":null}}]}}\n\n";
     }
 
-    private sealed class StatusOpenAiHandler(int status) : HttpMessageHandler
+    private sealed class StatusCompatibleHandler(int status) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(new HttpResponseMessage((HttpStatusCode)status)
@@ -372,13 +484,13 @@ public sealed class DirectOpenAiAdapterContractTests
             });
     }
 
-    private sealed class ThrowingOpenAiHandler : HttpMessageHandler
+    private sealed class ThrowingCompatibleHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             throw new HttpRequestException("synthetic origin outage");
     }
 
-    private sealed class RedirectOpenAiHandler(string location) : HttpMessageHandler
+    private sealed class RedirectCompatibleHandler(string location) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {

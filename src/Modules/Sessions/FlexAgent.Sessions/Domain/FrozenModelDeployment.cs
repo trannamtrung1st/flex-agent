@@ -9,6 +9,7 @@ public static class ModelDeploymentCredentialModes
 public static class ModelDeploymentAdapterKinds
 {
     public const string DirectOpenAi = "direct_openai";
+    public const string OpenAiCompatible = "openai_compatible";
     public const string DeterministicFake = "deterministic_fake";
     public const string OpenRouter = "openrouter";
 }
@@ -95,6 +96,14 @@ public sealed record InstalledModelDeploymentProfile(
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
         var canonicalOrigin = global::FlexAgent.Sessions.Domain.ApprovedHttpsOrigin.Canonicalize(approvedHttpsOrigin);
         var normalizedAdapterDigest = NormalizeAdapterConfigurationDigest(adapterConfigurationDigest);
+        if (string.Equals(adapterKind, ModelDeploymentAdapterKinds.OpenAiCompatible, StringComparison.Ordinal)
+            && normalizedAdapterDigest is null)
+        {
+            throw new ArgumentException(
+                "OpenAI-compatible installed profiles require an adapter-configuration digest.",
+                nameof(adapterConfigurationDigest));
+        }
+
         if (string.Equals(adapterKind, ModelDeploymentAdapterKinds.OpenRouter, StringComparison.Ordinal))
         {
             if (normalizedAdapterDigest is null)
