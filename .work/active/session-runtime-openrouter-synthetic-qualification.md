@@ -595,6 +595,13 @@ or the run stops with sanitized failure evidence.
       The recorded slot-9 content used 256/256 tokens, so that stream would not
       qualify even if control later succeeded.
 
+## Phase 18 — atomic expected reservation
+
+- [x] Add `TryReserveExpected` so the expected-count comparison and increment
+      happen under the same exclusive budget lock. Wire live discovery and
+      pinned control/content reservations to it, and cover two concurrent
+      instances that both expect `6`.
+
 # Current state
 
 On 2026-08-20 the Product Lead explicitly accepted OpenRouter/provider
@@ -627,7 +634,9 @@ applied. Live Worker/PostgreSQL was skipped because Docker was unavailable.
 Phase 17 closed the live-harness review: explicit runners now require a matching
 phase and expected consumed count, refuse this 9/12 Nvidia matrix before
 reserve, isolate per-request HTTP observations, and require visible
-non-truncated content before printing `qualified_for`.
+non-truncated content before printing `qualified_for`. Phase 18 makes the
+expected count compare-and-increment atomic under the exclusive budget lock so
+two processes that both observed `6` cannot both reserve.
 
 ## Historical strict-policy qualification run
 
@@ -787,6 +796,9 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
   and expected consumed count; discovery is retired after pin; the recorded
   9/12 pinned matrix refuses before reserve; HTTP observations reset per
   request; qualification requires visible non-truncated content.
+- Phase 18: `TryReserveExpected` compare-and-increments under the exclusive
+  budget lock. Live control uses `alreadyConsumed -> n+1` and content uses
+  `n+1 -> n+2`. Two concurrent instances expecting `6` cannot both succeed.
 
 # Verification
 
@@ -796,11 +808,11 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
 | Locked baseline restore | passed | `dotnet restore FlexAgent.slnx --locked-mode`; all solution projects restored with committed locks on 2026-08-20 |
 | Focused pre-implementation baseline | passed | Sessions 448/448; Direct OpenAI 14/14; Runtime 126/126; Architecture 33/33 on .NET SDK 10.0.100, macOS arm64 |
 | Architecture/operations approval | passed | ADR-008 `OSS-DEC-17`, ADR-010 `STACK-DEC-18`, and approved profile dated 2026-08-19 |
-| Fake-transport provider contracts | passed | OpenRouter deterministic suite 53/53 on 2026-08-20 after Phase 17 live-harness remediation: reservation phase/expected-consumed gates, observer no-response isolation, and stricter matrix qualification. Prior coverage remains: persistent-budget `TryRead`, live HTTP/cache observer, symlink, sanitized-failure, unsafe-identity, headers, provider object, metadata/attempt/identity/usage, response-cache HIT vs prompt cached_tokens, control and streaming stall-after-headers timeout vs caller cancel, exact envelope limit and limit+1, strict SSE UTF-8, escaped invalid surrogates, terminal-then-DONE, discovery selected-endpoint, schema parity |
+| Fake-transport provider contracts | passed | OpenRouter deterministic suite 55/55 on 2026-08-20 after Phase 18 atomic `TryReserveExpected` plus Phase 17 live-harness remediation: reservation phase/expected-consumed gates, observer no-response isolation, and stricter matrix qualification. Prior coverage remains: persistent-budget `TryRead`, live HTTP/cache observer, symlink, sanitized-failure, unsafe-identity, headers, provider object, metadata/attempt/identity/usage, response-cache HIT vs prompt cached_tokens, control and streaming stall-after-headers timeout vs caller cancel, exact envelope limit and limit+1, strict SSE UTF-8, escaped invalid surrogates, terminal-then-DONE, discovery selected-endpoint, schema parity |
 | Profile/credential/host isolation | passed | Digest regression; Infrastructure loaders; Unix owner-only secret tests; Worker Testing compose + Production fail-closed |
 | Live synthetic qualification | partial | Retention-accepted budget is 9/12. Operator files still load with adapter digest `77754995939f05366000e0f90022e998cdc85d18b3f675b8d64307595b0361ac` and profile digest `52b47fe8a81ec93aad637d3d81fee665ee9a8230762ecad3204ad6963ca038ac`. Phase 9: slot 8 control HTTP 404 / `request_rejected`; slot 9 content HTTP 200, cache absent, usage 188/256, completed. Sanitized summary: `docs/operations/provider-profiles/qualified/openrouter/synthetic-development-phase9-2026-08-20.md`. Acceptance label not applied |
 | Interactive local Text Session | blocked | Phase 7: synthetic browser adapter; production HTTP SSE/OIDC still a documented gap (`docs/ui-ux/text-session.md`) |
-| Locked regression/supply chain/OCI/docs | partial | Phase 17 re-verification: OpenRouter 53/53 deterministic with two explicit live tests excluded, Architecture 35/35. Docker remains unavailable, so PostgreSQL Testcontainers, Worker OCI image build, and `dotnet publish` were not run |
+| Locked regression/supply chain/OCI/docs | partial | Phase 18 re-verification: OpenRouter 55/55 deterministic with two explicit live tests excluded. Docker remains unavailable, so PostgreSQL Testcontainers, Worker OCI image build, and `dotnet publish` were not run |
 | Independent review (`7e2e438`) | passed | Adapter remediation series approved 2026-08-20: no remaining substantive correctness or architecture issues. Nine prior findings closed. Local OpenRouter 27/27 not independently verifiable from GitHub commit statuses. Live qualification and hosted Participant path remain gated |
 
 # Risks, interim defaults, and owner gates

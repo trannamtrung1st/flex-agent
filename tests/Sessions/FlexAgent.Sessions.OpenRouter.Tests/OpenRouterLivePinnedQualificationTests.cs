@@ -22,7 +22,12 @@ public sealed class OpenRouterLivePinnedQualificationTests(ITestOutputHelper out
     [Fact]
     public void Pinned_matrix_remains_opt_in_and_does_not_touch_operator_state()
     {
-        Assert.False(OpenRouterLiveQualification.IsEnabled);
+        Assert.Equal(
+            OpenRouterLiveQualification.IsEnabled,
+            string.Equals(
+                Environment.GetEnvironmentVariable(OpenRouterLiveQualification.EnableEnvironmentVariable),
+                "1",
+                StringComparison.Ordinal));
         Assert.Equal(
             "FLEXAGENT_OPENROUTER_INSTALLED_PROFILES_PATH",
             OpenRouterLiveQualification.InstalledProfilesPathEnvironmentVariable);
@@ -108,8 +113,8 @@ public sealed class OpenRouterLivePinnedQualificationTests(ITestOutputHelper out
             syntheticDataPolicyAccepted: true);
 
         Assert.True(
-            budget.TryReserve(out var controlSlot),
-            "The persistent qualification budget is unavailable, corrupt, busy, or exhausted.");
+            budget.TryReserveExpected(alreadyConsumed, out var controlSlot),
+            "The persistent qualification budget is unavailable, corrupt, busy, stale, or exhausted.");
         var control = await adapter.ExecuteAsync(
             ControlRequest(ownership, frozen, configuration.Profile, "ainv.or9ctl001", SyntheticControlText),
             TestContext.Current.CancellationToken);
@@ -126,8 +131,8 @@ public sealed class OpenRouterLivePinnedQualificationTests(ITestOutputHelper out
         }
 
         Assert.True(
-            budget.TryReserve(out var contentSlot),
-            "The persistent qualification budget is unavailable, corrupt, busy, or exhausted.");
+            budget.TryReserveExpected(controlSlot, out var contentSlot),
+            "The persistent qualification budget is unavailable, corrupt, busy, stale, or exhausted.");
         var events = new List<ModelContentEvent>();
         await foreach (var item in adapter.StreamParticipantVisibleContentAsync(
             StreamRequest(ownership, frozen, "ainv.or9cnt001", SyntheticContentText),

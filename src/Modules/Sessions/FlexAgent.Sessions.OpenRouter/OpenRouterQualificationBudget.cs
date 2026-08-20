@@ -46,7 +46,21 @@ public sealed class OpenRouterQualificationBudget
         }
     }
 
-    public bool TryReserve(out int reservedRequestCount)
+    public bool TryReserve(out int reservedRequestCount) =>
+        TryReserveCore(expectedCurrent: null, out reservedRequestCount);
+
+    public bool TryReserveExpected(int expectedCurrent, out int reservedRequestCount)
+    {
+        if (expectedCurrent is < 0 or > OpenRouterLiveQualification.MaxInferenceRequests)
+        {
+            reservedRequestCount = 0;
+            return false;
+        }
+
+        return TryReserveCore(expectedCurrent, out reservedRequestCount);
+    }
+
+    private bool TryReserveCore(int? expectedCurrent, out int reservedRequestCount)
     {
         reservedRequestCount = 0;
         try
@@ -84,6 +98,12 @@ public sealed class OpenRouterQualificationBudget
             var current = 0;
             if (stream.Length > 0 && !TryReadState(stream, out current))
             {
+                return false;
+            }
+
+            if (expectedCurrent is int expected && current != expected)
+            {
+                reservedRequestCount = current;
                 return false;
             }
 

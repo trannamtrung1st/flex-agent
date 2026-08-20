@@ -570,7 +570,12 @@ public sealed class OpenRouterAdapterContractTests
     [Fact]
     public void Live_qualification_remains_opt_in_and_does_not_read_the_key()
     {
-        Assert.False(OpenRouterLiveQualification.IsEnabled);
+        Assert.Equal(
+            OpenRouterLiveQualification.IsEnabled,
+            string.Equals(
+                Environment.GetEnvironmentVariable(OpenRouterLiveQualification.EnableEnvironmentVariable),
+                "1",
+                StringComparison.Ordinal));
         Assert.Equal("sessions.openrouter.v1", OpenRouterModelExecutionAdapter.AdapterContractVersion);
         Assert.NotEqual(CanarySecret, Environment.GetEnvironmentVariable("HOME"));
     }

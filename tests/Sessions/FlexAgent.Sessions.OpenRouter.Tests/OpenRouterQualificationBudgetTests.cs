@@ -125,6 +125,65 @@ public sealed class OpenRouterQualificationBudgetTests
         Assert.False(File.Exists(Path.Combine(targetDirectory, "budget")));
     }
 
+    [Fact]
+    public void Expected_reservation_fails_closed_when_the_count_has_moved()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = Path.Combine(directory.Path, "budget");
+        var budget = new OpenRouterQualificationBudget(path);
+        for (var i = 0; i < 6; i++)
+        {
+            Assert.True(budget.TryReserve(out _));
+        }
+
+        Assert.False(budget.TryReserveExpected(5, out var stale));
+        Assert.Equal(6, stale);
+        Assert.True(budget.TryRead(out var unchanged));
+        Assert.Equal(6, unchanged);
+
+        Assert.True(budget.TryReserveExpected(6, out var next));
+        Assert.Equal(7, next);
+    }
+
+    [Fact]
+    public async Task Two_instances_cannot_both_reserve_the_same_expected_count()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = Path.Combine(directory.Path, "budget");
+        var seed = new OpenRouterQualificationBudget(path);
+        for (var i = 0; i < 6; i++)
+        {
+            Assert.True(seed.TryReserve(out _));
+        }
+
+        var first = new OpenRouterQualificationBudget(path);
+        var second = new OpenRouterQualificationBudget(path);
+        var started = new ManualResetEventSlim(false);
+        var results = new (bool Succeeded, int Reserved)[2];
+        var cancellation = TestContext.Current.CancellationToken;
+        var firstWorker = Task.Run(
+            () =>
+            {
+                started.Wait(cancellation);
+                results[0] = (first.TryReserveExpected(6, out var reserved), reserved);
+            },
+            cancellation);
+        var secondWorker = Task.Run(
+            () =>
+            {
+                started.Wait(cancellation);
+                results[1] = (second.TryReserveExpected(6, out var reserved), reserved);
+            },
+            cancellation);
+        started.Set();
+        await Task.WhenAll(firstWorker, secondWorker);
+
+        Assert.Equal(1, results.Count(result => result.Succeeded));
+        Assert.Contains(results, result => result is { Succeeded: true, Reserved: 7 });
+        Assert.True(seed.TryRead(out var current));
+        Assert.Equal(7, current);
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public TemporaryDirectory()

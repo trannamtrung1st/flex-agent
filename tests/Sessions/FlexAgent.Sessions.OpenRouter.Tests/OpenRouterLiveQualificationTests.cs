@@ -27,8 +27,8 @@ public sealed class OpenRouterLiveQualificationTests(ITestOutputHelper output)
                 out var denial),
             $"Sanitized live discovery refused before reserve: {denial} consumed={alreadyConsumed}.");
         Assert.True(
-            budget.TryReserve(out var reservedRequestCount),
-            "The persistent qualification budget is unavailable, corrupt, busy, or exhausted.");
+            budget.TryReserveExpected(alreadyConsumed, out var reservedRequestCount),
+            "The persistent qualification budget is unavailable, corrupt, busy, stale, or exhausted.");
 
         var secretRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
