@@ -79,9 +79,14 @@ public sealed class OpenRouterAdapterContractTests
         Assert.Null(alias);
 
         var cache = await new OpenRouterDiscoveryClient(
-            new RecordingHandler(DiscoveryBody(Model, Provider, cachedTokens: 2)))
+            new RecordingHandler(DiscoveryBody(Model, Provider), cacheStatus: "HIT"))
             .DiscoverAsync(CanarySecret, CancellationToken.None);
         Assert.Null(cache);
+
+        var promptCache = await new OpenRouterDiscoveryClient(
+            new RecordingHandler(DiscoveryBody(Model, Provider, cachedTokens: 2)))
+            .DiscoverAsync(CanarySecret, CancellationToken.None);
+        Assert.NotNull(promptCache);
 
         Assert.Null(
             await new OpenRouterDiscoveryClient().DiscoverAsync(CanarySecret, CancellationToken.None));
@@ -125,10 +130,6 @@ public sealed class OpenRouterAdapterContractTests
             .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
         Assert.Equal(ExecutionFailureReasons.ProviderUnavailable, Assert.IsType<ModelExecutionFailed>(missing).ReasonCategory);
 
-        var cache = await harness.Adapter(new RecordingHandler(ControlBody(json, cachedTokens: 3)))
-            .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
-        Assert.Equal(ExecutionFailureReasons.ProviderUnavailable, Assert.IsType<ModelExecutionFailed>(cache).ReasonCategory);
-
         var drift = await harness.Adapter(new RecordingHandler(ControlBody(json, provider: "Groq")))
             .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
         Assert.Equal(ExecutionFailureReasons.ProviderUnavailable, Assert.IsType<ModelExecutionFailed>(drift).ReasonCategory);
@@ -142,6 +143,122 @@ public sealed class OpenRouterAdapterContractTests
         Assert.Equal(
             ExecutionFailureReasons.ProviderUnavailable,
             Assert.IsType<ModelExecutionFailed>(missingUsage).ReasonCategory);
+
+        var promptCache = await harness.Adapter(new RecordingHandler(ControlBody(json, cachedTokens: 3)))
+            .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
+        Assert.IsType<ModelExecutionStructuredControl>(promptCache);
+
+        var responseCache = await harness.Adapter(new RecordingHandler(ControlBody(json), cacheStatus: "HIT"))
+            .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
+        Assert.Equal(
+            ExecutionFailureReasons.ProviderUnavailable,
+            Assert.IsType<ModelExecutionFailed>(responseCache).ReasonCategory);
+    }
+
+    [Fact]
+    public async Task Control_body_stall_after_headers_is_provider_timeout_not_caller_cancel()
+    {
+        var harness = CreateHarness(controlTimeout: TimeSpan.FromMilliseconds(250));
+        var timedOut = await harness.Adapter(new StallAfterHeadersHandler())
+            .ExecuteAsync(harness.ControlRequest(), TestContext.Current.CancellationToken);
+        Assert.Equal(
+            ExecutionFailureReasons.ProviderTimeout,
+            Assert.IsType<ModelExecutionFailed>(timedOut).ReasonCategory);
+
+        using var caller = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var defaultHarness = CreateHarness();
+        var pending = defaultHarness.Adapter(new StallAfterHeadersHandler())
+            .ExecuteAsync(defaultHarness.ControlRequest(), caller.Token);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        await caller.CancelAsync();
+        var cancelled = await pending;
+        Assert.Equal(
+            ExecutionAttemptOutcomeCategories.Cancelled,
+            Assert.IsType<ModelExecutionFailed>(cancelled).ReasonCategory);
+    }
+
+    [Fact]
+    public async Task Control_rejects_an_oversized_provider_envelope_before_decision_admission()
+    {
+        var harness = CreateHarness();
+        var padding = new string('x', OpenRouterAdapterContracts.MaxControlEnvelopeUtf8Bytes);
+        var body = ControlBody(harness.InvocationJson())[..^1] + ",\"padding\":\"" + padding + "\"}";
+        var result = await harness.Adapter(new RecordingHandler(body))
+            .ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
+        Assert.Equal(
+            ExecutionFailureReasons.MalformedControl,
+            Assert.IsType<ModelExecutionFailed>(result).ReasonCategory);
+    }
+
+    [Fact]
+    public async Task Streaming_requires_exactly_one_terminal_metadata_then_done()
+    {
+        var harness = CreateHarness();
+        var missingDone = new List<ModelContentEvent>();
+        await foreach (var item in harness.Adapter(new StreamingHandler(["Hi"], omitDone: true))
+            .StreamParticipantVisibleContentAsync(harness.StreamRequest(), CancellationToken.None))
+        {
+            missingDone.Add(item);
+        }
+
+        Assert.Equal("Hi", Assert.IsType<ModelContentTextDelta>(missingDone[0]).ExactUtf8Text);
+        Assert.Equal(
+            ExecutionFailureReasons.ProviderUnavailable,
+            Assert.IsType<ModelContentFailed>(missingDone[^1]).ReasonCategory);
+        Assert.DoesNotContain(missingDone, item => item is ModelContentCompleted);
+
+        var duplicate = new List<ModelContentEvent>();
+        await foreach (var item in harness.Adapter(new StreamingHandler(["Hi"], duplicateTerminal: true))
+            .StreamParticipantVisibleContentAsync(harness.StreamRequest(), CancellationToken.None))
+        {
+            duplicate.Add(item);
+        }
+
+        Assert.Equal(
+            ExecutionFailureReasons.ProviderUnavailable,
+            Assert.IsType<ModelContentFailed>(duplicate[^1]).ReasonCategory);
+        Assert.DoesNotContain(duplicate, item => item is ModelContentCompleted);
+
+        var extra = new List<ModelContentEvent>();
+        await foreach (var item in harness.Adapter(new StreamingHandler(["Hi"], extraAfterTerminal: true))
+            .StreamParticipantVisibleContentAsync(harness.StreamRequest(), CancellationToken.None))
+        {
+            extra.Add(item);
+        }
+
+        Assert.Equal(
+            ExecutionFailureReasons.ProviderUnavailable,
+            Assert.IsType<ModelContentFailed>(extra[^1]).ReasonCategory);
+    }
+
+    [Fact]
+    public async Task Streaming_rejects_oversized_events_and_excessive_visible_content()
+    {
+        var harness = CreateHarness();
+        var oversized = new List<ModelContentEvent>();
+        await foreach (var item in harness.Adapter(new StreamingHandler(["Hi"], oversizedEvent: true))
+            .StreamParticipantVisibleContentAsync(harness.StreamRequest(), CancellationToken.None))
+        {
+            oversized.Add(item);
+        }
+
+        Assert.Equal(
+            ExecutionFailureReasons.MalformedControl,
+            Assert.IsType<ModelContentFailed>(Assert.Single(oversized)).ReasonCategory);
+
+        var excessive = new List<ModelContentEvent>();
+        var huge = new string('a', OpenRouterAdapterContracts.MaxVisibleContentUtf8Bytes);
+        await foreach (var item in harness.Adapter(new StreamingHandler(["ok", huge]))
+            .StreamParticipantVisibleContentAsync(harness.StreamRequest(), CancellationToken.None))
+        {
+            excessive.Add(item);
+        }
+
+        Assert.Equal("ok", Assert.IsType<ModelContentTextDelta>(excessive[0]).ExactUtf8Text);
+        Assert.Equal(
+            ExecutionFailureReasons.ProviderUnavailable,
+            Assert.IsType<ModelContentFailed>(excessive[^1]).ReasonCategory);
+        Assert.DoesNotContain(excessive, item => item is ModelContentCompleted);
     }
 
     [Fact]
@@ -296,7 +413,9 @@ public sealed class OpenRouterAdapterContractTests
         Assert.NotEqual(CanarySecret, Environment.GetEnvironmentVariable("HOME"));
     }
 
-    internal static Harness CreateHarness()
+    internal static Harness CreateHarness(
+        TimeSpan? controlTimeout = null,
+        TimeSpan? contentTimeout = null)
     {
         var configuration = OpenRouterInstalledConfiguration.Create(
             "openrouter.synthetic.example",
@@ -306,7 +425,9 @@ public sealed class OpenRouterAdapterContractTests
             Provider,
             Provider,
             ModelDeploymentCredentialModes.OrganizationByok,
-            "openrouter.synthetic");
+            "openrouter.synthetic",
+            controlTimeout: controlTimeout,
+            contentTimeout: contentTimeout);
         var profile = configuration.Profile;
         var frozen = new FrozenModelDeploymentBinding(
             profile.ProfileId,
@@ -442,7 +563,7 @@ public sealed class OpenRouterAdapterContractTests
             Task.FromResult<ProviderSecret?>(new ProviderSecret(value));
     }
 
-    private sealed class RecordingHandler(string body) : HttpMessageHandler
+    private sealed class RecordingHandler(string body, string? cacheStatus = null) : HttpMessageHandler
     {
         public Uri? RequestUri { get; private set; }
         public HttpMethod? Method { get; private set; }
@@ -465,10 +586,18 @@ public sealed class OpenRouterAdapterContractTests
                 Body = await request.Content.ReadAsStringAsync(cancellationToken);
             }
 
-            return new HttpResponseMessage(HttpStatusCode.OK)
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
             };
+            if (!string.IsNullOrWhiteSpace(cacheStatus))
+            {
+                response.Headers.TryAddWithoutValidation(
+                    OpenRouterAdapterContracts.ResponseCacheStatusHeader,
+                    cacheStatus);
+            }
+
+            return response;
         }
     }
 
@@ -502,12 +631,65 @@ public sealed class OpenRouterAdapterContractTests
         }
     }
 
-    private sealed class StreamingHandler(string[] deltas, bool truncateAfterFirst = false, bool omitTrailingBlankLine = false) : HttpMessageHandler
+    private sealed class StallAfterHeadersHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StreamContent(new StallStream()),
+            });
+    }
+
+    private sealed class StallStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) =>
+            throw new NotSupportedException();
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private sealed class StreamingHandler(
+        string[] deltas,
+        bool truncateAfterFirst = false,
+        bool omitTrailingBlankLine = false,
+        bool omitDone = false,
+        bool duplicateTerminal = false,
+        bool extraAfterTerminal = false,
+        bool oversizedEvent = false) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var builder = new StringBuilder();
             builder.Append(": keep-alive\n\n");
+            if (oversizedEvent)
+            {
+                builder.Append("data: {\"padding\":\"");
+                builder.Append('x', OpenRouterAdapterContracts.MaxSseEventUtf8Bytes);
+                builder.Append("\"}\n\n");
+            }
+
             for (var i = 0; i < deltas.Length; i++)
             {
                 builder.Append("data: {\"id\":\"gen-test\",\"model\":")
@@ -523,15 +705,26 @@ public sealed class OpenRouterAdapterContractTests
 
             if (!truncateAfterFirst)
             {
-                builder.Append("data: {\"id\":\"gen-test\",\"model\":")
-                    .Append(JsonSerializer.Serialize(Model))
-                    .Append(",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":2,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"openrouter_metadata\":{\"attempt\":1,\"endpoints\":{\"available\":[{\"provider\":\"Together\",\"model\":")
-                    .Append(JsonSerializer.Serialize(Model))
-                    .Append(",\"selected\":true}]}}}\n\n");
-                builder.Append("data: [DONE]");
-                if (!omitTrailingBlankLine)
+                builder.Append(TerminalEvent());
+                if (duplicateTerminal)
                 {
-                    builder.Append("\n\n");
+                    builder.Append(TerminalEvent());
+                }
+
+                if (extraAfterTerminal)
+                {
+                    builder.Append("data: {\"id\":\"gen-test\",\"model\":")
+                        .Append(JsonSerializer.Serialize(Model))
+                        .Append(",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"late\"},\"finish_reason\":null}]}\n\n");
+                }
+
+                if (!omitDone)
+                {
+                    builder.Append("data: [DONE]");
+                    if (!omitTrailingBlankLine)
+                    {
+                        builder.Append("\n\n");
+                    }
                 }
             }
 
@@ -540,5 +733,12 @@ public sealed class OpenRouterAdapterContractTests
                 Content = new StringContent(builder.ToString(), Encoding.UTF8, "text/event-stream"),
             });
         }
+
+        private static string TerminalEvent() =>
+            "data: {\"id\":\"gen-test\",\"model\":"
+            + JsonSerializer.Serialize(Model)
+            + ",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":2,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"openrouter_metadata\":{\"attempt\":1,\"endpoints\":{\"available\":[{\"provider\":\"Together\",\"model\":"
+            + JsonSerializer.Serialize(Model)
+            + ",\"selected\":true}]}}}\n\n";
     }
 }

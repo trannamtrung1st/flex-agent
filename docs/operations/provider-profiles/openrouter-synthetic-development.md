@@ -84,7 +84,7 @@ The approved adapter target is:
 | Parameter support | Required for every parameter sent by Flex Agent |
 | Provider pin | One provider slug in `provider.only` for repeatable Session requests |
 | Router evidence | `X-OpenRouter-Metadata: enabled`; selected model/provider and attempt count are validated, while unknown additive metadata fields are ignored |
-| Response cache | `X-OpenRouter-Cache: false`; a cache hit or missing selected-provider metadata fails qualification |
+| Response cache | `X-OpenRouter-Cache: false`; reject `X-OpenRouter-Cache-Status: HIT`. Missing router metadata also fails. Provider `prompt_tokens_details.cached_tokens` is not a response-cache hit and is allowed under ZDR. |
 | Returned identity | Response model and selected provider identity are recorded and checked against the active development profile |
 
 Every request must include the equivalent of this provider object; the pinned

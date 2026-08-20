@@ -1,6 +1,6 @@
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.OpenRouter;
@@ -10,11 +10,18 @@ internal sealed record OpenRouterTerminalFacts(
     string SelectedProvider,
     int Attempt,
     int? InputTokens,
-    int? OutputTokens,
-    bool CacheHit);
+    int? OutputTokens);
+
+internal sealed class OpenRouterTransportLimitExceededException : Exception;
 
 internal static class OpenRouterResponseParser
 {
+    public static bool IsResponseCacheHit(HttpResponseMessage response)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        return HasHit(response.Headers) || HasHit(response.Content.Headers);
+    }
+
     public static bool TryReadControlContent(JsonElement root, out string? content)
     {
         content = null;
@@ -71,7 +78,6 @@ internal static class OpenRouterResponseParser
         if (!root.TryGetProperty("openrouter_metadata", out var metadata)
             || metadata.ValueKind != JsonValueKind.Object)
         {
-            failureReason = ExecutionFailureReasons.ProviderUnavailable;
             return false;
         }
 
@@ -94,12 +100,6 @@ internal static class OpenRouterResponseParser
             return false;
         }
 
-        var cacheHit = IsCacheHit(root);
-        if (cacheHit)
-        {
-            return false;
-        }
-
         if (!root.TryGetProperty("usage", out var usage)
             || usage.ValueKind != JsonValueKind.Object
             || !usage.TryGetProperty("prompt_tokens", out var prompt)
@@ -110,7 +110,7 @@ internal static class OpenRouterResponseParser
             return false;
         }
 
-        facts = new OpenRouterTerminalFacts(expectedModel, selected, attempt, promptTokens, completionTokens, cacheHit);
+        facts = new OpenRouterTerminalFacts(expectedModel, selected, attempt, promptTokens, completionTokens);
         return true;
     }
 
@@ -172,23 +172,52 @@ internal static class OpenRouterResponseParser
         return true;
     }
 
-    private static bool IsCacheHit(JsonElement root)
+    private static bool HasHit(HttpHeaders headers) =>
+        headers.TryGetValues(OpenRouterAdapterContracts.ResponseCacheStatusHeader, out var values)
+        && values.Any(value => string.Equals(value, "HIT", StringComparison.OrdinalIgnoreCase));
+}
+
+internal sealed class BoundedReadStream(Stream inner, int maxUtf8Bytes) : Stream
+{
+    private int _remaining = maxUtf8Bytes;
+
+    public override bool CanRead => true;
+    public override bool CanSeek => false;
+    public override bool CanWrite => false;
+    public override long Length => throw new NotSupportedException();
+    public override long Position
     {
-        if (!root.TryGetProperty("usage", out var usage) || usage.ValueKind != JsonValueKind.Object)
-        {
-            return false;
-        }
-
-        if (usage.TryGetProperty("prompt_tokens_details", out var details)
-            && details.ValueKind == JsonValueKind.Object
-            && details.TryGetProperty("cached_tokens", out var cached)
-            && cached.TryGetInt32(out var cachedTokens))
-        {
-            return cachedTokens > 0;
-        }
-
-        return false;
+        get => throw new NotSupportedException();
+        set => throw new NotSupportedException();
     }
+
+    public override void Flush()
+    {
+    }
+
+    public override int Read(byte[] buffer, int offset, int count) =>
+        ReadAsync(buffer.AsMemory(offset, count), CancellationToken.None).AsTask().GetAwaiter().GetResult();
+
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        if (_remaining <= 0)
+        {
+            throw new OpenRouterTransportLimitExceededException();
+        }
+
+        var read = await inner.ReadAsync(buffer[..Math.Min(buffer.Length, _remaining)], cancellationToken);
+        _remaining -= read;
+        if (read == 0 && buffer.Length > 0 && _remaining <= 0)
+        {
+            throw new OpenRouterTransportLimitExceededException();
+        }
+
+        return read;
+    }
+
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+    public override void SetLength(long value) => throw new NotSupportedException();
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 }
 
 internal static class OpenRouterSseParser
@@ -197,45 +226,112 @@ internal static class OpenRouterSseParser
         Stream stream,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true);
-        var builder = new StringBuilder();
-        while (true)
+        var buffer = new byte[1024];
+        var line = new MemoryStream();
+        var payload = new MemoryStream();
+        var dataOpen = false;
+        int read;
+        while ((read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var line = await reader.ReadLineAsync(cancellationToken);
-            if (line is null)
+            for (var i = 0; i < read; i++)
             {
-                if (builder.Length > 0)
+                var current = buffer[i];
+                if (current == (byte)'\n')
                 {
-                    yield return builder.ToString();
+                    var flushed = CompleteLine(line, payload, ref dataOpen);
+                    if (flushed is not null)
+                    {
+                        yield return flushed;
+                    }
+
+                    continue;
                 }
 
-                yield break;
-            }
-
-            if (line.StartsWith(':') || line.StartsWith("event:", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            if (line.StartsWith("data:", StringComparison.Ordinal))
-            {
-                var payload = line.Length == 5 ? string.Empty : line[5..].TrimStart();
-                if (builder.Length > 0)
+                if (current == (byte)'\r')
                 {
-                    builder.Append('\n');
+                    continue;
                 }
 
-                builder.Append(payload);
-                continue;
-            }
-
-            if (line.Length == 0 && builder.Length > 0)
-            {
-                var payload = builder.ToString();
-                builder.Clear();
-                yield return payload;
+                AppendBounded(line, current);
             }
         }
+
+        if (line.Length > 0)
+        {
+            var flushed = CompleteLine(line, payload, ref dataOpen);
+            if (flushed is not null)
+            {
+                yield return flushed;
+            }
+        }
+
+        if (dataOpen)
+        {
+            yield return Encoding.UTF8.GetString(payload.ToArray());
+        }
     }
+
+    private static string? CompleteLine(MemoryStream line, MemoryStream payload, ref bool dataOpen)
+    {
+        var bytes = line.ToArray();
+        line.SetLength(0);
+        if (bytes.Length == 0)
+        {
+            if (!dataOpen)
+            {
+                return null;
+            }
+
+            dataOpen = false;
+            var completed = Encoding.UTF8.GetString(payload.ToArray());
+            payload.SetLength(0);
+            return completed;
+        }
+
+        if (bytes[0] == (byte)':')
+        {
+            return null;
+        }
+
+        if (StartsWith(bytes, "event:"u8))
+        {
+            return null;
+        }
+
+        if (!StartsWith(bytes, "data:"u8))
+        {
+            return null;
+        }
+
+        var data = bytes.AsSpan(5);
+        if (data.Length > 0 && data[0] == (byte)' ')
+        {
+            data = data[1..];
+        }
+
+        if (payload.Length > 0)
+        {
+            AppendBounded(payload, (byte)'\n');
+        }
+
+        AppendBounded(payload, data);
+        dataOpen = true;
+        return null;
+    }
+
+    private static void AppendBounded(MemoryStream destination, byte value) =>
+        AppendBounded(destination, [value]);
+
+    private static void AppendBounded(MemoryStream destination, ReadOnlySpan<byte> bytes)
+    {
+        if (destination.Length + bytes.Length > OpenRouterAdapterContracts.MaxSseEventUtf8Bytes)
+        {
+            throw new OpenRouterTransportLimitExceededException();
+        }
+
+        destination.Write(bytes);
+    }
+
+    private static bool StartsWith(ReadOnlySpan<byte> line, ReadOnlySpan<byte> prefix) =>
+        line.Length >= prefix.Length && line[..prefix.Length].SequenceEqual(prefix);
 }

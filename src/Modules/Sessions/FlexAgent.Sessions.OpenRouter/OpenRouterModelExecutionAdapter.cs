@@ -46,7 +46,10 @@ public sealed class OpenRouterModelExecutionAdapter(
 
         try
         {
-            using var lifetime = CreateClient(resolved.Value.Profile.ControlTimeout);
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(resolved.Value.Profile.ControlTimeout);
+            var operation = timeoutCts.Token;
+            using var lifetime = CreateClient();
             using var httpRequest = OpenRouterRequestFactory.CreateControl(
                 resolved.Value.Profile,
                 resolved.Value.Configuration,
@@ -56,14 +59,20 @@ public sealed class OpenRouterModelExecutionAdapter(
             using var response = await lifetime.Client.SendAsync(
                 httpRequest,
                 HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
+                operation);
             if (!response.IsSuccessStatusCode)
             {
                 return Fail(MapStatus(response.StatusCode), startedAt, request, resolved.Value.Profile);
             }
 
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            if (OpenRouterResponseParser.IsResponseCacheHit(response))
+            {
+                return Fail(ExecutionFailureReasons.ProviderUnavailable, startedAt, request, resolved.Value.Profile);
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(operation);
+            await using var bounded = new BoundedReadStream(stream, OpenRouterAdapterContracts.MaxControlEnvelopeUtf8Bytes);
+            using var document = await JsonDocument.ParseAsync(bounded, cancellationToken: operation);
             if (!OpenRouterResponseParser.TryReadTerminalFacts(
                     document.RootElement,
                     resolved.Value.Profile.ResolvedModelVersion,
@@ -100,9 +109,13 @@ public sealed class OpenRouterModelExecutionAdapter(
         {
             return Fail(ExecutionAttemptOutcomeCategories.Cancelled, startedAt, request, resolved.Value.Profile);
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             return Fail(ExecutionFailureReasons.ProviderTimeout, startedAt, request, resolved.Value.Profile);
+        }
+        catch (OpenRouterTransportLimitExceededException)
+        {
+            return Fail(ExecutionFailureReasons.MalformedControl, startedAt, request, resolved.Value.Profile);
         }
         catch (HttpRequestException)
         {
@@ -136,9 +149,12 @@ public sealed class OpenRouterModelExecutionAdapter(
             yield break;
         }
 
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(resolved.Value.Profile.ContentTimeout);
+        var operation = timeoutCts.Token;
         var startedAt = DateTimeOffset.UtcNow;
         var publishedFragment = false;
-        var lifetime = CreateClient(resolved.Value.Profile.ContentTimeout);
+        var lifetime = CreateClient();
         HttpResponseMessage? response = null;
         Stream? stream = null;
         string? startupFailure = null;
@@ -150,21 +166,25 @@ public sealed class OpenRouterModelExecutionAdapter(
                 request.AgentInvocationId,
                 request.Context,
                 secret.Reveal());
-            response = await lifetime.Client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            response = await lifetime.Client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, operation);
             if (!response.IsSuccessStatusCode)
             {
                 startupFailure = MapStatus(response.StatusCode);
             }
+            else if (OpenRouterResponseParser.IsResponseCacheHit(response))
+            {
+                startupFailure = ExecutionFailureReasons.ProviderUnavailable;
+            }
             else
             {
-                stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                stream = await response.Content.ReadAsStreamAsync(operation);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             startupFailure = ExecutionAttemptOutcomeCategories.Cancelled;
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             startupFailure = ExecutionFailureReasons.ProviderTimeout;
         }
@@ -187,8 +207,11 @@ public sealed class OpenRouterModelExecutionAdapter(
         }
 
         OpenRouterTerminalFacts? facts = null;
-        await using var enumerator = OpenRouterSseParser.ReadDataPayloadsAsync(stream!, cancellationToken)
-            .GetAsyncEnumerator(cancellationToken);
+        var sawTerminal = false;
+        var sawDone = false;
+        var visibleUtf8Bytes = 0;
+        await using var enumerator = OpenRouterSseParser.ReadDataPayloadsAsync(stream!, operation)
+            .GetAsyncEnumerator(operation);
         while (true)
         {
             bool moved;
@@ -202,9 +225,16 @@ public sealed class OpenRouterModelExecutionAdapter(
                 failureReason = ExecutionAttemptOutcomeCategories.Cancelled;
                 moved = false;
             }
-            catch (TaskCanceledException)
+            catch (OperationCanceledException)
             {
                 failureReason = ExecutionFailureReasons.ProviderTimeout;
+                moved = false;
+            }
+            catch (OpenRouterTransportLimitExceededException)
+            {
+                failureReason = publishedFragment
+                    ? ExecutionFailureReasons.ProviderUnavailable
+                    : ExecutionFailureReasons.MalformedControl;
                 moved = false;
             }
             catch (HttpRequestException)
@@ -238,9 +268,64 @@ public sealed class OpenRouterModelExecutionAdapter(
             }
 
             var payload = enumerator.Current;
+            if (sawDone)
+            {
+                yield return ContentFailure(
+                    resolved.Value.Profile,
+                    ExecutionFailureReasons.ProviderUnavailable,
+                    request.ProviderAttemptId,
+                    startedAt);
+                await enumerator.DisposeAsync();
+                if (stream is not null)
+                {
+                    await stream.DisposeAsync();
+                }
+
+                response?.Dispose();
+                lifetime.Dispose();
+                yield break;
+            }
+
             if (string.Equals(payload, "[DONE]", StringComparison.Ordinal))
             {
-                break;
+                if (!sawTerminal)
+                {
+                    yield return ContentFailure(
+                        resolved.Value.Profile,
+                        ExecutionFailureReasons.ProviderUnavailable,
+                        request.ProviderAttemptId,
+                        startedAt);
+                    await enumerator.DisposeAsync();
+                    if (stream is not null)
+                    {
+                        await stream.DisposeAsync();
+                    }
+
+                    response?.Dispose();
+                    lifetime.Dispose();
+                    yield break;
+                }
+
+                sawDone = true;
+                continue;
+            }
+
+            if (sawTerminal)
+            {
+                yield return ContentFailure(
+                    resolved.Value.Profile,
+                    ExecutionFailureReasons.ProviderUnavailable,
+                    request.ProviderAttemptId,
+                    startedAt);
+                await enumerator.DisposeAsync();
+                if (stream is not null)
+                {
+                    await stream.DisposeAsync();
+                }
+
+                response?.Dispose();
+                lifetime.Dispose();
+                yield break;
             }
 
             JsonDocument? document = null;
@@ -279,13 +364,35 @@ public sealed class OpenRouterModelExecutionAdapter(
             {
                 if (OpenRouterResponseParser.TryReadDelta(document.RootElement, out var delta) && !string.IsNullOrEmpty(delta))
                 {
+                    visibleUtf8Bytes += System.Text.Encoding.UTF8.GetByteCount(delta);
+                    if (visibleUtf8Bytes > OpenRouterAdapterContracts.MaxVisibleContentUtf8Bytes)
+                    {
+                        yield return ContentFailure(
+                            resolved.Value.Profile,
+                            publishedFragment
+                                ? ExecutionFailureReasons.ProviderUnavailable
+                                : ExecutionFailureReasons.MalformedControl,
+                            request.ProviderAttemptId,
+                            startedAt);
+                        await enumerator.DisposeAsync();
+                        if (stream is not null)
+                        {
+                            await stream.DisposeAsync();
+                        }
+
+                        response?.Dispose();
+                        lifetime.Dispose();
+                        yield break;
+                    }
+
                     publishedFragment = true;
                     yield return new ModelContentTextDelta(delta);
                 }
 
                 if (document.RootElement.TryGetProperty("openrouter_metadata", out _))
                 {
-                    if (!OpenRouterResponseParser.TryReadTerminalFacts(
+                    if (sawTerminal
+                        || !OpenRouterResponseParser.TryReadTerminalFacts(
                             document.RootElement,
                             resolved.Value.Profile.ResolvedModelVersion,
                             resolved.Value.Configuration.ExpectedReturnedProviderIdentity,
@@ -307,6 +414,8 @@ public sealed class OpenRouterModelExecutionAdapter(
                         lifetime.Dispose();
                         yield break;
                     }
+
+                    sawTerminal = true;
                 }
             }
         }
@@ -319,7 +428,7 @@ public sealed class OpenRouterModelExecutionAdapter(
 
         response?.Dispose();
         lifetime.Dispose();
-        if (facts is null)
+        if (!sawDone || facts is null)
         {
             yield return ContentFailure(
                 resolved.Value.Profile,
@@ -382,13 +491,13 @@ public sealed class OpenRouterModelExecutionAdapter(
         return (resolution.Profile, configuration, resolution.SecretName);
     }
 
-    private ClientLifetime CreateClient(TimeSpan timeout)
+    private ClientLifetime CreateClient()
     {
         var inner = transport ?? new HttpClientHandler { AllowAutoRedirect = false };
         var bounded = new OpenRouterDestinationHandler(inner);
         var http = new HttpClient(bounded, disposeHandler: transport is null)
         {
-            Timeout = timeout,
+            Timeout = Timeout.InfiniteTimeSpan,
         };
         return new ClientLifetime(http);
     }
@@ -527,50 +636,61 @@ public sealed class OpenRouterDiscoveryClient(HttpMessageHandler? transport = nu
             return null;
         }
 
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(OpenRouterAdapterContracts.ControlTimeout);
+        var operation = timeoutCts.Token;
         var inner = transport ?? new HttpClientHandler { AllowAutoRedirect = false };
         using var bounded = new OpenRouterDestinationHandler(inner);
         using var client = new HttpClient(bounded, disposeHandler: transport is null)
         {
-            Timeout = OpenRouterAdapterContracts.ControlTimeout,
+            Timeout = Timeout.InfiniteTimeSpan,
         };
         using var request = OpenRouterRequestFactory.CreateDiscovery(secret);
-        using var response = await client.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        try
+        {
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, operation);
+            if (!response.IsSuccessStatusCode || OpenRouterResponseParser.IsResponseCacheHit(response))
+            {
+                return null;
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(operation);
+            await using var boundedBody = new BoundedReadStream(stream, OpenRouterAdapterContracts.MaxControlEnvelopeUtf8Bytes);
+            using var document = await JsonDocument.ParseAsync(boundedBody, cancellationToken: operation);
+            if (!document.RootElement.TryGetProperty("model", out var model)
+                || model.ValueKind != JsonValueKind.String
+                || string.IsNullOrWhiteSpace(model.GetString())
+                || string.Equals(model.GetString(), OpenRouterAdapterContracts.DiscoveryModel, StringComparison.Ordinal)
+                || !model.GetString()!.EndsWith(":free", StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            if (!OpenRouterResponseParser.TryReadSelectedProvider(
+                    document.RootElement,
+                    out var selectedProvider)
+                || string.IsNullOrWhiteSpace(selectedProvider))
+            {
+                return null;
+            }
+
+            if (!OpenRouterResponseParser.TryReadTerminalFacts(
+                    document.RootElement,
+                    model.GetString()!,
+                    selectedProvider,
+                    out var facts,
+                    out _)
+                || facts is null)
+            {
+                return null;
+            }
+
+            return new OpenRouterDiscoveryCandidate(facts.ReturnedModel, facts.SelectedProvider);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or HttpRequestException or JsonException or OpenRouterTransportLimitExceededException)
         {
             return null;
         }
-
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-        if (!document.RootElement.TryGetProperty("model", out var model)
-            || model.ValueKind != JsonValueKind.String
-            || string.IsNullOrWhiteSpace(model.GetString())
-            || string.Equals(model.GetString(), OpenRouterAdapterContracts.DiscoveryModel, StringComparison.Ordinal)
-            || !model.GetString()!.EndsWith(":free", StringComparison.Ordinal))
-        {
-            return null;
-        }
-
-        if (!OpenRouterResponseParser.TryReadSelectedProvider(
-                document.RootElement,
-                out var selectedProvider)
-            || string.IsNullOrWhiteSpace(selectedProvider))
-        {
-            return null;
-        }
-
-        if (!OpenRouterResponseParser.TryReadTerminalFacts(
-                document.RootElement,
-                model.GetString()!,
-                selectedProvider,
-                out var facts,
-                out _)
-            || facts is null)
-        {
-            return null;
-        }
-
-        return new OpenRouterDiscoveryCandidate(facts.ReturnedModel, facts.SelectedProvider);
     }
 }
 

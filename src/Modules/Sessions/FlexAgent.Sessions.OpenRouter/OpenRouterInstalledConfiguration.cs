@@ -10,6 +10,10 @@ public static class OpenRouterAdapterContracts
     public const string ChatCompletionsPath = "/api/v1/chat/completions";
     public const int MaxOutputTokens = 256;
     public const int MaxApplicationAttempts = 2;
+    public const int MaxControlEnvelopeUtf8Bytes = 262_144;
+    public const int MaxSseEventUtf8Bytes = 65_536;
+    public const int MaxVisibleContentUtf8Bytes = 65_536;
+    public const string ResponseCacheStatusHeader = "X-OpenRouter-Cache-Status";
     public static readonly Uri ApprovedOrigin = new("https://openrouter.ai/", UriKind.Absolute);
     public static readonly TimeSpan ControlTimeout = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan ContentTimeout = TimeSpan.FromSeconds(60);
@@ -66,7 +70,9 @@ public sealed record OpenRouterInstalledConfiguration(
         string expectedReturnedProviderIdentity,
         string credentialMode,
         string providerId,
-        int maxProviderRequestAttempts = 2)
+        int maxProviderRequestAttempts = 2,
+        TimeSpan? controlTimeout = null,
+        TimeSpan? contentTimeout = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(providerSlug);
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedReturnedProviderIdentity);
@@ -82,6 +88,16 @@ public sealed record OpenRouterInstalledConfiguration(
             throw new ArgumentOutOfRangeException(nameof(maxProviderRequestAttempts));
         }
 
+        var resolvedControlTimeout = controlTimeout ?? OpenRouterAdapterContracts.ControlTimeout;
+        var resolvedContentTimeout = contentTimeout ?? OpenRouterAdapterContracts.ContentTimeout;
+        if (resolvedControlTimeout <= TimeSpan.Zero
+            || resolvedControlTimeout > OpenRouterAdapterContracts.ControlTimeout
+            || resolvedContentTimeout <= TimeSpan.Zero
+            || resolvedContentTimeout > OpenRouterAdapterContracts.ContentTimeout)
+        {
+            throw new ArgumentOutOfRangeException(nameof(controlTimeout), "OpenRouter timeouts must be positive and within the approved 30/60-second ceilings.");
+        }
+
         var adapterDigest = ComputeAdapterConfigurationDigest(providerSlug, expectedReturnedProviderIdentity);
         var profile = InstalledModelDeploymentProfile.Create(
             profileId,
@@ -94,8 +110,8 @@ public sealed record OpenRouterInstalledConfiguration(
             "p0.text.structured-control",
             credentialMode,
             OpenRouterAdapterContracts.MaxOutputTokens,
-            OpenRouterAdapterContracts.ControlTimeout,
-            OpenRouterAdapterContracts.ContentTimeout,
+            resolvedControlTimeout,
+            resolvedContentTimeout,
             maxProviderRequestAttempts,
             providerId,
             adapterDigest);

@@ -425,14 +425,15 @@ passed, natural chat is evidenced through the real Flex Agent path.
 ## Phase 10 — full verification, review, and reconciliation
 
 - [x] Run the new adapter suite plus focused Sessions, Runtime, Architecture,
-      PostgreSQL, and Direct OpenAI regressions.
-      OpenRouter 17, Sessions 455, OpenAI 14, Runtime 129, Architecture 35.
-      PostgreSQL integration not run.
-- [x] Run locked restore, solution build/test/publish, supply-chain checks,
-      Worker OCI build, documentation checks, and whitespace/diff checks. Update
-      lock files only through the repository's normal locked workflow.
-      Locked restore passed; Worker Dockerfile COPY updated and architecture
-      tested. Full `dotnet publish` and OCI image build not run.
+      and Direct OpenAI regressions.
+      OpenRouter 17, Sessions 455, OpenAI 14, Runtime 129, Architecture 35 on
+      2026-08-20.
+- [-] Run focused PostgreSQL concurrency/fault/provenance suites.
+      Not executed in this task; migration head remains `0029`.
+- [x] Run locked restore. Worker Dockerfile COPY includes OpenRouter and is
+      covered by architecture tests.
+- [-] Run full solution `dotnet publish` and Worker OCI image build.
+      Not executed in this task.
 - [x] Review tracked and untracked changes for secrets, live payloads, browser
       state, generated logs, credentials, or account metadata before staging
       anything.
@@ -446,6 +447,19 @@ passed, natural chat is evidenced through the real Flex Agent path.
 
 Exit: deterministic and permitted live evidence is complete, status claims are
 traceable, and no requirement is marked complete on the strength of a demo.
+
+## Phase 11 — review remediation (body timeout, cache, SSE bounds)
+
+- [x] Cover the entire control and content provider operation with a linked
+      timeout CTS (headers plus body/SSE), and distinguish caller cancellation
+      from timeout.
+- [x] Reject OpenRouter response-cache `HIT` via `X-OpenRouter-Cache-Status`;
+      accept provider `prompt_tokens_details.cached_tokens` under ZDR.
+- [x] Bound SSE events and visible content; require
+      `content* -> exactly-one-terminal-metadata -> [DONE]`; reject duplicate
+      metadata, EOF-before-DONE, and unexpected post-terminal payloads.
+      Bound the control envelope before Decision admission.
+- [x] Reconcile Phase 10 checklist markers with evidence actually collected.
 
 # Current state
 
@@ -466,9 +480,11 @@ Phases 8–9 remain owner-gated: live OpenRouter calls are opt-in
 (`FLEXAGENT_LIVE_OPENROUTER_QUALIFICATION=1` plus privacy preflight) and were
 not executed. No key was read.
 
-Migration head is unchanged (`0029`). Next safe action is owner privacy/spend
-confirmation for live qualification, plus a separately scoped hosted
-Participant-path task if natural chat is required.
+Migration head is unchanged (`0029`). Independent review of `964cfc5` found
+missing body/stream timeouts, prompt-cache vs response-cache confusion,
+unbounded SSE parsing, and overstated Phase 10 checkboxes. Phase 11 remediates
+those findings with fake-transport evidence (OpenRouter 21). Do not mark this
+task complete: live qualification and hosted Participant chat remain gated.
 
 # Decisions
 
@@ -502,6 +518,11 @@ Participant-path task if natural chat is required.
 - Discovery records the selected endpoint, not `available[0]`, rejects a
   returned `openrouter/free` alias, and does not use the default HTTPS
   transport unless live opt-in and privacy preflight are both set.
+- Control and content operations use a linked timeout CTS for headers and
+  body/SSE, mapping caller cancel separately from provider timeout.
+- Response-cache denial uses `X-OpenRouter-Cache-Status: HIT`. Provider prompt
+  `cached_tokens` is accepted. Streaming requires terminal metadata then
+  `[DONE]`, with SSE-event and visible-content byte ceilings.
 
 # Verification
 
@@ -511,12 +532,12 @@ Participant-path task if natural chat is required.
 | Locked baseline restore | passed | `dotnet restore FlexAgent.slnx --locked-mode`; all solution projects restored with committed locks on 2026-08-20 |
 | Focused pre-implementation baseline | passed | Sessions 448/448; Direct OpenAI 14/14; Runtime 126/126; Architecture 33/33 on .NET SDK 10.0.100, macOS arm64 |
 | Architecture/operations approval | passed | ADR-008 `OSS-DEC-17`, ADR-010 `STACK-DEC-18`, and approved profile dated 2026-08-19 |
-| Fake-transport provider contracts | passed | OpenRouter 17/17: headers, provider object, metadata/cache/attempt/identity/usage, SSE unicode and EOF flush, discovery selected-endpoint and default-transport gate, schema parity with canonical v2 fixtures |
+| Fake-transport provider contracts | passed | OpenRouter 21/21 on 2026-08-20: headers, provider object, metadata/attempt/identity/usage, response-cache HIT vs prompt cached_tokens, body/stream timeout vs caller cancel, bounded envelope/SSE, terminal-then-DONE, discovery selected-endpoint, schema parity |
 | Profile/credential/host isolation | passed | Digest regression; Infrastructure loaders; Unix owner-only secret tests; Worker Testing compose + Production fail-closed |
 | Live synthetic qualification | blocked | Opt-in sentinel remains off; owner privacy/spend preflight not confirmed; no key read |
 | Interactive local Text Session | blocked | Phase 7: synthetic browser adapter; production HTTP SSE/OIDC still a documented gap (`docs/ui-ux/text-session.md`) |
-| Locked regression/supply chain/OCI/docs | partial | Locked restore green; OpenRouter 17, Sessions 455, OpenAI 14, Runtime 129, Architecture 35. Worker OCI COPY includes OpenRouter (architecture tests). Docker image build not run. Independent review not obtained |
-| Independent review | pending | Consistency review on 2026-08-20 found and fixed discovery selected-endpoint parsing plus stale operations README; external backend/architecture/security review still required |
+| Locked regression/supply chain/OCI/docs | partial | Locked restore previously green; OpenRouter 21, Sessions 455, OpenAI 14, Runtime 129, Architecture 35 after Phase 11. Worker OCI COPY includes OpenRouter (architecture tests). Docker image build and `dotnet publish` not run |
+| Independent review | pending | Review of `964cfc5` findings remediated in Phase 11; external backend/architecture/security review still required |
 
 # Risks, interim defaults, and owner gates
 
