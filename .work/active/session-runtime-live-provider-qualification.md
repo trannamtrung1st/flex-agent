@@ -10,20 +10,26 @@ predecessors:
 
 # Goal
 
-Implement and qualify the first live external model-provider path—Direct OpenAI
-through the official .NET SDK—behind the existing provider-neutral Sessions
-execution port. Resolve only an operator-approved frozen provider profile and
-opaque deployment-default or Organization-scoped credential binding through the
-mounted-file secret boundary, preserve durable-before-display publication and
-current Worker authorization, and fail closed without changing payer, provider,
-endpoint, model, or capability.
+Migrate the legacy Direct OpenAI implementation to the approved vendor-neutral
+OpenAI-compatible adapter (`openai_compatible` /
+`sessions.openai_compatible.v1`) behind the existing provider-neutral Sessions
+execution port, then qualify one exact operator-installed compatible endpoint.
+The endpoint may be Organization-hosted/on-premises, self-hosted, managed, or
+OpenAI-hosted; no provider or model receives preferred status.
 
-Completion requires executable adapter, isolation, recovery, operability, and
-qualification evidence for one exact deployment profile. It closes the Direct
-OpenAI profile subset of `GATE-STACK-PROVIDERS`; synthetic OpenRouter and vLLM
-contract/qualification evidence remains separately gated. It does not make any
-provider or model a product default and does not by itself certify a production
-pilot.
+Resolve only a frozen, digest-bound deployment profile, versioned adapter
+configuration, and opaque deployment-default or Organization-scoped credential
+binding through trusted operator state and the mounted-file secret boundary.
+Preserve durable-before-display publication, current Worker authorization,
+append-only provenance, and fail-closed behavior without changing payer,
+provider, endpoint, model, capability, or network destination implicitly.
+
+Completion requires executable adapter, isolation, recovery, operability,
+private/public destination-policy evidence, and qualification evidence for one
+exact deployment profile. It closes only that OpenAI-compatible profile subset
+of `GATE-STACK-PROVIDERS`; the distinct synthetic OpenRouter track remains
+separately gated. It does not make a provider/model a product default, enable
+Organization self-service endpoint entry, or certify a production pilot.
 
 # Governing sources
 
@@ -68,9 +74,10 @@ pilot.
 - Reconcile the exact post-predecessor Worker, Sessions, IdentityAccess,
   PostgreSQL, migration, package, and test baseline before behavior changes.
 - Keep `IModelExecutionPort` and all domain/application contracts
-  provider-neutral. Place the official OpenAI SDK in a Sessions-owned adapter
-  assembly that is separately testable and unavailable to the Sessions core,
-  API host, and reusable Worker policy.
+  provider-neutral. Rename the provider assembly and namespace to
+  `FlexAgent.Sessions.OpenAiCompatible`; keep any OpenAI SDK dependency internal
+  to that adapter and retain it only if custom-endpoint contract tests prove the
+  required base-path, streaming, cancellation, and structured-output behavior.
 - Add a trusted deployment-profile registry/resolver for installed adapters.
   The resolved profile must positively bind the adapter/contract version,
   approved endpoint or deployment, requested model, immutable resolved model
@@ -91,7 +98,7 @@ pilot.
   content crosses the provider boundary. Missing or mismatched state must not
   fall back to another binding, payer, endpoint, model, OpenRouter route, or
   provider.
-- Implement the Direct OpenAI adapter for the current two-phase execution
+- Implement the OpenAI-compatible adapter for the current two-phase execution
   contract: bounded structured Agent Decision control followed, only when
   accepted, by non-overlapping Participant-visible content events. Normalize
   SDK/provider details, streaming deltas, completion, usage, request
@@ -108,12 +115,14 @@ pilot.
   lower-level SDK/provider requests. Disable or bound SDK-implicit retries under
   that budget, record each provider request attempt, and never restart or
   replace a stream after a Participant-visible fragment commits.
-- Restrict Direct OpenAI egress to the operator-approved absolute HTTPS origin
-  recorded by the installed profile. Deny unapproved schemes/origins,
-  redirects that escape the approved origin, loopback, link-local, metadata,
-  and private-network destinations; do not accept endpoint/proxy/redirect
-  authority from Organization, Activity, Session, participant, prompt, or
-  provider content.
+- Bind the operator-approved HTTPS origin to a versioned adapter configuration
+  whose digest covers the exact API base path and destination-policy identity.
+  Public destinations fail closed on non-public/reserved results. Private
+  destinations require an explicit operator allowlist and DNS/rebinding-safe
+  connection policy; loopback, link-local, metadata, unspecified, multicast,
+  mixed allowed/disallowed answers, redirects, and unapproved proxies remain
+  denied. No Organization, Activity, Session, Participant, prompt, or provider
+  content may supply endpoint/proxy/redirect authority.
 - Preserve the runtime's independent Decision/item validation and prevent
   provider output or metadata from establishing authorization, trusted scope,
   trigger provenance, output identity/audience, timer authority, workflow
@@ -129,7 +138,7 @@ pilot.
   than prompts, outputs, credentials, tokens, or unrestricted provider payloads.
 - Use only additive schema/contract changes if current records cannot preserve
   required provenance. Recheck the migration head before editing and never
-  rewrite applied migrations `0001`–`0025`.
+  rewrite applied migrations `0001`–`0033`.
 - Gate Worker composition and readiness on an explicit installed and qualified
   provider profile in addition to the existing workload-identity, delegation,
   lane, persistence, and frozen-binding gates. All protected lanes and provider
@@ -138,9 +147,10 @@ pilot.
   opt-in live qualification harness using synthetic data. Record exact profile,
   capability, latency, throughput/capacity, cost, failure, privacy/data-policy,
   credential-isolation, dependency, license, SBOM, and vulnerability evidence
-  required by ADR-008 and the Direct OpenAI subset of
-  `GATE-STACK-PROVIDERS`. Record synthetic OpenRouter and vLLM evidence as a
-  remaining gate rather than claiming the complete cross-provider gate.
+  required by ADR-008 and the OpenAI-compatible subset of
+  `GATE-STACK-PROVIDERS`. The first exact target may be a qualified on-premises
+  runtime such as vLLM; record synthetic OpenRouter evidence as a separate gate
+  rather than claiming the complete cross-provider gate.
 - Reconcile authoritative implementation-status tables, workspace/operator
   guidance, package locks, qualification evidence, and this task after tests
   pass.
@@ -151,8 +161,8 @@ pilot.
   aliases as immutable provenance, or promising compatibility beyond the exact
   qualified deployment profile
 - OpenRouter for real assessment data, automatic provider/model routing,
-  dynamic/free fallback, Azure OpenAI, vLLM/self-hosted qualification, or a
-  second external adapter
+  dynamic/free fallback, provider-specific Azure semantics, or a second
+  external adapter
 - Organization-supplied arbitrary endpoint URLs, Organization-installed code,
   browser/API entry of raw provider keys, or a self-service provider/plugin UI
 - Human OIDC/application sessions, hosted Session creation/start, Assessment or
@@ -172,7 +182,7 @@ pilot.
 - Commits, pushes, pull requests, deployments, releases, or enabling production
   traffic unless separately requested
 
-# Confirmed current seams
+# Historical pre-Phase-A seam inventory (retained)
 
 - `IModelExecutionPort` owns provider-neutral control execution and optional
   Participant-visible content events. The deterministic fake and fail-closed
@@ -213,21 +223,57 @@ pilot.
   task was being planned. The implementation baseline is clean at that commit;
   the current-source solution baseline passed during readiness review.
 
+# 2026-08-20 current seam audit
+
+- `IModelExecutionPort`, frozen profile/binding resolution, mounted provider
+  secrets, provider-request reservation, lease/auth fencing, append-only
+  provenance, and OpenRouter separation are reusable without changing domain
+  product semantics.
+- The legacy implementation is concentrated in
+  `FlexAgent.Sessions.OpenAi`, `DirectOpenAiModelExecutionAdapter`,
+  `ModelDeploymentAdapterKinds.DirectOpenAi`, Worker composition/readiness,
+  solution/Docker/project references, four adapter test files, architecture
+  tests, and legacy fixtures. The repository audit found 48 direct-identity
+  occurrences across 10 C# test files plus the named project/runtime surfaces.
+- `ApprovedHttpsOrigin` intentionally canonicalizes only an HTTPS origin and
+  rejects paths. The new compatible base path therefore belongs in a separate
+  versioned adapter configuration whose digest participates in the installed
+  profile identity; it must not be overloaded into the origin field.
+- The legacy `ApprovedOriginHandler` checks scheme, host, port, literal private
+  addresses, and redirects, but it does not resolve DNS or pin a validated
+  address. A hostname that resolves or rebinds to a private destination is not
+  covered. Private endpoint support requires a new injectable
+  resolver/destination/connector boundary rather than renaming the handler.
+- Installed profiles already carry an optional `AdapterConfigurationDigest`,
+  and OpenRouter demonstrates a separate configuration registry. Reuse that
+  pattern, but require the digest for `openai_compatible`; legacy profile digest
+  calculation must remain reproducible for historical inspection.
+- PostgreSQL stores adapter kind and contract version as append-only text and
+  has no enum constraint. No data rewrite is needed for the identity change.
+  Historical `direct_openai` rows must remain byte-for-byte attributable, while
+  new reservations/provenance use only the new identity.
+- The current official SDK is isolated correctly but its custom base-path and
+  compatible-runtime behavior are not proven. Deterministic request-URI tests
+  decide whether to retain it.
+- No SPA contract, user journey, or visual state changes. Frontend and
+  Playwright work are not applicable unless a later operator UI is separately
+  approved.
+
 # Requirement-to-surface matrix
 
 | Concern | Implementation surface | Required verification |
 | --- | --- | --- |
 | Frozen provider/model identity (`REQ-RSC-28`–`REQ-RSC-33`, `REQ-RSC-46`) | Trusted Session binding plus installed profile resolver; frozen non-secret profile and binding references; execution/manifest append | Worker-config mutation after freeze, mutable alias, wrong profile, wrong endpoint/model, missing immutable identity, and client/session substitution fail closed; full start-time enforcement remains a separately recorded gap |
 | Credential isolation (`REQ-RSC-42`, `REQ-RSC-46`, `AC-RSC-21`, `AC-RSC-25`) | Opaque binding resolver plus authorized mounted-file secret adapter | Deployment default and Organization BYOK success; wrong Organization/provider/version, revoke/rotate race, missing secret, traversal/symlink/file-permission/size failures, and every silent-fallback case |
-| Provider-neutral execution (`REQ-SESS-61`–`REQ-SESS-70`, `AC-SESS-33`–`AC-SESS-37`) | Sessions-owned OpenAI adapter implementing `IModelExecutionPort` | Structured Decision/no-action, malformed control, timeout, cancellation, retry, outage, rate limit, and late/cutoff outcomes without fabricated Decisions |
+| Provider-neutral execution (`REQ-SESS-61`–`REQ-SESS-70`, `AC-SESS-33`–`AC-SESS-37`) | Sessions-owned OpenAI-compatible adapter implementing `IModelExecutionPort` | Structured Decision/no-action, malformed control, timeout, cancellation, retry, outage, rate limit, and late/cutoff outcomes without fabricated Decisions |
 | Restart-safe provider phases (`REQ-SESS-16`–`REQ-SESS-18`, `REQ-SESS-63`, `REQ-SESS-66`, `REQ-SESS-67`) | Application-owned request/attempt contract available independently to control and content phases | Process restart and adapter replacement after control commit; retry before visibility; no process-local cache authority; no restart after visible fragment |
 | Durable streaming (`REQ-SESS-55`–`REQ-SESS-60`, `REQ-SESS-66`, `REQ-SESS-84`, `AC-SESS-31`, `AC-SESS-32`) | SDK stream normalization into exact non-overlapping content events; existing publication coordinator | Delta order, duplicate/cumulative/divergent events, Unicode and size bounds, persist-before-display, partial-stream failure, and reconnect reconstruction |
 | Decision authority (`REQ-SESS-64`, `REQ-SESS-78`–`REQ-SESS-85`, `AC-SESS-42`–`AC-SESS-48`) | Existing schema/profile validators and independent runtime effect boundary | Prompt/provider attempts to widen audience, identifiers, output/action kinds, scope, tools, workflow, timer, or Release cause no prohibited effect |
 | Lease, auth, and lifecycle races (`REQ-SESS-67`, `ADR-002`, `ADR-016`) | Durable work processor, lease renewal, cancellation, disclosure admission, and commit reauthorization | Blocking control call and stream; competing claimant; shutdown, revoke, pause, cutoff, lease loss, and refresh failure before disclosure and each commit |
 | Provenance and minimization (`REQ-RSC-33`, `REQ-RSC-50`, `REQ-SESS-70`, `REQ-SESS-85`) | Append-only attempt/manifest records and allowlisted telemetry | Exact adapter/model/profile/outcome/usage reconstruction; no prompt, output, credential, token, protected IDs, or raw provider body in generic records or diagnostics |
 | Module and supply-chain gates (`ADR-008`, `ADR-010`) | Separate adapter assembly, central package pin, lock files, solution/OCI/SBOM inputs, architecture rules | Official SDK confined to adapter; negative architecture control; locked restore, license/SBOM/vulnerability/secret checks, OCI build |
-| Network/egress boundary (`ADR-008` model-provider gate) | Installed Direct OpenAI profile plus bounded HTTP/SDK transport | Approved HTTPS origin only; redirect escape, loopback, link-local, metadata/private address, proxy/header substitution, DNS/connection timeout, and endpoint mismatch fail closed |
-| Exact profile qualification (`ADR-008`, Direct OpenAI subset of `GATE-STACK-PROVIDERS`) | Opt-in synthetic qualification harness and retained evidence | Streaming, structured output, timeout/cancel/retry/outage, latency/capacity/cost, immutable identity, data policy, correlation, and credential isolation for one exact profile; OpenRouter/vLLM remain recorded gaps |
+| Network/egress boundary (`ADR-008` model-provider gate) | Digest-bound OpenAI-compatible adapter configuration plus bounded HTTP/SDK transport | Exact HTTPS origin and base path; public-only and explicit private-allowlist policies; redirect escape, loopback, link-local, metadata, unspecified/multicast/reserved address, mixed DNS answer, rebinding, proxy/header substitution, DNS/connection timeout, and endpoint mismatch fail closed |
+| Exact profile qualification (`ADR-008`, OpenAI-compatible subset of `GATE-STACK-PROVIDERS`) | Opt-in synthetic qualification harness and retained evidence | Streaming, structured output, timeout/cancel/retry/outage, latency/capacity/cost, returned model identity plus operator artifact/deployment fingerprint, data policy, correlation, credential isolation, and network policy for one exact profile; OpenRouter remains a distinct evidence track |
 
 # Security and privacy threat model
 
@@ -235,7 +281,7 @@ pilot.
 | --- | --- | --- |
 | Cross-Organization credential or payer substitution | Trusted frozen profile plus owner/provider/version binding; no fallback | Wrong-Organization, wrong-provider, stale/revoked/rotated binding, concurrent rotation, and fallback-denial tests |
 | Secret disclosure through paths, symlinks, diagnostics, headers, or artifacts | Named mounted-file lookup with containment, file/permission/size checks, bounded lifetime, and telemetry/log redaction | Traversal and symlink escape, non-regular/oversized/unreadable file, exception/log/header capture, SBOM/support-artifact secret scans |
-| SSRF or egress to attacker-controlled/internal destinations | Installed allowlisted Direct OpenAI HTTPS origin; redirect and destination validation; no untrusted endpoint input | Loopback, link-local, metadata, private network, alternate scheme/port/origin, redirect, proxy/header, and resolution-change tests |
+| SSRF or egress to attacker-controlled/internal destinations | Installed origin plus digest-bound base path and destination policy; DNS answers validated and connection-pinned under policy; redirects/proxies denied by default; no untrusted endpoint input | Loopback, link-local, metadata, unspecified/multicast/reserved ranges, unapproved private ranges, mixed DNS answers, rebinding, alternate scheme/port/origin/base path, redirect, proxy/header, and resolution-change tests |
 | Prompt/provider confused deputy | Trusted instructions and scope remain separate from untrusted Participant/model content; existing Decision/effect validators remain authoritative | Malicious prompt/control/metadata attempts to change scope, audience, tools, memory, workflow, Evaluation, Review, Result, or Release cause no effect |
 | Retry amplification, duplicate billing, or resource exhaustion | One frozen retry/timeout/token/request budget across SDK and durable attempts; rate/backpressure limits | SDK retry plus work-redelivery matrix, rate-limit/outage storm, cancellation, timeout, byte/token/event bounds, and quota attribution |
 | Restart, lease loss, revoke, pause, or cutoff races disclose late content | Restart-safe attempt contract, periodic lease renewal, disclosure authorization, per-fragment commit reauthorization | Crash between phases, competing claim, adapter replacement, lease-renew failure, revoke/pause/cutoff/shutdown before call and before each commit |
@@ -357,46 +403,119 @@ pilot.
 - [x] Close the leftover P2 from `4a6e314`: `TryReserveAsync` fails closed
       unless the supplied invocation id equals `claimedWork.AgentInvocationId`,
       and both admission implementations budget/insert only that claimed id.
-- [ ] Reconcile remaining Phase B qualification, locked/supply-chain/OCI
-      checks, and final task completion after exact-profile evidence exists.
+- [x] Review the 2026-08-20 vendor-neutral documentation amendment against
+      product scope, ADR authority, current code, durable identifiers, and the
+      endpoint trust boundary; correct stale status, scope ambiguity, and the
+      legacy DNS-control overclaim.
+- [ ] Red — pin the target adapter kind `openai_compatible`, contract
+      `sessions.openai_compatible.v1`, project/namespace/class names, and
+      example-profile digest. Prove `direct_openai` configuration cannot enable
+      execution and legacy stored provenance remains readable without becoming
+      executable authority.
+- [ ] Green — rename the adapter and test projects/namespaces/classes; update
+      solution, Worker project references/composition/readiness, Docker copy
+      inputs, architecture boundaries, package locks, and qualification opt-in
+      naming. Keep OpenRouter independent and keep the provider SDK isolated.
+- [ ] Red/green — add a versioned OpenAI-compatible adapter-configuration file
+      and registry. Require its digest in every `openai_compatible` installed
+      profile and bind the exact API base path plus destination-policy identity
+      into profile resolution and provenance; reject missing, extra,
+      mismatched, duplicate, or cross-profile configuration.
+- [ ] Red/green — replace the partial origin guard with an injectable endpoint
+      destination policy and resolver/connector. Cover public-only and explicit
+      private-CIDR allowlists, all DNS answers, mixed answers, rebinding/TOCTOU,
+      IPv4/IPv6 loopback/link-local/metadata/unspecified/multicast/reserved
+      ranges, redirect and proxy denial, TLS hostname/SNI preservation, system
+      trust, exact port, and base-path confinement.
+- [ ] Red/green — requalify the two-phase Chat Completions subset against fake
+      transports at multiple compatible base paths. Pin request shape,
+      structured control, streaming deltas, model identity, usage, timeouts,
+      cancellation, retry ownership, failure normalization, and provenance. If
+      the current SDK cannot meet the contract, replace it only inside the
+      adapter boundary.
+- [ ] Red/green — update Worker composition so only a qualified
+      `openai_compatible` profile plus matching adapter configuration can
+      enable the port. Preserve default-off behavior, frozen Session authority,
+      mounted-secret isolation, claim fencing, current authorization, no
+      fallback, and truthful readiness diagnostics.
+- [ ] Preserve history without reinterpretation: do not rewrite migrations
+      `0001`–`0033` or append-only `direct_openai` provenance. Add upgrade and
+      reconstruction tests showing legacy rows remain inspectable, legacy
+      active bindings fail closed, and new attempts record only the new adapter
+      kind/contract/profile digest. Add a new migration only if newly required
+      provenance cannot be represented by existing append-only fields.
+- [ ] Run focused domain, adapter, Runtime, Architecture, and PostgreSQL tests,
+      then the locked full solution, OCI build, SBOM/license/vulnerability and
+      secret checks, documentation validation, JSON/example consistency, and
+      whitespace checks. Obtain independent backend and security/privacy review.
+- [ ] Run the bounded synthetic-only qualification harness against one exact
+      owner-approved compatible deployment profile—preferably the intended
+      operator-managed on-premises runtime when available—and retain sanitized
+      identity, capability, network-policy, privacy, capacity/cost, and failure
+      evidence. Do not claim qualification without the live evidence.
+- [ ] Reconcile implementation status, operator guidance, qualification
+      evidence, remaining OpenRouter gaps, and final task completion.
 
 # Current state
 
-Independent review of `4a6e314` approved the deterministic Phase A
-provider-execution/admission slice: no P0/P1 findings. The leftover P2
-(admission must bind reservation to `claimedWork.AgentInvocationId`) is now
-closed: a mismatched invocation id fails closed without a `started` fact or
-lease renewal. Next: exact-profile live qualification when an owner-selected
-Direct OpenAI profile and credential exist. The task remains incomplete until
-Phase B and remaining completion checkboxes.
+Independent review of `4a6e314` approved the deterministic legacy Phase A
+provider-execution/admission slice: no P0/P1 findings. Its leftover P2
+(admission must bind reservation to `claimedWork.AgentInvocationId`) remains
+closed. On 2026-08-20, ADR-008 and ADR-010 superseded the vendor-specific target
+with `openai_compatible` / `sessions.openai_compatible.v1` and made an exact
+operator-installed on-premises endpoint a first-class compatibility target.
+
+The current code is intentionally divergent: it still exposes
+`direct_openai`, `sessions.openai.v1`, `FlexAgent.Sessions.OpenAi`, an origin-only
+profile, and a partial literal-IP/same-origin guard. The next implementation
+step is the red contract-identity and fail-closed legacy test slice described
+above. No live provider is qualified and all live composition remains
+default-off.
 
 On 2026-08-19 the Product Lead separately approved the OpenRouter
 synthetic-development profile and its implementation task. That work may
 exercise real free-model calls with synthetic, non-sensitive content, but it
-does not provide this task's exact Direct OpenAI evidence, change its completion
-criteria, or authorize production/Participant data.
+does not provide this task's exact OpenAI-compatible evidence or authorize
+production/Participant data.
 
 # Delivery phases
 
-- **Phase A — deterministic implementation:** restart-safe provider-phase
+- **Historical Phase A — legacy deterministic implementation:** restart-safe provider-phase
   contract, adapter/module boundary, frozen profile and secret resolution,
   fake-transport SDK contract tests, egress controls, retry/lease behavior,
   provenance, host composition, and regression/supply-chain evidence. This
-  phase requires no live credential or external call.
-- **Phase B — exact-profile qualification:** bounded synthetic calls against one
-  owner-selected Direct OpenAI profile plus privacy/data-policy, capacity, cost,
-  immutable-identity, operational, and credential-isolation evidence. The task
-  remains incomplete if Phase B cannot run; Phase A evidence must remain
-  independently reviewable rather than being represented as qualification.
+  evidence remains useful but does not qualify the new adapter identity or
+  private-endpoint boundary.
+- **Phase B — OpenAI-compatible migration:** vendor-neutral identity and module
+  rename, digest-bound base-path/destination configuration, DNS/rebinding-safe
+  public/private endpoint enforcement, fail-closed legacy handling, and full
+  deterministic regression evidence.
+- **Phase C — exact-profile qualification:** bounded synthetic calls against one
+  owner-selected compatible profile plus privacy/data-policy, network policy,
+  capacity, cost, immutable-identity, operational, and credential-isolation
+  evidence. The task remains incomplete if Phase C cannot run; deterministic
+  evidence must not be represented as live qualification.
 
 # Decisions
 
-- Direct OpenAI is the first live external adapter and the official OpenAI .NET
-  SDK is the approved implementation dependency under ADR-008/ADR-010. It
-  remains an adapter detail, not a domain contract or product preference.
+- The supported external adapter identity is `openai_compatible` with contract
+  `sessions.openai_compatible.v1`; `direct_openai` is historical only and must
+  not be accepted as an enablement alias.
+- The official OpenAI .NET SDK is conditional internal transport. Retain it only
+  if deterministic custom-endpoint tests prove the approved contract; otherwise
+  replace it without changing the Sessions port or durable domain contracts.
 - The adapter belongs to Sessions but must be packaged separately from the
   Sessions core and composition roots because an external-provider SDK meets
   the approved project-splitting condition.
+- OpenAI-compatible installed profiles require a versioned adapter-configuration
+  digest binding the exact base path and destination-policy identity. The
+  approved origin alone is insufficient.
+- Historical `direct_openai` profile digests and append-only provider-attempt
+  rows are never rewritten or relabeled. A legacy frozen active binding fails
+  closed; it is not silently translated into the new contract.
+- Operator-installed on-premises endpoints are in scope. Organization
+  self-service endpoint entry, untrusted adapter code, arbitrary URLs, and
+  automatic routing remain out of scope.
 - Qualification is attached to one exact provider deployment profile. Runtime
   configuration may select only installed, operator-approved profiles; it
   cannot construct arbitrary endpoints or silently substitute another profile.
@@ -413,11 +532,29 @@ criteria, or authorize production/Participant data.
 
 Interim defaults are working guidance only and do not approve a deployment.
 
-- **Which exact Direct OpenAI deployment/model profile is qualified first?**
-  Interim default: no normative model is selected in code or documentation;
-  owner-supplied exact profile data is required only by the opt-in qualification
-  step, and Production/Staging remain disabled without it. Rationale: ADR-008
-  explicitly makes qualification profile-specific and model-neutral.
+- **Which exact OpenAI-compatible deployment/model profile is qualified first?**
+  Interim default: prefer the intended operator-managed on-premises runtime
+  when its owner supplies an exact endpoint, artifact/deployment fingerprint,
+  synthetic-use credential, and data-policy determination; otherwise select no
+  normative model and leave qualification blocked. Rationale: this validates
+  the motivating deployment shape without fabricating evidence or making it a
+  product default.
+- **Which authentication modes does v1 support?** Interim default: one
+  mounted-secret API-key/Bearer-header mode; anonymous endpoints, per-profile
+  custom headers, mTLS identity, and workload-identity exchange remain disabled
+  until separately designed and reviewed. Rationale: preserve the existing
+  credential-isolation contract and minimize the first compatibility surface.
+- **How is private TLS trust established?** Interim default: use the
+  host/container platform trust store and require operators to install the
+  approved private CA there; never add per-profile certificate-validation
+  bypass. Rationale: keeps trust operationally reviewable and avoids an unsafe
+  compatibility escape hatch.
+- **How is an immutable on-premises model identified when the API returns an
+  alias?** Interim default: the response model must match the frozen returned
+  identity, while the digest-bound adapter configuration and retained
+  qualification evidence map that identity to an operator-attested immutable
+  artifact/deployment fingerprint. Rationale: the adapter cannot infer an
+  artifact digest that the compatible API does not expose.
 - **Where should the generic mounted-file secret contract live once both Worker
   identity and Sessions provider credentials use it?** Interim default: first
   prove the dependency boundary with architecture tests, then extract only the
@@ -557,6 +694,7 @@ Interim defaults are working guidance only and do not approve a deployment.
 
 | Check | Status | Evidence |
 | --- | --- | --- |
+| OpenAI-compatible documentation/change-set review | passed with corrections | ADR/product/requirements/operations diff checked against current adapter, Worker composition, profile digest, PostgreSQL provenance, and endpoint guard on 2026-08-20. Corrected stale ADR amendment status, clarified operator-installed versus Organization self-service scope, required digest-bound base-path/destination configuration, and removed the DNS/rebinding security overclaim. `python3 scripts/check_docs.py`, JSON parse, and `git diff --check` pass. |
 | Governing source and current-seam inventory | complete | Product foundation, RSC/Session/Auth requirements, ADR-008/010/012/016, Session runtime, backend module guide, current ports/composition, and predecessor task state reviewed 2026-08-18 |
 | Predecessor remediation protected | complete | Worker identity/readiness remediation landed separately as `94c1412`; this planning edit is restricted to the new task file |
 | Plan readiness review | complete | Backend/architecture/security consistency pass on 2026-08-19 added frozen per-Session provider authority, restart-safe phases, retry ownership, secret hardening, egress/SSRF, qualification scope, and threat-model gates |
@@ -568,29 +706,32 @@ Interim defaults are working guidance only and do not approve a deployment.
 | PostgreSQL migration/provenance/recovery tests | passed | Additive `0029` unchanged; crash-recovery class **17 passed** on 2026-08-20 including mismatched-invocation reservation; claim class **15 passed**; earlier full Postgres integration was included in the 1034 solution run |
 | Architecture/module dependency tests | passed | Architecture **33 passed**; official SDK isolated to `FlexAgent.Sessions.OpenAi` with negative control |
 | Sessions domain/application tests | passed | `FlexAgent.Sessions.Tests` **448 passed** including revoked-authorization reservation |
-| Exact Direct OpenAI profile qualification | blocked | Opt-in synthetic evidence for one owner-selected immutable profile is not available; does not close synthetic OpenRouter/vLLM portions of `GATE-STACK-PROVIDERS` |
+| Exact OpenAI-compatible profile qualification | blocked | The target adapter migration and opt-in synthetic evidence for one owner-selected immutable profile are not available; OpenRouter remains a distinct evidence track |
 | Locked regression, supply chain, OCI, docs, whitespace | partial | `python3 scripts/check_docs.py` passed; `git diff --check` passed. OCI image rebuild/SBOM/grype not re-run in this session |
 | Independent backend/architecture/security review | approved for deterministic Phase A | Independent review of `4a6e314`: no P0/P1; `4373f70` P2s closed; leftover invocation-id coupling closed on 2026-08-20 by claimed-work binding. GitHub connector still has no combined status checks for that SHA. Phase B remains the completion gate |
 
 # Blockers
 
-- Final live-profile qualification requires an owner-selected exact Direct
-  OpenAI profile, approved synthetic-use credential delivered through the
-  mounted-file secret boundary, an applicable provider data-policy
-  determination, and permission to incur the bounded external calls/cost.
-  Deterministic fake-transport implementation can proceed without those inputs,
-  but the task cannot claim qualification or completion.
+- Deterministic migration work has no external blocker. Final live-profile
+  qualification requires an owner-selected exact OpenAI-compatible profile,
+  approved synthetic-use credential delivered through the mounted-file secret
+  boundary, applicable provider data-policy and destination-policy evidence,
+  reachable infrastructure, and permission to incur bounded calls/cost. The
+  task cannot claim qualification or completion without those inputs.
 
 # Completion
 
 - [x] Planned work is reconciled with actual changes and the final predecessor baseline
-- [x] Direct OpenAI remains behind the provider-neutral port and the SDK is isolated to the approved adapter boundary
+- [ ] Only `openai_compatible` / `sessions.openai_compatible.v1` can enable the generic adapter; legacy Direct OpenAI identities remain historical and fail closed
+- [ ] The adapter project/namespace/class, Worker composition/readiness, solution/OCI inputs, tests, locks, and qualification harness use vendor-neutral naming while any retained SDK stays isolated
+- [ ] Exact base path and destination-policy identity are bound through a required adapter-configuration digest
+- [ ] Public and explicitly allowed private endpoints pass DNS/rebinding-safe destination tests without redirects, unapproved proxies, TLS bypass, or client-supplied authority
 - [x] Frozen profile, deployment-default, and Organization BYOK resolution fail closed with no cross-scope or silent fallback
 - [x] Real Session provider/model/endpoint/capability and opaque credential-binding authority comes from the frozen trusted Session binding, not mutable Worker-global settings
 - [x] Structured control, participant-visible streaming, usage/provenance, timeout, cancellation, retry, and failure normalization pass contract tests
 - [x] Long provider calls preserve claim lease, current authority, lifecycle/cutoff, idempotency, and durable-before-display invariants
 - [x] Required execution/manifest provenance is append-only, reconstructable, and free of raw sensitive provider material
-- [ ] One exact Direct OpenAI deployment profile passes ADR-008 and the Direct OpenAI subset of `GATE-STACK-PROVIDERS`; remaining OpenRouter/vLLM evidence is recorded without overstating the full gate
+- [ ] One exact OpenAI-compatible deployment profile passes ADR-008 and its subset of `GATE-STACK-PROVIDERS`; distinct OpenRouter evidence is recorded without overstating the full gate
 - [ ] Applicable focused, integration, concurrency, recovery, architecture, locked regression, supply-chain, OCI, documentation, and whitespace checks pass
 - [x] Governing specifications and implementation-status tables are rechecked and remain truthful
 - [x] Full start-time immutable-model enforcement and the synthetic OpenRouter/vLLM portions of `GATE-STACK-PROVIDERS` remain explicitly recorded unless separately implemented and verified
