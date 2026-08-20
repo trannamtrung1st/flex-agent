@@ -601,6 +601,12 @@ or the run stops with sanitized failure evidence.
       happen under the same exclusive budget lock. Wire live discovery and
       pinned control/content reservations to it, and cover two concurrent
       instances that both expect `6`.
+- [x] Record independent review approval of `08c9304` on 2026-08-20: no
+      remaining actionable correctness issue in the changed live-harness
+      surface. Local OpenRouter 55/55 is documented evidence only; GitHub
+      still reports no commit statuses for that SHA. Live qualification
+      remains partial at 9/12 and is not labeled
+      `qualified_for: synthetic_development`.
 
 # Current state
 
@@ -636,7 +642,9 @@ phase and expected consumed count, refuse this 9/12 Nvidia matrix before
 reserve, isolate per-request HTTP observations, and require visible
 non-truncated content before printing `qualified_for`. Phase 18 makes the
 expected count compare-and-increment atomic under the exclusive budget lock so
-two processes that both observed `6` cannot both reserve.
+two processes that both observed `6` cannot both reserve. Independent review
+of `08c9304` (2026-08-20) approved that harness surface. The qualification
+task stays open for a new eligible free route and the hosted Participant path.
 
 ## Historical strict-policy qualification run
 
@@ -799,6 +807,9 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
 - Phase 18: `TryReserveExpected` compare-and-increments under the exclusive
   budget lock. Live control uses `alreadyConsumed -> n+1` and content uses
   `n+1 -> n+2`. Two concurrent instances expecting `6` cannot both succeed.
+- Independent review of `08c9304` (2026-08-20) approved the live-harness
+  remediation series. No remaining actionable correctness issue. Local
+  OpenRouter 55/55 was not independently confirmed from GitHub CI metadata.
 
 # Verification
 
@@ -814,6 +825,7 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
 | Interactive local Text Session | blocked | Phase 7: synthetic browser adapter; production HTTP SSE/OIDC still a documented gap (`docs/ui-ux/text-session.md`) |
 | Locked regression/supply chain/OCI/docs | partial | Phase 18 re-verification: OpenRouter 55/55 deterministic with two explicit live tests excluded. Docker remains unavailable, so PostgreSQL Testcontainers, Worker OCI image build, and `dotnet publish` were not run |
 | Independent review (`7e2e438`) | passed | Adapter remediation series approved 2026-08-20: no remaining substantive correctness or architecture issues. Nine prior findings closed. Local OpenRouter 27/27 not independently verifiable from GitHub commit statuses. Live qualification and hosted Participant path remain gated |
+| Independent review (`08c9304`) | passed | Live-harness series approved 2026-08-20: atomic expected reservation, phase/budget gates, request-scoped HTTP evidence, and fail-closed qualification predicate. No remaining actionable correctness issue. Local OpenRouter 55/55 not independently verifiable from GitHub commit statuses. Live result stays partial / 9 of 12 |
 
 # Risks, interim defaults, and owner gates
 
@@ -861,8 +873,9 @@ control request. Do not relax schema, fallbacks, or switch to a paid model.
    (`FLEXAGENT_OPENROUTER_LIVE_PHASE`), a matching
    `FLEXAGENT_OPENROUTER_QUALIFICATION_EXPECTED_CONSUMED`, and must not reuse
    this pair's already-recorded control request.
-3. Keep the task open: full live qualification is incomplete, hosted chat is
-   blocked, and Docker was unavailable for a live Worker/PostgreSQL path.
+3. Live-harness review of `08c9304` is approved. Keep the task open: full live
+   qualification is incomplete, hosted chat is blocked, and Docker was
+   unavailable for a live Worker/PostgreSQL path.
 4. A new eligible free route or a separately scoped hosted-path task is
    required before claiming `qualified_for: synthetic_development`.
 
@@ -886,5 +899,6 @@ control request. Do not relax schema, fallbacks, or switch to a paid model.
 - [ ] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
-- [x] Adapter remediation series is recorded as review-approved; the
-      qualification task remains open for live and hosted-path gates
+- [x] Adapter remediation series (`7e2e438`) and live-harness series
+      (`08c9304`) are recorded as review-approved; the qualification task
+      remains open for a new eligible free route and hosted-path gates
