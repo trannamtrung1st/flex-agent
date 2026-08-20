@@ -25,6 +25,9 @@ public sealed class OpenRouterLivePhase21QualificationTests(ITestOutputHelper ou
             "FLEXAGENT_OPENROUTER_PHASE21_QUALIFICATION_BUDGET_PATH",
             OpenRouterLiveQualification.Phase21BudgetPathEnvironmentVariable);
         Assert.Equal(
+            "FLEXAGENT_OPENROUTER_PHASE21_EVIDENCE_PATH",
+            OpenRouterLiveQualification.Phase21EvidencePathEnvironmentVariable);
+        Assert.Equal(
             OpenRouterLiveQualification.IsEnabled,
             string.Equals(
                 Environment.GetEnvironmentVariable(OpenRouterLiveQualification.EnableEnvironmentVariable),

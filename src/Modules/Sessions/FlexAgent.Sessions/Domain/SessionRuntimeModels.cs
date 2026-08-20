@@ -257,6 +257,7 @@ public static class ExecutionFailureReasons
     public const string ProviderTimeout = "provider_timeout";
     public const string ProviderUnavailable = "provider_unavailable";
     public const string CredentialBindingFailed = "credential_binding_failed";
+    public const string ContentTruncated = "content_truncated";
 }
 
 public static class ExecutionAttemptOutcomeCategories

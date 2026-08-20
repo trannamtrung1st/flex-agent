@@ -30,13 +30,15 @@ Deterministic contracts now:
 
 - parse `finish_reason` as a required terminal fact;
 - reject control when the finish reason is not `stop`;
-- deny `TryQualify` for any non-`stop` finish reason, including `length`
-  below the request ceiling;
+- reject streamed content when the finish reason is not `stop`
+  (`content_truncated`) instead of emitting `ModelContentCompleted`;
+- deny `TryQualify` using control and content provenance finish reasons
+  only, including `length` below the request ceiling;
 - isolate the 4,096-token ceiling to the GPT-OSS policy;
 - bind `openrouter.request-policy.v2` into the adapter-configuration digest;
 - generate the control example with the current invocation ID;
-- emit an `openrouter.sanitized-qualification.v1` JSON record from the live
-  runner when an owner-authorized run occurs.
+- emit an `openrouter.sanitized-qualification.v1` JSON record and atomically
+  write it to `FLEXAGENT_OPENROUTER_PHASE21_EVIDENCE_PATH`.
 
 No live Phase 21 retry was authorized. Do not invent HTTP status, cache class,
 token counts, or finish reasons for the historical 2026-08-20 slots 7 and 8.

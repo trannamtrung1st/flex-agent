@@ -788,13 +788,26 @@ a qualification label, or enabling runtime traffic.
 - [ ] Close the slice only after an owner-authorized live matrix emits a
       sanitized passing record under the new predicate.
 
+## Phase 25 — reject streamed truncation, bind qualify to provenance, persist evidence
+
+- [x] Fail streamed non-`stop` content as `content_truncated` with finish
+      reason and token counts on provenance
+- [x] Make `TryQualify` read both finish reasons from provenance and drop
+      the caller-supplied argument
+- [x] Atomically write the sanitized JSON record to an operator evidence
+      path; do not spend live budget
+- [x] Leave PostgreSQL `TerminalFinishReason` persistence deferred until
+      the durable hosted Session path
+
 # Current state
 
 The only current live pin is `openai/gpt-oss-20b:free` / `darkbloom` /
 `Darkbloom`. Phase 24 corrected finish-reason qualification, isolated 4096
 to GPT-OSS, bound `openrouter.request-policy.v2`, and added a sanitized
 evidence record shape. The 2026-08-20 Phase 21 label is historical and not
-sufficient to close this slice. Lightning, Gemma, Nano, and GLM are retired
+sufficient to close this slice. Phase 25 now fails streamed non-`stop` content as `content_truncated`,
+reads both finish reasons from provenance, and atomically writes the
+sanitized evidence JSON. Lightning, Gemma, Nano, and GLM are retired
 candidates; their evidence files remain historical. The live harness refuses
 those phases as `retired_candidate`. Discovery stays retired at consumed >= 6.
 Phase 21 ledger is 8/8; do not rerun live without a new owner-approved
@@ -1093,6 +1106,7 @@ slots remain. The run is not labeled `qualified_for: synthetic_development`.
 | Live synthetic qualification | open — contract corrected, live re-run not authorized | Phase 21 GPT-OSS/Darkbloom remains the only pin. Historical 2026-08-20 label used a weaker truncation predicate. Phase 24 evidence: `synthetic-development-phase24-2026-08-21.md`. Hosted Participant chat still blocked |
 | Phase 23 GPT-OSS-only simplification | passed | Removed Lightning/Gemma/Nano/GLM live phases and runners. Retired-candidate gates fail closed. Ops profile and provider index now name only GPT-OSS. OpenRouter 74/74 non-explicit. Docs check and `git diff --check` passed |
 | Phase 24 finish-reason and policy isolation | passed (deterministic) | OpenRouter 82/82 non-explicit, 2 explicit skipped. Sessions 456/456. Architecture provider-boundary 4/4. `python3 scripts/check_docs.py` and `git diff --check` passed. No live budget spent |
+| Phase 25 streamed truncation and durable evidence | passed (deterministic) | OpenRouter 85/85 non-explicit, 2 explicit skipped. Sessions 456/456. `python3 scripts/check_docs.py` and `git diff --check` passed. No live budget spent |
 | Interactive local Text Session | blocked | Phase 7: synthetic browser adapter; production HTTP SSE/OIDC still a documented gap (`docs/ui-ux/text-session.md`) |
 | Locked regression/supply chain/OCI/docs | passed with recorded gaps | `dotnet restore FlexAgent.slnx --locked-mode` passed. Sessions 456/456; Direct OpenAI 14/14; Runtime 174/174; Architecture 35/35. `python3 scripts/check_docs.py` and `git diff --check` passed. Worker OCI image build was not run |
 | Independent review (`7e2e438`) | passed | Adapter remediation series approved 2026-08-20: no remaining substantive correctness or architecture issues. Nine prior findings closed. Local OpenRouter 27/27 not independently verifiable from GitHub commit statuses. Live qualification and hosted Participant path remain gated |
@@ -1168,6 +1182,7 @@ reopen retired candidates.
 | Phase 21 route gates | `OpenRouterRequestPolicy.Phase21GptOss`; `OpenRouterQualificationBudget.CreatePhase21`; `OpenRouterLiveQualification` GPT-OSS constants; `OpenRouterLivePhase21QualificationTests` and runner; hidden-reasoning parser rejection |
 | Phase 23 GPT-OSS-only pin | Retired Lightning/Gemma/Nano/GLM live phases; `retired_candidate` gate; GPT-OSS-only route acceptance |
 | Phase 24 finish-reason and policy identity | `OpenRouterResponseParser` finish_reason; `OpenRouterRequestPolicy` 256 vs 4096; `request_policy_version` in adapter digest; invocation-bound `ControlSystemPrompt`; `OpenRouterSanitizedQualificationRecord` |
+| Phase 25 adapter truncation authority | streamed non-`stop` → `content_truncated`; `TryQualify` provenance-only; `FLEXAGENT_OPENROUTER_PHASE21_EVIDENCE_PATH` atomic write |
 
 # Completion
 

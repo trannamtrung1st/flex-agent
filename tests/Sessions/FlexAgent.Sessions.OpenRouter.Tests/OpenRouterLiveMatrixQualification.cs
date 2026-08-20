@@ -1,5 +1,6 @@
 using System.Text;
 using FlexAgent.Sessions.Application;
+using FlexAgent.Sessions.OpenRouter;
 
 namespace FlexAgent.Sessions.OpenRouter.Tests;
 
@@ -8,8 +9,6 @@ internal static class OpenRouterLiveMatrixQualification
     public static bool TryQualify(
         ModelExecutionAttemptResult control,
         IReadOnlyList<ModelContentEvent> events,
-        int maxOutputTokens,
-        string? finishReason,
         out string denialReason)
     {
         ArgumentNullException.ThrowIfNull(control);
@@ -17,6 +16,12 @@ internal static class OpenRouterLiveMatrixQualification
         if (control is not ModelExecutionStructuredControl)
         {
             denialReason = "control_not_admitted";
+            return false;
+        }
+
+        if (!OpenRouterAdapterContracts.IsApprovedNonTruncationFinishReason(control.Provenance?.TerminalFinishReason))
+        {
+            denialReason = "length_truncated";
             return false;
         }
 
@@ -41,9 +46,10 @@ internal static class OpenRouterLiveMatrixQualification
             return false;
         }
 
-        if (!OpenRouterAdapterContracts.IsApprovedNonTruncationFinishReason(finishReason)
+        if (!OpenRouterAdapterContracts.IsApprovedNonTruncationFinishReason(completed.Provenance?.TerminalFinishReason)
             || completed.Provenance?.OutputTokenCount is null
-            || completed.Provenance.OutputTokenCount >= maxOutputTokens)
+            || completed.Provenance.OutputTokenCount
+                >= OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens)
         {
             denialReason = "length_truncated";
             return false;

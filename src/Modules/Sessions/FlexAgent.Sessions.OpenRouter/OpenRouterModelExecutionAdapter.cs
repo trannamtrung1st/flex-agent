@@ -511,6 +511,19 @@ public sealed class OpenRouterModelExecutionAdapter(
             yield break;
         }
 
+        if (!OpenRouterAdapterContracts.IsApprovedNonTruncationFinishReason(facts.FinishReason))
+        {
+            yield return ContentFailure(
+                resolved.Value.Profile,
+                ExecutionFailureReasons.ContentTruncated,
+                request.ProviderAttemptId,
+                startedAt,
+                facts.InputTokens,
+                facts.OutputTokens,
+                facts.FinishReason);
+            yield break;
+        }
+
         yield return new ModelContentCompleted
         {
             Provenance = CreateProvenance(
@@ -668,18 +681,22 @@ public sealed class OpenRouterModelExecutionAdapter(
         InstalledModelDeploymentProfile profile,
         string reason,
         string? providerAttemptId,
-        DateTimeOffset startedAt) =>
+        DateTimeOffset startedAt,
+        int? inputTokens = null,
+        int? outputTokens = null,
+        string? terminalFinishReason = null) =>
         new(reason)
         {
             Provenance = CreateProvenance(
                 profile,
                 reason,
-                null,
-                null,
+                inputTokens,
+                outputTokens,
                 providerAttemptId,
                 startedAt,
                 DateTimeOffset.UtcNow,
-                ModelProviderRequestPhases.Content),
+                ModelProviderRequestPhases.Content,
+                terminalFinishReason),
         };
 
     private sealed class ClientLifetime(HttpClient client) : IDisposable
@@ -696,6 +713,7 @@ public static class OpenRouterLiveQualification
     public const string SyntheticDataPolicyEnvironmentVariable = "FLEXAGENT_OPENROUTER_SYNTHETIC_DATA_POLICY_ACCEPTED";
     public const string BudgetPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_QUALIFICATION_BUDGET_PATH";
     public const string Phase21BudgetPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_PHASE21_QUALIFICATION_BUDGET_PATH";
+    public const string Phase21EvidencePathEnvironmentVariable = "FLEXAGENT_OPENROUTER_PHASE21_EVIDENCE_PATH";
     public const string InstalledProfilesPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_INSTALLED_PROFILES_PATH";
     public const string ConfigurationsPathEnvironmentVariable = "FLEXAGENT_OPENROUTER_CONFIGURATIONS_PATH";
     public const string ExpectedConsumedEnvironmentVariable = "FLEXAGENT_OPENROUTER_QUALIFICATION_EXPECTED_CONSUMED";

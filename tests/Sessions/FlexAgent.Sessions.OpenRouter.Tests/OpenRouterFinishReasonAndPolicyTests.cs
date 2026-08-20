@@ -56,16 +56,59 @@ public sealed class OpenRouterFinishReasonAndPolicyTests
     }
 
     [Fact]
+    public async Task Streamed_length_finish_reason_is_content_truncated()
+    {
+        var harness = OpenRouterAdapterContractTests.CreateHarness();
+        var events = new List<ModelContentEvent>();
+        await foreach (var item in harness.Adapter(new LengthStreamHandler())
+            .StreamParticipantVisibleContentAsync(harness.StreamRequest(), CancellationToken.None))
+        {
+            events.Add(item);
+        }
+
+        Assert.Equal("Hi", Assert.IsType<ModelContentTextDelta>(events[0]).ExactUtf8Text);
+        var failed = Assert.IsType<ModelContentFailed>(Assert.Single(events.Skip(1)));
+        Assert.Equal(ExecutionFailureReasons.ContentTruncated, failed.ReasonCategory);
+        Assert.Equal("length", failed.Provenance?.TerminalFinishReason);
+        Assert.Equal(100, failed.Provenance?.OutputTokenCount);
+        Assert.Equal(2, failed.Provenance?.InputTokenCount);
+        Assert.DoesNotContain(events, item => item is ModelContentCompleted);
+    }
+
+    [Fact]
     public void Length_finish_reason_does_not_qualify_even_when_reported_tokens_are_below_the_ceiling()
     {
-        var control = new ModelExecutionStructuredControl(Admission());
-        var completed = new ModelContentCompleted { Provenance = Provenance(100) };
+        var control = new ModelExecutionStructuredControl(Admission())
+        {
+            Provenance = Provenance(4, ModelProviderRequestPhases.Control, "stop"),
+        };
+        var completed = new ModelContentCompleted
+        {
+            Provenance = Provenance(100, ModelProviderRequestPhases.Content, "length"),
+        };
         Assert.False(
             OpenRouterLiveMatrixQualification.TryQualify(
                 control,
                 [new ModelContentTextDelta("Hi"), completed],
-                OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
-                "length",
+                out var denial));
+        Assert.Equal("length_truncated", denial);
+    }
+
+    [Fact]
+    public void Qualification_reads_finish_reasons_from_provenance_not_a_caller_argument()
+    {
+        var control = new ModelExecutionStructuredControl(Admission())
+        {
+            Provenance = Provenance(4, ModelProviderRequestPhases.Control, "length"),
+        };
+        var completed = new ModelContentCompleted
+        {
+            Provenance = Provenance(8, ModelProviderRequestPhases.Content, "stop"),
+        };
+        Assert.False(
+            OpenRouterLiveMatrixQualification.TryQualify(
+                control,
+                [new ModelContentTextDelta("Hi"), completed],
                 out var denial));
         Assert.Equal("length_truncated", denial);
     }
@@ -148,6 +191,44 @@ public sealed class OpenRouterFinishReasonAndPolicyTests
         Assert.DoesNotContain("choices", json, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Sanitized_evidence_is_written_atomically_to_the_operator_path()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = Path.Combine(directory.Path, "phase21-evidence.json");
+        var record = new OpenRouterSanitizedQualificationRecord(
+            SchemaVersion: OpenRouterSanitizedQualificationRecord.CurrentSchemaVersion,
+            RequestPolicyVersion: OpenRouterAdapterContracts.RequestPolicyVersion,
+            AdapterContractVersion: OpenRouterAdapterContracts.AdapterContractVersion,
+            QualificationScope: OpenRouterAdapterContracts.QualificationScope,
+            Model: OpenRouterLiveQualification.GptOssDarkbloomModel,
+            ProviderIdentity: OpenRouterLiveQualification.GptOssDarkbloomProviderIdentity,
+            ProfileDigest: "profile",
+            AdapterConfigurationDigest: "adapter",
+            ControlHttp: 200,
+            ControlClass: "ok",
+            ControlCache: "absent",
+            ControlFinishReason: "stop",
+            ControlTokensIn: 10,
+            ControlTokensOut: 20,
+            ContentHttp: 200,
+            ContentClass: "ok",
+            ContentCache: "absent",
+            ContentFinishReason: "stop",
+            ContentTokensIn: 4,
+            ContentTokensOut: 1,
+            QualificationOutcome: "denied",
+            DenialReason: "length_truncated");
+
+        Assert.True(OpenRouterSanitizedQualificationEvidence.TryWriteAtomic(path, record));
+        Assert.True(File.Exists(path));
+        Assert.False(File.Exists(path + ".tmp"));
+        Assert.Equal(record.ToSanitizedJson(), File.ReadAllText(path));
+        Assert.Equal(
+            "FLEXAGENT_OPENROUTER_PHASE21_EVIDENCE_PATH",
+            OpenRouterLiveQualification.Phase21EvidencePathEnvironmentVariable);
+    }
+
     private static ValidatedAgentDecisionEnvelope Admission()
     {
         var utf8 =
@@ -158,7 +239,10 @@ public sealed class OpenRouterFinishReasonAndPolicyTests
         return admitted!;
     }
 
-    private static ModelProviderAttemptProvenance Provenance(int outputTokens) =>
+    private static ModelProviderAttemptProvenance Provenance(
+        int outputTokens,
+        string phase = ModelProviderRequestPhases.Content,
+        string? finishReason = "stop") =>
         new(
             ModelDeploymentAdapterKinds.OpenRouter,
             OpenRouterAdapterContracts.AdapterContractVersion,
@@ -173,8 +257,10 @@ public sealed class OpenRouterFinishReasonAndPolicyTests
             "pref.prat.phase21.content",
             DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow,
-            ModelProviderRequestPhases.Content,
-            "prat.phase21.content");
+            phase,
+            "prat.phase21.content",
+            ModelProviderRequestFacts.Finished,
+            finishReason);
 
     private sealed class RecordingHandler : HttpMessageHandler
     {
@@ -204,6 +290,43 @@ public sealed class OpenRouterFinishReasonAndPolicyTests
                     System.Text.Encoding.UTF8,
                     "application/json"),
             };
+        }
+    }
+
+    private sealed class LengthStreamHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            const string body =
+                ": keep-alive\n\n"
+                + "data: {\"id\":\"gen-test\",\"model\":\"meta-llama/llama-3.1-8b-instruct:free\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hi\"},\"finish_reason\":null}]}\n\n"
+                + "data: {\"id\":\"gen-test\",\"model\":\"meta-llama/llama-3.1-8b-instruct:free\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"length\"}],\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":100},\"openrouter_metadata\":{\"attempt\":1,\"endpoints\":{\"available\":[{\"provider\":\"Together\",\"model\":\"meta-llama/llama-3.1-8b-instruct:free\",\"selected\":true}]}}}\n\n"
+                + "data: [DONE]\n\n";
+            return Task.FromResult(
+                new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new StringContent(body, System.Text.Encoding.UTF8, "text/event-stream"),
+                });
+        }
+    }
+
+    private sealed class TemporaryDirectory : IDisposable
+    {
+        public TemporaryDirectory()
+        {
+            Path = Directory.CreateTempSubdirectory("flex-agent-openrouter-evidence-").FullName;
+        }
+
+        public string Path { get; }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(Path))
+            {
+                Directory.Delete(Path, recursive: true);
+            }
         }
     }
 }

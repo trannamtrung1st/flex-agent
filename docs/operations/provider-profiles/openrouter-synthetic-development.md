@@ -70,7 +70,7 @@ historical. The live harness refuses those phases as `retired_candidate`.
 | Request-policy version | `openrouter.request-policy.v2` (bound into the adapter-configuration digest) |
 | Reasoning request | `reasoning.effort: "low"` and `reasoning.exclude: true`; reasoning remains counted in output usage and must not be persisted or exposed |
 | Output ceiling | 4,096 total output tokens per GPT-OSS request, including reasoning. The generic OpenRouter default remains 256 tokens and 30/60-second timeouts |
-| Visible-content acceptance | Parsed `finish_reason` must be exactly `stop`, and reported content output tokens must be below 256. A `length` finish below the 4,096 request ceiling does not qualify |
+| Visible-content acceptance | Parsed `finish_reason` must be exactly `stop` on both phases. Streamed non-`stop` content fails as `content_truncated`. Qualification reads those reasons from provenance and also requires content output tokens below 256 |
 | Timeouts | 120-second control and content timeouts on the GPT-OSS policy only |
 | Qualification budget | Distinct Phase 21 ledger, maximum 8 inference requests, concurrency 1, maximum USD 2; consumed 8/8. Do not rerun without a new owner-approved ceiling |
 | Historical budget handling | Shared ceiling is 24. Preserve consumed counts on the retention-accepted and strict-policy ledgers; do not reset them |

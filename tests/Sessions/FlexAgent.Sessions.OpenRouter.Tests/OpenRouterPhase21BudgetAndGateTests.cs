@@ -217,7 +217,10 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
     [Fact]
     public void Visible_content_at_the_acceptance_ceiling_is_truncated()
     {
-        var control = new ModelExecutionStructuredControl(Admission());
+        var control = new ModelExecutionStructuredControl(Admission())
+        {
+            Provenance = Provenance(4, ModelProviderRequestPhases.Control),
+        };
         var truncated = new ModelContentCompleted
         {
             Provenance = Provenance(OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens),
@@ -226,8 +229,6 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
             OpenRouterLiveMatrixQualification.TryQualify(
                 control,
                 [new ModelContentTextDelta("Hi"), truncated],
-                OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
-                "stop",
                 out var denial));
         Assert.Equal("length_truncated", denial);
 
@@ -236,8 +237,6 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
             OpenRouterLiveMatrixQualification.TryQualify(
                 control,
                 [new ModelContentTextDelta("Hi"), accepted],
-                OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
-                "stop",
                 out var ok));
         Assert.Equal(string.Empty, ok);
     }
@@ -252,7 +251,9 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
         return admitted!;
     }
 
-    private static ModelProviderAttemptProvenance Provenance(int outputTokens) =>
+    private static ModelProviderAttemptProvenance Provenance(
+        int outputTokens,
+        string phase = ModelProviderRequestPhases.Content) =>
         new(
             ModelDeploymentAdapterKinds.OpenRouter,
             OpenRouterAdapterContracts.AdapterContractVersion,
@@ -267,8 +268,10 @@ public sealed class OpenRouterPhase21BudgetAndGateTests
             "pref.prat.phase21.content",
             DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow,
-            ModelProviderRequestPhases.Content,
-            "prat.phase21.content");
+            phase,
+            "prat.phase21.content",
+            ModelProviderRequestFacts.Finished,
+            "stop");
 
     private sealed class TemporaryDirectory : IDisposable
     {

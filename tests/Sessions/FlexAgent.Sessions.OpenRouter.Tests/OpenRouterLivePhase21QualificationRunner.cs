@@ -22,6 +22,7 @@ internal static class OpenRouterLivePhase21QualificationRunner
         var profilesPath = RequiredEnvironment(OpenRouterLiveQualification.InstalledProfilesPathEnvironmentVariable);
         var configurationsPath = RequiredEnvironment(OpenRouterLiveQualification.ConfigurationsPathEnvironmentVariable);
         var budgetPath = RequiredEnvironment(OpenRouterLiveQualification.Phase21BudgetPathEnvironmentVariable);
+        var evidencePath = RequiredEnvironment(OpenRouterLiveQualification.Phase21EvidencePathEnvironmentVariable);
         var budget = OpenRouterQualificationBudget.CreatePhase21(budgetPath);
         if (!budget.TryRead(out var alreadyConsumed))
         {
@@ -96,6 +97,17 @@ internal static class OpenRouterLivePhase21QualificationRunner
         AssertPinnedProvenance(control.Provenance, configuration.Profile, OpenRouterLiveQualification.GptOssDarkbloomModel, ModelProviderRequestPhases.Control);
         if (!OpenRouterLiveMatrixQualification.TryAuthorizeContentAfterControl(control, out var contentDenial))
         {
+            PersistEvidence(
+                evidencePath,
+                output,
+                configuration,
+                controlObservation,
+                control,
+                contentObservation: observer.Current,
+                completed: null,
+                failed: null,
+                qualified: false,
+                denial: contentDenial);
             Assert.Fail(
                 $"Sanitized control not admitted; content was not reserved: denial={contentDenial} outcome={OutcomeName(control)} reason={Reason(control)} http={observer.StatusCode?.ToString() ?? "none"} class={observer.StatusClassification} cache={observer.CacheClassification} slot={controlSlot}/{OpenRouterLiveQualification.Phase21MaxInferenceRequests}.");
         }
@@ -137,9 +149,46 @@ internal static class OpenRouterLivePhase21QualificationRunner
         var qualified = OpenRouterLiveMatrixQualification.TryQualify(
             control,
             events,
-            OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
-            completed?.Provenance?.TerminalFinishReason,
             out var qualificationDenial);
+        PersistEvidence(
+            evidencePath,
+            output,
+            configuration,
+            controlObservation,
+            control,
+            observer.Current,
+            completed,
+            failed,
+            qualified,
+            qualificationDenial);
+        if (!qualified)
+        {
+            Assert.Fail(
+                $"Sanitized matrix incomplete: denial={qualificationDenial} control={OutcomeName(control)} reason={Reason(control)} content_completed={completed is not null} content_failed={failed?.ReasonCategory ?? "none"} deltas={deltas.Length} visible_utf8={deltas.Sum(delta => System.Text.Encoding.UTF8.GetByteCount(delta.ExactUtf8Text))} tokens_out={completed?.Provenance?.OutputTokenCount?.ToString() ?? "none"} finish_reason={completed?.Provenance?.TerminalFinishReason ?? "none"} content_http={observer.StatusCode?.ToString() ?? "none"} content_class={observer.StatusClassification} content_cache={observer.CacheClassification}.");
+        }
+
+        output.WriteLine(
+            "sanitized_matrix qualified_for=synthetic_development model={0} provider={1} control_slot={2} content_slot={3} finish_reason={4} request_policy={5}",
+            OpenRouterLiveQualification.GptOssDarkbloomModel,
+            OpenRouterLiveQualification.GptOssDarkbloomProviderIdentity,
+            controlSlot,
+            contentSlot,
+            completed?.Provenance?.TerminalFinishReason ?? "none",
+            OpenRouterAdapterContracts.RequestPolicyVersion);
+    }
+
+    private static void PersistEvidence(
+        string evidencePath,
+        ITestOutputHelper output,
+        OpenRouterInstalledConfiguration configuration,
+        OpenRouterSanitizedLiveObservation controlObservation,
+        ModelExecutionAttemptResult control,
+        OpenRouterSanitizedLiveObservation contentObservation,
+        ModelContentCompleted? completed,
+        ModelContentFailed? failed,
+        bool qualified,
+        string denial)
+    {
         var record = new OpenRouterSanitizedQualificationRecord(
             SchemaVersion: OpenRouterSanitizedQualificationRecord.CurrentSchemaVersion,
             RequestPolicyVersion: OpenRouterAdapterContracts.RequestPolicyVersion,
@@ -155,33 +204,23 @@ internal static class OpenRouterLivePhase21QualificationRunner
             ControlFinishReason: control.Provenance?.TerminalFinishReason,
             ControlTokensIn: control.Provenance?.InputTokenCount,
             ControlTokensOut: control.Provenance?.OutputTokenCount,
-            ContentHttp: observer.StatusCode,
-            ContentClass: observer.StatusClassification,
-            ContentCache: observer.CacheClassification,
-            ContentFinishReason: completed?.Provenance?.TerminalFinishReason,
-            ContentTokensIn: completed?.Provenance?.InputTokenCount,
-            ContentTokensOut: completed?.Provenance?.OutputTokenCount,
+            ContentHttp: contentObservation.StatusCode,
+            ContentClass: contentObservation.StatusClassification,
+            ContentCache: contentObservation.CacheClassification,
+            ContentFinishReason: completed?.Provenance?.TerminalFinishReason
+                ?? failed?.Provenance?.TerminalFinishReason,
+            ContentTokensIn: completed?.Provenance?.InputTokenCount ?? failed?.Provenance?.InputTokenCount,
+            ContentTokensOut: completed?.Provenance?.OutputTokenCount ?? failed?.Provenance?.OutputTokenCount,
             QualificationOutcome: qualified
                 ? "qualified_for=synthetic_development"
                 : "denied",
-            DenialReason: qualified ? null : qualificationDenial);
+            DenialReason: qualified ? null : denial);
         var sanitizedJson = record.ToSanitizedJson();
         AssertNoSensitiveLeak(sanitizedJson);
         output.WriteLine("sanitized_record {0}", sanitizedJson);
-        if (!qualified)
-        {
-            Assert.Fail(
-                $"Sanitized matrix incomplete: denial={qualificationDenial} control={OutcomeName(control)} reason={Reason(control)} content_completed={completed is not null} content_failed={failed?.ReasonCategory ?? "none"} deltas={deltas.Length} visible_utf8={deltas.Sum(delta => System.Text.Encoding.UTF8.GetByteCount(delta.ExactUtf8Text))} tokens_out={completed?.Provenance?.OutputTokenCount?.ToString() ?? "none"} finish_reason={completed?.Provenance?.TerminalFinishReason ?? "none"} content_http={observer.StatusCode?.ToString() ?? "none"} content_class={observer.StatusClassification} content_cache={observer.CacheClassification}.");
-        }
-
-        output.WriteLine(
-            "sanitized_matrix qualified_for=synthetic_development model={0} provider={1} control_slot={2} content_slot={3} finish_reason={4} request_policy={5}",
-            OpenRouterLiveQualification.GptOssDarkbloomModel,
-            OpenRouterLiveQualification.GptOssDarkbloomProviderIdentity,
-            controlSlot,
-            contentSlot,
-            completed?.Provenance?.TerminalFinishReason ?? "none",
-            OpenRouterAdapterContracts.RequestPolicyVersion);
+        Assert.True(
+            OpenRouterSanitizedQualificationEvidence.TryWriteAtomic(evidencePath, record),
+            $"Sanitized evidence could not be written to {OpenRouterLiveQualification.Phase21EvidencePathEnvironmentVariable}.");
     }
 
     private static void WriteSanitized(

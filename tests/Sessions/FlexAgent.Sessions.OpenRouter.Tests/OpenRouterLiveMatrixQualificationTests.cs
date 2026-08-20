@@ -9,7 +9,7 @@ public sealed class OpenRouterLiveMatrixQualificationTests
     [Fact]
     public void Empty_completed_stream_does_not_qualify()
     {
-        var control = new ModelExecutionStructuredControl(Admission());
+        var control = AdmittedControl();
         var completed = new ModelContentCompleted
         {
             Provenance = Provenance(outputTokens: 4),
@@ -19,8 +19,6 @@ public sealed class OpenRouterLiveMatrixQualificationTests
             OpenRouterLiveMatrixQualification.TryQualify(
                 control,
                 [completed],
-                OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
-                "stop",
                 out var denial));
         Assert.Equal("missing_visible_content", denial);
     }
@@ -28,7 +26,7 @@ public sealed class OpenRouterLiveMatrixQualificationTests
     [Fact]
     public void Length_truncated_output_does_not_qualify()
     {
-        var control = new ModelExecutionStructuredControl(Admission());
+        var control = AdmittedControl();
         var completed = new ModelContentCompleted
         {
             Provenance = Provenance(OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens),
@@ -38,8 +36,6 @@ public sealed class OpenRouterLiveMatrixQualificationTests
             OpenRouterLiveMatrixQualification.TryQualify(
                 control,
                 [new ModelContentTextDelta("Hi"), completed],
-                OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
-                "stop",
                 out var denial));
         Assert.Equal("length_truncated", denial);
     }
@@ -47,14 +43,12 @@ public sealed class OpenRouterLiveMatrixQualificationTests
     [Fact]
     public void Failed_content_does_not_qualify_even_with_a_delta()
     {
-        var control = new ModelExecutionStructuredControl(Admission());
+        var control = AdmittedControl();
 
         Assert.False(
             OpenRouterLiveMatrixQualification.TryQualify(
                 control,
                 [new ModelContentTextDelta("Hi"), new ModelContentFailed(ExecutionFailureReasons.ProviderUnavailable)],
-                OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
-                "stop",
                 out var denial));
         Assert.Equal("content_failed", denial);
     }
@@ -62,7 +56,7 @@ public sealed class OpenRouterLiveMatrixQualificationTests
     [Fact]
     public void Structured_control_plus_visible_non_truncated_content_qualifies()
     {
-        var control = new ModelExecutionStructuredControl(Admission());
+        var control = AdmittedControl();
         var completed = new ModelContentCompleted
         {
             Provenance = Provenance(outputTokens: 8),
@@ -72,8 +66,6 @@ public sealed class OpenRouterLiveMatrixQualificationTests
             OpenRouterLiveMatrixQualification.TryQualify(
                 control,
                 [new ModelContentTextDelta("Hello"), completed],
-                OpenRouterAdapterContracts.VisibleContentAcceptanceMaxOutputTokens,
-                "stop",
                 out var denial));
         Assert.Equal(string.Empty, denial);
     }
@@ -94,6 +86,12 @@ public sealed class OpenRouterLiveMatrixQualificationTests
         Assert.Equal("control_not_admitted", rejected);
     }
 
+    private static ModelExecutionStructuredControl AdmittedControl() =>
+        new(Admission())
+        {
+            Provenance = Provenance(4, ModelProviderRequestPhases.Control),
+        };
+
     private static ValidatedAgentDecisionEnvelope Admission()
     {
         var utf8 =
@@ -104,7 +102,9 @@ public sealed class OpenRouterLiveMatrixQualificationTests
         return admitted!;
     }
 
-    private static ModelProviderAttemptProvenance Provenance(int outputTokens) =>
+    private static ModelProviderAttemptProvenance Provenance(
+        int outputTokens,
+        string phase = ModelProviderRequestPhases.Content) =>
         new(
             ModelDeploymentAdapterKinds.OpenRouter,
             OpenRouterAdapterContracts.AdapterContractVersion,
@@ -119,6 +119,8 @@ public sealed class OpenRouterLiveMatrixQualificationTests
             "pref.prat.phase9.content",
             DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow,
-            ModelProviderRequestPhases.Content,
-            "prat.phase9.content");
+            phase,
+            "prat.phase9.content",
+            ModelProviderRequestFacts.Finished,
+            "stop");
 }
