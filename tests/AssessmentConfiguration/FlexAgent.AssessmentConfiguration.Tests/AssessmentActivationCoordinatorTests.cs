@@ -187,32 +187,33 @@ public sealed class AssessmentActivationCoordinatorTests
     }
 
     [Fact]
-    public async Task Early_mfa_failure_retry_returns_the_stored_attempt()
+    public async Task Early_mfa_failure_retry_revalidates_after_strength_is_restored()
     {
         var harness = await CreateReadyHarnessAsync();
-        harness = harness with { Actor = CreateActor(mfa: false) };
-        var first = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
-        var storedFirst = await harness.Attempts.FindAsync(
-            harness.Draft.OrganizationId,
-            harness.Draft.ActivityId,
-            harness.Cohort.CohortId,
-            "idem-1",
-            harness.UnitOfWork.Transaction,
+        var denied = await harness.Coordinator.ActivateAsync(
+            harness.Command() with { Actor = CreateActor(mfa: false) },
             TestContext.Current.CancellationToken);
+        var retried = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
 
-        var second = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
-        var storedSecond = await harness.Attempts.FindAsync(
-            harness.Draft.OrganizationId,
-            harness.Draft.ActivityId,
-            harness.Cohort.CohortId,
-            "idem-1",
-            harness.UnitOfWork.Transaction,
-            TestContext.Current.CancellationToken);
+        Assert.Equal(HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength, denied.OutcomeCode);
+        Assert.True(retried.Succeeded, retried.OutcomeCode);
+        Assert.Equal(2, harness.Attempts.Items.Count);
+        Assert.Contains(harness.Attempts.Items, item => item.OutcomeCode == HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength);
+        Assert.Contains(harness.Attempts.Items, item => item.OutcomeCode == "assessment.activated");
+    }
 
-        Assert.Equal(HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength, first.OutcomeCode);
-        Assert.Equal(first.OutcomeCode, second.OutcomeCode);
-        Assert.NotNull(storedFirst);
-        Assert.Equal(storedFirst!.AttemptId, storedSecond!.AttemptId);
+    [Fact]
+    public async Task Guessed_cohort_denies_without_persisting_an_attempt()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        var guessed = harness.Command() with { CohortId = Guid.CreateVersion7() };
+        guessed = guessed with { TrustedCommandDigest = harness.CommandDigest.Compute(guessed) };
+
+        var outcome = await harness.Coordinator.ActivateAsync(guessed, TestContext.Current.CancellationToken);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.Denied, outcome.OutcomeCode);
+        Assert.DoesNotContain(harness.Attempts.Items, item => item.CohortId == guessed.CohortId);
     }
 
     [Fact]
@@ -292,7 +293,8 @@ public sealed class AssessmentActivationCoordinatorTests
             AssessmentFixtures.Ref(7),
             [AssessmentFixtures.Ref(8)],
             AssessmentFixtures.Ref(10),
-            AssessmentFixtures.Ref(11)),
+            AssessmentFixtures.Ref(11),
+            DeploymentEnvironments.Development),
             TestContext.Current.CancellationToken);
         var cohort = store.Cohorts.Single();
         var commandDigest = new AssessmentCommandDigest();
@@ -367,13 +369,33 @@ internal sealed class DelayedFindAttemptStore(
         CancellationToken cancellationToken) =>
         inner.AcquireIdempotencyLockAsync(organizationId, activityId, cohortId, idempotencyKey, transaction, cancellationToken);
 
-    public async Task<AssessmentActivationAttempt?> FindAsync(
+    public Task<AssessmentActivationAttempt?> FindSuccessfulAsync(
         Guid organizationId,
         Guid activityId,
         Guid cohortId,
         string idempotencyKey,
         IAssessmentActivationTransaction transaction,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) =>
+        FindCoreAsync(
+            () => inner.FindSuccessfulAsync(organizationId, activityId, cohortId, idempotencyKey, transaction, cancellationToken));
+
+    public Task InsertAsync(
+        AssessmentActivationAttempt attempt,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken) =>
+        inner.InsertAsync(attempt, transaction, cancellationToken);
+
+    public Task<AssessmentActivationAttempt?> FindAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        string idempotencyKey,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken) =>
+        FindCoreAsync(
+            () => inner.FindAsync(organizationId, activityId, cohortId, idempotencyKey, transaction, cancellationToken));
+
+    private async Task<AssessmentActivationAttempt?> FindCoreAsync(Func<Task<AssessmentActivationAttempt?>> find)
     {
         var count = Interlocked.Increment(ref _findCount);
         if (count <= firstSkipCount)
@@ -381,12 +403,6 @@ internal sealed class DelayedFindAttemptStore(
             return null;
         }
 
-        return await inner.FindAsync(organizationId, activityId, cohortId, idempotencyKey, transaction, cancellationToken);
+        return await find();
     }
-
-    public Task InsertAsync(
-        AssessmentActivationAttempt attempt,
-        IAssessmentActivationTransaction transaction,
-        CancellationToken cancellationToken) =>
-        inner.InsertAsync(attempt, transaction, cancellationToken);
 }

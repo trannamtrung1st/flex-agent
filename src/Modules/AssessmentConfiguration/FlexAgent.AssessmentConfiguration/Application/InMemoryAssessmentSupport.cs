@@ -172,13 +172,15 @@ public sealed class InMemoryAssessmentAuthorizationPort(bool permit = true) : IA
 {
     public bool Permit { get; set; } = permit;
 
+    public HashSet<string> DeniedActions { get; } = [];
+
     public Task<AuthorizationDecision> AuthorizeAdmissionAsync(
         AssessmentActorContext actor,
         string action,
         Guid resourceId,
         string resourceType,
         CancellationToken cancellationToken) =>
-        Task.FromResult(Permit
+        Task.FromResult(Permit && !DeniedActions.Contains(action)
             ? AuthorizationDecision.Permit(1)
             : AuthorizationDecision.Deny(AuthorizationReasonCodes.DeniedNoGrant));
 
@@ -241,7 +243,9 @@ public sealed class InMemoryAssessmentUnitOfWork : IAssessmentActivationUnitOfWo
 
 public sealed class InMemoryAssessmentAttemptStore : IAssessmentActivationAttemptStore
 {
-    private readonly Dictionary<(Guid OrganizationId, Guid ActivityId, Guid CohortId, string Key), AssessmentActivationAttempt> _attempts = new();
+    private readonly List<AssessmentActivationAttempt> _attempts = [];
+
+    public IReadOnlyList<AssessmentActivationAttempt> Items => _attempts;
 
     public Task AcquireIdempotencyLockAsync(
         Guid organizationId,
@@ -261,12 +265,18 @@ public sealed class InMemoryAssessmentAttemptStore : IAssessmentActivationAttemp
         Guid cohortId,
         string idempotencyKey,
         IAssessmentActivationTransaction transaction,
-        CancellationToken cancellationToken)
-    {
-        _ = transaction;
-        _attempts.TryGetValue((organizationId, activityId, cohortId, idempotencyKey), out var attempt);
-        return Task.FromResult(attempt);
-    }
+        CancellationToken cancellationToken) =>
+        Task.FromResult(Matching(organizationId, activityId, cohortId, idempotencyKey).LastOrDefault());
+
+    public Task<AssessmentActivationAttempt?> FindSuccessfulAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        string idempotencyKey,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(Matching(organizationId, activityId, cohortId, idempotencyKey)
+            .LastOrDefault(attempt => string.Equals(attempt.OutcomeCode, "assessment.activated", StringComparison.Ordinal)));
 
     public Task InsertAsync(
         AssessmentActivationAttempt attempt,
@@ -274,14 +284,27 @@ public sealed class InMemoryAssessmentAttemptStore : IAssessmentActivationAttemp
         CancellationToken cancellationToken)
     {
         _ = transaction;
-        var key = (attempt.OrganizationId, attempt.ActivityId, attempt.CohortId, attempt.IdempotencyKey);
-        if (!_attempts.TryAdd(key, attempt))
+        if (string.Equals(attempt.OutcomeCode, "assessment.activated", StringComparison.Ordinal)
+            && Matching(attempt.OrganizationId, attempt.ActivityId, attempt.CohortId, attempt.IdempotencyKey)
+                .Any(item => string.Equals(item.OutcomeCode, "assessment.activated", StringComparison.Ordinal)))
         {
             throw new InvalidOperationException("Assessment activation attempt key exists.");
         }
 
+        _attempts.Add(attempt);
         return Task.CompletedTask;
     }
+
+    private IEnumerable<AssessmentActivationAttempt> Matching(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        string idempotencyKey) =>
+        _attempts.Where(attempt =>
+            attempt.OrganizationId == organizationId
+            && attempt.ActivityId == activityId
+            && attempt.CohortId == cohortId
+            && string.Equals(attempt.IdempotencyKey, idempotencyKey, StringComparison.Ordinal));
 }
 
 public sealed class EmptyAssessmentRelationshipResolver : IAssessmentRelationshipResolver

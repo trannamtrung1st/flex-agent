@@ -330,7 +330,8 @@ public static class AssessmentEndpointExtensions
                 model,
                 knowledge,
                 capability,
-                review),
+                review,
+                AssessmentHostEnvironment.FromAspNetCore(hostEnvironment.EnvironmentName)),
             context.RequestAborted);
 
         AssessmentCohort? cohort = null;
@@ -414,7 +415,8 @@ public static class AssessmentEndpointExtensions
         HumanAuthenticationHostOptions options,
         IAntiforgery antiforgery,
         IAssessmentDraftHandler drafts,
-        IAssessmentDraftStore store)
+        IAssessmentDraftStore store,
+        IHostEnvironment hostEnvironment)
     {
         if (!await ValidateMutationAsync(context, antiforgery))
         {
@@ -443,7 +445,8 @@ public static class AssessmentEndpointExtensions
                 actor,
                 activityId,
                 request.ExpectedRevisionNumber,
-                current.Content with { Title = request.Title }),
+                current.Content with { Title = request.Title },
+                AssessmentHostEnvironment.FromAspNetCore(hostEnvironment.EnvironmentName)),
             context.RequestAborted);
         context.Response.StatusCode = saved.Succeeded ? StatusCodes.Status200OK : StatusCodes.Status409Conflict;
         await context.Response.WriteAsJsonAsync(new

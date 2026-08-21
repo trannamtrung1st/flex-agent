@@ -25,13 +25,15 @@ public sealed record CreateAssessmentDraftCommand(
     ExactSourceRef ModelDeployment,
     IReadOnlyList<ExactSourceRef> Knowledge,
     ExactSourceRef CapabilityProfile,
-    ExactSourceRef ReviewRelease);
+    ExactSourceRef ReviewRelease,
+    string Environment);
 
 public sealed record SaveAssessmentDraftCommand(
     AssessmentActorContext Actor,
     Guid ActivityId,
     long ExpectedRevisionNumber,
-    AssessmentDraftContent Content);
+    AssessmentDraftContent Content,
+    string Environment);
 
 public sealed record CheckReadinessQuery(
     AssessmentActorContext Actor,
@@ -90,7 +92,9 @@ public sealed record AssessmentActivationAttempt(
     string? BaselineDigest,
     string? CohortState,
     Guid ActorId,
-    Guid CorrelationId);
+    Guid CorrelationId,
+    string ActorType,
+    string SourceChannel);
 
 public interface IAssessmentActivationAttemptStore
 {
@@ -103,6 +107,14 @@ public interface IAssessmentActivationAttemptStore
         CancellationToken cancellationToken);
 
     Task<AssessmentActivationAttempt?> FindAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        string idempotencyKey,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken);
+
+    Task<AssessmentActivationAttempt?> FindSuccessfulAsync(
         Guid organizationId,
         Guid activityId,
         Guid cohortId,

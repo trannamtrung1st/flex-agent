@@ -51,16 +51,29 @@ public sealed class AssessmentActivationCoordinator(
                 transaction,
                 cancellationToken);
 
-            var existingAttempt = await attempts.FindAsync(
+            var existingSuccess = await attempts.FindSuccessfulAsync(
                 command.Actor.Organization.OrganizationId,
                 command.ActivityId,
                 command.CohortId,
                 command.IdempotencyKey,
                 transaction,
                 cancellationToken);
-            if (existingAttempt is not null)
+            if (existingSuccess is not null)
             {
-                return ExistingOrConflict(existingAttempt, expectedDigest, command);
+                return ExistingOrConflict(existingSuccess, expectedDigest, command);
+            }
+
+            var latest = await attempts.FindAsync(
+                command.Actor.Organization.OrganizationId,
+                command.ActivityId,
+                command.CohortId,
+                command.IdempotencyKey,
+                transaction,
+                cancellationToken);
+            if (latest is not null
+                && !string.Equals(latest.CommandDigest, expectedDigest, StringComparison.Ordinal))
+            {
+                return Fail(AssessmentFailureCodes.IdempotencyConflict, command);
             }
 
             var commitAuth = await authorization.ReauthorizeAsync(
@@ -97,16 +110,16 @@ public sealed class AssessmentActivationCoordinator(
                     cancellationToken);
             }
 
-            existingAttempt = await attempts.FindAsync(
+            existingSuccess = await attempts.FindSuccessfulAsync(
                 command.Actor.Organization.OrganizationId,
                 command.ActivityId,
                 command.CohortId,
                 command.IdempotencyKey,
                 transaction,
                 cancellationToken);
-            if (existingAttempt is not null)
+            if (existingSuccess is not null)
             {
-                return ExistingOrConflict(existingAttempt, expectedDigest, command);
+                return ExistingOrConflict(existingSuccess, expectedDigest, command);
             }
 
             if (draft.RevisionId != command.ExpectedRevisionId
@@ -255,7 +268,7 @@ public sealed class AssessmentActivationCoordinator(
                 transaction,
                 cancellationToken);
 
-            var attempt = await attempts.FindAsync(
+            var attempt = await attempts.FindSuccessfulAsync(
                 query.Actor.Organization.OrganizationId,
                 query.ActivityId,
                 query.CohortId,
@@ -273,13 +286,20 @@ public sealed class AssessmentActivationCoordinator(
                 query.CohortId,
                 transaction,
                 cancellationToken);
-            attempt = await attempts.FindAsync(
+            attempt = await attempts.FindSuccessfulAsync(
                 query.Actor.Organization.OrganizationId,
                 query.ActivityId,
                 query.CohortId,
                 query.IdempotencyKey,
                 transaction,
-                cancellationToken);
+                cancellationToken)
+                ?? await attempts.FindAsync(
+                    query.Actor.Organization.OrganizationId,
+                    query.ActivityId,
+                    query.CohortId,
+                    query.IdempotencyKey,
+                    transaction,
+                    cancellationToken);
             if (attempt is not null)
             {
                 return FromAttempt(attempt);
@@ -324,16 +344,29 @@ public sealed class AssessmentActivationCoordinator(
             transaction,
             cancellationToken);
 
-        var existing = await attempts.FindAsync(
+        var existingSuccess = await attempts.FindSuccessfulAsync(
             command.Actor.Organization.OrganizationId,
             command.ActivityId,
             command.CohortId,
             command.IdempotencyKey,
             transaction,
             cancellationToken);
-        if (existing is not null)
+        if (existingSuccess is not null)
         {
-            return ExistingOrConflict(existing, commandDigestValue, command);
+            return ExistingOrConflict(existingSuccess, commandDigestValue, command);
+        }
+
+        var latest = await attempts.FindAsync(
+            command.Actor.Organization.OrganizationId,
+            command.ActivityId,
+            command.CohortId,
+            command.IdempotencyKey,
+            transaction,
+            cancellationToken);
+        if (latest is not null
+            && !string.Equals(latest.CommandDigest, commandDigestValue, StringComparison.Ordinal))
+        {
+            return Fail(AssessmentFailureCodes.IdempotencyConflict, command);
         }
 
         var draft = await store.GetDraftAsync(
@@ -352,37 +385,19 @@ public sealed class AssessmentActivationCoordinator(
         ActivityDraft? draft,
         CancellationToken cancellationToken)
     {
-        var existing = await attempts.FindAsync(
+        var cohort = await store.GetCohortAsync(
             command.Actor.Organization.OrganizationId,
             command.ActivityId,
             command.CohortId,
-            command.IdempotencyKey,
             transaction,
             cancellationToken);
-        if (existing is not null)
+        if (cohort is null)
         {
-            return ExistingOrConflict(existing, commandDigestValue, command);
+            return Fail(code, command);
         }
 
         var attempt = CreateAttempt(command, commandDigestValue, code, null, null, CohortStates.Draft, draft);
-        try
-        {
-            await attempts.InsertAsync(attempt, transaction, cancellationToken);
-        }
-        catch (InvalidOperationException)
-        {
-            existing = await attempts.FindAsync(
-                command.Actor.Organization.OrganizationId,
-                command.ActivityId,
-                command.CohortId,
-                command.IdempotencyKey,
-                transaction,
-                cancellationToken);
-            return existing is null
-                ? Fail(code, command)
-                : ExistingOrConflict(existing, commandDigestValue, command);
-        }
-
+        await attempts.InsertAsync(attempt, transaction, cancellationToken);
         return FromAttempt(attempt);
     }
 
@@ -410,7 +425,9 @@ public sealed class AssessmentActivationCoordinator(
             baselineDigest,
             cohortState,
             command.Actor.Actor.ActorId,
-            command.Actor.CorrelationId);
+            command.Actor.CorrelationId,
+            command.Actor.Actor.ActorType,
+            command.Actor.SourceChannel);
 
     private static ActivationOutcome ExistingOrConflict(
         AssessmentActivationAttempt existing,

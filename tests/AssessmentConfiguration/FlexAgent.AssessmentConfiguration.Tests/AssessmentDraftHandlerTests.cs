@@ -40,7 +40,8 @@ public sealed class AssessmentDraftHandlerTests
                 AssessmentDevelopmentSources.ModelDeployment,
                 [AssessmentDevelopmentSources.Knowledge],
                 AssessmentDevelopmentSources.Capability,
-                AssessmentDevelopmentSources.ReviewRelease),
+                AssessmentDevelopmentSources.ReviewRelease,
+                DeploymentEnvironments.Development),
             TestContext.Current.CancellationToken);
 
         Assert.True(created.Succeeded);
@@ -92,14 +93,15 @@ public sealed class AssessmentDraftHandlerTests
                 AssessmentDevelopmentSources.ModelDeployment,
                 [AssessmentDevelopmentSources.Knowledge],
                 AssessmentDevelopmentSources.Capability,
-                AssessmentDevelopmentSources.ReviewRelease),
+                AssessmentDevelopmentSources.ReviewRelease,
+                DeploymentEnvironments.Development),
             TestContext.Current.CancellationToken);
         Assert.True(created.Succeeded);
         var firstSave = await handler.SaveAsync(
-            new SaveAssessmentDraftCommand(actor, created.Value!.ActivityId, 1, created.Value.Content with { Title = "First" }),
+            new SaveAssessmentDraftCommand(actor, created.Value!.ActivityId, 1, created.Value.Content with { Title = "First" }, DeploymentEnvironments.Development),
             TestContext.Current.CancellationToken);
         var stale = await handler.SaveAsync(
-            new SaveAssessmentDraftCommand(actor, created.Value.ActivityId, 1, created.Value.Content with { Title = "Second" }),
+            new SaveAssessmentDraftCommand(actor, created.Value.ActivityId, 1, created.Value.Content with { Title = "Second" }, DeploymentEnvironments.Development),
             TestContext.Current.CancellationToken);
 
         Assert.True(firstSave.Succeeded);
@@ -143,7 +145,8 @@ public sealed class AssessmentDraftHandlerTests
                 AssessmentDevelopmentSources.ModelDeployment,
                 [AssessmentDevelopmentSources.Knowledge],
                 AssessmentDevelopmentSources.Capability,
-                AssessmentDevelopmentSources.ReviewRelease),
+                AssessmentDevelopmentSources.ReviewRelease,
+                DeploymentEnvironments.Development),
             TestContext.Current.CancellationToken);
         var listed = await store.ListDraftsAsync(AssessmentFixtures.OrganizationId, TestContext.Current.CancellationToken);
 
@@ -151,6 +154,57 @@ public sealed class AssessmentDraftHandlerTests
         Assert.Equal(AssessmentFailureCodes.MissingSource, created.OutcomeCode);
         Assert.Empty(listed);
     }
+
+    [Fact]
+    public async Task Create_requires_select_sources_and_rejects_wrong_kind_or_production_ineligible_sources()
+    {
+        var store = new InMemoryAssessmentDraftStore();
+        var catalog = new InMemoryAssessmentSourceCatalog();
+        catalog.EnsureOrganization(AssessmentFixtures.OrganizationId);
+        var authorization = new InMemoryAssessmentAuthorizationPort();
+        var handler = new AssessmentDraftHandler(authorization, catalog, store, new InMemoryAssessmentUnitOfWork());
+        var actor = new AssessmentActorContext(
+            new TrustedActor(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "human.interactive"),
+            new OrganizationScope(AssessmentFixtures.OrganizationId),
+            AuthenticationStrengthEvaluator.AdministratorRelationship,
+            new AuthenticationStrength("mfa", ["mfa"]),
+            Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1"),
+            "https");
+
+        authorization.DeniedActions.Add(AssessmentAuthorizationActions.SelectSources);
+        var deniedSelect = await handler.CreateAsync(ValidCreate(actor), TestContext.Current.CancellationToken);
+        authorization.DeniedActions.Clear();
+
+        var wrongKind = await handler.CreateAsync(
+            ValidCreate(actor) with { Agent = AssessmentDevelopmentSources.Harness },
+            TestContext.Current.CancellationToken);
+        var production = await handler.CreateAsync(
+            ValidCreate(actor) with { Environment = DeploymentEnvironments.Production },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(AssessmentFailureCodes.Denied, deniedSelect.OutcomeCode);
+        Assert.Equal(AssessmentFailureCodes.Incompatible, wrongKind.OutcomeCode);
+        Assert.Equal(AssessmentFailureCodes.MissingSource, production.OutcomeCode);
+        Assert.Empty(await store.ListDraftsAsync(AssessmentFixtures.OrganizationId, TestContext.Current.CancellationToken));
+    }
+
+    private static CreateAssessmentDraftCommand ValidCreate(AssessmentActorContext actor) =>
+        new(
+            actor,
+            "P0 Assessment",
+            AssessmentFixtures.ValidTask(),
+            AssessmentFixtures.ValidTiming(),
+            AssessmentDevelopmentSources.OrganizationPolicy,
+            AssessmentDevelopmentSources.Agent,
+            AssessmentDevelopmentSources.Harness,
+            AssessmentDevelopmentSources.Workflow,
+            AssessmentDevelopmentSources.AdaptiveFollowUp,
+            AssessmentDevelopmentSources.Rubric,
+            AssessmentDevelopmentSources.ModelDeployment,
+            [AssessmentDevelopmentSources.Knowledge],
+            AssessmentDevelopmentSources.Capability,
+            AssessmentDevelopmentSources.ReviewRelease,
+            DeploymentEnvironments.Development);
 
     [Fact]
     public async Task List_and_get_require_mfa_and_read_permission()
@@ -185,7 +239,8 @@ public sealed class AssessmentDraftHandlerTests
                 AssessmentDevelopmentSources.ModelDeployment,
                 [AssessmentDevelopmentSources.Knowledge],
                 AssessmentDevelopmentSources.Capability,
-                AssessmentDevelopmentSources.ReviewRelease),
+                AssessmentDevelopmentSources.ReviewRelease,
+                DeploymentEnvironments.Development),
             TestContext.Current.CancellationToken);
         Assert.True(created.Succeeded);
 

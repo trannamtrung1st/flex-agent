@@ -111,6 +111,30 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
         Assert.Equal(AssessmentFailureCodes.StaleRevision, attemptOutcome);
         Assert.Equal(harness.Actor.Actor.ActorId, actorId);
         Assert.Equal(CohortStates.Draft, activated);
+        var actorType = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT actor_type
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND action = @Action
+              AND outcome = 'deny'
+            ORDER BY sequence_number DESC
+            LIMIT 1
+            """,
+            new { harness.OrganizationId, Action = AssessmentAuthorizationActions.ActivateCohort });
+        var sourceChannel = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT source_channel
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND action = @Action
+              AND outcome = 'deny'
+            ORDER BY sequence_number DESC
+            LIMIT 1
+            """,
+            new { harness.OrganizationId, Action = AssessmentAuthorizationActions.ActivateCohort });
+        Assert.Equal(harness.Actor.Actor.ActorType, actorType);
+        Assert.Equal(harness.Actor.SourceChannel, sourceChannel);
         var requestedNumber = await connection.ExecuteScalarAsync<long>(
             """
             SELECT requested_revision_number
@@ -130,15 +154,13 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
     }
 
     [Fact]
-    public async Task Early_mfa_failure_retry_returns_the_stored_attempt()
+    public async Task Early_mfa_failure_retry_revalidates_and_can_succeed()
     {
         var harness = await SeedReadyHarnessAsync();
-        harness = harness with
-        {
-            Actor = harness.Actor with { Strength = new AuthenticationStrength(null, []) },
-        };
-        var first = await harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
-        var retry = await harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
+        var denied = await harness.Coordinator.ActivateAsync(
+            harness.Command() with { Actor = harness.Actor with { Strength = new AuthenticationStrength(null, []) } },
+            CancellationToken);
+        var retried = await harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
 
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
         var attemptCount = await connection.ExecuteScalarAsync<long>(
@@ -149,9 +171,31 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
             """,
             new { harness.OrganizationId, harness.CohortId });
 
-        Assert.Equal(HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength, first.OutcomeCode);
-        Assert.Equal(first.OutcomeCode, retry.OutcomeCode);
-        Assert.Equal(1, attemptCount);
+        Assert.Equal(HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength, denied.OutcomeCode);
+        Assert.True(retried.Succeeded, retried.OutcomeCode);
+        Assert.Equal(2, attemptCount);
+    }
+
+    [Fact]
+    public async Task Guessed_cohort_denies_without_aborting_the_transaction()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var guessed = harness.Command() with { CohortId = Guid.CreateVersion7() };
+        guessed = guessed with { TrustedCommandDigest = harness.Digest.Compute(guessed) };
+
+        var outcome = await harness.Coordinator.ActivateAsync(guessed, CancellationToken);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var attemptCount = await connection.ExecuteScalarAsync<long>(
+            """
+            SELECT COUNT(*)
+            FROM assessment_activation_attempts
+            WHERE organization_id = @OrganizationId AND cohort_id = @CohortId
+            """,
+            new { harness.OrganizationId, CohortId = guessed.CohortId });
+
+        Assert.Equal(AssessmentFailureCodes.Denied, outcome.OutcomeCode);
+        Assert.Equal(0, attemptCount);
     }
 
     [Fact]
@@ -258,6 +302,10 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
         await Fixture.GrantOrganizationActionAsync(
             seeded.OrganizationId,
             seeded.ActorId,
+            AssessmentAuthorizationActions.SelectSources);
+        await Fixture.GrantOrganizationActionAsync(
+            seeded.OrganizationId,
+            seeded.ActorId,
             AssessmentAuthorizationActions.ReadActivity);
         await Fixture.GrantOrganizationActionAsync(
             seeded.OrganizationId,
@@ -310,7 +358,8 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
                 AssessmentDevelopmentSources.ModelDeployment,
                 [AssessmentDevelopmentSources.Knowledge],
                 AssessmentDevelopmentSources.Capability,
-                AssessmentDevelopmentSources.ReviewRelease),
+                AssessmentDevelopmentSources.ReviewRelease,
+                DeploymentEnvironments.Development),
             CancellationToken);
         Assert.True(created.Succeeded, created.OutcomeCode);
         var cohort = await store.FindCohortForActivityAsync(seeded.OrganizationId, created.Value!.ActivityId, CancellationToken);

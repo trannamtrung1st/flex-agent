@@ -384,11 +384,30 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                 cancellationToken: cancellationToken));
     }
 
-    public async Task<AssessmentActivationAttempt?> FindAsync(
+    public Task<AssessmentActivationAttempt?> FindAsync(
         Guid organizationId,
         Guid activityId,
         Guid cohortId,
         string idempotencyKey,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken) =>
+        FindAsync(organizationId, activityId, cohortId, idempotencyKey, successfulOnly: false, transaction, cancellationToken);
+
+    public Task<AssessmentActivationAttempt?> FindSuccessfulAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        string idempotencyKey,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken) =>
+        FindAsync(organizationId, activityId, cohortId, idempotencyKey, successfulOnly: true, transaction, cancellationToken);
+
+    private async Task<AssessmentActivationAttempt?> FindAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        string idempotencyKey,
+        bool successfulOnly,
         IAssessmentActivationTransaction transaction,
         CancellationToken cancellationToken)
     {
@@ -418,6 +437,9 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                   AND a.activity_id = @ActivityId
                   AND a.cohort_id = @CohortId
                   AND a.idempotency_key = @IdempotencyKey
+                  AND (@SuccessfulOnly = FALSE OR a.outcome_code = 'assessment.activated')
+                ORDER BY a.attempt_id DESC
+                LIMIT 1
                 FOR UPDATE OF a
                 """,
                 new
@@ -426,6 +448,7 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                     ActivityId = activityId,
                     CohortId = cohortId,
                     IdempotencyKey = idempotencyKey,
+                    SuccessfulOnly = successfulOnly,
                 },
                 npgsql,
                 cancellationToken: cancellationToken));
@@ -447,7 +470,9 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                 row.ContentDigest,
                 row.State,
                 row.ActorId,
-                row.CorrelationId);
+                row.CorrelationId,
+                string.Empty,
+                string.Empty);
     }
 
     public async Task InsertAsync(
@@ -460,50 +485,39 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
             throw new InvalidOperationException("Assessment activation attempts require the PostgreSQL activation transaction.");
         }
 
-        try
-        {
-            await npgsql.Connection!.ExecuteAsync(
-                new CommandDefinition(
-                    """
-                    INSERT INTO assessment_activation_attempts (
-                        organization_id, activity_id, cohort_id, attempt_id, requested_revision_id,
-                        requested_revision_number, authoritative_revision_id, authoritative_revision_number,
-                        idempotency_key, command_digest, outcome_code, baseline_id, created_at,
-                        actor_id, correlation_id)
-                    VALUES (
-                        @OrganizationId, @ActivityId, @CohortId, @AttemptId, @RequestedRevisionId,
-                        @RequestedRevisionNumber, @AuthoritativeRevisionId, @AuthoritativeRevisionNumber,
-                        @IdempotencyKey, @CommandDigest, @OutcomeCode, @BaselineId, CLOCK_TIMESTAMP(),
-                        @ActorId, @CorrelationId)
-                    """,
-                    new
-                    {
-                        attempt.OrganizationId,
-                        attempt.ActivityId,
-                        attempt.CohortId,
-                        attempt.AttemptId,
-                        attempt.RequestedRevisionId,
-                        attempt.RequestedRevisionNumber,
-                        attempt.AuthoritativeRevisionId,
-                        attempt.AuthoritativeRevisionNumber,
-                        attempt.IdempotencyKey,
-                        attempt.CommandDigest,
-                        attempt.OutcomeCode,
-                        attempt.BaselineId,
-                        attempt.ActorId,
-                        attempt.CorrelationId,
-                    },
-                    npgsql,
-                    cancellationToken: cancellationToken));
-        }
-        catch (PostgresException exception) when (exception.SqlState is "23503")
-        {
-            throw new InvalidOperationException("Assessment activation attempt parent is missing.", exception);
-        }
-        catch (PostgresException exception) when (exception.SqlState is "23505")
-        {
-            throw new InvalidOperationException("Assessment activation attempt key exists.", exception);
-        }
+        await npgsql.Connection!.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO assessment_activation_attempts (
+                    organization_id, activity_id, cohort_id, attempt_id, requested_revision_id,
+                    requested_revision_number, authoritative_revision_id, authoritative_revision_number,
+                    idempotency_key, command_digest, outcome_code, baseline_id, created_at,
+                    actor_id, correlation_id)
+                VALUES (
+                    @OrganizationId, @ActivityId, @CohortId, @AttemptId, @RequestedRevisionId,
+                    @RequestedRevisionNumber, @AuthoritativeRevisionId, @AuthoritativeRevisionNumber,
+                    @IdempotencyKey, @CommandDigest, @OutcomeCode, @BaselineId, CLOCK_TIMESTAMP(),
+                    @ActorId, @CorrelationId)
+                """,
+                new
+                {
+                    attempt.OrganizationId,
+                    attempt.ActivityId,
+                    attempt.CohortId,
+                    attempt.AttemptId,
+                    attempt.RequestedRevisionId,
+                    attempt.RequestedRevisionNumber,
+                    attempt.AuthoritativeRevisionId,
+                    attempt.AuthoritativeRevisionNumber,
+                    attempt.IdempotencyKey,
+                    attempt.CommandDigest,
+                    attempt.OutcomeCode,
+                    attempt.BaselineId,
+                    attempt.ActorId,
+                    attempt.CorrelationId,
+                },
+                npgsql,
+                cancellationToken: cancellationToken));
 
         var succeeded = string.Equals(attempt.OutcomeCode, "assessment.activated", StringComparison.Ordinal);
         await auditEventWriter.InsertAsync(
@@ -513,7 +527,7 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                 "v1",
                 DateTimeOffset.UtcNow,
                 attempt.CorrelationId,
-                "human.interactive",
+                attempt.ActorType,
                 attempt.ActorId,
                 AssessmentAuthorizationActions.ActivateCohort,
                 AssessmentResourceTypes.Cohort,
@@ -521,7 +535,7 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                 succeeded ? "permit" : "deny",
                 succeeded ? null : attempt.OutcomeCode,
                 1,
-                "https",
+                attempt.SourceChannel,
                 attempt.CommandDigest),
             npgsql,
             cancellationToken);

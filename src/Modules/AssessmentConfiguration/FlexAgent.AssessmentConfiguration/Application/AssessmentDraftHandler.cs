@@ -54,9 +54,10 @@ public sealed class AssessmentDraftHandler(
             return created;
         }
 
-        var sourceRejection = await RejectUntrustedSourcesAsync(
-            created.Value.OrganizationId,
-            CollectReferences(created.Value),
+        var sourceRejection = await ValidateSelectionsAsync(
+            command.Actor,
+            command.Environment,
+            created.Value,
             cancellationToken);
         if (sourceRejection is not null)
         {
@@ -119,9 +120,10 @@ public sealed class AssessmentDraftHandler(
                 return saved;
             }
 
-            var sourceRejection = await RejectUntrustedSourcesAsync(
-                saved.Value.OrganizationId,
-                CollectReferences(saved.Value),
+            var sourceRejection = await ValidateSelectionsAsync(
+                command.Actor,
+                command.Environment,
+                saved.Value,
                 cancellationToken);
             if (sourceRejection is not null)
             {
@@ -257,37 +259,36 @@ public sealed class AssessmentDraftHandler(
         return authorized.IsPermitted ? null : AssessmentFailureCodes.Denied;
     }
 
-    private async Task<string?> RejectUntrustedSourcesAsync(
-        Guid organizationId,
-        IReadOnlyList<ExactSourceRef> references,
+    private async Task<string?> ValidateSelectionsAsync(
+        AssessmentActorContext actor,
+        string environment,
+        ActivityDraft draft,
         CancellationToken cancellationToken)
     {
-        var loaded = await sourceCatalog.LoadExactAsync(organizationId, references, cancellationToken);
-        foreach (var reference in references)
+        var strength = AssessmentAuthenticationPolicy.Evaluate(
+            actor,
+            AssessmentAuthorizationActions.SelectSources);
+        if (strength is not null)
         {
-            var match = loaded.FirstOrDefault(source => source.Matches(reference));
-            if (match is null)
-            {
-                return AssessmentFailureCodes.MissingSource;
-            }
-
-            if (match.LifecycleState == SourceLifecycleStates.Revoked)
-            {
-                return AssessmentFailureCodes.RevokedSource;
-            }
-
-            if (match.LifecycleState == SourceLifecycleStates.MutableAlias)
-            {
-                return AssessmentFailureCodes.MutableSource;
-            }
-
-            if (match.LifecycleState != SourceLifecycleStates.Available || !match.TransactionallyRevalidatable)
-            {
-                return AssessmentFailureCodes.UnavailableSource;
-            }
+            return strength;
         }
 
-        return null;
+        var authorized = await authorization.AuthorizeAdmissionAsync(
+            actor,
+            AssessmentAuthorizationActions.SelectSources,
+            draft.ActivityId,
+            AssessmentResourceTypes.Activity,
+            cancellationToken);
+        if (!authorized.IsPermitted)
+        {
+            return AssessmentFailureCodes.Denied;
+        }
+
+        var selectable = await sourceCatalog.ListSelectableAsync(
+            actor.Organization.OrganizationId,
+            environment,
+            cancellationToken);
+        return AssessmentSourceSelection.Validate(draft, selectable);
     }
 
     internal static IReadOnlyList<ExactSourceRef> CollectReferences(ActivityDraft draft)
