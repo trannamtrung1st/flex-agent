@@ -419,11 +419,12 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
         var row = await npgsql.Connection!.QuerySingleOrDefaultAsync<AttemptRow>(
             new CommandDefinition(
                 """
-                SELECT a.organization_id, a.activity_id, a.cohort_id, a.attempt_id,
+                SELECT a.organization_id, a.activity_id, a.requested_cohort_id AS cohort_id, a.attempt_id,
                        a.requested_revision_id, a.requested_revision_number,
                        a.authoritative_revision_id, a.authoritative_revision_number,
                        a.idempotency_key, a.command_digest, a.outcome_code,
-                       a.baseline_id, bl.content_digest, c.state, a.actor_id, a.correlation_id
+                       a.baseline_id, bl.content_digest, c.state, a.actor_id, a.correlation_id,
+                       a.cohort_id AS authoritative_cohort_id, a.started_at, a.finished_at
                 FROM assessment_activation_attempts a
                 LEFT JOIN assessment_activation_baselines bl
                     ON bl.organization_id = a.organization_id
@@ -435,7 +436,7 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                    AND c.cohort_id = a.cohort_id
                 WHERE a.organization_id = @OrganizationId
                   AND a.activity_id = @ActivityId
-                  AND a.cohort_id = @CohortId
+                  AND a.requested_cohort_id = @CohortId
                   AND a.idempotency_key = @IdempotencyKey
                   AND (@SuccessfulOnly = FALSE OR a.outcome_code = 'assessment.activated')
                 ORDER BY a.attempt_id DESC
@@ -472,7 +473,10 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                 row.ActorId,
                 row.CorrelationId,
                 string.Empty,
-                string.Empty);
+                string.Empty,
+                row.AuthoritativeCohortId,
+                row.StartedAt,
+                row.FinishedAt);
     }
 
     public async Task InsertAsync(
@@ -489,21 +493,22 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
             new CommandDefinition(
                 """
                 INSERT INTO assessment_activation_attempts (
-                    organization_id, activity_id, cohort_id, attempt_id, requested_revision_id,
-                    requested_revision_number, authoritative_revision_id, authoritative_revision_number,
-                    idempotency_key, command_digest, outcome_code, baseline_id, created_at,
-                    actor_id, correlation_id)
+                    organization_id, activity_id, cohort_id, requested_cohort_id, attempt_id,
+                    requested_revision_id, requested_revision_number, authoritative_revision_id,
+                    authoritative_revision_number, idempotency_key, command_digest, outcome_code,
+                    baseline_id, created_at, actor_id, correlation_id, started_at, finished_at)
                 VALUES (
-                    @OrganizationId, @ActivityId, @CohortId, @AttemptId, @RequestedRevisionId,
-                    @RequestedRevisionNumber, @AuthoritativeRevisionId, @AuthoritativeRevisionNumber,
-                    @IdempotencyKey, @CommandDigest, @OutcomeCode, @BaselineId, CLOCK_TIMESTAMP(),
-                    @ActorId, @CorrelationId)
+                    @OrganizationId, @ActivityId, @AuthoritativeCohortId, @RequestedCohortId, @AttemptId,
+                    @RequestedRevisionId, @RequestedRevisionNumber, @AuthoritativeRevisionId,
+                    @AuthoritativeRevisionNumber, @IdempotencyKey, @CommandDigest, @OutcomeCode,
+                    @BaselineId, @FinishedAtUtc, @ActorId, @CorrelationId, @StartedAtUtc, @FinishedAtUtc)
                 """,
                 new
                 {
                     attempt.OrganizationId,
                     attempt.ActivityId,
-                    attempt.CohortId,
+                    attempt.AuthoritativeCohortId,
+                    RequestedCohortId = attempt.CohortId,
                     attempt.AttemptId,
                     attempt.RequestedRevisionId,
                     attempt.RequestedRevisionNumber,
@@ -515,6 +520,8 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                     attempt.BaselineId,
                     attempt.ActorId,
                     attempt.CorrelationId,
+                    attempt.StartedAtUtc,
+                    attempt.FinishedAtUtc,
                 },
                 npgsql,
                 cancellationToken: cancellationToken));
@@ -525,7 +532,7 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                 Guid.CreateVersion7(),
                 attempt.OrganizationId,
                 "v1",
-                DateTimeOffset.UtcNow,
+                attempt.FinishedAtUtc,
                 attempt.CorrelationId,
                 attempt.ActorType,
                 attempt.ActorId,
@@ -557,7 +564,10 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
         string? ContentDigest,
         string? State,
         Guid ActorId,
-        Guid CorrelationId);
+        Guid CorrelationId,
+        Guid? AuthoritativeCohortId,
+        DateTimeOffset StartedAt,
+        DateTimeOffset FinishedAt);
 }
 
 public sealed class PostgresAssessmentRelationshipResolver(PostgresConnectionAccessor connections)

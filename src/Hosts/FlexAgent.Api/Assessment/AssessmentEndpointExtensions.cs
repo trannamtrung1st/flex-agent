@@ -29,6 +29,7 @@ public static class AssessmentEndpointExtensions
         services.AddSingleton<IActivationBaselineDigester, ActivationBaselineDigester>();
         services.AddSingleton<IAssessmentCommandDigest, AssessmentCommandDigest>();
         services.AddSingleton<IAssessmentDraftHandler, AssessmentDraftHandler>();
+        services.AddSingleton<IAssessmentClock, SystemAssessmentClock>();
         services.AddSingleton<IAssessmentActivationCoordinator, AssessmentActivationCoordinator>();
 
         if (!string.IsNullOrWhiteSpace(connectionString))

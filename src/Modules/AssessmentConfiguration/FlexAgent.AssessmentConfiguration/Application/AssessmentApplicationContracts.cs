@@ -94,7 +94,10 @@ public sealed record AssessmentActivationAttempt(
     Guid ActorId,
     Guid CorrelationId,
     string ActorType,
-    string SourceChannel);
+    string SourceChannel,
+    Guid? AuthoritativeCohortId,
+    DateTimeOffset StartedAtUtc,
+    DateTimeOffset FinishedAtUtc);
 
 public interface IAssessmentActivationAttemptStore
 {
@@ -269,6 +272,11 @@ public interface IActivationBaselineDigester
 public interface IAssessmentClock
 {
     DateTimeOffset UtcNow { get; }
+}
+
+public sealed class SystemAssessmentClock : IAssessmentClock
+{
+    public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
 }
 
 public interface IAssessmentBaselineStore

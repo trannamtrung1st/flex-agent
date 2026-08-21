@@ -38,6 +38,24 @@ public sealed class ActivationBaselineDocumentTests
     }
 
     [Fact]
+    public void Per_attempt_duration_is_frozen_in_the_timing_domain()
+    {
+        var draft = AssessmentFixtures.CreateDraft().Value!;
+        var original = ActivationBaselineDocument.FromReadyDraft(draft, AssessmentFixtures.PermittedSources()).Value!;
+        var shortened = draft.Save(
+            draft.RevisionNumber,
+            draft.Content with { Timing = draft.Content.Timing with { PerAttemptDurationSeconds = 1800 } }).Value!;
+        var changed = ActivationBaselineDocument.FromReadyDraft(shortened, AssessmentFixtures.PermittedSources()).Value!;
+
+        var originalTiming = original.FairnessDomains.Single(domain => domain.DomainKey == AssessmentSourceCategories.Timing);
+        var changedTiming = changed.FairnessDomains.Single(domain => domain.DomainKey == AssessmentSourceCategories.Timing);
+
+        Assert.Equal("3600", originalTiming.EffectiveValue["per_attempt_duration_seconds"]);
+        Assert.Equal("1800", changedTiming.EffectiveValue["per_attempt_duration_seconds"]);
+        Assert.NotEqual(originalTiming.EffectiveValue, changedTiming.EffectiveValue);
+    }
+
+    [Fact]
     public void Activation_provenance_is_frozen_into_resolution_decisions()
     {
         var draft = AssessmentFixtures.CreateDraft().Value!;

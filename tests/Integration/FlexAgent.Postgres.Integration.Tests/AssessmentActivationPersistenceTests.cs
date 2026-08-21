@@ -190,12 +190,51 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
             """
             SELECT COUNT(*)
             FROM assessment_activation_attempts
-            WHERE organization_id = @OrganizationId AND cohort_id = @CohortId
+            WHERE organization_id = @OrganizationId AND requested_cohort_id = @CohortId
             """,
             new { harness.OrganizationId, CohortId = guessed.CohortId });
+        var boundCohort = await connection.ExecuteScalarAsync<Guid?>(
+            """
+            SELECT cohort_id
+            FROM assessment_activation_attempts
+            WHERE organization_id = @OrganizationId AND requested_cohort_id = @CohortId
+            """,
+            new { harness.OrganizationId, CohortId = guessed.CohortId });
+        var auditCount = await connection.ExecuteScalarAsync<long>(
+            """
+            SELECT COUNT(*)
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND action = @Action
+              AND resource_id = @CohortId
+              AND outcome = 'deny'
+            """,
+            new
+            {
+                harness.OrganizationId,
+                Action = AssessmentAuthorizationActions.ActivateCohort,
+                CohortId = guessed.CohortId,
+            });
 
         Assert.Equal(AssessmentFailureCodes.Denied, outcome.OutcomeCode);
-        Assert.Equal(0, attemptCount);
+        Assert.Equal(1, attemptCount);
+        Assert.Null(boundCohort);
+        Assert.Equal(1, auditCount);
+    }
+
+    [Fact]
+    public async Task Success_then_lost_mfa_does_not_replay_the_activation()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
+        var denied = await harness.Coordinator.ActivateAsync(
+            harness.Command() with { Actor = harness.Actor with { Strength = new AuthenticationStrength(null, []) } },
+            CancellationToken);
+
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength, denied.OutcomeCode);
+        Assert.Null(denied.BaselineId);
     }
 
     [Fact]

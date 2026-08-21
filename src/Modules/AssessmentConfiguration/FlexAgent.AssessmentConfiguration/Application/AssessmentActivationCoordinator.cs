@@ -10,8 +10,11 @@ public sealed class AssessmentActivationCoordinator(
     IActivationBaselineDigester digester,
     IAssessmentCommandDigest commandDigest,
     IAssessmentBaselineStore baselines,
-    IAssessmentActivationAttemptStore attempts) : IAssessmentActivationCoordinator
+    IAssessmentActivationAttemptStore attempts,
+    IAssessmentClock? clock = null) : IAssessmentActivationCoordinator
 {
+    private readonly IAssessmentClock _clock = clock ?? new SystemAssessmentClock();
+
     public async Task<ActivationOutcome> ActivateAsync(
         ActivateCohortCommand command,
         CancellationToken cancellationToken = default)
@@ -229,7 +232,10 @@ public sealed class AssessmentActivationCoordinator(
                 bound.Value.BaselineId,
                 bound.Value.BaselineDigest,
                 bound.Value.State,
-                draft);
+                draft,
+                bound.Value.CohortId,
+                occurredAt,
+                _clock.UtcNow);
             await attempts.InsertAsync(attempt, transaction, cancellationToken);
             return FromAttempt(attempt);
         }, cancellationToken);
@@ -344,31 +350,6 @@ public sealed class AssessmentActivationCoordinator(
             transaction,
             cancellationToken);
 
-        var existingSuccess = await attempts.FindSuccessfulAsync(
-            command.Actor.Organization.OrganizationId,
-            command.ActivityId,
-            command.CohortId,
-            command.IdempotencyKey,
-            transaction,
-            cancellationToken);
-        if (existingSuccess is not null)
-        {
-            return ExistingOrConflict(existingSuccess, commandDigestValue, command);
-        }
-
-        var latest = await attempts.FindAsync(
-            command.Actor.Organization.OrganizationId,
-            command.ActivityId,
-            command.CohortId,
-            command.IdempotencyKey,
-            transaction,
-            cancellationToken);
-        if (latest is not null
-            && !string.Equals(latest.CommandDigest, commandDigestValue, StringComparison.Ordinal))
-        {
-            return Fail(AssessmentFailureCodes.IdempotencyConflict, command);
-        }
-
         var draft = await store.GetDraftAsync(
             command.Actor.Organization.OrganizationId,
             command.ActivityId,
@@ -391,25 +372,36 @@ public sealed class AssessmentActivationCoordinator(
             command.CohortId,
             transaction,
             cancellationToken);
-        if (cohort is null)
-        {
-            return Fail(code, command);
-        }
-
-        var attempt = CreateAttempt(command, commandDigestValue, code, null, null, CohortStates.Draft, draft);
+        var startedAt = _clock.UtcNow;
+        var attempt = CreateAttempt(
+            command,
+            commandDigestValue,
+            code,
+            null,
+            null,
+            CohortStates.Draft,
+            draft,
+            cohort?.CohortId,
+            startedAt,
+            _clock.UtcNow);
         await attempts.InsertAsync(attempt, transaction, cancellationToken);
         return FromAttempt(attempt);
     }
 
-    private static AssessmentActivationAttempt CreateAttempt(
+    private AssessmentActivationAttempt CreateAttempt(
         ActivateCohortCommand command,
         string digest,
         string outcomeCode,
         Guid? baselineId,
         string? baselineDigest,
         string cohortState,
-        ActivityDraft? draft) =>
-        new(
+        ActivityDraft? draft,
+        Guid? authoritativeCohortId = null,
+        DateTimeOffset? startedAtUtc = null,
+        DateTimeOffset? finishedAtUtc = null)
+    {
+        var started = startedAtUtc ?? _clock.UtcNow;
+        return new(
             command.Actor.Organization.OrganizationId,
             command.ActivityId,
             command.CohortId,
@@ -427,7 +419,11 @@ public sealed class AssessmentActivationCoordinator(
             command.Actor.Actor.ActorId,
             command.Actor.CorrelationId,
             command.Actor.Actor.ActorType,
-            command.Actor.SourceChannel);
+            command.Actor.SourceChannel,
+            authoritativeCohortId,
+            started,
+            finishedAtUtc ?? _clock.UtcNow);
+    }
 
     private static ActivationOutcome ExistingOrConflict(
         AssessmentActivationAttempt existing,

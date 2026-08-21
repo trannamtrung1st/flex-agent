@@ -141,6 +141,8 @@ public sealed record ActivationBaselineDocument(
                 ["deadline_at"] = content.Timing.DeadlineUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'"),
                 ["time_zone_id"] = content.Timing.TimeZoneId,
                 ["attempt_limit"] = content.Timing.AttemptLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["per_attempt_duration_seconds"] = content.Timing.PerAttemptDurationSeconds?.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    ?? "unbounded",
             },
             FairnessClassifications.CohortSupplied));
 

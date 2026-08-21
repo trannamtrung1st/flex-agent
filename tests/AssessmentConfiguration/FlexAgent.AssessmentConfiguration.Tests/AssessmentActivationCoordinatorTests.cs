@@ -203,7 +203,7 @@ public sealed class AssessmentActivationCoordinatorTests
     }
 
     [Fact]
-    public async Task Guessed_cohort_denies_without_persisting_an_attempt()
+    public async Task Guessed_cohort_persists_an_unbound_failure_attempt()
     {
         var harness = await CreateReadyHarnessAsync();
         var guessed = harness.Command() with { CohortId = Guid.CreateVersion7() };
@@ -213,7 +213,24 @@ public sealed class AssessmentActivationCoordinatorTests
 
         Assert.False(outcome.Succeeded);
         Assert.Equal(AssessmentFailureCodes.Denied, outcome.OutcomeCode);
-        Assert.DoesNotContain(harness.Attempts.Items, item => item.CohortId == guessed.CohortId);
+        Assert.Contains(harness.Attempts.Items, item => item.CohortId == guessed.CohortId && item.AuthoritativeCohortId is null);
+        Assert.True(harness.Attempts.Items.Single(item => item.CohortId == guessed.CohortId).FinishedAtUtc
+            >= harness.Attempts.Items.Single(item => item.CohortId == guessed.CohortId).StartedAtUtc);
+    }
+
+    [Fact]
+    public async Task Success_then_lost_mfa_does_not_replay_the_activation()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+        var denied = await harness.Coordinator.ActivateAsync(
+            harness.Command() with { Actor = CreateActor(mfa: false) },
+            TestContext.Current.CancellationToken);
+
+        Assert.True(first.Succeeded);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength, denied.OutcomeCode);
+        Assert.Null(denied.BaselineId);
     }
 
     [Fact]
