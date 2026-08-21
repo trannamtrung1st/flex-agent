@@ -79,8 +79,10 @@ public sealed record AssessmentActivationAttempt(
     Guid ActivityId,
     Guid CohortId,
     Guid AttemptId,
-    Guid ExpectedRevisionId,
-    long ExpectedRevisionNumber,
+    Guid RequestedRevisionId,
+    long RequestedRevisionNumber,
+    Guid? AuthoritativeRevisionId,
+    long? AuthoritativeRevisionNumber,
     string IdempotencyKey,
     string CommandDigest,
     string OutcomeCode,
@@ -144,6 +146,46 @@ public interface IAssessmentDraftHandler
         AssessmentActorContext actor,
         string environment,
         CancellationToken cancellationToken = default);
+
+    Task<AssessmentDecision<IReadOnlyList<ActivityDraft>>> ListActivitiesAsync(
+        AssessmentActorContext actor,
+        CancellationToken cancellationToken = default);
+
+    Task<AssessmentDecision<ActivityDraft>> GetActivityAsync(
+        AssessmentActorContext actor,
+        Guid activityId,
+        CancellationToken cancellationToken = default);
+}
+
+public static class AssessmentDraftProjection
+{
+    public static IReadOnlyList<string> PermittedActions(
+        IReadOnlyList<string> grantedActions,
+        bool hasActivatedCohort)
+    {
+        if (hasActivatedCohort)
+        {
+            return [];
+        }
+
+        var actions = new List<string>();
+        if (grantedActions.Contains(AssessmentAuthorizationActions.SaveActivity, StringComparer.Ordinal))
+        {
+            actions.Add("save_draft");
+        }
+
+        if (grantedActions.Contains(AssessmentAuthorizationActions.CheckReadiness, StringComparer.Ordinal))
+        {
+            actions.Add("check_readiness");
+        }
+
+        if (grantedActions.Contains(AssessmentAuthorizationActions.ActivateCohort, StringComparer.Ordinal))
+        {
+            actions.Add("activate_cohort");
+        }
+
+        return actions;
+    }
 }
 
 public interface IAssessmentSourceCatalog

@@ -125,6 +125,32 @@ public sealed class AssessmentActivationCoordinatorTests
         Assert.Equal(AssessmentFailureCodes.AuditUnavailable, stored!.OutcomeCode);
         Assert.Equal(harness.Actor.Actor.ActorId, stored.ActorId);
         Assert.Equal(harness.Actor.CorrelationId, stored.CorrelationId);
+        Assert.Equal(harness.Draft.RevisionId, stored.AuthoritativeRevisionId);
+        Assert.Equal(harness.Draft.RevisionNumber, stored.AuthoritativeRevisionNumber);
+    }
+
+    [Fact]
+    public async Task Stale_failure_keeps_requested_revision_separate_from_the_authoritative_head()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        var stale = harness.Command() with { ExpectedRevisionNumber = harness.Draft.RevisionNumber + 1 };
+        stale = stale with { TrustedCommandDigest = harness.CommandDigest.Compute(stale) };
+
+        var outcome = await harness.Coordinator.ActivateAsync(stale, TestContext.Current.CancellationToken);
+        var stored = await harness.Attempts.FindAsync(
+            harness.Draft.OrganizationId,
+            harness.Draft.ActivityId,
+            harness.Cohort.CohortId,
+            "idem-1",
+            harness.UnitOfWork.Transaction,
+            TestContext.Current.CancellationToken);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.StaleRevision, outcome.OutcomeCode);
+        Assert.Equal(harness.Draft.RevisionId, stored!.RequestedRevisionId);
+        Assert.Equal(harness.Draft.RevisionNumber + 1, stored.RequestedRevisionNumber);
+        Assert.Equal(harness.Draft.RevisionId, stored.AuthoritativeRevisionId);
+        Assert.Equal(harness.Draft.RevisionNumber, stored.AuthoritativeRevisionNumber);
     }
 
     [Fact]
@@ -158,6 +184,61 @@ public sealed class AssessmentActivationCoordinatorTests
 
         Assert.False(outcome.Succeeded);
         Assert.Equal(HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength, outcome.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Early_mfa_failure_retry_returns_the_stored_attempt()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        harness = harness with { Actor = CreateActor(mfa: false) };
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+        var storedFirst = await harness.Attempts.FindAsync(
+            harness.Draft.OrganizationId,
+            harness.Draft.ActivityId,
+            harness.Cohort.CohortId,
+            "idem-1",
+            harness.UnitOfWork.Transaction,
+            TestContext.Current.CancellationToken);
+
+        var second = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+        var storedSecond = await harness.Attempts.FindAsync(
+            harness.Draft.OrganizationId,
+            harness.Draft.ActivityId,
+            harness.Cohort.CohortId,
+            "idem-1",
+            harness.UnitOfWork.Transaction,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength, first.OutcomeCode);
+        Assert.Equal(first.OutcomeCode, second.OutcomeCode);
+        Assert.NotNull(storedFirst);
+        Assert.Equal(storedFirst!.AttemptId, storedSecond!.AttemptId);
+    }
+
+    [Fact]
+    public async Task Reconcile_returns_the_stored_success_when_the_attempt_appears_after_the_first_read()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+        var delayed = new DelayedFindAttemptStore(harness.Attempts, firstSkipCount: 1);
+        var coordinator = new AssessmentActivationCoordinator(
+            new InMemoryAssessmentAuthorizationPort(),
+            new InMemoryAssessmentSourceCatalog(AssessmentFixtures.PermittedSources()),
+            harness.Store,
+            harness.UnitOfWork,
+            new ActivationBaselineDigester(),
+            harness.CommandDigest,
+            new InMemoryAssessmentBaselineStore(),
+            delayed);
+
+        var reconciled = await coordinator.ReconcileAsync(
+            new ReconcileActivationQuery(harness.Actor, harness.Draft.ActivityId, harness.Cohort.CohortId, "idem-1"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(first.Succeeded);
+        Assert.True(reconciled.Succeeded, reconciled.OutcomeCode);
+        Assert.Equal(first.BaselineId, reconciled.BaselineId);
+        Assert.Equal("assessment.activated", reconciled.OutcomeCode);
     }
 
     [Fact]

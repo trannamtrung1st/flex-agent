@@ -274,7 +274,12 @@ public sealed class InMemoryAssessmentAttemptStore : IAssessmentActivationAttemp
         CancellationToken cancellationToken)
     {
         _ = transaction;
-        _attempts[(attempt.OrganizationId, attempt.ActivityId, attempt.CohortId, attempt.IdempotencyKey)] = attempt;
+        var key = (attempt.OrganizationId, attempt.ActivityId, attempt.CohortId, attempt.IdempotencyKey);
+        if (!_attempts.TryAdd(key, attempt))
+        {
+            throw new InvalidOperationException("Assessment activation attempt key exists.");
+        }
+
         return Task.CompletedTask;
     }
 }

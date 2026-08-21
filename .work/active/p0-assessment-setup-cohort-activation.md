@@ -460,7 +460,11 @@ enable model execution.
       resolver-facing read/verifier contract using the existing schema,
       versioned domain validators, explicit Assessment-owned
       `CanonicalJsonLimits`, and `FlexAgent.CanonicalJson`.
-- [>] Repair `6432af2` review P1s: durable failed attempts and failure audit,
+- [>] Repair `23c2aba` review P1s: early-failure idempotency, reconcile
+      serialization, source validation at draft create/save, requested vs
+      authoritative attempt revision, Cohort outbox aggregate ID, and
+      GET/read MFA plus grant-accurate permitted actions.
+- [x] Repair `6432af2` review P1s: durable failed attempts and failure audit,
       same-key concurrent idempotency, baseline actor/time/correlation,
       authorized PostgreSQL source selector, transactional stale save, and
       Staging classified as Production for readiness.
@@ -588,6 +592,12 @@ synthetic provider.
 
 # Findings / deviations
 
+- 2026-08-21 review of `23c2aba`: early MFA/admission failures now take the
+  idempotency lock and reuse the stored attempt; reconcile serializes on
+  the same lock and re-reads after the Cohort lock; create/save reject
+  untrusted source references; attempts store requested vs authoritative
+  revision (`0037`); activation outbox `AggregateId` is the Cohort; list/get
+  go through MFA + `assessment.activity.read` and grant-accurate actions.
 - 2026-08-21 review of `6432af2`: failed attempts and failure audit are
   persisted; same-key activation re-reads after locks and takes an
   advisory lock; baseline/audit use the trusted actor and correlation;
@@ -682,8 +692,8 @@ synthetic provider.
 | Repository inventory refresh | passed for planning | Observed `ef911ee`; only this plan was modified; migration head remains `0033`; no Assessment module/API exists; Sessions OpenAI-compatible and installed operator-state modules/tests now exist |
 | Execution baseline | passed | Start SHA `ef911ee`. Before behavior changes: Architecture 35 passed; Contract 135 passed; CanonicalJson 25 passed; web lint warning-only, typecheck passed, unit 60 passed. PostgreSQL/Runtime/Sessions/e2e smoke were not all re-run in this session due to parallel-build lock and time; Architecture was re-run after the lock. |
 | Source-authority/transaction decision | recorded as Proposed | `ADR-017` and `PROP-7` published. Sessions file registries are excluded. Production fail-closed remains the interim default until ADR-017 is approved. |
-| Assessment focused tests | passed for domain/application | `dotnet test tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — 47 passed after `6432af2` P1 repairs |
-| PostgreSQL migration/integration | partial | `0036` actor/correlation columns added. `AssessmentActivationPersistenceTests` 6 passed including concurrent same-key, persisted failure+audit, and trusted-actor audit. Full `MigrationUpgradeTests` matrix not re-run in this pass |
+| Assessment focused tests | passed for domain/application | `dotnet test tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — 52 passed after `23c2aba` P1 repairs (early-failure idempotency, reconcile re-read, create source rejection, requested vs authoritative revision, read MFA) |
+| PostgreSQL migration/integration | partial | `0037` requested/authoritative revision columns. `AssessmentActivationPersistenceTests` 8 passed including MFA-retry uniqueness, stale requested vs authoritative, Cohort outbox aggregate ID, and concurrent reconcile consistency. Full `MigrationUpgradeTests` matrix not re-run in this pass |
 | API/runtime contracts | partial | Production/Staging without Postgres does not map `/v1/assessment`. Postgres composition uses kernel + grant-derived relationship. Development without Postgres is deny-all in-memory and does not synthesize Administrator. Reconcile requires `idempotency_key`. No dedicated HTTP contract suite yet |
 | Web unit/accessibility | partial | Setup page plus production provider added; web unit 62 passed, lint warning-only; production provider not globally composed; Playwright not run |
 | Playwright MCP | pending | Must use real app interactions, accessibility snapshots, and desktop/narrow screenshots in `.playwright-mcp/` after the slice runs |

@@ -129,6 +129,16 @@ public static class AssessmentEndpointExtensions
             return;
         }
 
+        var strength = AssessmentAuthenticationPolicy.Evaluate(
+            resolved.Actor,
+            AssessmentAuthorizationActions.ReadActivity);
+        if (strength is not null)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new { error = strength });
+            return;
+        }
+
         await context.Response.WriteAsJsonAsync(new
         {
             schema_version = "v1",
@@ -186,7 +196,7 @@ public static class AssessmentEndpointExtensions
         HttpContext context,
         IHumanAuthenticationCoordinator coordinator,
         HumanAuthenticationHostOptions options,
-        IAssessmentDraftStore store)
+        IAssessmentDraftHandler drafts)
     {
         var resolved = await TryActorAsync(context, coordinator, options);
         if (resolved is null)
@@ -195,15 +205,17 @@ public static class AssessmentEndpointExtensions
             return;
         }
 
-        var actor = resolved.Actor;
-        var canRead = HasAction(resolved, AssessmentAuthorizationActions.ReadActivity)
-            || HasAction(resolved, AssessmentAuthorizationActions.CreateActivity);
-        var drafts = canRead
-            ? await store.ListDraftsAsync(actor.Organization.OrganizationId, context.RequestAborted)
-            : [];
+        var result = await drafts.ListActivitiesAsync(resolved.Actor, context.RequestAborted);
+        if (!result.Succeeded)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new { error = result.OutcomeCode });
+            return;
+        }
+
         await context.Response.WriteAsJsonAsync(new
         {
-            activities = drafts.Select(draft => new
+            activities = result.Value!.Select(draft => new
             {
                 activity_id = draft.ActivityId,
                 title = draft.Content.Title,
@@ -347,6 +359,7 @@ public static class AssessmentEndpointExtensions
         Guid activityId,
         IHumanAuthenticationCoordinator coordinator,
         HumanAuthenticationHostOptions options,
+        IAssessmentDraftHandler drafts,
         IAssessmentDraftStore store)
     {
         var resolved = await TryActorAsync(context, coordinator, options);
@@ -356,25 +369,23 @@ public static class AssessmentEndpointExtensions
             return;
         }
 
-        var actor = resolved.Actor;
-
-        if (!HasAction(resolved, AssessmentAuthorizationActions.ReadActivity)
-            && !HasAction(resolved, AssessmentAuthorizationActions.SaveActivity)
-            && !HasAction(resolved, AssessmentAuthorizationActions.ActivateCohort))
+        var result = await drafts.GetActivityAsync(resolved.Actor, activityId, context.RequestAborted);
+        if (!result.Succeeded || result.Value is null)
         {
-            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            context.Response.StatusCode = result.OutcomeCode == AssessmentFailureCodes.Denied
+                ? StatusCodes.Status404NotFound
+                : StatusCodes.Status403Forbidden;
+            if (result.OutcomeCode != AssessmentFailureCodes.Denied)
+            {
+                await context.Response.WriteAsJsonAsync(new { error = result.OutcomeCode });
+            }
+
             return;
         }
 
-        var draft = await store.GetDraftAsync(actor.Organization.OrganizationId, activityId, context.RequestAborted);
-        if (draft is null)
-        {
-            context.Response.StatusCode = StatusCodes.Status404NotFound;
-            return;
-        }
-
+        var draft = result.Value;
         var cohort = await store.FindCohortForActivityAsync(
-            actor.Organization.OrganizationId,
+            resolved.Actor.Organization.OrganizationId,
             activityId,
             context.RequestAborted);
         await context.Response.WriteAsJsonAsync(new
@@ -390,9 +401,9 @@ public static class AssessmentEndpointExtensions
             cohort_id = cohort?.CohortId,
             cohort_state = cohort?.State,
             baseline_digest = cohort?.BaselineDigest,
-            permitted_actions = draft.HasActivatedCohort
-                ? Array.Empty<string>()
-                : new[] { "save_draft", "check_readiness", "activate_cohort" },
+            permitted_actions = AssessmentDraftProjection.PermittedActions(
+                resolved.Authorization.PermittedActions,
+                draft.HasActivatedCohort),
         });
     }
 

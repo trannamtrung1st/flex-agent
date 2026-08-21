@@ -125,7 +125,7 @@ public sealed class PostgresAssessmentBaselineStore(
                 organizationId,
                 "assessment.cohort.activated",
                 AssessmentResourceTypes.Cohort,
-                activityId,
+                cohortId,
                 actor.CorrelationId,
                 contentDigest,
                 occurredAtUtc),
@@ -400,8 +400,10 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
         var row = await npgsql.Connection!.QuerySingleOrDefaultAsync<AttemptRow>(
             new CommandDefinition(
                 """
-                SELECT a.organization_id, a.activity_id, a.cohort_id, a.attempt_id, a.expected_revision_id,
-                       a.expected_revision_number, a.idempotency_key, a.command_digest, a.outcome_code,
+                SELECT a.organization_id, a.activity_id, a.cohort_id, a.attempt_id,
+                       a.requested_revision_id, a.requested_revision_number,
+                       a.authoritative_revision_id, a.authoritative_revision_number,
+                       a.idempotency_key, a.command_digest, a.outcome_code,
                        a.baseline_id, bl.content_digest, c.state, a.actor_id, a.correlation_id
                 FROM assessment_activation_attempts a
                 LEFT JOIN assessment_activation_baselines bl
@@ -434,8 +436,10 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                 row.ActivityId,
                 row.CohortId,
                 row.AttemptId,
-                row.ExpectedRevisionId,
-                row.ExpectedRevisionNumber,
+                row.RequestedRevisionId,
+                row.RequestedRevisionNumber,
+                row.AuthoritativeRevisionId,
+                row.AuthoritativeRevisionNumber,
                 row.IdempotencyKey,
                 row.CommandDigest,
                 row.OutcomeCode,
@@ -462,13 +466,15 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                 new CommandDefinition(
                     """
                     INSERT INTO assessment_activation_attempts (
-                        organization_id, activity_id, cohort_id, attempt_id, expected_revision_id,
-                        expected_revision_number, idempotency_key, command_digest, outcome_code,
-                        baseline_id, created_at, actor_id, correlation_id)
+                        organization_id, activity_id, cohort_id, attempt_id, requested_revision_id,
+                        requested_revision_number, authoritative_revision_id, authoritative_revision_number,
+                        idempotency_key, command_digest, outcome_code, baseline_id, created_at,
+                        actor_id, correlation_id)
                     VALUES (
-                        @OrganizationId, @ActivityId, @CohortId, @AttemptId, @ExpectedRevisionId,
-                        @ExpectedRevisionNumber, @IdempotencyKey, @CommandDigest, @OutcomeCode,
-                        @BaselineId, CLOCK_TIMESTAMP(), @ActorId, @CorrelationId)
+                        @OrganizationId, @ActivityId, @CohortId, @AttemptId, @RequestedRevisionId,
+                        @RequestedRevisionNumber, @AuthoritativeRevisionId, @AuthoritativeRevisionNumber,
+                        @IdempotencyKey, @CommandDigest, @OutcomeCode, @BaselineId, CLOCK_TIMESTAMP(),
+                        @ActorId, @CorrelationId)
                     """,
                     new
                     {
@@ -476,8 +482,10 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                         attempt.ActivityId,
                         attempt.CohortId,
                         attempt.AttemptId,
-                        attempt.ExpectedRevisionId,
-                        attempt.ExpectedRevisionNumber,
+                        attempt.RequestedRevisionId,
+                        attempt.RequestedRevisionNumber,
+                        attempt.AuthoritativeRevisionId,
+                        attempt.AuthoritativeRevisionNumber,
                         attempt.IdempotencyKey,
                         attempt.CommandDigest,
                         attempt.OutcomeCode,
@@ -491,6 +499,10 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
         catch (PostgresException exception) when (exception.SqlState is "23503")
         {
             throw new InvalidOperationException("Assessment activation attempt parent is missing.", exception);
+        }
+        catch (PostgresException exception) when (exception.SqlState is "23505")
+        {
+            throw new InvalidOperationException("Assessment activation attempt key exists.", exception);
         }
 
         var succeeded = string.Equals(attempt.OutcomeCode, "assessment.activated", StringComparison.Ordinal);
@@ -520,8 +532,10 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
         Guid ActivityId,
         Guid CohortId,
         Guid AttemptId,
-        Guid ExpectedRevisionId,
-        long ExpectedRevisionNumber,
+        Guid RequestedRevisionId,
+        long RequestedRevisionNumber,
+        Guid? AuthoritativeRevisionId,
+        long? AuthoritativeRevisionNumber,
         string IdempotencyKey,
         string CommandDigest,
         string OutcomeCode,

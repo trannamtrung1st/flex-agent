@@ -111,6 +111,77 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
         Assert.Equal(AssessmentFailureCodes.StaleRevision, attemptOutcome);
         Assert.Equal(harness.Actor.Actor.ActorId, actorId);
         Assert.Equal(CohortStates.Draft, activated);
+        var requestedNumber = await connection.ExecuteScalarAsync<long>(
+            """
+            SELECT requested_revision_number
+            FROM assessment_activation_attempts
+            WHERE organization_id = @OrganizationId AND cohort_id = @CohortId AND idempotency_key = 'idem-1'
+            """,
+            new { harness.OrganizationId, harness.CohortId });
+        var authoritativeNumber = await connection.ExecuteScalarAsync<long>(
+            """
+            SELECT authoritative_revision_number
+            FROM assessment_activation_attempts
+            WHERE organization_id = @OrganizationId AND cohort_id = @CohortId AND idempotency_key = 'idem-1'
+            """,
+            new { harness.OrganizationId, harness.CohortId });
+        Assert.Equal(harness.RevisionNumber + 1, requestedNumber);
+        Assert.Equal(harness.RevisionNumber, authoritativeNumber);
+    }
+
+    [Fact]
+    public async Task Early_mfa_failure_retry_returns_the_stored_attempt()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        harness = harness with
+        {
+            Actor = harness.Actor with { Strength = new AuthenticationStrength(null, []) },
+        };
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
+        var retry = await harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var attemptCount = await connection.ExecuteScalarAsync<long>(
+            """
+            SELECT COUNT(*)
+            FROM assessment_activation_attempts
+            WHERE organization_id = @OrganizationId AND cohort_id = @CohortId AND idempotency_key = 'idem-1'
+            """,
+            new { harness.OrganizationId, harness.CohortId });
+
+        Assert.Equal(HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength, first.OutcomeCode);
+        Assert.Equal(first.OutcomeCode, retry.OutcomeCode);
+        Assert.Equal(1, attemptCount);
+    }
+
+    [Fact]
+    public async Task Concurrent_reconcile_does_not_report_denied_against_an_activated_cohort()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var activate = harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
+        ActivationOutcome? inconsistent = null;
+        while (!activate.IsCompleted)
+        {
+            var reconciled = await harness.Coordinator.ReconcileAsync(
+                new ReconcileActivationQuery(harness.Actor, harness.ActivityId, harness.CohortId, "idem-1"),
+                CancellationToken);
+            if (!reconciled.Succeeded
+                && string.Equals(reconciled.CohortState, CohortStates.Activated, StringComparison.Ordinal))
+            {
+                inconsistent = reconciled;
+                break;
+            }
+        }
+
+        var completed = await activate;
+        var final = await harness.Coordinator.ReconcileAsync(
+            new ReconcileActivationQuery(harness.Actor, harness.ActivityId, harness.CohortId, "idem-1"),
+            CancellationToken);
+
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+        Assert.Null(inconsistent);
+        Assert.True(final.Succeeded, final.OutcomeCode);
+        Assert.Equal(completed.BaselineId, final.BaselineId);
     }
 
     [Fact]
@@ -141,6 +212,17 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
 
         Assert.Equal(harness.Actor.Actor.ActorId, actorId);
         Assert.Equal(harness.Actor.CorrelationId, correlation);
+        var aggregateId = await connection.ExecuteScalarAsync<Guid>(
+            """
+            SELECT aggregate_id
+            FROM outbox_items
+            WHERE organization_id = @OrganizationId
+              AND event_type = 'assessment.cohort.activated'
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            new { harness.OrganizationId });
+        Assert.Equal(harness.CohortId, aggregateId);
     }
 
     [Fact]
@@ -173,6 +255,10 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
             seeded.OrganizationId,
             seeded.ActorId,
             AssessmentAuthorizationActions.CreateActivity);
+        await Fixture.GrantOrganizationActionAsync(
+            seeded.OrganizationId,
+            seeded.ActorId,
+            AssessmentAuthorizationActions.ReadActivity);
         await Fixture.GrantOrganizationActionAsync(
             seeded.OrganizationId,
             seeded.ActorId,

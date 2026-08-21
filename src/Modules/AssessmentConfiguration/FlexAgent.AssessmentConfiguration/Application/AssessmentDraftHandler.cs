@@ -54,6 +54,15 @@ public sealed class AssessmentDraftHandler(
             return created;
         }
 
+        var sourceRejection = await RejectUntrustedSourcesAsync(
+            created.Value.OrganizationId,
+            CollectReferences(created.Value),
+            cancellationToken);
+        if (sourceRejection is not null)
+        {
+            return AssessmentDecision<ActivityDraft>.Fail(sourceRejection);
+        }
+
         var cohort = AssessmentCohort.CreateEmpty(
             created.Value.OrganizationId,
             created.Value.ActivityId,
@@ -108,6 +117,15 @@ public sealed class AssessmentDraftHandler(
             if (!saved.Succeeded || saved.Value is null)
             {
                 return saved;
+            }
+
+            var sourceRejection = await RejectUntrustedSourcesAsync(
+                saved.Value.OrganizationId,
+                CollectReferences(saved.Value),
+                cancellationToken);
+            if (sourceRejection is not null)
+            {
+                return AssessmentDecision<ActivityDraft>.Fail(sourceRejection);
             }
 
             var persisted = await draftStore.UpdateDraftAsync(saved.Value, transaction, cancellationToken);
@@ -184,6 +202,92 @@ public sealed class AssessmentDraftHandler(
 
         var sources = await sourceCatalog.ListSelectableAsync(actor.Organization.OrganizationId, environment, cancellationToken);
         return AssessmentDecision<IReadOnlyList<TrustedSourceDescriptor>>.Ok(sources);
+    }
+
+    public async Task<AssessmentDecision<IReadOnlyList<ActivityDraft>>> ListActivitiesAsync(
+        AssessmentActorContext actor,
+        CancellationToken cancellationToken = default)
+    {
+        var denied = await AuthorizeReadAsync(actor, Guid.Empty, cancellationToken);
+        if (denied is not null)
+        {
+            return AssessmentDecision<IReadOnlyList<ActivityDraft>>.Fail(denied);
+        }
+
+        var drafts = await draftStore.ListDraftsAsync(actor.Organization.OrganizationId, cancellationToken);
+        return AssessmentDecision<IReadOnlyList<ActivityDraft>>.Ok(drafts);
+    }
+
+    public async Task<AssessmentDecision<ActivityDraft>> GetActivityAsync(
+        AssessmentActorContext actor,
+        Guid activityId,
+        CancellationToken cancellationToken = default)
+    {
+        var denied = await AuthorizeReadAsync(actor, activityId, cancellationToken);
+        if (denied is not null)
+        {
+            return AssessmentDecision<ActivityDraft>.Fail(denied);
+        }
+
+        var draft = await draftStore.GetDraftAsync(actor.Organization.OrganizationId, activityId, cancellationToken);
+        return draft is null
+            ? AssessmentDecision<ActivityDraft>.Fail(AssessmentFailureCodes.Denied)
+            : AssessmentDecision<ActivityDraft>.Ok(draft);
+    }
+
+    private async Task<string?> AuthorizeReadAsync(
+        AssessmentActorContext actor,
+        Guid activityId,
+        CancellationToken cancellationToken)
+    {
+        var strength = AssessmentAuthenticationPolicy.Evaluate(
+            actor,
+            AssessmentAuthorizationActions.ReadActivity);
+        if (strength is not null)
+        {
+            return strength;
+        }
+
+        var authorized = await authorization.AuthorizeAdmissionAsync(
+            actor,
+            AssessmentAuthorizationActions.ReadActivity,
+            activityId,
+            AssessmentResourceTypes.Activity,
+            cancellationToken);
+        return authorized.IsPermitted ? null : AssessmentFailureCodes.Denied;
+    }
+
+    private async Task<string?> RejectUntrustedSourcesAsync(
+        Guid organizationId,
+        IReadOnlyList<ExactSourceRef> references,
+        CancellationToken cancellationToken)
+    {
+        var loaded = await sourceCatalog.LoadExactAsync(organizationId, references, cancellationToken);
+        foreach (var reference in references)
+        {
+            var match = loaded.FirstOrDefault(source => source.Matches(reference));
+            if (match is null)
+            {
+                return AssessmentFailureCodes.MissingSource;
+            }
+
+            if (match.LifecycleState == SourceLifecycleStates.Revoked)
+            {
+                return AssessmentFailureCodes.RevokedSource;
+            }
+
+            if (match.LifecycleState == SourceLifecycleStates.MutableAlias)
+            {
+                return AssessmentFailureCodes.MutableSource;
+            }
+
+            if (match.LifecycleState != SourceLifecycleStates.Available || !match.TransactionallyRevalidatable)
+            {
+                return AssessmentFailureCodes.UnavailableSource;
+            }
+        }
+
+        return null;
     }
 
     internal static IReadOnlyList<ExactSourceRef> CollectReferences(ActivityDraft draft)
@@ -282,12 +386,33 @@ public static class AssessmentAuthenticationPolicy
         AssessmentAuthorizationActions.SelectSources,
     ];
 
+    private static readonly HashSet<string> PrivilegedReadActions =
+    [
+        AssessmentAuthorizationActions.ReadActivity,
+        AssessmentAuthorizationActions.ReconcileActivation,
+        AssessmentAuthorizationActions.ReadBaseline,
+        AssessmentAuthorizationActions.ReadBaselineProvenance,
+    ];
+
     public static string? Evaluate(AssessmentActorContext actor, string action)
     {
         if (AdministratorActions.Contains(action)
             && !string.Equals(
                 actor.Relationship,
                 AuthenticationStrengthEvaluator.AdministratorRelationship,
+                StringComparison.Ordinal))
+        {
+            return AssessmentFailureCodes.Denied;
+        }
+
+        if (PrivilegedReadActions.Contains(action)
+            && !string.Equals(
+                actor.Relationship,
+                AuthenticationStrengthEvaluator.AdministratorRelationship,
+                StringComparison.Ordinal)
+            && !string.Equals(
+                actor.Relationship,
+                AuthenticationStrengthEvaluator.ReviewerRelationship,
                 StringComparison.Ordinal))
         {
             return AssessmentFailureCodes.Denied;

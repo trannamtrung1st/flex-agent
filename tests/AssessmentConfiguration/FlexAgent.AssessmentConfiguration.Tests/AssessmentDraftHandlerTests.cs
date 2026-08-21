@@ -109,6 +109,102 @@ public sealed class AssessmentDraftHandlerTests
     }
 
     [Fact]
+    public async Task Create_rejects_a_forged_source_without_storing_a_draft()
+    {
+        var store = new InMemoryAssessmentDraftStore();
+        var catalog = new InMemoryAssessmentSourceCatalog();
+        catalog.EnsureOrganization(AssessmentFixtures.OrganizationId);
+        var handler = new AssessmentDraftHandler(
+            new InMemoryAssessmentAuthorizationPort(),
+            catalog,
+            store,
+            new InMemoryAssessmentUnitOfWork());
+        var actor = new AssessmentActorContext(
+            new TrustedActor(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "human.interactive"),
+            new OrganizationScope(AssessmentFixtures.OrganizationId),
+            AuthenticationStrengthEvaluator.AdministratorRelationship,
+            new AuthenticationStrength("mfa", ["mfa"]),
+            Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1"),
+            "https");
+        var forged = new ExactSourceRef(Guid.CreateVersion7(), Guid.CreateVersion7(), AssessmentFixtures.Digest('f'));
+
+        var created = await handler.CreateAsync(
+            new CreateAssessmentDraftCommand(
+                actor,
+                "P0 Assessment",
+                AssessmentFixtures.ValidTask(),
+                AssessmentFixtures.ValidTiming(),
+                forged,
+                AssessmentDevelopmentSources.Agent,
+                AssessmentDevelopmentSources.Harness,
+                AssessmentDevelopmentSources.Workflow,
+                AssessmentDevelopmentSources.AdaptiveFollowUp,
+                AssessmentDevelopmentSources.Rubric,
+                AssessmentDevelopmentSources.ModelDeployment,
+                [AssessmentDevelopmentSources.Knowledge],
+                AssessmentDevelopmentSources.Capability,
+                AssessmentDevelopmentSources.ReviewRelease),
+            TestContext.Current.CancellationToken);
+        var listed = await store.ListDraftsAsync(AssessmentFixtures.OrganizationId, TestContext.Current.CancellationToken);
+
+        Assert.False(created.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.MissingSource, created.OutcomeCode);
+        Assert.Empty(listed);
+    }
+
+    [Fact]
+    public async Task List_and_get_require_mfa_and_read_permission()
+    {
+        var store = new InMemoryAssessmentDraftStore();
+        var catalog = new InMemoryAssessmentSourceCatalog();
+        catalog.EnsureOrganization(AssessmentFixtures.OrganizationId);
+        var handler = new AssessmentDraftHandler(
+            new InMemoryAssessmentAuthorizationPort(),
+            catalog,
+            store,
+            new InMemoryAssessmentUnitOfWork());
+        var actor = new AssessmentActorContext(
+            new TrustedActor(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "human.interactive"),
+            new OrganizationScope(AssessmentFixtures.OrganizationId),
+            AuthenticationStrengthEvaluator.AdministratorRelationship,
+            new AuthenticationStrength("mfa", ["mfa"]),
+            Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1"),
+            "https");
+        var created = await handler.CreateAsync(
+            new CreateAssessmentDraftCommand(
+                actor,
+                "P0 Assessment",
+                AssessmentFixtures.ValidTask(),
+                AssessmentFixtures.ValidTiming(),
+                AssessmentDevelopmentSources.OrganizationPolicy,
+                AssessmentDevelopmentSources.Agent,
+                AssessmentDevelopmentSources.Harness,
+                AssessmentDevelopmentSources.Workflow,
+                AssessmentDevelopmentSources.AdaptiveFollowUp,
+                AssessmentDevelopmentSources.Rubric,
+                AssessmentDevelopmentSources.ModelDeployment,
+                [AssessmentDevelopmentSources.Knowledge],
+                AssessmentDevelopmentSources.Capability,
+                AssessmentDevelopmentSources.ReviewRelease),
+            TestContext.Current.CancellationToken);
+        Assert.True(created.Succeeded);
+
+        var listed = await handler.ListActivitiesAsync(actor, TestContext.Current.CancellationToken);
+        var fetched = await handler.GetActivityAsync(actor, created.Value!.ActivityId, TestContext.Current.CancellationToken);
+        var withoutMfa = await handler.ListActivitiesAsync(
+            actor with { Strength = new AuthenticationStrength(null, []) },
+            TestContext.Current.CancellationToken);
+        var createOnly = AssessmentDraftProjection.PermittedActions(
+            [AssessmentAuthorizationActions.CreateActivity],
+            created.Value.HasActivatedCohort);
+
+        Assert.True(listed.Succeeded);
+        Assert.True(fetched.Succeeded);
+        Assert.Equal(HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength, withoutMfa.OutcomeCode);
+        Assert.Empty(createOnly);
+    }
+
+    [Fact]
     public async Task Source_options_require_administrator_and_exclude_ineligible_production_sources()
     {
         var store = new InMemoryAssessmentDraftStore();
