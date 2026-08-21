@@ -557,7 +557,7 @@ public static class AssessmentEndpointExtensions
             AssessmentHostEnvironment.FromAspNetCore(hostEnvironment.EnvironmentName));
         command = command with { TrustedCommandDigest = digests.Compute(command) };
         var outcome = await activation.ActivateAsync(command, context.RequestAborted);
-        context.Response.StatusCode = outcome.Succeeded ? StatusCodes.Status200OK : StatusCodes.Status409Conflict;
+        context.Response.StatusCode = AssessmentIdempotencyKey.StatusForActivation(outcome.Succeeded, outcome.OutcomeCode);
         await context.Response.WriteAsJsonAsync(outcome);
     }
 
@@ -585,10 +585,21 @@ public static class AssessmentEndpointExtensions
             return;
         }
 
+        if (AssessmentIdempotencyKey.Validate(idempotencyKey) is not null)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new { error = AssessmentFailureCodes.InvalidField });
+            return;
+        }
+
         var outcome = await activation.ReconcileAsync(
             new ReconcileActivationQuery(actor, activityId, cohortId, idempotencyKey),
             context.RequestAborted);
-        context.Response.StatusCode = outcome.Succeeded ? StatusCodes.Status200OK : StatusCodes.Status404NotFound;
+        context.Response.StatusCode = outcome.Succeeded
+            ? StatusCodes.Status200OK
+            : outcome.OutcomeCode == AssessmentFailureCodes.InvalidField
+                ? StatusCodes.Status400BadRequest
+                : StatusCodes.Status404NotFound;
         await context.Response.WriteAsJsonAsync(outcome);
     }
 

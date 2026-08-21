@@ -63,6 +63,43 @@ public sealed class AssessmentActivationCoordinatorTests
 
         Assert.False(outcome.Succeeded);
         Assert.Equal(AssessmentFailureCodes.IdempotencyConflict, outcome.OutcomeCode);
+        Assert.Contains(harness.Attempts.Items, item => item.OutcomeCode == AssessmentFailureCodes.IdempotencyConflict);
+    }
+
+    [Fact]
+    public async Task Equivalent_retry_after_success_records_a_deduplicated_attempt()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+        var retry = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+
+        Assert.True(first.Succeeded);
+        Assert.True(retry.Succeeded);
+        Assert.Equal(first.BaselineId, retry.BaselineId);
+        Assert.Equal(AssessmentActivationOutcomes.Deduplicated, retry.OutcomeCode);
+        Assert.Contains(harness.Attempts.Items, item => item.OutcomeCode == AssessmentActivationOutcomes.Deduplicated);
+        Assert.Single(harness.Attempts.Items, item => item.OutcomeCode == AssessmentActivationOutcomes.Activated);
+    }
+
+    [Fact]
+    public async Task Blank_or_oversized_idempotency_key_is_an_invalid_field()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        var blank = await harness.Coordinator.ActivateAsync(
+            harness.Command("   "),
+            TestContext.Current.CancellationToken);
+        var oversized = await harness.Coordinator.ActivateAsync(
+            harness.Command(new string('a', 129)),
+            TestContext.Current.CancellationToken);
+        var reconcile = await harness.Coordinator.ReconcileAsync(
+            new ReconcileActivationQuery(harness.Actor, harness.Draft.ActivityId, harness.Cohort.CohortId, "bad key"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(AssessmentFailureCodes.InvalidField, blank.OutcomeCode);
+        Assert.Equal(AssessmentFailureCodes.InvalidField, oversized.OutcomeCode);
+        Assert.Equal(AssessmentFailureCodes.InvalidField, reconcile.OutcomeCode);
+        Assert.Empty(harness.Attempts.Items);
+        Assert.Equal(400, AssessmentIdempotencyKey.StatusForActivation(false, AssessmentFailureCodes.InvalidField));
     }
 
     [Fact]

@@ -204,26 +204,34 @@ public sealed class PostgresAssessmentSourceCatalog(PostgresConnectionAccessor c
         Guid organizationId,
         string environment,
         CancellationToken cancellationToken) =>
-        LoadSelectableAsync(organizationId, environment, transaction: null, cancellationToken);
+        LoadSelectableAsync(organizationId, environment, cancellationToken);
 
-    public Task<IReadOnlyList<TrustedSourceDescriptor>> ListSelectableAsync(
+    public async Task<IReadOnlyList<TrustedSourceDescriptor>> LoadSelectableExactAsync(
         Guid organizationId,
+        IReadOnlyList<ExactSourceRef> references,
         string environment,
         IAssessmentActivationTransaction transaction,
-        CancellationToken cancellationToken) =>
-        LoadSelectableAsync(
+        CancellationToken cancellationToken)
+    {
+        var loaded = await LoadAsync(
             organizationId,
-            environment,
+            references,
             transaction.PersistenceContext as NpgsqlTransaction,
             cancellationToken);
+        return loaded
+            .Where(source =>
+                source.LifecycleState == SourceLifecycleStates.Available
+                && source.TransactionallyRevalidatable
+                && (environment != DeploymentEnvironments.Production || source.ProductionEligible))
+            .ToArray();
+    }
 
     private async Task<IReadOnlyList<TrustedSourceDescriptor>> LoadSelectableAsync(
         Guid organizationId,
         string environment,
-        NpgsqlTransaction? transaction,
         CancellationToken cancellationToken)
     {
-        var sql = """
+        const string sql = """
             SELECT
                 d.organization_id,
                 d.configuration_source_id AS source_id,
@@ -252,32 +260,17 @@ public sealed class PostgresAssessmentSourceCatalog(PostgresConnectionAccessor c
               AND d.transactionally_revalidatable = TRUE
               AND (@RequireProductionEligible = FALSE OR d.production_eligible = TRUE)
             """;
-        if (transaction is not null)
-        {
-            sql += """
-                
-                FOR SHARE
-                """;
-        }
 
-        IEnumerable<DescriptorRow> rows;
-        var parameters = new
-        {
-            OrganizationId = organizationId,
-            RequireProductionEligible = environment == DeploymentEnvironments.Production,
-        };
-        if (transaction is null)
-        {
-            await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-            rows = await connection.QueryAsync<DescriptorRow>(
-                new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
-        }
-        else
-        {
-            rows = await transaction.Connection!.QueryAsync<DescriptorRow>(
-                new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellationToken));
-        }
-
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        var rows = await connection.QueryAsync<DescriptorRow>(
+            new CommandDefinition(
+                sql,
+                new
+                {
+                    OrganizationId = organizationId,
+                    RequireProductionEligible = environment == DeploymentEnvironments.Production,
+                },
+                cancellationToken: cancellationToken));
         return rows.Select(ToDescriptor).ToArray();
     }
 
@@ -553,7 +546,12 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                 npgsql,
                 cancellationToken: cancellationToken));
 
-        var succeeded = string.Equals(attempt.OutcomeCode, "assessment.activated", StringComparison.Ordinal);
+        var auditOutcome = attempt.OutcomeCode switch
+        {
+            AssessmentActivationOutcomes.Activated => "permit",
+            AssessmentActivationOutcomes.Deduplicated => "deduplicated",
+            _ => "deny",
+        };
         await auditEventWriter.InsertAsync(
             new AuditEventWriteModel(
                 Guid.CreateVersion7(),
@@ -566,8 +564,8 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                 AssessmentAuthorizationActions.ActivateCohort,
                 AssessmentResourceTypes.Cohort,
                 attempt.CohortId,
-                succeeded ? "permit" : "deny",
-                succeeded ? null : attempt.OutcomeCode,
+                auditOutcome,
+                auditOutcome == "permit" ? null : attempt.OutcomeCode,
                 1,
                 attempt.SourceChannel,
                 attempt.CommandDigest),

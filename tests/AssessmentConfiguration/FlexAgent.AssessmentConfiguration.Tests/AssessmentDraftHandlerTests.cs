@@ -111,6 +111,43 @@ public sealed class AssessmentDraftHandlerTests
     }
 
     [Fact]
+    public async Task Save_reauthorization_denial_does_not_persist_a_revision()
+    {
+        var store = new InMemoryAssessmentDraftStore();
+        var catalog = new InMemoryAssessmentSourceCatalog();
+        catalog.EnsureOrganization(AssessmentFixtures.OrganizationId);
+        var authorization = new InMemoryAssessmentAuthorizationPort();
+        var handler = new AssessmentDraftHandler(authorization, catalog, store, new InMemoryAssessmentUnitOfWork());
+        var actor = new AssessmentActorContext(
+            new TrustedActor(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "human.interactive"),
+            new OrganizationScope(AssessmentFixtures.OrganizationId),
+            AuthenticationStrengthEvaluator.AdministratorRelationship,
+            new AuthenticationStrength("mfa", ["mfa"]),
+            Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1"),
+            "https");
+        var created = await handler.CreateAsync(ValidCreate(actor), TestContext.Current.CancellationToken);
+        Assert.True(created.Succeeded, created.OutcomeCode);
+        authorization.DeniedOnReauthorize.Add(AssessmentAuthorizationActions.SaveActivity);
+
+        var saved = await handler.SaveAsync(
+            new SaveAssessmentDraftCommand(
+                actor,
+                created.Value!.ActivityId,
+                created.Value.RevisionNumber,
+                created.Value.Content with { Title = "Revoked" },
+                DeploymentEnvironments.Development),
+            TestContext.Current.CancellationToken);
+        var current = await store.GetDraftAsync(
+            AssessmentFixtures.OrganizationId,
+            created.Value.ActivityId,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(AssessmentFailureCodes.Denied, saved.OutcomeCode);
+        Assert.Equal(created.Value.RevisionNumber, current!.RevisionNumber);
+        Assert.Equal(created.Value.Content.Title, current.Content.Title);
+    }
+
+    [Fact]
     public async Task Create_rejects_a_forged_source_without_storing_a_draft()
     {
         var store = new InMemoryAssessmentDraftStore();

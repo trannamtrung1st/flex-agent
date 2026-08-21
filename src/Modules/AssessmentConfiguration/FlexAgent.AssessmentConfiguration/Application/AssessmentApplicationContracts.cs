@@ -224,8 +224,9 @@ public interface IAssessmentSourceCatalog
         string environment,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<TrustedSourceDescriptor>> ListSelectableAsync(
+    Task<IReadOnlyList<TrustedSourceDescriptor>> LoadSelectableExactAsync(
         Guid organizationId,
+        IReadOnlyList<ExactSourceRef> references,
         string environment,
         IAssessmentActivationTransaction transaction,
         CancellationToken cancellationToken = default);
@@ -244,8 +245,9 @@ public interface IAssessmentSourceTransactionPort
         IAssessmentActivationTransaction transaction,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<TrustedSourceDescriptor>> ListSelectableAsync(
+    Task<IReadOnlyList<TrustedSourceDescriptor>> LoadSelectableExactAsync(
         Guid organizationId,
+        IReadOnlyList<ExactSourceRef> references,
         string environment,
         IAssessmentActivationTransaction transaction,
         CancellationToken cancellationToken = default);

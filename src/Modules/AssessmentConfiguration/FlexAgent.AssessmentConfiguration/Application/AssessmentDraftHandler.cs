@@ -32,7 +32,9 @@ public sealed class AssessmentDraftHandler(
             return AssessmentDecision<ActivityDraft>.Fail(AssessmentFailureCodes.Denied);
         }
 
-        var created = ActivityDraft.Create(
+        return await unitOfWork.ExecuteAsync(async transaction =>
+        {
+            var created = ActivityDraft.Create(
             command.Actor.Organization.OrganizationId,
             Guid.CreateVersion7(),
             Guid.CreateVersion7(),
@@ -49,35 +51,55 @@ public sealed class AssessmentDraftHandler(
             command.Knowledge,
             command.CapabilityProfile,
             command.ReviewRelease);
-        if (!created.Succeeded || created.Value is null)
-        {
+            if (!created.Succeeded || created.Value is null)
+            {
+                return created;
+            }
+
+            var sourceRejection = await ValidateSelectionsAsync(
+                command.Actor,
+                command.Environment,
+                created.Value,
+                transaction,
+                cancellationToken);
+            if (sourceRejection is not null)
+            {
+                return AssessmentDecision<ActivityDraft>.Fail(sourceRejection);
+            }
+
+            var createAuth = await authorization.ReauthorizeAsync(
+                command.Actor,
+                AssessmentAuthorizationActions.CreateActivity,
+                created.Value.ActivityId,
+                AssessmentResourceTypes.Activity,
+                transaction,
+                cancellationToken);
+            var selectAuth = await authorization.ReauthorizeAsync(
+                command.Actor,
+                AssessmentAuthorizationActions.SelectSources,
+                created.Value.ActivityId,
+                AssessmentResourceTypes.Activity,
+                transaction,
+                cancellationToken);
+            if (!createAuth.IsPermitted || !selectAuth.IsPermitted)
+            {
+                return AssessmentDecision<ActivityDraft>.Fail(AssessmentFailureCodes.Denied);
+            }
+
+            var cohort = AssessmentCohort.CreateEmpty(
+                created.Value.OrganizationId,
+                created.Value.ActivityId,
+                Guid.CreateVersion7(),
+                created.Value.RevisionId,
+                created.Value.RevisionNumber);
+            if (!cohort.Succeeded || cohort.Value is null)
+            {
+                return AssessmentDecision<ActivityDraft>.Fail(cohort.OutcomeCode);
+            }
+
+            await draftStore.AddAsync(created.Value, cohort.Value, transaction, cancellationToken);
             return created;
-        }
-
-        var sourceRejection = await ValidateSelectionsAsync(
-            command.Actor,
-            command.Environment,
-            created.Value,
-            transaction: null,
-            cancellationToken);
-        if (sourceRejection is not null)
-        {
-            return AssessmentDecision<ActivityDraft>.Fail(sourceRejection);
-        }
-
-        var cohort = AssessmentCohort.CreateEmpty(
-            created.Value.OrganizationId,
-            created.Value.ActivityId,
-            Guid.CreateVersion7(),
-            created.Value.RevisionId,
-            created.Value.RevisionNumber);
-        if (!cohort.Succeeded || cohort.Value is null)
-        {
-            return AssessmentDecision<ActivityDraft>.Fail(cohort.OutcomeCode);
-        }
-
-        await draftStore.AddAsync(created.Value, cohort.Value, transaction: null, cancellationToken);
-        return created;
+        }, cancellationToken);
     }
 
     public async Task<AssessmentDecision<ActivityDraft>> SaveAsync(
@@ -130,6 +152,25 @@ public sealed class AssessmentDraftHandler(
             if (sourceRejection is not null)
             {
                 return AssessmentDecision<ActivityDraft>.Fail(sourceRejection);
+            }
+
+            var saveAuth = await authorization.ReauthorizeAsync(
+                command.Actor,
+                AssessmentAuthorizationActions.SaveActivity,
+                command.ActivityId,
+                AssessmentResourceTypes.Activity,
+                transaction,
+                cancellationToken);
+            var selectAuth = await authorization.ReauthorizeAsync(
+                command.Actor,
+                AssessmentAuthorizationActions.SelectSources,
+                command.ActivityId,
+                AssessmentResourceTypes.Activity,
+                transaction,
+                cancellationToken);
+            if (!saveAuth.IsPermitted || !selectAuth.IsPermitted)
+            {
+                return AssessmentDecision<ActivityDraft>.Fail(AssessmentFailureCodes.Denied);
             }
 
             var persisted = await draftStore.UpdateDraftAsync(saved.Value, transaction, cancellationToken);
@@ -265,38 +306,15 @@ public sealed class AssessmentDraftHandler(
         AssessmentActorContext actor,
         string environment,
         ActivityDraft draft,
-        IAssessmentActivationTransaction? transaction,
+        IAssessmentActivationTransaction transaction,
         CancellationToken cancellationToken)
     {
-        var strength = AssessmentAuthenticationPolicy.Evaluate(
-            actor,
-            AssessmentAuthorizationActions.SelectSources);
-        if (strength is not null)
-        {
-            return strength;
-        }
-
-        var authorized = await authorization.AuthorizeAdmissionAsync(
-            actor,
-            AssessmentAuthorizationActions.SelectSources,
-            draft.ActivityId,
-            AssessmentResourceTypes.Activity,
+        var selectable = await sourceCatalog.LoadSelectableExactAsync(
+            actor.Organization.OrganizationId,
+            CollectReferences(draft),
+            environment,
+            transaction,
             cancellationToken);
-        if (!authorized.IsPermitted)
-        {
-            return AssessmentFailureCodes.Denied;
-        }
-
-        var selectable = transaction is null
-            ? await sourceCatalog.ListSelectableAsync(
-                actor.Organization.OrganizationId,
-                environment,
-                cancellationToken)
-            : await sourceCatalog.ListSelectableAsync(
-                actor.Organization.OrganizationId,
-                environment,
-                transaction,
-                cancellationToken);
         return AssessmentSourceSelection.Validate(draft, selectable);
     }
 

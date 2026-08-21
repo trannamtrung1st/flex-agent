@@ -60,6 +60,25 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
         Assert.Equal(first.BaselineId, retry.BaselineId);
         Assert.Equal(AssessmentFailureCodes.ConcurrentActivation, competing.OutcomeCode);
         Assert.Equal(first.BaselineId, reconciled.BaselineId);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var outcomes = (await connection.QueryAsync<string>(
+            """
+            SELECT outcome
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND action = @Action
+              AND resource_id = @CohortId
+            ORDER BY sequence_number
+            """,
+            new
+            {
+                harness.OrganizationId,
+                Action = AssessmentAuthorizationActions.ActivateCohort,
+                harness.CohortId,
+            })).ToArray();
+        Assert.Contains("permit", outcomes);
+        Assert.Contains("deduplicated", outcomes);
     }
 
     [Fact]
@@ -366,6 +385,63 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
         Assert.Equal("23503", exception.SqlState);
     }
 
+    [Fact]
+    public async Task Save_denies_when_the_grant_is_revoked_after_source_locks()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var connections = Fixture.Services.ConnectionAccessor;
+        var kernel = new PostgresAuthorizationKernel(connections);
+        var store = new PostgresAssessmentDraftStore(connections);
+        var catalog = new PostgresAssessmentSourceCatalog(connections);
+        var grants = new PostgresGrantRepository(connections);
+        var drafts = new AssessmentDraftHandler(
+            new KernelAssessmentAuthorizationPort(kernel, kernel),
+            new RevokeAfterSelectableLockCatalog(
+                catalog,
+                () => grants.RevokeAsync(
+                    harness.OrganizationId,
+                    harness.Actor.Actor.ActorId,
+                    AssessmentAuthorizationActions.SaveActivity,
+                    CancellationToken)),
+            store,
+            new PostgresAssessmentUnitOfWork(connections));
+        var current = await store.GetDraftAsync(harness.OrganizationId, harness.ActivityId, CancellationToken);
+        Assert.NotNull(current);
+
+        var saved = await drafts.SaveAsync(
+            new SaveAssessmentDraftCommand(
+                harness.Actor,
+                harness.ActivityId,
+                current.RevisionNumber,
+                current.Content with { Title = "After revoke" },
+                DeploymentEnvironments.Development),
+            CancellationToken);
+        var after = await store.GetDraftAsync(harness.OrganizationId, harness.ActivityId, CancellationToken);
+
+        Assert.Equal(AssessmentFailureCodes.Denied, saved.OutcomeCode);
+        Assert.Equal(current.RevisionNumber, after!.RevisionNumber);
+        Assert.Equal(current.Content.Title, after.Content.Title);
+    }
+
+    [Fact]
+    public async Task Invalid_idempotency_key_does_not_touch_activation_tables()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var outcome = await harness.Coordinator.ActivateAsync(harness.Command("   "), CancellationToken);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var operations = await connection.ExecuteScalarAsync<long>(
+            """
+            SELECT COUNT(*)
+            FROM assessment_activation_operations
+            WHERE organization_id = @OrganizationId AND activity_id = @ActivityId
+            """,
+            new { harness.OrganizationId, harness.ActivityId });
+
+        Assert.Equal(AssessmentFailureCodes.InvalidField, outcome.OutcomeCode);
+        Assert.Equal(0, operations);
+    }
+
     private async Task<Harness> SeedReadyHarnessAsync()
     {
         var seeded = await Fixture.SeedOrganizationAsync();
@@ -381,6 +457,10 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
             seeded.OrganizationId,
             seeded.ActorId,
             AssessmentAuthorizationActions.ReadActivity);
+        await Fixture.GrantOrganizationActionAsync(
+            seeded.OrganizationId,
+            seeded.ActorId,
+            AssessmentAuthorizationActions.SaveActivity);
         await Fixture.GrantOrganizationActionAsync(
             seeded.OrganizationId,
             seeded.ActorId,
@@ -525,6 +605,55 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
                 "pending",
                 DeploymentEnvironments.Development);
             return command with { TrustedCommandDigest = Digest.Compute(command) };
+        }
+    }
+
+    private sealed class RevokeAfterSelectableLockCatalog(
+        PostgresAssessmentSourceCatalog inner,
+        Func<Task> revoke) : IAssessmentSourceCatalog, IAssessmentSourceTransactionPort
+    {
+        public Task<IReadOnlyList<TrustedSourceDescriptor>> LoadExactAsync(
+            Guid organizationId,
+            IReadOnlyList<ExactSourceRef> references,
+            CancellationToken cancellationToken) =>
+            inner.LoadExactAsync(organizationId, references, cancellationToken);
+
+        public Task<IReadOnlyList<TrustedSourceDescriptor>> ListSelectableAsync(
+            Guid organizationId,
+            string environment,
+            CancellationToken cancellationToken) =>
+            inner.ListSelectableAsync(organizationId, environment, cancellationToken);
+
+        public Task<IReadOnlyList<TrustedSourceDescriptor>> LoadSelectableExactAsync(
+            Guid organizationId,
+            IReadOnlyList<ExactSourceRef> references,
+            string environment,
+            IAssessmentActivationTransaction transaction,
+            CancellationToken cancellationToken) =>
+            LoadAndRevokeAsync(organizationId, references, environment, transaction, cancellationToken);
+
+        public Task<IReadOnlyList<TrustedSourceDescriptor>> RevalidateExactAsync(
+            Guid organizationId,
+            IReadOnlyList<ExactSourceRef> references,
+            IAssessmentActivationTransaction transaction,
+            CancellationToken cancellationToken) =>
+            inner.RevalidateExactAsync(organizationId, references, transaction, cancellationToken);
+
+        private async Task<IReadOnlyList<TrustedSourceDescriptor>> LoadAndRevokeAsync(
+            Guid organizationId,
+            IReadOnlyList<ExactSourceRef> references,
+            string environment,
+            IAssessmentActivationTransaction transaction,
+            CancellationToken cancellationToken)
+        {
+            var rows = await inner.LoadSelectableExactAsync(
+                organizationId,
+                references,
+                environment,
+                transaction,
+                cancellationToken);
+            await revoke();
+            return rows;
         }
     }
 }

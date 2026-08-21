@@ -19,6 +19,11 @@ public sealed class AssessmentActivationCoordinator(
         ActivateCohortCommand command,
         CancellationToken cancellationToken = default)
     {
+        if (AssessmentIdempotencyKey.Validate(command.IdempotencyKey) is { } invalidKey)
+        {
+            return Fail(invalidKey, command);
+        }
+
         var startedAt = _clock.UtcNow;
         var expectedDigest = commandDigest.Compute(command);
         var strength = AssessmentAuthenticationPolicy.Evaluate(
@@ -69,7 +74,13 @@ public sealed class AssessmentActivationCoordinator(
                 cancellationToken);
             if (existingSuccess is not null)
             {
-                return ExistingOrConflict(existingSuccess, expectedDigest, command);
+                return await RecordExistingRequestAsync(
+                    command,
+                    expectedDigest,
+                    existingSuccess,
+                    transaction,
+                    startedAt,
+                    cancellationToken);
             }
 
             var bindingConflict = await BindOrConflictAsync(
@@ -127,7 +138,13 @@ public sealed class AssessmentActivationCoordinator(
                 cancellationToken);
             if (existingSuccess is not null)
             {
-                return ExistingOrConflict(existingSuccess, expectedDigest, command);
+                return await RecordExistingRequestAsync(
+                    command,
+                    expectedDigest,
+                    existingSuccess,
+                    transaction,
+                    startedAt,
+                    cancellationToken);
             }
 
             if (draft.RevisionId != command.ExpectedRevisionId
@@ -236,7 +253,7 @@ public sealed class AssessmentActivationCoordinator(
             var attempt = CreateAttempt(
                 command,
                 expectedDigest,
-                "assessment.activated",
+                AssessmentActivationOutcomes.Activated,
                 bound.Value.BaselineId,
                 bound.Value.BaselineDigest,
                 bound.Value.State,
@@ -253,6 +270,11 @@ public sealed class AssessmentActivationCoordinator(
         ReconcileActivationQuery query,
         CancellationToken cancellationToken = default)
     {
+        if (AssessmentIdempotencyKey.Validate(query.IdempotencyKey) is { } invalidKey)
+        {
+            return new ActivationOutcome(false, invalidKey, query.ActivityId, query.CohortId, null, null, CohortStates.Draft);
+        }
+
         var strength = AssessmentAuthenticationPolicy.Evaluate(
             query.Actor,
             AssessmentAuthorizationActions.ReconcileActivation);
@@ -477,17 +499,56 @@ public sealed class AssessmentActivationCoordinator(
             finishedAtUtc ?? _clock.UtcNow);
     }
 
-    private static ActivationOutcome ExistingOrConflict(
-        AssessmentActivationAttempt existing,
+    private async Task<ActivationOutcome> RecordExistingRequestAsync(
+        ActivateCohortCommand command,
         string expectedDigest,
-        ActivateCohortCommand command) =>
-        string.Equals(existing.CommandDigest, expectedDigest, StringComparison.Ordinal)
-            ? FromAttempt(existing)
-            : Fail(AssessmentFailureCodes.IdempotencyConflict, command);
+        AssessmentActivationAttempt existing,
+        IAssessmentActivationTransaction transaction,
+        DateTimeOffset startedAt,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(existing.CommandDigest, expectedDigest, StringComparison.Ordinal))
+        {
+            return await PersistFailureAsync(
+                command,
+                expectedDigest,
+                AssessmentFailureCodes.IdempotencyConflict,
+                transaction,
+                draft: null,
+                startedAt,
+                cancellationToken);
+        }
+
+        var attempt = new AssessmentActivationAttempt(
+            existing.OrganizationId,
+            existing.ActivityId,
+            existing.CohortId,
+            Guid.CreateVersion7(),
+            existing.RequestedRevisionId,
+            existing.RequestedRevisionNumber,
+            existing.AuthoritativeRevisionId,
+            existing.AuthoritativeRevisionNumber,
+            existing.IdempotencyKey,
+            existing.CommandDigest,
+            AssessmentActivationOutcomes.Deduplicated,
+            existing.BaselineId,
+            existing.BaselineDigest,
+            existing.CohortState,
+            command.Actor.Actor.ActorId,
+            command.Actor.CorrelationId,
+            command.Actor.Actor.ActorType,
+            command.Actor.SourceChannel,
+            existing.AuthoritativeCohortId,
+            startedAt,
+            _clock.UtcNow);
+        await attempts.InsertAsync(attempt, transaction, cancellationToken);
+        return FromAttempt(attempt);
+    }
 
     private static ActivationOutcome FromAttempt(AssessmentActivationAttempt attempt) =>
         new(
-            string.Equals(attempt.OutcomeCode, "assessment.activated", StringComparison.Ordinal),
+            string.Equals(attempt.OutcomeCode, AssessmentActivationOutcomes.Activated, StringComparison.Ordinal)
+                || string.Equals(attempt.OutcomeCode, AssessmentActivationOutcomes.Deduplicated, StringComparison.Ordinal),
             attempt.OutcomeCode,
             attempt.ActivityId,
             attempt.CohortId,

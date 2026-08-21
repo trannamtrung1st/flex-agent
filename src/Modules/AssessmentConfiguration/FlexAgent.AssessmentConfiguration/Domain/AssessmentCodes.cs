@@ -116,6 +116,12 @@ public static class AssessmentFailureCodes
     public const string ConcurrentActivation = "assessment.concurrent_activation";
 }
 
+public static class AssessmentActivationOutcomes
+{
+    public const string Activated = "assessment.activated";
+    public const string Deduplicated = "assessment.activation.deduplicated";
+}
+
 public static class AssessmentAuthorizationActions
 {
     public const string CreateActivity = "assessment.activity.create";

@@ -154,26 +154,31 @@ public sealed class InMemoryAssessmentSourceCatalog : IAssessmentSourceCatalog, 
         CancellationToken cancellationToken) =>
         FilterSelectableAsync(organizationId, environment);
 
-    public Task<IReadOnlyList<TrustedSourceDescriptor>> ListSelectableAsync(
+    public Task<IReadOnlyList<TrustedSourceDescriptor>> LoadSelectableExactAsync(
         Guid organizationId,
+        IReadOnlyList<ExactSourceRef> references,
         string environment,
         IAssessmentActivationTransaction transaction,
         CancellationToken cancellationToken)
     {
         _ = (transaction, cancellationToken);
-        return FilterSelectableAsync(organizationId, environment);
+        return Task.FromResult<IReadOnlyList<TrustedSourceDescriptor>>(
+            Selectable(organizationId, environment)
+                .Where(source => references.Any(source.Matches))
+                .ToArray());
     }
 
     private Task<IReadOnlyList<TrustedSourceDescriptor>> FilterSelectableAsync(
         Guid organizationId,
         string environment) =>
-        Task.FromResult<IReadOnlyList<TrustedSourceDescriptor>>(
-            _sources.Where(source =>
-                    source.OrganizationId == organizationId
-                    && source.LifecycleState == SourceLifecycleStates.Available
-                    && source.TransactionallyRevalidatable
-                    && (environment != DeploymentEnvironments.Production || source.ProductionEligible))
-                .ToArray());
+        Task.FromResult<IReadOnlyList<TrustedSourceDescriptor>>(Selectable(organizationId, environment).ToArray());
+
+    private IEnumerable<TrustedSourceDescriptor> Selectable(Guid organizationId, string environment) =>
+        _sources.Where(source =>
+            source.OrganizationId == organizationId
+            && source.LifecycleState == SourceLifecycleStates.Available
+            && source.TransactionallyRevalidatable
+            && (environment != DeploymentEnvironments.Production || source.ProductionEligible));
 
     public Task<IReadOnlyList<TrustedSourceDescriptor>> RevalidateExactAsync(
         Guid organizationId,
@@ -188,6 +193,8 @@ public sealed class InMemoryAssessmentAuthorizationPort(bool permit = true) : IA
     public bool Permit { get; set; } = permit;
 
     public HashSet<string> DeniedActions { get; } = [];
+
+    public HashSet<string> DeniedOnReauthorize { get; } = [];
 
     public Task<AuthorizationDecision> AuthorizeAdmissionAsync(
         AssessmentActorContext actor,
@@ -205,8 +212,13 @@ public sealed class InMemoryAssessmentAuthorizationPort(bool permit = true) : IA
         Guid resourceId,
         string resourceType,
         IAssessmentActivationTransaction transaction,
-        CancellationToken cancellationToken) =>
-        AuthorizeAdmissionAsync(actor, action, resourceId, resourceType, cancellationToken);
+        CancellationToken cancellationToken)
+    {
+        _ = transaction;
+        return DeniedOnReauthorize.Contains(action)
+            ? Task.FromResult(AuthorizationDecision.Deny(AuthorizationReasonCodes.DeniedNoGrant))
+            : AuthorizeAdmissionAsync(actor, action, resourceId, resourceType, cancellationToken);
+    }
 }
 
 public sealed class InMemoryAssessmentTransaction : IAssessmentActivationTransaction
