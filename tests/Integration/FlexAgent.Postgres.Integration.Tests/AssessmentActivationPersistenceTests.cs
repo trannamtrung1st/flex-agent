@@ -177,6 +177,41 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
     }
 
     [Fact]
+    public async Task Later_denied_request_cannot_rebind_an_idempotency_key()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var first = harness.Command();
+        await harness.Coordinator.ActivateAsync(
+            first with { Actor = harness.Actor with { Strength = new AuthenticationStrength(null, []) } },
+            CancellationToken);
+
+        var retargeted = harness.Command() with { ExpectedRevisionNumber = harness.RevisionNumber + 1 };
+        retargeted = retargeted with { TrustedCommandDigest = harness.Digest.Compute(retargeted) };
+        var poisoned = await harness.Coordinator.ActivateAsync(
+            retargeted with { Actor = harness.Actor with { Strength = new AuthenticationStrength(null, []) } },
+            CancellationToken);
+        var conflicting = await harness.Coordinator.ActivateAsync(retargeted, CancellationToken);
+        var recovered = await harness.Coordinator.ActivateAsync(first, CancellationToken);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var boundDigest = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT command_digest
+            FROM assessment_activation_operations
+            WHERE organization_id = @OrganizationId
+              AND activity_id = @ActivityId
+              AND requested_cohort_id = @CohortId
+              AND idempotency_key = 'idem-1'
+            """,
+            new { harness.OrganizationId, harness.ActivityId, harness.CohortId });
+
+        Assert.Equal(AssessmentFailureCodes.IdempotencyConflict, poisoned.OutcomeCode);
+        Assert.Equal(AssessmentFailureCodes.IdempotencyConflict, conflicting.OutcomeCode);
+        Assert.True(recovered.Succeeded, recovered.OutcomeCode);
+        Assert.Equal(first.TrustedCommandDigest, boundDigest);
+    }
+
+    [Fact]
     public async Task Guessed_cohort_denies_without_aborting_the_transaction()
     {
         var harness = await SeedReadyHarnessAsync();

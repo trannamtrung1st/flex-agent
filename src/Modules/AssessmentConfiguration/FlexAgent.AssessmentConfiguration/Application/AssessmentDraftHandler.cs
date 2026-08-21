@@ -58,6 +58,7 @@ public sealed class AssessmentDraftHandler(
             command.Actor,
             command.Environment,
             created.Value,
+            transaction: null,
             cancellationToken);
         if (sourceRejection is not null)
         {
@@ -124,6 +125,7 @@ public sealed class AssessmentDraftHandler(
                 command.Actor,
                 command.Environment,
                 saved.Value,
+                transaction,
                 cancellationToken);
             if (sourceRejection is not null)
             {
@@ -263,6 +265,7 @@ public sealed class AssessmentDraftHandler(
         AssessmentActorContext actor,
         string environment,
         ActivityDraft draft,
+        IAssessmentActivationTransaction? transaction,
         CancellationToken cancellationToken)
     {
         var strength = AssessmentAuthenticationPolicy.Evaluate(
@@ -284,10 +287,16 @@ public sealed class AssessmentDraftHandler(
             return AssessmentFailureCodes.Denied;
         }
 
-        var selectable = await sourceCatalog.ListSelectableAsync(
-            actor.Organization.OrganizationId,
-            environment,
-            cancellationToken);
+        var selectable = transaction is null
+            ? await sourceCatalog.ListSelectableAsync(
+                actor.Organization.OrganizationId,
+                environment,
+                cancellationToken)
+            : await sourceCatalog.ListSelectableAsync(
+                actor.Organization.OrganizationId,
+                environment,
+                transaction,
+                cancellationToken);
         return AssessmentSourceSelection.Validate(draft, selectable);
     }
 

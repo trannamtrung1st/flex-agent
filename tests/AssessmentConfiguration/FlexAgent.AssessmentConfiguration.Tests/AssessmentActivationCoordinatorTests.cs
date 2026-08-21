@@ -203,6 +203,44 @@ public sealed class AssessmentActivationCoordinatorTests
     }
 
     [Fact]
+    public async Task Later_denied_request_cannot_rebind_an_idempotency_key()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        var first = harness.Command();
+        var deniedFirst = await harness.Coordinator.ActivateAsync(
+            first with { Actor = CreateActor(mfa: false) },
+            TestContext.Current.CancellationToken);
+
+        var retargeted = harness.Command() with { ExpectedRevisionNumber = harness.Draft.RevisionNumber + 1 };
+        retargeted = retargeted with { TrustedCommandDigest = harness.CommandDigest.Compute(retargeted) };
+        var poisoned = await harness.Coordinator.ActivateAsync(
+            retargeted with { Actor = CreateActor(mfa: false) },
+            TestContext.Current.CancellationToken);
+        var conflicting = await harness.Coordinator.ActivateAsync(retargeted, TestContext.Current.CancellationToken);
+        var recovered = await harness.Coordinator.ActivateAsync(first, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength, deniedFirst.OutcomeCode);
+        Assert.Equal(AssessmentFailureCodes.IdempotencyConflict, poisoned.OutcomeCode);
+        Assert.Equal(AssessmentFailureCodes.IdempotencyConflict, conflicting.OutcomeCode);
+        Assert.True(recovered.Succeeded, recovered.OutcomeCode);
+        Assert.Equal(first.TrustedCommandDigest, harness.Attempts.Items.Single(item => item.OutcomeCode == "assessment.activated").CommandDigest);
+    }
+
+    [Fact]
+    public async Task Attempt_timestamps_start_at_activate_entry()
+    {
+        var clock = new TickAssessmentClock(new DateTimeOffset(2026, 8, 21, 12, 0, 0, TimeSpan.Zero));
+        var harness = await CreateReadyHarnessAsync(clock: clock);
+
+        var outcome = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+        var stored = harness.Attempts.Items.Single();
+
+        Assert.True(outcome.Succeeded, outcome.OutcomeCode);
+        Assert.Equal(new DateTimeOffset(2026, 8, 21, 12, 0, 0, TimeSpan.Zero), stored.StartedAtUtc);
+        Assert.True(stored.FinishedAtUtc > stored.StartedAtUtc);
+    }
+
+    [Fact]
     public async Task Guessed_cohort_persists_an_unbound_failure_attempt()
     {
         var harness = await CreateReadyHarnessAsync();
@@ -289,7 +327,8 @@ public sealed class AssessmentActivationCoordinatorTests
     }
 
     private static async Task<Harness> CreateReadyHarnessAsync(
-        string environment = DeploymentEnvironments.Development)
+        string environment = DeploymentEnvironments.Development,
+        IAssessmentClock? clock = null)
     {
         var store = new InMemoryAssessmentDraftStore();
         var authorization = new InMemoryAssessmentAuthorizationPort();
@@ -325,7 +364,8 @@ public sealed class AssessmentActivationCoordinatorTests
             new ActivationBaselineDigester(),
             commandDigest,
             new InMemoryAssessmentBaselineStore(),
-            attempts);
+            attempts,
+            clock);
 
         return new Harness(coordinator, store, unitOfWork, created.Value!, cohort, actor, commandDigest, environment, attempts);
     }
@@ -412,6 +452,23 @@ internal sealed class DelayedFindAttemptStore(
         FindCoreAsync(
             () => inner.FindAsync(organizationId, activityId, cohortId, idempotencyKey, transaction, cancellationToken));
 
+    public Task<string> BindCommandDigestAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid requestedCohortId,
+        string idempotencyKey,
+        string commandDigest,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken) =>
+        inner.BindCommandDigestAsync(
+            organizationId,
+            activityId,
+            requestedCohortId,
+            idempotencyKey,
+            commandDigest,
+            transaction,
+            cancellationToken);
+
     private async Task<AssessmentActivationAttempt?> FindCoreAsync(Func<Task<AssessmentActivationAttempt?>> find)
     {
         var count = Interlocked.Increment(ref _findCount);
@@ -421,5 +478,20 @@ internal sealed class DelayedFindAttemptStore(
         }
 
         return await find();
+    }
+}
+
+internal sealed class TickAssessmentClock(DateTimeOffset start) : IAssessmentClock
+{
+    private DateTimeOffset _now = start;
+
+    public DateTimeOffset UtcNow
+    {
+        get
+        {
+            var current = _now;
+            _now = _now.AddSeconds(1);
+            return current;
+        }
     }
 }

@@ -460,7 +460,11 @@ enable model execution.
       resolver-facing read/verifier contract using the existing schema,
       versioned domain validators, explicit Assessment-owned
       `CanonicalJsonLimits`, and `FlexAgent.CanonicalJson`.
-- [>] Repair `af60530` review P1s: never replay success after current
+- [>] Repair `ac6b3eb` review: bind idempotency keys to the first command
+      digest, capture attempt start at `ActivateAsync` entry, keep `0038`
+      immutable with an explicit first-ship-together decision, and validate
+      save-time sources inside the draft transaction.
+- [x] Repair `af60530` review P1s: never replay success after current
       MFA/admission failure; audit guessed Cohort requests without a parent
       FK; leave `0038` immutable and do not restore fabricated
       authoritative revisions; freeze per-attempt duration in the baseline;
@@ -602,6 +606,15 @@ synthetic provider.
 
 # Findings / deviations
 
+- 2026-08-21 review of `ac6b3eb`: idempotency keys now bind to the first
+  command digest in `assessment_activation_operations` (`0040`); later
+  denied or retargeted requests append conflict attempts without
+  rebinding the key. `ActivateAsync` captures `startedAt` at entry and
+  uses `IAssessmentClock` for baseline `occurredAt`. Save-time selectable
+  source reads use the draft transaction. **0038 deployment decision:**
+  `0037`/`0038`/`0039` have not shipped independently against live
+  Assessment data; they first deploy together. Leave `0038` immutable
+  and do not restore nulled authoritative failure revisions.
 - 2026-08-21 review of `af60530`: current MFA/admission failure never
   replays a prior success; guessed Cohort requests persist an unbound
   attempt plus deny audit; `0038` stays immutable because distinct
@@ -715,8 +728,8 @@ synthetic provider.
 | Repository inventory refresh | passed for planning | Observed `ef911ee`; only this plan was modified; migration head remains `0033`; no Assessment module/API exists; Sessions OpenAI-compatible and installed operator-state modules/tests now exist |
 | Execution baseline | passed | Start SHA `ef911ee`. Before behavior changes: Architecture 35 passed; Contract 135 passed; CanonicalJson 25 passed; web lint warning-only, typecheck passed, unit 60 passed. PostgreSQL/Runtime/Sessions/e2e smoke were not all re-run in this session due to parallel-build lock and time; Architecture was re-run after the lock. |
 | Source-authority/transaction decision | recorded as Proposed | `ADR-017` and `PROP-7` published. Sessions file registries are excluded. Production fail-closed remains the interim default until ADR-017 is approved. |
-| Assessment focused tests | passed for domain/application | `dotnet test tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — 56 passed after `af60530` P1 repairs (no success replay after lost MFA, unbound guessed-cohort attempt, per-attempt duration in baseline) |
-| PostgreSQL migration/integration | partial | `0039` requested cohort + start/end timestamps; `0038` left immutable. `AssessmentActivationPersistenceTests` include guessed-cohort deny audit and success-then-lost-MFA. Full `MigrationUpgradeTests` matrix not re-run in this pass |
+| Assessment focused tests | passed for domain/application | `dotnet test --project tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — **58 passed**, including first-digest key binding and `ActivateAsync` entry start time |
+| PostgreSQL migration/integration | partial | Additive `0040` operation binding + `finished_at >= started_at`. `AssessmentActivationPersistenceTests` **11 passed**. `0038` left immutable with first-ship-together decision. Full `MigrationUpgradeTests` matrix not re-run |
 | API/runtime contracts | partial | Production/Staging without Postgres does not map `/v1/assessment`. Postgres composition uses kernel + grant-derived relationship. Development without Postgres is deny-all in-memory and does not synthesize Administrator. Reconcile requires `idempotency_key`. No dedicated HTTP contract suite yet |
 | Web unit/accessibility | partial | Setup page plus production provider added; web unit 62 passed, lint warning-only; production provider not globally composed; Playwright not run |
 | Playwright MCP | pending | Must use real app interactions, accessibility snapshots, and desktop/narrow screenshots in `.playwright-mcp/` after the slice runs |

@@ -19,12 +19,14 @@ public sealed class AssessmentActivationCoordinator(
         ActivateCohortCommand command,
         CancellationToken cancellationToken = default)
     {
+        var startedAt = _clock.UtcNow;
+        var expectedDigest = commandDigest.Compute(command);
         var strength = AssessmentAuthenticationPolicy.Evaluate(
             command.Actor,
             AssessmentAuthorizationActions.ActivateCohort);
         if (strength is not null)
         {
-            return await PersistIdempotentFailureAsync(command, strength, cancellationToken);
+            return await PersistIdempotentFailureAsync(command, expectedDigest, strength, startedAt, cancellationToken);
         }
 
         var admission = await authorization.AuthorizeAdmissionAsync(
@@ -35,13 +37,17 @@ public sealed class AssessmentActivationCoordinator(
             cancellationToken);
         if (!admission.IsPermitted)
         {
-            return await PersistIdempotentFailureAsync(command, AssessmentFailureCodes.Denied, cancellationToken);
+            return await PersistIdempotentFailureAsync(command, expectedDigest, AssessmentFailureCodes.Denied, startedAt, cancellationToken);
         }
 
-        var expectedDigest = commandDigest.Compute(command);
         if (!string.Equals(expectedDigest, command.TrustedCommandDigest, StringComparison.Ordinal))
         {
-            return await PersistIdempotentFailureAsync(command, AssessmentFailureCodes.IdempotencyConflict, cancellationToken);
+            return await PersistIdempotentFailureAsync(
+                command,
+                expectedDigest,
+                AssessmentFailureCodes.IdempotencyConflict,
+                startedAt,
+                cancellationToken);
         }
 
         return await unitOfWork.ExecuteAsync(async transaction =>
@@ -66,17 +72,15 @@ public sealed class AssessmentActivationCoordinator(
                 return ExistingOrConflict(existingSuccess, expectedDigest, command);
             }
 
-            var latest = await attempts.FindAsync(
-                command.Actor.Organization.OrganizationId,
-                command.ActivityId,
-                command.CohortId,
-                command.IdempotencyKey,
+            var bindingConflict = await BindOrConflictAsync(
+                command,
+                expectedDigest,
                 transaction,
+                startedAt,
                 cancellationToken);
-            if (latest is not null
-                && !string.Equals(latest.CommandDigest, expectedDigest, StringComparison.Ordinal))
+            if (bindingConflict is not null)
             {
-                return Fail(AssessmentFailureCodes.IdempotencyConflict, command);
+                return bindingConflict;
             }
 
             var commitAuth = await authorization.ReauthorizeAsync(
@@ -88,7 +92,7 @@ public sealed class AssessmentActivationCoordinator(
                 cancellationToken);
             if (!commitAuth.IsPermitted)
             {
-                return await PersistFailureAsync(command, expectedDigest, AssessmentFailureCodes.Denied, transaction, null, cancellationToken);
+                return await PersistFailureAsync(command, expectedDigest, AssessmentFailureCodes.Denied, transaction, null, startedAt, cancellationToken);
             }
 
             var draft = await store.GetDraftAsync(
@@ -110,6 +114,7 @@ public sealed class AssessmentActivationCoordinator(
                     AssessmentFailureCodes.Denied,
                     transaction,
                     draft,
+                    startedAt,
                     cancellationToken);
             }
 
@@ -134,6 +139,7 @@ public sealed class AssessmentActivationCoordinator(
                     AssessmentFailureCodes.StaleRevision,
                     transaction,
                     draft,
+                    startedAt,
                     cancellationToken);
             }
 
@@ -145,6 +151,7 @@ public sealed class AssessmentActivationCoordinator(
                     AssessmentFailureCodes.ConcurrentActivation,
                     transaction,
                     draft,
+                    startedAt,
                     cancellationToken);
             }
 
@@ -163,10 +170,11 @@ public sealed class AssessmentActivationCoordinator(
                     readiness.Issues.First(issue => issue.Severity == ReadinessSeverities.Blocked).ReasonCode,
                     transaction,
                     draft,
+                    startedAt,
                     cancellationToken);
             }
 
-            var occurredAt = DateTimeOffset.UtcNow;
+            var occurredAt = _clock.UtcNow;
             var provenance = new ActivationProvenance(
                 command.Actor.Actor.ActorId,
                 command.Actor.Actor.ActorType,
@@ -175,13 +183,13 @@ public sealed class AssessmentActivationCoordinator(
             var document = ActivationBaselineDocument.FromReadyDraft(draft, descriptors, provenance);
             if (!document.Succeeded || document.Value is null)
             {
-                return await PersistFailureAsync(command, expectedDigest, document.OutcomeCode, transaction, draft, cancellationToken);
+                return await PersistFailureAsync(command, expectedDigest, document.OutcomeCode, transaction, draft, startedAt, cancellationToken);
             }
 
             var digest = digester.Digest(document.Value);
             if (!digest.Succeeded || digest.Value is null)
             {
-                return await PersistFailureAsync(command, expectedDigest, digest.OutcomeCode, transaction, draft, cancellationToken);
+                return await PersistFailureAsync(command, expectedDigest, digest.OutcomeCode, transaction, draft, startedAt, cancellationToken);
             }
 
             var baselineId = Guid.CreateVersion7();
@@ -192,12 +200,12 @@ public sealed class AssessmentActivationCoordinator(
                 digest.Value);
             if (!bound.Succeeded || bound.Value is null)
             {
-                return await PersistFailureAsync(command, expectedDigest, bound.OutcomeCode, transaction, draft, cancellationToken);
+                return await PersistFailureAsync(command, expectedDigest, bound.OutcomeCode, transaction, draft, startedAt, cancellationToken);
             }
 
             if (!transaction.AuditAccepted || !transaction.OutboxAccepted)
             {
-                return await PersistFailureAsync(command, expectedDigest, AssessmentFailureCodes.AuditUnavailable, transaction, draft, cancellationToken);
+                return await PersistFailureAsync(command, expectedDigest, AssessmentFailureCodes.AuditUnavailable, transaction, draft, startedAt, cancellationToken);
             }
 
             var marked = await store.MarkActivatedAsync(
@@ -209,7 +217,7 @@ public sealed class AssessmentActivationCoordinator(
                 cancellationToken);
             if (!marked)
             {
-                return await PersistFailureAsync(command, expectedDigest, AssessmentFailureCodes.StaleRevision, transaction, draft, cancellationToken);
+                return await PersistFailureAsync(command, expectedDigest, AssessmentFailureCodes.StaleRevision, transaction, draft, startedAt, cancellationToken);
             }
 
             await baselines.InsertAsync(
@@ -234,7 +242,7 @@ public sealed class AssessmentActivationCoordinator(
                 bound.Value.State,
                 draft,
                 bound.Value.CohortId,
-                occurredAt,
+                startedAt,
                 _clock.UtcNow);
             await attempts.InsertAsync(attempt, transaction, cancellationToken);
             return FromAttempt(attempt);
@@ -329,10 +337,12 @@ public sealed class AssessmentActivationCoordinator(
 
     private Task<ActivationOutcome> PersistIdempotentFailureAsync(
         ActivateCohortCommand command,
+        string commandDigestValue,
         string code,
+        DateTimeOffset startedAt,
         CancellationToken cancellationToken) =>
         unitOfWork.ExecuteAsync(
-            transaction => PersistIdempotentFailureAsync(command, commandDigest.Compute(command), code, transaction, cancellationToken),
+            transaction => PersistIdempotentFailureAsync(command, commandDigestValue, code, transaction, startedAt, cancellationToken),
             cancellationToken);
 
     private async Task<ActivationOutcome> PersistIdempotentFailureAsync(
@@ -340,6 +350,7 @@ public sealed class AssessmentActivationCoordinator(
         string commandDigestValue,
         string code,
         IAssessmentActivationTransaction transaction,
+        DateTimeOffset startedAt,
         CancellationToken cancellationToken)
     {
         await attempts.AcquireIdempotencyLockAsync(
@@ -350,12 +361,53 @@ public sealed class AssessmentActivationCoordinator(
             transaction,
             cancellationToken);
 
+        var bindingConflict = await BindOrConflictAsync(
+            command,
+            commandDigestValue,
+            transaction,
+            startedAt,
+            cancellationToken);
+        if (bindingConflict is not null)
+        {
+            return bindingConflict;
+        }
+
         var draft = await store.GetDraftAsync(
             command.Actor.Organization.OrganizationId,
             command.ActivityId,
             transaction,
             cancellationToken);
-        return await PersistFailureAsync(command, commandDigestValue, code, transaction, draft, cancellationToken);
+        return await PersistFailureAsync(command, commandDigestValue, code, transaction, draft, startedAt, cancellationToken);
+    }
+
+    private async Task<ActivationOutcome?> BindOrConflictAsync(
+        ActivateCohortCommand command,
+        string commandDigestValue,
+        IAssessmentActivationTransaction transaction,
+        DateTimeOffset startedAt,
+        CancellationToken cancellationToken)
+    {
+        var bound = await attempts.BindCommandDigestAsync(
+            command.Actor.Organization.OrganizationId,
+            command.ActivityId,
+            command.CohortId,
+            command.IdempotencyKey,
+            commandDigestValue,
+            transaction,
+            cancellationToken);
+        if (string.Equals(bound, commandDigestValue, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return await PersistFailureAsync(
+            command,
+            commandDigestValue,
+            AssessmentFailureCodes.IdempotencyConflict,
+            transaction,
+            draft: null,
+            startedAt,
+            cancellationToken);
     }
 
     private async Task<ActivationOutcome> PersistFailureAsync(
@@ -364,6 +416,7 @@ public sealed class AssessmentActivationCoordinator(
         string code,
         IAssessmentActivationTransaction transaction,
         ActivityDraft? draft,
+        DateTimeOffset startedAt,
         CancellationToken cancellationToken)
     {
         var cohort = await store.GetCohortAsync(
@@ -372,7 +425,6 @@ public sealed class AssessmentActivationCoordinator(
             command.CohortId,
             transaction,
             cancellationToken);
-        var startedAt = _clock.UtcNow;
         var attempt = CreateAttempt(
             command,
             commandDigestValue,

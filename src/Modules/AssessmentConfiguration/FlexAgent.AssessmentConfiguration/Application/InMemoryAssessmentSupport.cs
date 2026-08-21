@@ -152,6 +152,21 @@ public sealed class InMemoryAssessmentSourceCatalog : IAssessmentSourceCatalog, 
         Guid organizationId,
         string environment,
         CancellationToken cancellationToken) =>
+        FilterSelectableAsync(organizationId, environment);
+
+    public Task<IReadOnlyList<TrustedSourceDescriptor>> ListSelectableAsync(
+        Guid organizationId,
+        string environment,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        _ = (transaction, cancellationToken);
+        return FilterSelectableAsync(organizationId, environment);
+    }
+
+    private Task<IReadOnlyList<TrustedSourceDescriptor>> FilterSelectableAsync(
+        Guid organizationId,
+        string environment) =>
         Task.FromResult<IReadOnlyList<TrustedSourceDescriptor>>(
             _sources.Where(source =>
                     source.OrganizationId == organizationId
@@ -244,6 +259,7 @@ public sealed class InMemoryAssessmentUnitOfWork : IAssessmentActivationUnitOfWo
 public sealed class InMemoryAssessmentAttemptStore : IAssessmentActivationAttemptStore
 {
     private readonly List<AssessmentActivationAttempt> _attempts = [];
+    private readonly Dictionary<(Guid OrganizationId, Guid ActivityId, Guid CohortId, string Key), string> _bindings = [];
 
     public IReadOnlyList<AssessmentActivationAttempt> Items => _attempts;
 
@@ -293,6 +309,26 @@ public sealed class InMemoryAssessmentAttemptStore : IAssessmentActivationAttemp
 
         _attempts.Add(attempt);
         return Task.CompletedTask;
+    }
+
+    public Task<string> BindCommandDigestAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid requestedCohortId,
+        string idempotencyKey,
+        string commandDigest,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        _ = (transaction, cancellationToken);
+        var key = (organizationId, activityId, requestedCohortId, idempotencyKey);
+        if (!_bindings.TryGetValue(key, out var bound))
+        {
+            _bindings[key] = commandDigest;
+            return Task.FromResult(commandDigest);
+        }
+
+        return Task.FromResult(bound);
     }
 
     private IEnumerable<AssessmentActivationAttempt> Matching(

@@ -129,6 +129,15 @@ public interface IAssessmentActivationAttemptStore
         AssessmentActivationAttempt attempt,
         IAssessmentActivationTransaction transaction,
         CancellationToken cancellationToken);
+
+    Task<string> BindCommandDigestAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid requestedCohortId,
+        string idempotencyKey,
+        string commandDigest,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken);
 }
 
 public sealed record AssessmentActorAuthorization(
@@ -214,6 +223,12 @@ public interface IAssessmentSourceCatalog
         Guid organizationId,
         string environment,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<TrustedSourceDescriptor>> ListSelectableAsync(
+        Guid organizationId,
+        string environment,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IAssessmentDevelopmentSourceSeeder
@@ -226,6 +241,12 @@ public interface IAssessmentSourceTransactionPort
     Task<IReadOnlyList<TrustedSourceDescriptor>> RevalidateExactAsync(
         Guid organizationId,
         IReadOnlyList<ExactSourceRef> references,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<TrustedSourceDescriptor>> ListSelectableAsync(
+        Guid organizationId,
+        string environment,
         IAssessmentActivationTransaction transaction,
         CancellationToken cancellationToken = default);
 }

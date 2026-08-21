@@ -204,14 +204,26 @@ public sealed class PostgresAssessmentSourceCatalog(PostgresConnectionAccessor c
         Guid organizationId,
         string environment,
         CancellationToken cancellationToken) =>
-        LoadSelectableAsync(organizationId, environment, cancellationToken);
+        LoadSelectableAsync(organizationId, environment, transaction: null, cancellationToken);
+
+    public Task<IReadOnlyList<TrustedSourceDescriptor>> ListSelectableAsync(
+        Guid organizationId,
+        string environment,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken) =>
+        LoadSelectableAsync(
+            organizationId,
+            environment,
+            transaction.PersistenceContext as NpgsqlTransaction,
+            cancellationToken);
 
     private async Task<IReadOnlyList<TrustedSourceDescriptor>> LoadSelectableAsync(
         Guid organizationId,
         string environment,
+        NpgsqlTransaction? transaction,
         CancellationToken cancellationToken)
     {
-        const string sql = """
+        var sql = """
             SELECT
                 d.organization_id,
                 d.configuration_source_id AS source_id,
@@ -240,17 +252,32 @@ public sealed class PostgresAssessmentSourceCatalog(PostgresConnectionAccessor c
               AND d.transactionally_revalidatable = TRUE
               AND (@RequireProductionEligible = FALSE OR d.production_eligible = TRUE)
             """;
+        if (transaction is not null)
+        {
+            sql += """
+                
+                FOR SHARE
+                """;
+        }
 
-        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-        var rows = await connection.QueryAsync<DescriptorRow>(
-            new CommandDefinition(
-                sql,
-                new
-                {
-                    OrganizationId = organizationId,
-                    RequireProductionEligible = environment == DeploymentEnvironments.Production,
-                },
-                cancellationToken: cancellationToken));
+        IEnumerable<DescriptorRow> rows;
+        var parameters = new
+        {
+            OrganizationId = organizationId,
+            RequireProductionEligible = environment == DeploymentEnvironments.Production,
+        };
+        if (transaction is null)
+        {
+            await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+            rows = await connection.QueryAsync<DescriptorRow>(
+                new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
+        }
+        else
+        {
+            rows = await transaction.Connection!.QueryAsync<DescriptorRow>(
+                new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellationToken));
+        }
+
         return rows.Select(ToDescriptor).ToArray();
     }
 
@@ -568,6 +595,64 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
         Guid? AuthoritativeCohortId,
         DateTimeOffset StartedAt,
         DateTimeOffset FinishedAt);
+
+    public async Task<string> BindCommandDigestAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid requestedCohortId,
+        string idempotencyKey,
+        string commandDigest,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        if (transaction.PersistenceContext is not NpgsqlTransaction npgsql)
+        {
+            throw new InvalidOperationException("Assessment activation attempts require the PostgreSQL activation transaction.");
+        }
+
+        await npgsql.Connection!.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO assessment_activation_operations (
+                    organization_id, activity_id, requested_cohort_id, idempotency_key, command_digest, bound_at)
+                VALUES (
+                    @OrganizationId, @ActivityId, @RequestedCohortId, @IdempotencyKey, @CommandDigest, now())
+                ON CONFLICT (organization_id, activity_id, requested_cohort_id, idempotency_key)
+                DO NOTHING
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    ActivityId = activityId,
+                    RequestedCohortId = requestedCohortId,
+                    IdempotencyKey = idempotencyKey,
+                    CommandDigest = commandDigest,
+                },
+                npgsql,
+                cancellationToken: cancellationToken));
+
+        return await npgsql.Connection!.ExecuteScalarAsync<string>(
+            new CommandDefinition(
+                """
+                SELECT command_digest
+                FROM assessment_activation_operations
+                WHERE organization_id = @OrganizationId
+                  AND activity_id = @ActivityId
+                  AND requested_cohort_id = @RequestedCohortId
+                  AND idempotency_key = @IdempotencyKey
+                FOR UPDATE
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    ActivityId = activityId,
+                    RequestedCohortId = requestedCohortId,
+                    IdempotencyKey = idempotencyKey,
+                },
+                npgsql,
+                cancellationToken: cancellationToken))
+            ?? throw new InvalidOperationException("Assessment activation operation binding was not persisted.");
+    }
 }
 
 public sealed class PostgresAssessmentRelationshipResolver(PostgresConnectionAccessor connections)
