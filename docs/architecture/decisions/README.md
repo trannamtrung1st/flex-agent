@@ -4,7 +4,7 @@ Architecture Decision Records (ADRs) for Flex Agent.
 
 ## Status
 
-**Sixteen approved decisions.** ADR-012 through ADR-014 plus their approved upstream
+**Sixteen approved decisions and one Proposed decision.** ADR-012 through ADR-014 plus their approved upstream
 product/requirement revisions govern structured Agent Invocation/Decision,
 next-timer replacement, and the P0 Decision-output envelope.
 [ADR-015](ADR-015-session-timer-lane-service-delegation.md) records the Worker
@@ -43,6 +43,7 @@ OpenAI-compatible endpoint qualification track.
 | [ADR-014](ADR-014-agent-output-envelope-and-p0-compatibility.md) | Approved | Versioned Decision envelope with typed outputs and requested actions, P0 message-only compatibility profile, runtime-owned output identity, and historical v1 reconstruction |
 | [ADR-015](ADR-015-session-timer-lane-service-delegation.md) | Approved | Per-Session `session.timer_lane.fire` service delegation, timer-schedule envelope reference, explicit Worker timer-polling capability, and commit-time reauthorization |
 | [ADR-016](ADR-016-worker-workload-identity-and-invocation-delegation.md) | Approved | Provider-neutral Worker workload identity, OAuth 2.0 client-credentials signed-JWT reference profile, versioned service-actor binding, and per-Session `session.invocation.execute` delegation |
+| [ADR-017](ADR-017-assessment-source-authority-and-activation-transaction.md) | Proposed | Configuration-owned transactional source descriptors, named Assessment activation coordinator, Sessions file-registry exclusion, and Production fail-closed source participation |
 
 ## Purpose
 

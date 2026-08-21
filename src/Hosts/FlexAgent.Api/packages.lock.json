@@ -21,6 +21,13 @@
           "Json.More.Net": "3.0.1"
         }
       },
+      "flexagent.assessmentconfiguration": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.CanonicalJson": "[1.0.0, )",
+          "FlexAgent.IdentityAccess": "[1.0.0, )"
+        }
+      },
       "flexagent.canonicaljson": {
         "type": "Project"
       },

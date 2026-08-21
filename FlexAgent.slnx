@@ -5,6 +5,8 @@
     <Project Path="src/Hosts/FlexAgent.Api/FlexAgent.Api.csproj" />
     <Project Path="src/Hosts/FlexAgent.Worker/FlexAgent.Worker.csproj" />
     <Project Path="src/Infrastructure/FlexAgent.Postgres/FlexAgent.Postgres.csproj" />
+    <Project Path="src/Modules/AssessmentConfiguration/FlexAgent.AssessmentConfiguration/FlexAgent.AssessmentConfiguration.csproj" />
+    <Project Path="src/Modules/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Infrastructure/FlexAgent.AssessmentConfiguration.Infrastructure.csproj" />
     <Project Path="src/Modules/Configuration/FlexAgent.Configuration/FlexAgent.Configuration.csproj" />
     <Project Path="src/Modules/IdentityAccess/FlexAgent.IdentityAccess/FlexAgent.IdentityAccess.csproj" />
     <Project Path="src/Modules/Sessions/FlexAgent.Sessions/FlexAgent.Sessions.csproj" />
@@ -15,6 +17,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Architecture/FlexAgent.Architecture.Tests/FlexAgent.Architecture.Tests.csproj" />
+    <Project Path="tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests/FlexAgent.AssessmentConfiguration.Tests.csproj" />
     <Project Path="tests/CanonicalJson/FlexAgent.CanonicalJson.Tests/FlexAgent.CanonicalJson.Tests.csproj" />
     <Project Path="tests/Contract/FlexAgent.Contract.Tests/FlexAgent.Contract.Tests.csproj" />
     <Project Path="tests/Integration/FlexAgent.Postgres.Integration.Tests/FlexAgent.Postgres.Integration.Tests.csproj" />

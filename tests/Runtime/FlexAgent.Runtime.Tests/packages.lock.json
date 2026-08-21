@@ -458,11 +458,19 @@
       "flexagent.api": {
         "type": "Project",
         "dependencies": {
+          "FlexAgent.AssessmentConfiguration": "[1.0.0, )",
           "FlexAgent.Contracts": "[1.0.0, )",
           "FlexAgent.IdentityAccess": "[1.0.0, )",
           "FlexAgent.Sessions": "[1.0.0, )",
           "FlexAgent.Sessions.Infrastructure": "[1.0.0, )",
           "FlexAgent.SyntheticBrowser": "[1.0.0, )"
+        }
+      },
+      "flexagent.assessmentconfiguration": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.CanonicalJson": "[1.0.0, )",
+          "FlexAgent.IdentityAccess": "[1.0.0, )"
         }
       },
       "flexagent.canonicaljson": {

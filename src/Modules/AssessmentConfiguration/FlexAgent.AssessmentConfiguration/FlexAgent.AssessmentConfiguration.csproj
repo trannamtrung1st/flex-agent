@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FlexAgent.AssessmentConfiguration</RootNamespace>
+    <AssemblyName>FlexAgent.AssessmentConfiguration</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\FlexAgent.CanonicalJson\FlexAgent.CanonicalJson.csproj" />
+    <ProjectReference Include="..\..\IdentityAccess\FlexAgent.IdentityAccess\FlexAgent.IdentityAccess.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="FlexAgent.AssessmentConfiguration.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.AssessmentConfiguration.Infrastructure" />
+    <InternalsVisibleTo Include="FlexAgent.Postgres.Integration.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Architecture.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Runtime.Tests" />
+  </ItemGroup>
+
+</Project>

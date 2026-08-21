@@ -9,7 +9,7 @@
 - Source: [Activity](../../product/concept-model.md#activity), [Effective configuration resolution](../../product/concept-model.md#effective-configuration-resolution), [Assessment fairness constraints](../../product/concept-model.md#assessment-fairness-constraints), [Group and cohort semantics](../../product/concept-model.md#group-and-cohort-semantics), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice), and [MVP executable workflow](../../product/mvp-scope.md#mvp-executable-workflow)
 - Catalog entry: P0 #3 — [P0 authoring order](../README.md#p0-authoring-order)
 - Related requirements: Consumes the approved authorization and isolation contract in [`auth-resource-isolation.md`](auth-resource-isolation.md) and produces the cohort activation baseline consumed by [`resolved-session-configuration.md`](resolved-session-configuration.md).
-- Related decisions: Approved defaults `PROP-1`–`PROP-6` in this specification. [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs compatible downstream resolved-configuration representation and integrity. [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) and [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) govern authorization enforcement and durable audit. [ADR-004](../../architecture/decisions/ADR-004-assessment-activation-baseline-and-atomicity.md) governs activation-baseline representation, content digests, binding, idempotency, and atomic activation.
+- Related decisions: Approved defaults `PROP-1`–`PROP-6` in this specification. Proposed source-authority default `PROP-7` pending ADR approval. [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs compatible downstream resolved-configuration representation and integrity. [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) and [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) govern authorization enforcement and durable audit. [ADR-004](../../architecture/decisions/ADR-004-assessment-activation-baseline-and-atomicity.md) governs activation-baseline representation, content digests, binding, idempotency, and atomic activation. [ADR-017](../../architecture/decisions/ADR-017-assessment-source-authority-and-activation-transaction.md) is Proposed working guidance for source ownership and activation-transaction participation.
 
 This approved specification is authoritative for assessment activity setup and cohort activation behavior. Implementation and verification remain traceability gaps.
 
@@ -632,7 +632,10 @@ Metrics, logs, and traces must use bounded labels and must not contain raw parti
 
 ## Open questions
 
-None. Questions `Q-1`–`Q-6` and the additional approval confirmations for audit durability, empty-cohort activation, and timing ownership were decided on 2026-08-06 as recorded below.
+Questions `Q-1`–`Q-6` and the additional approval confirmations for audit durability, empty-cohort activation, and timing ownership were decided on 2026-08-06 as recorded below.
+
+- `Q-7` — Which module supplies exact, transactionally revalidated source metadata for Assessment readiness and ADR-004 activation when Agent/Harness authoring does not exist and Sessions model-deployment profiles are file-loaded in memory?
+  - **Interim default (`PROP-7`):** Configuration-owned PostgreSQL source versions plus readiness descriptors are the only source authority that may participate in the Assessment activation transaction. Sessions file/in-memory profile, qualification, and credential-catalog records are not commit participants and are not baseline content. Production fails closed for any required category that cannot be revalidated in-transaction. Credential binding remains a downstream Session concern. This default is working guidance until [ADR-017](../../architecture/decisions/ADR-017-assessment-source-authority-and-activation-transaction.md) is approved.
 
 ## Approved decision disposition
 
@@ -658,6 +661,7 @@ The following table preserves question and proposal history while linking each a
 - `PROP-4` — Require readiness and activation to complete in no more than 2 seconds at the 95th percentile under the approved preconditions.
 - `PROP-5` — Use ADR-004's distinct versioned RFC 8785/SHA-256 activation-baseline procedure and atomic activation boundary; do not reuse the resolved-configuration procedure identifier.
 - `PROP-6` — Permit single-admin routine activation after deliberate confirmation; require additional approval for separately permitted exceptions.
+- `PROP-7` — **Proposed.** Use Configuration-owned PostgreSQL source versions and readiness descriptors as the only activation-transaction source authority in this slice; fail closed in Production when a required owner cannot revalidate in-transaction; exclude Sessions file registries and credential binding from activation authority. See `Q-7` and Proposed ADR-017.
 
 ## Traceability
 

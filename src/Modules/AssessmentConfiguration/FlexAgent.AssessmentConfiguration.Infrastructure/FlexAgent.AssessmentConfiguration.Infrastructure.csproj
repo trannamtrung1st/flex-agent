@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FlexAgent.AssessmentConfiguration.Infrastructure</RootNamespace>
+    <AssemblyName>FlexAgent.AssessmentConfiguration.Infrastructure</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FlexAgent.AssessmentConfiguration\FlexAgent.AssessmentConfiguration.csproj" />
+    <ProjectReference Include="..\..\Configuration\FlexAgent.Configuration\FlexAgent.Configuration.csproj" />
+    <ProjectReference Include="..\..\IdentityAccess\FlexAgent.IdentityAccess\FlexAgent.IdentityAccess.csproj" />
+    <ProjectReference Include="..\..\..\Infrastructure\FlexAgent.Postgres\FlexAgent.Postgres.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="FlexAgent.Postgres.Integration.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Architecture.Tests" />
+  </ItemGroup>
+
+</Project>

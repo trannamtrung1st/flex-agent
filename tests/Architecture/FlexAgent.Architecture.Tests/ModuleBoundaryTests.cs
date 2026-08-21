@@ -1,4 +1,5 @@
 using System.Reflection;
+using FlexAgent.AssessmentConfiguration.Application;
 using FlexAgent.Configuration.Application;
 using FlexAgent.IdentityAccess.Application;
 using NetArchTest.Rules;
@@ -9,11 +10,12 @@ public sealed class ModuleBoundaryTests
 {
   private static readonly Assembly IdentityAccessAssembly = typeof(IAuthorizationKernel).Assembly;
   private static readonly Assembly ConfigurationAssembly = typeof(IRegisterConfigurationSourceVersionHandler).Assembly;
+  private static readonly Assembly AssessmentAssembly = typeof(IAssessmentActivationCoordinator).Assembly;
 
   [Fact]
   public void Domain_and_application_layers_do_not_reference_persistence_packages()
   {
-      foreach (var assembly in new[] { IdentityAccessAssembly, ConfigurationAssembly })
+      foreach (var assembly in new[] { IdentityAccessAssembly, ConfigurationAssembly, AssessmentAssembly })
       {
           var result = Types.InAssembly(assembly)
               .That()

@@ -116,6 +116,19 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="activities/:activityId/setup"
+          element={
+            <ActivityChildGuard>
+              <StatusPanel title="Production setup required">
+                <p>
+                  Assessment Campaign setup uses the production application-session API. The synthetic browser adapter
+                  is not product authority for this journey.
+                </p>
+              </StatusPanel>
+            </ActivityChildGuard>
+          }
+        />
+        <Route
           path="activities/:activityId/enrollment"
           element={
             <ActivityChildGuard>
