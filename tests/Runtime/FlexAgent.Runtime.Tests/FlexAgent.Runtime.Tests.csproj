@@ -28,6 +28,7 @@
         <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
         <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.Infrastructure\FlexAgent.Sessions.Infrastructure.csproj" />
         <ProjectReference Include="..\..\..\src\Modules\IdentityAccess\FlexAgent.IdentityAccess\FlexAgent.IdentityAccess.csproj" />
+        <ProjectReference Include="..\..\..\src\Modules\AssessmentConfiguration\FlexAgent.AssessmentConfiguration\FlexAgent.AssessmentConfiguration.csproj" />
   </ItemGroup>
 
 </Project>

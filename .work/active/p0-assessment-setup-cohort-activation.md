@@ -460,7 +460,10 @@ enable model execution.
       resolver-facing read/verifier contract using the existing schema,
       versioned domain validators, explicit Assessment-owned
       `CanonicalJsonLimits`, and `FlexAgent.CanonicalJson`.
-- [>] Repair `d6eb82d` review: reauthorize inside the activation
+- [>] Add the Assessment HTTP negative-contract suite and rerun the
+      full `MigrationUpgradeTests` matrix; do not further redesign
+      activation after the `64b424a` review.
+- [x] Repair `d6eb82d` review: reauthorize inside the activation
       transaction before any current-state disclosure, and persist real
       or null authorization evidence on activation audits.
 - [x] Repair `e08c06b` review: redact MFA/authorization activation
@@ -619,6 +622,11 @@ synthetic provider.
 
 # Findings / deviations
 
+- 2026-08-21 review of `64b424a`: activation/idempotency/audit
+  review is clean enough to stop coordinator redesign. Optional
+  baseline `InsertAsync` authorization remains a non-blocking
+  contract hardening item. Next slice is HTTP negatives and the
+  full migration-upgrade matrix.
 - 2026-08-21 review of `d6eb82d`: Activate and Reconcile now
   reauthorize after the idempotency lock and before any successful
   attempt, conflict, or Cohort/baseline disclosure. Trusted digest
@@ -769,8 +777,8 @@ synthetic provider.
 | Execution baseline | passed | Start SHA `ef911ee`. Before behavior changes: Architecture 35 passed; Contract 135 passed; CanonicalJson 25 passed; web lint warning-only, typecheck passed, unit 60 passed. PostgreSQL/Runtime/Sessions/e2e smoke were not all re-run in this session due to parallel-build lock and time; Architecture was re-run after the lock. |
 | Source-authority/transaction decision | recorded as Proposed | `ADR-017` and `PROP-7` published. Sessions file registries are excluded. Production fail-closed remains the interim default until ADR-017 is approved. |
 | Assessment focused tests | passed for domain/application | `dotnet test --project tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — **65 passed**, including admission-then-revoke races on Activate and Reconcile |
-| PostgreSQL migration/integration | partial | `AssessmentActivationPersistenceTests` **18 passed**, including revoke-after-lock redaction, activation audit grant version 7, and null relationship version on invalid-key deny. Full `MigrationUpgradeTests` matrix not re-run |
-| API/runtime contracts | partial | Production/Staging without Postgres does not map `/v1/assessment`. Postgres composition uses kernel + grant-derived relationship. Development without Postgres is deny-all in-memory and does not synthesize Administrator. Reconcile requires `idempotency_key`. No dedicated HTTP contract suite yet |
+| PostgreSQL migration/integration | passed for upgrade matrix | `AssessmentActivationPersistenceTests` **18 passed**. Full `MigrationUpgradeTests` matrix **33 passed** after `0042` |
+| API/runtime contracts | partial | `AssessmentHttpNegativeContractTests` **7 passed** for CSRF/session/malformed-key/unauthorized-activate and reconcile/shell negatives with no baseline disclosure. Production/Staging without Postgres still does not map `/v1/assessment`. Development/Testing without Postgres remains deny-all in-memory. Broader `AC-ACT-24` HTTP negatives (wrong org, stale draft, concurrent, post-activation mutation) are not complete |
 | Web unit/accessibility | partial | Setup page plus production provider added; web unit 62 passed, lint warning-only; production provider not globally composed; Playwright not run |
 | Playwright MCP | pending | Must use real app interactions, accessibility snapshots, and desktop/narrow screenshots in `.playwright-mcp/` after the slice runs |
 | Performance | pending | `AC-ACT-27` readiness and activation p95 evidence not observed |
@@ -783,7 +791,7 @@ synthetic provider.
 file-loaded profiles remains fail-closed. The `67c4957` P1s for activation
 head writes, host permit-all/Administrator synthesis, transactional reads,
 Task-requirement authority, and stored-attempt idempotency are repaired.
-Remaining blockers: full migration-upgrade matrix, HTTP contract/negatives,
+Remaining blockers: broader `AC-ACT-24` HTTP negatives,
 descriptor seeding in hosted Postgres, production SPA composition, and
 Playwright MCP.
 
