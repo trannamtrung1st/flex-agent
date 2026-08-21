@@ -81,8 +81,15 @@ public static class OpenAiCompatibleQualificationRecords
 
     private static void RejectUnexpectedProperties(JsonElement item)
     {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var property in item.EnumerateObject())
         {
+            if (!seen.Add(property.Name))
+            {
+                throw new ArgumentException(
+                    $"Qualification record contains duplicate property '{property.Name}'.");
+            }
+
             if (!AllowedQualificationProperties.Contains(property.Name))
             {
                 throw new ArgumentException(

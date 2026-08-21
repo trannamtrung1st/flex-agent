@@ -473,11 +473,16 @@ entry, qualify real use, or certify a production pilot.
       readiness, the deferred exact-profile gate, remaining OpenRouter gaps,
       and final migration completion. Independent Phase B change-set review
       remains an explicit residual; OCI/SBOM/grype evidence is now recorded.
+- [x] Close the `a18403f` P2: reject duplicate JSON property names on
+      qualification records and installed adapter configurations, including
+      last-wins `qualifiedFor` and `adapterConfigurationDigest`.
 
 # Current state
 
-Deterministic Phase B migration is complete and reviewable. Independent
-review of `4342318` approved the destination-policy chain
+Deterministic Phase B **implementation** is complete. Independent review of
+`a18403f` approved the content-stream fail-closed fix and requested one P2
+on qualification-record duplicate JSON properties; that P2 is now closed.
+Independent review of `4342318` approved the destination-policy chain
 (`5b44e04` → `4467983` → `4342318`) with no remaining P0/P1/P2 findings.
 AS112 `2620:4f:8000::/48` is denied, and staggered/bounded connect handles
 immediate failures and black-holed first addresses without a second DNS
@@ -491,10 +496,14 @@ same way installed configurations do. Focused, locked full-solution,
 supply-chain, OCI, documentation, example-JSON, and whitespace evidence is
 recorded below.
 
-Do not claim live qualification or close `GATE-STACK-PROVIDERS`. No exact
-OpenAI-compatible live profile is selected. Independent backend/security
-review of the full Phase B change-set (beyond destination-policy) has not
-been obtained. GitHub CI was not corroborated from this local run.
+`status: completed` means the implementation task is closed with residual
+gates recorded. It does not mean Phase B is independently reviewed end to
+end. Destination-policy review is approved. The `a18403f` review approved
+the stream fix and the remaining qualification-record P2 is now fixed
+locally; that SHA itself is not re-reviewed until the follow-up commit is
+inspected. GitHub CI was not corroborated from this local run. Do not
+claim live qualification or close `GATE-STACK-PROVIDERS`. No exact
+OpenAI-compatible live profile is selected.
 
 Phase B deterministic migration is implemented. The executable adapter identity
 is `openai_compatible` / `sessions.openai_compatible.v1` in
@@ -773,6 +782,14 @@ Interim defaults are working guidance only and do not approve a deployment.
   streaming now emits `ModelContentFailed` instead of an empty stream, and
   qualification-record load rejects unexpected properties. These are
   deterministic contract hardenings, not live-qualification evidence.
+- Independent review of `a18403f` (2026-08-21): content-stream fail-closed
+  approved. One P2: allowlisted property checks still accepted duplicate
+  JSON names, so `System.Text.Json` last-wins could turn
+  `qualifiedFor: do_not_enable` plus a later `exact_profile` into an
+  enablement record. Loaders now reject any duplicate property name on
+  qualification records and installed configurations. This task file
+  distinguishes implementation-complete from full independent Phase B
+  review.
 - P0 participant-message admission requires non-empty exact UTF-8 text.
   `AcceptParticipantMessageCommand.ExactUtf8Text` is required; missing or blank
   text fails closed with `trigger_admission.missing_participant_content`.
@@ -792,7 +809,8 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Predecessor remediation protected | complete | Worker identity/readiness remediation landed separately as `94c1412`; this planning edit is restricted to the new task file |
 | Plan readiness review | complete | Backend/architecture/security consistency pass on 2026-08-19 added frozen per-Session provider authority, restart-safe phases, retry ownership, secret hardening, egress/SSRF, qualification scope, and threat-model gates |
 | Current-source .NET baseline | passed | After required PostgreSQL admission auth: `dotnet test --solution FlexAgent.slnx` **1034 passed**, 0 failed (2026-08-19). Prior `4373f70` count was 1033 |
-| Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAiCompatible.Tests` **29 passed** on 2026-08-21 after content-stream fail-closed and extra-property qualification-record coverage. Destination-policy cases remain: IANA special-purpose including AS112 `2620:4f:8000::/48`, private-CIDR containment, unknown-property rejection, validated multi-address fallback, and staggered fallback when the first address hangs |
+| Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAiCompatible.Tests` **30 passed** on 2026-08-21 after duplicate-property fail-closed coverage (`qualifiedFor` and `adapterConfigurationDigest` on qualification records; duplicate digest on installed configurations). Prior 29-test pass covered content-stream fail-closed and extra-property rejection. Destination-policy cases remain: IANA special-purpose including AS112 `2620:4f:8000::/48`, private-CIDR containment, unknown-property rejection, validated multi-address fallback, and staggered fallback when the first address hangs |
+| Independent review of `a18403f` | P2 closed | Review approved the content-stream fix and required duplicate JSON property rejection on qualification records (and configuration as defense in depth). Red: `Duplicate_json_properties_fail_closed_on_qualification_and_configuration` threw no exception. Green: both loaders reject a second occurrence of an allowlisted name |
 | Invocation-id reservation binding (`4a6e314` P2) | passed | In-memory writer tests 4/4. Postgres `Mismatched_invocation_cannot_reserve_a_provider_request` passed on 2026-08-20 |
 | Credential/profile isolation tests | passed | `FrozenModelDeploymentResolverTests` plus processor frozen-authority tests; secret symlink/size in WorkloadIdentity tests; no-fallback matrix for missing/revoked/wrong-org/provider mismatch |
 | Lease/auth/lifecycle concurrency tests | passed | Claim-lease heartbeat; overlapping reclaim; Postgres delegation revoke and principal-binding revoke at reservation (no started fact, no HTTP, lease not extended) |
@@ -803,7 +821,7 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Worker composition / legacy fail-closed | passed | Runtime tests: `direct_openai` with and without files stays fail-closed; committed example artifacts stay fail-closed; Testing compose succeeds only for a non-example `exact_profile` record; Production stays fail-closed even with enableable files plus OAuth identity. Readiness names OpenAI-compatible vs legacy Direct OpenAI honestly |
 | Locked regression, supply chain, OCI, docs, whitespace | passed with recorded residuals | `dotnet restore FlexAgent.slnx --locked-mode` passed. `bash build/scripts/verify-dotnet.sh` **1210 passed**, 3 skipped, 0 failed (OpenRouter live explicit tests skipped; Keycloak back-channel skipped for host listener address-in-use). Isolated Debug PostgreSQL earlier the same day was 262/263 with the same Keycloak test HTTP 403; that failure is unrelated to this adapter. `python3 scripts/check_docs.py`, `git diff --check`, and example JSON parse passed. `bash build/scripts/verify-supply-chain.sh` passed: NuGet has no vulnerable packages, pnpm audit 2 moderate, gitleaks no leaks, publish/SPA Grype `--fail-on high` clean, OCI image SBOM/Grype recorded. `bash build/scripts/verify-oci.sh` passed live/ready probes, `appuser`/`nginx`, no Development settings or SPA source maps, and graceful SIGTERM. SPA Alpine `tiff`/`libcrypto3` High findings remain tracked base-image residuals, not critical blockers |
 | Independent destination-policy review | approved | Review of `4342318` (2026-08-21): no P0/P1/P2. Prior `5b44e04` and `4467983` findings are closed. Concurrent fallback was reviewed for races, cancellation, and leak-safety and still uses only the validated address set. GitHub had no status checks or PR workflow runs for this SHA |
-| Independent backend/architecture/security review | destination-policy complete; Phase B change-set still open | Destination-policy independent review is complete. Implementer self-review of remaining fail-closed surfaces is recorded. Independent review of the full Phase B migration change-set and GitHub CI corroboration remain open and are not treated as destination-policy code findings |
+| Independent backend/architecture/security review | destination-policy complete; `a18403f` P2 closed locally; Phase B change-set not independently closed | Destination-policy independent review is complete. `a18403f` review approved the stream fix and left one qualification-record P2, now closed in this follow-up. Full Phase B change-set review and GitHub CI corroboration remain open |
 
 # Blockers
 
@@ -834,4 +852,4 @@ Interim defaults are working guidance only and do not approve a deployment.
 - [x] Independent backend, architecture, and security/privacy findings for the deterministic Phase A admission/execution slice are resolved at `4a6e314`; leftover invocation-id coupling is closed by claimed-work binding
 - [x] Remaining gaps or unverified behavior are recorded
 - [x] Independent destination-policy review of `4342318` recorded as approved with no remaining findings
-- [x] Task state is safe and complete for external review: deterministic migration evidence is recorded; exact-profile live qualification, independent Phase B change-set review, and GitHub CI corroboration remain explicit residuals
+- [x] Task state is implementation-complete for external review: deterministic migration evidence is recorded; exact-profile live qualification, independent end-to-end Phase B review, and GitHub CI corroboration remain explicit residuals

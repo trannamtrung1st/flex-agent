@@ -148,6 +148,84 @@ public sealed class OpenAiCompatibleConfigurationFileTests
         }
     }
 
+    [Fact]
+    public void Duplicate_json_properties_fail_closed_on_qualification_and_configuration()
+    {
+        var created = ExampleConfiguration();
+        var enableable = OpenAiCompatibleInstalledConfiguration.Create(
+            "openai-compatible.operator.test",
+            "1",
+            new Uri("https://models.organization.example/"),
+            "replace-with-operator-selected-model",
+            "replace-with-immutable-version-or-fingerprint",
+            ModelDeploymentCredentialModes.OrganizationByok,
+            "replace-with-actual-provider-or-runtime-id",
+            "/v1");
+        var root = Directory.CreateTempSubdirectory("flex-agent-oai-dup-").FullName;
+        try
+        {
+            var duplicateQualifiedFor = Path.Combine(root, "qualification-qualified-for.json");
+            File.WriteAllText(
+                duplicateQualifiedFor,
+                $$"""
+                {
+                  "adapterKind": "openai_compatible",
+                  "adapterContractVersion": "sessions.openai_compatible.v1",
+                  "profileId": "{{enableable.Profile.ProfileId}}",
+                  "profileVersion": "{{enableable.Profile.ProfileVersion}}",
+                  "profileDigest": "{{enableable.Profile.ProfileDigest}}",
+                  "adapterConfigurationDigest": "{{enableable.AdapterConfigurationDigest}}",
+                  "qualifiedFor": "do_not_enable",
+                  "qualifiedFor": "exact_profile"
+                }
+                """);
+            Assert.Throws<ArgumentException>(() => OpenAiCompatibleQualificationRecords.Load(duplicateQualifiedFor));
+
+            var duplicateDigest = Path.Combine(root, "qualification-digest.json");
+            File.WriteAllText(
+                duplicateDigest,
+                $$"""
+                {
+                  "adapterKind": "openai_compatible",
+                  "adapterContractVersion": "sessions.openai_compatible.v1",
+                  "profileId": "{{enableable.Profile.ProfileId}}",
+                  "profileVersion": "{{enableable.Profile.ProfileVersion}}",
+                  "profileDigest": "{{enableable.Profile.ProfileDigest}}",
+                  "adapterConfigurationDigest": "{{new string('0', 64)}}",
+                  "adapterConfigurationDigest": "{{enableable.AdapterConfigurationDigest}}",
+                  "qualifiedFor": "exact_profile"
+                }
+                """);
+            Assert.Throws<ArgumentException>(() => OpenAiCompatibleQualificationRecords.Load(duplicateDigest));
+
+            var profilesPath = Path.Combine(root, "profiles.json");
+            WriteProfile(profilesPath, created);
+            var loadedProfiles = InstalledModelDeploymentProfileFile.Load(profilesPath);
+            var duplicateConfiguration = Path.Combine(root, "configurations.json");
+            File.WriteAllText(
+                duplicateConfiguration,
+                $$"""
+                [
+                  {
+                    "profileId": "{{created.Profile.ProfileId}}",
+                    "profileVersion": "{{created.Profile.ProfileVersion}}",
+                    "profileDigest": "{{created.Profile.ProfileDigest}}",
+                    "adapterConfigurationDigest": "{{new string('0', 64)}}",
+                    "adapterConfigurationDigest": "{{created.AdapterConfigurationDigest}}",
+                    "apiBasePath": "/v1",
+                    "destinationPolicy": "public_only"
+                  }
+                ]
+                """);
+            Assert.Throws<ArgumentException>(() =>
+                OpenAiCompatibleInstalledConfigurationFile.Load(duplicateConfiguration, loadedProfiles));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     internal static OpenAiCompatibleInstalledConfiguration ExampleConfiguration() =>
         OpenAiCompatibleInstalledConfiguration.Create(
             "openai-compatible.example.do-not-enable",

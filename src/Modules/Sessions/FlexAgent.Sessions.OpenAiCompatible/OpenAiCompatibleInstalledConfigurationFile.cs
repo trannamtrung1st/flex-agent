@@ -108,8 +108,15 @@ public static class OpenAiCompatibleInstalledConfigurationFile
             allowed.Add("allowedPrivateCidrs");
         }
 
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var property in item.EnumerateObject())
         {
+            if (!seen.Add(property.Name))
+            {
+                throw new ArgumentException(
+                    $"OpenAI-compatible configuration contains duplicate property '{property.Name}'.");
+            }
+
             if (!allowed.Contains(property.Name))
             {
                 throw new ArgumentException(
