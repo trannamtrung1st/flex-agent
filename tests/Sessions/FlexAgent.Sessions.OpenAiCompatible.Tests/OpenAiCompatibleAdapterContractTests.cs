@@ -418,7 +418,7 @@ public sealed class OpenAiCompatibleAdapterContractTests
     private sealed class PublicTestResolver : IEndpointAddressResolver
     {
         public Task<IReadOnlyList<IPAddress>> ResolveAsync(string host, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<IPAddress>>([IPAddress.Parse("203.0.113.10")]);
+            Task.FromResult<IReadOnlyList<IPAddress>>([IPAddress.Parse("1.2.3.4")]);
     }
 
     private sealed class StaticSecretSource(string value) : IProviderCredentialSecretSource

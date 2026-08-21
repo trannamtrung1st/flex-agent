@@ -19,7 +19,13 @@ public sealed class SystemEndpointAddressResolver : IEndpointAddressResolver
     }
 }
 
-public sealed record EndpointDestinationDecision(bool Allowed, IPAddress? PinnedAddress, string ReasonCode);
+public sealed record EndpointDestinationDecision(
+    bool Allowed,
+    IReadOnlyList<IPAddress> ApprovedAddresses,
+    string ReasonCode)
+{
+    public IPAddress? PinnedAddress => ApprovedAddresses.Count == 0 ? null : ApprovedAddresses[0];
+}
 
 public static class OpenAiCompatibleAddressClassification
 {
@@ -29,24 +35,20 @@ public static class OpenAiCompatibleAddressClassification
         return address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
     }
 
-    public static bool IsAlwaysDenied(IPAddress address)
+    public static bool IsAlwaysDenied(IPAddress address) =>
+        !IsGloballyRoutable(address) && !IsPrivateUnicast(address);
+
+    public static bool IsGloballyRoutable(IPAddress address)
     {
         var canonical = Canonicalize(address);
-        if (IPAddress.IsLoopback(canonical)
-            || IPAddress.Any.Equals(canonical)
-            || IPAddress.IPv6Any.Equals(canonical)
-            || canonical.IsIPv6LinkLocal
-            || canonical.IsIPv6Multicast
-            || IsMulticast(canonical)
-            || IsLinkLocal(canonical)
-            || IsUnspecified(canonical)
-            || IsReservedIPv4(canonical)
-            || IsCarrierGradeNat(canonical))
+        if (canonical.AddressFamily == AddressFamily.InterNetwork)
         {
-            return true;
+            return !NonGlobalIPv4Prefixes.Any(prefix => OpenAiCompatibleCidr.Contains(prefix, canonical));
         }
 
-        return false;
+        return canonical.AddressFamily == AddressFamily.InterNetworkV6
+            && OpenAiCompatibleCidr.Contains(Ipv6GlobalUnicast, canonical)
+            && !NonGlobalIpv6InsideGlobalUnicast.Any(prefix => OpenAiCompatibleCidr.Contains(prefix, canonical));
     }
 
     public static bool IsPrivateUnicast(IPAddress address)
@@ -63,56 +65,37 @@ public static class OpenAiCompatibleAddressClassification
         return canonical.AddressFamily == AddressFamily.InterNetworkV6 && canonical.IsIPv6UniqueLocal;
     }
 
-    private static bool IsUnspecified(IPAddress address) =>
-        IPAddress.Any.Equals(address) || IPAddress.IPv6Any.Equals(address);
+    private const string Ipv6GlobalUnicast = "2000::/3";
 
-    private static bool IsMulticast(IPAddress address)
-    {
-        if (address.AddressFamily == AddressFamily.InterNetwork)
-        {
-            return address.GetAddressBytes()[0] >= 224 && address.GetAddressBytes()[0] <= 239;
-        }
+    private static readonly string[] NonGlobalIPv4Prefixes =
+    [
+        "0.0.0.0/8",
+        "10.0.0.0/8",
+        "100.64.0.0/10",
+        "127.0.0.0/8",
+        "169.254.0.0/16",
+        "172.16.0.0/12",
+        "192.0.0.0/24",
+        "192.0.2.0/24",
+        "192.31.196.0/24",
+        "192.52.193.0/24",
+        "192.88.99.0/24",
+        "192.168.0.0/16",
+        "192.175.48.0/24",
+        "198.18.0.0/15",
+        "198.51.100.0/24",
+        "203.0.113.0/24",
+        "224.0.0.0/4",
+        "240.0.0.0/4",
+    ];
 
-        return address.IsIPv6Multicast;
-    }
-
-    private static bool IsLinkLocal(IPAddress address)
-    {
-        if (address.IsIPv6LinkLocal)
-        {
-            return true;
-        }
-
-        if (address.AddressFamily != AddressFamily.InterNetwork)
-        {
-            return false;
-        }
-
-        var bytes = address.GetAddressBytes();
-        return bytes[0] == 169 && bytes[1] == 254;
-    }
-
-    private static bool IsReservedIPv4(IPAddress address)
-    {
-        if (address.AddressFamily != AddressFamily.InterNetwork)
-        {
-            return false;
-        }
-
-        var first = address.GetAddressBytes()[0];
-        return first >= 240;
-    }
-
-    private static bool IsCarrierGradeNat(IPAddress address)
-    {
-        if (address.AddressFamily != AddressFamily.InterNetwork)
-        {
-            return false;
-        }
-
-        var bytes = address.GetAddressBytes();
-        return bytes[0] == 100 && bytes[1] >= 64 && bytes[1] <= 127;
-    }
+    private static readonly string[] NonGlobalIpv6InsideGlobalUnicast =
+    [
+        "2001::/23",
+        "2001:db8::/32",
+        "2002::/16",
+        "3fff::/20",
+    ];
 }
 
 public static class OpenAiCompatibleDestinationPolicyEvaluator
@@ -131,27 +114,27 @@ public static class OpenAiCompatibleDestinationPolicyEvaluator
 
         if (!UriMatchesApprovedEndpoint(destination, approvedOrigin, apiBasePath))
         {
-            return new EndpointDestinationDecision(false, null, "origin_or_path_denied");
+            return new EndpointDestinationDecision(false, [], "origin_or_path_denied");
         }
 
         if (resolvedAddresses.Count == 0)
         {
-            return new EndpointDestinationDecision(false, null, "resolution_empty");
+            return new EndpointDestinationDecision(false, [], "resolution_empty");
         }
 
-        IPAddress? pinned = null;
+        var approved = new List<IPAddress>(resolvedAddresses.Count);
         foreach (var address in resolvedAddresses)
         {
             var canonical = OpenAiCompatibleAddressClassification.Canonicalize(address);
             if (!IsAddressAllowed(canonical, policy))
             {
-                return new EndpointDestinationDecision(false, null, "address_denied");
+                return new EndpointDestinationDecision(false, [], "address_denied");
             }
 
-            pinned ??= canonical;
+            approved.Add(canonical);
         }
 
-        return new EndpointDestinationDecision(true, pinned, "allowed");
+        return new EndpointDestinationDecision(true, approved, "allowed");
     }
 
     public static bool UriMatchesApprovedEndpoint(Uri destination, Uri approvedOrigin, string apiBasePath)
@@ -182,7 +165,7 @@ public static class OpenAiCompatibleDestinationPolicyEvaluator
 
         if (string.Equals(policy.Kind, OpenAiCompatibleAdapterContracts.DestinationPolicyPublicOnly, StringComparison.Ordinal))
         {
-            return !OpenAiCompatibleAddressClassification.IsPrivateUnicast(address);
+            return OpenAiCompatibleAddressClassification.IsGloballyRoutable(address);
         }
 
         if (!string.Equals(policy.Kind, OpenAiCompatibleAdapterContracts.DestinationPolicyPrivateAllowlist, StringComparison.Ordinal)

@@ -49,9 +49,12 @@ Organization-hosted private endpoints require the additional approved
 destination-policy evidence for canonical origin/base path, DNS resolution and
 rebinding, private/link-local/metadata destinations, redirects, TLS trust,
 egress, endpoint ownership, credential isolation, and cross-Organization
-denial. The adapter's public-only and explicit private-CIDR allowlist
-evaluator is the deterministic control; live private-endpoint evidence remains
-a successor gate.
+denial. The adapter's public-only policy admits only globally-routable unicast and
+denies IANA special-purpose and non-global ranges, including documentation,
+TEST-NET, and benchmarking space. Private-allowlist CIDRs must be wholly
+contained in RFC1918 or IPv6 unique-local space and are stored with
+canonical network bits. That evaluator is the deterministic control; live
+private-endpoint evidence remains a successor gate.
 
 Do not point the generic OpenAI-compatible adapter at OpenRouter: the adapters
 have different kinds, base-path, routing, privacy, identity, and evidence

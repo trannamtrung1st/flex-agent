@@ -48,6 +48,24 @@ public sealed class OpenAiCompatibleConfigurationFileTests
             File.WriteAllText(extra, """[{"profileId":"other","profileVersion":"1","profileDigest":"aa","adapterConfigurationDigest":"bb","apiBasePath":"/v1","destinationPolicy":"public_only"}]""");
             Assert.Throws<ArgumentException>(() =>
                 OpenAiCompatibleInstalledConfigurationFile.Load(extra, loadedProfiles));
+
+            var unknownProperty = Path.Combine(root, "unknown.json");
+            File.WriteAllText(
+                unknownProperty,
+                $$"""
+                [{"profileId":"{{created.Profile.ProfileId}}","profileVersion":"{{created.Profile.ProfileVersion}}","profileDigest":"{{created.Profile.ProfileDigest}}","adapterConfigurationDigest":"{{created.AdapterConfigurationDigest}}","apiBasePath":"/v1","destinationPolicy":"public_only","legacyEndpoint":"https://models.organization.example/"}]
+                """);
+            Assert.Throws<ArgumentException>(() =>
+                OpenAiCompatibleInstalledConfigurationFile.Load(unknownProperty, loadedProfiles));
+
+            var mismatchedCidrs = Path.Combine(root, "public-cidrs.json");
+            File.WriteAllText(
+                mismatchedCidrs,
+                $$"""
+                [{"profileId":"{{created.Profile.ProfileId}}","profileVersion":"{{created.Profile.ProfileVersion}}","profileDigest":"{{created.Profile.ProfileDigest}}","adapterConfigurationDigest":"{{created.AdapterConfigurationDigest}}","apiBasePath":"/v1","destinationPolicy":"public_only","allowedPrivateCidrs":["10.0.0.0/8"]}]
+                """);
+            Assert.Throws<ArgumentException>(() =>
+                OpenAiCompatibleInstalledConfigurationFile.Load(mismatchedCidrs, loadedProfiles));
         }
         finally
         {

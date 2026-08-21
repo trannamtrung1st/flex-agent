@@ -37,7 +37,7 @@ public sealed record OpenAiCompatibleDestinationPolicy(
         }
 
         var normalized = cidrs
-            .Select(OpenAiCompatibleCidr.Normalize)
+            .Select(OpenAiCompatibleCidr.NormalizePrivateUnicast)
             .Distinct(StringComparer.Ordinal)
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
@@ -174,15 +174,48 @@ public sealed class InMemoryOpenAiCompatibleInstalledConfigurationRegistry : IOp
 
 internal static class OpenAiCompatibleCidr
 {
-    public static string Normalize(string cidr)
+    private static readonly string[] PrivateUnicastContainers =
+    [
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "fc00::/7",
+    ];
+
+    public static string Normalize(string cidr) => Format(Parse(cidr));
+
+    public static string NormalizePrivateUnicast(string cidr)
     {
-        return Format(Parse(cidr));
+        var normalized = Normalize(cidr);
+        if (!PrivateUnicastContainers.Any(container => IsWhollyContainedIn(normalized, container)))
+        {
+            throw new ArgumentException(
+                "Private-allowlist CIDRs must be wholly contained in RFC1918 or IPv6 unique-local space.");
+        }
+
+        return normalized;
     }
 
     public static bool Contains(string cidr, IPAddress address)
     {
         var parsed = Parse(cidr);
         var candidate = OpenAiCompatibleAddressClassification.Canonicalize(address);
+        return Contains(parsed, candidate);
+    }
+
+    public static bool IsWhollyContainedIn(string innerCidr, string outerCidr)
+    {
+        var inner = Parse(innerCidr);
+        var outer = Parse(outerCidr);
+        return inner.AddressFamily == outer.AddressFamily
+            && inner.PrefixLength >= outer.PrefixLength
+            && Contains(outer, inner.Network);
+    }
+
+    private static bool Contains(
+        (IPAddress Network, int PrefixLength, AddressFamily AddressFamily) parsed,
+        IPAddress candidate)
+    {
         if (parsed.AddressFamily != candidate.AddressFamily)
         {
             return false;
@@ -227,7 +260,27 @@ internal static class OpenAiCompatibleCidr
             throw new ArgumentOutOfRangeException(nameof(cidr), "CIDR prefix length is out of range.");
         }
 
-        return (network, prefix, network.AddressFamily);
+        var masked = Mask(network, prefix);
+        return (masked, prefix, masked.AddressFamily);
+    }
+
+    private static IPAddress Mask(IPAddress address, int prefixLength)
+    {
+        var bytes = address.GetAddressBytes();
+        var fullBytes = prefixLength / 8;
+        var remainingBits = prefixLength % 8;
+        if (remainingBits > 0)
+        {
+            bytes[fullBytes] = (byte)(bytes[fullBytes] & (0xFF << (8 - remainingBits)));
+            fullBytes++;
+        }
+
+        for (var i = fullBytes; i < bytes.Length; i++)
+        {
+            bytes[i] = 0;
+        }
+
+        return new IPAddress(bytes);
     }
 
     private static string Format((IPAddress Network, int PrefixLength, AddressFamily AddressFamily) value) =>

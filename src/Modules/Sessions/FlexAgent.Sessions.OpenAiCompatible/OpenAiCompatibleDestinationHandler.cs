@@ -1,6 +1,4 @@
 using System.Net;
-using System.Net.Sockets;
-using FlexAgent.Sessions.Domain;
 
 namespace FlexAgent.Sessions.OpenAiCompatible;
 
@@ -38,11 +36,14 @@ internal sealed class OpenAiCompatibleDestinationHandler(
             configuration.ApiBasePath,
             configuration.DestinationPolicy,
             addresses);
-        if (!decision.Allowed)
+        if (!decision.Allowed || decision.ApprovedAddresses.Count == 0)
         {
             return Denied();
         }
 
+        request.Options.Set(
+            OpenAiCompatibleApprovedAddressConnector.ApprovedAddressesKey,
+            decision.ApprovedAddresses);
         return await base.SendAsync(request, cancellationToken);
     }
 
@@ -71,36 +72,20 @@ internal static class OpenAiCompatibleTransportFactory
             UseProxy = false,
             ConnectCallback = async (context, cancellationToken) =>
             {
-                var addresses = resolver is null
-                    ? await Dns.GetHostAddressesAsync(context.DnsEndPoint.Host, cancellationToken)
-                    : await resolver.ResolveAsync(context.DnsEndPoint.Host, cancellationToken);
-                var requestUri = new UriBuilder(
-                    Uri.UriSchemeHttps,
-                    context.DnsEndPoint.Host,
-                    context.DnsEndPoint.Port,
-                    configuration.ChatCompletionsPath).Uri;
-                var decision = OpenAiCompatibleDestinationPolicyEvaluator.Evaluate(
-                    requestUri,
-                    configuration.Profile.ApprovedHttpsOrigin,
-                    configuration.ApiBasePath,
-                    configuration.DestinationPolicy,
-                    addresses);
-                if (!decision.Allowed || decision.PinnedAddress is null)
+                if (context.InitialRequestMessage is null
+                    || !context.InitialRequestMessage.Options.TryGetValue(
+                        OpenAiCompatibleApprovedAddressConnector.ApprovedAddressesKey,
+                        out var approved)
+                    || approved is null
+                    || approved.Count == 0)
                 {
                     throw new HttpRequestException("origin_denied");
                 }
 
-                var socket = new Socket(decision.PinnedAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                try
-                {
-                    await socket.ConnectAsync(decision.PinnedAddress, context.DnsEndPoint.Port, cancellationToken);
-                    return new NetworkStream(socket, ownsSocket: true);
-                }
-                catch
-                {
-                    socket.Dispose();
-                    throw;
-                }
+                return await OpenAiCompatibleApprovedAddressConnector.ConnectAsync(
+                    approved,
+                    context.DnsEndPoint.Port,
+                    cancellationToken);
             },
         };
         return new OpenAiCompatibleDestinationHandler(

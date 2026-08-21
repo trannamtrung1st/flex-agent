@@ -26,6 +26,7 @@ public static class OpenAiCompatibleInstalledConfigurationFile
             var adapterDigest = RequiredString(item, "adapterConfigurationDigest");
             var apiBasePath = RequiredString(item, "apiBasePath");
             var destinationPolicyKind = RequiredString(item, "destinationPolicy");
+            RejectUnexpectedProperties(item, destinationPolicyKind);
             var profile = profiles.SingleOrDefault(candidate =>
                 string.Equals(candidate.ProfileId, profileId, StringComparison.Ordinal)
                 && string.Equals(candidate.ProfileVersion, profileVersion, StringComparison.Ordinal)
@@ -84,6 +85,37 @@ public static class OpenAiCompatibleInstalledConfigurationFile
         }
 
         return [.. configurations];
+    }
+
+    private static readonly HashSet<string> SharedConfigurationProperties = new(StringComparer.Ordinal)
+    {
+        "profileId",
+        "profileVersion",
+        "profileDigest",
+        "adapterConfigurationDigest",
+        "apiBasePath",
+        "destinationPolicy",
+    };
+
+    private static void RejectUnexpectedProperties(JsonElement item, string destinationPolicyKind)
+    {
+        var allowed = new HashSet<string>(SharedConfigurationProperties, StringComparer.Ordinal);
+        if (string.Equals(
+                destinationPolicyKind,
+                OpenAiCompatibleAdapterContracts.DestinationPolicyPrivateAllowlist,
+                StringComparison.Ordinal))
+        {
+            allowed.Add("allowedPrivateCidrs");
+        }
+
+        foreach (var property in item.EnumerateObject())
+        {
+            if (!allowed.Contains(property.Name))
+            {
+                throw new ArgumentException(
+                    $"OpenAI-compatible configuration contains unexpected property '{property.Name}'.");
+            }
+        }
     }
 
     private static string[] ReadCidrs(JsonElement item)
