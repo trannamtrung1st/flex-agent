@@ -274,6 +274,50 @@ public sealed class OpenAiCompatibleAdapterContractTests
         Assert.Equal(
             ExecutionFailureReasons.CredentialBindingFailed,
             Assert.IsType<ModelExecutionFailed>(result).ReasonCategory);
+
+        var events = new List<ModelContentEvent>();
+        await foreach (var item in adapter.StreamParticipantVisibleContentAsync(
+            harness.StreamRequest(),
+            CancellationToken.None))
+        {
+            events.Add(item);
+        }
+
+        var failed = Assert.IsType<ModelContentFailed>(Assert.Single(events));
+        Assert.Equal(ExecutionFailureReasons.CredentialBindingFailed, failed.ReasonCategory);
+        Assert.Null(failed.Provenance);
+    }
+
+    [Fact]
+    public async Task Missing_provider_secret_fails_closed_on_control_and_content()
+    {
+        var harness = CreateHarness();
+        var adapter = new OpenAiCompatibleModelExecutionAdapter(
+            harness.Profiles,
+            harness.Catalog,
+            new MissingSecretSource(),
+            harness.Configurations,
+            new ScriptedCompatibleHandler("{}", stream: false),
+            new PublicTestResolver());
+
+        var control = await adapter.ExecuteAsync(harness.ControlRequest(), CancellationToken.None);
+        Assert.Equal(
+            ExecutionFailureReasons.CredentialBindingFailed,
+            Assert.IsType<ModelExecutionFailed>(control).ReasonCategory);
+        Assert.NotNull(control.Provenance);
+
+        var events = new List<ModelContentEvent>();
+        await foreach (var item in adapter.StreamParticipantVisibleContentAsync(
+            harness.StreamRequest(),
+            CancellationToken.None))
+        {
+            events.Add(item);
+        }
+
+        var failed = Assert.IsType<ModelContentFailed>(Assert.Single(events));
+        Assert.Equal(ExecutionFailureReasons.CredentialBindingFailed, failed.ReasonCategory);
+        Assert.NotNull(failed.Provenance);
+        Assert.Equal(ModelProviderRequestPhases.Content, failed.Provenance!.Phase);
     }
 
     private static Harness CreateHarness(
@@ -425,6 +469,12 @@ public sealed class OpenAiCompatibleAdapterContractTests
     {
         public Task<ProviderSecret?> TryReadAsync(string secretName, CancellationToken cancellationToken = default) =>
             Task.FromResult<ProviderSecret?>(new ProviderSecret(value));
+    }
+
+    private sealed class MissingSecretSource : IProviderCredentialSecretSource
+    {
+        public Task<ProviderSecret?> TryReadAsync(string secretName, CancellationToken cancellationToken = default) =>
+            Task.FromResult<ProviderSecret?>(null);
     }
 
     private sealed class ScriptedCompatibleHandler(

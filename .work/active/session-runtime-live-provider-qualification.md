@@ -1,6 +1,6 @@
 ---
 id: session-runtime-live-provider-qualification
-status: in-progress
+status: completed
 created: 2026-08-18
 updated: 2026-08-21
 predecessors:
@@ -459,12 +459,11 @@ entry, qualify real use, or certify a production pilot.
       black-holed first candidate cannot consume the whole request timeout.
 - [x] Record independent approval of `4342318`: destination-policy code
       review complete with no remaining P0/P1/P2 from that review chain.
-- [>] Run focused domain, adapter, Runtime, Architecture, and PostgreSQL tests,
+- [x] Run focused domain, adapter, Runtime, Architecture, and PostgreSQL tests,
       then the locked full solution, OCI build, SBOM/license/vulnerability and
       secret checks, documentation validation, JSON/example consistency, and
       whitespace checks. Destination-policy independent review is obtained;
-      remaining items are operational/evidence gates, not destination-policy
-      code findings.
+      remaining items were operational/evidence gates and are now recorded.
 - [-] Defer the bounded synthetic-only live qualification run to a successor
       task created when an owner supplies one exact approved compatible
       deployment profile, credential, destination policy, and run budget. Do
@@ -472,20 +471,30 @@ entry, qualify real use, or certify a production pilot.
       evidence.
 - [x] Reconcile implementation status, operator guidance, qualification
       readiness, the deferred exact-profile gate, remaining OpenRouter gaps,
-      and final migration completion. Independent Phase B review and
-      OCI/SBOM/grype remain open on the previous verification step.
+      and final migration completion. Independent Phase B change-set review
+      remains an explicit residual; OCI/SBOM/grype evidence is now recorded.
 
 # Current state
 
-Independent review of `4342318` approved the destination-policy chain
+Deterministic Phase B migration is complete and reviewable. Independent
+review of `4342318` approved the destination-policy chain
 (`5b44e04` → `4467983` → `4342318`) with no remaining P0/P1/P2 findings.
 AS112 `2620:4f:8000::/48` is denied, and staggered/bounded connect handles
 immediate failures and black-holed first addresses without a second DNS
-lookup. Destination-policy code review is complete. Remaining Phase B
-blockers are operational/evidence gates: full-solution verification at this
-head, OCI/SBOM, GitHub CI corroboration (none observed for this SHA), and
-separate exact-profile live qualification. Do not claim live qualification
-or close `GATE-STACK-PROVIDERS`.
+lookup.
+
+Implementer self-review of the remaining fail-closed surfaces found two
+deterministic gaps and closed them: content streams now emit
+`ModelContentFailed` when profile/configuration resolution or the mounted
+secret fails, and qualification records reject unexpected properties the
+same way installed configurations do. Focused, locked full-solution,
+supply-chain, OCI, documentation, example-JSON, and whitespace evidence is
+recorded below.
+
+Do not claim live qualification or close `GATE-STACK-PROVIDERS`. No exact
+OpenAI-compatible live profile is selected. Independent backend/security
+review of the full Phase B change-set (beyond destination-policy) has not
+been obtained. GitHub CI was not corroborated from this local run.
 
 Phase B deterministic migration is implemented. The executable adapter identity
 is `openai_compatible` / `sessions.openai_compatible.v1` in
@@ -498,12 +507,6 @@ committed example artifacts; Testing/Development can compose the adapter only
 when a non-example profile, matching configuration, mounted secrets, and an
 accepted `qualifiedFor: exact_profile` record all match. That Testing gate is
 not live qualification.
-
-No exact OpenAI-compatible live profile is selected. Live qualification remains
-a deferred successor. Independent backend/security review of this Phase B
-change-set has not been obtained. The full-solution run on 2026-08-21 had one
-unrelated Keycloak back-channel 403; focused provider, Sessions, Runtime, and
-Architecture suites were green.
 
 On 2026-08-19 the Product Lead separately approved the OpenRouter
 synthetic-development profile and its implementation task. Its historical live
@@ -765,6 +768,11 @@ Interim defaults are working guidance only and do not approve a deployment.
   address classification. Live TLS SNI/hostname verification is implied by
   `SocketsHttpHandler` plus IP-pinned `ConnectCallback` and was not separately
   handshake-tested in this slice.
+- Implementer self-review (2026-08-21) closed two remaining fail-closed
+  holes: missing adapter configuration or mounted secret during content
+  streaming now emits `ModelContentFailed` instead of an empty stream, and
+  qualification-record load rejects unexpected properties. These are
+  deterministic contract hardenings, not live-qualification evidence.
 - P0 participant-message admission requires non-empty exact UTF-8 text.
   `AcceptParticipantMessageCommand.ExactUtf8Text` is required; missing or blank
   text fails closed with `trigger_admission.missing_participant_content`.
@@ -784,7 +792,7 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Predecessor remediation protected | complete | Worker identity/readiness remediation landed separately as `94c1412`; this planning edit is restricted to the new task file |
 | Plan readiness review | complete | Backend/architecture/security consistency pass on 2026-08-19 added frozen per-Session provider authority, restart-safe phases, retry ownership, secret hardening, egress/SSRF, qualification scope, and threat-model gates |
 | Current-source .NET baseline | passed | After required PostgreSQL admission auth: `dotnet test --solution FlexAgent.slnx` **1034 passed**, 0 failed (2026-08-19). Prior `4373f70` count was 1033 |
-| Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAiCompatible.Tests` **28 passed** on 2026-08-21: IANA special-purpose including AS112 `2620:4f:8000::/48`, private-CIDR containment, unknown-property rejection, validated multi-address fallback, and staggered fallback when the first address hangs |
+| Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAiCompatible.Tests` **29 passed** on 2026-08-21 after content-stream fail-closed and extra-property qualification-record coverage. Destination-policy cases remain: IANA special-purpose including AS112 `2620:4f:8000::/48`, private-CIDR containment, unknown-property rejection, validated multi-address fallback, and staggered fallback when the first address hangs |
 | Invocation-id reservation binding (`4a6e314` P2) | passed | In-memory writer tests 4/4. Postgres `Mismatched_invocation_cannot_reserve_a_provider_request` passed on 2026-08-20 |
 | Credential/profile isolation tests | passed | `FrozenModelDeploymentResolverTests` plus processor frozen-authority tests; secret symlink/size in WorkloadIdentity tests; no-fallback matrix for missing/revoked/wrong-org/provider mismatch |
 | Lease/auth/lifecycle concurrency tests | passed | Claim-lease heartbeat; overlapping reclaim; Postgres delegation revoke and principal-binding revoke at reservation (no started fact, no HTTP, lease not extended) |
@@ -793,9 +801,9 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Sessions domain/application tests | passed | `FlexAgent.Sessions.Tests` **461 passed** after destination-policy cleanup, including pinned example digest `6bbfa471…` and historical Direct OpenAI digest `11fd39ad…` |
 | Exact OpenAI-compatible profile qualification | deferred successor | No exact profile is selected. Deterministic migration is implemented, but the adapter remains default-off and no compatible endpoint is qualified or enabled until a later bounded live run passes. OpenRouter remains a distinct evidence track |
 | Worker composition / legacy fail-closed | passed | Runtime tests: `direct_openai` with and without files stays fail-closed; committed example artifacts stay fail-closed; Testing compose succeeds only for a non-example `exact_profile` record; Production stays fail-closed even with enableable files plus OAuth identity. Readiness names OpenAI-compatible vs legacy Direct OpenAI honestly |
-| Locked regression, supply chain, OCI, docs, whitespace | partial | `dotnet restore FlexAgent.slnx --locked-mode` passed. `python3 scripts/check_docs.py` and `git diff --check` passed. Example JSON parsed. Full solution **1204 passed**, 2 skipped, 1 failed: `Keycloak_signed_logout_token_satisfies_the_backchannel_contract` HTTP 403 (unrelated to this adapter). OCI image rebuild/SBOM/grype not re-run |
+| Locked regression, supply chain, OCI, docs, whitespace | passed with recorded residuals | `dotnet restore FlexAgent.slnx --locked-mode` passed. `bash build/scripts/verify-dotnet.sh` **1210 passed**, 3 skipped, 0 failed (OpenRouter live explicit tests skipped; Keycloak back-channel skipped for host listener address-in-use). Isolated Debug PostgreSQL earlier the same day was 262/263 with the same Keycloak test HTTP 403; that failure is unrelated to this adapter. `python3 scripts/check_docs.py`, `git diff --check`, and example JSON parse passed. `bash build/scripts/verify-supply-chain.sh` passed: NuGet has no vulnerable packages, pnpm audit 2 moderate, gitleaks no leaks, publish/SPA Grype `--fail-on high` clean, OCI image SBOM/Grype recorded. `bash build/scripts/verify-oci.sh` passed live/ready probes, `appuser`/`nginx`, no Development settings or SPA source maps, and graceful SIGTERM. SPA Alpine `tiff`/`libcrypto3` High findings remain tracked base-image residuals, not critical blockers |
 | Independent destination-policy review | approved | Review of `4342318` (2026-08-21): no P0/P1/P2. Prior `5b44e04` and `4467983` findings are closed. Concurrent fallback was reviewed for races, cancellation, and leak-safety and still uses only the validated address set. GitHub had no status checks or PR workflow runs for this SHA |
-| Independent backend/architecture/security review | destination-policy complete; remaining evidence open | Destination-policy independent review is complete. Full-solution verification at `4342318`, OCI/SBOM/grype, and GitHub CI corroboration remain open and are not treated as destination-policy code findings |
+| Independent backend/architecture/security review | destination-policy complete; Phase B change-set still open | Destination-policy independent review is complete. Implementer self-review of remaining fail-closed surfaces is recorded. Independent review of the full Phase B migration change-set and GitHub CI corroboration remain open and are not treated as destination-policy code findings |
 
 # Blockers
 
@@ -820,10 +828,10 @@ Interim defaults are working guidance only and do not approve a deployment.
 - [x] Long provider calls preserve claim lease, current authority, lifecycle/cutoff, idempotency, and durable-before-display invariants
 - [x] Required execution/manifest provenance is append-only, reconstructable, and free of raw sensitive provider material
 - [-] Exact-profile live qualification is deferred to a successor and remains a mandatory enablement gate; deterministic migration evidence is not represented as qualification, and distinct OpenRouter evidence is not substituted
-- [ ] Applicable focused, integration, concurrency, recovery, architecture, locked regression, supply-chain, OCI, documentation, and whitespace checks pass
+- [x] Applicable focused, integration, concurrency, recovery, architecture, locked regression, supply-chain, OCI, documentation, and whitespace checks pass
 - [x] Governing specifications and implementation-status tables are rechecked and remain truthful
 - [x] Full start-time immutable-model enforcement and the synthetic OpenRouter/vLLM portions of `GATE-STACK-PROVIDERS` remain explicitly recorded unless separately implemented and verified
 - [x] Independent backend, architecture, and security/privacy findings for the deterministic Phase A admission/execution slice are resolved at `4a6e314`; leftover invocation-id coupling is closed by claimed-work binding
 - [x] Remaining gaps or unverified behavior are recorded
 - [x] Independent destination-policy review of `4342318` recorded as approved with no remaining findings
-- [ ] Task state is safe and complete for external review after remaining supply-chain/OCI evidence and full-solution verification at this head
+- [x] Task state is safe and complete for external review: deterministic migration evidence is recorded; exact-profile live qualification, independent Phase B change-set review, and GitHub CI corroboration remain explicit residuals

@@ -122,6 +122,30 @@ public sealed class OpenAiCompatibleConfigurationFileTests
                 AdapterConfigurationDigest = new string('0', 64),
             },
             enableable));
+
+        var extraPropertyPath = Path.Combine(Path.GetTempPath(), $"flex-agent-oai-qual-{Guid.NewGuid():N}.json");
+        File.WriteAllText(
+            extraPropertyPath,
+            $$"""
+            {
+              "adapterKind": "openai_compatible",
+              "adapterContractVersion": "sessions.openai_compatible.v1",
+              "profileId": "{{enableable.Profile.ProfileId}}",
+              "profileVersion": "{{enableable.Profile.ProfileVersion}}",
+              "profileDigest": "{{enableable.Profile.ProfileDigest}}",
+              "adapterConfigurationDigest": "{{enableable.AdapterConfigurationDigest}}",
+              "qualifiedFor": "exact_profile",
+              "legacyEndpoint": "https://models.organization.example/"
+            }
+            """);
+        try
+        {
+            Assert.Throws<ArgumentException>(() => OpenAiCompatibleQualificationRecords.Load(extraPropertyPath));
+        }
+        finally
+        {
+            File.Delete(extraPropertyPath);
+        }
     }
 
     internal static OpenAiCompatibleInstalledConfiguration ExampleConfiguration() =>

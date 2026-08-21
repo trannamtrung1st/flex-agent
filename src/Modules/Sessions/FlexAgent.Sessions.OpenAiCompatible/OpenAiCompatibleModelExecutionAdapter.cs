@@ -106,12 +106,18 @@ public sealed class OpenAiCompatibleModelExecutionAdapter(
         var resolved = TryResolve(request.FrozenDeployment, request.Ownership, out _);
         if (resolved is null)
         {
+            yield return new ModelContentFailed(ExecutionFailureReasons.CredentialBindingFailed);
             yield break;
         }
 
         using var secret = await secrets.TryReadAsync(resolved.SecretName, cancellationToken);
         if (secret is null)
         {
+            yield return ContentFailure(
+                resolved.Profile,
+                ExecutionFailureReasons.CredentialBindingFailed,
+                request.ProviderAttemptId,
+                DateTimeOffset.UtcNow);
             yield break;
         }
 

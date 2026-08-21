@@ -31,6 +31,7 @@ public static class OpenAiCompatibleQualificationRecords
             throw new ArgumentException("Qualification record must be a JSON object.");
         }
 
+        RejectUnexpectedProperties(document.RootElement);
         return new OpenAiCompatibleQualificationRecord(
             RequiredString(document.RootElement, "adapterKind"),
             RequiredString(document.RootElement, "adapterContractVersion"),
@@ -66,6 +67,29 @@ public static class OpenAiCompatibleQualificationRecords
     public static bool IsNonEnableableIdentity(string profileId) =>
         profileId.Contains("example", StringComparison.OrdinalIgnoreCase)
         || profileId.Contains("do-not-enable", StringComparison.OrdinalIgnoreCase);
+
+    private static readonly HashSet<string> AllowedQualificationProperties = new(StringComparer.Ordinal)
+    {
+        "adapterKind",
+        "adapterContractVersion",
+        "profileId",
+        "profileVersion",
+        "profileDigest",
+        "adapterConfigurationDigest",
+        "qualifiedFor",
+    };
+
+    private static void RejectUnexpectedProperties(JsonElement item)
+    {
+        foreach (var property in item.EnumerateObject())
+        {
+            if (!AllowedQualificationProperties.Contains(property.Name))
+            {
+                throw new ArgumentException(
+                    $"Qualification record contains unexpected property '{property.Name}'.");
+            }
+        }
+    }
 
     private static string RequiredString(JsonElement item, string name)
     {
