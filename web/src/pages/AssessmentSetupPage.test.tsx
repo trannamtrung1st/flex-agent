@@ -13,6 +13,7 @@ const readyView: AssessmentSetupView = {
   cohort_id: "cohort-1",
   overall_severity: "ready",
   issues: [],
+  sources: [{ category: "agent", source_id: "s1", version_id: "v1", content_digest: "b".repeat(64) }],
 };
 
 function renderSetup(
@@ -20,6 +21,8 @@ function renderSetup(
   options?: {
     loadError?: Error;
     saveError?: Error;
+    checkError?: Error;
+    activateError?: Error;
   },
 ) {
   const loadSetup = () => (options?.loadError ? Promise.reject(options.loadError) : Promise.resolve(view));
@@ -27,13 +30,17 @@ function renderSetup(
     options?.saveError
       ? Promise.reject(options.saveError)
       : Promise.resolve({ ...view, title, revision_number: view.revision_number + 1 });
-  const checkReadiness = () => Promise.resolve({ ...view, overall_severity: "ready" });
-  const activateCohort = () => Promise.resolve({
-    ...view,
-    has_activated_cohort: true,
-    permitted_actions: [],
-    baseline_digest: "a".repeat(64),
-  });
+  const checkReadiness = () =>
+    options?.checkError ? Promise.reject(options.checkError) : Promise.resolve({ ...view, overall_severity: "ready" });
+  const activateCohort = () =>
+    options?.activateError
+      ? Promise.reject(options.activateError)
+      : Promise.resolve({
+          ...view,
+          has_activated_cohort: true,
+          permitted_actions: [],
+          baseline_digest: "a".repeat(64),
+        });
 
   const router = createMemoryRouter(
     [
@@ -106,5 +113,27 @@ describe("AssessmentSetupPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
     expect(await screen.findByRole("heading", { name: "Your access changed" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Campaign title")).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Selected source revisions" })).not.toBeInTheDocument();
+  });
+
+  it("removes protected setup when readiness is forbidden after load", async () => {
+    renderSetup(readyView, { checkError: new Error("Your access changed") });
+    await screen.findByRole("heading", { name: "Setup and readiness" });
+    expect(screen.getByRole("list", { name: "Selected source revisions" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Check readiness" }));
+    expect(await screen.findByRole("heading", { name: "Your access changed" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Campaign title")).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Selected source revisions" })).not.toBeInTheDocument();
+  });
+
+  it("removes protected setup when activation is forbidden after load", async () => {
+    renderSetup(readyView, { activateError: new Error("Your access changed") });
+    await screen.findByRole("heading", { name: "Setup and readiness" });
+    fireEvent.click(screen.getByRole("button", { name: "Activate cohort" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm activation" }));
+    expect(await screen.findByRole("heading", { name: "Your access changed" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Campaign title")).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Selected source revisions" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Activate this empty cohort?" })).not.toBeInTheDocument();
   });
 });

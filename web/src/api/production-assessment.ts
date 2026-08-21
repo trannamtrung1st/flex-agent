@@ -59,8 +59,32 @@ export interface ProductionActivationOutcome {
   baseline_digest?: string | null;
 }
 
+const pendingActivationKeys = new Map<string, string>();
+
 function createIdempotencyKey() {
   return `act-${crypto.randomUUID()}`;
+}
+
+export function sourceOptionIdentity(source: Pick<ProductionSourceRef, "source_id" | "version_id">) {
+  return `${source.source_id}:${source.version_id}`;
+}
+
+export function resolveSelectedSources(
+  sources: ProductionSourceOption[],
+  selected: Record<string, string>,
+  categories: readonly string[],
+): Record<string, ProductionSourceRef> {
+  const chosen: Record<string, ProductionSourceRef> = {};
+  for (const category of categories) {
+    const match = sources.find(
+      (source) => source.category === category && sourceOptionIdentity(source) === selected[category],
+    );
+    if (match) {
+      chosen[category] = match;
+    }
+  }
+
+  return chosen;
 }
 
 function sourceFields(prefix: string, source: ProductionSourceRef | undefined) {
@@ -177,7 +201,9 @@ export function createProductionAssessmentClient(fetchJson: <T>(path: string, in
         throw new ProductionApiError(400, "Activation is not available.");
       }
 
-      const idempotencyKey = createIdempotencyKey();
+      const pendingKey = `${activityId}:${view.cohort_id}`;
+      const idempotencyKey = pendingActivationKeys.get(pendingKey) ?? createIdempotencyKey();
+      pendingActivationKeys.set(pendingKey, idempotencyKey);
       try {
         const outcome = await fetchJson<ProductionActivationOutcome>(
           `/v1/assessment/activities/${activityId}/cohorts/${view.cohort_id}/activate`,
@@ -195,18 +221,29 @@ export function createProductionAssessmentClient(fetchJson: <T>(path: string, in
           throw new ProductionApiError(409, "Activation did not complete. Reconcile before retrying.");
         }
       } catch (error) {
-        if (error instanceof ProductionApiError && error.status !== 401 && error.status !== 403) {
+        if (error instanceof ProductionApiError && (error.status === 401 || error.status === 403)) {
+          throw error;
+        }
+
+        try {
           const reconciled = await fetchJson<ProductionActivationOutcome>(
             `/v1/assessment/activities/${activityId}/cohorts/${view.cohort_id}/activation?idempotency_key=${encodeURIComponent(idempotencyKey)}`,
           );
           if (!reconciled.succeeded) {
             throw error;
           }
-        } else {
-          throw error;
+        } catch (reconcileError) {
+          if (reconcileError === error) {
+            throw error;
+          }
+
+          throw error instanceof Error
+            ? error
+            : new ProductionApiError(409, "Activation did not complete. Reconcile before retrying.");
         }
       }
 
+      pendingActivationKeys.delete(pendingKey);
       return mapActivityToSetupView(await loadActivity(activityId));
     },
   };

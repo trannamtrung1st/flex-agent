@@ -32,6 +32,10 @@ interface AssessmentSetupPageProps {
 
 type PendingAction = "load" | "save" | "ready" | "activate" | null;
 
+function isAccessLoss(cause: unknown) {
+  return cause instanceof Error && /access changed|expired/i.test(cause.message);
+}
+
 export function AssessmentSetupPage({
   loadSetup,
   saveDraft,
@@ -57,6 +61,15 @@ export function AssessmentSetupPage({
   const dirty = Boolean(view && title !== view.title);
 
   const blocker = useBlocker(dirty && pending === null);
+
+  const applyAccessLoss = () => {
+    setView(null);
+    setTitle("");
+    setError(null);
+    setStatus(null);
+    setConfirmOpen(false);
+    setAccessChanged(true);
+  };
 
   useEffect(() => {
     if (view?.has_activated_cohort) {
@@ -99,8 +112,8 @@ export function AssessmentSetupPage({
           return;
         }
 
-        if (cause instanceof Error && /access|denied|expired/i.test(cause.message)) {
-          setAccessChanged(true);
+        if (isAccessLoss(cause) || (cause instanceof Error && /denied/i.test(cause.message))) {
+          applyAccessLoss();
         } else {
           setError("This setup is unavailable.");
         }
@@ -168,12 +181,12 @@ export function AssessmentSetupPage({
                   saveButtonRef.current?.focus();
                 })
                 .catch((cause: unknown) => {
-                  const message = cause instanceof Error ? cause.message : "The draft could not be saved.";
-                  if (/access changed|expired/i.test(message)) {
-                    setAccessChanged(true);
+                  if (isAccessLoss(cause)) {
+                    applyAccessLoss();
                     return;
                   }
 
+                  const message = cause instanceof Error ? cause.message : "The draft could not be saved.";
                   setError(message === "This draft changed" ? "This draft changed" : "The draft could not be saved.");
                   titleInputRef.current?.focus();
                 })
@@ -261,7 +274,12 @@ export function AssessmentSetupPage({
                   );
                   readinessHeadingRef.current?.focus();
                 })
-                .catch(() => {
+                .catch((cause: unknown) => {
+                  if (isAccessLoss(cause)) {
+                    applyAccessLoss();
+                    return;
+                  }
+
                   setError("Readiness could not be checked.");
                 })
                 .finally(() => {
@@ -317,7 +335,12 @@ export function AssessmentSetupPage({
               setConfirmOpen(false);
               setStatus("Cohort activated");
             })
-            .catch(() => {
+            .catch((cause: unknown) => {
+              if (isAccessLoss(cause)) {
+                applyAccessLoss();
+                return;
+              }
+
               setError("The cohort was not activated");
               setStatus("Checking activation status");
             })

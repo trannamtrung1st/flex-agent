@@ -3,9 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { useProductionApi } from "../api/production-api";
 import {
   createProductionAssessmentClient,
+  resolveSelectedSources,
+  sourceOptionIdentity,
   type ProductionActivityList,
   type ProductionSourceOption,
-  type ProductionSourceRef,
 } from "../api/production-assessment";
 import { Alert } from "../components/ui/Alert";
 import { Badge } from "../components/ui/Badge";
@@ -52,7 +53,7 @@ export function ProductionActivitiesPage() {
           for (const category of REQUIRED_CATEGORIES) {
             const first = options.sources.find((source) => source.category === category);
             if (first) {
-              next[category] = first.version_id;
+              next[category] = sourceOptionIdentity(first);
             }
           }
 
@@ -100,13 +101,7 @@ export function ProductionActivitiesPage() {
               onSubmit={(event) => {
                 event.preventDefault();
                 setCreating(true);
-                const chosen: Record<string, ProductionSourceRef> = {};
-                for (const category of REQUIRED_CATEGORIES) {
-                  const match = sources.find((source) => source.version_id === selected[category]);
-                  if (match) {
-                    chosen[category] = match;
-                  }
-                }
+                const chosen = resolveSelectedSources(sources, selected, REQUIRED_CATEGORIES);
 
                 void client.createActivity(title, chosen)
                   .then((activityId) => {
@@ -140,7 +135,7 @@ export function ProductionActivitiesPage() {
                       }}
                     >
                       {options.map((option) => (
-                        <option key={option.version_id} value={option.version_id}>
+                        <option key={sourceOptionIdentity(option)} value={sourceOptionIdentity(option)}>
                           {option.version_id}
                         </option>
                       ))}
