@@ -454,6 +454,9 @@ entry, qualify real use, or certify a production pilot.
       network bits, reject extra/policy-mismatched configuration properties,
       and connect across the validated candidate set without a second
       unvalidated DNS lookup.
+- [x] Close remaining P2 follow-ups from review of `4467983`: deny IANA
+      AS112 `2620:4f:8000::/48`, and bound/stagger per-address connect so a
+      black-holed first candidate cannot consume the whole request timeout.
 - [>] Run focused domain, adapter, Runtime, Architecture, and PostgreSQL tests,
       then the locked full solution, OCI build, SBOM/license/vulnerability and
       secret checks, documentation validation, JSON/example consistency, and
@@ -469,6 +472,13 @@ entry, qualify real use, or certify a production pilot.
       OCI/SBOM/grype remain open on the previous verification step.
 
 # Current state
+
+Review of `4467983` approved the destination-policy remediation. The two P2
+follow-ups are implemented: IANA AS112 `2620:4f:8000::/48` is denied, and
+connect uses a 250ms stagger plus a 2s per-address timeout so a black-holed
+first candidate cannot consume the whole request. Adapter tests are 28
+passed. Full-solution / OCI / SBOM / independent re-review remain open. Do
+not claim live qualification.
 
 Review of `5b44e04` destination-policy gaps is implemented. `public_only`
 uses a conservative globally-routable classifier; `private_allowlist` CIDRs
@@ -562,12 +572,15 @@ substitute for this migration or its deferred exact-profile successor.
 - `public_only` admits only conservative globally-routable unicast: IPv4 must
   sit outside the IANA special-purpose/non-global prefixes; IPv6 must sit in
   `2000::/3` and outside IETF (`2001::/23`), documentation (`2001:db8::/32`,
-  `3fff::/20`), and 6to4 (`2002::/16`). RFC1918 and ULA remain private-only.
+  `3fff::/20`), 6to4 (`2002::/16`), and AS112 (`2620:4f:8000::/48`). RFC1918
+  and ULA remain private-only.
 - `private_allowlist` CIDRs must be wholly contained in `10/8`, `172.16/12`,
   `192.168/16`, or `fc00::/7`, and are stored with masked network bits so
   `10.1.2.3/8` and `10.0.0.0/8` share one digest identity.
 - Real transport connects only to the DestinationHandler-validated address
-  set (IPv6 then IPv4), never to a later unvalidated DNS answer.
+  set (IPv6 then IPv4), never to a later unvalidated DNS answer. Connection
+  attempts are staggered (250ms) and each address is bounded (2s) so a
+  black-holed first candidate cannot consume the parent request timeout.
 
 # Open questions
 
@@ -729,6 +742,10 @@ Interim defaults are working guidance only and do not approve a deployment.
   the configuration loader ignored extra properties; and the connector pinned
   only the first DNS answer. Those are closed in this cleanup. The prior
   destination-policy checklist item was overclaimed until this change.
+- Independent review of `4467983` approved the destination-policy remediation
+  with no remaining P0/P1 from the prior review. Two P2s are now closed:
+  IANA AS112 `2620:4f:8000::/48` is denied, and connect staggers/bounds
+  per-address attempts so a hung first candidate cannot block fallback.
 - Official OpenAI .NET SDK is retained as internal transport: fake-transport
   tests pin request URIs at `/v1/chat/completions`, `/openai/v1/chat/completions`,
   and `/api/chat/completions` when `OpenAIClientOptions.Endpoint` includes the
@@ -761,7 +778,7 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Predecessor remediation protected | complete | Worker identity/readiness remediation landed separately as `94c1412`; this planning edit is restricted to the new task file |
 | Plan readiness review | complete | Backend/architecture/security consistency pass on 2026-08-19 added frozen per-Session provider authority, restart-safe phases, retry ownership, secret hardening, egress/SSRF, qualification scope, and threat-model gates |
 | Current-source .NET baseline | passed | After required PostgreSQL admission auth: `dotnet test --solution FlexAgent.slnx` **1034 passed**, 0 failed (2026-08-19). Prior `4373f70` count was 1033 |
-| Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAiCompatible.Tests` **27 passed** on 2026-08-21 after destination-policy cleanup: IANA special-purpose/`2001:db8` denial, private-CIDR containment and canonical network bits, unknown-property rejection, validated multi-address IPv6-then-IPv4 fallback; fake-transport control/stream at `/v1`, `/openai/v1`, `/api`; legacy identity fail-closed |
+| Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAiCompatible.Tests` **28 passed** on 2026-08-21: IANA special-purpose including AS112 `2620:4f:8000::/48`, private-CIDR containment, unknown-property rejection, validated multi-address fallback, and staggered fallback when the first address hangs |
 | Invocation-id reservation binding (`4a6e314` P2) | passed | In-memory writer tests 4/4. Postgres `Mismatched_invocation_cannot_reserve_a_provider_request` passed on 2026-08-20 |
 | Credential/profile isolation tests | passed | `FrozenModelDeploymentResolverTests` plus processor frozen-authority tests; secret symlink/size in WorkloadIdentity tests; no-fallback matrix for missing/revoked/wrong-org/provider mismatch |
 | Lease/auth/lifecycle concurrency tests | passed | Claim-lease heartbeat; overlapping reclaim; Postgres delegation revoke and principal-binding revoke at reservation (no started fact, no HTTP, lease not extended) |
@@ -771,7 +788,7 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Exact OpenAI-compatible profile qualification | deferred successor | No exact profile is selected. Deterministic migration is implemented, but the adapter remains default-off and no compatible endpoint is qualified or enabled until a later bounded live run passes. OpenRouter remains a distinct evidence track |
 | Worker composition / legacy fail-closed | passed | Runtime tests: `direct_openai` with and without files stays fail-closed; committed example artifacts stay fail-closed; Testing compose succeeds only for a non-example `exact_profile` record; Production stays fail-closed even with enableable files plus OAuth identity. Readiness names OpenAI-compatible vs legacy Direct OpenAI honestly |
 | Locked regression, supply chain, OCI, docs, whitespace | partial | `dotnet restore FlexAgent.slnx --locked-mode` passed. `python3 scripts/check_docs.py` and `git diff --check` passed. Example JSON parsed. Full solution **1204 passed**, 2 skipped, 1 failed: `Keycloak_signed_logout_token_satisfies_the_backchannel_contract` HTTP 403 (unrelated to this adapter). OCI image rebuild/SBOM/grype not re-run |
-| Independent backend/architecture/security review | pending re-review | Review of `5b44e04` requested destination-policy changes; those four items are implemented. Fresh independent backend and security/privacy review of this cleanup is still required before treating Phase B as complete |
+| Independent backend/architecture/security review | pending re-review of P2 closeout | Review of `4467983` approved the destination-policy remediation (no remaining P0/P1). The two recorded P2s are implemented in this follow-up. GitHub CI was not observed for that SHA |
 
 # Blockers
 

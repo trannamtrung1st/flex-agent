@@ -16,6 +16,7 @@ public sealed class OpenAiCompatibleDestinationPolicyTests
         Assert.True(Evaluate(OpenAiCompatibleDestinationPolicy.PublicOnly, IPAddress.Parse("2001:4860:4860::8888")).Allowed);
         AssertDenied(OpenAiCompatibleDestinationPolicy.PublicOnly, "2001:db8::1");
         AssertDenied(OpenAiCompatibleDestinationPolicy.PublicOnly, "3fff::1");
+        AssertDenied(OpenAiCompatibleDestinationPolicy.PublicOnly, "2620:4f:8000::1");
         AssertDenied(OpenAiCompatibleDestinationPolicy.PublicOnly, "0.0.0.1");
         AssertDenied(OpenAiCompatibleDestinationPolicy.PublicOnly, "192.0.0.1");
         AssertDenied(OpenAiCompatibleDestinationPolicy.PublicOnly, "192.0.2.1");
@@ -198,6 +199,52 @@ public sealed class OpenAiCompatibleDestinationPolicyTests
             port,
             TestContext.Current.CancellationToken);
         using var client = await accept;
+        Assert.True(stream.CanWrite);
+    }
+
+    [Fact]
+    public async Task Connector_falls_back_when_the_first_approved_address_hangs()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        var accept = listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        var firstCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var stream = await OpenAiCompatibleApprovedAddressConnector.ConnectAsync(
+            [IPAddress.IPv6Loopback, IPAddress.Loopback],
+            port,
+            TestContext.Current.CancellationToken,
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromMilliseconds(20),
+            async (address, destinationPort, cancellationToken) =>
+            {
+                if (IPAddress.IPv6Loopback.Equals(address))
+                {
+                    try
+                    {
+                        await Task.Delay(Timeout.Infinite, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        firstCancelled.TrySetResult();
+                        throw;
+                    }
+                }
+
+                var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                try
+                {
+                    await socket.ConnectAsync(address, destinationPort, cancellationToken);
+                    return new NetworkStream(socket, ownsSocket: true);
+                }
+                catch
+                {
+                    socket.Dispose();
+                    throw;
+                }
+            }).WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+        using var client = await accept;
+        await firstCancelled.Task.WaitAsync(TestContext.Current.CancellationToken);
         Assert.True(stream.CanWrite);
     }
 
