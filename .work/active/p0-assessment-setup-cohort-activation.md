@@ -460,6 +460,11 @@ enable model execution.
       resolver-facing read/verifier contract using the existing schema,
       versioned domain validators, explicit Assessment-owned
       `CanonicalJsonLimits`, and `FlexAgent.CanonicalJson`.
+- [x] Record approval of `fcae1ca`: the `0c3fea5` → `310b2f2` →
+      `c67894f` production-SPA fail-closed review chain is closed with
+      no leftover P1/P2. Keep reconcile concealment as `assessment.denied`
+      fail-closed until a later distinct non-access-loss outcome is
+      specified.
 - [x] Repair `c67894f` review: fail closed on `assessment.denied` for
       activation 409 and reconcile 404, not only HTTP 401/403.
 - [x] Repair `310b2f2` review: propagate 401/403 from activation
@@ -614,7 +619,8 @@ and source selection uses category plus `source_id:version_id`. The
 the page can fail closed, and pending activation keys include
 `revision_id` and `revision_number`. The `c67894f` follow-up treats
 `assessment.denied` as access loss for activation HTTP 409 and
-reconcile HTTP 404, matching the hosted contract. Playwright MCP
+reconcile HTTP 404, matching the hosted contract. External review of
+`fcae1ca` approved that chain with no P1/P2. Playwright MCP
 reached the production sign-in gate only. The OIDC-backed PostgreSQL
 setup journey is still blocked in this environment. `ADR-017` remains
 Proposed. The task stays in-progress.
@@ -638,6 +644,16 @@ turning the synthetic scenario model into product persistence. The SPA now has a
 `VITE_API_MODE=production`. The synthetic provider remains isolated.
 
 # Findings / deviations
+
+- 2026-08-21 review of `fcae1ca`: **approved**. No new P1/P2. The
+  `0c3fea5` → `310b2f2` → `c67894f` fail-closed findings are closed
+  against the hosted contract (activate `409` + `assessment.denied`,
+  reconcile `404` + `assessment.denied`). Non-blocking later UX:
+  after successful reconcile authorization, a distinct concealed
+  outcome such as `assessment.activation_not_found` could avoid
+  clearing setup when a lost POST never reached the server. Until
+  specified, keep the current fail-closed classification. Reported
+  counts are local evidence; GitHub has no status checks for this SHA.
 
 - 2026-08-21 review of `c67894f`: activation/reconcile fail-closed now
   uses `assessment.denied` plus 401/403. Hosted activate denial is
@@ -826,7 +842,7 @@ turning the synthetic scenario model into product persistence. The SPA now has a
 | Playwright MCP | partial | Production sign-in gate only: accessibility snapshot plus desktop 1280, narrow 390, and 320 reflow screenshots under `.playwright-mcp/page-2026-08-21T13-34-29-048Z.png`, `page-2026-08-21T13-34-40-843Z.png`, `page-2026-08-21T13-35-10-208Z.png`, `page-2026-08-21T13-35-58-774Z.png`. OIDC/Postgres setup states, both themes, reduced motion, and dialog/error journeys were not reachable |
 | Performance | pending | `AC-ACT-27` readiness and activation p95 evidence not observed |
 | Locked regression/supply-chain/OCI/docs/leakage | pending | Run proportionately after implementation |
-| Independent reviews | partial | `316b5b5` HTTP-negative follow-up approved with no P1/P2. Activation/redaction architecture is closed for further redesign. Full-slice backend/architecture, frontend, and security/privacy review still required before task completion |
+| Independent reviews | partial | `fcae1ca` production-SPA fail-closed follow-up approved with no P1/P2; `0c3fea5` → `310b2f2` → `c67894f` findings closed. `316b5b5` HTTP-negative follow-up approved with no P1/P2. Activation/redaction architecture is closed for further redesign. Full-slice backend/architecture, frontend, and security/privacy review still required before task completion |
 
 # Blockers
 
