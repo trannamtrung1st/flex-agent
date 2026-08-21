@@ -1,14 +1,23 @@
+using System.Net;
+using System.Text;
+using System.Text.Json;
 using Dapper;
+using FlexAgent.Api;
 using FlexAgent.AssessmentConfiguration.Application;
 using FlexAgent.AssessmentConfiguration.Canonicalization;
 using FlexAgent.AssessmentConfiguration.Domain;
 using FlexAgent.AssessmentConfiguration.Infrastructure;
+using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.IdentityAccess.Infrastructure;
 using FlexAgent.Postgres.Audit;
 using FlexAgent.Postgres.Integration.Tests.Support;
 using FlexAgent.Postgres.Outbox;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using ApiProgram = FlexAgent.Api.Program;
 
 namespace FlexAgent.Postgres.Integration.Tests;
 
@@ -368,6 +377,57 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
         Assert.Null(denied.BaselineId);
         Assert.Null(denied.BaselineDigest);
         Assert.Equal(CohortStates.Draft, denied.CohortState);
+    }
+
+    [Fact]
+    public async Task Http_activate_after_revoke_does_not_disclose_an_existing_baseline()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        Assert.NotNull(first.BaselineId);
+
+        await using var factory = CreateHostedApi(harness.Actor.Actor.ActorId, harness.OrganizationId);
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.TryAddWithoutValidation(
+            "Cookie",
+            $"{HumanAuthenticationHostOptions.CookieName}={FixedSessionCoordinator.Credential}");
+        using var session = await client.GetAsync("/auth/session", CancellationToken);
+        var csrf = JsonDocument.Parse(await session.Content.ReadAsStringAsync(CancellationToken))
+            .RootElement.GetProperty("csrf_token").GetString();
+        using var authorized = await SendHostedActivateAsync(
+            client,
+            csrf,
+            harness.ActivityId,
+            harness.CohortId,
+            harness.RevisionId,
+            harness.RevisionNumber,
+            "idem-1");
+        var authorizedBody = JsonDocument.Parse(await authorized.Content.ReadAsStringAsync(CancellationToken));
+
+        Assert.Equal(HttpStatusCode.OK, authorized.StatusCode);
+        Assert.Equal(first.BaselineId, authorizedBody.RootElement.GetProperty("baseline_id").GetGuid());
+
+        await new PostgresGrantRepository(Fixture.Services.ConnectionAccessor).RevokeAsync(
+            harness.OrganizationId,
+            harness.Actor.Actor.ActorId,
+            AssessmentAuthorizationActions.ActivateCohort,
+            CancellationToken);
+        using var denied = await SendHostedActivateAsync(
+            client,
+            csrf,
+            harness.ActivityId,
+            harness.CohortId,
+            harness.RevisionId,
+            harness.RevisionNumber,
+            "idem-2");
+        var deniedBody = JsonDocument.Parse(await denied.Content.ReadAsStringAsync(CancellationToken));
+
+        Assert.Equal(HttpStatusCode.Conflict, denied.StatusCode);
+        Assert.Equal(AssessmentFailureCodes.Denied, deniedBody.RootElement.GetProperty("outcome_code").GetString());
+        Assert.Equal(JsonValueKind.Null, deniedBody.RootElement.GetProperty("baseline_id").ValueKind);
+        Assert.Equal(JsonValueKind.Null, deniedBody.RootElement.GetProperty("baseline_digest").ValueKind);
+        Assert.Equal(CohortStates.Draft, deniedBody.RootElement.GetProperty("cohort_state").GetString());
     }
 
     [Fact]
@@ -825,6 +885,53 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
         Assert.Equal(1, selectSourceAudits);
     }
 
+    private WebApplicationFactory<ApiProgram> CreateHostedApi(Guid actorId, Guid organizationId) =>
+        new WebApplicationFactory<ApiProgram>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("ConnectionStrings:Identity", Fixture.ConnectionString);
+            builder.UseSetting("ConnectionStrings:Sessions", Fixture.ConnectionString);
+            builder.UseSetting("HumanAuthentication:Enabled", "true");
+            builder.UseSetting("HumanAuthentication:Issuer", "https://issuer.example/realms/flex");
+            builder.UseSetting("HumanAuthentication:ClientId", "flex-agent-api");
+            builder.UseSetting("HumanAuthentication:AuthorizationEndpoint", "https://issuer.example/realms/flex/protocol/openid-connect/auth");
+            builder.UseSetting("HumanAuthentication:TokenEndpoint", "https://issuer.example/realms/flex/protocol/openid-connect/token");
+            builder.UseSetting("HumanAuthentication:JwksUri", "https://issuer.example/realms/flex/protocol/openid-connect/certs");
+            builder.UseSetting("HumanAuthentication:RedirectUri", "https://app.example/auth/callback");
+            builder.UseSetting("HumanAuthentication:AcceptedAcr:0", "acr:mfa");
+            builder.UseSetting("HumanAuthentication:AcceptedAmr:0", "mfa");
+            builder.ConfigureServices(services =>
+                services.AddSingleton<IHumanAuthenticationCoordinator>(
+                    new FixedSessionCoordinator(actorId, organizationId)));
+        });
+
+    private static async Task<HttpResponseMessage> SendHostedActivateAsync(
+        HttpClient client,
+        string? csrfToken,
+        Guid activityId,
+        Guid cohortId,
+        Guid revisionId,
+        long revisionNumber,
+        string idempotencyKey)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/v1/assessment/activities/{activityId}/cohorts/{cohortId}/activate")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    expected_revision_id = revisionId,
+                    expected_revision_number = revisionNumber,
+                    idempotency_key = idempotencyKey,
+                }),
+                Encoding.UTF8,
+                "application/json"),
+        };
+        request.Headers.TryAddWithoutValidation(HumanAuthenticationHostOptions.AntiforgeryHeaderName, csrfToken);
+        return await client.SendAsync(request, TestContext.Current.CancellationToken);
+    }
+
     private async Task<Harness> SeedReadyHarnessAsync()
     {
         var seeded = await Fixture.SeedOrganizationAsync();
@@ -1123,5 +1230,62 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
             await revoke();
             return rows;
         }
+    }
+
+    private sealed class FixedSessionCoordinator(Guid actorId, Guid organizationId) : IHumanAuthenticationCoordinator
+    {
+        public const string Credential = "assessment-http-redaction";
+
+        public Task<AuthenticatedApplicationSession?> AuthenticateAsync(
+            string rawCredential,
+            bool advanceActivity,
+            CancellationToken cancellationToken) =>
+            string.Equals(rawCredential, Credential, StringComparison.Ordinal)
+                ? Task.FromResult<AuthenticatedApplicationSession?>(
+                    new AuthenticatedApplicationSession(
+                        Guid.CreateVersion7(),
+                        actorId,
+                        organizationId,
+                        new AuthenticationStrength("mfa", ["mfa"]),
+                        new ExactIssuerSubject("https://issuer.example/realms/flex", "assessment-http")))
+                : Task.FromResult<AuthenticatedApplicationSession?>(null);
+
+        public Task<HumanAuthenticationResult> CompleteLoginAsync(
+            ValidatedHumanLogin login,
+            Guid? clientSuppliedOrganizationId,
+            Guid correlationId,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<HumanAuthenticationResult> RotateAsync(
+            Guid applicationSessionId,
+            string terminalReason,
+            Guid correlationId,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<bool> LogoutAsync(
+            string rawCredential,
+            Guid correlationId,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<int> ApplyProviderForcedLogoutAsync(
+            string providerSessionId,
+            Guid correlationId,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<BackChannelLogoutResult> ApplyBackChannelLogoutAsync(
+            ValidatedLogoutToken token,
+            Guid correlationId,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<int> ApplyAccountDisablementAsync(
+            ExactIssuerSubject identity,
+            Guid correlationId,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 }

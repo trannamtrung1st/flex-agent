@@ -22,7 +22,7 @@ public sealed class AssessmentHttpNegativeContractTests
     private const string Subject = "assessment-http-subject";
 
     [Fact]
-    public async Task Activate_without_a_session_is_rejected_before_baseline_disclosure()
+    public async Task Activate_without_antiforgery_is_rejected_before_session_authentication()
     {
         await using var factory = CreateFactory();
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
@@ -32,6 +32,30 @@ public sealed class AssessmentHttpNegativeContractTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains("csrf.invalid", body, StringComparison.Ordinal);
         AssertNoBaseline(body);
+    }
+
+    [Fact]
+    public async Task Activate_with_anonymous_csrf_and_no_session_is_unauthorized_and_omits_assessment_state()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var session = await client.GetAsync("/auth/session", TestContext.Current.CancellationToken);
+        var payload = JsonDocument.Parse(await session.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.False(payload.RootElement.GetProperty("authenticated").GetBoolean());
+        using var request = new HttpRequestMessage(HttpMethod.Post, ActivateUrl())
+        {
+            Content = JsonContent(),
+        };
+        request.Headers.TryAddWithoutValidation(
+            HumanAuthenticationHostOptions.AntiforgeryHeaderName,
+            payload.RootElement.GetProperty("csrf_token").GetString());
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        AssertNoBaseline(body);
+        Assert.DoesNotContain("outcome_code", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("cohort_state", body, StringComparison.Ordinal);
     }
 
     [Fact]

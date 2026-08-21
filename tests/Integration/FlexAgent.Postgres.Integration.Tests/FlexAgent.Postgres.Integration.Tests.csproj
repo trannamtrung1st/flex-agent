@@ -16,12 +16,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Hosts\FlexAgent.Api\FlexAgent.Api.csproj" />
     <ProjectReference Include="..\..\..\src\Modules\AssessmentConfiguration\FlexAgent.AssessmentConfiguration\FlexAgent.AssessmentConfiguration.csproj" />
     <ProjectReference Include="..\..\..\src\Modules\AssessmentConfiguration\FlexAgent.AssessmentConfiguration.Infrastructure\FlexAgent.AssessmentConfiguration.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\src\Modules\Configuration\FlexAgent.Configuration\FlexAgent.Configuration.csproj" />

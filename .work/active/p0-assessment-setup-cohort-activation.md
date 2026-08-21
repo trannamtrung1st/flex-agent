@@ -460,8 +460,11 @@ enable model execution.
       resolver-facing read/verifier contract using the existing schema,
       versioned domain validators, explicit Assessment-owned
       `CanonicalJsonLimits`, and `FlexAgent.CanonicalJson`.
-- [>] Add the Assessment HTTP negative-contract suite and rerun the
-      full `MigrationUpgradeTests` matrix; do not further redesign
+- [>] Strengthen HTTP negatives: anonymous CSRF-without-session
+      authentication rejection, and hosted activate-then-revoke
+      redaction against a real baseline.
+- [x] Add the first Assessment HTTP negative-contract suite and rerun
+      the full `MigrationUpgradeTests` matrix; do not further redesign
       activation after the `64b424a` review.
 - [x] Repair `d6eb82d` review: reauthorize inside the activation
       transaction before any current-state disclosure, and persist real
@@ -777,8 +780,8 @@ synthetic provider.
 | Execution baseline | passed | Start SHA `ef911ee`. Before behavior changes: Architecture 35 passed; Contract 135 passed; CanonicalJson 25 passed; web lint warning-only, typecheck passed, unit 60 passed. PostgreSQL/Runtime/Sessions/e2e smoke were not all re-run in this session due to parallel-build lock and time; Architecture was re-run after the lock. |
 | Source-authority/transaction decision | recorded as Proposed | `ADR-017` and `PROP-7` published. Sessions file registries are excluded. Production fail-closed remains the interim default until ADR-017 is approved. |
 | Assessment focused tests | passed for domain/application | `dotnet test --project tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — **65 passed**, including admission-then-revoke races on Activate and Reconcile |
-| PostgreSQL migration/integration | passed for upgrade matrix | `AssessmentActivationPersistenceTests` **18 passed**. Full `MigrationUpgradeTests` matrix **33 passed** after `0042` |
-| API/runtime contracts | partial | `AssessmentHttpNegativeContractTests` **7 passed** for CSRF/session/malformed-key/unauthorized-activate and reconcile/shell negatives with no baseline disclosure. Production/Staging without Postgres still does not map `/v1/assessment`. Development/Testing without Postgres remains deny-all in-memory. Broader `AC-ACT-24` HTTP negatives (wrong org, stale draft, concurrent, post-activation mutation) are not complete |
+| PostgreSQL migration/integration | passed for upgrade matrix | `AssessmentActivationPersistenceTests` **19 passed**, including hosted HTTP activate-then-revoke redaction of an existing baseline. Full `MigrationUpgradeTests` matrix **33 passed** after `0042` |
+| API/runtime contracts | partial | `AssessmentHttpNegativeContractTests` **8 passed**, including anonymous CSRF-without-session **401** and missing-CSRF **400**. Hosted Postgres HTTP activate-then-revoke redacts a real baseline after an authorized HTTP response first returned it. Broader `AC-ACT-24` HTTP negatives remain incomplete |
 | Web unit/accessibility | partial | Setup page plus production provider added; web unit 62 passed, lint warning-only; production provider not globally composed; Playwright not run |
 | Playwright MCP | pending | Must use real app interactions, accessibility snapshots, and desktop/narrow screenshots in `.playwright-mcp/` after the slice runs |
 | Performance | pending | `AC-ACT-27` readiness and activation p95 evidence not observed |
