@@ -288,6 +288,22 @@ The provider product, invitation flow, and account-recovery experience remain
 deployment and UI/UX decisions. They must preserve ADR-002 and must not require
 a custom password store.
 
+Application user administration remains inside the IdentityAccess business
+boundary. The external OIDC provider owns credentials, MFA enrollment and
+authentication, and upstream account lifecycle. IdentityAccess owns internal
+actors, exact provider-identity bindings, enabled state, Organization context,
+capability grants, service delegations, application sessions, and trusted
+lifecycle propagation. Resource-owning modules retain authority for their
+resource relationships and workflow state—for example Activity/Cohort,
+Enrollment, reviewer assignment, and Session ownership—and expose versioned
+trusted inputs through owned ports to the authorization kernel. Provider roles
+and groups never directly grant Flex Agent access.
+A later invitation, membership, actor-administration, or provider-provisioning
+journey must receive approved product and UI/UX requirements and may use a
+Keycloak administration adapter; it does not justify a second module with
+overlapping identity or authorization authority. See `STACK-DEC-26` and
+`STACK-DEC-27` in [ADR-010](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md).
+
 ### Optional caching boundary
 
 The MVP must operate correctly without Redis or another shared cache. If later

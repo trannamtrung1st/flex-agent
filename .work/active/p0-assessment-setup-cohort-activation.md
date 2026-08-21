@@ -52,7 +52,7 @@ enable model execution.
   Reviewer MFA contracts, especially `REQ-OPS-11`–`REQ-OPS-16` and
   `REQ-OPS-28`
 - `docs/requirements/features/assessment-setup.md` — `REQ-ACT-1`–
-  `REQ-ACT-42`, `AC-ACT-1`–`AC-ACT-27`, and approved `PROP-1`–`PROP-6`
+  `REQ-ACT-42`, `AC-ACT-1`–`AC-ACT-27`, and approved `PROP-1`–`PROP-7`
 - `docs/requirements/features/auth-resource-isolation.md` — applicable
   authentication, Organization/resource authorization, scoped-query,
   commit-time reauthorization, non-disclosure, and required-durable audit
@@ -89,7 +89,12 @@ enable model execution.
   Configuration ownership, transaction rules, module/adaptor placement,
   production API authority, isolation, quality attributes, and verification
 - `docs/architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md`
-  — .NET/React/PostgreSQL/Grate, locked dependency, contract, and delivery gates
+  — .NET/React/PostgreSQL/Grate, IdentityAccess/Keycloak ownership, authenticated
+  Development/Testing browser profile, locked dependency, contract, and
+  delivery gates
+- `docs/operations/provider-profiles/keycloak-oidc-contract.md` — pinned local
+  Keycloak boundary and the synthetic MFA Administrator/API/SPA/PostgreSQL
+  composition required for authenticated browser evidence
 - `contracts/schemas/v1/digest/activation-baseline-digest-document.v1.schema.json`
   and `contracts/fixtures/jcs/activation-baseline-jcs-sha256-v1/` — existing
   canonical baseline schema and language-neutral conformance fixtures
@@ -106,7 +111,7 @@ enable model execution.
   and current eligibility; credential binding remains downstream Session
   authority.
 
-# Current implementation inventory
+# Initial implementation inventory at planning baseline
 
 - There is no production Assessment Configuration module, Activity/Cohort
   repository, readiness coordinator, activation coordinator, or production
@@ -539,7 +544,8 @@ enable model execution.
       isolation/locking/version behavior, required-durable audit/outbox
       acceptance, authoritative reconciliation, bounded telemetry, and honest
       historical verification state.
-- [x] Red — add production API/runtime contract tests for every query/mutation,
+- [x] Red — add production API/runtime contract tests for the implemented
+      query/mutation surface, including
       missing/expired/revoked application sessions, mandatory Administrator and
       Reviewer MFA for their respective actions, wrong bound Organization,
       CSRF, forged MFA/relationship/scope/parent/digest/role/navigation/action
@@ -550,8 +556,9 @@ enable model execution.
       over the application ports and PostgreSQL adapters. Keep the synthetic
       browser endpoints separate and default-off outside their existing
       Development/Testing harness.
-- [x] Red — add React contract/component tests for source selectors and every
-      approved setup state, including unsaved navigation, save failure,
+- [x] Red — add React contract/component tests for source selectors and the
+      implemented representations of approved setup states, including unsaved
+      navigation, save failure,
       two-tab stale conflict, readiness summaries, activation confirmation,
       pending/uncertain reconciliation, audit/persistence failure, permission
       loss, activated/degraded summaries, and new-Cohort explanation. Assert by
@@ -572,7 +579,24 @@ enable model execution.
       progressive technical metadata, semantic tokens, focus/announcement
       behavior, and desktop/narrow reflow without duplicating server policy or
       converting the synthetic browser provider into production authority.
-- [>] Run the real PostgreSQL/API/SPA journey through OIDC-backed application
+- [>] Red/green — implement the approved reproducible authenticated
+      Development/Testing browser profile through one documented project
+      command. Use `http://localhost:18080` as the canonical public origin:
+      serve or proxy the SPA at `/`, route `/auth`, `/v1/assessment`, and
+      existing `/sessions` to the API, expose Keycloak at
+      `/realms/flex-agent`, and register exactly
+      `http://localhost:18080/auth/callback`. Compose pinned Keycloak,
+      PostgreSQL, migrations, API, and SPA/gateway on one network, with the API
+      and migrations using `postgres:5432`; seed an MFA-qualified synthetic
+      Administrator with an exact IdentityAccess binding to one enabled actor,
+      one Organization, minimum application-owned capability grants, any
+      Assessment-owned relationship records required by the journey, and
+      bounded Development/Testing source descriptors. Add
+      start/readiness/seed/reset automation and negative configuration tests.
+      Do not introduce a parallel User Management module, move resource
+      relationships into IdentityAccess, use Keycloak roles as application
+      authority, or weaken Production authentication.
+- [ ] Run the real PostgreSQL/API/SPA journey through OIDC-backed application
       sessions and the project Playwright MCP server. Reach and inspect
       authorized, empty, selected, invalid, stale, blocked, warning, ready,
       confirmation, activating, uncertain/reconciled, success, degraded,
@@ -580,7 +604,7 @@ enable model execution.
       accessibility snapshots plus desktop/narrow, keyboard-focus, dialog,
       error, both-theme, reduced-motion, and 400-percent-zoom screenshots only
       under `.playwright-mcp/`; fix and repeat until evidence supports the UI.
-- [>] Run focused then aggregate verification: Assessment domain/application,
+- [ ] Run focused then aggregate verification: Assessment domain/application,
       Configuration and IdentityAccess regression, PostgreSQL migration and
       fault/concurrency suites, API/runtime, contracts/JCS, architecture,
       locked solution restore/test, web lint/type/unit/build/e2e, docs,
@@ -627,28 +651,32 @@ passed, lint warning-only. Playwright MCP reached the production sign-in
 gate at desktop 1280, narrow 390, and 320 reflow. Continue-to-sign-in
 navigates to `/auth/login?return_path=/activities`; Vite does not proxy
 `/auth`, so the OIDC-backed PostgreSQL setup journey remains blocked.
-`ADR-017` remains Proposed. The task stays in-progress.
+ADR-017 and Assessment `PROP-7` were approved on 2026-08-21. IdentityAccess
+remains the application owner for internal actors, exact provider bindings,
+Organization context, capability grants, service delegations, and application
+sessions; resource-owning modules retain their relationships and workflow
+state. Keycloak owns credentials, MFA, authentication, and upstream account
+lifecycle. No parallel User Management module is authorized by this task. The
+task stays in-progress.
 
 Execution started at `ef911eed6fed2a8d2b31c93c5066e3d4eb283376`.
-
-The first implementation step is to prove the exact pre-provisioned source
-metadata and approved cross-module transaction capability needed by commit-time
-validation before adding a new module, migration, or activation application
-code. The source-authority matrix must explicitly resolve the current
-Sessions-owned file/in-memory model-profile and qualification/eligibility
-boundary. Credential binding remains downstream Session authority. Until an
-approved activation-side transactional contract exists, the interim default is
-a bounded readiness blocker and no Production activation.
-
-The completed synthetic Activity UI is a presentation and browser-test
-predecessor only. The completed OIDC/application-session and authorization
-foundations are production predecessors. This task must connect new
-authoritative Assessment state to those production boundaries without silently
-turning the synthetic scenario model into product persistence. The SPA now has a distinct production provider when
-`VITE_API_MODE=production`. The synthetic provider remains isolated.
+The next implementation step is the reproducible authenticated
+Development/Testing browser profile defined by ADR-010 `STACK-DEC-27` and the
+Keycloak OIDC contract. The repository already has the pinned provider
+dependencies and production application-session/API boundaries; it must now
+compose them on one network with migrations, deterministic synthetic
+identity/authorization/Assessment seeds, and the SPA/API behind the canonical
+`http://localhost:18080` gateway and callback, plus readiness and reset
+automation. The synthetic `/browser` provider remains isolated and cannot
+satisfy this gate.
 
 # Findings / deviations
 
+- 2026-08-21 owner decision: ADR-017 and Assessment `PROP-7` are approved.
+  IdentityAccess/Keycloak ownership and the authenticated Development/Testing
+  browser profile are recorded in ADR-010 `STACK-DEC-26`/`STACK-DEC-27` and the
+  Keycloak OIDC contract. This clears the human decision gate; implementation
+  and executable evidence remain required.
 - 2026-08-21 consistency review: Ready-with-warnings now permits
   activation (`AC-ACT` / UI-ACT ready-with-warnings); empty `issues`
   no longer claims readiness was unchecked; create 403 clears source
@@ -775,9 +803,12 @@ turning the synthetic scenario model into product persistence. The SPA now has a
   with `FOR UPDATE`; Task requirement uses `EvaluateSource()` and trusted
   descriptor identity; attempts persist key+digest; Production/Staging without
   Postgres does not map Assessment; host no longer synthesizes Administrator.
-  `ADR-017` remains Proposed. Frontend and Playwright remain later work.
-- 2026-08-21 execution recorded Proposed `ADR-017` and `PROP-7` rather than
-  silently treating Sessions file registries as transactional authority.
+  ADR-017 was still Proposed at that review; it was approved later on
+  2026-08-21. Frontend and Playwright remained later work at that point.
+- 2026-08-21 execution originally recorded Proposed `ADR-017` and `PROP-7`
+  rather than silently treating Sessions file registries as transactional
+  authority; both were subsequently approved on 2026-08-21 without changing
+  the Sessions exclusion or Production fail-closed boundary.
 - Domain/application activation is proven in-memory, including empty-Cohort
   activation, MFA denial, audit failure, idempotency mismatch, Production
   model-profile blocker, and one-field digest change.
@@ -852,12 +883,13 @@ turning the synthetic scenario model into product persistence. The SPA now has a
 | Check | Status | Evidence |
 | --- | --- | --- |
 | Workflow and role guidance | passed for planning | Implementation-workflow and cross-cutting reviewer guidance applied during initial planning and refreshed repository review through 2026-08-21 |
-| Governing source review | passed for planning | Product foundation, Assessment requirements, setup interaction specification, design-system authority/modules, ADR-001–ADR-006, MVP/backend architecture, completed predecessors, schema, migrations, API, module, and SPA seams inspected |
+| Governing source review | passed for planning | Product foundation, Assessment requirements, setup interaction specification, design-system authority/modules, ADR-001–ADR-006 plus ADR-010 and approved ADR-017, MVP/backend architecture, completed predecessors, schema, migrations, API, module, and SPA seams inspected |
 | Independent plan readiness review | passed with corrections applied | Initial cross-module transaction, empty-Cohort, Enrollment-action, and canonicalization corrections plus the 2026-08-21 model-profile authority, downstream credential boundary, production SPA/shell bootstrap, relationship-sensitive Administrator/Reviewer MFA, predecessor coordination, and repository-baseline findings are incorporated |
 | Existing task collision | passed | No active task owns Assessment setup; `session-runtime-live-provider-qualification` completed at `1506ffb` and is a predecessor whose model-profile/qualification/operator-state contract must be consumed without bypassing ownership |
 | Repository inventory refresh | passed for planning | Observed `ef911ee`; only this plan was modified; migration head remains `0033`; no Assessment module/API exists; Sessions OpenAI-compatible and installed operator-state modules/tests now exist |
 | Execution baseline | passed | Start SHA `ef911ee`. Before behavior changes: Architecture 35 passed; Contract 135 passed; CanonicalJson 25 passed; web lint warning-only, typecheck passed, unit 60 passed. PostgreSQL/Runtime/Sessions/e2e smoke were not all re-run in this session due to parallel-build lock and time; Architecture was re-run after the lock. |
-| Source-authority/transaction decision | recorded as Proposed | `ADR-017` and `PROP-7` published. Sessions file registries are excluded. Production fail-closed remains the interim default until ADR-017 is approved. |
+| Source-authority/transaction decision | approved | `ADR-017` and Assessment `PROP-7` approved 2026-08-21. Sessions file registries are excluded; Production fails closed for a required source without exact transaction-aware authority. |
+| Approved documentation promotion | passed | ADR-017/index, Assessment `PROP-7` and traceability, ADR-010 `STACK-DEC-26`/`STACK-DEC-27`, MVP identity ownership, Keycloak local profile, and development-harness guidance reconciled; `python3 scripts/check_docs.py` and `git diff --check` passed. Local `markdownlint-cli2` was unavailable; CI remains the Markdown-lint authority. |
 | Assessment focused tests | passed for domain/application | `dotnet test --project tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — **72 passed**, including `AssessmentHttpStatus` mapping and admission-then-revoke races on Activate and Reconcile |
 | PostgreSQL migration/integration | passed for upgrade matrix | `AssessmentActivationPersistenceTests` **19 passed**, including hosted HTTP activate-then-revoke redaction of an existing baseline. Full `MigrationUpgradeTests` matrix **33 passed** after `0042` |
 | API/runtime contracts | partial | `AssessmentHttpNegativeContractTests` **19 passed**, including prior anonymous/CSRF/MFA-admin cases plus Reviewer-without-MFA **403**, Reviewer-with-MFA shell **200** and create **403**/activate **409**, unauthorized create/readiness **403**, guessed save **404**, save/readiness CSRF **400**, and empty-title create **400**. Privilege-change rotation, pagination bounds, and hosted wrong-Organization HTTP remain on the PostgreSQL suite rather than this in-memory host |
@@ -870,13 +902,17 @@ turning the synthetic scenario model into product persistence. The SPA now has a
 
 # Blockers
 
-`ADR-017` remains Proposed. Production activation against Sessions
-file-loaded profiles remains fail-closed. The `67c4957` P1s for activation
-head writes, host permit-all/Administrator synthesis, transactional reads,
-Task-requirement authority, and stored-attempt idempotency are repaired.
-Remaining blockers: an OIDC-backed Playwright setup journey (Vite has
-no `/auth` proxy; API host is not composed in this frontend session),
-descriptor seeding in hosted Postgres for a live create/activate path,
+ADR-017 and Assessment `PROP-7` are approved. Production activation against
+Sessions file-loaded profiles remains fail-closed by decision. The `67c4957`
+P1s for activation head writes, host permit-all/Administrator synthesis,
+transactional reads, Task-requirement authority, and stored-attempt
+idempotency are repaired.
+There is no remaining human decision or external OIDC credential blocker for
+the Development/Testing journey. Remaining delivery blockers: implement the
+approved local authenticated-browser profile (the current Vite session has no
+`/auth` or `/v1/assessment` API composition), add deterministic IdentityAccess
+and descriptor seeding in disposable PostgreSQL for a synthetic
+create/activate path, then complete the OIDC-backed Playwright matrix,
 `AC-ACT-27` p95 evidence, locked regression/supply-chain/OCI gates, and
 independent full-slice reviews. Broader in-memory HTTP negatives for
 Reviewer MFA, create/save/readiness 403 mapping, and CSRF are now in
@@ -884,13 +920,12 @@ place; privilege-change and wrong-Organization HTTP stay on the
 PostgreSQL hosted suite.
 
 The current Sessions model-profile, qualification, and adapter-configuration
-authority is file-loaded/in-memory and has no approved means to serialize
-profile eligibility or availability changes with ADR-004's PostgreSQL
-activation transaction. **Interim default:** report a bounded model-deployment
-readiness blocker and do not activate in Production. Promote the durable
-resolution to an ADR or labeled `PROP-*`; do not resolve it only inside this
-task file. Credential binding, secret resolution, and credential revocation
-remain downstream under `REQ-RSC-30` and `REQ-RSC-46`.
+authority is file-loaded/in-memory and does not serialize profile eligibility
+or availability changes with ADR-004's PostgreSQL activation transaction.
+Under approved ADR-017, report a bounded model-deployment readiness blocker and
+do not activate that source in Production. Credential binding, secret
+resolution, and credential revocation remain downstream under `REQ-RSC-30` and
+`REQ-RSC-46`.
 
 No exact OpenAI-compatible live profile is currently qualified. This blocks a
 Production-ready model-deployment selection, not bounded synthetic

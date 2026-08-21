@@ -65,6 +65,17 @@ When the project adopts additional concrete processes—such as feature discover
 - Accessibility snapshots, logs, traces, and browser state must remain untracked.
 - Use synthetic accounts and data; browser artifacts must not contain real participant data or secrets.
 
+For authenticated product journeys, Playwright must use the approved
+Development/Testing browser profile in the
+[Keycloak OIDC contract](../operations/provider-profiles/keycloak-oidc-contract.md#authenticated-browser-profile).
+That profile exercises the real `/auth` and product API boundary, opaque
+application sessions, application-owned authorization, and PostgreSQL state.
+Use its canonical `http://localhost:18080` browser origin and exact
+`http://localhost:18080/auth/callback` redirect so Playwright, the SPA, API,
+and Keycloak exercise one documented gateway contract.
+The synthetic `/browser` adapter remains a bounded presentation/test harness
+and cannot substitute for authenticated product evidence.
+
 After cloning, open the repository in Cursor or trust it in Codex, then enable the project MCP server if prompted. Codex only loads project `.codex/config.toml` settings for trusted repositories. `npx` downloads the pinned Playwright MCP package on first use. Upgrade both MCP pins together and run a browser smoke test. If a browser binary is missing, follow the MCP server’s install prompt before testing.
 
 ## Implementation workflow

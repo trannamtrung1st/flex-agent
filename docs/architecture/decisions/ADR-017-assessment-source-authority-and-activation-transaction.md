@@ -2,18 +2,23 @@
 
 ## Status
 
-Proposed
+Approved — 2026-08-21
 
 ## Owners and approvers
 
 - Owner: Architecture Lead
 - Required approvers: Product Lead, Architecture Lead, Security/Privacy reviewer
 - Proposed date: 2026-08-21
+- Approved date: 2026-08-21
+- Approval reference: repository owner approval acting for the Product Lead,
+  Architecture Lead, and Security/Privacy reviewer after review of the source
+  authority, fail-closed Production boundary, IdentityAccess ownership, and
+  local Keycloak verification topology
 
-This record is working architecture guidance for Assessment setup
-implementation. It is not an approved ADR until the listed owners approve it.
-Implementation may depend on the explicit interim defaults below and must fail
-closed wherever this proposal remains unresolved.
+This record is the approved architecture decision for Assessment source
+authority and activation-transaction participation. Implementation must fail
+closed wherever a required owner cannot provide the approved exact,
+transaction-aware validation capability.
 
 ## Context
 
@@ -181,10 +186,10 @@ rejected before canonicalization.
 
 ## Approved decision disposition
 
-None. The following items are Proposed working guidance (`PROP-7` in the
-Assessment setup specification) until owners approve this ADR.
+The following dispositions and `PROP-7` in the Assessment setup specification
+were approved with this ADR on 2026-08-21.
 
-| Question | Proposed disposition |
+| Question | Approved disposition |
 | --- | --- |
 | `Q-ADR17-1` | Configuration-owned PostgreSQL source versions and readiness descriptors are the only source authority that may participate in the Assessment activation transaction in this slice. |
 | `Q-ADR17-2` | Sessions file/in-memory model-profile, qualification, and credential-catalog records are not activation-transaction participants and are not baseline content. |
@@ -201,8 +206,8 @@ Assessment setup specification) until owners approve this ADR.
   the baseline schema or Assessment SQL.
 - Agent and Harness authoring can later replace Configuration-registered
   synthetic revisions without rewriting Cohort history.
-- Reviewers must treat this ADR as Proposed until approval; tests must encode
-  the fail-closed Production path.
+- Tests must encode the fail-closed Production path and must not use a Sessions
+  file/in-memory registry as activation-transaction evidence.
 
 ## Related
 
@@ -210,5 +215,5 @@ Assessment setup specification) until owners approve this ADR.
   `REQ-RSC-9`–`REQ-RSC-14`, `REQ-RSC-30`, `REQ-RSC-46`
 - Architecture: ADR-002, ADR-003, ADR-004, ADR-006, backend module
   architecture
-- Feature proposal: `PROP-7` in
+- Approved feature decision: `PROP-7` in
   [assessment-setup.md](../../requirements/features/assessment-setup.md)

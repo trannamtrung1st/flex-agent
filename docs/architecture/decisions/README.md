@@ -4,7 +4,7 @@ Architecture Decision Records (ADRs) for Flex Agent.
 
 ## Status
 
-**Sixteen approved decisions and one Proposed decision.** ADR-012 through ADR-014 plus their approved upstream
+**Seventeen approved decisions.** ADR-012 through ADR-014 plus their approved upstream
 product/requirement revisions govern structured Agent Invocation/Decision,
 next-timer replacement, and the P0 Decision-output envelope.
 [ADR-015](ADR-015-session-timer-lane-service-delegation.md) records the Worker
@@ -25,6 +25,11 @@ repeatable Session testing pins a concrete `:free` model and one provider, and
 no OpenRouter evidence qualifies production or substitutes for the separate
 OpenAI-compatible endpoint qualification track.
 
+ADR-017 was approved on 2026-08-21. The same decision review amended ADR-010
+to keep application user administration within IdentityAccess, keep Keycloak
+as the external credentials/MFA/account-lifecycle provider, and require a
+reproducible synthetic authenticated-browser profile for local verification.
+
 | ADR | Status | Decision |
 | --- | --- | --- |
 | [ADR-001](ADR-001-resolved-configuration-representation-and-integrity.md) | Approved | Versioned canonical representation, digest and terminal-seal procedure, logical artifact split, and source-materialization boundary |
@@ -43,7 +48,7 @@ OpenAI-compatible endpoint qualification track.
 | [ADR-014](ADR-014-agent-output-envelope-and-p0-compatibility.md) | Approved | Versioned Decision envelope with typed outputs and requested actions, P0 message-only compatibility profile, runtime-owned output identity, and historical v1 reconstruction |
 | [ADR-015](ADR-015-session-timer-lane-service-delegation.md) | Approved | Per-Session `session.timer_lane.fire` service delegation, timer-schedule envelope reference, explicit Worker timer-polling capability, and commit-time reauthorization |
 | [ADR-016](ADR-016-worker-workload-identity-and-invocation-delegation.md) | Approved | Provider-neutral Worker workload identity, OAuth 2.0 client-credentials signed-JWT reference profile, versioned service-actor binding, and per-Session `session.invocation.execute` delegation |
-| [ADR-017](ADR-017-assessment-source-authority-and-activation-transaction.md) | Proposed | Configuration-owned transactional source descriptors, named Assessment activation coordinator, Sessions file-registry exclusion, and Production fail-closed source participation |
+| [ADR-017](ADR-017-assessment-source-authority-and-activation-transaction.md) | Approved | Configuration-owned transactional source descriptors, named Assessment activation coordinator, Sessions file-registry exclusion, and Production fail-closed source participation |
 
 ## Purpose
 
