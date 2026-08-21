@@ -95,25 +95,38 @@ public sealed class PostgresAssessmentDraftStore(PostgresConnectionAccessor conn
         return ToDraft(activity, revision);
     }
 
-    public async Task UpdateDraftAsync(
+    public async Task<bool> UpdateDraftAsync(
         ActivityDraft draft,
         IAssessmentActivationTransaction? transaction,
         CancellationToken cancellationToken)
     {
-        if (transaction?.PersistenceContext is NpgsqlTransaction existing)
+        try
         {
-            await InsertRevisionAsync(draft, existing, cancellationToken);
-            await UpdateActivityHeadAsync(draft, existing, cancellationToken);
-            return;
-        }
+            if (transaction?.PersistenceContext is NpgsqlTransaction existing)
+            {
+                await InsertRevisionAsync(draft, existing, cancellationToken);
+                return await UpdateActivityHeadAsync(draft, existing, cancellationToken) == 1;
+            }
 
-        await using var scope = await PostgresTransactionScope.BeginAsync(connections, cancellationToken);
-        await InsertRevisionAsync(draft, scope.Transaction, cancellationToken);
-        await UpdateActivityHeadAsync(draft, scope.Transaction, cancellationToken);
-        await scope.CommitAsync(cancellationToken);
+            await using var scope = await PostgresTransactionScope.BeginAsync(connections, cancellationToken);
+            await InsertRevisionAsync(draft, scope.Transaction, cancellationToken);
+            var updated = await UpdateActivityHeadAsync(draft, scope.Transaction, cancellationToken);
+            if (updated != 1)
+            {
+                await scope.RollbackAsync(cancellationToken);
+                return false;
+            }
+
+            await scope.CommitAsync(cancellationToken);
+            return true;
+        }
+        catch (PostgresException exception) when (exception.SqlState is "23505")
+        {
+            return false;
+        }
     }
 
-    private static Task UpdateActivityHeadAsync(
+    private static Task<int> UpdateActivityHeadAsync(
         ActivityDraft draft,
         NpgsqlTransaction transaction,
         CancellationToken cancellationToken) =>

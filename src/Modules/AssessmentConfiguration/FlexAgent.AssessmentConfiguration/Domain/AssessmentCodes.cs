@@ -123,6 +123,7 @@ public static class AssessmentAuthorizationActions
     public const string SaveActivity = "assessment.activity.save";
     public const string CheckReadiness = "assessment.readiness.check";
     public const string ActivateCohort = "assessment.cohort.activate";
+    public const string SelectSources = "assessment.source.select";
     public const string ReconcileActivation = "assessment.activation.reconcile";
     public const string ReadBaseline = "assessment.baseline.read";
     public const string ReadBaselineProvenance = "assessment.baseline.provenance.read";

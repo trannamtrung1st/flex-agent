@@ -38,6 +38,26 @@ public sealed class ActivationBaselineDocumentTests
     }
 
     [Fact]
+    public void Activation_provenance_is_frozen_into_resolution_decisions()
+    {
+        var draft = AssessmentFixtures.CreateDraft().Value!;
+        var actorId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1");
+        var correlationId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1");
+        var occurredAt = new DateTimeOffset(2026, 8, 21, 4, 0, 0, TimeSpan.Zero);
+        var document = ActivationBaselineDocument.FromReadyDraft(
+            draft,
+            AssessmentFixtures.PermittedSources(),
+            new ActivationProvenance(actorId, "human.interactive", correlationId, occurredAt)).Value!;
+
+        Assert.Contains(document.ResolutionDecisions, decision =>
+            decision.DecisionKey == "activation_actor_id" && decision.Outcome == actorId.ToString("D"));
+        Assert.Contains(document.ResolutionDecisions, decision =>
+            decision.DecisionKey == "activation_correlation_id" && decision.Outcome == correlationId.ToString("D"));
+        Assert.Contains(document.ResolutionDecisions, decision =>
+            decision.DecisionKey == "activation_occurred_at" && decision.Outcome == "2026-08-21T04:00:00.000Z");
+    }
+
+    [Fact]
     public void Task_requirement_reference_comes_from_the_trusted_descriptor()
     {
         var draft = AssessmentFixtures.CreateDraft().Value!;

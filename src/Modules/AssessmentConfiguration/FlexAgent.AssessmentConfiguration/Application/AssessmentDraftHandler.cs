@@ -6,7 +6,8 @@ namespace FlexAgent.AssessmentConfiguration.Application;
 public sealed class AssessmentDraftHandler(
     IAssessmentAuthorizationPort authorization,
     IAssessmentSourceCatalog sourceCatalog,
-    IAssessmentDraftStore draftStore) : IAssessmentDraftHandler
+    IAssessmentDraftStore draftStore,
+    IAssessmentActivationUnitOfWork unitOfWork) : IAssessmentDraftHandler
 {
     public async Task<AssessmentDecision<ActivityDraft>> CreateAsync(
         CreateAssessmentDraftCommand command,
@@ -91,23 +92,29 @@ public sealed class AssessmentDraftHandler(
             return AssessmentDecision<ActivityDraft>.Fail(AssessmentFailureCodes.Denied);
         }
 
-        var current = await draftStore.GetDraftAsync(
-            command.Actor.Organization.OrganizationId,
-            command.ActivityId,
-            cancellationToken);
-        if (current is null)
+        return await unitOfWork.ExecuteAsync(async transaction =>
         {
-            return AssessmentDecision<ActivityDraft>.Fail(AssessmentFailureCodes.Denied);
-        }
+            var current = await draftStore.GetDraftAsync(
+                command.Actor.Organization.OrganizationId,
+                command.ActivityId,
+                transaction,
+                cancellationToken);
+            if (current is null)
+            {
+                return AssessmentDecision<ActivityDraft>.Fail(AssessmentFailureCodes.Denied);
+            }
 
-        var saved = current.Save(command.ExpectedRevisionNumber, command.Content);
-        if (!saved.Succeeded || saved.Value is null)
-        {
-            return saved;
-        }
+            var saved = current.Save(command.ExpectedRevisionNumber, command.Content);
+            if (!saved.Succeeded || saved.Value is null)
+            {
+                return saved;
+            }
 
-        await draftStore.UpdateDraftAsync(saved.Value, transaction: null, cancellationToken);
-        return saved;
+            var persisted = await draftStore.UpdateDraftAsync(saved.Value, transaction, cancellationToken);
+            return persisted
+                ? saved
+                : AssessmentDecision<ActivityDraft>.Fail(AssessmentFailureCodes.StaleRevision);
+        }, cancellationToken);
     }
 
     public async Task<AssessmentDecision<ReadinessResult>> CheckReadinessAsync(
@@ -149,6 +156,34 @@ public sealed class AssessmentDraftHandler(
         var result = ReadinessEvaluator.Evaluate(
             new ReadinessContext(draft, sources, AuditAvailable: true, query.Environment));
         return AssessmentDecision<ReadinessResult>.Ok(result);
+    }
+
+    public async Task<AssessmentDecision<IReadOnlyList<TrustedSourceDescriptor>>> ListSourceOptionsAsync(
+        AssessmentActorContext actor,
+        string environment,
+        CancellationToken cancellationToken = default)
+    {
+        var strength = AssessmentAuthenticationPolicy.Evaluate(
+            actor,
+            AssessmentAuthorizationActions.SelectSources);
+        if (strength is not null)
+        {
+            return AssessmentDecision<IReadOnlyList<TrustedSourceDescriptor>>.Fail(strength);
+        }
+
+        var authorized = await authorization.AuthorizeAdmissionAsync(
+            actor,
+            AssessmentAuthorizationActions.SelectSources,
+            Guid.Empty,
+            AssessmentResourceTypes.Activity,
+            cancellationToken);
+        if (!authorized.IsPermitted)
+        {
+            return AssessmentDecision<IReadOnlyList<TrustedSourceDescriptor>>.Fail(AssessmentFailureCodes.Denied);
+        }
+
+        var sources = await sourceCatalog.ListSelectableAsync(actor.Organization.OrganizationId, environment, cancellationToken);
+        return AssessmentDecision<IReadOnlyList<TrustedSourceDescriptor>>.Ok(sources);
     }
 
     internal static IReadOnlyList<ExactSourceRef> CollectReferences(ActivityDraft draft)
@@ -200,7 +235,7 @@ public interface IAssessmentDraftStore
         IAssessmentActivationTransaction? transaction,
         CancellationToken cancellationToken);
 
-    Task UpdateDraftAsync(
+    Task<bool> UpdateDraftAsync(
         ActivityDraft draft,
         IAssessmentActivationTransaction? transaction,
         CancellationToken cancellationToken);
@@ -244,6 +279,7 @@ public static class AssessmentAuthenticationPolicy
         AssessmentAuthorizationActions.SaveActivity,
         AssessmentAuthorizationActions.CheckReadiness,
         AssessmentAuthorizationActions.ActivateCohort,
+        AssessmentAuthorizationActions.SelectSources,
     ];
 
     public static string? Evaluate(AssessmentActorContext actor, string action)

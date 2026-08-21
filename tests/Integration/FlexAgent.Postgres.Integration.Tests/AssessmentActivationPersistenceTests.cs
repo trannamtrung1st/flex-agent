@@ -63,6 +63,87 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
     }
 
     [Fact]
+    public async Task Concurrent_equivalent_requests_return_the_same_baseline()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var first = harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
+        var second = harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
+        var results = await Task.WhenAll(first, second);
+
+        Assert.All(results, result => Assert.True(result.Succeeded, result.OutcomeCode));
+        Assert.Equal(results[0].BaselineId, results[1].BaselineId);
+    }
+
+    [Fact]
+    public async Task Failed_activation_persists_an_attempt_and_audit_without_activating()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var stale = harness.Command() with { ExpectedRevisionNumber = harness.RevisionNumber + 1 };
+        stale = stale with { TrustedCommandDigest = harness.Digest.Compute(stale) };
+        var outcome = await harness.Coordinator.ActivateAsync(stale, CancellationToken);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.StaleRevision, outcome.OutcomeCode);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var attemptOutcome = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT outcome_code
+            FROM assessment_activation_attempts
+            WHERE organization_id = @OrganizationId AND cohort_id = @CohortId AND idempotency_key = 'idem-1'
+            """,
+            new { harness.OrganizationId, harness.CohortId });
+        var actorId = await connection.ExecuteScalarAsync<Guid>(
+            """
+            SELECT actor_id
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND action = @Action
+              AND outcome = 'deny'
+            ORDER BY sequence_number DESC
+            LIMIT 1
+            """,
+            new { harness.OrganizationId, Action = AssessmentAuthorizationActions.ActivateCohort });
+        var activated = await connection.ExecuteScalarAsync<string>(
+            "SELECT state FROM assessment_cohorts WHERE organization_id = @OrganizationId AND cohort_id = @CohortId",
+            new { harness.OrganizationId, harness.CohortId });
+
+        Assert.Equal(AssessmentFailureCodes.StaleRevision, attemptOutcome);
+        Assert.Equal(harness.Actor.Actor.ActorId, actorId);
+        Assert.Equal(CohortStates.Draft, activated);
+    }
+
+    [Fact]
+    public async Task Successful_activation_audit_uses_the_trusted_actor()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        Assert.True((await harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken)).Succeeded);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var actorId = await connection.ExecuteScalarAsync<Guid>(
+            """
+            SELECT actor_id
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND resource_type = @ResourceType
+              AND outcome = 'permit'
+            ORDER BY sequence_number DESC
+            LIMIT 1
+            """,
+            new { harness.OrganizationId, ResourceType = AssessmentResourceTypes.Baseline });
+        var correlation = await connection.ExecuteScalarAsync<Guid>(
+            """
+            SELECT correlation_id
+            FROM assessment_activation_baselines
+            WHERE organization_id = @OrganizationId AND activity_id = @ActivityId
+            """,
+            new { harness.OrganizationId, harness.ActivityId });
+
+        Assert.Equal(harness.Actor.Actor.ActorId, actorId);
+        Assert.Equal(harness.Actor.CorrelationId, correlation);
+    }
+
+    [Fact]
     public async Task Parent_traversal_rejects_a_cohort_bound_to_another_activity_revision()
     {
         var first = await SeedReadyHarnessAsync();
@@ -109,7 +190,8 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
         var drafts = new AssessmentDraftHandler(
             new KernelAssessmentAuthorizationPort(kernel, kernel),
             catalog,
-            store);
+            store,
+            new PostgresAssessmentUnitOfWork(connections));
         var actor = new AssessmentActorContext(
             seeded.Actor,
             seeded.Scope,
@@ -156,7 +238,7 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
             new ActivationBaselineDigester(),
             new AssessmentCommandDigest(),
             new PostgresAssessmentBaselineStore(new PostgresAuditEventWriter(), new PostgresOutboxItemWriter()),
-            new PostgresAssessmentAttemptStore());
+            new PostgresAssessmentAttemptStore(new PostgresAuditEventWriter()));
 
         return new Harness(
             coordinator,

@@ -86,10 +86,20 @@ public sealed record AssessmentActivationAttempt(
     string OutcomeCode,
     Guid? BaselineId,
     string? BaselineDigest,
-    string? CohortState);
+    string? CohortState,
+    Guid ActorId,
+    Guid CorrelationId);
 
 public interface IAssessmentActivationAttemptStore
 {
+    Task AcquireIdempotencyLockAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        string idempotencyKey,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken);
+
     Task<AssessmentActivationAttempt?> FindAsync(
         Guid organizationId,
         Guid activityId,
@@ -129,6 +139,11 @@ public interface IAssessmentDraftHandler
     Task<AssessmentDecision<ReadinessResult>> CheckReadinessAsync(
         CheckReadinessQuery query,
         CancellationToken cancellationToken = default);
+
+    Task<AssessmentDecision<IReadOnlyList<TrustedSourceDescriptor>>> ListSourceOptionsAsync(
+        AssessmentActorContext actor,
+        string environment,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IAssessmentSourceCatalog
@@ -136,6 +151,11 @@ public interface IAssessmentSourceCatalog
     Task<IReadOnlyList<TrustedSourceDescriptor>> LoadExactAsync(
         Guid organizationId,
         IReadOnlyList<ExactSourceRef> references,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<TrustedSourceDescriptor>> ListSelectableAsync(
+        Guid organizationId,
+        string environment,
         CancellationToken cancellationToken = default);
 }
 
@@ -207,5 +227,7 @@ public interface IAssessmentBaselineStore
         ActivationBaselineDocument document,
         string contentDigest,
         IAssessmentActivationTransaction transaction,
+        AssessmentActorContext actor,
+        DateTimeOffset occurredAtUtc,
         CancellationToken cancellationToken);
 }

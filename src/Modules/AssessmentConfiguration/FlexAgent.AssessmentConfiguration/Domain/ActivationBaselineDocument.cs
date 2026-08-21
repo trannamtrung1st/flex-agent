@@ -13,6 +13,12 @@ public sealed record BaselineSourceReference(
 
 public sealed record ResolutionDecision(string DecisionKey, string Outcome);
 
+public sealed record ActivationProvenance(
+    Guid ActorId,
+    string ActorType,
+    Guid CorrelationId,
+    DateTimeOffset OccurredAtUtc);
+
 public sealed record ActivationBaselineDocument(
     string ProcedureId,
     string SchemaVersion,
@@ -47,7 +53,8 @@ public sealed record ActivationBaselineDocument(
 
     public static AssessmentDecision<ActivationBaselineDocument> FromReadyDraft(
         ActivityDraft draft,
-        IReadOnlyList<TrustedSourceDescriptor> sources)
+        IReadOnlyList<TrustedSourceDescriptor> sources,
+        ActivationProvenance? provenance = null)
     {
         var readiness = ReadinessEvaluator.Evaluate(
             new ReadinessContext(draft, sources, AuditAvailable: true, DeploymentEnvironments.Development));
@@ -137,13 +144,22 @@ public sealed record ActivationBaselineDocument(
             },
             FairnessClassifications.CohortSupplied));
 
-        var decisions = new[]
+        var decisions = new List<ResolutionDecision>
         {
-            new ResolutionDecision("memory_mode", content.Memory.Mode),
-            new ResolutionDecision("capability_profile", "p0_assessment_text"),
-            new ResolutionDecision("empty_cohort_permitted", "true"),
-            new ResolutionDecision("exception_path", "none"),
+            new("memory_mode", content.Memory.Mode),
+            new("capability_profile", "p0_assessment_text"),
+            new("empty_cohort_permitted", "true"),
+            new("exception_path", "none"),
         };
+        if (provenance is not null)
+        {
+            decisions.Add(new ResolutionDecision("activation_actor_id", provenance.ActorId.ToString("D")));
+            decisions.Add(new ResolutionDecision("activation_actor_type", provenance.ActorType));
+            decisions.Add(new ResolutionDecision("activation_correlation_id", provenance.CorrelationId.ToString("D")));
+            decisions.Add(new ResolutionDecision(
+                "activation_occurred_at",
+                provenance.OccurredAtUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'")));
+        }
 
         var document = new ActivationBaselineDocument(
             ActivationBaselineProcedure.Id,

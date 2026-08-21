@@ -104,16 +104,49 @@ public sealed class AssessmentActivationCoordinatorTests
     }
 
     [Fact]
-    public async Task Audit_failure_does_not_activate()
+    public async Task Audit_failure_does_not_activate_and_persists_the_attempt()
     {
         var harness = await CreateReadyHarnessAsync();
         harness.UnitOfWork.Transaction.AuditAccepted = false;
 
         var outcome = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+        var stored = await harness.Attempts.FindAsync(
+            harness.Draft.OrganizationId,
+            harness.Draft.ActivityId,
+            harness.Cohort.CohortId,
+            "idem-1",
+            harness.UnitOfWork.Transaction,
+            TestContext.Current.CancellationToken);
 
         Assert.False(outcome.Succeeded);
         Assert.Equal(AssessmentFailureCodes.AuditUnavailable, outcome.OutcomeCode);
         Assert.Equal(CohortStates.Draft, harness.Store.Cohorts.Single().State);
+        Assert.NotNull(stored);
+        Assert.Equal(AssessmentFailureCodes.AuditUnavailable, stored!.OutcomeCode);
+        Assert.Equal(harness.Actor.Actor.ActorId, stored.ActorId);
+        Assert.Equal(harness.Actor.CorrelationId, stored.CorrelationId);
+    }
+
+    [Fact]
+    public async Task Same_key_seen_only_after_locks_returns_the_stored_success()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+        var delayed = new DelayedFindAttemptStore(harness.Attempts, firstSkipCount: 1);
+        var coordinator = new AssessmentActivationCoordinator(
+            new InMemoryAssessmentAuthorizationPort(),
+            new InMemoryAssessmentSourceCatalog(AssessmentFixtures.PermittedSources()),
+            harness.Store,
+            harness.UnitOfWork,
+            new ActivationBaselineDigester(),
+            harness.CommandDigest,
+            new InMemoryAssessmentBaselineStore(),
+            delayed);
+
+        var outcome = await coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+
+        Assert.True(outcome.Succeeded);
+        Assert.Equal(first.BaselineId, outcome.BaselineId);
     }
 
     [Fact]
@@ -162,7 +195,7 @@ public sealed class AssessmentActivationCoordinatorTests
         var store = new InMemoryAssessmentDraftStore();
         var authorization = new InMemoryAssessmentAuthorizationPort();
         var catalog = new InMemoryAssessmentSourceCatalog(AssessmentFixtures.PermittedSources());
-        var drafts = new AssessmentDraftHandler(authorization, catalog, store);
+        var drafts = new AssessmentDraftHandler(authorization, catalog, store, new InMemoryAssessmentUnitOfWork());
         var actor = CreateActor(mfa: true);
         var created = await drafts.CreateAsync(new CreateAssessmentDraftCommand(
             actor,
@@ -183,6 +216,7 @@ public sealed class AssessmentActivationCoordinatorTests
         var cohort = store.Cohorts.Single();
         var commandDigest = new AssessmentCommandDigest();
         var unitOfWork = new InMemoryAssessmentUnitOfWork();
+        var attempts = new InMemoryAssessmentAttemptStore();
         var coordinator = new AssessmentActivationCoordinator(
             authorization,
             catalog,
@@ -191,9 +225,9 @@ public sealed class AssessmentActivationCoordinatorTests
             new ActivationBaselineDigester(),
             commandDigest,
             new InMemoryAssessmentBaselineStore(),
-            new InMemoryAssessmentAttemptStore());
+            attempts);
 
-        return new Harness(coordinator, store, unitOfWork, created.Value!, cohort, actor, commandDigest, environment);
+        return new Harness(coordinator, store, unitOfWork, created.Value!, cohort, actor, commandDigest, environment, attempts);
     }
 
     private static AssessmentActorContext CreateActor(bool mfa, string? relationship = null)
@@ -218,7 +252,8 @@ public sealed class AssessmentActivationCoordinatorTests
         AssessmentCohort Cohort,
         AssessmentActorContext Actor,
         AssessmentCommandDigest CommandDigest,
-        string Environment)
+        string Environment,
+        InMemoryAssessmentAttemptStore Attempts)
     {
         public ActivateCohortCommand Command(string idempotencyKey = "idem-1")
         {
@@ -234,4 +269,43 @@ public sealed class AssessmentActivationCoordinatorTests
             return command with { TrustedCommandDigest = CommandDigest.Compute(command) };
         }
     }
+}
+
+internal sealed class DelayedFindAttemptStore(
+    IAssessmentActivationAttemptStore inner,
+    int firstSkipCount) : IAssessmentActivationAttemptStore
+{
+    private int _findCount;
+
+    public Task AcquireIdempotencyLockAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        string idempotencyKey,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken) =>
+        inner.AcquireIdempotencyLockAsync(organizationId, activityId, cohortId, idempotencyKey, transaction, cancellationToken);
+
+    public async Task<AssessmentActivationAttempt?> FindAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        string idempotencyKey,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var count = Interlocked.Increment(ref _findCount);
+        if (count <= firstSkipCount)
+        {
+            return null;
+        }
+
+        return await inner.FindAsync(organizationId, activityId, cohortId, idempotencyKey, transaction, cancellationToken);
+    }
+
+    public Task InsertAsync(
+        AssessmentActivationAttempt attempt,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken) =>
+        inner.InsertAsync(attempt, transaction, cancellationToken);
 }

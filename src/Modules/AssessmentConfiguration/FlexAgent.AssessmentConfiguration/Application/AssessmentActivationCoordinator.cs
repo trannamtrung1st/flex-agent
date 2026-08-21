@@ -21,7 +21,7 @@ public sealed class AssessmentActivationCoordinator(
             AssessmentAuthorizationActions.ActivateCohort);
         if (strength is not null)
         {
-            return Fail(strength, command);
+            return await PersistOutsideProtectedMutationAsync(command, strength, cancellationToken);
         }
 
         var admission = await authorization.AuthorizeAdmissionAsync(
@@ -32,28 +32,24 @@ public sealed class AssessmentActivationCoordinator(
             cancellationToken);
         if (!admission.IsPermitted)
         {
-            return Fail(AssessmentFailureCodes.Denied, command);
+            return await PersistOutsideProtectedMutationAsync(command, AssessmentFailureCodes.Denied, cancellationToken);
         }
 
         var expectedDigest = commandDigest.Compute(command);
         if (!string.Equals(expectedDigest, command.TrustedCommandDigest, StringComparison.Ordinal))
         {
-            return Fail(AssessmentFailureCodes.IdempotencyConflict, command);
+            return await PersistOutsideProtectedMutationAsync(command, AssessmentFailureCodes.IdempotencyConflict, cancellationToken);
         }
 
         return await unitOfWork.ExecuteAsync(async transaction =>
         {
-            var commitAuth = await authorization.ReauthorizeAsync(
-                command.Actor,
-                AssessmentAuthorizationActions.ActivateCohort,
+            await attempts.AcquireIdempotencyLockAsync(
+                command.Actor.Organization.OrganizationId,
+                command.ActivityId,
                 command.CohortId,
-                AssessmentResourceTypes.Cohort,
+                command.IdempotencyKey,
                 transaction,
                 cancellationToken);
-            if (!commitAuth.IsPermitted)
-            {
-                return Fail(AssessmentFailureCodes.Denied, command);
-            }
 
             var existingAttempt = await attempts.FindAsync(
                 command.Actor.Organization.OrganizationId,
@@ -67,6 +63,18 @@ public sealed class AssessmentActivationCoordinator(
                 return string.Equals(existingAttempt.CommandDigest, expectedDigest, StringComparison.Ordinal)
                     ? FromAttempt(existingAttempt)
                     : Fail(AssessmentFailureCodes.IdempotencyConflict, command);
+            }
+
+            var commitAuth = await authorization.ReauthorizeAsync(
+                command.Actor,
+                AssessmentAuthorizationActions.ActivateCohort,
+                command.CohortId,
+                AssessmentResourceTypes.Cohort,
+                transaction,
+                cancellationToken);
+            if (!commitAuth.IsPermitted)
+            {
+                return await PersistFailureAsync(command, expectedDigest, AssessmentFailureCodes.Denied, transaction, cancellationToken);
             }
 
             var draft = await store.GetDraftAsync(
@@ -85,15 +93,29 @@ public sealed class AssessmentActivationCoordinator(
                 return Fail(AssessmentFailureCodes.Denied, command);
             }
 
+            existingAttempt = await attempts.FindAsync(
+                command.Actor.Organization.OrganizationId,
+                command.ActivityId,
+                command.CohortId,
+                command.IdempotencyKey,
+                transaction,
+                cancellationToken);
+            if (existingAttempt is not null)
+            {
+                return string.Equals(existingAttempt.CommandDigest, expectedDigest, StringComparison.Ordinal)
+                    ? FromAttempt(existingAttempt)
+                    : Fail(AssessmentFailureCodes.IdempotencyConflict, command);
+            }
+
             if (draft.RevisionId != command.ExpectedRevisionId
                 || draft.RevisionNumber != command.ExpectedRevisionNumber)
             {
-                return Fail(AssessmentFailureCodes.StaleRevision, command);
+                return await PersistFailureAsync(command, expectedDigest, AssessmentFailureCodes.StaleRevision, transaction, cancellationToken);
             }
 
             if (cohort.State == CohortStates.Activated)
             {
-                return Fail(AssessmentFailureCodes.ConcurrentActivation, command);
+                return await PersistFailureAsync(command, expectedDigest, AssessmentFailureCodes.ConcurrentActivation, transaction, cancellationToken);
             }
 
             var descriptors = await sources.RevalidateExactAsync(
@@ -105,19 +127,30 @@ public sealed class AssessmentActivationCoordinator(
                 new ReadinessContext(draft, descriptors, transaction.AuditAccepted, command.Environment));
             if (readiness.HasBlocker)
             {
-                return Fail(readiness.Issues.First(issue => issue.Severity == ReadinessSeverities.Blocked).ReasonCode, command);
+                return await PersistFailureAsync(
+                    command,
+                    expectedDigest,
+                    readiness.Issues.First(issue => issue.Severity == ReadinessSeverities.Blocked).ReasonCode,
+                    transaction,
+                    cancellationToken);
             }
 
-            var document = ActivationBaselineDocument.FromReadyDraft(draft, descriptors);
+            var occurredAt = DateTimeOffset.UtcNow;
+            var provenance = new ActivationProvenance(
+                command.Actor.Actor.ActorId,
+                command.Actor.Actor.ActorType,
+                command.Actor.CorrelationId,
+                occurredAt);
+            var document = ActivationBaselineDocument.FromReadyDraft(draft, descriptors, provenance);
             if (!document.Succeeded || document.Value is null)
             {
-                return Fail(document.OutcomeCode, command);
+                return await PersistFailureAsync(command, expectedDigest, document.OutcomeCode, transaction, cancellationToken);
             }
 
             var digest = digester.Digest(document.Value);
             if (!digest.Succeeded || digest.Value is null)
             {
-                return Fail(digest.OutcomeCode, command);
+                return await PersistFailureAsync(command, expectedDigest, digest.OutcomeCode, transaction, cancellationToken);
             }
 
             var baselineId = Guid.CreateVersion7();
@@ -128,12 +161,12 @@ public sealed class AssessmentActivationCoordinator(
                 digest.Value);
             if (!bound.Succeeded || bound.Value is null)
             {
-                return Fail(bound.OutcomeCode, command);
+                return await PersistFailureAsync(command, expectedDigest, bound.OutcomeCode, transaction, cancellationToken);
             }
 
             if (!transaction.AuditAccepted || !transaction.OutboxAccepted)
             {
-                return Fail(AssessmentFailureCodes.AuditUnavailable, command);
+                return await PersistFailureAsync(command, expectedDigest, AssessmentFailureCodes.AuditUnavailable, transaction, cancellationToken);
             }
 
             var marked = await store.MarkActivatedAsync(
@@ -145,7 +178,7 @@ public sealed class AssessmentActivationCoordinator(
                 cancellationToken);
             if (!marked)
             {
-                return Fail(AssessmentFailureCodes.StaleRevision, command);
+                return await PersistFailureAsync(command, expectedDigest, AssessmentFailureCodes.StaleRevision, transaction, cancellationToken);
             }
 
             await baselines.InsertAsync(
@@ -156,17 +189,13 @@ public sealed class AssessmentActivationCoordinator(
                 document.Value,
                 digest.Value,
                 transaction,
+                command.Actor,
+                occurredAt,
                 cancellationToken);
             await store.UpdateCohortAsync(bound.Value, transaction, cancellationToken);
 
-            var attempt = new AssessmentActivationAttempt(
-                draft.OrganizationId,
-                draft.ActivityId,
-                bound.Value.CohortId,
-                Guid.CreateVersion7(),
-                command.ExpectedRevisionId,
-                command.ExpectedRevisionNumber,
-                command.IdempotencyKey,
+            var attempt = CreateAttempt(
+                command,
                 expectedDigest,
                 "assessment.activated",
                 bound.Value.BaselineId,
@@ -235,6 +264,57 @@ public sealed class AssessmentActivationCoordinator(
                 cohort.State);
         }, cancellationToken);
     }
+
+    private Task<ActivationOutcome> PersistOutsideProtectedMutationAsync(
+        ActivateCohortCommand command,
+        string code,
+        CancellationToken cancellationToken) =>
+        unitOfWork.ExecuteAsync(
+            transaction => PersistFailureAsync(command, commandDigest.Compute(command), code, transaction, cancellationToken),
+            cancellationToken);
+
+    private async Task<ActivationOutcome> PersistFailureAsync(
+        ActivateCohortCommand command,
+        string commandDigestValue,
+        string code,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var attempt = CreateAttempt(command, commandDigestValue, code, null, null, CohortStates.Draft);
+        try
+        {
+            await attempts.InsertAsync(attempt, transaction, cancellationToken);
+        }
+        catch (InvalidOperationException)
+        {
+            return Fail(code, command);
+        }
+
+        return Fail(code, command);
+    }
+
+    private static AssessmentActivationAttempt CreateAttempt(
+        ActivateCohortCommand command,
+        string digest,
+        string outcomeCode,
+        Guid? baselineId,
+        string? baselineDigest,
+        string cohortState) =>
+        new(
+            command.Actor.Organization.OrganizationId,
+            command.ActivityId,
+            command.CohortId,
+            Guid.CreateVersion7(),
+            command.ExpectedRevisionId,
+            command.ExpectedRevisionNumber,
+            command.IdempotencyKey,
+            digest,
+            outcomeCode,
+            baselineId,
+            baselineDigest,
+            cohortState,
+            command.Actor.Actor.ActorId,
+            command.Actor.CorrelationId);
 
     private static ActivationOutcome FromAttempt(AssessmentActivationAttempt attempt) =>
         new(

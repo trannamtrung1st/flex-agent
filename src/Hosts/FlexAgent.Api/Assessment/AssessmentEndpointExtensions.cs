@@ -148,7 +148,8 @@ public static class AssessmentEndpointExtensions
         HttpContext context,
         IHumanAuthenticationCoordinator coordinator,
         HumanAuthenticationHostOptions options,
-        IAssessmentDevelopmentSourceSeeder seeder)
+        IAssessmentDraftHandler drafts,
+        IHostEnvironment hostEnvironment)
     {
         var resolved = await TryActorAsync(context, coordinator, options, context.RequestServices.GetRequiredService<IAssessmentRelationshipResolver>());
         if (resolved is null)
@@ -157,13 +158,19 @@ public static class AssessmentEndpointExtensions
             return;
         }
 
-        var actor = resolved.Actor;
-        seeder.EnsureOrganization(actor.Organization.OrganizationId);
-        var sources = AssessmentDevelopmentSources.ForOrganization(actor.Organization.OrganizationId);
+        var environment = AssessmentHostEnvironment.FromAspNetCore(hostEnvironment.EnvironmentName);
+        var result = await drafts.ListSourceOptionsAsync(resolved.Actor, environment, context.RequestAborted);
+        if (!result.Succeeded)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new { error = result.OutcomeCode });
+            return;
+        }
+
         await context.Response.WriteAsJsonAsync(new
         {
-            environment = AssessmentHostEnvironment.ResolveEnvironment(),
-            sources = sources.Select(source => new
+            environment,
+            sources = result.Value!.Select(source => new
             {
                 category = source.Category,
                 source_id = source.SourceId,
@@ -216,7 +223,8 @@ public static class AssessmentEndpointExtensions
         IAntiforgery antiforgery,
         IAssessmentDraftHandler drafts,
         IAssessmentDraftStore store,
-        IAssessmentDevelopmentSourceSeeder seeder)
+        IAssessmentDevelopmentSourceSeeder seeder,
+        IHostEnvironment hostEnvironment)
     {
         if (!await ValidateMutationAsync(context, antiforgery))
         {
@@ -240,7 +248,7 @@ public static class AssessmentEndpointExtensions
             return;
         }
 
-        var development = AssessmentHostEnvironment.ResolveEnvironment() == DeploymentEnvironments.Development;
+        var development = AssessmentHostEnvironment.FromAspNetCore(hostEnvironment.EnvironmentName) == DeploymentEnvironments.Development;
         var policy = ExactSourceRef.TryCreate(request.OrganizationPolicySourceId, request.OrganizationPolicyVersionId, request.OrganizationPolicyDigest);
         var agent = ExactSourceRef.TryCreate(request.AgentSourceId, request.AgentVersionId, request.AgentDigest);
         var harness = ExactSourceRef.TryCreate(request.HarnessSourceId, request.HarnessVersionId, request.HarnessDigest);
@@ -444,7 +452,8 @@ public static class AssessmentEndpointExtensions
         HumanAuthenticationHostOptions options,
         IAntiforgery antiforgery,
         IAssessmentDraftHandler drafts,
-        IAssessmentDevelopmentSourceSeeder seeder)
+        IAssessmentDevelopmentSourceSeeder seeder,
+        IHostEnvironment hostEnvironment)
     {
         if (!await ValidateMutationAsync(context, antiforgery))
         {
@@ -460,13 +469,13 @@ public static class AssessmentEndpointExtensions
 
         var actor = resolved.Actor;
 
-        if (AssessmentHostEnvironment.ResolveEnvironment() == DeploymentEnvironments.Development)
+        if (AssessmentHostEnvironment.FromAspNetCore(hostEnvironment.EnvironmentName) == DeploymentEnvironments.Development)
         {
             seeder.EnsureOrganization(actor.Organization.OrganizationId);
         }
 
         var result = await drafts.CheckReadinessAsync(
-            new CheckReadinessQuery(actor, activityId, AssessmentHostEnvironment.ResolveEnvironment()),
+            new CheckReadinessQuery(actor, activityId, AssessmentHostEnvironment.FromAspNetCore(hostEnvironment.EnvironmentName)),
             context.RequestAborted);
         context.Response.StatusCode = result.Succeeded ? StatusCodes.Status200OK : StatusCodes.Status400BadRequest;
         await context.Response.WriteAsJsonAsync(new
@@ -493,7 +502,8 @@ public static class AssessmentEndpointExtensions
         IAntiforgery antiforgery,
         IAssessmentActivationCoordinator activation,
         IAssessmentCommandDigest digests,
-        IAssessmentDevelopmentSourceSeeder seeder)
+        IAssessmentDevelopmentSourceSeeder seeder,
+        IHostEnvironment hostEnvironment)
     {
         if (!await ValidateMutationAsync(context, antiforgery))
         {
@@ -516,7 +526,7 @@ public static class AssessmentEndpointExtensions
             return;
         }
 
-        if (AssessmentHostEnvironment.ResolveEnvironment() == DeploymentEnvironments.Development)
+        if (AssessmentHostEnvironment.FromAspNetCore(hostEnvironment.EnvironmentName) == DeploymentEnvironments.Development)
         {
             seeder.EnsureOrganization(actor.Organization.OrganizationId);
         }
@@ -529,7 +539,7 @@ public static class AssessmentEndpointExtensions
             request.ExpectedRevisionNumber,
             request.IdempotencyKey,
             "pending",
-            AssessmentHostEnvironment.ResolveEnvironment());
+            AssessmentHostEnvironment.FromAspNetCore(hostEnvironment.EnvironmentName));
         command = command with { TrustedCommandDigest = digests.Compute(command) };
         var outcome = await activation.ActivateAsync(command, context.RequestAborted);
         context.Response.StatusCode = outcome.Succeeded ? StatusCodes.Status200OK : StatusCodes.Status409Conflict;
@@ -690,10 +700,3 @@ file sealed class NoOpAssessmentDevelopmentSourceSeeder : IAssessmentDevelopment
     }
 }
 
-file static class AssessmentHostEnvironment
-{
-    public static string ResolveEnvironment() =>
-        string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Production", StringComparison.Ordinal)
-            ? DeploymentEnvironments.Production
-            : DeploymentEnvironments.Development;
-}

@@ -33,15 +33,22 @@ public sealed class InMemoryAssessmentDraftStore : IAssessmentDraftStore
         return Task.FromResult(draft);
     }
 
-    public Task UpdateDraftAsync(
+    public Task<bool> UpdateDraftAsync(
         ActivityDraft draft,
         IAssessmentActivationTransaction? transaction,
         CancellationToken cancellationToken)
     {
         _ = transaction;
+        if (!_drafts.TryGetValue((draft.OrganizationId, draft.ActivityId), out var current)
+            || current.RevisionNumber != draft.RevisionNumber - 1
+            || current.HasActivatedCohort)
+        {
+            return Task.FromResult(false);
+        }
+
         _drafts[(draft.OrganizationId, draft.ActivityId)] = draft;
         LastWriteWasActivationMetadata = false;
-        return Task.CompletedTask;
+        return Task.FromResult(true);
     }
 
     public bool LastWriteWasActivationMetadata { get; private set; }
@@ -141,6 +148,18 @@ public sealed class InMemoryAssessmentSourceCatalog : IAssessmentSourceCatalog, 
         Task.FromResult<IReadOnlyList<TrustedSourceDescriptor>>(
             _sources.Where(source => source.OrganizationId == organizationId && references.Any(source.Matches)).ToArray());
 
+    public Task<IReadOnlyList<TrustedSourceDescriptor>> ListSelectableAsync(
+        Guid organizationId,
+        string environment,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<TrustedSourceDescriptor>>(
+            _sources.Where(source =>
+                    source.OrganizationId == organizationId
+                    && source.LifecycleState == SourceLifecycleStates.Available
+                    && source.TransactionallyRevalidatable
+                    && (environment != DeploymentEnvironments.Production || source.ProductionEligible))
+                .ToArray());
+
     public Task<IReadOnlyList<TrustedSourceDescriptor>> RevalidateExactAsync(
         Guid organizationId,
         IReadOnlyList<ExactSourceRef> references,
@@ -194,12 +213,20 @@ public sealed class InMemoryAssessmentBaselineStore : IAssessmentBaselineStore
         ActivationBaselineDocument document,
         string contentDigest,
         IAssessmentActivationTransaction transaction,
+        AssessmentActorContext actor,
+        DateTimeOffset occurredAtUtc,
         CancellationToken cancellationToken)
     {
-        _ = (organizationId, activityId, cohortId, baselineId, document, contentDigest, transaction, cancellationToken);
+        _ = (organizationId, activityId, cohortId, baselineId, document, contentDigest, transaction, actor, occurredAtUtc, cancellationToken);
         InsertCount++;
+        LastActorId = actor.Actor.ActorId;
+        LastCorrelationId = actor.CorrelationId;
         return Task.CompletedTask;
     }
+
+    public Guid? LastActorId { get; private set; }
+
+    public Guid? LastCorrelationId { get; private set; }
 }
 
 public sealed class InMemoryAssessmentUnitOfWork : IAssessmentActivationUnitOfWork
@@ -215,6 +242,18 @@ public sealed class InMemoryAssessmentUnitOfWork : IAssessmentActivationUnitOfWo
 public sealed class InMemoryAssessmentAttemptStore : IAssessmentActivationAttemptStore
 {
     private readonly Dictionary<(Guid OrganizationId, Guid ActivityId, Guid CohortId, string Key), AssessmentActivationAttempt> _attempts = new();
+
+    public Task AcquireIdempotencyLockAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        string idempotencyKey,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        _ = (organizationId, activityId, cohortId, idempotencyKey, transaction, cancellationToken);
+        return Task.CompletedTask;
+    }
 
     public Task<AssessmentActivationAttempt?> FindAsync(
         Guid organizationId,
