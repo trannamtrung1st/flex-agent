@@ -341,7 +341,7 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
             new PostgresAssessmentUnitOfWork(connections),
             new ActivationBaselineDigester(),
             new AssessmentCommandDigest(),
-            new PostgresAssessmentBaselineStore(new PostgresAuditEventWriter(), new PostgresOutboxItemWriter()),
+            new PostgresAssessmentBaselineStore(connections, new PostgresAuditEventWriter(), new PostgresOutboxItemWriter()),
             new RevokeActivateGrantAfterLockStore(
                 new PostgresAssessmentAttemptStore(new PostgresAuditEventWriter()),
                 () => grants.RevokeAsync(
@@ -885,6 +885,92 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
         Assert.Equal(1, selectSourceAudits);
     }
 
+    [Fact]
+    public async Task Save_retargets_the_unactivated_cohort_bound_revision()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var connections = Fixture.Services.ConnectionAccessor;
+        var store = new PostgresAssessmentDraftStore(connections, new PostgresAuditEventWriter());
+        var current = await store.GetDraftAsync(harness.OrganizationId, harness.ActivityId, CancellationToken);
+        Assert.NotNull(current);
+        var drafts = new AssessmentDraftHandler(
+            new KernelAssessmentAuthorizationPort(
+                new PostgresAuthorizationKernel(connections),
+                new PostgresAuthorizationKernel(connections)),
+            new PostgresAssessmentSourceCatalog(connections),
+            store,
+            new PostgresAssessmentUnitOfWork(connections));
+
+        var saved = await drafts.SaveAsync(
+            new SaveAssessmentDraftCommand(
+                harness.Actor,
+                harness.ActivityId,
+                current.RevisionNumber,
+                current.Content with { Title = "Retargeted" },
+                DeploymentEnvironments.Development),
+            CancellationToken);
+        var cohort = await store.FindCohortForActivityAsync(
+            harness.OrganizationId,
+            harness.ActivityId,
+            CancellationToken);
+        await using var connection = await connections.OpenConnectionAsync(CancellationToken);
+        var bound = await connection.QuerySingleAsync<(Guid RevisionId, long RevisionNumber)>(
+            """
+            SELECT bound_revision_id, bound_revision_number
+            FROM assessment_cohorts
+            WHERE organization_id = @OrganizationId AND activity_id = @ActivityId
+            """,
+            new { harness.OrganizationId, harness.ActivityId });
+
+        Assert.True(saved.Succeeded, saved.OutcomeCode);
+        Assert.Equal(2, saved.Value!.RevisionNumber);
+        Assert.Equal(saved.Value.RevisionId, bound.RevisionId);
+        Assert.Equal(2, bound.RevisionNumber);
+        Assert.Equal(saved.Value.RevisionId, cohort!.BoundRevisionId);
+        Assert.Equal(2, cohort.BoundRevisionNumber);
+
+        var command = new ActivateCohortCommand(
+            harness.Actor,
+            harness.ActivityId,
+            harness.CohortId,
+            saved.Value.RevisionId,
+            saved.Value.RevisionNumber,
+            "idem-retarget",
+            "pending",
+            DeploymentEnvironments.Development);
+        var activated = await harness.Coordinator.ActivateAsync(
+            command with { TrustedCommandDigest = harness.Digest.Compute(command) },
+            CancellationToken);
+        Assert.True(activated.Succeeded, activated.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Http_get_recomputes_the_stored_baseline_digest_and_projects_confirmation_fields()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var activated = await harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
+        Assert.True(activated.Succeeded, activated.OutcomeCode);
+
+        await using var factory = CreateHostedApi(harness.Actor.Actor.ActorId, harness.OrganizationId);
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.TryAddWithoutValidation(
+            "Cookie",
+            $"{HumanAuthenticationHostOptions.CookieName}={FixedSessionCoordinator.Credential}");
+        using var response = await client.GetAsync(
+            $"/v1/assessment/activities/{harness.ActivityId}",
+            CancellationToken);
+        var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(CancellationToken));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("verified", body.RootElement.GetProperty("verification_status").GetString());
+        Assert.Equal(activated.BaselineDigest, body.RootElement.GetProperty("baseline_digest").GetString());
+        Assert.Equal("Task 1", body.RootElement.GetProperty("task_title").GetString());
+        Assert.Equal(2, body.RootElement.GetProperty("timing").GetProperty("attempt_limit").GetInt32());
+        Assert.Contains(
+            body.RootElement.GetProperty("disabled_capabilities").EnumerateArray().Select(item => item.GetString()),
+            label => label == "voice");
+    }
+
     private WebApplicationFactory<ApiProgram> CreateHostedApi(Guid actorId, Guid organizationId) =>
         new WebApplicationFactory<ApiProgram>().WithWebHostBuilder(builder =>
         {
@@ -1016,7 +1102,7 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
             new PostgresAssessmentUnitOfWork(connections),
             new ActivationBaselineDigester(),
             new AssessmentCommandDigest(),
-            new PostgresAssessmentBaselineStore(new PostgresAuditEventWriter(), new PostgresOutboxItemWriter()),
+            new PostgresAssessmentBaselineStore(connections, new PostgresAuditEventWriter(), new PostgresOutboxItemWriter()),
             new PostgresAssessmentAttemptStore(new PostgresAuditEventWriter()));
 
         return new Harness(

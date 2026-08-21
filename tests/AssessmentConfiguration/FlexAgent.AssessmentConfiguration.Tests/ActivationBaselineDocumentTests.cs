@@ -22,6 +22,36 @@ public sealed class ActivationBaselineDocumentTests
     }
 
     [Fact]
+    public void Empty_knowledge_is_recorded_and_does_not_block_the_baseline()
+    {
+        var draft = ActivityDraft.Create(
+            AssessmentFixtures.OrganizationId,
+            Guid.Parse("55555555-5555-5555-5555-555555555555"),
+            Guid.Parse("66666666-6666-6666-6666-666666666666"),
+            "P0 Assessment",
+            AssessmentFixtures.ValidTask(),
+            AssessmentFixtures.ValidTiming(),
+            AssessmentFixtures.Ref(1),
+            AssessmentFixtures.Ref(2),
+            AssessmentFixtures.Ref(3),
+            AssessmentFixtures.Ref(4),
+            AssessmentFixtures.Ref(5),
+            AssessmentFixtures.Ref(6),
+            AssessmentFixtures.Ref(7),
+            [],
+            AssessmentFixtures.Ref(10),
+            AssessmentFixtures.Ref(11)).Value!;
+
+        var result = ActivationBaselineDocument.FromReadyDraft(draft, AssessmentFixtures.PermittedSources());
+
+        Assert.True(result.Succeeded);
+        var knowledge = result.Value!.FairnessDomains.Single(domain => domain.DomainKey == AssessmentSourceCategories.Knowledge);
+        Assert.Equal("none", knowledge.EffectiveValue["selected"]);
+        Assert.DoesNotContain(result.Value.SourceReferences, reference => reference.SourceKey == AssessmentSourceCategories.Knowledge);
+        Assert.True(ActivationBaselineDocument.Validate(result.Value).Succeeded);
+    }
+
+    [Fact]
     public void One_field_change_is_visible_in_the_corresponding_domain()
     {
         var draft = AssessmentFixtures.CreateDraft().Value!;

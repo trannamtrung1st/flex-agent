@@ -32,6 +32,16 @@ export interface ProductionActivityDetail {
   revision_number: number;
   memory_mode: string;
   has_activated_cohort: boolean;
+  task_title?: string | null;
+  timing?: {
+    time_zone_id: string;
+    attempt_limit: number;
+    starts_at_utc: string;
+    ends_at_utc: string;
+    deadline_utc: string;
+    per_attempt_duration_seconds?: number | null;
+  } | null;
+  disabled_capabilities?: string[] | null;
   cohort_id?: string | null;
   cohort_state?: string | null;
   baseline_digest?: string | null;
@@ -96,6 +106,12 @@ export function sourceOptionIdentity(source: Pick<ProductionSourceRef, "source_i
   return `${source.source_id}:${source.version_id}`;
 }
 
+export function sourceOptionLabel(source: ProductionSourceOption) {
+  const name = source.source_kind.replaceAll("_", " ");
+  const status = source.production_eligible ? "available" : "development only";
+  return `${name} · ${source.version_id} · ${status}`;
+}
+
 export function resolveSelectedSources(
   sources: ProductionSourceOption[],
   selected: Record<string, string>,
@@ -145,6 +161,9 @@ export function mapActivityToSetupView(
     revision_number: activity.revision_number,
     memory_mode: activity.memory_mode,
     has_activated_cohort: activity.has_activated_cohort,
+    task_title: activity.task_title ?? undefined,
+    timing: activity.timing ?? undefined,
+    disabled_capabilities: activity.disabled_capabilities ?? undefined,
     permitted_actions: activity.permitted_actions,
     cohort_id: activity.cohort_id ?? undefined,
     baseline_digest: activity.baseline_digest ?? undefined,
@@ -207,6 +226,10 @@ export function createProductionAssessmentClient(fetchJson: <T>(path: string, in
           }),
         });
       } catch (error) {
+        if (isAssessmentAccessLoss(error)) {
+          throwAssessmentAccessLoss(error);
+        }
+
         if (error instanceof ProductionApiError
           && (error.outcomeCode === "assessment.stale_revision" || error.message === "This draft changed")) {
           throw new ProductionApiError(409, "This draft changed", error.outcomeCode);
@@ -218,11 +241,19 @@ export function createProductionAssessmentClient(fetchJson: <T>(path: string, in
       return mapActivityToSetupView(await loadActivity(activityId));
     },
     checkReadiness: async (activityId: string) => {
-      const readiness = await fetchJson<ProductionReadinessResult>(
-        `/v1/assessment/activities/${activityId}/readiness`,
-        { method: "POST" },
-      );
-      return mapActivityToSetupView(await loadActivity(activityId), readiness);
+      try {
+        const readiness = await fetchJson<ProductionReadinessResult>(
+          `/v1/assessment/activities/${activityId}/readiness`,
+          { method: "POST" },
+        );
+        return mapActivityToSetupView(await loadActivity(activityId), readiness);
+      } catch (error) {
+        if (isAssessmentAccessLoss(error)) {
+          throwAssessmentAccessLoss(error);
+        }
+
+        throw error;
+      }
     },
     activateCohort: async (activityId: string, view: AssessmentSetupView) => {
       if (!view.cohort_id || !view.revision_id) {

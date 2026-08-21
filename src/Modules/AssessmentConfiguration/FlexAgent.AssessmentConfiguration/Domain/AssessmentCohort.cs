@@ -38,6 +38,26 @@ public sealed record AssessmentCohort(
                 BaselineDigest: null));
     }
 
+    public AssessmentDecision<AssessmentCohort> RetargetDraftRevision(Guid revisionId, long revisionNumber)
+    {
+        if (State != CohortStates.Draft)
+        {
+            return AssessmentDecision<AssessmentCohort>.Fail(AssessmentFailureCodes.NewCohortRequired);
+        }
+
+        if (revisionId == Guid.Empty || revisionNumber < 1)
+        {
+            return AssessmentDecision<AssessmentCohort>.Fail(AssessmentFailureCodes.InvalidField);
+        }
+
+        return AssessmentDecision<AssessmentCohort>.Ok(
+            this with
+            {
+                BoundRevisionId = revisionId,
+                BoundRevisionNumber = revisionNumber,
+            });
+    }
+
     public AssessmentDecision<AssessmentCohort> BindActivation(
         Guid expectedRevisionId,
         long expectedRevisionNumber,

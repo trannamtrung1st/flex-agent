@@ -82,6 +82,14 @@ public sealed record ActivationBaselineDocument(
             AddSourceDomain(domains, references, sources, knowledge, AssessmentSourceCategories.Knowledge, FairnessClassifications.Inherited);
         }
 
+        if (content.Knowledge.Count == 0)
+        {
+            domains.Add(new FairnessDomainValue(
+                AssessmentSourceCategories.Knowledge,
+                new Dictionary<string, string> { ["selected"] = "none" },
+                FairnessClassifications.Derived));
+        }
+
         domains.Add(new FairnessDomainValue(
             AssessmentSourceCategories.ActivityRevision,
             new Dictionary<string, string>

@@ -3,6 +3,7 @@ import {
   mapActivityToSetupView,
   resolveSelectedSources,
   sourceOptionIdentity,
+  sourceOptionLabel,
 } from "./production-assessment";
 import { ProductionApiError } from "./production-api";
 
@@ -37,6 +38,14 @@ describe("production assessment client", () => {
     expect(view.sources).toEqual([
       { category: "agent", source_id: "s1", version_id: "v1", content_digest: "b".repeat(64) },
     ]);
+    expect(sourceOptionLabel({
+      category: "agent",
+      source_id: "s1",
+      version_id: "v1",
+      content_digest: "b".repeat(64),
+      source_kind: "agent_revision",
+      production_eligible: false,
+    })).toBe("agent revision · v1 · development only");
   });
 
   it("surfaces a stale save without treating it as authorization loss", async () => {
@@ -59,7 +68,7 @@ describe("production assessment client", () => {
 
     await expect(client.saveDraft("act-1", "Next", 1)).rejects.toMatchObject({
       status: 409,
-      message: "Request failed",
+      message: "Your access changed",
       outcomeCode: "assessment.denied",
     });
   });

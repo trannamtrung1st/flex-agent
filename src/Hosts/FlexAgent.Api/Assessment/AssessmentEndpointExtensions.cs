@@ -365,7 +365,10 @@ public static class AssessmentEndpointExtensions
         IHumanAuthenticationCoordinator coordinator,
         HumanAuthenticationHostOptions options,
         IAssessmentDraftHandler drafts,
-        IAssessmentDraftStore store)
+        IAssessmentDraftStore store,
+        IAssessmentSourceCatalog catalog,
+        IAssessmentBaselineStore baselines,
+        IActivationBaselineDigester digester)
     {
         var resolved = await TryActorAsync(context, coordinator, options);
         if (resolved is null)
@@ -393,6 +396,33 @@ public static class AssessmentEndpointExtensions
             resolved.Actor.Organization.OrganizationId,
             activityId,
             context.RequestAborted);
+        string? verificationStatus = null;
+        if (draft.HasActivatedCohort)
+        {
+            var sources = await catalog.LoadExactAsync(
+                draft.OrganizationId,
+                BaselineVerification.References(draft),
+                context.RequestAborted);
+            BaselineDigestCheck? digestCheck = null;
+            if (cohort is not null)
+            {
+                var persisted = await baselines.FindBoundAsync(
+                    draft.OrganizationId,
+                    activityId,
+                    cohort.CohortId,
+                    context.RequestAborted);
+                var recomputed = persisted is null
+                    ? null
+                    : digester.Digest(persisted.Document);
+                digestCheck = new BaselineDigestCheck(
+                    persisted?.ContentDigest ?? cohort.BaselineDigest ?? string.Empty,
+                    recomputed is { Succeeded: true } ? recomputed.Value : null);
+            }
+
+            verificationStatus = BaselineVerification.Status(draft, sources, digestCheck);
+        }
+
+        var capabilities = draft.Content.RequestedCapabilities;
         await context.Response.WriteAsJsonAsync(new
         {
             activity_id = draft.ActivityId,
@@ -403,9 +433,21 @@ public static class AssessmentEndpointExtensions
             configured_type = draft.ConfiguredType,
             has_activated_cohort = draft.HasActivatedCohort,
             memory_mode = draft.Content.Memory.Mode,
+            task_title = draft.Content.Task.Title,
+            timing = new
+            {
+                time_zone_id = draft.Content.Timing.TimeZoneId,
+                attempt_limit = draft.Content.Timing.AttemptLimit,
+                starts_at_utc = draft.Content.Timing.StartsAtUtc,
+                ends_at_utc = draft.Content.Timing.EndsAtUtc,
+                deadline_utc = draft.Content.Timing.DeadlineUtc,
+                per_attempt_duration_seconds = draft.Content.Timing.PerAttemptDurationSeconds,
+            },
+            disabled_capabilities = DisabledCapabilityLabels(capabilities),
             cohort_id = cohort?.CohortId,
             cohort_state = cohort?.State,
             baseline_digest = cohort?.BaselineDigest,
+            verification_status = verificationStatus,
             sources = new
             {
                 organization_policy = ProjectSource(draft.Content.OrganizationPolicy),
@@ -684,6 +726,37 @@ public static class AssessmentEndpointExtensions
         version_id = source.VersionId,
         content_digest = source.ContentDigest,
     };
+
+    private static IReadOnlyList<string> DisabledCapabilityLabels(CapabilityBounds capabilities)
+    {
+        var labels = new List<string>();
+        if (!capabilities.VoiceEnabled)
+        {
+            labels.Add("voice");
+        }
+
+        if (!capabilities.ToolsEnabled)
+        {
+            labels.Add("tools");
+        }
+
+        if (!capabilities.DynamicMemoryWritesEnabled)
+        {
+            labels.Add("dynamic memory writes");
+        }
+
+        if (!capabilities.SharedSessionEnabled)
+        {
+            labels.Add("shared session");
+        }
+
+        if (!capabilities.DirectDeploymentEnabled)
+        {
+            labels.Add("direct deployment");
+        }
+
+        return labels;
+    }
 
     private static bool HasAction(ResolvedAssessmentActor actor, string action) =>
         actor.Authorization.PermittedActions.Contains(action, StringComparer.Ordinal);

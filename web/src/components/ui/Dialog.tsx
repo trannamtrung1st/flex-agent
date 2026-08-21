@@ -18,6 +18,10 @@ interface DialogProps {
   onCancel: () => void;
   isConfirming?: boolean;
   confirmDisabled?: boolean;
+  hideConfirm?: boolean;
+  tertiaryLabel?: string;
+  onTertiary?: () => void;
+  tertiaryDisabled?: boolean;
 }
 
 function focusableElements(container: HTMLElement): HTMLElement[] {
@@ -39,6 +43,10 @@ export function Dialog({
   onCancel,
   isConfirming = false,
   confirmDisabled = false,
+  hideConfirm = false,
+  tertiaryLabel,
+  onTertiary,
+  tertiaryDisabled = false,
 }: DialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -161,14 +169,21 @@ export function Dialog({
           <Button ref={cancelRef} variant="secondary" onClick={onCancel} disabled={isConfirming}>
             {cancelLabel}
           </Button>
-          <Button
-            variant={confirmVariant}
-            onClick={onConfirm}
-            disabled={confirmIsDisabled}
-            aria-busy={isConfirming}
-          >
-            {isConfirming ? "Working…" : confirmLabel}
-          </Button>
+          {tertiaryLabel && onTertiary ? (
+            <Button type="button" onClick={onTertiary} disabled={isConfirming || tertiaryDisabled}>
+              {tertiaryLabel}
+            </Button>
+          ) : null}
+          {hideConfirm ? null : (
+            <Button
+              variant={confirmVariant}
+              onClick={onConfirm}
+              disabled={confirmIsDisabled}
+              aria-busy={isConfirming}
+            >
+              {isConfirming ? "Working…" : confirmLabel}
+            </Button>
+          )}
         </div>
       </div>
     </div>,

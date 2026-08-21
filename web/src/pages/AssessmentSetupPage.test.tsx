@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { Link, Outlet, RouterProvider, createMemoryRouter } from "react-router-dom";
 import { createProductionAssessmentClient } from "../api/production-assessment";
 import { ProductionApiError } from "../api/production-api";
@@ -15,7 +15,23 @@ const readyView: AssessmentSetupView = {
   cohort_id: "cohort-1",
   overall_severity: "ready",
   issues: [],
-  sources: [{ category: "agent", source_id: "s1", version_id: "v1", content_digest: "b".repeat(64) }],
+  task_title: "Task 1",
+  timing: {
+    time_zone_id: "UTC",
+    attempt_limit: 2,
+    starts_at_utc: "2026-09-01T00:00:00Z",
+    ends_at_utc: "2026-09-30T23:59:00Z",
+    deadline_utc: "2026-09-30T17:00:00Z",
+    per_attempt_duration_seconds: 3600,
+  },
+  disabled_capabilities: ["voice", "tools", "dynamic memory writes", "shared session"],
+  sources: [
+    { category: "agent", source_id: "s1", version_id: "v1", content_digest: "b".repeat(64) },
+    { category: "harness", source_id: "s2", version_id: "v2", content_digest: "c".repeat(64) },
+    { category: "task_submission", source_id: "s3", version_id: "v3", content_digest: "d".repeat(64) },
+    { category: "rubric_evaluation", source_id: "s4", version_id: "v4", content_digest: "e".repeat(64) },
+    { category: "review_release", source_id: "s5", version_id: "v5", content_digest: "f".repeat(64) },
+  ],
 };
 
 function renderSetup(
@@ -76,12 +92,81 @@ describe("AssessmentSetupPage", () => {
     renderSetup();
     await screen.findByRole("heading", { name: "Setup and readiness" });
     fireEvent.click(screen.getByRole("button", { name: "Activate cohort" }));
-    expect(await screen.findByRole("heading", { name: "Activate this empty cohort?" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Confirm activation" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "Activate cohort?" })).toBeInTheDocument();
+    expect(within(dialog).getByText("Task")).toBeInTheDocument();
+    expect(within(dialog).getByText("Task 1 · v3")).toBeInTheDocument();
+    expect(within(dialog).getByText("Agent")).toBeInTheDocument();
+    expect(within(dialog).getByText("v1")).toBeInTheDocument();
+    expect(within(dialog).getByText("Harness")).toBeInTheDocument();
+    expect(within(dialog).getByText(/UTC, 2026-09-01T00:00:00Z to 2026-09-30T23:59:00Z/)).toBeInTheDocument();
+    expect(within(dialog).getByText("2, 3600 seconds each")).toBeInTheDocument();
+    expect(within(dialog).getByText(/voice, tools/)).toBeInTheDocument();
+    expect(within(dialog).getByText("v4")).toBeInTheDocument();
+    expect(within(dialog).getByText("v5")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Activate cohort" }));
     expect(await screen.findByRole("heading", { name: "Cohort activated" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Assign Participants" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Change assessment configuration" }));
     expect(await screen.findByRole("heading", { name: "Create a new cohort to make this change" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create new cohort" })).not.toBeInTheDocument();
+  });
+
+  it("clears a prior save failure after activation succeeds", async () => {
+    renderSetup(readyView, { saveError: new Error("The draft could not be saved.") });
+    await screen.findByRole("heading", { name: "Setup and readiness" });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(await screen.findByText("The draft could not be saved.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Activate cohort" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Activate cohort" }));
+    expect(await screen.findByRole("heading", { name: "Cohort activated" })).toBeInTheDocument();
+    expect(screen.queryByText("The draft could not be saved.")).not.toBeInTheDocument();
+  });
+
+  it("does not offer activation while the title is unsaved", async () => {
+    renderSetup();
+    await screen.findByRole("heading", { name: "Ready to activate" });
+    fireEvent.change(screen.getByLabelText("Campaign title"), { target: { value: "Local title" } });
+    expect(screen.getByRole("button", { name: "Activate cohort" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Check readiness" })).toBeDisabled();
+  });
+
+  it("marks readiness out of date after a later save of a checked revision", async () => {
+    let current: AssessmentSetupView = { ...readyView, overall_severity: "ready", issues: [] };
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/activities/:activityId/setup",
+          element: (
+            <AssessmentSetupPage
+              loadSetup={() => Promise.resolve(current)}
+              saveDraft={(_activityId, title) => {
+                current = {
+                  ...current,
+                  title,
+                  revision_number: current.revision_number + 1,
+                  overall_severity: undefined,
+                  issues: undefined,
+                };
+                return Promise.resolve(current);
+              }}
+              checkReadiness={() => Promise.resolve(current)}
+              activateCohort={() => Promise.resolve(current)}
+            />
+          ),
+        },
+      ],
+      { initialEntries: ["/activities/act-1/setup"] },
+    );
+    render(<RouterProvider router={router} />);
+    await screen.findByRole("heading", { name: "Ready to activate" });
+    fireEvent.change(screen.getByLabelText("Campaign title"), { target: { value: "Revised title" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(await screen.findByRole("heading", { name: "Readiness out of date" })).toBeInTheDocument();
+    expect(screen.getByText("This readiness result is out of date. Check readiness on the current saved revision.")).toBeInTheDocument();
+    expect(screen.queryByText("No readiness blockers for this saved revision.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Activate cohort" })).toBeDisabled();
+    expect(screen.getByLabelText("Campaign title")).toHaveValue("Revised title");
   });
 
   it("shows warning and out-of-date readiness headings", async () => {
@@ -125,9 +210,10 @@ describe("AssessmentSetupPage", () => {
     renderSetup(readyView, { activateError: new Error("Activation did not complete. Reconcile before retrying.") });
     await screen.findByRole("heading", { name: "Setup and readiness" });
     fireEvent.click(screen.getByRole("button", { name: "Activate cohort" }));
-    fireEvent.click(screen.getByRole("button", { name: "Confirm activation" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Activate cohort" }));
     expect(await screen.findByText("The cohort was not activated")).toBeInTheDocument();
-    expect(screen.getByText(/Authoritative status was queried/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Authoritative status was queried/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Activate cohort" })).toBeEnabled();
     expect(screen.getByRole("heading", { name: "Setup and readiness" })).toBeInTheDocument();
   });
 
@@ -165,7 +251,10 @@ describe("AssessmentSetupPage", () => {
     fireEvent.change(screen.getByLabelText("Campaign title"), { target: { value: "Local title" } });
     fireEvent.click(screen.getByRole("link", { name: "Activities" }));
     expect(await screen.findByRole("heading", { name: "Unsaved changes" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save draft and leave" })).toBeInTheDocument();
     expect(screen.getByLabelText("Campaign title")).toHaveValue("Local title");
+    fireEvent.click(screen.getByRole("button", { name: "Save draft and leave" }));
+    expect(await screen.findByRole("heading", { name: "Activities" })).toBeInTheDocument();
   });
 
   it("shows a blocked readiness heading", async () => {
@@ -189,6 +278,15 @@ describe("AssessmentSetupPage", () => {
 
   it("removes protected setup when access is lost", async () => {
     renderSetup(readyView, { loadError: new Error("Your access changed") });
+    expect(await screen.findByRole("heading", { name: "Your access changed" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to Activities" })).toHaveFocus();
+    expect(screen.queryByLabelText("Campaign title")).not.toBeInTheDocument();
+  });
+
+  it("removes protected setup when a save is denied", async () => {
+    renderSetup(readyView, { saveError: new ProductionApiError(409, "Request failed", "assessment.denied") });
+    await screen.findByRole("heading", { name: "Setup and readiness" });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
     expect(await screen.findByRole("heading", { name: "Your access changed" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Campaign title")).not.toBeInTheDocument();
   });
@@ -216,7 +314,7 @@ describe("AssessmentSetupPage", () => {
     renderSetup(readyView, { activateError: new Error("Your access changed") });
     await screen.findByRole("heading", { name: "Setup and readiness" });
     fireEvent.click(screen.getByRole("button", { name: "Activate cohort" }));
-    fireEvent.click(screen.getByRole("button", { name: "Confirm activation" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Activate cohort" }));
     expect(await screen.findByRole("heading", { name: "Your access changed" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Campaign title")).not.toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Selected source revisions" })).not.toBeInTheDocument();
@@ -257,7 +355,7 @@ describe("AssessmentSetupPage", () => {
     render(<RouterProvider router={router} />);
     await screen.findByRole("heading", { name: "Setup and readiness" });
     fireEvent.click(screen.getByRole("button", { name: "Activate cohort" }));
-    fireEvent.click(screen.getByRole("button", { name: "Confirm activation" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Activate cohort" }));
     expect(await screen.findByRole("heading", { name: "Your access changed" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Campaign title")).not.toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Selected source revisions" })).not.toBeInTheDocument();

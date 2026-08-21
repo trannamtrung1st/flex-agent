@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { useBlocker, useParams } from "react-router-dom";
+import { Link, useBlocker, useParams } from "react-router-dom";
+import { ProductionApiError } from "../api/production-api";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { Card, CardBody, CardHeader, CardTitle } from "../components/ui/Card";
@@ -21,6 +22,16 @@ export interface AssessmentSetupView {
   issues?: Array<{ category: string; severity: string; reason_code: string; recovery_hint: string }>;
   baseline_digest?: string;
   verification_status?: string;
+  task_title?: string;
+  timing?: {
+    time_zone_id: string;
+    attempt_limit: number;
+    starts_at_utc: string;
+    ends_at_utc: string;
+    deadline_utc: string;
+    per_attempt_duration_seconds?: number | null;
+  };
+  disabled_capabilities?: string[];
   sources?: Array<{ category: string; source_id: string; version_id: string; content_digest: string }>;
 }
 
@@ -33,8 +44,21 @@ interface AssessmentSetupPageProps {
 
 type PendingAction = "load" | "save" | "ready" | "activate" | null;
 
+function sourceSummary(view: AssessmentSetupView, category: string, title?: string) {
+  const source = view.sources?.find((item) => item.category === category);
+  if (!source) {
+    return title ?? "Not selected";
+  }
+
+  return title ? `${title} · ${source.version_id}` : source.version_id;
+}
+
 function isAccessLoss(cause: unknown) {
-  return cause instanceof Error && /access changed|expired/i.test(cause.message);
+  if (cause instanceof ProductionApiError && cause.outcomeCode === "assessment.denied") {
+    return true;
+  }
+
+  return cause instanceof Error && /access changed|expired|denied/i.test(cause.message);
 }
 
 export function AssessmentSetupPage({
@@ -50,6 +74,8 @@ export function AssessmentSetupPage({
   const saveButtonRef = useRef<HTMLButtonElement>(null);
   const readinessHeadingRef = useRef<HTMLHeadingElement>(null);
   const successHeadingRef = useRef<HTMLHeadingElement>(null);
+  const accessLinkRef = useRef<HTMLAnchorElement>(null);
+  const confirmDescId = useId();
   const [view, setView] = useState<AssessmentSetupView | null>(null);
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +103,12 @@ export function AssessmentSetupPage({
       successHeadingRef.current?.focus();
     }
   }, [view?.has_activated_cohort]);
+
+  useEffect(() => {
+    if (accessChanged) {
+      accessLinkRef.current?.focus();
+    }
+  }, [accessChanged]);
 
   useEffect(() => {
     if (!dirty) {
@@ -135,6 +167,9 @@ export function AssessmentSetupPage({
     return (
       <StatusPanel title="Your access changed" variant="danger">
         <p>Protected setup values were removed. Return to Activities or sign in again.</p>
+        <p>
+          <Link ref={accessLinkRef} to="/activities">Back to Activities</Link>
+        </p>
       </StatusPanel>
     );
   }
@@ -151,8 +186,11 @@ export function AssessmentSetupPage({
   const warning = view.overall_severity === "warning";
   const outOfDate = view.overall_severity === "out_of_date";
   const ready = view.overall_severity === "ready";
-  const canActivate = view.permitted_actions.includes("activate_cohort") && (ready || warning);
-  const reconciling = pending === "activate" || status === "Checking activation status";
+  const canActivate = view.permitted_actions.includes("activate_cohort") && (ready || warning) && !dirty;
+  const reconciling = pending === "activate" && status === "Checking activation status";
+  const materialIssues = (view.issues ?? []).filter(
+    (issue) => issue.severity === "blocked" || issue.severity === "warning",
+  );
   const readinessHeading = blocked
     ? "Readiness blocked"
     : warning
@@ -187,7 +225,12 @@ export function AssessmentSetupPage({
               setStatus("Saving draft…");
               void saveDraft(activityId, title, view.revision_number)
                 .then((next) => {
-                  setView(next);
+                  const staleReadiness = view.issues != null;
+                  setView(
+                    staleReadiness
+                      ? { ...next, overall_severity: "out_of_date", issues: [] }
+                      : next,
+                  );
                   setTitle(next.title);
                   setError(null);
                   setStatus(`Draft revision saved. Revision ${String(next.revision_number)}.`);
@@ -257,13 +300,15 @@ export function AssessmentSetupPage({
           {readinessHeading}
         </h2>
         <p>Memory default: Stable, approved reads {view.memory_mode}.</p>
-        {view.issues == null ? (
+        {outOfDate ? (
+          <p>This readiness result is out of date. Check readiness on the current saved revision.</p>
+        ) : view.issues == null ? (
           view.has_activated_cohort ? null : (
             <p>Readiness has not been checked for this saved revision.</p>
           )
-        ) : view.issues.length > 0 ? (
+        ) : materialIssues.length > 0 ? (
           <ul aria-label="Readiness issues">
-            {view.issues.map((issue) => (
+            {materialIssues.map((issue) => (
               <li key={`${issue.category}-${issue.reason_code}`}>
                 <Alert
                   variant={issue.severity === "blocked" ? "danger" : issue.severity === "warning" ? "warning" : "info"}
@@ -346,8 +391,9 @@ export function AssessmentSetupPage({
 
       <Dialog
         open={confirmOpen}
-        title="Activate this empty cohort?"
-        confirmLabel="Confirm activation"
+        title="Activate cohort?"
+        confirmLabel="Activate cohort"
+        describedBy={confirmDescId}
         confirmDisabled={!activateCohort || pending !== null}
         isConfirming={pending === "activate"}
         onCancel={() => {
@@ -364,32 +410,120 @@ export function AssessmentSetupPage({
             .then((next) => {
               setView(next);
               setConfirmOpen(false);
+              setError(null);
               setStatus("Cohort activated");
+              setPending(null);
             })
             .catch((cause: unknown) => {
               if (isAccessLoss(cause)) {
                 applyAccessLoss();
+                setPending(null);
                 return;
               }
 
               setConfirmOpen(false);
-              setError("The cohort was not activated");
+              setError(null);
               setStatus("Checking activation status");
-            })
-            .finally(() => {
-              setPending(null);
+              void loadSetup(activityId)
+                .then((next) => {
+                  setView(next);
+                  setTitle(next.title);
+                  if (next.has_activated_cohort) {
+                    setStatus("Cohort activated");
+                    return;
+                  }
+
+                  setError("The cohort was not activated");
+                  setStatus(null);
+                })
+                .catch((reloadCause: unknown) => {
+                  if (isAccessLoss(reloadCause)) {
+                    applyAccessLoss();
+                    return;
+                  }
+
+                  setError("The cohort was not activated");
+                  setStatus(null);
+                })
+                .finally(() => {
+                  setPending(null);
+                });
             });
         }}
       >
-        <p>Activation freezes the fairness baseline. This cannot be edited in place.</p>
+        <p id={confirmDescId}>
+          Activation freezes this cohort&apos;s assessment configuration. Material changes will require a new
+          Activity revision and cohort.
+        </p>
+        <p>
+          Saved revision {view.revision_number}. Candidate cohort {view.cohort_id ?? "is not yet assigned"}.
+        </p>
+        <dl className="compact-summary">
+          <div>
+            <dt>Task</dt>
+            <dd>{sourceSummary(view, "task_submission", view.task_title)}</dd>
+          </div>
+          <div>
+            <dt>Agent</dt>
+            <dd>{sourceSummary(view, "agent")}</dd>
+          </div>
+          <div>
+            <dt>Harness</dt>
+            <dd>{sourceSummary(view, "harness")}</dd>
+          </div>
+          <div>
+            <dt>Timing</dt>
+            <dd>
+              {view.timing
+                ? `${view.timing.time_zone_id}, ${view.timing.starts_at_utc} to ${view.timing.ends_at_utc}`
+                : "Not recorded"}
+            </dd>
+          </div>
+          <div>
+            <dt>Attempts</dt>
+            <dd>
+              {view.timing
+                ? `${String(view.timing.attempt_limit)}${view.timing.per_attempt_duration_seconds
+                  ? `, ${String(view.timing.per_attempt_duration_seconds)} seconds each`
+                  : ""}`
+                : "Not recorded"}
+            </dd>
+          </div>
+          <div>
+            <dt>Memory</dt>
+            <dd>Stable, approved reads {view.memory_mode}</dd>
+          </div>
+          <div>
+            <dt>Disabled capabilities</dt>
+            <dd>{view.disabled_capabilities?.join(", ") || "None listed"}</dd>
+          </div>
+          <div>
+            <dt>Rubric / Evaluation</dt>
+            <dd>{sourceSummary(view, "rubric_evaluation")}</dd>
+          </div>
+          <div>
+            <dt>Review / Release</dt>
+            <dd>{sourceSummary(view, "review_release")}</dd>
+          </div>
+        </dl>
+        {materialIssues.filter((issue) => issue.severity === "warning").length > 0 ? (
+          <ul>
+            {materialIssues
+              .filter((issue) => issue.severity === "warning")
+              .map((issue) => (
+                <li key={`${issue.category}-${issue.reason_code}`}>
+                  {issue.category}: {issue.recovery_hint}
+                </li>
+              ))}
+          </ul>
+        ) : null}
       </Dialog>
 
       <Dialog
         open={newCohortOpen}
         title="Create a new cohort to make this change"
-        confirmLabel="Create new cohort"
         cancelLabel="Cancel"
-        confirmDisabled
+        hideConfirm
         onCancel={() => {
           setNewCohortOpen(false);
         }}
@@ -400,6 +534,7 @@ export function AssessmentSetupPage({
         <p>
           This cohort&apos;s baseline is immutable. To change a material value, create a new Activity revision and
           cohort. Existing Enrollments, Sessions, Evidence, Evaluations, and Results stay linked to this baseline.
+          Creating a new cohort is not available in this slice.
         </p>
       </Dialog>
 
@@ -409,6 +544,33 @@ export function AssessmentSetupPage({
         confirmLabel="Leave without saving"
         cancelLabel="Stay on page"
         confirmVariant="danger"
+        tertiaryLabel="Save draft and leave"
+        tertiaryDisabled={pending !== null}
+        onTertiary={() => {
+          setPending("save");
+          setStatus("Saving draft…");
+          void saveDraft(activityId, title, view.revision_number)
+            .then((next) => {
+              setView(next);
+              setTitle(next.title);
+              setError(null);
+              blocker.proceed?.();
+            })
+            .catch((cause: unknown) => {
+              if (isAccessLoss(cause)) {
+                applyAccessLoss();
+                return;
+              }
+
+              const message = cause instanceof Error ? cause.message : "The draft could not be saved.";
+              setError(message === "This draft changed" ? "This draft changed" : "The draft could not be saved.");
+              blocker.reset?.();
+              titleInputRef.current?.focus();
+            })
+            .finally(() => {
+              setPending(null);
+            });
+        }}
         onCancel={() => {
           blocker.reset?.();
         }}
@@ -416,7 +578,7 @@ export function AssessmentSetupPage({
           blocker.proceed?.();
         }}
       >
-        <p>Leaving discards local title changes that are not part of a saved revision.</p>
+        <p>Your latest changes have not been saved. Save them before leaving this page, or leave and discard them.</p>
       </Dialog>
     </div>
   );

@@ -68,4 +68,26 @@ public sealed class AssessmentCohortTests
         Assert.Equal(AssessmentFailureCodes.StaleRevision, result.OutcomeCode);
         Assert.Equal(CohortStates.Draft, cohort.State);
     }
+
+    [Fact]
+    public void Draft_cohort_retargets_to_a_later_saved_revision()
+    {
+        var draft = AssessmentFixtures.CreateDraft().Value!;
+        var cohort = AssessmentCohort.CreateEmpty(
+            draft.OrganizationId,
+            draft.ActivityId,
+            Guid.NewGuid(),
+            draft.RevisionId,
+            draft.RevisionNumber).Value!;
+        var nextRevisionId = Guid.Parse("99999999-9999-4999-8999-999999999999");
+
+        var retargeted = cohort.RetargetDraftRevision(nextRevisionId, 2);
+        Assert.True(retargeted.Succeeded);
+        Assert.Equal(nextRevisionId, retargeted.Value!.BoundRevisionId);
+        Assert.Equal(2, retargeted.Value.BoundRevisionNumber);
+
+        var activated = retargeted.Value.BindActivation(nextRevisionId, 2, Guid.NewGuid(), AssessmentFixtures.Digest('e'));
+        Assert.True(activated.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.NewCohortRequired, activated.Value!.RetargetDraftRevision(Guid.NewGuid(), 3).OutcomeCode);
+    }
 }

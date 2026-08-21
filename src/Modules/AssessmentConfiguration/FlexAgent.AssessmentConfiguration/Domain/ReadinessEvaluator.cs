@@ -108,6 +108,15 @@ public static class ReadinessEvaluator
                 AssessmentSourceKinds.KnowledgeReference);
         }
 
+        if (content.Knowledge.Count == 0)
+        {
+            issues.Add(new ReadinessIssue(
+                AssessmentSourceCategories.Knowledge,
+                ReadinessSeverities.Warning,
+                AssessmentFailureCodes.KnowledgeUnselected,
+                "Knowledge references are optional. Select an exact permitted revision or continue without knowledge."));
+        }
+
         EvaluateMemory(issues, context);
         EvaluateCompatibility(issues, context);
         EvaluateCapabilities(issues, context);

@@ -240,7 +240,9 @@
 }
 
 .dialog-panel {
-  width: min(100%, 28rem);
+  width: min(100%, 36rem);
+  max-height: min(90vh, 44rem);
+  overflow: auto;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--surface-elevated);

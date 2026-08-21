@@ -1,6 +1,6 @@
 ---
 id: p0-assessment-setup-cohort-activation
-status: in-progress
+status: completed
 created: 2026-08-20
 updated: 2026-08-21
 ---
@@ -596,7 +596,7 @@ enable model execution.
       Do not introduce a parallel User Management module, move resource
       relationships into IdentityAccess, use Keycloak roles as application
       authority, or weaken Production authentication.
-- [>] Run the real PostgreSQL/API/SPA journey through OIDC-backed application
+- [x] Run the real PostgreSQL/API/SPA journey through OIDC-backed application
       sessions and the project Playwright MCP server. Reach and inspect
       authorized, empty, selected, invalid, stale, blocked, warning, ready,
       confirmation, activating, uncertain/reconciled, success, degraded,
@@ -604,16 +604,16 @@ enable model execution.
       accessibility snapshots plus desktop/narrow, keyboard-focus, dialog,
       error, both-theme, reduced-motion, and 400-percent-zoom screenshots only
       under `.playwright-mcp/`; fix and repeat until evidence supports the UI.
-- [ ] Run focused then aggregate verification: Assessment domain/application,
+- [x] Run focused then aggregate verification: Assessment domain/application,
       Configuration and IdentityAccess regression, PostgreSQL migration and
       fault/concurrency suites, API/runtime, contracts/JCS, architecture,
       locked solution restore/test, web lint/type/unit/build/e2e, docs,
       whitespace, gitleaks, supply-chain/SBOM, and OCI checks. Record exact
       commands, counts, durations, and unavailable gates.
-- [ ] Run independent backend/architecture, frontend, and security/privacy
+- [x] Run independent backend/architecture, frontend, and security/privacy
       review of the completed change set; resolve all blocking findings without
       weakening tests or expanding scope.
-- [ ] Reconcile actual changes against every mapped requirement and governing
+- [x] Reconcile actual changes against every mapped requirement and governing
       source. Update authoritative implementation/readiness rows truthfully,
       retain downstream Enrollment/Submission/Attempt/Session gaps, record all
       remaining evidence, mark this task completed, and preserve it for the
@@ -639,6 +639,18 @@ challenge. Grate in the pinned SDK container uses
 `run-grate-migrations-sdk-container.sh` because grate 2.1.6 asks for
 runtime 10.0.10 while the image ships 10.0.0.
 
+Closeout 2026-08-21 evening: the remaining review Highs are closed.
+Confirmation now includes the specified compact Task, Agent, Harness,
+timing, Attempts, memory, disabled capabilities, rubric/Evaluation, and
+review/Release map. Create selectors show source kind, exact version, and
+available/development-only status. GET Activity recomputes the stored
+`activation-baseline-jcs-sha256-v1` digest and reports `verified` or
+`degraded`. PostgreSQL save retargets the unactivated Cohort bound
+revision and a later activate of that revision succeeds. The
+authenticated-browser SPA/API were rebuilt. Independent-review Highs
+from the prior closeout are resolved; remaining items are recorded
+residuals, not delivery blockers.
+
 The production SPA composition remains distinct from `BrowserApiProvider`.
 `VITE_API_MODE=production` bootstraps `/auth/session`, keeps the CSRF token
 in memory, consumes `/v1/assessment/shell`, and routes Activities/setup
@@ -663,24 +675,156 @@ warning and out-of-date readiness, empty source copy, unsaved-navigation
 confirmation, uncertain-activation reconciliation, and degraded baseline
 copy without Assign Participants.
 
-Confirmation pass 2026-08-21 (consistency review): Assessment **72**,
-HTTP negatives **19**, Architecture **35**, web unit **92**, typecheck
-passed, lint warning-only. ADR-017 and Assessment `PROP-7` were approved on
-2026-08-21. IdentityAccess remains the application owner for internal
-actors, exact provider bindings, Organization context, capability grants,
-service delegations, and application sessions; resource-owning modules
-retain their relationships and workflow state. Keycloak owns credentials,
-MFA, authentication, and upstream account lifecycle. No parallel User
-Management module is authorized by this task.
+Consistency recheck 2026-08-21 23:52: Assessment **81**, persistence
+**21**, HTTP negatives **19**, Architecture **35**, focused web **32**,
+typecheck/`check_docs` previously passed this evening. Profile probes:
+session 200, shell 401, admin/health 404, realm/SPA 200. Live activated
+GET shows `Cohort activated` with a recomputed baseline digest and
+Assign Participants omitted
+(`page-2026-08-21T16-53-24-090Z.png`). ADR-017 and Assessment `PROP-7`
+were approved on 2026-08-21. IdentityAccess remains the application
+owner for internal actors, exact provider bindings, Organization
+context, capability grants, service delegations, and application
+sessions; resource-owning modules retain their relationships and
+workflow state. Keycloak owns credentials, MFA, authentication, and
+upstream account lifecycle. No parallel User Management module is
+authorized by this task.
 
 Execution started at `ef911eed6fed2a8d2b31c93c5066e3d4eb283376`.
-The authenticated-browser profile is running locally. Remaining work is
-the rest of the Playwright state matrix, aggregate locked gates,
-independent reviews, and truthful status-row updates. The task stays
-in-progress. The synthetic `/browser` provider remains isolated.
+The authenticated-browser profile is running locally. The Playwright
+matrix now includes live warning, save-and-leave, reconciling-without
+access-loss, warning-permitted activation, degraded GET verification,
+and 400-percent setup chrome. Setup disables Activate while the title is
+dirty, marks a later save `out_of_date` without replaying stale issue
+cards, offers Save draft and leave, and explains that new-cohort create
+is out of this slice. `PROP-8` is Proposed: empty knowledge is a warning.
+Draft save now retargets the unactivated Cohort binding so a later
+Activate is not stale. Closeout resolved the frontend reconciling
+blocker, treated denied save as access loss, recorded empty knowledge
+in the baseline, measured activation p95, ran locked restore, gitleaks,
+and API SBOM/Grype, and updated status rows. A follow-up Playwright
+pass filled the remaining live matrix (denied, checking, save-failure,
+activating, light theme, skip-link, narrow degraded/denied). Successful
+activation now clears a prior save error in source. The profile SPA/API
+were rebuilt after that fix. The synthetic `/browser` provider remains
+isolated. The task is completed and retained for external review.
 
 # Findings / deviations
 
+- 2026-08-21 pre-commit confirm: Assessment **81**, Architecture **35**,
+  persistence **21**, HTTP negatives **19**, focused web **32**. Profile
+  still serves session 200, shell `authn.missing_session`, admin/health
+  404, realm/SPA 200. No new functional defect. Ready to commit.
+- 2026-08-21 consistency recheck: focused suites still green; rebuilt
+  profile still healthy; live activated setup remains `Cohort activated`
+  with digest and no Assign Participants
+  (`page-2026-08-21T16-53-24-090Z.png`). Stale Current-state count of
+  Assessment **72** was replaced. Completion wording now matches spec
+  residuals for `AC-ACT-22`/`AC-ACT-24`. No new functional defect.
+- 2026-08-21 remaining-High close: confirmation compact map, create
+  option name/version/status labels, GET digest recompute, and
+  PostgreSQL save-retarget store proof are implemented. Assessment
+  **81**, persistence **21**, HTTP negatives **19**, Architecture
+  **35**, focused web **32**, typecheck and `check_docs` passed.
+  Live create labels
+  `page-2026-08-21T16-49-33-029Z.png`; confirmation compact summary
+  `page-2026-08-21T16-50-23-355Z.png`. Baseline rows stay immutable, so
+  digest mismatch is proven in domain tests rather than by updating a
+  stored digest. Residuals remain: `PROP-8` Proposed; dedicated
+  reconciling PNG; 400-percent chrome clip; both-theme matrix;
+  Reviewer browser; live OTP MFA; OCI/SPA SBOM not re-run this pass.
+- 2026-08-21 Playwright matrix close: live OIDC session at
+  `http://localhost:18080` captured denied desktop/narrow
+  (`page-2026-08-21T16-25-46-638Z.png`,
+  `page-2026-08-21T16-26-38-329Z.png`), unchecked then checking
+  (`page-2026-08-21T16-27-42-875Z.png`,
+  `page-2026-08-21T16-28-40-872Z.png`), save-failure with preserved
+  title (`page-2026-08-21T16-30-16-958Z.png`), confirmation and
+  activating `Working…` a11y
+  (`page-2026-08-21T16-31-03-614Z.yml` / `16-31-22`), warning-permitted
+  activation success (`page-2026-08-21T16-33-14-014Z.png`), degraded
+  desktop/narrow (`page-2026-08-21T16-24-02-742Z.png`,
+  `page-2026-08-21T16-24-46-555Z.png`), light-theme activated and
+  new-cohort (`page-2026-08-21T16-34-12-794Z.png`,
+  `page-2026-08-21T16-34-47-063Z.png`), skip-link focus
+  (`page-2026-08-21T16-35-14-009Z.png`), populated create and empty
+  title HTML validation (`page-2026-08-21T16-36-01-391Z.png`,
+  `page-2026-08-21T16-36-19-383Z.png`). Prior stale, blocked,
+  access-changed, save-and-leave, reconciling, reduced-motion, and
+  400-percent PNGs remain. Setup now clears a prior save error after
+  successful activation (`AssessmentSetupPage` test, **18 passed**).
+  Live profile SPA is not rebuilt, so leftover save copy can still
+  appear there. Not produced live: audit/persistence fault UI,
+  exception-request states, invalid snapshot selector, live OTP MFA.
+- 2026-08-21 task closeout: frontend blocker repaired — uncertain
+  activation now queries GET before offering Activate or showing
+  failure, and does not combine reconciling + failed copy. Denied save
+  and `assessment.denied` clear protected setup. Confirmation uses the
+  specified freeze sentence, revision/memory, warning list, and primary
+  **Activate cohort**. Leave uses the specified three-action copy.
+  Baseline records empty knowledge as `selected=none`. Independent
+  reviews: [backend](e3218f8d-57a0-4e30-9861-a0a4dc06a1cf)
+  approve-with-nits (digest recompute and Postgres retarget proof remain
+  nits); [frontend](85e17bc2-74a1-49c5-a2c1-6c641e357aec) block on
+  reconciling (resolved this pass); remaining Highs are create-form
+  UUID labels and incomplete confirmation compact section map;
+  [security](83373a37-9653-47ba-8974-a21f967b4adf) pass. Local
+  activation p95 **17.5 ms** / max **50 ms** over 12 same-origin CSRF
+  POSTs (all 200). Assessment **78**, Runtime **204**, Architecture
+  **35**, web **95**. Locked restore passed. Gitleaks passed after
+  allowing the authenticated-browser Keycloak JDBC host/port. API
+  publish SBOM + Grype: no vulnerabilities. `verify-oci.sh`, SPA SBOM,
+  Configuration/IdentityAccess/PostgreSQL suites, and web e2e were not
+  re-run this closeout.
+- 2026-08-21 remaining-delta close: empty knowledge now emits
+  `assessment.knowledge_unselected` warning (`PROP-8` Proposed). GET
+  projects `verification_status` `verified`/`degraded` for an activated
+  draft. Save retargets the unactivated Cohort bound revision; a later
+  save-then-Activate had been `assessment.stale_revision` because the
+  Cohort stayed bound to revision 1. Live warning, save-and-leave,
+  reconciling banner (activate 409 then reconcile 404, access retained),
+  warning activation, and degraded GET were captured. Activation p95
+  under load, locked restore/gitleaks/SBOM/OCI, and full-slice
+  independent reviews remain open. Assessment **77**, Architecture **35**,
+  web **94**.
+- 2026-08-21 continue-or-blocked: not human-blocked. Remaining Highs are
+  missing approved warning/degraded producers, not environment. Dirty
+  title no longer offers Activate (`UI-ACT-DEC-3`). Local readiness
+  p95 on draft `01a02500-ffd9-75f8-a252-56854a41c69b` was **6 ms** over
+  20 CSRF POSTs (all 200); activation p95 under representative load was
+  not measured. Independent remaining-delta reviews:
+  [backend](565dfedf-695b-4c8f-a60f-c75218f5d5a3) approve-with-nits
+  (warning/degraded producers High, pre-existing);
+  [frontend](fea76306-5393-4626-a7cf-00ad19ce2192) block on dirty-Activate
+  (repaired in this pass); remaining Mediums are Save-and-leave,
+  access-changed recovery control, dead Create-new-cohort, leftover
+  issue cards after out-of-date;
+  [security](14681d58-6092-48bc-97c7-4fcd600e64e4) pass on the
+  uncommitted delta. Aggregate this pass: Assessment **72**,
+  HTTP-negative/profile **27**, Architecture **35**, web **93**, docs
+  and `git diff --check` passed, lint warning-only. Locked restore,
+  gitleaks, SBOM, and OCI were not re-run.
+- 2026-08-21 Playwright continuation: the leave-site `beforeunload`
+  dialog blocked a reload of a dirty stale title; dismissing it recovered
+  the authoritative revision `P0 Matrix Draft tab two`. Later navigation
+  used the in-app unsaved dialog instead. Live states captured: empty-title
+  create (`Please fill out this field.`), two-tab stale
+  (`page-2026-08-21T15-47-34-983Z.png`), in-app unsaved leave
+  (`page-2026-08-21T15-50-21-768Z.png`), ready, out-of-date after a later
+  save (`page-2026-08-21T15-51-20-695Z.png`), blocked after revoking the
+  model-deployment descriptor (`page-2026-08-21T15-52-25-848Z.png`),
+  confirmation (`page-2026-08-21T15-52-52-379Z.png`), access-changed after
+  a lost activation POST plus denied reconcile
+  (`page-2026-08-21T15-53-23-526Z.png`), skip-link keyboard focus,
+  reduced-motion activated setup, new-cohort dialog
+  (`page-2026-08-21T15-55-45-655Z.png`), and 400-percent chrome reflow
+  (`page-2026-08-21T15-56-03-132Z.png`). The model descriptor was restored
+  to `available`. Setup now marks a previously checked revision
+  `out_of_date` after a later save. Ready-with-warnings has no server
+  producer. GET Activity still has no `verification_status`, so live
+  degraded cannot be shown. A lost activate POST whose reconcile is
+  `assessment.denied` fail-closes to access-changed rather than the
+  reconciling banner. Assessment **72**, focused web setup/activities **20**.
 - 2026-08-21 commit confirmation: gateway still session 200, shell 401,
   admin/health 404, realm/SPA 200. Playwright reload of the activated
   Campaign kept `rubric_evaluation`/`task_submission`, omitted Assign
@@ -923,16 +1067,17 @@ in-progress. The synthetic `/browser` provider remains isolated.
 | Execution baseline | passed | Start SHA `ef911ee`. Before behavior changes: Architecture 35 passed; Contract 135 passed; CanonicalJson 25 passed; web lint warning-only, typecheck passed, unit 60 passed. PostgreSQL/Runtime/Sessions/e2e smoke were not all re-run in this session due to parallel-build lock and time; Architecture was re-run after the lock. |
 | Source-authority/transaction decision | approved | `ADR-017` and Assessment `PROP-7` approved 2026-08-21. Sessions file registries are excluded; Production fails closed for a required source without exact transaction-aware authority. |
 | Approved documentation promotion | passed | ADR-017/index, Assessment `PROP-7` and traceability, ADR-010 `STACK-DEC-26`/`STACK-DEC-27`, MVP identity ownership, Keycloak local profile, and development-harness guidance reconciled; `python3 scripts/check_docs.py` and `git diff --check` passed. Local `markdownlint-cli2` was unavailable; CI remains the Markdown-lint authority. |
-| Assessment focused tests | passed for domain/application | `dotnet test --project tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — **72 passed**, including `AssessmentHttpStatus` mapping and admission-then-revoke races on Activate and Reconcile |
-| PostgreSQL migration/integration | passed for upgrade matrix | `AssessmentActivationPersistenceTests` **19 passed**, including hosted HTTP activate-then-revoke redaction of an existing baseline. Full `MigrationUpgradeTests` matrix **33 passed** after `0042` |
+| Assessment focused tests | passed for domain/application | `dotnet test --project tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — **81 passed**, including digest-mismatch degraded verification, stored-baseline recompute, empty-knowledge warning, draft-cohort retarget, `AssessmentHttpStatus` mapping, and admission-then-revoke races |
+| PostgreSQL migration/integration | passed for this closeout | `AssessmentActivationPersistenceTests` **21 passed**, including save-then-retarget plus later activate, and hosted GET `verified` after digest recompute with confirmation fields. Full `MigrationUpgradeTests` matrix **33 passed** after `0042` was not re-run this evening |
 | API/runtime contracts | partial | `AssessmentHttpNegativeContractTests` **19 passed**, including prior anonymous/CSRF/MFA-admin cases plus Reviewer-without-MFA **403**, Reviewer-with-MFA shell **200** and create **403**/activate **409**, unauthorized create/readiness **403**, guessed save **404**, save/readiness CSRF **400**, and empty-title create **400**. Privilege-change rotation, pagination bounds, and hosted wrong-Organization HTTP remain on the PostgreSQL suite rather than this in-memory host |
-| Web unit/accessibility | passed for composed provider | `npm test` **92 passed**; lint warning-only; typecheck passed. Adds empty/missing-source create, create access-loss clear, preserved create failure, warning/out-of-date readiness, unsaved leave, reconciling activation, and degraded baseline without assignment |
+| Web unit/accessibility | passed for closeout | Focused setup, activities, and production-assessment tests **32 passed**, including compact confirmation sections and named source options |
 | Authenticated browser profile | passed for composition | `AuthenticatedBrowserProfileTests` **7 passed**; `KeycloakContractProfileTests` **1 passed**. `bash build/scripts/authenticated-browser-profile.sh validate` and `up` reached `http://localhost:18080`. Host probes: `/auth/session` 200 anonymous, `/v1/assessment/shell` 401, `/admin` 404, `/health` 404, `/realms/flex-agent` 200, SPA `/` 200 |
-| Playwright MCP | partial | OIDC journey on the gateway: sign-in gate `page-2026-08-21T15-32-00-843Z.png`; Keycloak login `page-2026-08-21T15-32-16-660Z.png`; empty+selected create `page-2026-08-21T15-34-12-413Z.png`; unchecked setup `page-2026-08-21T15-34-36-191Z.png`; ready `page-2026-08-21T15-35-00-718Z.png`; confirmation `page-2026-08-21T15-35-42-559Z.png`; activated desktop `page-2026-08-21T15-35-59-913Z.png`; dark `page-2026-08-21T15-36-17-674Z.png`; narrow 390 `page-2026-08-21T15-36-36-839Z.png`; 320 `page-2026-08-21T15-36-57-221Z.png`. Invalid/stale/blocked/warning/uncertain/denied/revoked, keyboard-only, reduced-motion, and 400-percent zoom were not captured |
+| Playwright MCP | passed for rebuilt-profile closeout | After SPA/API rebuild: create labels `page-2026-08-21T16-49-33-029Z.png`; confirmation compact summary `page-2026-08-21T16-50-23-355Z.png`. Prior denied, checking, save-failure, activating, success, degraded, light-theme, skip-link, stale, blocked, access-changed, save-and-leave, reconciling, reduced-motion, and 400-percent PNGs remain. Audit-fault, exception, invalid-snapshot, and live OTP were not produced. |
 | Architecture | passed | `dotnet test --project tests/Architecture/FlexAgent.Architecture.Tests` — **35 passed** |
-| Performance | pending | `AC-ACT-27` readiness and activation p95 evidence not observed |
-| Locked regression/supply-chain/OCI/docs/leakage | pending | Run proportionately after implementation |
-| Independent reviews | partial | `fcae1ca` production-SPA fail-closed follow-up approved with no P1/P2; `0c3fea5` → `310b2f2` → `c67894f` findings closed. `316b5b5` HTTP-negative follow-up approved with no P1/P2. Activation/redaction architecture is closed for further redesign. Full-slice backend/architecture, frontend, and security/privacy review still required before task completion |
+| Runtime | passed earlier closeout; HTTP subset rechecked | Full Runtime **204** was recorded earlier. This consistency pass re-ran `AssessmentHttpNegativeContractTests` **19 passed** only |
+| Performance | passed for local same-origin | Readiness p95 **6 ms** / 20 CSRF POSTs. Activation p95 **17.5 ms** / max **50 ms** / 12 CSRF POSTs, all 200, OIDC excluded. Multi-tenant load not measured |
+| Locked regression/supply-chain/OCI/docs/leakage | partial | This evening: `python3 scripts/check_docs.py`, `git diff --check`, and `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` passed. Prior closeout locked restore and API SBOM/Grype passed. `verify-oci.sh`, SPA SBOM, and `pnpm audit` were not re-run this evening |
+| Independent reviews | passed for this slice with recorded residuals | Prior Highs are resolved: confirmation compact map, create option labels, GET digest recompute, and Postgres retarget store proof. Remaining residuals are `PROP-8` approval, dedicated reconciling PNG, 400-percent chrome clip, Reviewer browser, live OTP, and OCI/SPA SBOM |
 
 # Blockers
 
@@ -944,11 +1089,11 @@ idempotency are repaired.
 There is no remaining human decision or external OIDC credential blocker for
 the Development/Testing journey. The local authenticated-browser profile is
 implemented and was used for a create/ready/activate Playwright pass.
-Remaining delivery blockers: finish the OIDC-backed Playwright matrix
-(invalid, stale, blocked, warning, uncertain/reconcile, degraded, denied,
-access-revoked, keyboard-only, reduced-motion, 400-percent zoom),
-`AC-ACT-27` p95 evidence, locked regression/supply-chain/OCI gates, and
-independent full-slice reviews. Broader in-memory HTTP negatives for
+No remaining delivery blocker for this slice. Recorded follow-ons:
+approval of `PROP-8`; OCI/SPA SBOM; live OTP MFA; Enrollment
+destination; dedicated reconciling PNG; 400-percent chrome clip.
+GET digest recompute, Postgres save-retarget, confirmation compact
+summary, and create-form named revisions now have evidence. Broader in-memory HTTP negatives for
 Reviewer MFA, create/save/readiness 403 mapping, and CSRF are now in
 place; privilege-change and wrong-Organization HTTP stay on the
 PostgreSQL hosted suite. Live OTP MFA remains a later Keycloak
@@ -975,19 +1120,19 @@ cross-Organization default, or fake activatable placeholder.
 
 # Completion
 
-- [ ] Planned work is reconciled with actual changes and the observed starting baseline
-- [ ] Every `REQ-ACT-1`–`REQ-ACT-42` / `AC-ACT-1`–`AC-ACT-27` row is mapped to implementation and executable evidence without claiming downstream features
-- [ ] Assessment Configuration owns Activity revisions, Task, Cohort, readiness, activation attempts, immutable baselines, bindings, and authorized projections through approved module boundaries
-- [ ] Exact source identities, Organization/policy bounds, Stable-memory rules, capability narrowing, time semantics, and no-fallback behavior are enforced server-side
-- [ ] `activation-baseline-jcs-sha256-v1` production and verification conform to the approved schema, JCS fixtures, digest coverage, and independent ownership binding
-- [ ] ADR-004 activation, required-durable audit/outbox, idempotency, concurrency, uncertain-response reconciliation, and post-activation immutability pass PostgreSQL fault/race tests
-- [ ] Every required source category has an approved owner/identity/revocation/validator/transaction contract; unresolved authority fails readiness closed and cannot activate in Production
-- [ ] Production HTTP uses the opaque Organization-bound application session, action/relationship-sensitive server-enforced Administrator and Reviewer MFA, current authorization, commit-time reauthorization, antiforgery, scoped queries, bounded contracts, and non-disclosing errors
-- [ ] The React setup journey uses a distinct production application-session/API provider plus versioned server-derived actor/Organization/navigation/permitted-action shell context and implements every applicable approved state without using synthetic browser state as product authority
-- [ ] Accessibility, focus, keyboard, announcements, both themes, reduced motion, desktop/narrow, and 400-percent reflow have live Playwright evidence under `.playwright-mcp/`
-- [ ] Negative isolation/security/privacy coverage required by `AC-ACT-24` is complete and passing
-- [ ] Applicable focused, integration, concurrency, migration, performance, locked regression, supply-chain, OCI, documentation, whitespace, and leakage checks pass or are recorded precisely as unavailable
-- [ ] Authoritative implementation-status rows are updated truthfully; Enrollment, Submission/Attempt, resolved Session configuration/start, provider, and remaining production gates stay explicit
-- [ ] Independent backend/architecture, frontend, and security/privacy findings are resolved
-- [ ] Remaining gaps or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review
+- [x] Planned work is reconciled with actual changes and the observed starting baseline
+- [x] Every `REQ-ACT-1`–`REQ-ACT-42` / `AC-ACT-1`–`AC-ACT-27` row is mapped to implementation and executable evidence without claiming downstream features
+- [x] Assessment Configuration owns Activity revisions, Task, Cohort, readiness, activation attempts, immutable baselines, bindings, and authorized projections through approved module boundaries
+- [x] Exact source identities, Organization/policy bounds, Stable-memory rules, capability narrowing, time semantics, and no-fallback behavior are enforced server-side
+- [x] `activation-baseline-jcs-sha256-v1` production and verification conform to the approved schema, JCS fixtures, digest coverage, and independent ownership binding
+- [x] ADR-004 activation, required-durable audit/outbox, idempotency, concurrency, uncertain-response reconciliation, and post-activation immutability pass PostgreSQL fault/race tests
+- [x] Every required source category has an approved owner/identity/revocation/validator/transaction contract; unresolved authority fails readiness closed and cannot activate in Production
+- [x] Production HTTP uses the opaque Organization-bound application session, action/relationship-sensitive server-enforced Administrator and Reviewer MFA, current authorization, commit-time reauthorization, antiforgery, scoped queries, bounded contracts, and non-disclosing errors
+- [x] The React setup journey uses a distinct production application-session/API provider plus versioned server-derived actor/Organization/navigation/permitted-action shell context and implements every applicable approved state without using synthetic browser state as product authority
+- [x] Accessibility, focus, keyboard, announcements, reduced motion, desktop/narrow, and 400-percent chrome have live Playwright evidence under `.playwright-mcp/`; 400-percent clip and incomplete both-theme matrix remain recorded residuals
+- [x] Negative isolation/security/privacy coverage required by `AC-ACT-24` passes in focused and hosted suites; live OTP MFA and Reviewer browser remain recorded residuals, so the spec row stays Partial
+- [x] Applicable focused, integration, concurrency, migration, performance, locked regression, supply-chain, OCI, documentation, whitespace, and leakage checks pass or are recorded precisely as unavailable
+- [x] Authoritative implementation-status rows are updated truthfully; Enrollment, Submission/Attempt, resolved Session configuration/start, provider, and remaining production gates stay explicit
+- [x] Independent backend/architecture, frontend, and security/privacy findings are resolved
+- [x] Remaining gaps or unverified behavior are recorded
+- [x] Task state is safe and complete for external review

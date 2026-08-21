@@ -108,6 +108,12 @@ public sealed class AssessmentDraftHandlerTests
         Assert.False(stale.Succeeded);
         Assert.Equal(AssessmentFailureCodes.StaleRevision, stale.OutcomeCode);
         Assert.Equal(2, firstSave.Value!.RevisionNumber);
+        var cohort = await store.FindCohortForActivityAsync(
+            AssessmentFixtures.OrganizationId,
+            created.Value.ActivityId,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(firstSave.Value.RevisionId, cohort!.BoundRevisionId);
+        Assert.Equal(2, cohort.BoundRevisionNumber);
         Assert.Equal(AssessmentRevisionChangeCategories.Created, store.Provenance[0].ChangeCategory);
         Assert.Equal(AssessmentRevisionChangeCategories.Saved, store.Provenance[1].ChangeCategory);
         Assert.Equal(created.Value.RevisionId, store.Provenance[1].PreviousRevisionId);

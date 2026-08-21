@@ -16,6 +16,38 @@ public sealed class ReadinessEvaluatorTests
     }
 
     [Fact]
+    public void Empty_knowledge_is_a_warning_and_does_not_block_activation()
+    {
+        var draft = ActivityDraft.Create(
+            AssessmentFixtures.OrganizationId,
+            Guid.Parse("55555555-5555-5555-5555-555555555555"),
+            Guid.Parse("66666666-6666-6666-6666-666666666666"),
+            "P0 Assessment",
+            AssessmentFixtures.ValidTask(),
+            AssessmentFixtures.ValidTiming(),
+            AssessmentFixtures.Ref(1),
+            AssessmentFixtures.Ref(2),
+            AssessmentFixtures.Ref(3),
+            AssessmentFixtures.Ref(4),
+            AssessmentFixtures.Ref(5),
+            AssessmentFixtures.Ref(6),
+            AssessmentFixtures.Ref(7),
+            [],
+            AssessmentFixtures.Ref(10),
+            AssessmentFixtures.Ref(11)).Value!;
+
+        var result = ReadinessEvaluator.Evaluate(
+            new ReadinessContext(draft, AssessmentFixtures.PermittedSources(), true, DeploymentEnvironments.Development));
+
+        Assert.Equal(ReadinessSeverities.Warning, result.OverallSeverity);
+        Assert.False(result.HasBlocker);
+        Assert.Contains(result.Issues, issue =>
+            issue.Category == AssessmentSourceCategories.Knowledge
+            && issue.Severity == ReadinessSeverities.Warning
+            && issue.ReasonCode == AssessmentFailureCodes.KnowledgeUnselected);
+    }
+
+    [Fact]
     public void Missing_source_is_blocked()
     {
         var draft = AssessmentFixtures.CreateDraft().Value!;

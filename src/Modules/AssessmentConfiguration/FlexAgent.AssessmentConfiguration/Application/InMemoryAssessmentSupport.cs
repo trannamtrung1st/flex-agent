@@ -54,6 +54,20 @@ public sealed class InMemoryAssessmentDraftStore : IAssessmentDraftStore
         }
 
         _drafts[(draft.OrganizationId, draft.ActivityId)] = draft;
+        foreach (var ((organizationId, activityId, cohortId), cohort) in _cohorts.ToArray())
+        {
+            if (organizationId != draft.OrganizationId || activityId != draft.ActivityId)
+            {
+                continue;
+            }
+
+            var retargeted = cohort.RetargetDraftRevision(draft.RevisionId, draft.RevisionNumber);
+            if (retargeted.Succeeded && retargeted.Value is not null)
+            {
+                _cohorts[(organizationId, activityId, cohortId)] = retargeted.Value;
+            }
+        }
+
         _provenance.Add(provenance);
         LastWriteWasActivationMetadata = false;
         return Task.FromResult(true);
@@ -240,7 +254,20 @@ public sealed class InMemoryAssessmentTransaction : IAssessmentActivationTransac
 
 public sealed class InMemoryAssessmentBaselineStore : IAssessmentBaselineStore
 {
+    private readonly Dictionary<(Guid OrganizationId, Guid ActivityId, Guid CohortId), PersistedActivationBaseline> _baselines = [];
+
     public int InsertCount { get; private set; }
+
+    public Task<PersistedActivationBaseline?> FindBoundAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        CancellationToken cancellationToken)
+    {
+        _ = cancellationToken;
+        _baselines.TryGetValue((organizationId, activityId, cohortId), out var baseline);
+        return Task.FromResult(baseline);
+    }
 
     public Task InsertAsync(
         Guid organizationId,
@@ -255,7 +282,8 @@ public sealed class InMemoryAssessmentBaselineStore : IAssessmentBaselineStore
         CancellationToken cancellationToken,
         AuthorizationDecision? authorization = null)
     {
-        _ = (organizationId, activityId, cohortId, baselineId, document, contentDigest, transaction, actor, occurredAtUtc, cancellationToken, authorization);
+        _ = (baselineId, transaction, occurredAtUtc, cancellationToken, authorization);
+        _baselines[(organizationId, activityId, cohortId)] = new PersistedActivationBaseline(contentDigest, document);
         InsertCount++;
         LastActorId = actor.Actor.ActorId;
         LastCorrelationId = actor.CorrelationId;

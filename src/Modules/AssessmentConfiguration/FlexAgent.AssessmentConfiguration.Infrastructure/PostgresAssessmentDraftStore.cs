@@ -116,6 +116,7 @@ public sealed class PostgresAssessmentDraftStore(
                 var existingUpdated = await UpdateActivityHeadAsync(draft, existing, cancellationToken);
                 if (existingUpdated == 1)
                 {
+                    await RetargetDraftCohortAsync(draft, existing, cancellationToken);
                     await WriteMutationAuditAsync(draft, provenance, existing, cancellationToken);
                 }
 
@@ -131,6 +132,7 @@ public sealed class PostgresAssessmentDraftStore(
                 return false;
             }
 
+            await RetargetDraftCohortAsync(draft, scope.Transaction, cancellationToken);
             await WriteMutationAuditAsync(draft, provenance, scope.Transaction, cancellationToken);
             await scope.CommitAsync(cancellationToken);
             return true;
@@ -164,6 +166,31 @@ public sealed class PostgresAssessmentDraftStore(
                     RevisionId = draft.RevisionId,
                     RevisionNumber = draft.RevisionNumber,
                     PreviousRevisionNumber = draft.RevisionNumber - 1,
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+
+    private static Task RetargetDraftCohortAsync(
+        ActivityDraft draft,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken) =>
+        transaction.Connection!.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE assessment_cohorts
+                SET bound_revision_id = @RevisionId,
+                    bound_revision_number = @RevisionNumber,
+                    updated_at = CLOCK_TIMESTAMP()
+                WHERE organization_id = @OrganizationId
+                  AND activity_id = @ActivityId
+                  AND state = 'draft'
+                """,
+                new
+                {
+                    draft.OrganizationId,
+                    draft.ActivityId,
+                    RevisionId = draft.RevisionId,
+                    RevisionNumber = draft.RevisionNumber,
                 },
                 transaction,
                 cancellationToken: cancellationToken));

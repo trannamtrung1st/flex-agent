@@ -51,7 +51,7 @@ describe("AssessmentActivitiesPage", () => {
     expect(await screen.findByText("No activities are available.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Create assessment Campaign" })).toBeInTheDocument();
     expect(screen.getByLabelText("agent")).toBeInTheDocument();
-    expect(screen.getAllByRole("option", { name: "v1" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("option", { name: "agent · v1 · available" }).length).toBeGreaterThan(0);
   });
 
   it("explains a missing required source category", async () => {

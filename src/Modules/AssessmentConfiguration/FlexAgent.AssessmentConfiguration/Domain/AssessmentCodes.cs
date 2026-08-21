@@ -99,6 +99,7 @@ public static class AssessmentFailureCodes
     public const string NewCohortRequired = "assessment.new_cohort_required";
     public const string Widening = "assessment.widening";
     public const string MissingSource = "assessment.missing_source";
+    public const string KnowledgeUnselected = "assessment.knowledge_unselected";
     public const string MutableSource = "assessment.mutable_source";
     public const string RevokedSource = "assessment.revoked_source";
     public const string UnavailableSource = "assessment.unavailable_source";

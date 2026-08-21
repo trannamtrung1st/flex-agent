@@ -4,6 +4,7 @@ import {
   REQUIRED_SOURCE_CATEGORIES,
   resolveSelectedSources,
   sourceOptionIdentity,
+  sourceOptionLabel,
   type ProductionActivityList,
   type ProductionSourceOption,
   type ProductionSourceRef,
@@ -164,7 +165,7 @@ export function AssessmentActivitiesPage({
                       {options.length === 0 ? <option value="">Unavailable</option> : null}
                       {options.map((option) => (
                         <option key={sourceOptionIdentity(option)} value={sourceOptionIdentity(option)}>
-                          {option.version_id}
+                          {sourceOptionLabel(option)}
                         </option>
                       ))}
                     </select>

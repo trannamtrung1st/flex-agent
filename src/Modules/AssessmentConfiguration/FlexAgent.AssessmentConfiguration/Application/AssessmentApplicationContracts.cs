@@ -314,8 +314,16 @@ public sealed class SystemAssessmentClock : IAssessmentClock
     public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
 }
 
+public sealed record PersistedActivationBaseline(string ContentDigest, ActivationBaselineDocument Document);
+
 public interface IAssessmentBaselineStore
 {
+    Task<PersistedActivationBaseline?> FindBoundAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        CancellationToken cancellationToken);
+
     Task InsertAsync(
         Guid organizationId,
         Guid activityId,

@@ -38,9 +38,43 @@ public sealed class PostgresAssessmentUnitOfWork(PostgresConnectionAccessor conn
 }
 
 public sealed class PostgresAssessmentBaselineStore(
+    PostgresConnectionAccessor connections,
     IAuditEventWriter auditEventWriter,
     IOutboxItemWriter outboxItemWriter) : IAssessmentBaselineStore
 {
+    private static readonly JsonSerializerOptions DocumentJson = new(JsonSerializerDefaults.Web);
+
+    public async Task<PersistedActivationBaseline?> FindBoundAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        var row = await connection.QuerySingleOrDefaultAsync<(string ContentDigest, string Document)>(
+            new CommandDefinition(
+                """
+                SELECT b.content_digest, b.document::text
+                FROM assessment_activation_baselines b
+                INNER JOIN assessment_cohort_baseline_bindings bind
+                    ON bind.organization_id = b.organization_id
+                   AND bind.activity_id = b.activity_id
+                   AND bind.baseline_id = b.baseline_id
+                WHERE b.organization_id = @OrganizationId
+                  AND b.activity_id = @ActivityId
+                  AND bind.cohort_id = @CohortId
+                """,
+                new { OrganizationId = organizationId, ActivityId = activityId, CohortId = cohortId },
+                cancellationToken: cancellationToken));
+        if (string.IsNullOrWhiteSpace(row.ContentDigest) || string.IsNullOrWhiteSpace(row.Document))
+        {
+            return null;
+        }
+
+        var document = JsonSerializer.Deserialize<ActivationBaselineDocument>(row.Document, DocumentJson);
+        return document is null ? null : new PersistedActivationBaseline(row.ContentDigest, document);
+    }
+
     public async Task InsertAsync(
         Guid organizationId,
         Guid activityId,
