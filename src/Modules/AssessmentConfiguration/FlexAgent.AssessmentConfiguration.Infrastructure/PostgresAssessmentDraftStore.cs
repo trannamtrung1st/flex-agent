@@ -3,11 +3,14 @@ using Dapper;
 using FlexAgent.AssessmentConfiguration.Application;
 using FlexAgent.AssessmentConfiguration.Domain;
 using FlexAgent.Postgres;
+using FlexAgent.Postgres.Audit;
 using Npgsql;
 
 namespace FlexAgent.AssessmentConfiguration.Infrastructure;
 
-public sealed class PostgresAssessmentDraftStore(PostgresConnectionAccessor connections) : IAssessmentDraftStore
+public sealed class PostgresAssessmentDraftStore(
+    PostgresConnectionAccessor connections,
+    IAuditEventWriter auditEventWriter) : IAssessmentDraftStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -15,20 +18,23 @@ public sealed class PostgresAssessmentDraftStore(PostgresConnectionAccessor conn
         ActivityDraft draft,
         AssessmentCohort cohort,
         IAssessmentActivationTransaction? transaction,
+        AssessmentRevisionProvenance provenance,
         CancellationToken cancellationToken)
     {
         if (transaction?.PersistenceContext is NpgsqlTransaction existing)
         {
             await InsertActivityAsync(draft, existing, cancellationToken);
-            await InsertRevisionAsync(draft, existing, cancellationToken);
+            await InsertRevisionAsync(draft, provenance, existing, cancellationToken);
             await InsertCohortAsync(cohort, existing, cancellationToken);
+            await WriteMutationAuditAsync(draft, provenance, existing, cancellationToken);
             return;
         }
 
         await using var scope = await PostgresTransactionScope.BeginAsync(connections, cancellationToken);
         await InsertActivityAsync(draft, scope.Transaction, cancellationToken);
-        await InsertRevisionAsync(draft, scope.Transaction, cancellationToken);
+        await InsertRevisionAsync(draft, provenance, scope.Transaction, cancellationToken);
         await InsertCohortAsync(cohort, scope.Transaction, cancellationToken);
+        await WriteMutationAuditAsync(draft, provenance, scope.Transaction, cancellationToken);
         await scope.CommitAsync(cancellationToken);
     }
 
@@ -98,18 +104,25 @@ public sealed class PostgresAssessmentDraftStore(PostgresConnectionAccessor conn
     public async Task<bool> UpdateDraftAsync(
         ActivityDraft draft,
         IAssessmentActivationTransaction? transaction,
+        AssessmentRevisionProvenance provenance,
         CancellationToken cancellationToken)
     {
         try
         {
             if (transaction?.PersistenceContext is NpgsqlTransaction existing)
             {
-                await InsertRevisionAsync(draft, existing, cancellationToken);
-                return await UpdateActivityHeadAsync(draft, existing, cancellationToken) == 1;
+                await InsertRevisionAsync(draft, provenance, existing, cancellationToken);
+                var existingUpdated = await UpdateActivityHeadAsync(draft, existing, cancellationToken);
+                if (existingUpdated == 1)
+                {
+                    await WriteMutationAuditAsync(draft, provenance, existing, cancellationToken);
+                }
+
+                return existingUpdated == 1;
             }
 
             await using var scope = await PostgresTransactionScope.BeginAsync(connections, cancellationToken);
-            await InsertRevisionAsync(draft, scope.Transaction, cancellationToken);
+            await InsertRevisionAsync(draft, provenance, scope.Transaction, cancellationToken);
             var updated = await UpdateActivityHeadAsync(draft, scope.Transaction, cancellationToken);
             if (updated != 1)
             {
@@ -117,6 +130,7 @@ public sealed class PostgresAssessmentDraftStore(PostgresConnectionAccessor conn
                 return false;
             }
 
+            await WriteMutationAuditAsync(draft, provenance, scope.Transaction, cancellationToken);
             await scope.CommitAsync(cancellationToken);
             return true;
         }
@@ -403,6 +417,7 @@ public sealed class PostgresAssessmentDraftStore(PostgresConnectionAccessor conn
 
     private static async Task InsertRevisionAsync(
         ActivityDraft draft,
+        AssessmentRevisionProvenance provenance,
         NpgsqlTransaction transaction,
         CancellationToken cancellationToken)
     {
@@ -410,9 +425,11 @@ public sealed class PostgresAssessmentDraftStore(PostgresConnectionAccessor conn
             new CommandDefinition(
                 """
                 INSERT INTO assessment_activity_revisions (
-                    organization_id, activity_id, revision_id, revision_number, title, content, created_at)
+                    organization_id, activity_id, revision_id, revision_number, title, content, created_at,
+                    previous_revision_id, actor_id, actor_type, correlation_id, change_category, saved_at)
                 VALUES (
-                    @OrganizationId, @ActivityId, @RevisionId, @RevisionNumber, @Title, @Content::jsonb, CLOCK_TIMESTAMP())
+                    @OrganizationId, @ActivityId, @RevisionId, @RevisionNumber, @Title, @Content::jsonb, CLOCK_TIMESTAMP(),
+                    @PreviousRevisionId, @ActorId, @ActorType, @CorrelationId, @ChangeCategory, CLOCK_TIMESTAMP())
                 """,
                 new
                 {
@@ -422,10 +439,42 @@ public sealed class PostgresAssessmentDraftStore(PostgresConnectionAccessor conn
                     RevisionNumber = draft.RevisionNumber,
                     draft.Content.Title,
                     Content = JsonSerializer.Serialize(draft.Content, JsonOptions),
+                    provenance.PreviousRevisionId,
+                    ActorId = provenance.Actor.Actor.ActorId,
+                    ActorType = provenance.Actor.Actor.ActorType,
+                    CorrelationId = provenance.Actor.CorrelationId,
+                    provenance.ChangeCategory,
                 },
                 transaction,
                 cancellationToken: cancellationToken));
     }
+
+    private Task WriteMutationAuditAsync(
+        ActivityDraft draft,
+        AssessmentRevisionProvenance provenance,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken) =>
+        auditEventWriter.InsertAsync(
+            new AuditEventWriteModel(
+                Guid.CreateVersion7(),
+                draft.OrganizationId,
+                "v1",
+                DateTimeOffset.UtcNow,
+                provenance.Actor.CorrelationId,
+                provenance.Actor.Actor.ActorType,
+                provenance.Actor.Actor.ActorId,
+                string.Equals(provenance.ChangeCategory, AssessmentRevisionChangeCategories.Created, StringComparison.Ordinal)
+                    ? AssessmentAuthorizationActions.CreateActivity
+                    : AssessmentAuthorizationActions.SaveActivity,
+                AssessmentResourceTypes.Activity,
+                draft.ActivityId,
+                "permit",
+                null,
+                1,
+                provenance.Actor.SourceChannel,
+                PayloadDigest: null),
+            transaction,
+            cancellationToken);
 
     private static async Task InsertCohortAsync(
         AssessmentCohort cohort,

@@ -573,6 +573,47 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
             cancellationToken);
     }
 
+    public async Task InsertRequestAuditAsync(
+        AssessmentActorContext actor,
+        string action,
+        Guid resourceId,
+        string resourceType,
+        string outcome,
+        string? reasonCode,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        if (transaction.PersistenceContext is not NpgsqlTransaction npgsql)
+        {
+            throw new InvalidOperationException("Assessment activation attempts require the PostgreSQL activation transaction.");
+        }
+
+        if (!transaction.AuditAccepted)
+        {
+            return;
+        }
+
+        await auditEventWriter.InsertAsync(
+            new AuditEventWriteModel(
+                Guid.CreateVersion7(),
+                actor.Organization.OrganizationId,
+                "v1",
+                DateTimeOffset.UtcNow,
+                actor.CorrelationId,
+                actor.Actor.ActorType,
+                actor.Actor.ActorId,
+                action,
+                resourceType,
+                resourceId,
+                outcome,
+                reasonCode,
+                1,
+                actor.SourceChannel,
+                PayloadDigest: null),
+            npgsql,
+            cancellationToken);
+    }
+
     private sealed record AttemptRow(
         Guid OrganizationId,
         Guid ActivityId,

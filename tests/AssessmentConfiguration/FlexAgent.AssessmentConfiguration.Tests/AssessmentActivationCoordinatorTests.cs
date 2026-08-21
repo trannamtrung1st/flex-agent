@@ -42,20 +42,24 @@ public sealed class AssessmentActivationCoordinatorTests
     public async Task Competing_idempotency_key_after_activation_is_a_conflict()
     {
         var harness = await CreateReadyHarnessAsync();
-        Assert.True((await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken)).Succeeded);
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+        Assert.True(first.Succeeded);
 
         var competing = harness.Command("idem-2");
         var outcome = await harness.Coordinator.ActivateAsync(competing, TestContext.Current.CancellationToken);
 
         Assert.False(outcome.Succeeded);
         Assert.Equal(AssessmentFailureCodes.ConcurrentActivation, outcome.OutcomeCode);
+        Assert.Equal(CohortStates.Activated, outcome.CohortState);
+        Assert.Equal(first.BaselineId, outcome.BaselineId);
     }
 
     [Fact]
     public async Task Same_key_with_different_content_is_an_idempotency_conflict()
     {
         var harness = await CreateReadyHarnessAsync();
-        Assert.True((await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken)).Succeeded);
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+        Assert.True(first.Succeeded);
 
         var retargeted = harness.Command() with { ExpectedRevisionNumber = harness.Draft.RevisionNumber + 1 };
         retargeted = retargeted with { TrustedCommandDigest = harness.CommandDigest.Compute(retargeted) };
@@ -64,6 +68,9 @@ public sealed class AssessmentActivationCoordinatorTests
         Assert.False(outcome.Succeeded);
         Assert.Equal(AssessmentFailureCodes.IdempotencyConflict, outcome.OutcomeCode);
         Assert.Contains(harness.Attempts.Items, item => item.OutcomeCode == AssessmentFailureCodes.IdempotencyConflict);
+        Assert.Equal(CohortStates.Activated, outcome.CohortState);
+        Assert.Equal(first.BaselineId, outcome.BaselineId);
+        Assert.Equal(harness.Draft.RevisionId, harness.Attempts.Items.Single(item => item.OutcomeCode == AssessmentFailureCodes.IdempotencyConflict).AuthoritativeRevisionId);
     }
 
     [Fact]
@@ -99,6 +106,8 @@ public sealed class AssessmentActivationCoordinatorTests
         Assert.Equal(AssessmentFailureCodes.InvalidField, oversized.OutcomeCode);
         Assert.Equal(AssessmentFailureCodes.InvalidField, reconcile.OutcomeCode);
         Assert.Empty(harness.Attempts.Items);
+        Assert.Equal(3, harness.Attempts.RequestAudits.Count);
+        Assert.All(harness.Attempts.RequestAudits, item => Assert.Equal(AssessmentFailureCodes.InvalidField, item.ReasonCode));
         Assert.Equal(400, AssessmentIdempotencyKey.StatusForActivation(false, AssessmentFailureCodes.InvalidField));
     }
 
@@ -305,7 +314,8 @@ public sealed class AssessmentActivationCoordinatorTests
         Assert.True(first.Succeeded);
         Assert.False(denied.Succeeded);
         Assert.Equal(HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength, denied.OutcomeCode);
-        Assert.Null(denied.BaselineId);
+        Assert.Equal(CohortStates.Activated, denied.CohortState);
+        Assert.Equal(first.BaselineId, denied.BaselineId);
     }
 
     [Fact]
@@ -488,6 +498,17 @@ internal sealed class DelayedFindAttemptStore(
         CancellationToken cancellationToken) =>
         FindCoreAsync(
             () => inner.FindAsync(organizationId, activityId, cohortId, idempotencyKey, transaction, cancellationToken));
+
+    public Task InsertRequestAuditAsync(
+        AssessmentActorContext actor,
+        string action,
+        Guid resourceId,
+        string resourceType,
+        string outcome,
+        string? reasonCode,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken) =>
+        inner.InsertRequestAuditAsync(actor, action, resourceId, resourceType, outcome, reasonCode, transaction, cancellationToken);
 
     public Task<string> BindCommandDigestAsync(
         Guid organizationId,

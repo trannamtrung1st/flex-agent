@@ -7,15 +7,21 @@ public sealed class InMemoryAssessmentDraftStore : IAssessmentDraftStore
 {
     private readonly Dictionary<(Guid OrganizationId, Guid ActivityId), ActivityDraft> _drafts = new();
     private readonly Dictionary<(Guid OrganizationId, Guid ActivityId, Guid CohortId), AssessmentCohort> _cohorts = new();
+    private readonly List<AssessmentRevisionProvenance> _provenance = [];
+
+    public IReadOnlyList<AssessmentRevisionProvenance> Provenance => _provenance;
 
     public Task AddAsync(
         ActivityDraft draft,
         AssessmentCohort cohort,
         IAssessmentActivationTransaction? transaction,
+        AssessmentRevisionProvenance provenance,
         CancellationToken cancellationToken)
     {
+        _ = (transaction, cancellationToken);
         _drafts[(draft.OrganizationId, draft.ActivityId)] = draft;
         _cohorts[(cohort.OrganizationId, cohort.ActivityId, cohort.CohortId)] = cohort;
+        _provenance.Add(provenance);
         return Task.CompletedTask;
     }
 
@@ -36,9 +42,10 @@ public sealed class InMemoryAssessmentDraftStore : IAssessmentDraftStore
     public Task<bool> UpdateDraftAsync(
         ActivityDraft draft,
         IAssessmentActivationTransaction? transaction,
+        AssessmentRevisionProvenance provenance,
         CancellationToken cancellationToken)
     {
-        _ = transaction;
+        _ = (transaction, cancellationToken);
         if (!_drafts.TryGetValue((draft.OrganizationId, draft.ActivityId), out var current)
             || current.RevisionNumber != draft.RevisionNumber - 1
             || current.HasActivatedCohort)
@@ -47,6 +54,7 @@ public sealed class InMemoryAssessmentDraftStore : IAssessmentDraftStore
         }
 
         _drafts[(draft.OrganizationId, draft.ActivityId)] = draft;
+        _provenance.Add(provenance);
         LastWriteWasActivationMetadata = false;
         return Task.FromResult(true);
     }
@@ -322,6 +330,23 @@ public sealed class InMemoryAssessmentAttemptStore : IAssessmentActivationAttemp
         _attempts.Add(attempt);
         return Task.CompletedTask;
     }
+
+    public Task InsertRequestAuditAsync(
+        AssessmentActorContext actor,
+        string action,
+        Guid resourceId,
+        string resourceType,
+        string outcome,
+        string? reasonCode,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        _ = (transaction, cancellationToken);
+        RequestAudits.Add((actor, action, resourceId, resourceType, outcome, reasonCode));
+        return Task.CompletedTask;
+    }
+
+    public List<(AssessmentActorContext Actor, string Action, Guid ResourceId, string ResourceType, string Outcome, string? ReasonCode)> RequestAudits { get; } = [];
 
     public Task<string> BindCommandDigestAsync(
         Guid organizationId,

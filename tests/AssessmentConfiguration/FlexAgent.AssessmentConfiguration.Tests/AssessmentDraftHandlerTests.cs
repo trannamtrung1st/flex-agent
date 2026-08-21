@@ -108,6 +108,9 @@ public sealed class AssessmentDraftHandlerTests
         Assert.False(stale.Succeeded);
         Assert.Equal(AssessmentFailureCodes.StaleRevision, stale.OutcomeCode);
         Assert.Equal(2, firstSave.Value!.RevisionNumber);
+        Assert.Equal(AssessmentRevisionChangeCategories.Created, store.Provenance[0].ChangeCategory);
+        Assert.Equal(AssessmentRevisionChangeCategories.Saved, store.Provenance[1].ChangeCategory);
+        Assert.Equal(created.Value.RevisionId, store.Provenance[1].PreviousRevisionId);
     }
 
     [Fact]

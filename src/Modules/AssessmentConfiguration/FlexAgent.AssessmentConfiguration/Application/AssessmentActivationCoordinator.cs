@@ -21,7 +21,21 @@ public sealed class AssessmentActivationCoordinator(
     {
         if (AssessmentIdempotencyKey.Validate(command.IdempotencyKey) is { } invalidKey)
         {
-            return Fail(invalidKey, command);
+            return await unitOfWork.ExecuteAsync(
+                async transaction =>
+                {
+                    await attempts.InsertRequestAuditAsync(
+                        command.Actor,
+                        AssessmentAuthorizationActions.ActivateCohort,
+                        command.CohortId,
+                        AssessmentResourceTypes.Cohort,
+                        "deny",
+                        invalidKey,
+                        transaction,
+                        cancellationToken);
+                    return Fail(invalidKey, command);
+                },
+                cancellationToken);
         }
 
         var startedAt = _clock.UtcNow;
@@ -272,7 +286,21 @@ public sealed class AssessmentActivationCoordinator(
     {
         if (AssessmentIdempotencyKey.Validate(query.IdempotencyKey) is { } invalidKey)
         {
-            return new ActivationOutcome(false, invalidKey, query.ActivityId, query.CohortId, null, null, CohortStates.Draft);
+            return await unitOfWork.ExecuteAsync(
+                async transaction =>
+                {
+                    await attempts.InsertRequestAuditAsync(
+                        query.Actor,
+                        AssessmentAuthorizationActions.ReconcileActivation,
+                        query.CohortId,
+                        AssessmentResourceTypes.Cohort,
+                        "deny",
+                        invalidKey,
+                        transaction,
+                        cancellationToken);
+                    return new ActivationOutcome(false, invalidKey, query.ActivityId, query.CohortId, null, null, CohortStates.Draft);
+                },
+                cancellationToken);
         }
 
         var strength = AssessmentAuthenticationPolicy.Evaluate(
@@ -439,8 +467,14 @@ public sealed class AssessmentActivationCoordinator(
         IAssessmentActivationTransaction transaction,
         ActivityDraft? draft,
         DateTimeOffset startedAt,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AssessmentActivationAttempt? existingSuccess = null)
     {
+        draft ??= await store.GetDraftAsync(
+            command.Actor.Organization.OrganizationId,
+            command.ActivityId,
+            transaction,
+            cancellationToken);
         var cohort = await store.GetCohortAsync(
             command.Actor.Organization.OrganizationId,
             command.ActivityId,
@@ -451,13 +485,22 @@ public sealed class AssessmentActivationCoordinator(
             command,
             commandDigestValue,
             code,
-            null,
-            null,
-            CohortStates.Draft,
+            cohort?.BaselineId ?? existingSuccess?.BaselineId,
+            cohort?.BaselineDigest ?? existingSuccess?.BaselineDigest,
+            cohort?.State ?? existingSuccess?.CohortState ?? CohortStates.Draft,
             draft,
-            cohort?.CohortId,
+            cohort?.CohortId ?? existingSuccess?.AuthoritativeCohortId,
             startedAt,
             _clock.UtcNow);
+        if (draft is null && existingSuccess is not null)
+        {
+            attempt = attempt with
+            {
+                AuthoritativeRevisionId = existingSuccess.AuthoritativeRevisionId,
+                AuthoritativeRevisionNumber = existingSuccess.AuthoritativeRevisionNumber,
+            };
+        }
+
         await attempts.InsertAsync(attempt, transaction, cancellationToken);
         return FromAttempt(attempt);
     }
@@ -516,7 +559,8 @@ public sealed class AssessmentActivationCoordinator(
                 transaction,
                 draft: null,
                 startedAt,
-                cancellationToken);
+                cancellationToken,
+                existing);
         }
 
         var attempt = new AssessmentActivationAttempt(

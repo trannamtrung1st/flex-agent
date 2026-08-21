@@ -122,6 +122,12 @@ public static class AssessmentActivationOutcomes
     public const string Deduplicated = "assessment.activation.deduplicated";
 }
 
+public static class AssessmentRevisionChangeCategories
+{
+    public const string Created = "created";
+    public const string Saved = "saved";
+}
+
 public static class AssessmentAuthorizationActions
 {
     public const string CreateActivity = "assessment.activity.create";

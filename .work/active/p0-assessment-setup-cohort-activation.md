@@ -460,7 +460,11 @@ enable model execution.
       resolver-facing read/verifier contract using the existing schema,
       versioned domain validators, explicit Assessment-owned
       `CanonicalJsonLimits`, and `FlexAgent.CanonicalJson`.
-- [>] Repair `6d2fb55` review: transactional Create/Save reauthorization,
+- [>] Repair `2cd9124` review: transactional Create/Save audit and
+      revision provenance, post-activation failures report the
+      authoritative Cohort summary, and invalid keys are audited without
+      creating idempotency state.
+- [x] Repair `6d2fb55` review: transactional Create/Save reauthorization,
       audit equivalent-retry dedup and post-success conflicts, bound
       idempotency-key validation, and exact selected-source locks.
 - [x] Repair `ac6b3eb` review: bind idempotency keys to the first command
@@ -609,6 +613,11 @@ synthetic provider.
 
 # Findings / deviations
 
+- 2026-08-21 review of `2cd9124`: Create/Save persist revision actor,
+  previous revision, change category, and mutation audit in the same
+  transaction (`0041`). Post-activation conflicts report `Activated` and
+  the winning baseline. Invalid keys are audited without creating an
+  operation binding.
 - 2026-08-21 review of `6d2fb55`: Create/Save reauthorize mutation and
   `SelectSources` after draft/source locks; equivalent retries and
   post-success conflicts append request attempts and audit
@@ -737,8 +746,8 @@ synthetic provider.
 | Repository inventory refresh | passed for planning | Observed `ef911ee`; only this plan was modified; migration head remains `0033`; no Assessment module/API exists; Sessions OpenAI-compatible and installed operator-state modules/tests now exist |
 | Execution baseline | passed | Start SHA `ef911ee`. Before behavior changes: Architecture 35 passed; Contract 135 passed; CanonicalJson 25 passed; web lint warning-only, typecheck passed, unit 60 passed. PostgreSQL/Runtime/Sessions/e2e smoke were not all re-run in this session due to parallel-build lock and time; Architecture was re-run after the lock. |
 | Source-authority/transaction decision | recorded as Proposed | `ADR-017` and `PROP-7` published. Sessions file registries are excluded. Production fail-closed remains the interim default until ADR-017 is approved. |
-| Assessment focused tests | passed for domain/application | `dotnet test --project tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — **61 passed**, including save reauthorization, deduplicated retry, and invalid idempotency keys |
-| PostgreSQL migration/integration | partial | `AssessmentActivationPersistenceTests` **13 passed**, including grant revoke after source lock, deduplicated audit, and rejected blank keys. Full `MigrationUpgradeTests` matrix not re-run |
+| Assessment focused tests | passed for domain/application | `dotnet test --project tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — **61 passed**, including post-activation conflict summaries and revision provenance on save |
+| PostgreSQL migration/integration | partial | Additive `0041` revision provenance. `AssessmentActivationPersistenceTests` **14 passed**, including Create/Save audit and invalid-key audit without an operation row. Full `MigrationUpgradeTests` matrix not re-run |
 | API/runtime contracts | partial | Production/Staging without Postgres does not map `/v1/assessment`. Postgres composition uses kernel + grant-derived relationship. Development without Postgres is deny-all in-memory and does not synthesize Administrator. Reconcile requires `idempotency_key`. No dedicated HTTP contract suite yet |
 | Web unit/accessibility | partial | Setup page plus production provider added; web unit 62 passed, lint warning-only; production provider not globally composed; Playwright not run |
 | Playwright MCP | pending | Must use real app interactions, accessibility snapshots, and desktop/narrow screenshots in `.playwright-mcp/` after the slice runs |

@@ -130,6 +130,16 @@ public interface IAssessmentActivationAttemptStore
         IAssessmentActivationTransaction transaction,
         CancellationToken cancellationToken);
 
+    Task InsertRequestAuditAsync(
+        AssessmentActorContext actor,
+        string action,
+        Guid resourceId,
+        string resourceType,
+        string outcome,
+        string? reasonCode,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken);
+
     Task<string> BindCommandDigestAsync(
         Guid organizationId,
         Guid activityId,

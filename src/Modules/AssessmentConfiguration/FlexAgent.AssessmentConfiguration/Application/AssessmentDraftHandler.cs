@@ -97,7 +97,20 @@ public sealed class AssessmentDraftHandler(
                 return AssessmentDecision<ActivityDraft>.Fail(cohort.OutcomeCode);
             }
 
-            await draftStore.AddAsync(created.Value, cohort.Value, transaction, cancellationToken);
+            if (!transaction.AuditAccepted)
+            {
+                return AssessmentDecision<ActivityDraft>.Fail(AssessmentFailureCodes.AuditUnavailable);
+            }
+
+            await draftStore.AddAsync(
+                created.Value,
+                cohort.Value,
+                transaction,
+                new AssessmentRevisionProvenance(
+                    command.Actor,
+                    PreviousRevisionId: null,
+                    AssessmentRevisionChangeCategories.Created),
+                cancellationToken);
             return created;
         }, cancellationToken);
     }
@@ -173,7 +186,19 @@ public sealed class AssessmentDraftHandler(
                 return AssessmentDecision<ActivityDraft>.Fail(AssessmentFailureCodes.Denied);
             }
 
-            var persisted = await draftStore.UpdateDraftAsync(saved.Value, transaction, cancellationToken);
+            if (!transaction.AuditAccepted)
+            {
+                return AssessmentDecision<ActivityDraft>.Fail(AssessmentFailureCodes.AuditUnavailable);
+            }
+
+            var persisted = await draftStore.UpdateDraftAsync(
+                saved.Value,
+                transaction,
+                new AssessmentRevisionProvenance(
+                    command.Actor,
+                    current.RevisionId,
+                    AssessmentRevisionChangeCategories.Saved),
+                cancellationToken);
             return persisted
                 ? saved
                 : AssessmentDecision<ActivityDraft>.Fail(AssessmentFailureCodes.StaleRevision);
@@ -348,12 +373,18 @@ public sealed class AssessmentDraftHandler(
     }
 }
 
+public sealed record AssessmentRevisionProvenance(
+    AssessmentActorContext Actor,
+    Guid? PreviousRevisionId,
+    string ChangeCategory);
+
 public interface IAssessmentDraftStore
 {
     Task AddAsync(
         ActivityDraft draft,
         AssessmentCohort cohort,
         IAssessmentActivationTransaction? transaction,
+        AssessmentRevisionProvenance provenance,
         CancellationToken cancellationToken);
 
     Task<ActivityDraft?> GetDraftAsync(
@@ -370,6 +401,7 @@ public interface IAssessmentDraftStore
     Task<bool> UpdateDraftAsync(
         ActivityDraft draft,
         IAssessmentActivationTransaction? transaction,
+        AssessmentRevisionProvenance provenance,
         CancellationToken cancellationToken);
 
     Task<bool> MarkActivatedAsync(
