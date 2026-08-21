@@ -413,11 +413,11 @@ public static class AssessmentEndpointExtensions
                 harness = ProjectSource(draft.Content.Harness),
                 workflow = ProjectSource(draft.Content.Workflow),
                 adaptive_follow_up = ProjectSource(draft.Content.AdaptiveFollowUp),
-                rubric = ProjectSource(draft.Content.Rubric),
+                rubric_evaluation = ProjectSource(draft.Content.Rubric),
                 model_deployment = ProjectSource(draft.Content.ModelDeployment),
                 capability = ProjectSource(draft.Content.CapabilityProfile),
                 review_release = ProjectSource(draft.Content.ReviewRelease),
-                task = ProjectSource(draft.Content.Task.RequirementSource),
+                task_submission = ProjectSource(draft.Content.Task.RequirementSource),
                 knowledge = draft.Content.Knowledge.Select(ProjectSource),
             },
             permitted_actions = AssessmentDraftProjection.PermittedActions(

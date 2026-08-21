@@ -579,7 +579,7 @@ enable model execution.
       progressive technical metadata, semantic tokens, focus/announcement
       behavior, and desktop/narrow reflow without duplicating server policy or
       converting the synthetic browser provider into production authority.
-- [>] Red/green — implement the approved reproducible authenticated
+- [x] Red/green — implement the approved reproducible authenticated
       Development/Testing browser profile through one documented project
       command. Use `http://localhost:18080` as the canonical public origin:
       serve or proxy the SPA at `/`, route `/auth`, `/v1/assessment`, and
@@ -596,7 +596,7 @@ enable model execution.
       Do not introduce a parallel User Management module, move resource
       relationships into IdentityAccess, use Keycloak roles as application
       authority, or weaken Production authentication.
-- [ ] Run the real PostgreSQL/API/SPA journey through OIDC-backed application
+- [>] Run the real PostgreSQL/API/SPA journey through OIDC-backed application
       sessions and the project Playwright MCP server. Reach and inspect
       authorized, empty, selected, invalid, stale, blocked, warning, ready,
       confirmation, activating, uncertain/reconciled, success, degraded,
@@ -621,7 +621,25 @@ enable model execution.
 
 # Current state
 
-The production SPA composition is now distinct from `BrowserApiProvider`.
+The STACK-DEC-27 authenticated Development/Testing browser profile is
+implemented as `bash build/scripts/authenticated-browser-profile.sh`. It
+composes Keycloak, application PostgreSQL (no host `5432` publish), Grate
+migrations, deterministic seed, API, production SPA (`VITE_API_MODE=production`),
+and the NGINX gateway at `http://localhost:18080`. `/auth`, `/v1/assessment`,
+and `/sessions` go to the API; `/realms/flex-agent` goes to Keycloak; `/admin`
+and `/health` return 404. The exact callback is
+`http://localhost:18080/auth/callback`.
+
+An OIDC login as the seeded synthetic Administrator created a Campaign,
+checked readiness as ready, confirmed empty-Cohort activation, and showed
+the activated baseline with Assign Participants omitted. The create form
+now matches server source category `rubric_evaluation`. Fixture MFA
+evidence is a realm hardcoded `acr:mfa`/`amr` mapper, not a live OTP
+challenge. Grate in the pinned SDK container uses
+`run-grate-migrations-sdk-container.sh` because grate 2.1.6 asks for
+runtime 10.0.10 while the image ships 10.0.0.
+
+The production SPA composition remains distinct from `BrowserApiProvider`.
 `VITE_API_MODE=production` bootstraps `/auth/session`, keeps the CSRF token
 in memory, consumes `/v1/assessment/shell`, and routes Activities/setup
 through `/v1/assessment`. The synthetic `/activities/:id/setup` route still
@@ -647,31 +665,46 @@ copy without Assign Participants.
 
 Confirmation pass 2026-08-21 (consistency review): Assessment **72**,
 HTTP negatives **19**, Architecture **35**, web unit **92**, typecheck
-passed, lint warning-only. Playwright MCP reached the production sign-in
-gate at desktop 1280, narrow 390, and 320 reflow. Continue-to-sign-in
-navigates to `/auth/login?return_path=/activities`; Vite does not proxy
-`/auth`, so the OIDC-backed PostgreSQL setup journey remains blocked.
-ADR-017 and Assessment `PROP-7` were approved on 2026-08-21. IdentityAccess
-remains the application owner for internal actors, exact provider bindings,
-Organization context, capability grants, service delegations, and application
-sessions; resource-owning modules retain their relationships and workflow
-state. Keycloak owns credentials, MFA, authentication, and upstream account
-lifecycle. No parallel User Management module is authorized by this task. The
-task stays in-progress.
+passed, lint warning-only. ADR-017 and Assessment `PROP-7` were approved on
+2026-08-21. IdentityAccess remains the application owner for internal
+actors, exact provider bindings, Organization context, capability grants,
+service delegations, and application sessions; resource-owning modules
+retain their relationships and workflow state. Keycloak owns credentials,
+MFA, authentication, and upstream account lifecycle. No parallel User
+Management module is authorized by this task.
 
 Execution started at `ef911eed6fed2a8d2b31c93c5066e3d4eb283376`.
-The next implementation step is the reproducible authenticated
-Development/Testing browser profile defined by ADR-010 `STACK-DEC-27` and the
-Keycloak OIDC contract. The repository already has the pinned provider
-dependencies and production application-session/API boundaries; it must now
-compose them on one network with migrations, deterministic synthetic
-identity/authorization/Assessment seeds, and the SPA/API behind the canonical
-`http://localhost:18080` gateway and callback, plus readiness and reset
-automation. The synthetic `/browser` provider remains isolated and cannot
-satisfy this gate.
+The authenticated-browser profile is running locally. Remaining work is
+the rest of the Playwright state matrix, aggregate locked gates,
+independent reviews, and truthful status-row updates. The task stays
+in-progress. The synthetic `/browser` provider remains isolated.
 
 # Findings / deviations
 
+- 2026-08-21 commit confirmation: gateway still session 200, shell 401,
+  admin/health 404, realm/SPA 200. Playwright reload of the activated
+  Campaign kept `rubric_evaluation`/`task_submission`, omitted Assign
+  Participants, and did not show unchecked readiness
+  (`page-2026-08-21T15-41-57-643Z.png`). Profile/HTTP-negative filter
+  **27**, focused web **32**. Task remains in-progress.
+- 2026-08-21 consistency recheck: profile still healthy (session 200,
+  shell 401, admin/health 404, realm/SPA 200). Seeded binding, 9 grants,
+  11 descriptors, and one activated Cohort remain. GET Activity source
+  keys now use `rubric_evaluation` and `task_submission` to match
+  source-options and readiness. Activated setup no longer claims
+  readiness was unchecked. Live reload after API/SPA rebuild kept the
+  session and showed `page-2026-08-21T15-40-18-180Z.yml` plus
+  `page-2026-08-21T15-40-*.png`. Profile tests **8**, HTTP negatives **19**,
+  focused web setup/create **28**. Knowledge remains seeded but is not
+  on the HTTP create body; empty-knowledge activation still succeeded.
+- 2026-08-21 authenticated browser profile: `STACK-DEC-27` compose, seed,
+  gateway, and `authenticated-browser-profile.sh` are in place. Playwright
+  completed sign-in, empty list, selected sources, ready, confirmation,
+  and activated success at desktop 1280 plus dark/narrow 390/320. Client
+  create selectors now use `rubric_evaluation` so they match PostgreSQL
+  descriptors. Remaining Playwright states: invalid, stale, blocked,
+  warning, uncertain/reconcile, degraded, denied, access-revoked,
+  keyboard-only, reduced-motion, and 400-percent zoom.
 - 2026-08-21 owner decision: ADR-017 and Assessment `PROP-7` are approved.
   IdentityAccess/Keycloak ownership and the authenticated Development/Testing
   browser profile are recorded in ADR-010 `STACK-DEC-26`/`STACK-DEC-27` and the
@@ -894,7 +927,8 @@ satisfy this gate.
 | PostgreSQL migration/integration | passed for upgrade matrix | `AssessmentActivationPersistenceTests` **19 passed**, including hosted HTTP activate-then-revoke redaction of an existing baseline. Full `MigrationUpgradeTests` matrix **33 passed** after `0042` |
 | API/runtime contracts | partial | `AssessmentHttpNegativeContractTests` **19 passed**, including prior anonymous/CSRF/MFA-admin cases plus Reviewer-without-MFA **403**, Reviewer-with-MFA shell **200** and create **403**/activate **409**, unauthorized create/readiness **403**, guessed save **404**, save/readiness CSRF **400**, and empty-title create **400**. Privilege-change rotation, pagination bounds, and hosted wrong-Organization HTTP remain on the PostgreSQL suite rather than this in-memory host |
 | Web unit/accessibility | passed for composed provider | `npm test` **92 passed**; lint warning-only; typecheck passed. Adds empty/missing-source create, create access-loss clear, preserved create failure, warning/out-of-date readiness, unsaved leave, reconciling activation, and degraded baseline without assignment |
-| Playwright MCP | partial | Production sign-in gate: accessibility snapshot plus desktop 1280 `.playwright-mcp/page-2026-08-21T14-51-09-031Z.png`, narrow 390 `page-2026-08-21T14-51-22-563Z.png`, and 320 reflow `page-2026-08-21T14-51-35-609Z.png`. Continue-to-sign-in stays on the SPA because Vite does not proxy `/auth`. OIDC/Postgres setup states, both themes, reduced motion, and dialog/error journeys were not reachable |
+| Authenticated browser profile | passed for composition | `AuthenticatedBrowserProfileTests` **7 passed**; `KeycloakContractProfileTests` **1 passed**. `bash build/scripts/authenticated-browser-profile.sh validate` and `up` reached `http://localhost:18080`. Host probes: `/auth/session` 200 anonymous, `/v1/assessment/shell` 401, `/admin` 404, `/health` 404, `/realms/flex-agent` 200, SPA `/` 200 |
+| Playwright MCP | partial | OIDC journey on the gateway: sign-in gate `page-2026-08-21T15-32-00-843Z.png`; Keycloak login `page-2026-08-21T15-32-16-660Z.png`; empty+selected create `page-2026-08-21T15-34-12-413Z.png`; unchecked setup `page-2026-08-21T15-34-36-191Z.png`; ready `page-2026-08-21T15-35-00-718Z.png`; confirmation `page-2026-08-21T15-35-42-559Z.png`; activated desktop `page-2026-08-21T15-35-59-913Z.png`; dark `page-2026-08-21T15-36-17-674Z.png`; narrow 390 `page-2026-08-21T15-36-36-839Z.png`; 320 `page-2026-08-21T15-36-57-221Z.png`. Invalid/stale/blocked/warning/uncertain/denied/revoked, keyboard-only, reduced-motion, and 400-percent zoom were not captured |
 | Architecture | passed | `dotnet test --project tests/Architecture/FlexAgent.Architecture.Tests` — **35 passed** |
 | Performance | pending | `AC-ACT-27` readiness and activation p95 evidence not observed |
 | Locked regression/supply-chain/OCI/docs/leakage | pending | Run proportionately after implementation |
@@ -908,16 +942,18 @@ P1s for activation head writes, host permit-all/Administrator synthesis,
 transactional reads, Task-requirement authority, and stored-attempt
 idempotency are repaired.
 There is no remaining human decision or external OIDC credential blocker for
-the Development/Testing journey. Remaining delivery blockers: implement the
-approved local authenticated-browser profile (the current Vite session has no
-`/auth` or `/v1/assessment` API composition), add deterministic IdentityAccess
-and descriptor seeding in disposable PostgreSQL for a synthetic
-create/activate path, then complete the OIDC-backed Playwright matrix,
+the Development/Testing journey. The local authenticated-browser profile is
+implemented and was used for a create/ready/activate Playwright pass.
+Remaining delivery blockers: finish the OIDC-backed Playwright matrix
+(invalid, stale, blocked, warning, uncertain/reconcile, degraded, denied,
+access-revoked, keyboard-only, reduced-motion, 400-percent zoom),
 `AC-ACT-27` p95 evidence, locked regression/supply-chain/OCI gates, and
 independent full-slice reviews. Broader in-memory HTTP negatives for
 Reviewer MFA, create/save/readiness 403 mapping, and CSRF are now in
 place; privilege-change and wrong-Organization HTTP stay on the
-PostgreSQL hosted suite.
+PostgreSQL hosted suite. Live OTP MFA remains a later Keycloak
+qualification gate; this profile presents accepted `acr`/`amr` evidence
+through the fixture client mapper.
 
 The current Sessions model-profile, qualification, and adapter-configuration
 authority is file-loaded/in-memory and does not serialize profile eligibility

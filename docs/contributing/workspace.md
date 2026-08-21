@@ -76,6 +76,13 @@ Run the SPA locally:
 cd web && pnpm dev
 ```
 
+Start the authenticated Development/Testing browser profile
+(`http://localhost:18080`):
+
+```bash
+bash build/scripts/authenticated-browser-profile.sh
+```
+
 ### Supply chain
 
 ```bash

@@ -258,7 +258,9 @@ export function AssessmentSetupPage({
         </h2>
         <p>Memory default: Stable, approved reads {view.memory_mode}.</p>
         {view.issues == null ? (
-          <p>Readiness has not been checked for this saved revision.</p>
+          view.has_activated_cohort ? null : (
+            <p>Readiness has not been checked for this saved revision.</p>
+          )
         ) : view.issues.length > 0 ? (
           <ul aria-label="Readiness issues">
             {view.issues.map((issue) => (

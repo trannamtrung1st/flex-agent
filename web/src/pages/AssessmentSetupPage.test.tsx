@@ -113,8 +113,11 @@ describe("AssessmentSetupPage", () => {
       permitted_actions: [],
       baseline_digest: "a".repeat(64),
       verification_status: "degraded",
+      overall_severity: undefined,
+      issues: undefined,
     });
     expect(await screen.findByRole("heading", { name: "Baseline verification is degraded" })).toBeInTheDocument();
+    expect(screen.queryByText("Readiness has not been checked for this saved revision.")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Assign Participants" })).not.toBeInTheDocument();
   });
 

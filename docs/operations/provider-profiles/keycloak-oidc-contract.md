@@ -44,15 +44,21 @@ is only its provider adapter.
 docker compose -f deploy/compose/keycloak-contract.compose.yaml up -d
 ```
 
+The authenticated Development/Testing browser profile is one documented
+command:
+
+```bash
+bash build/scripts/authenticated-browser-profile.sh
+```
+
+Use `down`, `reset`, `status`, `seed`, or `validate` as the optional argument.
 Synthetic operator credentials live only in the disposable compose fixture.
 Do not copy them into production secret stores or browser artifacts.
 
-The current `keycloak-contract` Compose file starts PostgreSQL, Keycloak and its
-database, plus the restricted NGINX identity gateway. It still expects the API
-on the legacy documented host callback port and does not by itself compose the
-SPA or an authenticated Assessment journey. The profile below replaces that
-split topology when implemented; the infrastructure-only contract remains a
-focused provider qualification fixture.
+The `keycloak-contract` Compose file remains the focused provider-qualification
+fixture (PostgreSQL, Keycloak, and the restricted identity gateway). The
+authenticated browser profile composes Keycloak, application PostgreSQL,
+migrations, seed, API, SPA, and the canonical `http://localhost:18080` gateway.
 
 ## Authenticated browser profile
 

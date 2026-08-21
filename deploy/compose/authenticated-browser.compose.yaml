@@ -1,0 +1,139 @@
+# Development/Testing authenticated browser profile (ADR-010 STACK-DEC-27).
+# Synthetic data only. API and migrations reach PostgreSQL at postgres:5432.
+name: flex-agent-authenticated-browser
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: flexagent
+      POSTGRES_PASSWORD: flexagent_test_password
+      POSTGRES_DB: flexagent
+    volumes:
+      - ./authenticated-browser/seed.sql:/seed/seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flexagent -d flexagent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  keycloak-db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak_test_password
+      POSTGRES_DB: keycloak
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.0
+    command:
+      - start-dev
+      - --import-realm
+      - --http-enabled=true
+      - --proxy-headers=xforwarded
+      - --hostname=http://localhost:18080
+      - --hostname-strict=false
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak_test_password
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8080
+      KC_HOSTNAME: http://localhost:18080
+      KC_HOSTNAME_STRICT: "false"
+      KC_PROXY_HEADERS: xforwarded
+    volumes:
+      - ./keycloak/flex-agent-realm.json:/opt/keycloak/data/import/flex-agent-realm.json:ro
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+
+  migrate:
+    image: mcr.microsoft.com/dotnet/sdk:10.0.100-noble@sha256:c7445f141c04f1a6b454181bd098dcfa606c61ba0bd213d0a702489e5bd4cd71
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace
+    environment:
+      FLEXAGENT_DATABASE_URL: Host=postgres;Port=5432;Username=flexagent;Password=flexagent_test_password;Database=flexagent
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      NUGET_PACKAGES: /tmp/nuget-packages
+      DOTNET_CLI_HOME: /tmp
+    command: ["bash", "build/scripts/run-grate-migrations-sdk-container.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  seed:
+    image: postgres:18
+    environment:
+      PGPASSWORD: flexagent_test_password
+    volumes:
+      - ./authenticated-browser/seed.sql:/seed/seed.sql:ro
+    command: ["psql", "-h", "postgres", "-U", "flexagent", "-d", "flexagent", "-v", "ON_ERROR_STOP=1", "-f", "/seed/seed.sql"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/api.Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Identity: Host=postgres;Port=5432;Username=flexagent;Password=flexagent_test_password;Database=flexagent
+      ConnectionStrings__Sessions: Host=postgres;Port=5432;Username=flexagent;Password=flexagent_test_password;Database=flexagent
+      SyntheticBrowser__Enabled: "false"
+      HumanAuthentication__Enabled: true
+      HumanAuthentication__Issuer: http://localhost:18080/realms/flex-agent
+      HumanAuthentication__ClientId: flex-agent-api
+      HumanAuthentication__AuthorizationEndpoint: http://localhost:18080/realms/flex-agent/protocol/openid-connect/auth
+      HumanAuthentication__TokenEndpoint: http://keycloak:8080/realms/flex-agent/protocol/openid-connect/token
+      HumanAuthentication__JwksUri: http://keycloak:8080/realms/flex-agent/protocol/openid-connect/certs
+      HumanAuthentication__EndSessionEndpoint: http://localhost:18080/realms/flex-agent/protocol/openid-connect/logout
+      HumanAuthentication__RedirectUri: http://localhost:18080/auth/callback
+      HumanAuthentication__SecretDirectory: /run/secrets
+      HumanAuthentication__AcceptedAcr__0: acr:mfa
+      HumanAuthentication__AcceptedAmr__0: mfa
+    volumes:
+      - ./authenticated-browser/secrets:/run/secrets:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 20s
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_started
+
+  spa:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/spa.Dockerfile
+      args:
+        VITE_API_MODE: production
+
+  nginx:
+    image: nginx:1.30.4
+    volumes:
+      - ./nginx/authenticated-browser.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "18080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+      spa:
+        condition: service_started
+      keycloak:
+        condition: service_started

@@ -25,10 +25,56 @@
         "pkce.code.challenge.method": "S256",
         "backchannel.logout.url": "http://host.docker.internal:18082/auth/backchannel-logout",
         "backchannel.logout.session.required": "false"
-      }
+      },
+      "protocolMappers": [
+        {
+          "name": "acr-mfa",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "acr",
+            "claim.value": "acr:mfa",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
+        },
+        {
+          "name": "amr-mfa",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "amr",
+            "claim.value": "[\"mfa\"]",
+            "jsonType.label": "JSON",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
     }
   ],
   "users": [
+    {
+      "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      "username": "synthetic.administrator",
+      "enabled": true,
+      "email": "synthetic.administrator@example.test",
+      "emailVerified": true,
+      "firstName": "Synthetic",
+      "lastName": "Administrator",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "synthetic-administrator-password",
+          "temporary": false
+        }
+      ]
+    },
     {
       "username": "synthetic.participant",
       "enabled": true,

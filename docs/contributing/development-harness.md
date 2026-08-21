@@ -70,6 +70,12 @@ Development/Testing browser profile in the
 [Keycloak OIDC contract](../operations/provider-profiles/keycloak-oidc-contract.md#authenticated-browser-profile).
 That profile exercises the real `/auth` and product API boundary, opaque
 application sessions, application-owned authorization, and PostgreSQL state.
+Start that profile with one documented command:
+
+```bash
+bash build/scripts/authenticated-browser-profile.sh
+```
+
 Use its canonical `http://localhost:18080` browser origin and exact
 `http://localhost:18080/auth/callback` redirect so Playwright, the SPA, API,
 and Keycloak exercise one documented gateway contract.
