@@ -188,7 +188,7 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
             """
             SELECT COUNT(*)
             FROM assessment_activation_attempts
-            WHERE organization_id = @OrganizationId AND cohort_id = @CohortId AND idempotency_key = 'idem-1'
+            WHERE organization_id = @OrganizationId AND requested_cohort_id = @CohortId AND idempotency_key = 'idem-1'
             """,
             new { harness.OrganizationId, harness.CohortId });
 
@@ -290,8 +290,49 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
         Assert.True(first.Succeeded, first.OutcomeCode);
         Assert.False(denied.Succeeded);
         Assert.Equal(HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength, denied.OutcomeCode);
-        Assert.Equal(CohortStates.Activated, denied.CohortState);
-        Assert.Equal(first.BaselineId, denied.BaselineId);
+        Assert.Null(denied.BaselineId);
+        Assert.Null(denied.BaselineDigest);
+        Assert.Equal(CohortStates.Draft, denied.CohortState);
+    }
+
+    [Fact]
+    public async Task Success_then_revoked_activation_grant_does_not_disclose_the_baseline()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
+        await new PostgresGrantRepository(Fixture.Services.ConnectionAccessor).RevokeAsync(
+            harness.OrganizationId,
+            harness.Actor.Actor.ActorId,
+            AssessmentAuthorizationActions.ActivateCohort,
+            CancellationToken);
+        var denied = await harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
+
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.Denied, denied.OutcomeCode);
+        Assert.Null(denied.BaselineId);
+        Assert.Null(denied.BaselineDigest);
+        Assert.Equal(CohortStates.Draft, denied.CohortState);
+    }
+
+    [Fact]
+    public async Task Success_then_participant_relationship_does_not_disclose_the_baseline()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
+        var denied = await harness.Coordinator.ActivateAsync(
+            harness.Command() with
+            {
+                Actor = harness.Actor with { Relationship = "participant" },
+            },
+            CancellationToken);
+
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.Denied, denied.OutcomeCode);
+        Assert.Null(denied.BaselineId);
+        Assert.Null(denied.BaselineDigest);
+        Assert.Equal(CohortStates.Draft, denied.CohortState);
     }
 
     [Fact]
@@ -389,6 +430,83 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
     }
 
     [Fact]
+    public async Task Parent_traversal_rejects_a_previous_revision_from_another_activity()
+    {
+        var first = await SeedReadyHarnessAsync();
+        var connections = Fixture.Services.ConnectionAccessor;
+        var kernel = new PostgresAuthorizationKernel(connections);
+        var store = new PostgresAssessmentDraftStore(connections, new PostgresAuditEventWriter());
+        var drafts = new AssessmentDraftHandler(
+            new KernelAssessmentAuthorizationPort(kernel, kernel),
+            new PostgresAssessmentSourceCatalog(connections),
+            store,
+            new PostgresAssessmentUnitOfWork(connections));
+        var second = await drafts.CreateAsync(
+            new CreateAssessmentDraftCommand(
+                first.Actor,
+                "Other Activity",
+                new TaskBinding(
+                    Guid.CreateVersion7(),
+                    "Task 2",
+                    "Submit one written response",
+                    AssessmentDevelopmentSources.TaskRequirement),
+                new TimingRules(
+                    new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero),
+                    new DateTimeOffset(2026, 9, 30, 23, 59, 0, TimeSpan.Zero),
+                    new DateTimeOffset(2026, 9, 30, 17, 0, 0, TimeSpan.Zero),
+                    "UTC",
+                    2,
+                    3600),
+                AssessmentDevelopmentSources.OrganizationPolicy,
+                AssessmentDevelopmentSources.Agent,
+                AssessmentDevelopmentSources.Harness,
+                AssessmentDevelopmentSources.Workflow,
+                AssessmentDevelopmentSources.AdaptiveFollowUp,
+                AssessmentDevelopmentSources.Rubric,
+                AssessmentDevelopmentSources.ModelDeployment,
+                [AssessmentDevelopmentSources.Knowledge],
+                AssessmentDevelopmentSources.Capability,
+                AssessmentDevelopmentSources.ReviewRelease,
+                DeploymentEnvironments.Development),
+            CancellationToken);
+        Assert.True(second.Succeeded, second.OutcomeCode);
+
+        await using var connection = await connections.OpenConnectionAsync(CancellationToken);
+        var exception = await Assert.ThrowsAsync<PostgresException>(async () =>
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO assessment_activity_revisions (
+                    organization_id, activity_id, revision_id, revision_number, title, content, created_at,
+                    previous_revision_id, actor_id, actor_type, correlation_id, change_category, saved_at)
+                SELECT
+                    organization_id,
+                    activity_id,
+                    @NewRevisionId,
+                    revision_number + 1,
+                    title,
+                    content,
+                    CLOCK_TIMESTAMP(),
+                    @ForeignRevisionId,
+                    actor_id,
+                    actor_type,
+                    correlation_id,
+                    'saved',
+                    CLOCK_TIMESTAMP()
+                FROM assessment_activity_revisions
+                WHERE organization_id = @OrganizationId AND activity_id = @ActivityId
+                """,
+                new
+                {
+                    NewRevisionId = Guid.CreateVersion7(),
+                    ForeignRevisionId = first.RevisionId,
+                    first.OrganizationId,
+                    ActivityId = second.Value!.ActivityId,
+                }));
+
+        Assert.Equal("23503", exception.SqlState);
+    }
+
+    [Fact]
     public async Task Save_denies_when_the_grant_is_revoked_after_source_locks()
     {
         var harness = await SeedReadyHarnessAsync();
@@ -475,6 +593,37 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
             new PostgresAssessmentSourceCatalog(connections),
             store,
             new PostgresAssessmentUnitOfWork(connections));
+        await using var grantConnection = await connections.OpenConnectionAsync(CancellationToken);
+        await grantConnection.ExecuteAsync(
+            """
+            UPDATE actor_organization_grants
+            SET relationship_version = 7
+            WHERE organization_id = @OrganizationId
+              AND actor_id = @ActorId
+              AND granted_action IN (@SaveAction, @SelectAction)
+            """,
+            new
+            {
+                harness.OrganizationId,
+                ActorId = harness.Actor.Actor.ActorId,
+                SaveAction = AssessmentAuthorizationActions.SaveActivity,
+                SelectAction = AssessmentAuthorizationActions.SelectSources,
+            });
+        var saveGrant = await grantConnection.QuerySingleAsync<(Guid GrantId, long Version)>(
+            """
+            SELECT grant_id, relationship_version
+            FROM actor_organization_grants
+            WHERE organization_id = @OrganizationId
+              AND actor_id = @ActorId
+              AND granted_action = @Action
+            """,
+            new
+            {
+                harness.OrganizationId,
+                ActorId = harness.Actor.Actor.ActorId,
+                Action = AssessmentAuthorizationActions.SaveActivity,
+            });
+
         var saved = await drafts.SaveAsync(
             new SaveAssessmentDraftCommand(
                 harness.Actor,
@@ -514,7 +663,24 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
                 Action = AssessmentAuthorizationActions.CreateActivity,
                 harness.ActivityId,
             });
-        var saveAudit = await connection.ExecuteScalarAsync<long>(
+        var saveAudit = await connection.QuerySingleAsync<(long Version, string? ReferenceType, Guid? ReferenceId)>(
+            """
+            SELECT relationship_version, authorization_reference_type, authorization_reference_id
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND action = @Action
+              AND resource_id = @ActivityId
+              AND outcome = 'permit'
+            ORDER BY sequence_number DESC
+            LIMIT 1
+            """,
+            new
+            {
+                harness.OrganizationId,
+                Action = AssessmentAuthorizationActions.SaveActivity,
+                harness.ActivityId,
+            });
+        var selectSourceAudits = await connection.ExecuteScalarAsync<long>(
             """
             SELECT COUNT(*)
             FROM audit_events
@@ -526,7 +692,7 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
             new
             {
                 harness.OrganizationId,
-                Action = AssessmentAuthorizationActions.SaveActivity,
+                Action = AssessmentAuthorizationActions.SelectSources,
                 harness.ActivityId,
             });
 
@@ -538,7 +704,10 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
         Assert.Equal(AssessmentRevisionChangeCategories.Saved, next.Category);
         Assert.Equal(current.RevisionId, next.Previous);
         Assert.Equal(1, createAudit);
-        Assert.Equal(1, saveAudit);
+        Assert.Equal(7, saveAudit.Version);
+        Assert.Equal(AuthorizationReferenceTypes.ActorOrganizationGrant, saveAudit.ReferenceType);
+        Assert.Equal(saveGrant.GrantId, saveAudit.ReferenceId);
+        Assert.Equal(1, selectSourceAudits);
     }
 
     private async Task<Harness> SeedReadyHarnessAsync()

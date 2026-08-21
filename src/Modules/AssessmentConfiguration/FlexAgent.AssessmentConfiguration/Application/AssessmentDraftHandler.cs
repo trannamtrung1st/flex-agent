@@ -109,7 +109,10 @@ public sealed class AssessmentDraftHandler(
                 new AssessmentRevisionProvenance(
                     command.Actor,
                     PreviousRevisionId: null,
-                    AssessmentRevisionChangeCategories.Created),
+                    AssessmentRevisionChangeCategories.Created,
+                    createAuth,
+                    selectAuth,
+                    AuditSourceSelection: true),
                 cancellationToken);
             return created;
         }, cancellationToken);
@@ -197,7 +200,10 @@ public sealed class AssessmentDraftHandler(
                 new AssessmentRevisionProvenance(
                     command.Actor,
                     current.RevisionId,
-                    AssessmentRevisionChangeCategories.Saved),
+                    AssessmentRevisionChangeCategories.Saved,
+                    saveAuth,
+                    selectAuth,
+                    AuditSourceSelection: !CollectReferences(current).SequenceEqual(CollectReferences(saved.Value))),
                 cancellationToken);
             return persisted
                 ? saved
@@ -376,7 +382,10 @@ public sealed class AssessmentDraftHandler(
 public sealed record AssessmentRevisionProvenance(
     AssessmentActorContext Actor,
     Guid? PreviousRevisionId,
-    string ChangeCategory);
+    string ChangeCategory,
+    AuthorizationDecision MutationAuthorization,
+    AuthorizationDecision? SourceAuthorization = null,
+    bool AuditSourceSelection = false);
 
 public interface IAssessmentDraftStore
 {

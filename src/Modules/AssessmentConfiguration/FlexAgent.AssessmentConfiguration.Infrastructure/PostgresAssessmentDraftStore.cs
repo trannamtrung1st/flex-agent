@@ -2,6 +2,7 @@ using System.Text.Json;
 using Dapper;
 using FlexAgent.AssessmentConfiguration.Application;
 using FlexAgent.AssessmentConfiguration.Domain;
+using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.Postgres;
 using FlexAgent.Postgres.Audit;
 using Npgsql;
@@ -449,9 +450,39 @@ public sealed class PostgresAssessmentDraftStore(
                 cancellationToken: cancellationToken));
     }
 
-    private Task WriteMutationAuditAsync(
+    private async Task WriteMutationAuditAsync(
         ActivityDraft draft,
         AssessmentRevisionProvenance provenance,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var action = string.Equals(provenance.ChangeCategory, AssessmentRevisionChangeCategories.Created, StringComparison.Ordinal)
+            ? AssessmentAuthorizationActions.CreateActivity
+            : AssessmentAuthorizationActions.SaveActivity;
+        await WriteDecisionAuditAsync(
+            draft,
+            provenance,
+            action,
+            provenance.MutationAuthorization,
+            transaction,
+            cancellationToken);
+        if (provenance.AuditSourceSelection && provenance.SourceAuthorization is { } sourceAuthorization)
+        {
+            await WriteDecisionAuditAsync(
+                draft,
+                provenance,
+                AssessmentAuthorizationActions.SelectSources,
+                sourceAuthorization,
+                transaction,
+                cancellationToken);
+        }
+    }
+
+    private Task WriteDecisionAuditAsync(
+        ActivityDraft draft,
+        AssessmentRevisionProvenance provenance,
+        string action,
+        AuthorizationDecision decision,
         NpgsqlTransaction transaction,
         CancellationToken cancellationToken) =>
         auditEventWriter.InsertAsync(
@@ -463,16 +494,16 @@ public sealed class PostgresAssessmentDraftStore(
                 provenance.Actor.CorrelationId,
                 provenance.Actor.Actor.ActorType,
                 provenance.Actor.Actor.ActorId,
-                string.Equals(provenance.ChangeCategory, AssessmentRevisionChangeCategories.Created, StringComparison.Ordinal)
-                    ? AssessmentAuthorizationActions.CreateActivity
-                    : AssessmentAuthorizationActions.SaveActivity,
+                action,
                 AssessmentResourceTypes.Activity,
                 draft.ActivityId,
                 "permit",
                 null,
-                1,
+                decision.RelationshipVersion,
                 provenance.Actor.SourceChannel,
-                PayloadDigest: null),
+                PayloadDigest: null,
+                decision.AuthorizationReferenceType,
+                decision.AuthorizationReferenceId),
             transaction,
             cancellationToken);
 

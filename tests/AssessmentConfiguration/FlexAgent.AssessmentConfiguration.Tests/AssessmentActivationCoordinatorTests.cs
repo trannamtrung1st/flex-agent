@@ -314,8 +314,42 @@ public sealed class AssessmentActivationCoordinatorTests
         Assert.True(first.Succeeded);
         Assert.False(denied.Succeeded);
         Assert.Equal(HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength, denied.OutcomeCode);
-        Assert.Equal(CohortStates.Activated, denied.CohortState);
-        Assert.Equal(first.BaselineId, denied.BaselineId);
+        Assert.Null(denied.BaselineId);
+        Assert.Null(denied.BaselineDigest);
+        Assert.Equal(CohortStates.Draft, denied.CohortState);
+    }
+
+    [Fact]
+    public async Task Success_then_participant_relationship_does_not_disclose_the_baseline()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+        var denied = await harness.Coordinator.ActivateAsync(
+            harness.Command() with { Actor = CreateActor(mfa: true, relationship: "participant") },
+            TestContext.Current.CancellationToken);
+
+        Assert.True(first.Succeeded);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.Denied, denied.OutcomeCode);
+        Assert.Null(denied.BaselineId);
+        Assert.Null(denied.BaselineDigest);
+        Assert.Equal(CohortStates.Draft, denied.CohortState);
+    }
+
+    [Fact]
+    public async Task Success_then_revoked_activation_grant_does_not_disclose_the_baseline()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+        harness.Authorization.DeniedActions.Add(AssessmentAuthorizationActions.ActivateCohort);
+        var denied = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+
+        Assert.True(first.Succeeded);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.Denied, denied.OutcomeCode);
+        Assert.Null(denied.BaselineId);
+        Assert.Null(denied.BaselineDigest);
+        Assert.Equal(CohortStates.Draft, denied.CohortState);
     }
 
     [Fact]
@@ -414,7 +448,17 @@ public sealed class AssessmentActivationCoordinatorTests
             attempts,
             clock);
 
-        return new Harness(coordinator, store, unitOfWork, created.Value!, cohort, actor, commandDigest, environment, attempts);
+        return new Harness(
+            coordinator,
+            authorization,
+            store,
+            unitOfWork,
+            created.Value!,
+            cohort,
+            actor,
+            commandDigest,
+            environment,
+            attempts);
     }
 
     private static AssessmentActorContext CreateActor(bool mfa, string? relationship = null)
@@ -433,6 +477,7 @@ public sealed class AssessmentActivationCoordinatorTests
 
     private sealed record Harness(
         AssessmentActivationCoordinator Coordinator,
+        InMemoryAssessmentAuthorizationPort Authorization,
         InMemoryAssessmentDraftStore Store,
         InMemoryAssessmentUnitOfWork UnitOfWork,
         ActivityDraft Draft,
