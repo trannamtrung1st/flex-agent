@@ -469,6 +469,9 @@ entry, qualify real use, or certify a production pilot.
       deployment profile, credential, destination policy, and run budget. Do
       not claim qualification or enablement from deterministic migration
       evidence.
+- [x] Re-run current-head focused, locked-solution, docs/whitespace, and
+      supply-chain/OCI verification so close-out evidence is bound to `a52e699`
+      rather than the earlier `verify-dotnet.sh` residual.
 - [x] Reconcile implementation status, operator guidance, qualification
       readiness, the deferred exact-profile gate, remaining OpenRouter gaps,
       and final migration completion. Independent Phase B change-set review
@@ -485,30 +488,27 @@ entry, qualify real use, or certify a production pilot.
 
 # Current state
 
-Deterministic Phase B **implementation** is complete. Independent review of
-`69ee11b` approved the shared operator-state strict-JSON follow-up with no
-remaining P0/P1/P2. The review chain is now code-review clean:
+Current-head close-out verification is bound to `a52e699`. Deterministic
+Phase B implementation and the independent review chain remain complete:
 
 - destination policy (`4342318`)
 - stream fail-closed (`a18403f`)
 - qualification/config strict JSON (`e7d7031`)
 - shared profile/catalog strict JSON (`69ee11b`)
+- review-record commit (`a52e699`)
 
-Exact live qualification remains deferred. End-to-end independent Phase B
-review and GitHub CI corroboration for this head remain outstanding.
+Focused adapter/Sessions/Architecture/Runtime, locked-solution, PostgreSQL
+integration, docs/whitespace/example JSON, supply-chain, and OCI evidence
+were re-run on this SHA on 2026-08-21 and passed. Exact-profile live
+qualification remains deferred. End-to-end independent Phase B review and
+GitHub CI corroboration remain residuals: `gh` is not authenticated in this
+environment, so no remote workflow status could be read.
 
-Implementer self-review of the remaining fail-closed surfaces found two
-deterministic gaps and closed them: content streams now emit
-`ModelContentFailed` when profile/configuration resolution or the mounted
-secret fails, and qualification records reject unexpected properties the
-same way installed configurations do. Focused, locked full-solution,
-supply-chain, OCI, documentation, example-JSON, and whitespace evidence is
-recorded below.
-
-`status: completed` means the implementation task and the review-chain
-findings are closed. It does not mean end-to-end Phase B review, GitHub CI,
-or live qualification. Do not claim live qualification or close
-`GATE-STACK-PROVIDERS`. No exact OpenAI-compatible live profile is selected.
+`status: completed` means the implementation task, review-chain findings,
+and current-head deterministic verification are closed. It does not mean
+end-to-end Phase B review, GitHub CI, or live qualification. Do not claim
+live qualification or close `GATE-STACK-PROVIDERS`. No exact
+OpenAI-compatible live profile is selected.
 
 Phase B deterministic migration is implemented. The executable adapter identity
 is `openai_compatible` / `sessions.openai_compatible.v1` in
@@ -808,9 +808,9 @@ Interim defaults are working guidance only and do not approve a deployment.
   Shared profile/catalog validation is at the operator-state layer; last-wins
   `revoked` cannot un-revoke a credential; historical Direct OpenAI digest
   `11fd39ad…` and the OpenRouter example remain valid. No further
-  remediation commit from this review. Locked-solution **1210 passed**
-  remains the earlier `verify-dotnet.sh` run, not a re-run of `69ee11b`.
-  GitHub had no status checks or PR workflow runs for this SHA.
+  remediation commit from this review. Locked-solution close-out on
+  `a52e699` is now **1214 passed**, 2 skipped, 0 failed. GitHub CI remains
+  unread here because `gh` is not authenticated.
 - P0 participant-message admission requires non-empty exact UTF-8 text.
   `AcceptParticipantMessageCommand.ExactUtf8Text` is required; missing or blank
   text fails closed with `trigger_admission.missing_participant_content`.
@@ -830,21 +830,23 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Predecessor remediation protected | complete | Worker identity/readiness remediation landed separately as `94c1412`; this planning edit is restricted to the new task file |
 | Plan readiness review | complete | Backend/architecture/security consistency pass on 2026-08-19 added frozen per-Session provider authority, restart-safe phases, retry ownership, secret hardening, egress/SSRF, qualification scope, and threat-model gates |
 | Current-source .NET baseline | passed | After required PostgreSQL admission auth: `dotnet test --solution FlexAgent.slnx` **1034 passed**, 0 failed (2026-08-19). Prior `4373f70` count was 1033 |
-| Focused provider adapter tests | passed | `FlexAgent.Sessions.OpenAiCompatible.Tests` **30 passed** on 2026-08-21 after duplicate-property fail-closed coverage (`qualifiedFor` and `adapterConfigurationDigest` on qualification records; duplicate digest on installed configurations). Prior 29-test pass covered content-stream fail-closed and extra-property rejection. Destination-policy cases remain: IANA special-purpose including AS112 `2620:4f:8000::/48`, private-CIDR containment, unknown-property rejection, validated multi-address fallback, and staggered fallback when the first address hangs |
+| Focused provider adapter tests | passed | Re-run on `a52e699` (2026-08-21): `dotnet test --project tests/Sessions/FlexAgent.Sessions.OpenAiCompatible.Tests/FlexAgent.Sessions.OpenAiCompatible.Tests.csproj -c Release` **30 passed**. Destination-policy cases remain: IANA special-purpose including AS112 `2620:4f:8000::/48`, private-CIDR containment, unknown-property rejection, validated multi-address fallback, and staggered fallback when the first address hangs |
 | Independent review of `a18403f` | P2 closed | Review approved the content-stream fix and required duplicate JSON property rejection on qualification records (and configuration as defense in depth). Red: `Duplicate_json_properties_fail_closed_on_qualification_and_configuration` threw no exception. Green: both loaders reject a second occurrence of an allowlisted name |
 | Invocation-id reservation binding (`4a6e314` P2) | passed | In-memory writer tests 4/4. Postgres `Mismatched_invocation_cannot_reserve_a_provider_request` passed on 2026-08-20 |
 | Credential/profile isolation tests | passed | `FrozenModelDeploymentResolverTests` plus processor frozen-authority tests; secret symlink/size in WorkloadIdentity tests; no-fallback matrix for missing/revoked/wrong-org/provider mismatch |
 | Lease/auth/lifecycle concurrency tests | passed | Claim-lease heartbeat; overlapping reclaim; Postgres delegation revoke and principal-binding revoke at reservation (no started fact, no HTTP, lease not extended) |
-| PostgreSQL migration/provenance/recovery tests | passed | Additive `0029` unchanged; no new migration. `Upgrade_from_populated_0026_backfills_provider_request_identity` passed on 2026-08-21 and asserts leftover `direct_openai` / `sessions.openai.v1` bytes |
-| Architecture/module dependency tests | passed | Architecture **35 passed** after destination-policy cleanup; official SDK isolated to `FlexAgent.Sessions.OpenAiCompatible` with negative control; OpenRouter remains independent |
-| Sessions domain/application tests | passed | `FlexAgent.Sessions.Tests` **463 passed** on 2026-08-21 after shared operator-state duplicate/unknown-property fail-closed coverage, including pinned example digest `6bbfa471…` and historical Direct OpenAI digest `11fd39ad…` |
+| PostgreSQL migration/provenance/recovery tests | passed | Additive `0029` unchanged; no new migration. Locked-solution PostgreSQL integration on `a52e699` passed as part of **1214**. Earlier focused `Upgrade_from_populated_0026_backfills_provider_request_identity` still asserts leftover `direct_openai` / `sessions.openai.v1` bytes |
+| Architecture/module dependency tests | passed | Re-run on `a52e699` (2026-08-21): Architecture **35 passed**. Official SDK isolated to `FlexAgent.Sessions.OpenAiCompatible` with negative control; OpenRouter remains independent |
+| Sessions domain/application tests | passed | Re-run on `a52e699` (2026-08-21): `FlexAgent.Sessions.Tests` **463 passed**, including pinned example digest `6bbfa471…` and historical Direct OpenAI digest `11fd39ad…` |
+| Worker Runtime composition tests | passed | Re-run on `a52e699` (2026-08-21): `FlexAgent.Runtime.Tests` **178 passed**. `direct_openai` and committed example artifacts stay fail-closed; Testing compose succeeds only for a non-example `exact_profile` record; Production stays fail-closed |
 | Independent review of `e7d7031` | P1/P2 closed | Review confirmed qualification/config duplicates are rejected. Red: shared profile/catalog last-wins (`adapterKind`, digest, `revoked: true` then `false`, unknown fields) loaded. Green: `InstalledJsonObjectReader.RejectUnexpectedOrDuplicateProperties` rejects those objects; a strict `revoked: true` catalog still loads |
 | Exact OpenAI-compatible profile qualification | deferred successor | No exact profile is selected. Deterministic migration is implemented, but the adapter remains default-off and no compatible endpoint is qualified or enabled until a later bounded live run passes. OpenRouter remains a distinct evidence track |
 | Worker composition / legacy fail-closed | passed | Runtime tests: `direct_openai` with and without files stays fail-closed; committed example artifacts stay fail-closed; Testing compose succeeds only for a non-example `exact_profile` record; Production stays fail-closed even with enableable files plus OAuth identity. Readiness names OpenAI-compatible vs legacy Direct OpenAI honestly |
-| Locked regression, supply chain, OCI, docs, whitespace | passed with recorded residuals | Earlier same-day `bash build/scripts/verify-dotnet.sh` **1210 passed**, 3 skipped, 0 failed (not re-run on `69ee11b`; the current-head focused Sessions evidence is **463 passed**). Isolated Debug PostgreSQL that day was 262/263 with unrelated Keycloak HTTP 403. `python3 scripts/check_docs.py`, `git diff --check`, and example JSON parse passed. `bash build/scripts/verify-supply-chain.sh` and `verify-oci.sh` passed on that earlier run: NuGet clean, pnpm audit 2 moderate, gitleaks no leaks, publish/SPA Grype `--fail-on high` clean, live/ready probes, `appuser`/`nginx`. SPA Alpine `tiff`/`libcrypto3` High findings remain tracked base-image residuals |
+| Locked regression, supply chain, OCI, docs, whitespace | passed with recorded residuals | Re-run on `a52e699` (2026-08-21). `bash build/scripts/verify-dotnet.sh`: **1216 total**, **1214 passed**, 2 skipped (OpenRouter live/explicit filters), 0 failed; API/Worker publish excludes Development settings. `python3 scripts/check_docs.py`, `git diff --check`, and example-JSON parse passed. `bash build/scripts/verify-supply-chain.sh` passed: NuGet clean, pnpm audit 2 moderate, gitleaks no leaks, publish/SPA Grype `--fail-on high` clean. `bash build/scripts/verify-oci.sh` passed: live/ready probes, `appuser`/`nginx`, no Development settings, SPA excludes source maps, image Grype `--fail-on critical`. Tracked residuals: SPA Alpine `tiff`/`libcrypto3`/`libssl3` High, plus API/Worker base-image High (`openssl`/`libssl3t64`, `Microsoft.NETCore.App.Runtime.linux-arm64`) that do not fail the critical gate |
 | Independent destination-policy review | approved | Review of `4342318` (2026-08-21): no P0/P1/P2. Prior `5b44e04` and `4467983` findings are closed. Concurrent fallback was reviewed for races, cancellation, and leak-safety and still uses only the validated address set. GitHub had no status checks or PR workflow runs for this SHA |
 | Independent review of `69ee11b` | approved | Review of `69ee11b` (2026-08-21): no P0/P1/P2. Shared operator-state last-wins `revoked` is closed. Historical Direct OpenAI digest and OpenRouter example remain valid. Do not derive another remediation commit from this review. GitHub had no status checks or PR workflow runs for this SHA |
-| Independent backend/architecture/security review | code-review chain clean; e2e Phase B and GitHub CI still open | Destination policy, stream fail-closed, qualification/config JSON, and shared profile/catalog JSON are independently approved. End-to-end Phase B review and GitHub CI corroboration remain open. Exact-profile live qualification remains deferred |
+| Independent backend/architecture/security review | code-review chain clean; e2e Phase B and GitHub CI still open | Destination policy, stream fail-closed, qualification/config JSON, and shared profile/catalog JSON are independently approved. End-to-end Phase B review remains open. GitHub CI could not be corroborated here: `gh` requires `gh auth login` / `GH_TOKEN`. Exact-profile live qualification remains deferred |
+| Current-head close-out verification | passed | `a52e699` focused + locked-solution + supply-chain + OCI + docs/whitespace re-run 2026-08-21. No product or adapter code changed in this verification pass |
 
 # Blockers
 
@@ -855,6 +857,8 @@ Interim defaults are working guidance only and do not approve a deployment.
   and destination-policy evidence, reachable infrastructure, and permission to
   incur bounded calls/cost. Those missing inputs block enablement and the
   successor qualification task, not migration completion.
+- GitHub CI corroboration is unread in this environment because `gh` is not
+  authenticated. That is an evidence residual, not an implementation blocker.
 
 # Completion
 
@@ -876,4 +880,4 @@ Interim defaults are working guidance only and do not approve a deployment.
 - [x] Remaining gaps or unverified behavior are recorded
 - [x] Independent destination-policy review of `4342318` recorded as approved with no remaining findings
 - [x] Independent review of `69ee11b` recorded as approved with no remaining findings; this review chain requests no further remediation commit
-- [x] Task state is implementation-complete and code-review-chain complete: exact-profile live qualification, end-to-end Phase B review, and GitHub CI corroboration remain explicit residuals
+- [x] Task state is implementation-complete, code-review-chain complete, and current-head verification-complete on `a52e699`: exact-profile live qualification, end-to-end Phase B review, and GitHub CI corroboration remain explicit residuals
