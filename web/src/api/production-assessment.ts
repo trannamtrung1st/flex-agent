@@ -65,6 +65,19 @@ function createIdempotencyKey() {
   return `act-${crypto.randomUUID()}`;
 }
 
+function isAssessmentAccessLoss(error: unknown): error is ProductionApiError {
+  return error instanceof ProductionApiError
+    && (error.status === 401 || error.status === 403 || error.outcomeCode === "assessment.denied");
+}
+
+function throwAssessmentAccessLoss(error: ProductionApiError): never {
+  if (error.status === 401 || error.status === 403) {
+    throw error;
+  }
+
+  throw new ProductionApiError(error.status, "Your access changed", error.outcomeCode);
+}
+
 export function sourceOptionIdentity(source: Pick<ProductionSourceRef, "source_id" | "version_id">) {
   return `${source.source_id}:${source.version_id}`;
 }
@@ -221,8 +234,8 @@ export function createProductionAssessmentClient(fetchJson: <T>(path: string, in
           throw new ProductionApiError(409, "Activation did not complete. Reconcile before retrying.");
         }
       } catch (error) {
-        if (error instanceof ProductionApiError && (error.status === 401 || error.status === 403)) {
-          throw error;
+        if (isAssessmentAccessLoss(error)) {
+          throwAssessmentAccessLoss(error);
         }
 
         try {
@@ -233,9 +246,8 @@ export function createProductionAssessmentClient(fetchJson: <T>(path: string, in
             throw error;
           }
         } catch (reconcileError) {
-          if (reconcileError instanceof ProductionApiError
-            && (reconcileError.status === 401 || reconcileError.status === 403)) {
-            throw reconcileError;
+          if (isAssessmentAccessLoss(reconcileError)) {
+            throwAssessmentAccessLoss(reconcileError);
           }
 
           throw error instanceof Error

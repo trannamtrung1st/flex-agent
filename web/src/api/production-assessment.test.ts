@@ -102,33 +102,59 @@ describe("production assessment client", () => {
   it("does not reconcile after an access-loss activation failure", async () => {
     const fetchJson = vi.fn((path: string) => {
       if (path.includes("/activate")) {
-        return Promise.reject(new ProductionApiError(403, "Your access changed"));
+        return Promise.reject(new ProductionApiError(409, "Request failed", "assessment.denied"));
       }
 
       return Promise.reject(new Error(`unexpected ${path}`));
     });
     const client = createProductionAssessmentClient(fetchJson as <T>(path: string, init?: RequestInit) => Promise<T>);
 
-    await expect(client.activateCohort("act-1", draftView)).rejects.toMatchObject({ status: 403 });
+    await expect(client.activateCohort("act-1", draftView)).rejects.toMatchObject({
+      status: 409,
+      message: "Your access changed",
+      outcomeCode: "assessment.denied",
+    });
     expect(fetchJson).toHaveBeenCalledTimes(1);
   });
 
-  it("propagates access loss when reconciliation is forbidden after a lost POST", async () => {
+  it("propagates access loss when reconciliation is denied after a lost POST", async () => {
     const fetchJson = vi.fn((path: string, init?: RequestInit) => {
       if (path.includes("/activate") && init?.method === "POST") {
         return Promise.reject(new TypeError("Failed to fetch"));
       }
 
       if (path.includes("/activation?")) {
-        return Promise.reject(new ProductionApiError(403, "Your access changed"));
+        return Promise.reject(new ProductionApiError(404, "Request failed", "assessment.denied"));
       }
 
       return Promise.reject(new Error(`unexpected ${path}`));
     });
     const client = createProductionAssessmentClient(fetchJson as <T>(path: string, init?: RequestInit) => Promise<T>);
 
-    await expect(client.activateCohort("act-lost-403", { ...draftView, activity_id: "act-lost-403" }))
-      .rejects.toMatchObject({ status: 403, message: "Your access changed" });
+    await expect(client.activateCohort("act-lost-denied", { ...draftView, activity_id: "act-lost-denied" }))
+      .rejects.toMatchObject({
+        status: 404,
+        message: "Your access changed",
+        outcomeCode: "assessment.denied",
+      });
+  });
+
+  it("does not treat a missing reconcile attempt as access loss", async () => {
+    const fetchJson = vi.fn((path: string, init?: RequestInit) => {
+      if (path.includes("/activate") && init?.method === "POST") {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+
+      if (path.includes("/activation?")) {
+        return Promise.reject(new ProductionApiError(404, "Request failed", "assessment.not_found"));
+      }
+
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+    const client = createProductionAssessmentClient(fetchJson as <T>(path: string, init?: RequestInit) => Promise<T>);
+
+    await expect(client.activateCohort("act-lost-missing", { ...draftView, activity_id: "act-lost-missing" }))
+      .rejects.toBeInstanceOf(TypeError);
   });
 
   it("reuses an idempotency key only for the same expected revision", async () => {

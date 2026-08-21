@@ -460,6 +460,8 @@ enable model execution.
       resolver-facing read/verifier contract using the existing schema,
       versioned domain validators, explicit Assessment-owned
       `CanonicalJsonLimits`, and `FlexAgent.CanonicalJson`.
+- [x] Repair `c67894f` review: fail closed on `assessment.denied` for
+      activation 409 and reconcile 404, not only HTTP 401/403.
 - [x] Repair `310b2f2` review: propagate 401/403 from activation
       reconciliation, and bind cached idempotency keys to the exact
       revision command.
@@ -610,10 +612,12 @@ clears protected setup, lost activation POSTs reconcile with the same key,
 and source selection uses category plus `source_id:version_id`. The
 `310b2f2` follow-up is repaired: a 401/403 on reconcile is rethrown so
 the page can fail closed, and pending activation keys include
-`revision_id` and `revision_number`. Playwright MCP reached the
-production sign-in gate only. The OIDC-backed PostgreSQL setup journey is
-still blocked in this environment. `ADR-017` remains Proposed. The task
-stays in-progress.
+`revision_id` and `revision_number`. The `c67894f` follow-up treats
+`assessment.denied` as access loss for activation HTTP 409 and
+reconcile HTTP 404, matching the hosted contract. Playwright MCP
+reached the production sign-in gate only. The OIDC-backed PostgreSQL
+setup journey is still blocked in this environment. `ADR-017` remains
+Proposed. The task stays in-progress.
 
 Execution started at `ef911eed6fed2a8d2b31c93c5066e3d4eb283376`.
 
@@ -634,6 +638,14 @@ turning the synthetic scenario model into product persistence. The SPA now has a
 `VITE_API_MODE=production`. The synthetic provider remains isolated.
 
 # Findings / deviations
+
+- 2026-08-21 review of `c67894f`: activation/reconcile fail-closed now
+  uses `assessment.denied` plus 401/403. Hosted activate denial is
+  HTTP 409; hosted reconcile denial is HTTP 404. A 404 without that
+  outcome code is not treated as access loss. Reconcile concealment of
+  a missing attempt also uses `assessment.denied`; the interim default
+  is fail-closed page clear rather than leaving protected setup
+  visible. Web unit **82** passed after the repair.
 
 - 2026-08-21 review of `310b2f2`: reconcile 401/403 is no longer
   discarded after a lost POST; cached idempotency keys are scoped to
@@ -810,7 +822,7 @@ turning the synthetic scenario model into product persistence. The SPA now has a
 | Assessment focused tests | passed for domain/application | `dotnet test --project tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — **65 passed**, including admission-then-revoke races on Activate and Reconcile |
 | PostgreSQL migration/integration | passed for upgrade matrix | `AssessmentActivationPersistenceTests` **19 passed**, including hosted HTTP activate-then-revoke redaction of an existing baseline. Full `MigrationUpgradeTests` matrix **33 passed** after `0042` |
 | API/runtime contracts | partial | `AssessmentHttpNegativeContractTests` **14 passed**, including anonymous list/get/source-options **401**, create CSRF-without-session **401**, Administrator-without-MFA shell/list **403**, MFA-qualified shell **200**, guessed Activity **404**, and invalid reconcile key **400**. Broader `AC-ACT-24` HTTP negatives remain incomplete |
-| Web unit/accessibility | passed for composed provider | `npm test` **81 passed**; lint warning-only. Includes readiness/activation access-loss, lost-POST then reconcile 403 fail-closed, revision-scoped idempotency keys, and composite source selection |
+| Web unit/accessibility | passed for composed provider | `npm test` **82 passed**; lint warning-only. Includes activation 409 `assessment.denied` and lost-POST then reconcile 404 `assessment.denied` fail-closed, revision-scoped idempotency keys, and composite source selection |
 | Playwright MCP | partial | Production sign-in gate only: accessibility snapshot plus desktop 1280, narrow 390, and 320 reflow screenshots under `.playwright-mcp/page-2026-08-21T13-34-29-048Z.png`, `page-2026-08-21T13-34-40-843Z.png`, `page-2026-08-21T13-35-10-208Z.png`, `page-2026-08-21T13-35-58-774Z.png`. OIDC/Postgres setup states, both themes, reduced motion, and dialog/error journeys were not reachable |
 | Performance | pending | `AC-ACT-27` readiness and activation p95 evidence not observed |
 | Locked regression/supply-chain/OCI/docs/leakage | pending | Run proportionately after implementation |

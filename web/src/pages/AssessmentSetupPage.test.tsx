@@ -146,7 +146,7 @@ describe("AssessmentSetupPage", () => {
       }
 
       if (path.includes("/activation?")) {
-        return Promise.reject(new ProductionApiError(403, "Your access changed"));
+        return Promise.reject(new ProductionApiError(404, "Request failed", "assessment.denied"));
       }
 
       return Promise.reject(new Error(`unexpected ${path}`));
