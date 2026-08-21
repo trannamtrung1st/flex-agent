@@ -10,6 +10,25 @@ public static class InstalledOperatorStateFiles
 
 public static class InstalledModelDeploymentProfileFile
 {
+    private static readonly HashSet<string> AllowedProperties = new(StringComparer.Ordinal)
+    {
+        "profileId",
+        "profileVersion",
+        "adapterKind",
+        "adapterContractVersion",
+        "approvedHttpsOrigin",
+        "requestedModel",
+        "resolvedModelVersion",
+        "capabilityProfileId",
+        "credentialMode",
+        "maxOutputTokens",
+        "controlTimeoutMilliseconds",
+        "contentTimeoutMilliseconds",
+        "maxProviderRequestAttempts",
+        "providerId",
+        "adapterConfigurationDigest",
+    };
+
     public static InstalledModelDeploymentProfile[] Load(string path)
     {
         using var document = InstalledJsonArrayFile.Parse(path);
@@ -22,6 +41,7 @@ public static class InstalledModelDeploymentProfileFile
                 throw new ArgumentException("Installed profiles must contain objects.");
             }
 
+            InstalledJsonObjectReader.RejectUnexpectedOrDuplicateProperties(item, AllowedProperties);
             string? adapterDigest = null;
             if (item.TryGetProperty("adapterConfigurationDigest", out var digestElement))
             {
@@ -59,6 +79,17 @@ public static class InstalledModelDeploymentProfileFile
 
 public static class InstalledCredentialCatalogFile
 {
+    private static readonly HashSet<string> AllowedProperties = new(StringComparer.Ordinal)
+    {
+        "bindingReference",
+        "bindingVersion",
+        "ownerOrganizationId",
+        "providerId",
+        "credentialMode",
+        "revoked",
+        "secretName",
+    };
+
     public static IModelDeploymentCredentialCatalog Load(string? path)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
@@ -76,6 +107,7 @@ public static class InstalledCredentialCatalogFile
                 throw new ArgumentException("Credential catalog entries must be objects.");
             }
 
+            InstalledJsonObjectReader.RejectUnexpectedOrDuplicateProperties(item, AllowedProperties);
             var record = new ModelDeploymentCredentialCatalogRecord(
                 InstalledJsonObjectReader.RequiredString(item, "bindingReference"),
                 InstalledJsonObjectReader.RequiredString(item, "bindingVersion"),
@@ -127,6 +159,24 @@ internal static class InstalledJsonArrayFile
 
 internal static class InstalledJsonObjectReader
 {
+    public static void RejectUnexpectedOrDuplicateProperties(JsonElement item, IReadOnlySet<string> allowed)
+    {
+        ArgumentNullException.ThrowIfNull(allowed);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var property in item.EnumerateObject())
+        {
+            if (!seen.Add(property.Name))
+            {
+                throw new ArgumentException($"Installed operator state contains duplicate property '{property.Name}'.");
+            }
+
+            if (!allowed.Contains(property.Name))
+            {
+                throw new ArgumentException($"Installed operator state contains unexpected property '{property.Name}'.");
+            }
+        }
+    }
+
     public static string RequiredString(JsonElement item, string name)
     {
         if (!item.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String)

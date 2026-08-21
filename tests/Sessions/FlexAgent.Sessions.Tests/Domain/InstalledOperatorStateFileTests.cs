@@ -43,6 +43,129 @@ public sealed class InstalledOperatorStateFileTests
         Assert.Throws<ArgumentException>(() => InstalledCredentialCatalogFile.Load(WriteTemp("""[{"bindingReference":"a"}]""")));
     }
 
+    [Fact]
+    public void Duplicate_or_unknown_profile_and_catalog_properties_fail_closed()
+    {
+        Assert.Throws<ArgumentException>(() => InstalledModelDeploymentProfileFile.Load(WriteTemp("""
+            [
+              {
+                "profileId": "direct-openai.example.do-not-enable",
+                "profileVersion": "1",
+                "adapterKind": "direct_openai",
+                "adapterKind": "openai_compatible",
+                "adapterContractVersion": "sessions.openai.v1",
+                "approvedHttpsOrigin": "https://api.openai.com/",
+                "requestedModel": "replace-with-owner-selected-model",
+                "resolvedModelVersion": "replace-with-immutable-version",
+                "capabilityProfileId": "p0.text.structured-control",
+                "credentialMode": "organization_byok",
+                "maxOutputTokens": 256,
+                "controlTimeoutMilliseconds": 30000,
+                "contentTimeoutMilliseconds": 60000,
+                "maxProviderRequestAttempts": 2,
+                "providerId": "openai.direct"
+              }
+            ]
+            """)));
+
+        Assert.Throws<ArgumentException>(() => InstalledModelDeploymentProfileFile.Load(WriteTemp("""
+            [
+              {
+                "profileId": "openai-compatible.example.do-not-enable",
+                "profileVersion": "1",
+                "adapterKind": "openai_compatible",
+                "adapterContractVersion": "sessions.openai_compatible.v1",
+                "approvedHttpsOrigin": "https://models.organization.example/",
+                "requestedModel": "replace-with-operator-selected-model",
+                "resolvedModelVersion": "replace-with-immutable-version-or-fingerprint",
+                "capabilityProfileId": "p0.text.structured-control",
+                "credentialMode": "organization_byok",
+                "maxOutputTokens": 256,
+                "controlTimeoutMilliseconds": 30000,
+                "contentTimeoutMilliseconds": 60000,
+                "maxProviderRequestAttempts": 2,
+                "providerId": "replace-with-actual-provider-or-runtime-id",
+                "adapterConfigurationDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+                "adapterConfigurationDigest": "66f729ceff48a979b8ec5d2bc8c76250a4807ce886ec46ff8a9aaff48669a858"
+              }
+            ]
+            """)));
+
+        Assert.Throws<ArgumentException>(() => InstalledModelDeploymentProfileFile.Load(WriteTemp("""
+            [
+              {
+                "profileId": "direct-openai.example.do-not-enable",
+                "profileVersion": "1",
+                "adapterKind": "direct_openai",
+                "adapterContractVersion": "sessions.openai.v1",
+                "approvedHttpsOrigin": "https://api.openai.com/",
+                "requestedModel": "replace-with-owner-selected-model",
+                "resolvedModelVersion": "replace-with-immutable-version",
+                "capabilityProfileId": "p0.text.structured-control",
+                "credentialMode": "organization_byok",
+                "maxOutputTokens": 256,
+                "controlTimeoutMilliseconds": 30000,
+                "contentTimeoutMilliseconds": 60000,
+                "maxProviderRequestAttempts": 2,
+                "providerId": "openai.direct",
+                "legacyEndpoint": "https://api.openai.com/v1"
+              }
+            ]
+            """)));
+
+        Assert.Throws<ArgumentException>(() => InstalledCredentialCatalogFile.Load(WriteTemp("""
+            [
+              {
+                "bindingReference": "bind.opaque.0001",
+                "bindingVersion": "bind.v1",
+                "ownerOrganizationId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                "providerId": "openai.compatible.test",
+                "credentialMode": "organization_byok",
+                "revoked": true,
+                "revoked": false,
+                "secretName": "org-a-openai"
+              }
+            ]
+            """)));
+
+        Assert.Throws<ArgumentException>(() => InstalledCredentialCatalogFile.Load(WriteTemp("""
+            [
+              {
+                "bindingReference": "bind.opaque.0001",
+                "bindingVersion": "bind.v1",
+                "ownerOrganizationId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                "providerId": "openai.compatible.test",
+                "credentialMode": "organization_byok",
+                "revoked": true,
+                "secretName": "org-a-openai",
+                "payerOverride": "deployment_default"
+              }
+            ]
+            """)));
+    }
+
+    [Fact]
+    public void Revoked_catalog_entry_loads_only_when_the_object_is_strict()
+    {
+        var catalog = InstalledCredentialCatalogFile.Load(WriteTemp("""
+            [
+              {
+                "bindingReference": "bind.opaque.0001",
+                "bindingVersion": "bind.v1",
+                "ownerOrganizationId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                "providerId": "openai.compatible.test",
+                "credentialMode": "organization_byok",
+                "revoked": true,
+                "secretName": "org-a-openai"
+              }
+            ]
+            """));
+
+        var record = catalog.TryGet("bind.opaque.0001", "bind.v1");
+        Assert.NotNull(record);
+        Assert.True(record.Revoked);
+    }
+
     private static string WriteTemp(string json)
     {
         var path = Path.Combine(Path.GetTempPath(), "flex-agent-installed-" + Guid.NewGuid().ToString("N") + ".json");
