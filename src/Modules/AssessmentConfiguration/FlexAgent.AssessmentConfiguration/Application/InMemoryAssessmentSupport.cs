@@ -252,9 +252,10 @@ public sealed class InMemoryAssessmentBaselineStore : IAssessmentBaselineStore
         IAssessmentActivationTransaction transaction,
         AssessmentActorContext actor,
         DateTimeOffset occurredAtUtc,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AuthorizationDecision? authorization = null)
     {
-        _ = (organizationId, activityId, cohortId, baselineId, document, contentDigest, transaction, actor, occurredAtUtc, cancellationToken);
+        _ = (organizationId, activityId, cohortId, baselineId, document, contentDigest, transaction, actor, occurredAtUtc, cancellationToken, authorization);
         InsertCount++;
         LastActorId = actor.Actor.ActorId;
         LastCorrelationId = actor.CorrelationId;
@@ -339,9 +340,10 @@ public sealed class InMemoryAssessmentAttemptStore : IAssessmentActivationAttemp
         string outcome,
         string? reasonCode,
         IAssessmentActivationTransaction transaction,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AuthorizationDecision? authorization = null)
     {
-        _ = (transaction, cancellationToken);
+        _ = (transaction, cancellationToken, authorization);
         RequestAudits.Add((actor, action, resourceId, resourceType, outcome, reasonCode));
         return Task.CompletedTask;
     }

@@ -97,7 +97,8 @@ public sealed record AssessmentActivationAttempt(
     string SourceChannel,
     Guid? AuthoritativeCohortId,
     DateTimeOffset StartedAtUtc,
-    DateTimeOffset FinishedAtUtc);
+    DateTimeOffset FinishedAtUtc,
+    AuthorizationDecision? Authorization = null);
 
 public interface IAssessmentActivationAttemptStore
 {
@@ -138,7 +139,8 @@ public interface IAssessmentActivationAttemptStore
         string outcome,
         string? reasonCode,
         IAssessmentActivationTransaction transaction,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        AuthorizationDecision? authorization = null);
 
     Task<string> BindCommandDigestAsync(
         Guid organizationId,
@@ -324,5 +326,6 @@ public interface IAssessmentBaselineStore
         IAssessmentActivationTransaction transaction,
         AssessmentActorContext actor,
         DateTimeOffset occurredAtUtc,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        AuthorizationDecision? authorization = null);
 }

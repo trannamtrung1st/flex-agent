@@ -353,6 +353,40 @@ public sealed class AssessmentActivationCoordinatorTests
     }
 
     [Fact]
+    public async Task Success_then_revoked_grant_after_admission_does_not_disclose_the_baseline()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+        harness.Authorization.DeniedOnReauthorize.Add(AssessmentAuthorizationActions.ActivateCohort);
+        var denied = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+
+        Assert.True(first.Succeeded);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.Denied, denied.OutcomeCode);
+        Assert.Null(denied.BaselineId);
+        Assert.Null(denied.BaselineDigest);
+        Assert.Equal(CohortStates.Draft, denied.CohortState);
+    }
+
+    [Fact]
+    public async Task Reconcile_after_admission_then_revoked_grant_does_not_disclose_the_baseline()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+        harness.Authorization.DeniedOnReauthorize.Add(AssessmentAuthorizationActions.ReconcileActivation);
+        var reconciled = await harness.Coordinator.ReconcileAsync(
+            new ReconcileActivationQuery(harness.Actor, harness.Draft.ActivityId, harness.Cohort.CohortId, "idem-1"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(first.Succeeded);
+        Assert.False(reconciled.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.Denied, reconciled.OutcomeCode);
+        Assert.Null(reconciled.BaselineId);
+        Assert.Null(reconciled.BaselineDigest);
+        Assert.Equal(CohortStates.Draft, reconciled.CohortState);
+    }
+
+    [Fact]
     public async Task Reconcile_returns_the_stored_success_when_the_attempt_appears_after_the_first_read()
     {
         var harness = await CreateReadyHarnessAsync();
@@ -552,8 +586,9 @@ internal sealed class DelayedFindAttemptStore(
         string outcome,
         string? reasonCode,
         IAssessmentActivationTransaction transaction,
-        CancellationToken cancellationToken) =>
-        inner.InsertRequestAuditAsync(actor, action, resourceId, resourceType, outcome, reasonCode, transaction, cancellationToken);
+        CancellationToken cancellationToken,
+        AuthorizationDecision? authorization = null) =>
+        inner.InsertRequestAuditAsync(actor, action, resourceId, resourceType, outcome, reasonCode, transaction, cancellationToken, authorization);
 
     public Task<string> BindCommandDigestAsync(
         Guid organizationId,

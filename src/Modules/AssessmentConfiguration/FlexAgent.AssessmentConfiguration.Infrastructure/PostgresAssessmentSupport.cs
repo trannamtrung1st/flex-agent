@@ -51,7 +51,8 @@ public sealed class PostgresAssessmentBaselineStore(
         IAssessmentActivationTransaction transaction,
         AssessmentActorContext actor,
         DateTimeOffset occurredAtUtc,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AuthorizationDecision? authorization = null)
     {
         if (transaction.PersistenceContext is not NpgsqlTransaction npgsql)
         {
@@ -114,9 +115,11 @@ public sealed class PostgresAssessmentBaselineStore(
                 baselineId,
                 "permit",
                 null,
-                1,
+                authorization?.RelationshipVersion,
                 actor.SourceChannel,
-                contentDigest),
+                contentDigest,
+                authorization?.AuthorizationReferenceType,
+                authorization?.AuthorizationReferenceId),
             npgsql,
             cancellationToken);
         await outboxItemWriter.InsertAsync(
@@ -566,9 +569,11 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                 attempt.CohortId,
                 auditOutcome,
                 auditOutcome == "permit" ? null : attempt.OutcomeCode,
-                1,
+                attempt.Authorization?.RelationshipVersion,
                 attempt.SourceChannel,
-                attempt.CommandDigest),
+                attempt.CommandDigest,
+                attempt.Authorization?.AuthorizationReferenceType,
+                attempt.Authorization?.AuthorizationReferenceId),
             npgsql,
             cancellationToken);
     }
@@ -581,7 +586,8 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
         string outcome,
         string? reasonCode,
         IAssessmentActivationTransaction transaction,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AuthorizationDecision? authorization = null)
     {
         if (transaction.PersistenceContext is not NpgsqlTransaction npgsql)
         {
@@ -607,9 +613,11 @@ public sealed class PostgresAssessmentAttemptStore(IAuditEventWriter auditEventW
                 resourceId,
                 outcome,
                 reasonCode,
-                1,
+                authorization?.RelationshipVersion,
                 actor.SourceChannel,
-                PayloadDigest: null),
+                PayloadDigest: null,
+                authorization?.AuthorizationReferenceType,
+                authorization?.AuthorizationReferenceId),
             npgsql,
             cancellationToken);
     }

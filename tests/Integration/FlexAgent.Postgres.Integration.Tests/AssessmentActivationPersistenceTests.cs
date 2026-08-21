@@ -316,6 +316,41 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
     }
 
     [Fact]
+    public async Task Success_then_revoked_grant_after_admission_does_not_disclose_the_baseline()
+    {
+        var harness = await SeedReadyHarnessAsync();
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken);
+        var connections = Fixture.Services.ConnectionAccessor;
+        var kernel = new PostgresAuthorizationKernel(connections);
+        var store = new PostgresAssessmentDraftStore(connections, new PostgresAuditEventWriter());
+        var catalog = new PostgresAssessmentSourceCatalog(connections);
+        var grants = new PostgresGrantRepository(connections);
+        var coordinator = new AssessmentActivationCoordinator(
+            new KernelAssessmentAuthorizationPort(kernel, kernel),
+            catalog,
+            store,
+            new PostgresAssessmentUnitOfWork(connections),
+            new ActivationBaselineDigester(),
+            new AssessmentCommandDigest(),
+            new PostgresAssessmentBaselineStore(new PostgresAuditEventWriter(), new PostgresOutboxItemWriter()),
+            new RevokeActivateGrantAfterLockStore(
+                new PostgresAssessmentAttemptStore(new PostgresAuditEventWriter()),
+                () => grants.RevokeAsync(
+                    harness.OrganizationId,
+                    harness.Actor.Actor.ActorId,
+                    AssessmentAuthorizationActions.ActivateCohort,
+                    CancellationToken)));
+        var denied = await coordinator.ActivateAsync(harness.Command(), CancellationToken);
+
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.Denied, denied.OutcomeCode);
+        Assert.Null(denied.BaselineId);
+        Assert.Null(denied.BaselineDigest);
+        Assert.Equal(CohortStates.Draft, denied.CohortState);
+    }
+
+    [Fact]
     public async Task Success_then_participant_relationship_does_not_disclose_the_baseline()
     {
         var harness = await SeedReadyHarnessAsync();
@@ -369,6 +404,35 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
     public async Task Successful_activation_audit_uses_the_trusted_actor()
     {
         var harness = await SeedReadyHarnessAsync();
+        await using var grantConnection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await grantConnection.ExecuteAsync(
+            """
+            UPDATE actor_organization_grants
+            SET relationship_version = 7
+            WHERE organization_id = @OrganizationId
+              AND actor_id = @ActorId
+              AND granted_action = @Action
+            """,
+            new
+            {
+                harness.OrganizationId,
+                ActorId = harness.Actor.Actor.ActorId,
+                Action = AssessmentAuthorizationActions.ActivateCohort,
+            });
+        var grant = await grantConnection.QuerySingleAsync<(Guid GrantId, long Version)>(
+            """
+            SELECT grant_id, relationship_version
+            FROM actor_organization_grants
+            WHERE organization_id = @OrganizationId
+              AND actor_id = @ActorId
+              AND granted_action = @Action
+            """,
+            new
+            {
+                harness.OrganizationId,
+                ActorId = harness.Actor.Actor.ActorId,
+                Action = AssessmentAuthorizationActions.ActivateCohort,
+            });
         Assert.True((await harness.Coordinator.ActivateAsync(harness.Command(), CancellationToken)).Succeeded);
 
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
@@ -404,6 +468,42 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
             """,
             new { harness.OrganizationId });
         Assert.Equal(harness.CohortId, aggregateId);
+        var baselineAudit = await connection.QuerySingleAsync<(long? Version, string? ReferenceType, Guid? ReferenceId)>(
+            """
+            SELECT relationship_version, authorization_reference_type, authorization_reference_id
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND resource_type = @ResourceType
+              AND outcome = 'permit'
+            ORDER BY sequence_number DESC
+            LIMIT 1
+            """,
+            new { harness.OrganizationId, ResourceType = AssessmentResourceTypes.Baseline });
+        var attemptAudit = await connection.QuerySingleAsync<(long? Version, string? ReferenceType, Guid? ReferenceId)>(
+            """
+            SELECT relationship_version, authorization_reference_type, authorization_reference_id
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND action = @Action
+              AND resource_type = @ResourceType
+              AND resource_id = @CohortId
+              AND outcome = 'permit'
+            ORDER BY sequence_number DESC
+            LIMIT 1
+            """,
+            new
+            {
+                harness.OrganizationId,
+                Action = AssessmentAuthorizationActions.ActivateCohort,
+                ResourceType = AssessmentResourceTypes.Cohort,
+                harness.CohortId,
+            });
+        Assert.Equal(7, baselineAudit.Version);
+        Assert.Equal(AuthorizationReferenceTypes.ActorOrganizationGrant, baselineAudit.ReferenceType);
+        Assert.Equal(grant.GrantId, baselineAudit.ReferenceId);
+        Assert.Equal(7, attemptAudit.Version);
+        Assert.Equal(AuthorizationReferenceTypes.ActorOrganizationGrant, attemptAudit.ReferenceType);
+        Assert.Equal(grant.GrantId, attemptAudit.ReferenceId);
     }
 
     [Fact]
@@ -576,6 +676,21 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
                 Reason = AssessmentFailureCodes.InvalidField,
             });
         Assert.Equal(1, auditCount);
+        var relationshipVersion = await connection.ExecuteScalarAsync<long?>(
+            """
+            SELECT relationship_version
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND action = @Action
+              AND reason_code = @Reason
+            """,
+            new
+            {
+                harness.OrganizationId,
+                Action = AssessmentAuthorizationActions.ActivateCohort,
+                Reason = AssessmentFailureCodes.InvalidField,
+            });
+        Assert.Null(relationshipVersion);
     }
 
     [Fact]
@@ -874,6 +989,91 @@ public sealed class AssessmentActivationPersistenceTests(PostgresIntegrationFixt
                 DeploymentEnvironments.Development);
             return command with { TrustedCommandDigest = Digest.Compute(command) };
         }
+    }
+
+    private sealed class RevokeActivateGrantAfterLockStore(
+        IAssessmentActivationAttemptStore inner,
+        Func<Task> revoke) : IAssessmentActivationAttemptStore
+    {
+        public async Task AcquireIdempotencyLockAsync(
+            Guid organizationId,
+            Guid activityId,
+            Guid cohortId,
+            string idempotencyKey,
+            IAssessmentActivationTransaction transaction,
+            CancellationToken cancellationToken)
+        {
+            await inner.AcquireIdempotencyLockAsync(
+                organizationId,
+                activityId,
+                cohortId,
+                idempotencyKey,
+                transaction,
+                cancellationToken);
+            await revoke();
+        }
+
+        public Task<AssessmentActivationAttempt?> FindAsync(
+            Guid organizationId,
+            Guid activityId,
+            Guid cohortId,
+            string idempotencyKey,
+            IAssessmentActivationTransaction transaction,
+            CancellationToken cancellationToken) =>
+            inner.FindAsync(organizationId, activityId, cohortId, idempotencyKey, transaction, cancellationToken);
+
+        public Task<AssessmentActivationAttempt?> FindSuccessfulAsync(
+            Guid organizationId,
+            Guid activityId,
+            Guid cohortId,
+            string idempotencyKey,
+            IAssessmentActivationTransaction transaction,
+            CancellationToken cancellationToken) =>
+            inner.FindSuccessfulAsync(organizationId, activityId, cohortId, idempotencyKey, transaction, cancellationToken);
+
+        public Task InsertAsync(
+            AssessmentActivationAttempt attempt,
+            IAssessmentActivationTransaction transaction,
+            CancellationToken cancellationToken) =>
+            inner.InsertAsync(attempt, transaction, cancellationToken);
+
+        public Task InsertRequestAuditAsync(
+            AssessmentActorContext actor,
+            string action,
+            Guid resourceId,
+            string resourceType,
+            string outcome,
+            string? reasonCode,
+            IAssessmentActivationTransaction transaction,
+            CancellationToken cancellationToken,
+            AuthorizationDecision? authorization = null) =>
+            inner.InsertRequestAuditAsync(
+                actor,
+                action,
+                resourceId,
+                resourceType,
+                outcome,
+                reasonCode,
+                transaction,
+                cancellationToken,
+                authorization);
+
+        public Task<string> BindCommandDigestAsync(
+            Guid organizationId,
+            Guid activityId,
+            Guid requestedCohortId,
+            string idempotencyKey,
+            string commandDigest,
+            IAssessmentActivationTransaction transaction,
+            CancellationToken cancellationToken) =>
+            inner.BindCommandDigestAsync(
+                organizationId,
+                activityId,
+                requestedCohortId,
+                idempotencyKey,
+                commandDigest,
+                transaction,
+                cancellationToken);
     }
 
     private sealed class RevokeAfterSelectableLockCatalog(
