@@ -113,6 +113,56 @@ describe("production assessment client", () => {
     expect(fetchJson).toHaveBeenCalledTimes(1);
   });
 
+  it("propagates access loss when reconciliation is forbidden after a lost POST", async () => {
+    const fetchJson = vi.fn((path: string, init?: RequestInit) => {
+      if (path.includes("/activate") && init?.method === "POST") {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+
+      if (path.includes("/activation?")) {
+        return Promise.reject(new ProductionApiError(403, "Your access changed"));
+      }
+
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+    const client = createProductionAssessmentClient(fetchJson as <T>(path: string, init?: RequestInit) => Promise<T>);
+
+    await expect(client.activateCohort("act-lost-403", { ...draftView, activity_id: "act-lost-403" }))
+      .rejects.toMatchObject({ status: 403, message: "Your access changed" });
+  });
+
+  it("reuses an idempotency key only for the same expected revision", async () => {
+    const keys: string[] = [];
+    const fetchJson = vi.fn((path: string, init?: RequestInit) => {
+      if (path.includes("/activate") && init?.method === "POST") {
+        const rawBody = init.body;
+        if (typeof rawBody !== "string") {
+          throw new Error("expected activation body");
+        }
+
+        const body = JSON.parse(rawBody) as { idempotency_key: string };
+        keys.push(body.idempotency_key);
+        return Promise.reject(new ProductionApiError(409, "Request failed", "assessment.stale_revision"));
+      }
+
+      if (path.includes("/activation?")) {
+        return Promise.resolve({ succeeded: false, outcome_code: "assessment.stale_revision" });
+      }
+
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+    const client = createProductionAssessmentClient(fetchJson as <T>(path: string, init?: RequestInit) => Promise<T>);
+    const first = { ...draftView, activity_id: "act-rev", revision_id: "rev-5", revision_number: 5 };
+
+    await expect(client.activateCohort("act-rev", first)).rejects.toBeTruthy();
+    await expect(client.activateCohort("act-rev", first)).rejects.toBeTruthy();
+    await expect(client.activateCohort("act-rev", { ...first, revision_id: "rev-6", revision_number: 6 })).rejects.toBeTruthy();
+
+    expect(keys).toHaveLength(3);
+    expect(keys[0]).toEqual(keys[1]);
+    expect(keys[2]).not.toEqual(keys[0]);
+  });
+
   it("selects sources by category and source/version identity", () => {
     const sources = [
       { category: "agent", source_id: "agent-a", version_id: "v1", content_digest: "a".repeat(64), source_kind: "agent", production_eligible: true },

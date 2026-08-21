@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
+import { createProductionAssessmentClient } from "../api/production-assessment";
+import { ProductionApiError } from "../api/production-api";
 import { AssessmentSetupPage, type AssessmentSetupView } from "./AssessmentSetupPage";
 
 const readyView: AssessmentSetupView = {
@@ -135,5 +137,45 @@ describe("AssessmentSetupPage", () => {
     expect(screen.queryByLabelText("Campaign title")).not.toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Selected source revisions" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Activate this empty cohort?" })).not.toBeInTheDocument();
+  });
+
+  it("removes protected setup when a lost activation POST then reconcile is forbidden", async () => {
+    const fetchJson = vi.fn((path: string, init?: RequestInit) => {
+      if (path.includes("/activate") && init?.method === "POST") {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+
+      if (path.includes("/activation?")) {
+        return Promise.reject(new ProductionApiError(403, "Your access changed"));
+      }
+
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+    const client = createProductionAssessmentClient(fetchJson as <T>(path: string, init?: RequestInit) => Promise<T>);
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/activities/:activityId/setup",
+          element: (
+            <AssessmentSetupPage
+              loadSetup={() => Promise.resolve(readyView)}
+              saveDraft={() => Promise.resolve(readyView)}
+              checkReadiness={() => Promise.resolve(readyView)}
+              activateCohort={client.activateCohort}
+            />
+          ),
+        },
+      ],
+      { initialEntries: ["/activities/act-1/setup"] },
+    );
+
+    render(<RouterProvider router={router} />);
+    await screen.findByRole("heading", { name: "Setup and readiness" });
+    fireEvent.click(screen.getByRole("button", { name: "Activate cohort" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm activation" }));
+    expect(await screen.findByRole("heading", { name: "Your access changed" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Campaign title")).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Selected source revisions" })).not.toBeInTheDocument();
   });
 });

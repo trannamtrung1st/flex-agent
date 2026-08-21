@@ -201,7 +201,7 @@ export function createProductionAssessmentClient(fetchJson: <T>(path: string, in
         throw new ProductionApiError(400, "Activation is not available.");
       }
 
-      const pendingKey = `${activityId}:${view.cohort_id}`;
+      const pendingKey = `${activityId}:${view.cohort_id}:${view.revision_id}:${String(view.revision_number)}`;
       const idempotencyKey = pendingActivationKeys.get(pendingKey) ?? createIdempotencyKey();
       pendingActivationKeys.set(pendingKey, idempotencyKey);
       try {
@@ -233,8 +233,9 @@ export function createProductionAssessmentClient(fetchJson: <T>(path: string, in
             throw error;
           }
         } catch (reconcileError) {
-          if (reconcileError === error) {
-            throw error;
+          if (reconcileError instanceof ProductionApiError
+            && (reconcileError.status === 401 || reconcileError.status === 403)) {
+            throw reconcileError;
           }
 
           throw error instanceof Error
