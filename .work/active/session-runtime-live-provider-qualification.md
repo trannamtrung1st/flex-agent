@@ -457,10 +457,14 @@ entry, qualify real use, or certify a production pilot.
 - [x] Close remaining P2 follow-ups from review of `4467983`: deny IANA
       AS112 `2620:4f:8000::/48`, and bound/stagger per-address connect so a
       black-holed first candidate cannot consume the whole request timeout.
+- [x] Record independent approval of `4342318`: destination-policy code
+      review complete with no remaining P0/P1/P2 from that review chain.
 - [>] Run focused domain, adapter, Runtime, Architecture, and PostgreSQL tests,
       then the locked full solution, OCI build, SBOM/license/vulnerability and
       secret checks, documentation validation, JSON/example consistency, and
-      whitespace checks. Obtain independent backend and security/privacy review.
+      whitespace checks. Destination-policy independent review is obtained;
+      remaining items are operational/evidence gates, not destination-policy
+      code findings.
 - [-] Defer the bounded synthetic-only live qualification run to a successor
       task created when an owner supplies one exact approved compatible
       deployment profile, credential, destination policy, and run budget. Do
@@ -473,21 +477,15 @@ entry, qualify real use, or certify a production pilot.
 
 # Current state
 
-Review of `4467983` approved the destination-policy remediation. The two P2
-follow-ups are implemented: IANA AS112 `2620:4f:8000::/48` is denied, and
-connect uses a 250ms stagger plus a 2s per-address timeout so a black-holed
-first candidate cannot consume the whole request. Adapter tests are 28
-passed. Full-solution / OCI / SBOM / independent re-review remain open. Do
-not claim live qualification.
-
-Review of `5b44e04` destination-policy gaps is implemented. `public_only`
-uses a conservative globally-routable classifier; `private_allowlist` CIDRs
-must be wholly contained in RFC1918/ULA and are stored with masked network
-bits; the configuration loader rejects unknown and policy-mismatched
-properties; the connector tries every already-validated address (IPv6 then
-IPv4) and does not perform a second DNS lookup. Focused adapter, Sessions,
-Architecture, and Worker composition tests passed. Full-solution / OCI /
-SBOM / independent re-review remain open. Do not claim live qualification.
+Independent review of `4342318` approved the destination-policy chain
+(`5b44e04` → `4467983` → `4342318`) with no remaining P0/P1/P2 findings.
+AS112 `2620:4f:8000::/48` is denied, and staggered/bounded connect handles
+immediate failures and black-holed first addresses without a second DNS
+lookup. Destination-policy code review is complete. Remaining Phase B
+blockers are operational/evidence gates: full-solution verification at this
+head, OCI/SBOM, GitHub CI corroboration (none observed for this SHA), and
+separate exact-profile live qualification. Do not claim live qualification
+or close `GATE-STACK-PROVIDERS`.
 
 Phase B deterministic migration is implemented. The executable adapter identity
 is `openai_compatible` / `sessions.openai_compatible.v1` in
@@ -746,6 +744,14 @@ Interim defaults are working guidance only and do not approve a deployment.
   with no remaining P0/P1 from the prior review. Two P2s are now closed:
   IANA AS112 `2620:4f:8000::/48` is denied, and connect staggers/bounds
   per-address attempts so a hung first candidate cannot block fallback.
+- Independent review of `4342318` (2026-08-21): approve, no P0/P1/P2. Both
+  prior P2s are closed. Concurrent fallback still uses only the already
+  validated address set. Non-blocking observation: the test-oriented
+  `ConnectAsync` overload accepts arbitrary timeout/stagger values, and
+  `attemptTimeout <= 0` disables the per-address bound; production uses the
+  parameterless defaults. Validate those values if they later become
+  configuration-driven. Destination-policy code review is complete; remaining
+  gates are full-solution/OCI/SBOM, GitHub CI, and exact-profile qualification.
 - Official OpenAI .NET SDK is retained as internal transport: fake-transport
   tests pin request URIs at `/v1/chat/completions`, `/openai/v1/chat/completions`,
   and `/api/chat/completions` when `OpenAIClientOptions.Endpoint` includes the
@@ -788,7 +794,8 @@ Interim defaults are working guidance only and do not approve a deployment.
 | Exact OpenAI-compatible profile qualification | deferred successor | No exact profile is selected. Deterministic migration is implemented, but the adapter remains default-off and no compatible endpoint is qualified or enabled until a later bounded live run passes. OpenRouter remains a distinct evidence track |
 | Worker composition / legacy fail-closed | passed | Runtime tests: `direct_openai` with and without files stays fail-closed; committed example artifacts stay fail-closed; Testing compose succeeds only for a non-example `exact_profile` record; Production stays fail-closed even with enableable files plus OAuth identity. Readiness names OpenAI-compatible vs legacy Direct OpenAI honestly |
 | Locked regression, supply chain, OCI, docs, whitespace | partial | `dotnet restore FlexAgent.slnx --locked-mode` passed. `python3 scripts/check_docs.py` and `git diff --check` passed. Example JSON parsed. Full solution **1204 passed**, 2 skipped, 1 failed: `Keycloak_signed_logout_token_satisfies_the_backchannel_contract` HTTP 403 (unrelated to this adapter). OCI image rebuild/SBOM/grype not re-run |
-| Independent backend/architecture/security review | pending re-review of P2 closeout | Review of `4467983` approved the destination-policy remediation (no remaining P0/P1). The two recorded P2s are implemented in this follow-up. GitHub CI was not observed for that SHA |
+| Independent destination-policy review | approved | Review of `4342318` (2026-08-21): no P0/P1/P2. Prior `5b44e04` and `4467983` findings are closed. Concurrent fallback was reviewed for races, cancellation, and leak-safety and still uses only the validated address set. GitHub had no status checks or PR workflow runs for this SHA |
+| Independent backend/architecture/security review | destination-policy complete; remaining evidence open | Destination-policy independent review is complete. Full-solution verification at `4342318`, OCI/SBOM/grype, and GitHub CI corroboration remain open and are not treated as destination-policy code findings |
 
 # Blockers
 
@@ -818,4 +825,5 @@ Interim defaults are working guidance only and do not approve a deployment.
 - [x] Full start-time immutable-model enforcement and the synthetic OpenRouter/vLLM portions of `GATE-STACK-PROVIDERS` remain explicitly recorded unless separately implemented and verified
 - [x] Independent backend, architecture, and security/privacy findings for the deterministic Phase A admission/execution slice are resolved at `4a6e314`; leftover invocation-id coupling is closed by claimed-work binding
 - [x] Remaining gaps or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review after independent Phase B review and remaining supply-chain/OCI evidence
+- [x] Independent destination-policy review of `4342318` recorded as approved with no remaining findings
+- [ ] Task state is safe and complete for external review after remaining supply-chain/OCI evidence and full-solution verification at this head
