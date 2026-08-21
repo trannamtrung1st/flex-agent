@@ -240,6 +240,159 @@ public sealed class AssessmentHttpNegativeContractTests
         AssertNoBaseline(body);
     }
 
+    [Fact]
+    public async Task Create_save_and_readiness_without_authorization_are_forbidden_and_omit_activity_authority()
+    {
+        await using var context = await LoginAsync(
+            mfa: true,
+            relationship: AuthenticationStrengthEvaluator.AdministratorRelationship,
+            actions: [AssessmentAuthorizationActions.ReadActivity]);
+        using var create = await SendMutationAsync(context, HttpMethod.Post, "/v1/assessment/activities", CreateActivityJson());
+        var activityId = Guid.CreateVersion7();
+        using var save = await SendMutationAsync(
+            context,
+            HttpMethod.Post,
+            $"/v1/assessment/activities/{activityId}",
+            """{"title":"Next","expected_revision_number":1}""");
+        using var readiness = await SendMutationAsync(
+            context,
+            HttpMethod.Post,
+            $"/v1/assessment/activities/{activityId}/readiness",
+            null);
+        var createBody = await create.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var saveBody = await save.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var readinessBody = await readiness.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, create.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, save.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, readiness.StatusCode);
+        Assert.Contains(AssessmentFailureCodes.Denied, createBody, StringComparison.Ordinal);
+        Assert.Contains(AssessmentFailureCodes.Denied, readinessBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"activity_id\":\"", createBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision_id", saveBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("recovery_hint", readinessBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("overall_severity\":\"", readinessBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Reviewer_without_mfa_cannot_read_shell_or_activity_and_cannot_mutate()
+    {
+        await using var context = await LoginAsync(
+            mfa: false,
+            relationship: AuthenticationStrengthEvaluator.ReviewerRelationship,
+            actions:
+            [
+                AssessmentAuthorizationActions.ReadActivity,
+                AssessmentAuthorizationActions.ReadBaseline,
+                AssessmentAuthorizationActions.ReadBaselineProvenance,
+            ]);
+        using var shell = await SendGetAsync(context, "/v1/assessment/shell");
+        using var activity = await SendGetAsync(context, $"/v1/assessment/activities/{Guid.CreateVersion7()}");
+        using var create = await SendMutationAsync(context, HttpMethod.Post, "/v1/assessment/activities", CreateActivityJson());
+        var shellBody = await shell.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var activityBody = await activity.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, shell.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, activity.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, create.StatusCode);
+        Assert.Contains(HumanAuthenticationReasonCodes.UnrecognizedAuthenticationStrength, shellBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("actor_id", shellBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("title", activityBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Reviewer_with_mfa_receives_a_shell_and_cannot_create_or_activate()
+    {
+        await using var context = await LoginAsync(
+            mfa: true,
+            relationship: AuthenticationStrengthEvaluator.ReviewerRelationship,
+            actions:
+            [
+                AssessmentAuthorizationActions.ReadActivity,
+                AssessmentAuthorizationActions.ReadBaseline,
+                AssessmentAuthorizationActions.ReconcileActivation,
+            ]);
+        using var shell = await SendGetAsync(context, "/v1/assessment/shell");
+        using var create = await SendMutationAsync(context, HttpMethod.Post, "/v1/assessment/activities", CreateActivityJson());
+        using var activate = await SendActivateAsync(context, "reviewer-activate");
+        var shellDocument = JsonDocument.Parse(await shell.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        var createBody = await create.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var activateDocument = JsonDocument.Parse(await activate.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(HttpStatusCode.OK, shell.StatusCode);
+        Assert.Equal(AuthenticationStrengthEvaluator.ReviewerRelationship, shellDocument.RootElement.GetProperty("relationship").GetString());
+        Assert.Equal(HttpStatusCode.Forbidden, create.StatusCode);
+        Assert.Contains(AssessmentFailureCodes.Denied, createBody, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.Conflict, activate.StatusCode);
+        Assert.Equal(AssessmentFailureCodes.Denied, activateDocument.RootElement.GetProperty("outcome_code").GetString());
+        Assert.Equal(JsonValueKind.Null, activateDocument.RootElement.GetProperty("baseline_id").ValueKind);
+    }
+
+    [Fact]
+    public async Task Save_and_readiness_without_antiforgery_are_invalid_and_omit_draft_state()
+    {
+        await using var context = await LoginAsync(
+            mfa: true,
+            relationship: AuthenticationStrengthEvaluator.AdministratorRelationship,
+            actions:
+            [
+                AssessmentAuthorizationActions.SaveActivity,
+                AssessmentAuthorizationActions.CheckReadiness,
+            ]);
+        var activityId = Guid.CreateVersion7();
+        using var save = new HttpRequestMessage(HttpMethod.Post, $"/v1/assessment/activities/{activityId}")
+        {
+            Content = new StringContent("""{"title":"Next","expected_revision_number":1}""", Encoding.UTF8, "application/json"),
+        };
+        save.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        using var readiness = new HttpRequestMessage(HttpMethod.Post, $"/v1/assessment/activities/{activityId}/readiness");
+        readiness.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        using var saveResponse = await context.Client.SendAsync(save, TestContext.Current.CancellationToken);
+        using var readinessResponse = await context.Client.SendAsync(readiness, TestContext.Current.CancellationToken);
+        var saveBody = await saveResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var readinessBody = await readinessResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, saveResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, readinessResponse.StatusCode);
+        Assert.Contains("csrf.invalid", saveBody, StringComparison.Ordinal);
+        Assert.Contains("csrf.invalid", readinessBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision_number", saveBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("overall_severity", readinessBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Create_without_a_title_is_invalid_and_does_not_create_an_activity()
+    {
+        await using var context = await LoginAsync(
+            mfa: true,
+            relationship: AuthenticationStrengthEvaluator.AdministratorRelationship,
+            actions: [AssessmentAuthorizationActions.CreateActivity],
+            permitAuthorization: true);
+        using var response = await SendMutationAsync(context, HttpMethod.Post, "/v1/assessment/activities", """{"title":"  "}""");
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(AssessmentFailureCodes.InvalidField, body, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"activity_id\":\"", body, StringComparison.Ordinal);
+    }
+
+    private static async Task<HttpResponseMessage> SendMutationAsync(
+        LoggedInContext context,
+        HttpMethod method,
+        string url,
+        string? json)
+    {
+        using var request = new HttpRequestMessage(method, url);
+        if (json is not null)
+        {
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        }
+
+        request.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        request.Headers.TryAddWithoutValidation(HumanAuthenticationHostOptions.AntiforgeryHeaderName, context.CsrfToken);
+        return await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
+    }
+
     private static async Task<HttpResponseMessage> SendActivateAsync(LoggedInContext context, string idempotencyKey)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, ActivateUrl())
@@ -261,11 +414,12 @@ public sealed class AssessmentHttpNegativeContractTests
     private static async Task<LoggedInContext> LoginAsync(
         bool mfa = true,
         string? relationship = null,
-        IReadOnlyList<string>? actions = null)
+        IReadOnlyList<string>? actions = null,
+        bool permitAuthorization = false)
     {
         var rsa = RSA.Create(2048);
         var tokens = new FakeOidcAuthorizationClient();
-        var factory = CreateFactory(rsa, tokens, relationship, actions, acceptPasswordAcr: !mfa);
+        var factory = CreateFactory(rsa, tokens, relationship, actions, acceptPasswordAcr: !mfa, permitAuthorization);
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         SeedBinding(factory);
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -312,7 +466,8 @@ public sealed class AssessmentHttpNegativeContractTests
         FakeOidcAuthorizationClient? tokens = null,
         string? relationship = null,
         IReadOnlyList<string>? actions = null,
-        bool acceptPasswordAcr = false)
+        bool acceptPasswordAcr = false,
+        bool permitAuthorization = false)
     {
         rsa ??= RSA.Create(2048);
         tokens ??= new FakeOidcAuthorizationClient();
@@ -337,6 +492,11 @@ public sealed class AssessmentHttpNegativeContractTests
                 {
                     services.AddSingleton<IAssessmentRelationshipResolver>(
                         new StubAssessmentRelationshipResolver(relationship, actions ?? []));
+                }
+
+                if (permitAuthorization)
+                {
+                    services.AddSingleton<IAssessmentAuthorizationPort>(_ => new InMemoryAssessmentAuthorizationPort(permit: true));
                 }
             });
         });
@@ -371,6 +531,47 @@ public sealed class AssessmentHttpNegativeContractTests
         var buffer = new byte[Base64Url.GetEncodedLength(bytes.Length)];
         Base64Url.EncodeToUtf8(bytes, buffer, out _, out var written);
         return Encoding.ASCII.GetString(buffer.AsSpan(0, written));
+    }
+
+    private static string CreateActivityJson()
+    {
+        var digest = new string('a', 64);
+        var source = Guid.CreateVersion7();
+        var version = Guid.CreateVersion7();
+        return JsonSerializer.Serialize(new Dictionary<string, object?>
+        {
+            ["title"] = "Campaign",
+            ["organization_policy_source_id"] = source,
+            ["organization_policy_version_id"] = version,
+            ["organization_policy_digest"] = digest,
+            ["agent_source_id"] = source,
+            ["agent_version_id"] = version,
+            ["agent_digest"] = digest,
+            ["harness_source_id"] = source,
+            ["harness_version_id"] = version,
+            ["harness_digest"] = digest,
+            ["workflow_source_id"] = source,
+            ["workflow_version_id"] = version,
+            ["workflow_digest"] = digest,
+            ["adaptive_follow_up_source_id"] = source,
+            ["adaptive_follow_up_version_id"] = version,
+            ["adaptive_follow_up_digest"] = digest,
+            ["rubric_source_id"] = source,
+            ["rubric_version_id"] = version,
+            ["rubric_digest"] = digest,
+            ["model_source_id"] = source,
+            ["model_version_id"] = version,
+            ["model_digest"] = digest,
+            ["capability_source_id"] = source,
+            ["capability_version_id"] = version,
+            ["capability_digest"] = digest,
+            ["review_source_id"] = source,
+            ["review_version_id"] = version,
+            ["review_digest"] = digest,
+            ["task_source_id"] = source,
+            ["task_version_id"] = version,
+            ["task_digest"] = digest,
+        });
     }
 
     private static StringContent JsonContent(string idempotencyKey = "idem-1") =>

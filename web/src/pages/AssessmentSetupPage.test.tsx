@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { RouterProvider, createMemoryRouter } from "react-router-dom";
+import { Link, Outlet, RouterProvider, createMemoryRouter } from "react-router-dom";
 import { createProductionAssessmentClient } from "../api/production-assessment";
 import { ProductionApiError } from "../api/production-api";
 import { AssessmentSetupPage, type AssessmentSetupView } from "./AssessmentSetupPage";
@@ -82,6 +82,87 @@ describe("AssessmentSetupPage", () => {
     expect(screen.queryByRole("button", { name: "Assign Participants" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Change assessment configuration" }));
     expect(await screen.findByRole("heading", { name: "Create a new cohort to make this change" })).toBeInTheDocument();
+  });
+
+  it("shows warning and out-of-date readiness headings", async () => {
+    const { unmount } = renderSetup({
+      ...readyView,
+      overall_severity: "warning",
+      issues: [{ category: "timing", severity: "warning", reason_code: "narrowed", recovery_hint: "Review the current timing bound." }],
+    });
+    expect(await screen.findByRole("heading", { name: "Ready with warnings" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Activate cohort" })).toBeEnabled();
+    unmount();
+    renderSetup({
+      ...readyView,
+      overall_severity: "out_of_date",
+    });
+    expect(await screen.findByRole("heading", { name: "Readiness out of date" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Activate cohort" })).toBeDisabled();
+  });
+
+  it("explains empty source selection", async () => {
+    renderSetup({ ...readyView, sources: [] });
+    expect(await screen.findByText("No permitted source revisions are selected.")).toBeInTheDocument();
+  });
+
+  it("shows a degraded activated baseline without assignment", async () => {
+    renderSetup({
+      ...readyView,
+      has_activated_cohort: true,
+      permitted_actions: [],
+      baseline_digest: "a".repeat(64),
+      verification_status: "degraded",
+    });
+    expect(await screen.findByRole("heading", { name: "Baseline verification is degraded" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Assign Participants" })).not.toBeInTheDocument();
+  });
+
+  it("announces reconciliation after an uncertain activation", async () => {
+    renderSetup(readyView, { activateError: new Error("Activation did not complete. Reconcile before retrying.") });
+    await screen.findByRole("heading", { name: "Setup and readiness" });
+    fireEvent.click(screen.getByRole("button", { name: "Activate cohort" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm activation" }));
+    expect(await screen.findByText("The cohort was not activated")).toBeInTheDocument();
+    expect(screen.getByText(/Authoritative status was queried/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Setup and readiness" })).toBeInTheDocument();
+  });
+
+  it("warns before leaving unsaved title changes", async () => {
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/",
+          element: (
+            <>
+              <Link to="/activities">Activities</Link>
+              <Outlet />
+            </>
+          ),
+          children: [
+            {
+              path: "activities/:activityId/setup",
+              element: (
+                <AssessmentSetupPage
+                  loadSetup={() => Promise.resolve(readyView)}
+                  saveDraft={() => Promise.resolve(readyView)}
+                  checkReadiness={() => Promise.resolve(readyView)}
+                  activateCohort={() => Promise.resolve(readyView)}
+                />
+              ),
+            },
+            { path: "activities", element: <h1>Activities</h1> },
+          ],
+        },
+      ],
+      { initialEntries: ["/activities/act-1/setup"] },
+    );
+    render(<RouterProvider router={router} />);
+    await screen.findByRole("heading", { name: "Setup and readiness" });
+    fireEvent.change(screen.getByLabelText("Campaign title"), { target: { value: "Local title" } });
+    fireEvent.click(screen.getByRole("link", { name: "Activities" }));
+    expect(await screen.findByRole("heading", { name: "Unsaved changes" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Campaign title")).toHaveValue("Local title");
   });
 
   it("shows a blocked readiness heading", async () => {

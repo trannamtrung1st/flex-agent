@@ -35,6 +35,7 @@ export interface ProductionActivityDetail {
   cohort_id?: string | null;
   cohort_state?: string | null;
   baseline_digest?: string | null;
+  verification_status?: string | null;
   sources?: Record<string, ProductionSourceRef | ProductionSourceRef[]>;
   permitted_actions: string[];
 }
@@ -77,6 +78,19 @@ function throwAssessmentAccessLoss(error: ProductionApiError): never {
 
   throw new ProductionApiError(error.status, "Your access changed", error.outcomeCode);
 }
+
+export const REQUIRED_SOURCE_CATEGORIES = [
+  "organization_policy",
+  "agent",
+  "harness",
+  "workflow",
+  "adaptive_follow_up",
+  "rubric",
+  "model_deployment",
+  "capability",
+  "review_release",
+  "task_submission",
+] as const;
 
 export function sourceOptionIdentity(source: Pick<ProductionSourceRef, "source_id" | "version_id">) {
   return `${source.source_id}:${source.version_id}`;
@@ -134,6 +148,7 @@ export function mapActivityToSetupView(
     permitted_actions: activity.permitted_actions,
     cohort_id: activity.cohort_id ?? undefined,
     baseline_digest: activity.baseline_digest ?? undefined,
+    verification_status: activity.verification_status ?? undefined,
     overall_severity: readiness?.overall_severity,
     issues: readiness?.issues?.map((issue) => ({
       category: issue.category,

@@ -344,7 +344,10 @@ public static class AssessmentEndpointExtensions
                 context.RequestAborted);
         }
 
-        context.Response.StatusCode = created.Succeeded ? StatusCodes.Status201Created : StatusCodes.Status400BadRequest;
+        context.Response.StatusCode = AssessmentHttpStatus.ForDraftMutation(
+            created.Succeeded,
+            created.OutcomeCode,
+            StatusCodes.Status201Created);
         await context.Response.WriteAsJsonAsync(new
         {
             succeeded = created.Succeeded,
@@ -463,7 +466,7 @@ public static class AssessmentEndpointExtensions
                 current.Content with { Title = request.Title },
                 AssessmentHostEnvironment.FromAspNetCore(hostEnvironment.EnvironmentName)),
             context.RequestAborted);
-        context.Response.StatusCode = saved.Succeeded ? StatusCodes.Status200OK : StatusCodes.Status409Conflict;
+        context.Response.StatusCode = AssessmentHttpStatus.ForDraftMutation(saved.Succeeded, saved.OutcomeCode);
         await context.Response.WriteAsJsonAsync(new
         {
             succeeded = saved.Succeeded,
@@ -506,7 +509,7 @@ public static class AssessmentEndpointExtensions
         var result = await drafts.CheckReadinessAsync(
             new CheckReadinessQuery(actor, activityId, AssessmentHostEnvironment.FromAspNetCore(hostEnvironment.EnvironmentName)),
             context.RequestAborted);
-        context.Response.StatusCode = result.Succeeded ? StatusCodes.Status200OK : StatusCodes.Status400BadRequest;
+        context.Response.StatusCode = AssessmentHttpStatus.ForDraftMutation(result.Succeeded, result.OutcomeCode);
         await context.Response.WriteAsJsonAsync(new
         {
             succeeded = result.Succeeded,

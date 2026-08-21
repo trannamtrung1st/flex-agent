@@ -424,7 +424,7 @@ enable model execution.
       cross-module consistency contract is not approved or cannot be represented
       without a new durable decision, stop and promote an ADR or labeled
       `PROP-*` before activation persistence or application coding.
-- [ ] Define the shared versioned API/application contract before UI or SQL:
+- [x] Define the shared versioned API/application contract before UI or SQL:
       authenticated actor context, versioned safe shell-context projection,
       server-derived bound Organization/navigation/permitted actions,
       Activity/Cohort locators, draft revision and expected-version rules,
@@ -539,7 +539,7 @@ enable model execution.
       isolation/locking/version behavior, required-durable audit/outbox
       acceptance, authoritative reconciliation, bounded telemetry, and honest
       historical verification state.
-- [>] Red — add production API/runtime contract tests for every query/mutation,
+- [x] Red — add production API/runtime contract tests for every query/mutation,
       missing/expired/revoked application sessions, mandatory Administrator and
       Reviewer MFA for their respective actions, wrong bound Organization,
       CSRF, forged MFA/relationship/scope/parent/digest/role/navigation/action
@@ -550,7 +550,7 @@ enable model execution.
       over the application ports and PostgreSQL adapters. Keep the synthetic
       browser endpoints separate and default-off outside their existing
       Development/Testing harness.
-- [>] Red — add React contract/component tests for source selectors and every
+- [x] Red — add React contract/component tests for source selectors and every
       approved setup state, including unsaved navigation, save failure,
       two-tab stale conflict, readiness summaries, activation confirmation,
       pending/uncertain reconciliation, audit/persistence failure, permission
@@ -580,7 +580,7 @@ enable model execution.
       accessibility snapshots plus desktop/narrow, keyboard-focus, dialog,
       error, both-theme, reduced-motion, and 400-percent-zoom screenshots only
       under `.playwright-mcp/`; fix and repeat until evidence supports the UI.
-- [ ] Run focused then aggregate verification: Assessment domain/application,
+- [>] Run focused then aggregate verification: Assessment domain/application,
       Configuration and IdentityAccess regression, PostgreSQL migration and
       fault/concurrency suites, API/runtime, contracts/JCS, architecture,
       locked solution restore/test, web lint/type/unit/build/e2e, docs,
@@ -604,26 +604,30 @@ through `/v1/assessment`. The synthetic `/activities/:id/setup` route still
 refuses to treat `/browser` as product authority. Assign Participants remains
 omitted.
 
-HTTP negatives now cover anonymous list/get/source-options, create CSRF
-without session, Administrator-without-MFA shell/list denial, MFA-qualified
-shell plus non-disclosing guessed GET, and invalid reconcile keys. In-memory
-host authorization stays fail-closed (`permit: false`); PostgreSQL remains
-the Production/Staging default when a connection string exists.
+HTTP draft mutations now map access and MFA failures to **403** so the
+production client can fail closed. `AssessmentHttpNegativeContractTests`
+cover anonymous/CSRF/session gaps, Administrator-without-MFA shell/list,
+Reviewer-without-MFA shell/get/create, Reviewer-with-MFA shell plus
+create/activate denial, create/save/readiness authorization mapping,
+save/readiness CSRF, empty-title create, guessed GET 404, and invalid
+reconcile keys. In-memory host authorization stays fail-closed
+(`permit: false`); PostgreSQL remains the Production/Staging default when a
+connection string exists.
 
-Confirmation pass 2026-08-21: Assessment **65**, HTTP negatives **14**,
-web unit **78**, typecheck passed. Resource 403 no longer clears a ready
-session. `0c3fea5` review P1s are repaired: readiness/activation 403 now
-clears protected setup, lost activation POSTs reconcile with the same key,
-and source selection uses category plus `source_id:version_id`. The
-`310b2f2` follow-up is repaired: a 401/403 on reconcile is rethrown so
-the page can fail closed, and pending activation keys include
-`revision_id` and `revision_number`. The `c67894f` follow-up treats
-`assessment.denied` as access loss for activation HTTP 409 and
-reconcile HTTP 404, matching the hosted contract. External review of
-`fcae1ca` approved that chain with no P1/P2. Playwright MCP
-reached the production sign-in gate only. The OIDC-backed PostgreSQL
-setup journey is still blocked in this environment. `ADR-017` remains
-Proposed. The task stays in-progress.
+The Activities create workspace now has component coverage for empty list,
+missing required source category, create failure with preserved title, and
+omitted create when the server withholds the action. Setup now covers
+warning and out-of-date readiness, empty source copy, unsaved-navigation
+confirmation, uncertain-activation reconciliation, and degraded baseline
+copy without Assign Participants.
+
+Confirmation pass 2026-08-21 (consistency review): Assessment **72**,
+HTTP negatives **19**, Architecture **35**, web unit **92**, typecheck
+passed, lint warning-only. Playwright MCP reached the production sign-in
+gate at desktop 1280, narrow 390, and 320 reflow. Continue-to-sign-in
+navigates to `/auth/login?return_path=/activities`; Vite does not proxy
+`/auth`, so the OIDC-backed PostgreSQL setup journey remains blocked.
+`ADR-017` remains Proposed. The task stays in-progress.
 
 Execution started at `ef911eed6fed2a8d2b31c93c5066e3d4eb283376`.
 
@@ -645,6 +649,25 @@ turning the synthetic scenario model into product persistence. The SPA now has a
 
 # Findings / deviations
 
+- 2026-08-21 consistency review: Ready-with-warnings now permits
+  activation (`AC-ACT` / UI-ACT ready-with-warnings); empty `issues`
+  no longer claims readiness was unchecked; create 403 clears source
+  selectors; warning alerts use the warning variant. Focused suites
+  remain green.
+- 2026-08-21 continuation: create/save/readiness authorization and MFA
+  failures were HTTP **400**/**409**, so `fetchJson` would not clear
+  protected setup. They now use `AssessmentHttpStatus` (**403** for
+  `assessment.denied` and authentication-strength codes, **400** for
+  field/source validation, **409** for stale/conflict). Activation
+  denial stays hosted **409**. Save of a missing Activity still returns
+  **404** before the handler and omits revision fields. The Testing
+  ASP.NET environment remains classified as Development, so a permitted
+  title-only create can still seed Development sources.
+- 2026-08-21 continuation: setup save remains title-only; exact source
+  selection is enforced at create and listed on setup. GET Activity does
+  not yet project a server `verification_status`; the degraded heading is
+  renderable when that field is supplied. Both-theme, reduced-motion,
+  dialog, and authorized setup Playwright states were not reachable.
 - 2026-08-21 review of `fcae1ca`: **approved**. No new P1/P2. The
   `0c3fea5` → `310b2f2` → `c67894f` fail-closed findings are closed
   against the hosted contract (activate `409` + `assessment.denied`,
@@ -835,11 +858,12 @@ turning the synthetic scenario model into product persistence. The SPA now has a
 | Repository inventory refresh | passed for planning | Observed `ef911ee`; only this plan was modified; migration head remains `0033`; no Assessment module/API exists; Sessions OpenAI-compatible and installed operator-state modules/tests now exist |
 | Execution baseline | passed | Start SHA `ef911ee`. Before behavior changes: Architecture 35 passed; Contract 135 passed; CanonicalJson 25 passed; web lint warning-only, typecheck passed, unit 60 passed. PostgreSQL/Runtime/Sessions/e2e smoke were not all re-run in this session due to parallel-build lock and time; Architecture was re-run after the lock. |
 | Source-authority/transaction decision | recorded as Proposed | `ADR-017` and `PROP-7` published. Sessions file registries are excluded. Production fail-closed remains the interim default until ADR-017 is approved. |
-| Assessment focused tests | passed for domain/application | `dotnet test --project tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — **65 passed**, including admission-then-revoke races on Activate and Reconcile |
+| Assessment focused tests | passed for domain/application | `dotnet test --project tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — **72 passed**, including `AssessmentHttpStatus` mapping and admission-then-revoke races on Activate and Reconcile |
 | PostgreSQL migration/integration | passed for upgrade matrix | `AssessmentActivationPersistenceTests` **19 passed**, including hosted HTTP activate-then-revoke redaction of an existing baseline. Full `MigrationUpgradeTests` matrix **33 passed** after `0042` |
-| API/runtime contracts | partial | `AssessmentHttpNegativeContractTests` **14 passed**, including anonymous list/get/source-options **401**, create CSRF-without-session **401**, Administrator-without-MFA shell/list **403**, MFA-qualified shell **200**, guessed Activity **404**, and invalid reconcile key **400**. Broader `AC-ACT-24` HTTP negatives remain incomplete |
-| Web unit/accessibility | passed for composed provider | `npm test` **82 passed**; lint warning-only. Includes activation 409 `assessment.denied` and lost-POST then reconcile 404 `assessment.denied` fail-closed, revision-scoped idempotency keys, and composite source selection |
-| Playwright MCP | partial | Production sign-in gate only: accessibility snapshot plus desktop 1280, narrow 390, and 320 reflow screenshots under `.playwright-mcp/page-2026-08-21T13-34-29-048Z.png`, `page-2026-08-21T13-34-40-843Z.png`, `page-2026-08-21T13-35-10-208Z.png`, `page-2026-08-21T13-35-58-774Z.png`. OIDC/Postgres setup states, both themes, reduced motion, and dialog/error journeys were not reachable |
+| API/runtime contracts | partial | `AssessmentHttpNegativeContractTests` **19 passed**, including prior anonymous/CSRF/MFA-admin cases plus Reviewer-without-MFA **403**, Reviewer-with-MFA shell **200** and create **403**/activate **409**, unauthorized create/readiness **403**, guessed save **404**, save/readiness CSRF **400**, and empty-title create **400**. Privilege-change rotation, pagination bounds, and hosted wrong-Organization HTTP remain on the PostgreSQL suite rather than this in-memory host |
+| Web unit/accessibility | passed for composed provider | `npm test` **92 passed**; lint warning-only; typecheck passed. Adds empty/missing-source create, create access-loss clear, preserved create failure, warning/out-of-date readiness, unsaved leave, reconciling activation, and degraded baseline without assignment |
+| Playwright MCP | partial | Production sign-in gate: accessibility snapshot plus desktop 1280 `.playwright-mcp/page-2026-08-21T14-51-09-031Z.png`, narrow 390 `page-2026-08-21T14-51-22-563Z.png`, and 320 reflow `page-2026-08-21T14-51-35-609Z.png`. Continue-to-sign-in stays on the SPA because Vite does not proxy `/auth`. OIDC/Postgres setup states, both themes, reduced motion, and dialog/error journeys were not reachable |
+| Architecture | passed | `dotnet test --project tests/Architecture/FlexAgent.Architecture.Tests` — **35 passed** |
 | Performance | pending | `AC-ACT-27` readiness and activation p95 evidence not observed |
 | Locked regression/supply-chain/OCI/docs/leakage | pending | Run proportionately after implementation |
 | Independent reviews | partial | `fcae1ca` production-SPA fail-closed follow-up approved with no P1/P2; `0c3fea5` → `310b2f2` → `c67894f` findings closed. `316b5b5` HTTP-negative follow-up approved with no P1/P2. Activation/redaction architecture is closed for further redesign. Full-slice backend/architecture, frontend, and security/privacy review still required before task completion |
@@ -850,9 +874,14 @@ turning the synthetic scenario model into product persistence. The SPA now has a
 file-loaded profiles remains fail-closed. The `67c4957` P1s for activation
 head writes, host permit-all/Administrator synthesis, transactional reads,
 Task-requirement authority, and stored-attempt idempotency are repaired.
-Remaining blockers: broader `AC-ACT-24` HTTP negatives,
-descriptor seeding in hosted Postgres, an OIDC-backed Playwright setup
-journey, `AC-ACT-27` p95 evidence, and independent full-slice reviews.
+Remaining blockers: an OIDC-backed Playwright setup journey (Vite has
+no `/auth` proxy; API host is not composed in this frontend session),
+descriptor seeding in hosted Postgres for a live create/activate path,
+`AC-ACT-27` p95 evidence, locked regression/supply-chain/OCI gates, and
+independent full-slice reviews. Broader in-memory HTTP negatives for
+Reviewer MFA, create/save/readiness 403 mapping, and CSRF are now in
+place; privilege-change and wrong-Organization HTTP stay on the
+PostgreSQL hosted suite.
 
 The current Sessions model-profile, qualification, and adapter-configuration
 authority is file-loaded/in-memory and has no approved means to serialize

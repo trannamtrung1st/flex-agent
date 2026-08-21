@@ -20,6 +20,7 @@ export interface AssessmentSetupView {
   overall_severity?: string;
   issues?: Array<{ category: string; severity: string; reason_code: string; recovery_hint: string }>;
   baseline_digest?: string;
+  verification_status?: string;
   sources?: Array<{ category: string; source_id: string; version_id: string; content_digest: string }>;
 }
 
@@ -138,7 +139,7 @@ export function AssessmentSetupPage({
     );
   }
 
-  if (error && !view || !view || !activityId) {
+  if (!view || !activityId) {
     return (
       <StatusPanel title="Access denied" variant="danger">
         <p>{error ?? "This setup is unavailable."}</p>
@@ -146,9 +147,21 @@ export function AssessmentSetupPage({
     );
   }
 
-  const canActivate = view.permitted_actions.includes("activate_cohort") && view.overall_severity === "ready";
   const blocked = view.overall_severity === "blocked";
+  const warning = view.overall_severity === "warning";
+  const outOfDate = view.overall_severity === "out_of_date";
   const ready = view.overall_severity === "ready";
+  const canActivate = view.permitted_actions.includes("activate_cohort") && (ready || warning);
+  const reconciling = pending === "activate" || status === "Checking activation status";
+  const readinessHeading = blocked
+    ? "Readiness blocked"
+    : warning
+      ? "Ready with warnings"
+      : outOfDate
+        ? "Readiness out of date"
+        : ready
+          ? "Ready to activate"
+          : "Readiness";
 
   return (
     <div>
@@ -224,9 +237,9 @@ export function AssessmentSetupPage({
         </CardBody>
       </Card>
 
-      {view.sources?.length ? (
-        <section className="page-section" aria-labelledby="sources-heading">
-          <h2 id="sources-heading">Selected source revisions</h2>
+      <section className="page-section" aria-labelledby="sources-heading">
+        <h2 id="sources-heading">Selected source revisions</h2>
+        {view.sources?.length ? (
           <ul aria-label="Selected source revisions">
             {view.sources.map((source) => (
               <li key={`${source.category}-${source.version_id}`}>
@@ -234,26 +247,33 @@ export function AssessmentSetupPage({
               </li>
             ))}
           </ul>
-        </section>
-      ) : null}
+        ) : (
+          <p>No permitted source revisions are selected.</p>
+        )}
+      </section>
 
       <section className="page-section" aria-labelledby={readinessHeadingId}>
         <h2 ref={readinessHeadingRef} id={readinessHeadingId} tabIndex={-1}>
-          {blocked ? "Readiness blocked" : ready ? "Ready to activate" : "Readiness"}
+          {readinessHeading}
         </h2>
         <p>Memory default: Stable, approved reads {view.memory_mode}.</p>
-        {view.issues?.length ? (
+        {view.issues == null ? (
+          <p>Readiness has not been checked for this saved revision.</p>
+        ) : view.issues.length > 0 ? (
           <ul aria-label="Readiness issues">
             {view.issues.map((issue) => (
               <li key={`${issue.category}-${issue.reason_code}`}>
-                <Alert variant={issue.severity === "blocked" ? "danger" : "info"} title={issue.category}>
+                <Alert
+                  variant={issue.severity === "blocked" ? "danger" : issue.severity === "warning" ? "warning" : "info"}
+                  title={issue.category}
+                >
                   {issue.recovery_hint}
                 </Alert>
               </li>
             ))}
           </ul>
         ) : (
-          <p>Readiness has not been checked for this saved revision.</p>
+          <p>No readiness blockers for this saved revision.</p>
         )}
         {view.has_activated_cohort ? null : (
           <Button
@@ -296,8 +316,10 @@ export function AssessmentSetupPage({
         <h2 id="activation-heading">Activation</h2>
         {view.has_activated_cohort ? (
           <>
-            <Alert variant="success" title="Activated baseline">
-              <h3 ref={successHeadingRef} tabIndex={-1}>Cohort activated</h3>
+            <Alert variant={view.verification_status === "degraded" ? "warning" : "success"} title="Activated baseline">
+              <h3 ref={successHeadingRef} tabIndex={-1}>
+                {view.verification_status === "degraded" ? "Baseline verification is degraded" : "Cohort activated"}
+              </h3>
               <p>Baseline digest {view.baseline_digest ?? "is recorded"}. Assign Participants is omitted until a production Enrollment destination exists.</p>
             </Alert>
             <Button type="button" variant="secondary" onClick={() => { setNewCohortOpen(true); }}>
@@ -305,11 +327,18 @@ export function AssessmentSetupPage({
             </Button>
           </>
         ) : (
-          <Button type="button" disabled={!canActivate || pending !== null} onClick={() => {
-            setConfirmOpen(true);
-          }}>
-            Activate cohort
-          </Button>
+          <>
+            {reconciling ? (
+              <Alert variant="info" title="Reconciling activation">
+                The last activation response was uncertain. Authoritative status was queried before another command is offered.
+              </Alert>
+            ) : null}
+            <Button type="button" disabled={!canActivate || pending !== null} onClick={() => {
+              setConfirmOpen(true);
+            }}>
+              Activate cohort
+            </Button>
+          </>
         )}
       </section>
 
@@ -341,6 +370,7 @@ export function AssessmentSetupPage({
                 return;
               }
 
+              setConfirmOpen(false);
               setError("The cohort was not activated");
               setStatus("Checking activation status");
             })
