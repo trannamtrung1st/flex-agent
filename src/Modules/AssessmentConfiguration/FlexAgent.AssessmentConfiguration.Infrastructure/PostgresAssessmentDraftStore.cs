@@ -32,30 +32,66 @@ public sealed class PostgresAssessmentDraftStore(PostgresConnectionAccessor conn
         await scope.CommitAsync(cancellationToken);
     }
 
-    public async Task<ActivityDraft?> GetDraftAsync(Guid organizationId, Guid activityId, CancellationToken cancellationToken)
+    public Task<ActivityDraft?> GetDraftAsync(Guid organizationId, Guid activityId, CancellationToken cancellationToken) =>
+        GetDraftAsync(organizationId, activityId, transaction: null, cancellationToken);
+
+    public async Task<ActivityDraft?> GetDraftAsync(
+        Guid organizationId,
+        Guid activityId,
+        IAssessmentActivationTransaction? transaction,
+        CancellationToken cancellationToken)
     {
-        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-        var activity = await connection.QuerySingleOrDefaultAsync<ActivityRow>(
-            """
+        const string activitySql = """
             SELECT organization_id, activity_id, form, configured_type, current_revision_id,
                    current_revision_number, has_activated_cohort
             FROM assessment_activities
             WHERE organization_id = @OrganizationId AND activity_id = @ActivityId
-            """,
-            new { OrganizationId = organizationId, ActivityId = activityId });
+            """;
+        const string lockedActivitySql = activitySql + " FOR UPDATE";
+        const string revisionSql = """
+            SELECT revision_id, revision_number, title, content
+            FROM assessment_activity_revisions
+            WHERE organization_id = @OrganizationId AND activity_id = @ActivityId AND revision_id = @RevisionId
+            """;
+
+        if (transaction?.PersistenceContext is NpgsqlTransaction existing)
+        {
+            var locked = await existing.Connection!.QuerySingleOrDefaultAsync<ActivityRow>(
+                new CommandDefinition(
+                    lockedActivitySql,
+                    new { OrganizationId = organizationId, ActivityId = activityId },
+                    existing,
+                    cancellationToken: cancellationToken));
+            if (locked is null)
+            {
+                return null;
+            }
+
+            var lockedRevision = await existing.Connection!.QuerySingleAsync<RevisionRow>(
+                new CommandDefinition(
+                    revisionSql,
+                    new { OrganizationId = organizationId, ActivityId = activityId, RevisionId = locked.CurrentRevisionId },
+                    existing,
+                    cancellationToken: cancellationToken));
+            return ToDraft(locked, lockedRevision);
+        }
+
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        var activity = await connection.QuerySingleOrDefaultAsync<ActivityRow>(
+            new CommandDefinition(
+                activitySql,
+                new { OrganizationId = organizationId, ActivityId = activityId },
+                cancellationToken: cancellationToken));
         if (activity is null)
         {
             return null;
         }
 
         var revision = await connection.QuerySingleAsync<RevisionRow>(
-            """
-            SELECT revision_id, revision_number, title, content
-            FROM assessment_activity_revisions
-            WHERE organization_id = @OrganizationId AND revision_id = @RevisionId
-            """,
-            new { OrganizationId = organizationId, RevisionId = activity.CurrentRevisionId });
-
+            new CommandDefinition(
+                revisionSql,
+                new { OrganizationId = organizationId, ActivityId = activityId, RevisionId = activity.CurrentRevisionId },
+                cancellationToken: cancellationToken));
         return ToDraft(activity, revision);
     }
 
@@ -87,9 +123,11 @@ public sealed class PostgresAssessmentDraftStore(PostgresConnectionAccessor conn
                 UPDATE assessment_activities
                 SET current_revision_id = @RevisionId,
                     current_revision_number = @RevisionNumber,
-                    has_activated_cohort = @HasActivatedCohort,
                     updated_at = CLOCK_TIMESTAMP()
-                WHERE organization_id = @OrganizationId AND activity_id = @ActivityId
+                WHERE organization_id = @OrganizationId
+                  AND activity_id = @ActivityId
+                  AND current_revision_number = @PreviousRevisionNumber
+                  AND has_activated_cohort = FALSE
                 """,
                 new
                 {
@@ -97,32 +135,99 @@ public sealed class PostgresAssessmentDraftStore(PostgresConnectionAccessor conn
                     draft.ActivityId,
                     RevisionId = draft.RevisionId,
                     RevisionNumber = draft.RevisionNumber,
-                    draft.HasActivatedCohort,
+                    PreviousRevisionNumber = draft.RevisionNumber - 1,
                 },
                 transaction,
                 cancellationToken: cancellationToken));
+
+    public async Task<bool> MarkActivatedAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid expectedRevisionId,
+        long expectedRevisionNumber,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        if (transaction.PersistenceContext is not NpgsqlTransaction existing)
+        {
+            throw new InvalidOperationException("Assessment activation metadata requires the PostgreSQL activation transaction.");
+        }
+
+        var updated = await existing.Connection!.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE assessment_activities
+                SET has_activated_cohort = TRUE,
+                    updated_at = CLOCK_TIMESTAMP()
+                WHERE organization_id = @OrganizationId
+                  AND activity_id = @ActivityId
+                  AND current_revision_id = @ExpectedRevisionId
+                  AND current_revision_number = @ExpectedRevisionNumber
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    ActivityId = activityId,
+                    ExpectedRevisionId = expectedRevisionId,
+                    ExpectedRevisionNumber = expectedRevisionNumber,
+                },
+                existing,
+                cancellationToken: cancellationToken));
+        return updated == 1;
+    }
+
+    public Task<AssessmentCohort?> GetCohortAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        CancellationToken cancellationToken) =>
+        GetCohortAsync(organizationId, activityId, cohortId, transaction: null, cancellationToken);
 
     public async Task<AssessmentCohort?> GetCohortAsync(
         Guid organizationId,
         Guid activityId,
         Guid cohortId,
+        IAssessmentActivationTransaction? transaction,
         CancellationToken cancellationToken)
     {
-        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-        var row = await connection.QuerySingleOrDefaultAsync<CohortRow>(
-            """
+        const string sql = """
             SELECT c.organization_id, c.activity_id, c.cohort_id, c.state, c.bound_revision_id,
                    c.bound_revision_number, b.baseline_id, bl.content_digest
             FROM assessment_cohorts c
             LEFT JOIN assessment_cohort_baseline_bindings b
-                ON b.organization_id = c.organization_id AND b.cohort_id = c.cohort_id
+                ON b.organization_id = c.organization_id
+               AND b.activity_id = c.activity_id
+               AND b.cohort_id = c.cohort_id
             LEFT JOIN assessment_activation_baselines bl
-                ON bl.organization_id = b.organization_id AND bl.baseline_id = b.baseline_id
+                ON bl.organization_id = b.organization_id
+               AND bl.activity_id = b.activity_id
+               AND bl.baseline_id = b.baseline_id
             WHERE c.organization_id = @OrganizationId
               AND c.activity_id = @ActivityId
               AND c.cohort_id = @CohortId
-            """,
-            new { OrganizationId = organizationId, ActivityId = activityId, CohortId = cohortId });
+            """;
+        var lockedSql = sql + " FOR UPDATE OF c";
+
+        CohortRow? row;
+        if (transaction?.PersistenceContext is NpgsqlTransaction existing)
+        {
+            row = await existing.Connection!.QuerySingleOrDefaultAsync<CohortRow>(
+                new CommandDefinition(
+                    lockedSql,
+                    new { OrganizationId = organizationId, ActivityId = activityId, CohortId = cohortId },
+                    existing,
+                    cancellationToken: cancellationToken));
+        }
+        else
+        {
+            await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+            row = await connection.QuerySingleOrDefaultAsync<CohortRow>(
+                new CommandDefinition(
+                    sql,
+                    new { OrganizationId = organizationId, ActivityId = activityId, CohortId = cohortId },
+                    cancellationToken: cancellationToken));
+        }
+
         return row is null
             ? null
             : new AssessmentCohort(
@@ -156,9 +261,16 @@ public sealed class PostgresAssessmentDraftStore(PostgresConnectionAccessor conn
                 """
                 SELECT revision_id, revision_number, title, content
                 FROM assessment_activity_revisions
-                WHERE organization_id = @OrganizationId AND revision_id = @RevisionId
+                WHERE organization_id = @OrganizationId
+                  AND activity_id = @ActivityId
+                  AND revision_id = @RevisionId
                 """,
-                new { OrganizationId = organizationId, RevisionId = activity.CurrentRevisionId });
+                new
+                {
+                    OrganizationId = organizationId,
+                    ActivityId = activity.ActivityId,
+                    RevisionId = activity.CurrentRevisionId,
+                });
             drafts.Add(ToDraft(activity, revision));
         }
 
@@ -177,9 +289,13 @@ public sealed class PostgresAssessmentDraftStore(PostgresConnectionAccessor conn
                    c.bound_revision_number, b.baseline_id, bl.content_digest
             FROM assessment_cohorts c
             LEFT JOIN assessment_cohort_baseline_bindings b
-                ON b.organization_id = c.organization_id AND b.cohort_id = c.cohort_id
+                ON b.organization_id = c.organization_id
+               AND b.activity_id = c.activity_id
+               AND b.cohort_id = c.cohort_id
             LEFT JOIN assessment_activation_baselines bl
-                ON bl.organization_id = b.organization_id AND bl.baseline_id = b.baseline_id
+                ON bl.organization_id = b.organization_id
+               AND bl.activity_id = b.activity_id
+               AND bl.baseline_id = b.baseline_id
             WHERE c.organization_id = @OrganizationId
               AND c.activity_id = @ActivityId
             ORDER BY c.created_at
@@ -227,11 +343,14 @@ public sealed class PostgresAssessmentDraftStore(PostgresConnectionAccessor conn
                     bound_revision_id = @BoundRevisionId,
                     bound_revision_number = @BoundRevisionNumber,
                     updated_at = CLOCK_TIMESTAMP()
-                WHERE organization_id = @OrganizationId AND cohort_id = @CohortId
+                WHERE organization_id = @OrganizationId
+                  AND activity_id = @ActivityId
+                  AND cohort_id = @CohortId
                 """,
                 new
                 {
                     cohort.OrganizationId,
+                    cohort.ActivityId,
                     cohort.CohortId,
                     cohort.State,
                     cohort.BoundRevisionId,

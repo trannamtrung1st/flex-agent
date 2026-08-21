@@ -78,7 +78,7 @@ internal static class AssessmentFixtures
         Source(Ref(6), AssessmentSourceKinds.RubricEvaluation, AssessmentSourceCategories.RubricEvaluation),
         Source(Ref(7), AssessmentSourceKinds.ModelDeployment, AssessmentSourceCategories.ModelDeployment),
         Source(Ref(8), AssessmentSourceKinds.KnowledgeReference, AssessmentSourceCategories.Knowledge),
-        Source(Ref(9), AssessmentSourceKinds.WorkflowPolicy, AssessmentSourceCategories.TaskSubmission),
+        Source(Ref(9), AssessmentSourceKinds.TaskRequirement, AssessmentSourceCategories.TaskSubmission),
         Source(Ref(10), AssessmentSourceKinds.CapabilityProfile, AssessmentSourceCategories.Capability),
         Source(Ref(11), AssessmentSourceKinds.ReviewRelease, AssessmentSourceCategories.ReviewRelease),
     ];

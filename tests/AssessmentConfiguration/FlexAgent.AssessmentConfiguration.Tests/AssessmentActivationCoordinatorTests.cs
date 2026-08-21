@@ -18,6 +18,12 @@ public sealed class AssessmentActivationCoordinatorTests
         Assert.Equal(CohortStates.Activated, outcome.CohortState);
         Assert.False(string.IsNullOrWhiteSpace(outcome.BaselineDigest));
         Assert.Equal(64, outcome.BaselineDigest!.Length);
+        Assert.True(harness.Store.LastWriteWasActivationMetadata);
+        var stored = await harness.Store.GetDraftAsync(
+            harness.Draft.OrganizationId,
+            harness.Draft.ActivityId,
+            TestContext.Current.CancellationToken);
+        Assert.True(stored!.HasActivatedCohort);
     }
 
     [Fact]
@@ -30,6 +36,59 @@ public sealed class AssessmentActivationCoordinatorTests
         Assert.True(second.Succeeded);
         Assert.Equal(first.BaselineId, second.BaselineId);
         Assert.Single(harness.Store.Cohorts);
+    }
+
+    [Fact]
+    public async Task Competing_idempotency_key_after_activation_is_a_conflict()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        Assert.True((await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken)).Succeeded);
+
+        var competing = harness.Command("idem-2");
+        var outcome = await harness.Coordinator.ActivateAsync(competing, TestContext.Current.CancellationToken);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.ConcurrentActivation, outcome.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Same_key_with_different_content_is_an_idempotency_conflict()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        Assert.True((await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken)).Succeeded);
+
+        var retargeted = harness.Command() with { ExpectedRevisionNumber = harness.Draft.RevisionNumber + 1 };
+        retargeted = retargeted with { TrustedCommandDigest = harness.CommandDigest.Compute(retargeted) };
+        var outcome = await harness.Coordinator.ActivateAsync(retargeted, TestContext.Current.CancellationToken);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.IdempotencyConflict, outcome.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Reconcile_returns_the_stored_attempt()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        var first = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+
+        var reconciled = await harness.Coordinator.ReconcileAsync(
+            new ReconcileActivationQuery(harness.Actor, harness.Draft.ActivityId, harness.Cohort.CohortId, "idem-1"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(reconciled.Succeeded);
+        Assert.Equal(first.BaselineId, reconciled.BaselineId);
+        Assert.Equal(first.BaselineDigest, reconciled.BaselineDigest);
+    }
+
+    [Fact]
+    public async Task Participant_relationship_cannot_activate()
+    {
+        var harness = await CreateReadyHarnessAsync();
+        harness = harness with { Actor = CreateActor(mfa: true, relationship: "participant") };
+        var outcome = await harness.Coordinator.ActivateAsync(harness.Command(), TestContext.Current.CancellationToken);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(AssessmentFailureCodes.Denied, outcome.OutcomeCode);
     }
 
     [Fact]
@@ -131,12 +190,13 @@ public sealed class AssessmentActivationCoordinatorTests
             unitOfWork,
             new ActivationBaselineDigester(),
             commandDigest,
-            new InMemoryAssessmentBaselineStore());
+            new InMemoryAssessmentBaselineStore(),
+            new InMemoryAssessmentAttemptStore());
 
         return new Harness(coordinator, store, unitOfWork, created.Value!, cohort, actor, commandDigest, environment);
     }
 
-    private static AssessmentActorContext CreateActor(bool mfa)
+    private static AssessmentActorContext CreateActor(bool mfa, string? relationship = null)
     {
         var strength = mfa
             ? new AuthenticationStrength("mfa", ["mfa"])
@@ -144,7 +204,7 @@ public sealed class AssessmentActivationCoordinatorTests
         return new AssessmentActorContext(
             new TrustedActor(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "human.interactive"),
             new OrganizationScope(AssessmentFixtures.OrganizationId),
-            AuthenticationStrengthEvaluator.AdministratorRelationship,
+            relationship ?? AuthenticationStrengthEvaluator.AdministratorRelationship,
             strength,
             Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1"),
             "https");
@@ -160,7 +220,7 @@ public sealed class AssessmentActivationCoordinatorTests
         AssessmentCommandDigest CommandDigest,
         string Environment)
     {
-        public ActivateCohortCommand Command()
+        public ActivateCohortCommand Command(string idempotencyKey = "idem-1")
         {
             var command = new ActivateCohortCommand(
                 Actor,
@@ -168,7 +228,7 @@ public sealed class AssessmentActivationCoordinatorTests
                 Cohort.CohortId,
                 Draft.RevisionId,
                 Draft.RevisionNumber,
-                "idem-1",
+                idempotencyKey,
                 "pending",
                 Environment);
             return command with { TrustedCommandDigest = CommandDigest.Compute(command) };

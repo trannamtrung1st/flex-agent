@@ -232,6 +232,7 @@
         "type": "Project",
         "dependencies": {
           "FlexAgent.AssessmentConfiguration": "[1.0.0, )",
+          "FlexAgent.AssessmentConfiguration.Infrastructure": "[1.0.0, )",
           "FlexAgent.Contracts": "[1.0.0, )",
           "FlexAgent.IdentityAccess": "[1.0.0, )",
           "FlexAgent.Sessions": "[1.0.0, )",
@@ -244,6 +245,17 @@
         "dependencies": {
           "FlexAgent.CanonicalJson": "[1.0.0, )",
           "FlexAgent.IdentityAccess": "[1.0.0, )"
+        }
+      },
+      "flexagent.assessmentconfiguration.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "Dapper": "[2.1.79, )",
+          "FlexAgent.AssessmentConfiguration": "[1.0.0, )",
+          "FlexAgent.Configuration": "[1.0.0, )",
+          "FlexAgent.IdentityAccess": "[1.0.0, )",
+          "FlexAgent.Postgres": "[1.0.0, )",
+          "Npgsql": "[10.0.3, )"
         }
       },
       "flexagent.canonicaljson": {

@@ -86,20 +86,21 @@ public sealed record ActivationBaselineDocument(
             },
             FairnessClassifications.ActivitySupplied));
 
+        var taskSource = sources.First(item => item.Matches(content.Task.RequirementSource));
         domains.Add(new FairnessDomainValue(
             AssessmentSourceCategories.TaskSubmission,
             new Dictionary<string, string>
             {
                 ["task_id"] = content.Task.TaskId.ToString("D"),
                 ["title"] = content.Task.Title,
-                ["requirement_digest"] = content.Task.RequirementSource.ContentDigest,
+                ["requirement_digest"] = taskSource.ContentDigest,
             },
             FairnessClassifications.ActivitySupplied));
         references.Add(new BaselineSourceReference(
             AssessmentSourceCategories.TaskSubmission,
-            content.Task.RequirementSource.SourceId,
-            content.Task.RequirementSource.VersionId,
-            content.Task.RequirementSource.ContentDigest));
+            taskSource.SourceId,
+            taskSource.VersionId,
+            taskSource.ContentDigest));
 
         var memoryValues = new Dictionary<string, string>
         {

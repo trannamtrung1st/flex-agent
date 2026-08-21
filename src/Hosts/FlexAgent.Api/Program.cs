@@ -18,7 +18,7 @@ builder.Services.AddHealthChecks()
 builder.Services.AddSyntheticBrowser(builder.Configuration);
 builder.Services.AddProductionSessionEvents(builder.Configuration, builder.Environment);
 builder.Services.AddHumanAuthentication(builder.Configuration, builder.Environment);
-builder.Services.AddAssessmentConfiguration(builder.Configuration);
+builder.Services.AddAssessmentConfiguration(builder.Configuration, builder.Environment);
 
 var app = builder.Build();
 var humanAuthentication = app.Services.GetRequiredService<HumanAuthenticationHostOptions>();

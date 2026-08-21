@@ -22,6 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Modules\AssessmentConfiguration\FlexAgent.AssessmentConfiguration\FlexAgent.AssessmentConfiguration.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\AssessmentConfiguration\FlexAgent.AssessmentConfiguration.Infrastructure\FlexAgent.AssessmentConfiguration.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\src\Modules\Configuration\FlexAgent.Configuration\FlexAgent.Configuration.csproj" />
     <ProjectReference Include="..\..\..\src\Modules\IdentityAccess\FlexAgent.IdentityAccess\FlexAgent.IdentityAccess.csproj" />
     <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />

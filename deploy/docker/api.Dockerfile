@@ -8,6 +8,8 @@ COPY src/BuildingBlocks/FlexAgent.CanonicalJson/ src/BuildingBlocks/FlexAgent.Ca
 COPY src/BuildingBlocks/FlexAgent.Contracts/ src/BuildingBlocks/FlexAgent.Contracts/
 COPY src/Infrastructure/FlexAgent.Postgres/ src/Infrastructure/FlexAgent.Postgres/
 COPY src/Modules/AssessmentConfiguration/FlexAgent.AssessmentConfiguration/ src/Modules/AssessmentConfiguration/FlexAgent.AssessmentConfiguration/
+COPY src/Modules/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Infrastructure/ src/Modules/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Infrastructure/
+COPY src/Modules/Configuration/FlexAgent.Configuration/ src/Modules/Configuration/FlexAgent.Configuration/
 COPY src/Modules/IdentityAccess/FlexAgent.IdentityAccess/ src/Modules/IdentityAccess/FlexAgent.IdentityAccess/
 COPY src/Modules/Sessions/FlexAgent.Sessions/ src/Modules/Sessions/FlexAgent.Sessions/
 COPY src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/ src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/

@@ -91,6 +91,12 @@ public static class ReadinessEvaluator
             AssessmentSourceCategories.ReviewRelease,
             content.ReviewRelease,
             AssessmentSourceKinds.ReviewRelease);
+        EvaluateSource(
+            issues,
+            context,
+            AssessmentSourceCategories.TaskSubmission,
+            content.Task.RequirementSource,
+            AssessmentSourceKinds.TaskRequirement);
 
         foreach (var knowledge in content.Knowledge)
         {
@@ -114,11 +120,6 @@ public static class ReadinessEvaluator
             ReadinessSeverities.Ready,
             "assessment.ok",
             "Saved revision is the candidate for activation."));
-        issues.Add(new ReadinessIssue(
-            AssessmentSourceCategories.TaskSubmission,
-            ReadinessSeverities.Ready,
-            "assessment.ok",
-            "The single MVP Task binding is present."));
 
         return ReadinessResult.From(issues);
     }

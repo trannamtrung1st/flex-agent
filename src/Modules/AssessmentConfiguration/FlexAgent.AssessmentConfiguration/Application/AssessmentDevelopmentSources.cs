@@ -32,7 +32,7 @@ public static class AssessmentDevelopmentSources
         Descriptor(organizationId, Rubric, AssessmentSourceKinds.RubricEvaluation, AssessmentSourceCategories.RubricEvaluation),
         Descriptor(organizationId, ModelDeployment, AssessmentSourceKinds.ModelDeployment, AssessmentSourceCategories.ModelDeployment),
         Descriptor(organizationId, Knowledge, AssessmentSourceKinds.KnowledgeReference, AssessmentSourceCategories.Knowledge),
-        Descriptor(organizationId, TaskRequirement, AssessmentSourceKinds.WorkflowPolicy, AssessmentSourceCategories.TaskSubmission),
+        Descriptor(organizationId, TaskRequirement, AssessmentSourceKinds.TaskRequirement, AssessmentSourceCategories.TaskSubmission),
         Descriptor(organizationId, Capability, AssessmentSourceKinds.CapabilityProfile, AssessmentSourceCategories.Capability),
         Descriptor(organizationId, ReviewRelease, AssessmentSourceKinds.ReviewRelease, AssessmentSourceCategories.ReviewRelease),
     ];

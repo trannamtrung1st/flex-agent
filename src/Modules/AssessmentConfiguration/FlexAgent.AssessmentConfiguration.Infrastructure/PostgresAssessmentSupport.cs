@@ -93,11 +93,11 @@ public sealed class PostgresAssessmentBaselineStore(
             new CommandDefinition(
                 """
                 INSERT INTO assessment_cohort_baseline_bindings (
-                    organization_id, cohort_id, baseline_id, bound_at)
+                    organization_id, activity_id, cohort_id, baseline_id, bound_at)
                 VALUES (
-                    @OrganizationId, @CohortId, @BaselineId, CLOCK_TIMESTAMP())
+                    @OrganizationId, @ActivityId, @CohortId, @BaselineId, CLOCK_TIMESTAMP())
                 """,
-                new { OrganizationId = organizationId, CohortId = cohortId, BaselineId = baselineId },
+                new { OrganizationId = organizationId, ActivityId = activityId, CohortId = cohortId, BaselineId = baselineId },
                 npgsql,
                 cancellationToken: cancellationToken));
 
@@ -304,3 +304,155 @@ public sealed class PostgresAssessmentSourceCatalog(PostgresConnectionAccessor c
         bool TransactionallyRevalidatable,
         string EffectiveValues);
 }
+
+public sealed class PostgresAssessmentAttemptStore : IAssessmentActivationAttemptStore
+{
+    public async Task<AssessmentActivationAttempt?> FindAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        string idempotencyKey,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        if (transaction.PersistenceContext is not NpgsqlTransaction npgsql)
+        {
+            throw new InvalidOperationException("Assessment activation attempts require the PostgreSQL activation transaction.");
+        }
+
+        var row = await npgsql.Connection!.QuerySingleOrDefaultAsync<AttemptRow>(
+            new CommandDefinition(
+                """
+                SELECT a.organization_id, a.activity_id, a.cohort_id, a.attempt_id, a.expected_revision_id,
+                       a.expected_revision_number, a.idempotency_key, a.command_digest, a.outcome_code,
+                       a.baseline_id, bl.content_digest, c.state
+                FROM assessment_activation_attempts a
+                LEFT JOIN assessment_activation_baselines bl
+                    ON bl.organization_id = a.organization_id
+                   AND bl.activity_id = a.activity_id
+                   AND bl.baseline_id = a.baseline_id
+                LEFT JOIN assessment_cohorts c
+                    ON c.organization_id = a.organization_id
+                   AND c.activity_id = a.activity_id
+                   AND c.cohort_id = a.cohort_id
+                WHERE a.organization_id = @OrganizationId
+                  AND a.activity_id = @ActivityId
+                  AND a.cohort_id = @CohortId
+                  AND a.idempotency_key = @IdempotencyKey
+                FOR UPDATE OF a
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    ActivityId = activityId,
+                    CohortId = cohortId,
+                    IdempotencyKey = idempotencyKey,
+                },
+                npgsql,
+                cancellationToken: cancellationToken));
+        return row is null
+            ? null
+            : new AssessmentActivationAttempt(
+                row.OrganizationId,
+                row.ActivityId,
+                row.CohortId,
+                row.AttemptId,
+                row.ExpectedRevisionId,
+                row.ExpectedRevisionNumber,
+                row.IdempotencyKey,
+                row.CommandDigest,
+                row.OutcomeCode,
+                row.BaselineId,
+                row.ContentDigest,
+                row.State);
+    }
+
+    public Task InsertAsync(
+        AssessmentActivationAttempt attempt,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        if (transaction.PersistenceContext is not NpgsqlTransaction npgsql)
+        {
+            throw new InvalidOperationException("Assessment activation attempts require the PostgreSQL activation transaction.");
+        }
+
+        return npgsql.Connection!.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO assessment_activation_attempts (
+                    organization_id, activity_id, cohort_id, attempt_id, expected_revision_id,
+                    expected_revision_number, idempotency_key, command_digest, outcome_code,
+                    baseline_id, created_at)
+                VALUES (
+                    @OrganizationId, @ActivityId, @CohortId, @AttemptId, @ExpectedRevisionId,
+                    @ExpectedRevisionNumber, @IdempotencyKey, @CommandDigest, @OutcomeCode,
+                    @BaselineId, CLOCK_TIMESTAMP())
+                """,
+                new
+                {
+                    attempt.OrganizationId,
+                    attempt.ActivityId,
+                    attempt.CohortId,
+                    attempt.AttemptId,
+                    attempt.ExpectedRevisionId,
+                    attempt.ExpectedRevisionNumber,
+                    attempt.IdempotencyKey,
+                    attempt.CommandDigest,
+                    attempt.OutcomeCode,
+                    attempt.BaselineId,
+                },
+                npgsql,
+                cancellationToken: cancellationToken));
+    }
+
+    private sealed record AttemptRow(
+        Guid OrganizationId,
+        Guid ActivityId,
+        Guid CohortId,
+        Guid AttemptId,
+        Guid ExpectedRevisionId,
+        long ExpectedRevisionNumber,
+        string IdempotencyKey,
+        string CommandDigest,
+        string OutcomeCode,
+        Guid? BaselineId,
+        string? ContentDigest,
+        string? State);
+}
+
+public sealed class PostgresAssessmentRelationshipResolver(PostgresConnectionAccessor connections)
+    : IAssessmentRelationshipResolver
+{
+    public async Task<AssessmentActorAuthorization> ResolveAsync(
+        Guid actorId,
+        Guid organizationId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        var actions = (await connection.QueryAsync<string>(
+            new CommandDefinition(
+                """
+                SELECT granted_action
+                FROM actor_organization_grants
+                WHERE organization_id = @OrganizationId
+                  AND actor_id = @ActorId
+                  AND revoked_at IS NULL
+                  AND granted_action LIKE 'assessment.%'
+                """,
+                new { OrganizationId = organizationId, ActorId = actorId },
+                cancellationToken: cancellationToken))).ToArray();
+
+        var relationship = actions.Any(action =>
+                action is AssessmentAuthorizationActions.CreateActivity
+                    or AssessmentAuthorizationActions.SaveActivity
+                    or AssessmentAuthorizationActions.CheckReadiness
+                    or AssessmentAuthorizationActions.ActivateCohort)
+            ? AuthenticationStrengthEvaluator.AdministratorRelationship
+            : actions.Length > 0
+                ? AuthenticationStrengthEvaluator.ReviewerRelationship
+                : string.Empty;
+        return new AssessmentActorAuthorization(relationship, actions);
+    }
+}
+

@@ -189,14 +189,42 @@ public interface IAssessmentDraftStore
         IAssessmentActivationTransaction? transaction,
         CancellationToken cancellationToken);
 
-    Task<ActivityDraft?> GetDraftAsync(Guid organizationId, Guid activityId, CancellationToken cancellationToken);
+    Task<ActivityDraft?> GetDraftAsync(
+        Guid organizationId,
+        Guid activityId,
+        CancellationToken cancellationToken);
+
+    Task<ActivityDraft?> GetDraftAsync(
+        Guid organizationId,
+        Guid activityId,
+        IAssessmentActivationTransaction? transaction,
+        CancellationToken cancellationToken);
 
     Task UpdateDraftAsync(
         ActivityDraft draft,
         IAssessmentActivationTransaction? transaction,
         CancellationToken cancellationToken);
 
-    Task<AssessmentCohort?> GetCohortAsync(Guid organizationId, Guid activityId, Guid cohortId, CancellationToken cancellationToken);
+    Task<bool> MarkActivatedAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid expectedRevisionId,
+        long expectedRevisionNumber,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken);
+
+    Task<AssessmentCohort?> GetCohortAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        CancellationToken cancellationToken);
+
+    Task<AssessmentCohort?> GetCohortAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        IAssessmentActivationTransaction? transaction,
+        CancellationToken cancellationToken);
 
     Task<IReadOnlyList<ActivityDraft>> ListDraftsAsync(Guid organizationId, CancellationToken cancellationToken);
 
@@ -210,13 +238,32 @@ public interface IAssessmentDraftStore
 
 public static class AssessmentAuthenticationPolicy
 {
-    public static string? Evaluate(AssessmentActorContext actor, string action) =>
-        AuthenticationStrengthEvaluator.Evaluate(
+    private static readonly HashSet<string> AdministratorActions =
+    [
+        AssessmentAuthorizationActions.CreateActivity,
+        AssessmentAuthorizationActions.SaveActivity,
+        AssessmentAuthorizationActions.CheckReadiness,
+        AssessmentAuthorizationActions.ActivateCohort,
+    ];
+
+    public static string? Evaluate(AssessmentActorContext actor, string action)
+    {
+        if (AdministratorActions.Contains(action)
+            && !string.Equals(
+                actor.Relationship,
+                AuthenticationStrengthEvaluator.AdministratorRelationship,
+                StringComparison.Ordinal))
+        {
+            return AssessmentFailureCodes.Denied;
+        }
+
+        return AuthenticationStrengthEvaluator.Evaluate(
             actor.Strength,
             actor.Relationship,
             action,
             AllowedAcr,
             AllowedAmr);
+    }
 
     private static readonly HashSet<string> AllowedAcr = ["http://schemas.openid.net/pape/policies/2007/06/multi-factor", "mfa"];
     private static readonly HashSet<string> AllowedAmr = ["mfa", "otp", "hwk", "pwd mfa"];

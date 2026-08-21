@@ -1,8 +1,13 @@
 using FlexAgent.AssessmentConfiguration.Application;
 using FlexAgent.AssessmentConfiguration.Canonicalization;
 using FlexAgent.AssessmentConfiguration.Domain;
+using FlexAgent.AssessmentConfiguration.Infrastructure;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.IdentityAccess.Infrastructure;
+using FlexAgent.Postgres;
+using FlexAgent.Postgres.Audit;
+using FlexAgent.Postgres.Outbox;
 using Microsoft.AspNetCore.Antiforgery;
 
 namespace FlexAgent.Api;
@@ -11,26 +16,92 @@ public static class AssessmentEndpointExtensions
 {
     public static IServiceCollection AddAssessmentConfiguration(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
+        var connectionString = HumanAuthenticationPersistencePolicy.ResolveConnectionString(configuration);
+        var productionLocked = environment.IsProduction() || environment.IsEnvironment("Staging");
+        if (string.IsNullOrWhiteSpace(connectionString) && productionLocked)
+        {
+            return services;
+        }
+
+        services.AddSingleton<IActivationBaselineDigester, ActivationBaselineDigester>();
+        services.AddSingleton<IAssessmentCommandDigest, AssessmentCommandDigest>();
+        services.AddSingleton<IAssessmentDraftHandler, AssessmentDraftHandler>();
+        services.AddSingleton<IAssessmentActivationCoordinator, AssessmentActivationCoordinator>();
+
+        if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            if (services.All(descriptor => descriptor.ServiceType != typeof(Npgsql.NpgsqlDataSource)))
+            {
+                services.AddSingleton(_ => Npgsql.NpgsqlDataSource.Create(connectionString));
+                services.AddSingleton<PostgresConnectionAccessor>();
+            }
+
+            if (services.All(descriptor => descriptor.ServiceType != typeof(IAuthorizationKernel)))
+            {
+                services.AddSingleton<IAuthorizationKernel, PostgresAuthorizationKernel>();
+            }
+
+            if (services.All(descriptor => descriptor.ServiceType != typeof(ICommitAuthorizationKernel)))
+            {
+                services.AddSingleton<ICommitAuthorizationKernel>(sp =>
+                    sp.GetService<IAuthorizationKernel>() as ICommitAuthorizationKernel
+                    ?? ActivatorUtilities.CreateInstance<PostgresAuthorizationKernel>(sp));
+            }
+
+            if (services.All(descriptor => descriptor.ServiceType != typeof(IAuditEventWriter)))
+            {
+                services.AddSingleton<IAuditEventWriter, PostgresAuditEventWriter>();
+            }
+
+            if (services.All(descriptor => descriptor.ServiceType != typeof(IOutboxItemWriter)))
+            {
+                services.AddSingleton<IOutboxItemWriter, PostgresOutboxItemWriter>();
+            }
+
+            services.AddSingleton<PostgresAssessmentSourceCatalog>();
+            services.AddSingleton<IAssessmentSourceCatalog>(sp => sp.GetRequiredService<PostgresAssessmentSourceCatalog>());
+            services.AddSingleton<IAssessmentSourceTransactionPort>(sp => sp.GetRequiredService<PostgresAssessmentSourceCatalog>());
+            services.AddSingleton<IAssessmentDevelopmentSourceSeeder, NoOpAssessmentDevelopmentSourceSeeder>();
+            services.AddSingleton<IAssessmentDraftStore, PostgresAssessmentDraftStore>();
+            services.AddSingleton<IAssessmentAuthorizationPort, KernelAssessmentAuthorizationPort>();
+            services.AddSingleton<IAssessmentRelationshipResolver, PostgresAssessmentRelationshipResolver>();
+            services.AddSingleton<IAssessmentActivationUnitOfWork, PostgresAssessmentUnitOfWork>();
+            services.AddSingleton<IAssessmentBaselineStore, PostgresAssessmentBaselineStore>();
+            services.AddSingleton<IAssessmentActivationAttemptStore, PostgresAssessmentAttemptStore>();
+            return services;
+        }
+
         services.AddSingleton<IAssessmentDraftStore, InMemoryAssessmentDraftStore>();
         services.AddSingleton<InMemoryAssessmentSourceCatalog>();
         services.AddSingleton<IAssessmentSourceCatalog>(sp => sp.GetRequiredService<InMemoryAssessmentSourceCatalog>());
         services.AddSingleton<IAssessmentSourceTransactionPort>(sp => sp.GetRequiredService<InMemoryAssessmentSourceCatalog>());
         services.AddSingleton<IAssessmentDevelopmentSourceSeeder>(sp => sp.GetRequiredService<InMemoryAssessmentSourceCatalog>());
-        services.AddSingleton<IAssessmentAuthorizationPort, InMemoryAssessmentAuthorizationPort>();
+        services.AddSingleton<IAssessmentAuthorizationPort>(_ => new InMemoryAssessmentAuthorizationPort(permit: false));
+        services.AddSingleton<IAssessmentRelationshipResolver, EmptyAssessmentRelationshipResolver>();
         services.AddSingleton<IAssessmentActivationUnitOfWork, InMemoryAssessmentUnitOfWork>();
-        services.AddSingleton<IActivationBaselineDigester, ActivationBaselineDigester>();
-        services.AddSingleton<IAssessmentCommandDigest, AssessmentCommandDigest>();
         services.AddSingleton<IAssessmentBaselineStore, InMemoryAssessmentBaselineStore>();
-        services.AddSingleton<IAssessmentDraftHandler, AssessmentDraftHandler>();
-        services.AddSingleton<IAssessmentActivationCoordinator, AssessmentActivationCoordinator>();
-        _ = configuration;
+        services.AddSingleton<IAssessmentActivationAttemptStore, InMemoryAssessmentAttemptStore>();
         return services;
     }
 
     public static IEndpointRouteBuilder MapAssessmentEndpoints(this IEndpointRouteBuilder endpoints)
     {
+        var environment = endpoints.ServiceProvider.GetRequiredService<IHostEnvironment>();
+        var configuration = endpoints.ServiceProvider.GetRequiredService<IConfiguration>();
+        var productionLocked = environment.IsProduction() || environment.IsEnvironment("Staging");
+        if (productionLocked && string.IsNullOrWhiteSpace(HumanAuthenticationPersistencePolicy.ResolveConnectionString(configuration)))
+        {
+            return endpoints;
+        }
+
+        if (endpoints.ServiceProvider.GetService<IAssessmentActivationCoordinator>() is null)
+        {
+            return endpoints;
+        }
+
         var group = endpoints.MapGroup("/v1/assessment");
         group.MapGet("/shell", GetShell);
         group.MapGet("/source-options", GetSourceOptions);
@@ -47,10 +118,11 @@ public static class AssessmentEndpointExtensions
     private static async Task GetShell(
         HttpContext context,
         IHumanAuthenticationCoordinator coordinator,
-        HumanAuthenticationHostOptions options)
+        HumanAuthenticationHostOptions options,
+        IAssessmentRelationshipResolver relationships)
     {
-        var actor = await TryActorAsync(context, coordinator, options);
-        if (actor is null)
+        var resolved = await TryActorAsync(context, coordinator, options, relationships);
+        if (resolved is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             await context.Response.WriteAsJsonAsync(new { error = HumanAuthenticationReasonCodes.MissingSession });
@@ -60,21 +132,15 @@ public static class AssessmentEndpointExtensions
         await context.Response.WriteAsJsonAsync(new
         {
             schema_version = "v1",
-            actor_id = actor.Actor.ActorId,
-            organization_id = actor.Organization.OrganizationId,
-            relationship = actor.Relationship,
+            actor_id = resolved.Actor.Actor.ActorId,
+            organization_id = resolved.Actor.Organization.OrganizationId,
+            relationship = resolved.Actor.Relationship,
             navigation = new[]
             {
-                new { destination_id = "home", is_available = true },
-                new { destination_id = "activities", is_available = true },
+                new { destination_id = "home", is_available = resolved.Authorization.PermittedActions.Count > 0 },
+                new { destination_id = "activities", is_available = resolved.Authorization.PermittedActions.Count > 0 },
             },
-            permitted_actions = new[]
-            {
-                AssessmentAuthorizationActions.CreateActivity,
-                AssessmentAuthorizationActions.SaveActivity,
-                AssessmentAuthorizationActions.CheckReadiness,
-                AssessmentAuthorizationActions.ActivateCohort,
-            },
+            permitted_actions = resolved.Authorization.PermittedActions,
         });
     }
 
@@ -84,13 +150,14 @@ public static class AssessmentEndpointExtensions
         HumanAuthenticationHostOptions options,
         IAssessmentDevelopmentSourceSeeder seeder)
     {
-        var actor = await TryActorAsync(context, coordinator, options);
-        if (actor is null)
+        var resolved = await TryActorAsync(context, coordinator, options, context.RequestServices.GetRequiredService<IAssessmentRelationshipResolver>());
+        if (resolved is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
         }
 
+        var actor = resolved.Actor;
         seeder.EnsureOrganization(actor.Organization.OrganizationId);
         var sources = AssessmentDevelopmentSources.ForOrganization(actor.Organization.OrganizationId);
         await context.Response.WriteAsJsonAsync(new
@@ -114,14 +181,19 @@ public static class AssessmentEndpointExtensions
         HumanAuthenticationHostOptions options,
         IAssessmentDraftStore store)
     {
-        var actor = await TryActorAsync(context, coordinator, options);
-        if (actor is null)
+        var resolved = await TryActorAsync(context, coordinator, options);
+        if (resolved is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
         }
 
-        var drafts = await store.ListDraftsAsync(actor.Organization.OrganizationId, context.RequestAborted);
+        var actor = resolved.Actor;
+        var canRead = HasAction(resolved, AssessmentAuthorizationActions.ReadActivity)
+            || HasAction(resolved, AssessmentAuthorizationActions.CreateActivity);
+        var drafts = canRead
+            ? await store.ListDraftsAsync(actor.Organization.OrganizationId, context.RequestAborted)
+            : [];
         await context.Response.WriteAsJsonAsync(new
         {
             activities = drafts.Select(draft => new
@@ -131,7 +203,9 @@ public static class AssessmentEndpointExtensions
                 revision_number = draft.RevisionNumber,
                 has_activated_cohort = draft.HasActivatedCohort,
             }),
-            permitted_actions = new[] { "create_assessment" },
+            permitted_actions = HasAction(resolved, AssessmentAuthorizationActions.CreateActivity)
+                ? new[] { "create_assessment" }
+                : Array.Empty<string>(),
         });
     }
 
@@ -149,12 +223,14 @@ public static class AssessmentEndpointExtensions
             return;
         }
 
-        var actor = await TryActorAsync(context, coordinator, options);
-        if (actor is null)
+        var resolved = await TryActorAsync(context, coordinator, options);
+        if (resolved is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
         }
+
+        var actor = resolved.Actor;
 
         var request = await context.Request.ReadFromJsonAsync<CreateActivityRequest>(context.RequestAborted);
         if (request is null || string.IsNullOrWhiteSpace(request.Title))
@@ -265,10 +341,20 @@ public static class AssessmentEndpointExtensions
         HumanAuthenticationHostOptions options,
         IAssessmentDraftStore store)
     {
-        var actor = await TryActorAsync(context, coordinator, options);
-        if (actor is null)
+        var resolved = await TryActorAsync(context, coordinator, options);
+        if (resolved is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
+        }
+
+        var actor = resolved.Actor;
+
+        if (!HasAction(resolved, AssessmentAuthorizationActions.ReadActivity)
+            && !HasAction(resolved, AssessmentAuthorizationActions.SaveActivity)
+            && !HasAction(resolved, AssessmentAuthorizationActions.ActivateCohort))
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
             return;
         }
 
@@ -316,12 +402,14 @@ public static class AssessmentEndpointExtensions
             return;
         }
 
-        var actor = await TryActorAsync(context, coordinator, options);
-        if (actor is null)
+        var resolved = await TryActorAsync(context, coordinator, options);
+        if (resolved is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
         }
+
+        var actor = resolved.Actor;
 
         var request = await context.Request.ReadFromJsonAsync<SaveActivityRequest>(context.RequestAborted);
         var current = await store.GetDraftAsync(actor.Organization.OrganizationId, activityId, context.RequestAborted);
@@ -363,12 +451,14 @@ public static class AssessmentEndpointExtensions
             return;
         }
 
-        var actor = await TryActorAsync(context, coordinator, options);
-        if (actor is null)
+        var resolved = await TryActorAsync(context, coordinator, options);
+        if (resolved is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
         }
+
+        var actor = resolved.Actor;
 
         if (AssessmentHostEnvironment.ResolveEnvironment() == DeploymentEnvironments.Development)
         {
@@ -410,12 +500,14 @@ public static class AssessmentEndpointExtensions
             return;
         }
 
-        var actor = await TryActorAsync(context, coordinator, options);
-        if (actor is null)
+        var resolved = await TryActorAsync(context, coordinator, options);
+        if (resolved is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
         }
+
+        var actor = resolved.Actor;
 
         var request = await context.Request.ReadFromJsonAsync<ActivateRequest>(context.RequestAborted);
         if (request is null)
@@ -450,34 +542,29 @@ public static class AssessmentEndpointExtensions
         Guid cohortId,
         IHumanAuthenticationCoordinator coordinator,
         HumanAuthenticationHostOptions options,
-        IAssessmentDraftStore store)
+        IAssessmentActivationCoordinator activation)
     {
-        var actor = await TryActorAsync(context, coordinator, options);
-        if (actor is null)
+        var resolved = await TryActorAsync(context, coordinator, options);
+        if (resolved is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
         }
 
-        var cohort = await store.GetCohortAsync(
-            actor.Organization.OrganizationId,
-            activityId,
-            cohortId,
-            context.RequestAborted);
-        if (cohort is null)
+        var actor = resolved.Actor;
+        var idempotencyKey = context.Request.Query["idempotency_key"].ToString();
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
         {
-            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new { error = AssessmentFailureCodes.InvalidField });
             return;
         }
 
-        await context.Response.WriteAsJsonAsync(new
-        {
-            activity_id = activityId,
-            cohort_id = cohort.CohortId,
-            state = cohort.State,
-            baseline_id = cohort.BaselineId,
-            baseline_digest = cohort.BaselineDigest,
-        });
+        var outcome = await activation.ReconcileAsync(
+            new ReconcileActivationQuery(actor, activityId, cohortId, idempotencyKey),
+            context.RequestAborted);
+        context.Response.StatusCode = outcome.Succeeded ? StatusCodes.Status200OK : StatusCodes.Status404NotFound;
+        await context.Response.WriteAsJsonAsync(outcome);
     }
 
     private static async Task<bool> ValidateMutationAsync(HttpContext context, IAntiforgery antiforgery)
@@ -495,10 +582,21 @@ public static class AssessmentEndpointExtensions
         }
     }
 
-    private static async Task<AssessmentActorContext?> TryActorAsync(
+    private static Task<ResolvedAssessmentActor?> TryActorAsync(
         HttpContext context,
         IHumanAuthenticationCoordinator coordinator,
-        HumanAuthenticationHostOptions options)
+        HumanAuthenticationHostOptions options) =>
+        TryActorAsync(
+            context,
+            coordinator,
+            options,
+            context.RequestServices.GetRequiredService<IAssessmentRelationshipResolver>());
+
+    private static async Task<ResolvedAssessmentActor?> TryActorAsync(
+        HttpContext context,
+        IHumanAuthenticationCoordinator coordinator,
+        HumanAuthenticationHostOptions options,
+        IAssessmentRelationshipResolver relationships)
     {
         var credential = context.Request.Cookies[HumanAuthenticationHostOptions.CookieName];
         if (string.IsNullOrWhiteSpace(credential))
@@ -512,14 +610,23 @@ public static class AssessmentEndpointExtensions
             return null;
         }
 
-        return new AssessmentActorContext(
-            new TrustedActor(session.ActorId, HumanInteractiveActorTypes.Interactive),
-            new OrganizationScope(session.OrganizationId),
-            AuthenticationStrengthEvaluator.AdministratorRelationship,
-            session.Strength,
-            Guid.CreateVersion7(),
-            "https");
+        var authorization = await relationships.ResolveAsync(
+            session.ActorId,
+            session.OrganizationId,
+            context.RequestAborted);
+        return new ResolvedAssessmentActor(
+            new AssessmentActorContext(
+                new TrustedActor(session.ActorId, HumanInteractiveActorTypes.Interactive),
+                new OrganizationScope(session.OrganizationId),
+                authorization.Relationship,
+                session.Strength,
+                Guid.CreateVersion7(),
+                "https"),
+            authorization);
     }
+
+    private static bool HasAction(ResolvedAssessmentActor actor, string action) =>
+        actor.Authorization.PermittedActions.Contains(action, StringComparer.Ordinal);
 
     private sealed record CreateActivityRequest(
         string Title,
@@ -569,6 +676,18 @@ public static class AssessmentEndpointExtensions
         Guid ExpectedRevisionId,
         long ExpectedRevisionNumber,
         string IdempotencyKey);
+
+    private sealed record ResolvedAssessmentActor(
+        AssessmentActorContext Actor,
+        AssessmentActorAuthorization Authorization);
+}
+
+file sealed class NoOpAssessmentDevelopmentSourceSeeder : IAssessmentDevelopmentSourceSeeder
+{
+    public void EnsureOrganization(Guid organizationId)
+    {
+        _ = organizationId;
+    }
 }
 
 file static class AssessmentHostEnvironment

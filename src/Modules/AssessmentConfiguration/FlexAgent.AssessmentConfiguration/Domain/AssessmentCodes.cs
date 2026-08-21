@@ -87,6 +87,7 @@ public static class AssessmentSourceKinds
     public const string CapabilityProfile = "assessment.capability_profile.v1";
     public const string StableMemorySnapshot = "assessment.stable_memory_snapshot.v1";
     public const string ReviewRelease = "assessment.review_release.v1";
+    public const string TaskRequirement = "assessment.task_requirement.v1";
 }
 
 public static class AssessmentFailureCodes

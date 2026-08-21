@@ -160,6 +160,51 @@ public sealed class ReadinessEvaluatorTests
     }
 
     [Fact]
+    public void Missing_revoked_wrong_scope_and_digest_mismatched_task_requirement_are_blocked()
+    {
+        var draft = AssessmentFixtures.CreateDraft().Value!;
+
+        var missing = ReadinessEvaluator.Evaluate(
+            new ReadinessContext(draft, AssessmentFixtures.PermittedSources().Where(source =>
+                source.Category != AssessmentSourceCategories.TaskSubmission).ToList(), true, DeploymentEnvironments.Development));
+        Assert.Contains(missing.Issues, issue =>
+            issue.Category == AssessmentSourceCategories.TaskSubmission
+            && issue.ReasonCode == AssessmentFailureCodes.MissingSource);
+
+        var revokedSources = AssessmentFixtures.PermittedSources();
+        revokedSources[8] = AssessmentFixtures.Source(
+            AssessmentFixtures.Ref(9),
+            AssessmentSourceKinds.TaskRequirement,
+            AssessmentSourceCategories.TaskSubmission,
+            lifecycle: SourceLifecycleStates.Revoked);
+        var revoked = ReadinessEvaluator.Evaluate(
+            new ReadinessContext(draft, revokedSources, true, DeploymentEnvironments.Development));
+        Assert.Contains(revoked.Issues, issue =>
+            issue.Category == AssessmentSourceCategories.TaskSubmission
+            && issue.ReasonCode == AssessmentFailureCodes.RevokedSource);
+
+        var scopedSources = AssessmentFixtures.PermittedSources();
+        scopedSources[8] = AssessmentFixtures.Source(
+            AssessmentFixtures.Ref(9),
+            AssessmentSourceKinds.TaskRequirement,
+            AssessmentSourceCategories.TaskSubmission,
+            organizationId: Guid.Parse("99999999-9999-9999-9999-999999999999"));
+        var scoped = ReadinessEvaluator.Evaluate(
+            new ReadinessContext(draft, scopedSources, true, DeploymentEnvironments.Development));
+        Assert.Contains(scoped.Issues, issue =>
+            issue.Category == AssessmentSourceCategories.TaskSubmission
+            && issue.ReasonCode == AssessmentFailureCodes.WrongScope);
+
+        var digestSources = AssessmentFixtures.PermittedSources();
+        digestSources[8] = digestSources[8] with { ContentDigest = AssessmentFixtures.Digest('z') };
+        var digest = ReadinessEvaluator.Evaluate(
+            new ReadinessContext(draft, digestSources, true, DeploymentEnvironments.Development));
+        Assert.Contains(digest.Issues, issue =>
+            issue.Category == AssessmentSourceCategories.TaskSubmission
+            && issue.ReasonCode == AssessmentFailureCodes.MissingSource);
+    }
+
+    [Fact]
     public void Cross_scope_memory_snapshot_is_blocked()
     {
         var draft = AssessmentFixtures.CreateDraft().Value!;

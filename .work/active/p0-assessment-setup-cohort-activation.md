@@ -460,6 +460,9 @@ enable model execution.
       resolver-facing read/verifier contract using the existing schema,
       versioned domain validators, explicit Assessment-owned
       `CanonicalJsonLimits`, and `FlexAgent.CanonicalJson`.
+- [>] Repair `67c4957` P1s: activation head-only persist, fail-closed host auth,
+      transactional draft/Cohort reads, Task-requirement readiness/baseline
+      authority, persisted idempotency attempts, and `0035` parent-traversal FKs.
 - [>] Red — add migration and PostgreSQL integration tests for additive upgrade
       from populated `0033`, composite Organization ownership, Activity
       revision lineage, Cohort state, scoped idempotency, one baseline binding,
@@ -539,6 +542,14 @@ enable model execution.
 
 # Current state
 
+Review of `67c4957` found five P1 defects. This pass stays in-progress and
+repairs them before further frontend work: activation must not insert a
+duplicate revision; `/v1/assessment` must not synthesize Administrator or
+use permit-all in Production; draft/Cohort reads must join the activation
+transaction; Task requirement must go through `EvaluateSource()`; attempts
+must persist key+digest for retry/reconcile. Schema parent-traversal FKs
+move to additive `0035`.
+
 Execution started at `ef911eed6fed2a8d2b31c93c5066e3d4eb283376`. Domain,
 readiness, in-memory activation coordinator, Proposed ADR-017/`PROP-7`,
 migration `0034`, Infrastructure adapters, thin `/v1/assessment` endpoints,
@@ -573,6 +584,12 @@ synthetic provider.
 
 # Findings / deviations
 
+- 2026-08-21 review of `67c4957` P1s: activation now updates only
+  `has_activated_cohort`; draft/Cohort reads take the activation transaction
+  with `FOR UPDATE`; Task requirement uses `EvaluateSource()` and trusted
+  descriptor identity; attempts persist key+digest; Production/Staging without
+  Postgres does not map Assessment; host no longer synthesizes Administrator.
+  `ADR-017` remains Proposed. Frontend and Playwright remain later work.
 - 2026-08-21 execution recorded Proposed `ADR-017` and `PROP-7` rather than
   silently treating Sessions file registries as transactional authority.
 - Domain/application activation is proven in-memory, including empty-Cohort
@@ -655,9 +672,9 @@ synthetic provider.
 | Repository inventory refresh | passed for planning | Observed `ef911ee`; only this plan was modified; migration head remains `0033`; no Assessment module/API exists; Sessions OpenAI-compatible and installed operator-state modules/tests now exist |
 | Execution baseline | passed | Start SHA `ef911ee`. Before behavior changes: Architecture 35 passed; Contract 135 passed; CanonicalJson 25 passed; web lint warning-only, typecheck passed, unit 60 passed. PostgreSQL/Runtime/Sessions/e2e smoke were not all re-run in this session due to parallel-build lock and time; Architecture was re-run after the lock. |
 | Source-authority/transaction decision | recorded as Proposed | `ADR-017` and `PROP-7` published. Sessions file registries are excluded. Production fail-closed remains the interim default until ADR-017 is approved. |
-| Assessment focused tests | passed for domain/application | `dotnet test tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — 32 passed |
-| PostgreSQL migration/integration | partial | `0034` added and upgrade-script lists updated; Docker-backed migration/fault/concurrency suites not run |
-| API/runtime contracts | partial | `/v1/assessment` shell/create/get/readiness/activate/reconcile exist; host still uses in-memory permit-all composition; no API contract suite yet |
+| Assessment focused tests | passed for domain/application | `dotnet test tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — 39 passed after P1 repairs (Task readiness, participant denial, stored-attempt retry/reconcile) |
+| PostgreSQL migration/integration | partial | `0035` parent-traversal FKs added. `AssessmentActivationPersistenceTests` 3 passed (head-only activate, stored-attempt retry/competing key, FK reject). Full `MigrationUpgradeTests` matrix not re-run in this pass |
+| API/runtime contracts | partial | Production/Staging without Postgres does not map `/v1/assessment`. Postgres composition uses kernel + grant-derived relationship. Development without Postgres is deny-all in-memory and does not synthesize Administrator. Reconcile requires `idempotency_key`. No dedicated HTTP contract suite yet |
 | Web unit/accessibility | partial | Setup page plus production provider added; web unit 62 passed, lint warning-only; production provider not globally composed; Playwright not run |
 | Playwright MCP | pending | Must use real app interactions, accessibility snapshots, and desktop/narrow screenshots in `.playwright-mcp/` after the slice runs |
 | Performance | pending | `AC-ACT-27` readiness and activation p95 evidence not observed |
@@ -667,9 +684,12 @@ synthetic provider.
 # Blockers
 
 `ADR-017` remains Proposed. Production activation against Sessions
-file-loaded profiles remains fail-closed. PostgreSQL integration evidence,
-host wiring to Postgres adapters, descriptor seeding, API negatives, and
-Playwright MCP are the remaining implementation blockers for completion.
+file-loaded profiles remains fail-closed. The `67c4957` P1s for activation
+head writes, host permit-all/Administrator synthesis, transactional reads,
+Task-requirement authority, and stored-attempt idempotency are repaired.
+Remaining blockers: full migration-upgrade matrix, HTTP contract/negatives,
+descriptor seeding in hosted Postgres, production SPA composition, and
+Playwright MCP.
 
 The current Sessions model-profile, qualification, and adapter-configuration
 authority is file-loaded/in-memory and has no approved means to serialize

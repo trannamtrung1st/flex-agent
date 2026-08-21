@@ -8,6 +8,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\BuildingBlocks\FlexAgent.Contracts\FlexAgent.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\AssessmentConfiguration\FlexAgent.AssessmentConfiguration\FlexAgent.AssessmentConfiguration.csproj" />
+    <ProjectReference Include="..\..\Modules\AssessmentConfiguration\FlexAgent.AssessmentConfiguration.Infrastructure\FlexAgent.AssessmentConfiguration.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Modules\IdentityAccess\FlexAgent.IdentityAccess\FlexAgent.IdentityAccess.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\FlexAgent.Sessions.Infrastructure\FlexAgent.Sessions.Infrastructure.csproj" />

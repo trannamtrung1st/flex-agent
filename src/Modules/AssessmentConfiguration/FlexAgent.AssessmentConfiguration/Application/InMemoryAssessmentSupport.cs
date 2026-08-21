@@ -19,8 +19,16 @@ public sealed class InMemoryAssessmentDraftStore : IAssessmentDraftStore
         return Task.CompletedTask;
     }
 
-    public Task<ActivityDraft?> GetDraftAsync(Guid organizationId, Guid activityId, CancellationToken cancellationToken)
+    public Task<ActivityDraft?> GetDraftAsync(Guid organizationId, Guid activityId, CancellationToken cancellationToken) =>
+        GetDraftAsync(organizationId, activityId, transaction: null, cancellationToken);
+
+    public Task<ActivityDraft?> GetDraftAsync(
+        Guid organizationId,
+        Guid activityId,
+        IAssessmentActivationTransaction? transaction,
+        CancellationToken cancellationToken)
     {
+        _ = transaction;
         _drafts.TryGetValue((organizationId, activityId), out var draft);
         return Task.FromResult(draft);
     }
@@ -30,16 +38,50 @@ public sealed class InMemoryAssessmentDraftStore : IAssessmentDraftStore
         IAssessmentActivationTransaction? transaction,
         CancellationToken cancellationToken)
     {
+        _ = transaction;
         _drafts[(draft.OrganizationId, draft.ActivityId)] = draft;
+        LastWriteWasActivationMetadata = false;
         return Task.CompletedTask;
+    }
+
+    public bool LastWriteWasActivationMetadata { get; private set; }
+
+    public Task<bool> MarkActivatedAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid expectedRevisionId,
+        long expectedRevisionNumber,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        _ = transaction;
+        if (!_drafts.TryGetValue((organizationId, activityId), out var draft)
+            || draft.RevisionId != expectedRevisionId
+            || draft.RevisionNumber != expectedRevisionNumber)
+        {
+            return Task.FromResult(false);
+        }
+
+        _drafts[(organizationId, activityId)] = draft with { HasActivatedCohort = true };
+        LastWriteWasActivationMetadata = true;
+        return Task.FromResult(true);
     }
 
     public Task<AssessmentCohort?> GetCohortAsync(
         Guid organizationId,
         Guid activityId,
         Guid cohortId,
+        CancellationToken cancellationToken) =>
+        GetCohortAsync(organizationId, activityId, cohortId, transaction: null, cancellationToken);
+
+    public Task<AssessmentCohort?> GetCohortAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        IAssessmentActivationTransaction? transaction,
         CancellationToken cancellationToken)
     {
+        _ = transaction;
         _cohorts.TryGetValue((organizationId, activityId, cohortId), out var cohort);
         return Task.FromResult(cohort);
     }
@@ -168,4 +210,41 @@ public sealed class InMemoryAssessmentUnitOfWork : IAssessmentActivationUnitOfWo
         Func<IAssessmentActivationTransaction, Task<T>> action,
         CancellationToken cancellationToken) =>
         action(Transaction);
+}
+
+public sealed class InMemoryAssessmentAttemptStore : IAssessmentActivationAttemptStore
+{
+    private readonly Dictionary<(Guid OrganizationId, Guid ActivityId, Guid CohortId, string Key), AssessmentActivationAttempt> _attempts = new();
+
+    public Task<AssessmentActivationAttempt?> FindAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        string idempotencyKey,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        _ = transaction;
+        _attempts.TryGetValue((organizationId, activityId, cohortId, idempotencyKey), out var attempt);
+        return Task.FromResult(attempt);
+    }
+
+    public Task InsertAsync(
+        AssessmentActivationAttempt attempt,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        _ = transaction;
+        _attempts[(attempt.OrganizationId, attempt.ActivityId, attempt.CohortId, attempt.IdempotencyKey)] = attempt;
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class EmptyAssessmentRelationshipResolver : IAssessmentRelationshipResolver
+{
+    public Task<AssessmentActorAuthorization> ResolveAsync(
+        Guid actorId,
+        Guid organizationId,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new AssessmentActorAuthorization(string.Empty, []));
 }

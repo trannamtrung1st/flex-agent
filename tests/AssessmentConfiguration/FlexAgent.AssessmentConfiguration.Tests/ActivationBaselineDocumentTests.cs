@@ -38,6 +38,23 @@ public sealed class ActivationBaselineDocumentTests
     }
 
     [Fact]
+    public void Task_requirement_reference_comes_from_the_trusted_descriptor()
+    {
+        var draft = AssessmentFixtures.CreateDraft().Value!;
+        var sources = AssessmentFixtures.PermittedSources();
+        var trusted = sources.Single(source => source.Category == AssessmentSourceCategories.TaskSubmission);
+
+        var document = ActivationBaselineDocument.FromReadyDraft(draft, sources).Value!;
+        var reference = document.SourceReferences.Single(item => item.SourceKey == AssessmentSourceCategories.TaskSubmission);
+        var domain = document.FairnessDomains.Single(item => item.DomainKey == AssessmentSourceCategories.TaskSubmission);
+
+        Assert.Equal(trusted.SourceId, reference.SourceId);
+        Assert.Equal(trusted.VersionId, reference.SourceVersion);
+        Assert.Equal(trusted.ContentDigest, reference.ContentDigest);
+        Assert.Equal(trusted.ContentDigest, domain.EffectiveValue["requirement_digest"]);
+    }
+
+    [Fact]
     public void Blocked_readiness_cannot_produce_a_baseline()
     {
         var draft = AssessmentFixtures.CreateDraft().Value!;

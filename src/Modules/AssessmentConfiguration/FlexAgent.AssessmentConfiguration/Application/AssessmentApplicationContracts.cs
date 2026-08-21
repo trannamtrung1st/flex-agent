@@ -68,6 +68,52 @@ public interface IAssessmentActivationCoordinator
     Task<ActivationOutcome> ActivateAsync(
         ActivateCohortCommand command,
         CancellationToken cancellationToken = default);
+
+    Task<ActivationOutcome> ReconcileAsync(
+        ReconcileActivationQuery query,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed record AssessmentActivationAttempt(
+    Guid OrganizationId,
+    Guid ActivityId,
+    Guid CohortId,
+    Guid AttemptId,
+    Guid ExpectedRevisionId,
+    long ExpectedRevisionNumber,
+    string IdempotencyKey,
+    string CommandDigest,
+    string OutcomeCode,
+    Guid? BaselineId,
+    string? BaselineDigest,
+    string? CohortState);
+
+public interface IAssessmentActivationAttemptStore
+{
+    Task<AssessmentActivationAttempt?> FindAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        string idempotencyKey,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken);
+
+    Task InsertAsync(
+        AssessmentActivationAttempt attempt,
+        IAssessmentActivationTransaction transaction,
+        CancellationToken cancellationToken);
+}
+
+public sealed record AssessmentActorAuthorization(
+    string Relationship,
+    IReadOnlyList<string> PermittedActions);
+
+public interface IAssessmentRelationshipResolver
+{
+    Task<AssessmentActorAuthorization> ResolveAsync(
+        Guid actorId,
+        Guid organizationId,
+        CancellationToken cancellationToken);
 }
 
 public interface IAssessmentDraftHandler
