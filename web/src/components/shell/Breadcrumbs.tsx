@@ -7,6 +7,9 @@ function labelForSegment(segment: string, index: number, segments: string[]): st
   if (segment === "enrollment") {
     return "Enrollment";
   }
+  if (segment === "setup") {
+    return "Setup and readiness";
+  }
   if (segment === "sessions") {
     return "Session";
   }

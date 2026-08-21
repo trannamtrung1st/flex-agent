@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Buffers.Text;
 using FlexAgent.Api;
+using FlexAgent.AssessmentConfiguration.Application;
 using FlexAgent.AssessmentConfiguration.Domain;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
@@ -138,6 +139,107 @@ public sealed class AssessmentHttpNegativeContractTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task List_and_get_without_a_session_are_unauthorized_and_omit_activities()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var list = await client.GetAsync("/v1/assessment/activities", TestContext.Current.CancellationToken);
+        using var get = await client.GetAsync($"/v1/assessment/activities/{Guid.CreateVersion7()}", TestContext.Current.CancellationToken);
+        using var sources = await client.GetAsync("/v1/assessment/source-options", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, list.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, get.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, sources.StatusCode);
+        Assert.DoesNotContain("activities", await list.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+        Assert.DoesNotContain("activity_id", await get.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Create_without_antiforgery_is_rejected_before_session_authentication()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var response = await client.PostAsync(
+            "/v1/assessment/activities",
+            new StringContent("""{"title":"Campaign"}""", Encoding.UTF8, "application/json"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("csrf.invalid", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Create_with_anonymous_csrf_and_no_session_is_unauthorized()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var session = await client.GetAsync("/auth/session", TestContext.Current.CancellationToken);
+        var payload = JsonDocument.Parse(await session.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/assessment/activities")
+        {
+            Content = new StringContent("""{"title":"Campaign"}""", Encoding.UTF8, "application/json"),
+        };
+        request.Headers.TryAddWithoutValidation(
+            HumanAuthenticationHostOptions.AntiforgeryHeaderName,
+            payload.RootElement.GetProperty("csrf_token").GetString());
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Administrator_without_mfa_cannot_read_shell_or_list_and_browser_mfa_flag_is_ignored()
+    {
+        await using var context = await LoginAsync(mfa: false, relationship: AuthenticationStrengthEvaluator.AdministratorRelationship);
+        using var shell = await SendGetAsync(context, "/v1/assessment/shell");
+        using var list = await SendGetAsync(context, "/v1/assessment/activities");
+        var shellBody = await shell.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var listBody = await list.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, shell.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, list.StatusCode);
+        Assert.Contains(HumanAuthenticationReasonCodes.UnrecognizedAuthenticationStrength, shellBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("actor_id", shellBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("activities", listBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Administrator_with_mfa_receives_a_server_derived_shell_and_guessed_activity_is_not_disclosed()
+    {
+        await using var context = await LoginAsync(
+            mfa: true,
+            relationship: AuthenticationStrengthEvaluator.AdministratorRelationship,
+            actions:
+            [
+                AssessmentAuthorizationActions.ReadActivity,
+                AssessmentAuthorizationActions.CreateActivity,
+            ]);
+        using var shell = await SendGetAsync(context, "/v1/assessment/shell");
+        var document = JsonDocument.Parse(await shell.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        using var guessed = await SendGetAsync(context, $"/v1/assessment/activities/{Guid.CreateVersion7()}");
+
+        Assert.Equal(HttpStatusCode.OK, shell.StatusCode);
+        Assert.Equal("v1", document.RootElement.GetProperty("schema_version").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(document.RootElement.GetProperty("organization_id").GetString()));
+        Assert.Equal(HttpStatusCode.NotFound, guessed.StatusCode);
+        Assert.DoesNotContain("title", await guessed.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Reconcile_with_an_invalid_key_is_rejected_without_creating_authority()
+    {
+        await using var context = await LoginAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Get, ReconcileUrl("not a valid key"));
+        request.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        using var response = await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(AssessmentFailureCodes.InvalidField, body, StringComparison.Ordinal);
+        AssertNoBaseline(body);
+    }
+
     private static async Task<HttpResponseMessage> SendActivateAsync(LoggedInContext context, string idempotencyKey)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, ActivateUrl())
@@ -149,17 +251,27 @@ public sealed class AssessmentHttpNegativeContractTests
         return await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
     }
 
-    private static async Task<LoggedInContext> LoginAsync()
+    private static async Task<HttpResponseMessage> SendGetAsync(LoggedInContext context, string url)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        return await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
+    }
+
+    private static async Task<LoggedInContext> LoginAsync(
+        bool mfa = true,
+        string? relationship = null,
+        IReadOnlyList<string>? actions = null)
     {
         var rsa = RSA.Create(2048);
         var tokens = new FakeOidcAuthorizationClient();
-        var factory = CreateFactory(rsa, tokens);
+        var factory = CreateFactory(rsa, tokens, relationship, actions, acceptPasswordAcr: !mfa);
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         SeedBinding(factory);
         var cancellationToken = TestContext.Current.CancellationToken;
         using var login = await client.GetAsync("/auth/login?return_path=/work", cancellationToken);
         var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(login.Headers.Location!.Query);
-        tokens.IdToken = CreateIdToken(rsa, query["nonce"].ToString());
+        tokens.IdToken = CreateIdToken(rsa, query["nonce"].ToString(), mfa);
         using var callback = await client.GetAsync(
             $"/auth/callback?code=one-time-code&state={Uri.EscapeDataString(query["state"].ToString())}",
             cancellationToken);
@@ -197,7 +309,10 @@ public sealed class AssessmentHttpNegativeContractTests
 
     private static WebApplicationFactory<ApiProgram> CreateFactory(
         RSA? rsa = null,
-        FakeOidcAuthorizationClient? tokens = null)
+        FakeOidcAuthorizationClient? tokens = null,
+        string? relationship = null,
+        IReadOnlyList<string>? actions = null,
+        bool acceptPasswordAcr = false)
     {
         rsa ??= RSA.Create(2048);
         tokens ??= new FakeOidcAuthorizationClient();
@@ -212,17 +327,22 @@ public sealed class AssessmentHttpNegativeContractTests
             builder.UseSetting("HumanAuthentication:TokenEndpoint", "https://issuer.example/realms/flex/protocol/openid-connect/token");
             builder.UseSetting("HumanAuthentication:JwksUri", "https://issuer.example/realms/flex/protocol/openid-connect/certs");
             builder.UseSetting("HumanAuthentication:RedirectUri", "https://app.example/auth/callback");
-            builder.UseSetting("HumanAuthentication:AcceptedAcr:0", "acr:mfa");
-            builder.UseSetting("HumanAuthentication:AcceptedAmr:0", "mfa");
+            builder.UseSetting("HumanAuthentication:AcceptedAcr:0", acceptPasswordAcr ? "pwd" : "acr:mfa");
+            builder.UseSetting("HumanAuthentication:AcceptedAmr:0", acceptPasswordAcr ? "pwd" : "mfa");
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<IOidcAuthorizationClient>(tokens);
                 services.AddSingleton<IJwksKeySource>(new StaticJwksKeySource(keys));
+                if (relationship is not null)
+                {
+                    services.AddSingleton<IAssessmentRelationshipResolver>(
+                        new StubAssessmentRelationshipResolver(relationship, actions ?? []));
+                }
             });
         });
     }
 
-    private static string CreateIdToken(RSA rsa, string nonce)
+    private static string CreateIdToken(RSA rsa, string nonce, bool mfa = true)
     {
         var now = DateTimeOffset.UtcNow;
         var header = JsonSerializer.Serialize(new { alg = "RS256", typ = "JWT", kid = "test" });
@@ -233,8 +353,8 @@ public sealed class AssessmentHttpNegativeContractTests
             ["sub"] = Subject,
             ["nonce"] = nonce,
             ["sid"] = "sid-1",
-            ["acr"] = "acr:mfa",
-            ["amr"] = new[] { "mfa" },
+            ["acr"] = mfa ? "acr:mfa" : "pwd",
+            ["amr"] = mfa ? new[] { "mfa" } : new[] { "pwd" },
             ["iat"] = now.ToUnixTimeSeconds(),
             ["nbf"] = now.AddMinutes(-1).ToUnixTimeSeconds(),
             ["exp"] = now.AddMinutes(5).ToUnixTimeSeconds(),
@@ -296,6 +416,17 @@ public sealed class AssessmentHttpNegativeContractTests
             string codeVerifier,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new OidcTokenExchangeResult(IdToken, IdToken is null ? HumanAuthenticationReasonCodes.InvalidProviderResponse : null));
+    }
+
+    private sealed class StubAssessmentRelationshipResolver(
+        string relationship,
+        IReadOnlyList<string> actions) : IAssessmentRelationshipResolver
+    {
+        public Task<AssessmentActorAuthorization> ResolveAsync(
+            Guid actorId,
+            Guid organizationId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new AssessmentActorAuthorization(relationship, actions));
     }
 
     private sealed class StaticJwksKeySource(IReadOnlyDictionary<string, RSA> keys) : IJwksKeySource

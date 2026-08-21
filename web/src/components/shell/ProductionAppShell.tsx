@@ -1,0 +1,104 @@
+import { NavLink, Outlet } from "react-router-dom";
+import { useProductionApi } from "../../api/production-api";
+import { ProtectedLoading } from "../ui/ProtectedLoading";
+import { StatusPanel } from "../ui/StatusPanel";
+import { Breadcrumbs } from "./Breadcrumbs";
+import { ThemeToggle } from "./ThemeToggle";
+
+const DESTINATION_ROUTES: Record<string, { label: string; route: string }> = {
+  home: { label: "Home", route: "/" },
+  activities: { label: "Activities", route: "/activities" },
+};
+
+export function ProductionAppShell() {
+  const { apiState, errorMessage, shell } = useProductionApi();
+
+  if (apiState === "loading") {
+    return <ProtectedLoading label="Establishing session context…" />;
+  }
+
+  if (apiState === "denied") {
+    return (
+      <div className="shell-content" style={{ padding: "2rem 1.25rem" }}>
+        <StatusPanel title="Your access changed" variant="danger">
+          <p>{errorMessage ?? "You do not have access to this content."}</p>
+        </StatusPanel>
+      </div>
+    );
+  }
+
+  const destinations = [];
+  for (const item of shell?.navigation ?? []) {
+    if (!item.is_available) {
+      continue;
+    }
+
+    const destination = item.destination_id === "home" || item.destination_id === "activities"
+      ? DESTINATION_ROUTES[item.destination_id]
+      : undefined;
+    if (destination) {
+      destinations.push({ id: item.destination_id, ...destination });
+    }
+  }
+
+  return (
+    <div className="shell">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
+
+      <header className="shell-header" role="banner">
+        <div className="shell-brand">
+          <span className="shell-org">Organization {shell?.organization_id ?? "Flex Agent"}</span>
+          <span className="shell-title">Activity workspace</span>
+        </div>
+        <div className="shell-header-actions">
+          <ThemeToggle />
+        </div>
+      </header>
+
+      <div className="shell-nav-mobile">
+        <nav aria-label="Mobile navigation">
+          <ul className="nav-list">
+            {destinations.map((destination) => (
+              <li key={destination.id}>
+                <NavLink
+                  to={destination.route}
+                  end={destination.route === "/"}
+                  className={({ isActive }) => ["nav-link", isActive ? "nav-link-active" : ""].filter(Boolean).join(" ")}
+                >
+                  {destination.label}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+
+      <div className="shell-body">
+        <aside className="shell-nav-rail" aria-label="Workspace navigation">
+          <nav aria-label="Primary navigation">
+            <ul className="nav-list">
+              {destinations.map((destination) => (
+                <li key={destination.id}>
+                  <NavLink
+                    to={destination.route}
+                    end={destination.route === "/"}
+                    className={({ isActive }) => ["nav-link", isActive ? "nav-link-active" : ""].filter(Boolean).join(" ")}
+                  >
+                    {destination.label}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </aside>
+
+        <main id="main-content" className="shell-main">
+          <div className="shell-content">
+            <Breadcrumbs />
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}

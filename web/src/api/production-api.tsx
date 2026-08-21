@@ -11,10 +11,23 @@ export interface ProductionShellContextV1 {
   permitted_actions: string[];
 }
 
+export class ProductionApiError extends Error {
+  readonly status: number;
+  readonly outcomeCode?: string;
+
+  constructor(status: number, message: string, outcomeCode?: string) {
+    super(message);
+    this.name = "ProductionApiError";
+    this.status = status;
+    this.outcomeCode = outcomeCode;
+  }
+}
+
 interface ProductionApiValue {
   apiState: ProductionApiState;
   csrfToken: string | null;
   shell: ProductionShellContextV1 | null;
+  errorMessage: string | null;
   fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>;
   login: () => void;
 }
@@ -26,6 +39,15 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
   const [apiState, setApiState] = useState<ProductionApiState>("loading");
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const [shell, setShell] = useState<ProductionShellContextV1 | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const clearProtectedState = useCallback((next: ProductionApiState, message: string | null = null) => {
+    csrfRef.current = null;
+    setCsrfToken(null);
+    setShell(null);
+    setErrorMessage(message);
+    setApiState(next);
+  }, []);
 
   const fetchJson = useCallback(async <T,>(path: string, init?: RequestInit): Promise<T> => {
     const headers = new Headers(init?.headers);
@@ -39,29 +61,42 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
       headers,
       credentials: "same-origin",
     });
+    const outcomeCode = response.ok ? undefined : await readOutcomeCode(response);
+
     if (response.status === 401) {
-      csrfRef.current = null;
-      setCsrfToken(null);
-      setShell(null);
-      setApiState("idle");
-      throw new Error("Session expired");
+      clearProtectedState("idle");
+      throw new ProductionApiError(401, "Session expired", outcomeCode);
+    }
+
+    if (response.status === 403) {
+      throw new ProductionApiError(403, "Your access changed", outcomeCode);
     }
 
     if (!response.ok) {
-      throw new Error("Request failed");
+      throw new ProductionApiError(response.status, "Request failed", outcomeCode);
+    }
+
+    if (response.status === 204) {
+      return undefined as T;
     }
 
     return (await response.json()) as T;
-  }, []);
+  }, [clearProtectedState]);
 
   useEffect(() => {
     const controller = new AbortController();
     void (async () => {
       try {
-        const session = await fetch("/auth/session", {
+        const sessionResponse = await fetch("/auth/session", {
           credentials: "same-origin",
           signal: controller.signal,
-        }).then((response) => response.json()) as {
+        });
+        if (!sessionResponse.ok) {
+          setApiState("idle");
+          return;
+        }
+
+        const session = await sessionResponse.json() as {
           authenticated: boolean;
           csrf_token?: string;
         };
@@ -73,18 +108,22 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const nextShell = await fetch("/v1/assessment/shell", {
+        const shellResponse = await fetch("/v1/assessment/shell", {
           credentials: "same-origin",
           signal: controller.signal,
-        }).then((response) => {
-          if (!response.ok) {
-            throw new Error("shell");
-          }
-
-          return response.json() as Promise<ProductionShellContextV1>;
         });
+        if (shellResponse.status === 401) {
+          clearProtectedState("idle");
+          return;
+        }
 
-        setShell(nextShell);
+        if (!shellResponse.ok) {
+          clearProtectedState("denied", "Your access changed");
+          return;
+        }
+
+        setShell(await shellResponse.json() as ProductionShellContextV1);
+        setErrorMessage(null);
         setApiState("ready");
       } catch (error) {
         if (controller.signal.aborted) {
@@ -99,19 +138,20 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
     return () => {
       controller.abort();
     };
-  }, []);
+  }, [clearProtectedState]);
 
   const value = useMemo<ProductionApiValue>(
     () => ({
       apiState,
       csrfToken,
       shell,
+      errorMessage,
       fetchJson,
       login: () => {
         window.location.assign("/auth/login?return_path=/activities");
       },
     }),
-    [apiState, csrfToken, fetchJson, shell],
+    [apiState, csrfToken, errorMessage, fetchJson, shell],
   );
 
   return <ProductionApiContext.Provider value={value}>{children}</ProductionApiContext.Provider>;
@@ -128,4 +168,13 @@ export function useProductionApi() {
 
 export function isProductionApiMode() {
   return import.meta.env.VITE_API_MODE === "production";
+}
+
+async function readOutcomeCode(response: Response) {
+  try {
+    const body = await response.clone().json() as { error?: string; outcome_code?: string };
+    return body.outcome_code ?? body.error;
+  } catch {
+    return undefined;
+  }
 }

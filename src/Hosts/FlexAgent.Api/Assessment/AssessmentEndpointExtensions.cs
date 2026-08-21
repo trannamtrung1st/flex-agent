@@ -403,6 +403,20 @@ public static class AssessmentEndpointExtensions
             cohort_id = cohort?.CohortId,
             cohort_state = cohort?.State,
             baseline_digest = cohort?.BaselineDigest,
+            sources = new
+            {
+                organization_policy = ProjectSource(draft.Content.OrganizationPolicy),
+                agent = ProjectSource(draft.Content.Agent),
+                harness = ProjectSource(draft.Content.Harness),
+                workflow = ProjectSource(draft.Content.Workflow),
+                adaptive_follow_up = ProjectSource(draft.Content.AdaptiveFollowUp),
+                rubric = ProjectSource(draft.Content.Rubric),
+                model_deployment = ProjectSource(draft.Content.ModelDeployment),
+                capability = ProjectSource(draft.Content.CapabilityProfile),
+                review_release = ProjectSource(draft.Content.ReviewRelease),
+                task = ProjectSource(draft.Content.Task.RequirementSource),
+                knowledge = draft.Content.Knowledge.Select(ProjectSource),
+            },
             permitted_actions = AssessmentDraftProjection.PermittedActions(
                 resolved.Authorization.PermittedActions,
                 draft.HasActivatedCohort),
@@ -660,6 +674,13 @@ public static class AssessmentEndpointExtensions
                 "https"),
             authorization);
     }
+
+    private static object ProjectSource(ExactSourceRef source) => new
+    {
+        source_id = source.SourceId,
+        version_id = source.VersionId,
+        content_digest = source.ContentDigest,
+    };
 
     private static bool HasAction(ResolvedAssessmentActor actor, string action) =>
         actor.Authorization.PermittedActions.Contains(action, StringComparer.Ordinal);
