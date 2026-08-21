@@ -460,9 +460,13 @@ enable model execution.
       resolver-facing read/verifier contract using the existing schema,
       versioned domain validators, explicit Assessment-owned
       `CanonicalJsonLimits`, and `FlexAgent.CanonicalJson`.
-- [>] Strengthen HTTP negatives: anonymous CSRF-without-session
+- [>] Broader `AC-ACT-24` HTTP negatives, production SPA composition,
+      and Playwright evidence. Do not redesign activation/redaction
+      unless a later test finds a concrete defect.
+- [x] Strengthen HTTP negatives: anonymous CSRF-without-session
       authentication rejection, and hosted activate-then-revoke
-      redaction against a real baseline.
+      redaction against a real baseline. External review of `316b5b5`
+      approved this follow-up with no P1/P2 findings.
 - [x] Add the first Assessment HTTP negative-contract suite and rerun
       the full `MigrationUpgradeTests` matrix; do not further redesign
       activation after the `64b424a` review.
@@ -625,6 +629,14 @@ synthetic provider.
 
 # Findings / deviations
 
+- 2026-08-21 review of `316b5b5`: **approved**. No new P1/P2. The
+  two `45afc10` HTTP-negative findings are closed: hosted Postgres
+  HTTP now redacts a real activated baseline after grant revocation,
+  and anonymous CSRF-without-session is a distinct **401**. Do not
+  touch activation/redaction architecture again unless a later test
+  finds a concrete defect. Next work remains broader `AC-ACT-24`,
+  production SPA composition, and Playwright. Reported counts are
+  local evidence; GitHub has no status checks for this SHA.
 - 2026-08-21 review of `64b424a`: activation/idempotency/audit
   review is clean enough to stop coordinator redesign. Optional
   baseline `InsertAsync` authorization remains a non-blocking
@@ -786,7 +798,7 @@ synthetic provider.
 | Playwright MCP | pending | Must use real app interactions, accessibility snapshots, and desktop/narrow screenshots in `.playwright-mcp/` after the slice runs |
 | Performance | pending | `AC-ACT-27` readiness and activation p95 evidence not observed |
 | Locked regression/supply-chain/OCI/docs/leakage | pending | Run proportionately after implementation |
-| Independent reviews | pending | Backend/architecture, frontend, and security/privacy review required before completion |
+| Independent reviews | partial | `316b5b5` HTTP-negative follow-up approved with no P1/P2. Activation/redaction architecture is closed for further redesign. Full-slice backend/architecture, frontend, and security/privacy review still required before task completion |
 
 # Blockers
 
