@@ -4,6 +4,9 @@ import { useProductionApi } from "../api/production-api";
 import {
   createEnrollmentIdempotencyKey,
   createProductionEnrollmentClient,
+  EnrollmentRateLimitedCopy,
+  enrollmentFailureCopy,
+  enrollmentOutcomeCopy,
   type EnrollmentSummaryV1,
 } from "../api/production-enrollment";
 import { Alert } from "../components/ui/Alert";
@@ -55,9 +58,9 @@ export function ProductionEnrollmentPage() {
         setEnrollments(enrollmentPage.items);
         setError(null);
       })
-      .catch(() => {
+      .catch((caught) => {
         if (!cancelled) {
-          setError("This Enrollment workspace is not available.");
+          setError(enrollmentFailureCopy(caught, "This Enrollment workspace is not available."));
         }
       })
       .finally(() => {
@@ -76,7 +79,10 @@ export function ProductionEnrollmentPage() {
 
   if (error && enrollments.length === 0 && candidates.length === 0) {
     return (
-      <StatusPanel title="Enrollment unavailable" variant="danger">
+      <StatusPanel
+        title={error === EnrollmentRateLimitedCopy ? "Too many requests" : "Enrollment unavailable"}
+        variant="danger"
+      >
         <p>{error}</p>
         <p><Link to="/activities">Return to Activities</Link></p>
       </StatusPanel>
@@ -136,7 +142,7 @@ export function ProductionEnrollmentPage() {
                       }
                       setError(outcome.outcome_code === "enrollment.conflict"
                         ? "This Participant already has a live Enrollment in another Cohort."
-                        : "The assignment could not be completed.");
+                        : enrollmentOutcomeCopy(outcome.outcome_code, "The assignment could not be completed."));
                       return;
                     }
                     assignCommandRef.current = null;
@@ -146,7 +152,9 @@ export function ProductionEnrollmentPage() {
                     setError(null);
                     setEnrollments((await client.listEnrollments(activityId, cohortId)).items);
                   })
-                  .catch(() => { setError("The assignment could not be completed."); })
+                  .catch((caught) => {
+                    setError(enrollmentFailureCopy(caught, "The assignment could not be completed."));
+                  })
                   .finally(() => { setPending(null); });
               }}
             >
@@ -231,7 +239,7 @@ export function ProductionEnrollmentPage() {
                   setError("This Enrollment changed. Review the current state before trying again.");
                   return;
                 }
-                setError("The Enrollment could not be updated.");
+                setError(enrollmentOutcomeCopy(outcome.outcome_code, "The Enrollment could not be updated."));
                 return;
               }
               lifecycleCommandRef.current = null;
@@ -239,7 +247,9 @@ export function ProductionEnrollmentPage() {
               setEnrollments((await client.listEnrollments(activityId, cohortId)).items);
               setConfirm(null);
             })
-            .catch(() => { setError("The Enrollment could not be updated."); })
+            .catch((caught) => {
+              setError(enrollmentFailureCopy(caught, "The Enrollment could not be updated."));
+            })
             .finally(() => { setPending(null); });
         }}
       >

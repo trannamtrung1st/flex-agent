@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useProductionApi } from "../api/production-api";
-import { createProductionEnrollmentClient, type AssignmentSummaryV1 } from "../api/production-enrollment";
+import {
+  createProductionEnrollmentClient,
+  EnrollmentRateLimitedCopy,
+  enrollmentFailureCopy,
+  type AssignmentSummaryV1,
+} from "../api/production-enrollment";
 import { ProtectedLoading } from "../components/ui/ProtectedLoading";
 import { StatusPanel } from "../components/ui/StatusPanel";
 
@@ -19,9 +24,9 @@ export function ProductionMyWorkPage() {
           setItems(page.items);
         }
       })
-      .catch(() => {
+      .catch((caught) => {
         if (!cancelled) {
-          setError("My work is not available.");
+          setError(enrollmentFailureCopy(caught, "My work is not available."));
         }
       });
     return () => {
@@ -30,8 +35,9 @@ export function ProductionMyWorkPage() {
   }, [client]);
 
   if (error) {
+    const rateLimited = error === EnrollmentRateLimitedCopy;
     return (
-      <StatusPanel title="My work unavailable" variant="danger">
+      <StatusPanel title={rateLimited ? "Too many requests" : "My work unavailable"} variant="danger">
         <p>{error}</p>
       </StatusPanel>
     );

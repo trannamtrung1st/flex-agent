@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useProductionApi } from "../api/production-api";
-import { createProductionEnrollmentClient, type AssignmentSummaryV1 } from "../api/production-enrollment";
+import {
+  createProductionEnrollmentClient,
+  EnrollmentRateLimitedCopy,
+  enrollmentFailureCopy,
+  type AssignmentSummaryV1,
+} from "../api/production-enrollment";
 import { ProtectedLoading } from "../components/ui/ProtectedLoading";
 import { StatusPanel } from "../components/ui/StatusPanel";
 
@@ -11,6 +16,7 @@ export function ProductionMyWorkDetailPage() {
   const client = useMemo(() => createProductionEnrollmentClient(fetchJson), [fetchJson]);
   const [assignment, setAssignment] = useState<AssignmentSummaryV1 | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -20,8 +26,9 @@ export function ProductionMyWorkDetailPage() {
           setAssignment(result.assignment);
         }
       })
-      .catch(() => {
+      .catch((caught) => {
         if (!cancelled) {
+          setError(enrollmentFailureCopy(caught, ""));
           setUnavailable(true);
         }
       });
@@ -31,9 +38,14 @@ export function ProductionMyWorkDetailPage() {
   }, [client, enrollmentId]);
 
   if (unavailable) {
+    const rateLimited = error === EnrollmentRateLimitedCopy;
     return (
-      <StatusPanel title="Assignment unavailable" variant="danger">
-        <p>This assignment is not available. Return to My work or contact the provided support route.</p>
+      <StatusPanel title={rateLimited ? "Too many requests" : "Assignment unavailable"} variant="danger">
+        <p>
+          {rateLimited
+            ? EnrollmentRateLimitedCopy
+            : "This assignment is not available. Return to My work or contact the provided support route."}
+        </p>
         <p><Link to="/my-work">Return to My work</Link></p>
       </StatusPanel>
     );

@@ -133,8 +133,23 @@ export function createProductionEnrollmentClient(fetchJson: <T>(path: string, in
   };
 }
 
+export const EnrollmentRateLimitedCopy = "Too many requests. Wait a moment, then try again.";
+
 export function isEnrollmentAccessLoss(error: unknown): error is ProductionApiError {
   return error instanceof ProductionApiError && (error.status === 401 || error.status === 403);
+}
+
+export function isEnrollmentRateLimited(error: unknown): error is ProductionApiError {
+  return error instanceof ProductionApiError
+    && (error.status === 429 || error.outcomeCode === "enrollment.rate_limited");
+}
+
+export function enrollmentFailureCopy(error: unknown, fallback: string): string {
+  return isEnrollmentRateLimited(error) ? EnrollmentRateLimitedCopy : fallback;
+}
+
+export function enrollmentOutcomeCopy(outcomeCode: string | undefined, fallback: string): string {
+  return outcomeCode === "enrollment.rate_limited" ? EnrollmentRateLimitedCopy : fallback;
 }
 
 async function readMutation(

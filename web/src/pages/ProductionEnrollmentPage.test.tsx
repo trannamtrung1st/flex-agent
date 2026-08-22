@@ -380,4 +380,72 @@ describe("ProductionEnrollmentPage", () => {
       { participant: "part-2", key: "enr-key-2" },
     ]);
   });
+
+  it("explains a rate-limited assignment as a recoverable wait", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/auth/session")) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ authenticated: true, csrf_token: "csrf" }) });
+      }
+      if (url.includes("/v1/assessment/shell")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({
+            schema_version: "v1",
+            actor_id: "admin",
+            organization_id: "org",
+            relationship: "administrator",
+            navigation: [{ destination_id: "activities", is_available: true }],
+            permitted_actions: ["assessment.enrollment.assign"],
+          }),
+        });
+      }
+      if (url.includes("participant-options")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({
+            schema_version: "v1",
+            items: [{ actor_id: "part-1", display_label: "Synthetic Participant" }],
+            has_more: false,
+          }),
+        });
+      }
+      if (url.includes("/enrollments") && init?.method === "POST") {
+        return Promise.resolve({
+          ok: false,
+          status: 429,
+          json: () => Promise.resolve({ error: "enrollment.rate_limited" }),
+          clone() {
+            return this;
+          },
+        });
+      }
+      if (url.includes("/enrollments")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ schema_version: "v1", items: [], has_more: false }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    }));
+
+    render(
+      <ProductionApiProvider>
+        <MemoryRouter initialEntries={["/activities/act-1/cohorts/coh-1/participants"]}>
+          <Routes>
+            <Route path="/activities/:activityId/cohorts/:cohortId/participants" element={<ProductionEnrollmentPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ProductionApiProvider>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Assign Participants" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Participant"), { target: { value: "part-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Assign Participant" }));
+    expect(await screen.findByText("Too many requests. Wait a moment, then try again.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Participant")).toHaveValue("part-1");
+  });
 });

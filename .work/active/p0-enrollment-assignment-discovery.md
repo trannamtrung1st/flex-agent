@@ -521,6 +521,10 @@ not be marked implemented by this task.
   and bounded mutation/limit telemetry without protected labels. Authenticated
   400% Playwright, full `FlexAgent.slnx`/OCI, and independent slice review
   remain recorded residuals.
+- [x] Continue Docker-backed verification: sign in through the authenticated
+  browser profile and capture 400%/keyboard My work evidence.
+- [x] Add dedicated Enrollment/My work 429 recovery copy, then continue
+  remaining solution/OCI verification.
 
 # Planned verification command set
 
@@ -569,9 +573,25 @@ that could be implemented without a new ADR:
   grant lookup against the 50 ms `PROP-8` bound.
 - Mutation telemetry records only allowlisted operation/outcome labels.
 
-The live profile at `http://localhost:18080` returned the production
-sign-in page for `/my-work`. This pass did not complete Keycloak login, so
-400% reflow screenshots of populated My work/assignment were not captured.
+Confirmation pass 2026-08-23 before the 429-recovery commit: Enrollment
+and My work web tests 12 passed; `pnpm --filter @flex-agent/web
+typecheck` passed; `check_docs` and `git diff --check` passed. The task
+stays **in-progress** only for independent slice review and GitHub CI.
+
+Follow-up 2026-08-23 after Docker 400% evidence: Enrollment and My work
+now show recoverable **Too many requests** copy for `429` /
+`enrollment.rate_limited` and keep the selected Participant on assign.
+`dotnet test --solution FlexAgent.slnx -c Release` passed (1438 / 2
+skipped). `bash build/scripts/verify-oci.sh` completed.
+
+Docker follow-up 2026-08-23: `authenticated-browser-profile.sh status`
+showed the loopback profile healthy (API, SPA, Keycloak, Postgres,
+NGINX). Synthetic Participant login through the gateway completed PKCE
+and returned to populated `/my-work`. 320×640 (400% reflow) list and
+assignment detail were captured in light and dark, plus a Tab pass that
+reached **Return to My work**. Raw Organization and Enrollment locators
+remain visible in the shell/breadcrumb. The separate `verify-oci.sh`
+image rebuild was not run.
 
 Confirmation pass 2026-08-23 before commit: domain 43, architecture 41,
 Enrollment HTTP plus limiter 14, Enrollment PostgreSQL 19, `check_docs`,
@@ -827,12 +847,9 @@ accessibility, full CI/OCI, and remaining independent review.
 
 # Findings / deviations
 
-- Closeout pass 2026-08-23: per-actor/Organization Enrollment quotas,
-  20-sample mutation p95, and warmed authorization p95 are implemented and
-  locally green. The production React client has no dedicated 429 recovery
-  copy yet. 400% zoom remains unverified because this pass reached
-  Keycloak sign-in without an authenticated application session. Full
-  `FlexAgent.slnx`/OCI and independent slice review remain open.
+- Follow-up 2026-08-23: 429 recovery copy, full `FlexAgent.slnx`, and
+  local OCI verification are closed. Raw Organization/Enrollment
+  locators and independent slice review remain.
 - Review of `888cd66`: approved. No blocking defect. Cursor/security
   remediations from the prior reviews are closed. Compatibility of the
   changed `v1` payload and Base64 secret encoding is a non-blocking note
@@ -969,32 +986,24 @@ accessibility, full CI/OCI, and remaining independent review.
 | Secret scan | passed | `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` found no leaks during the readiness review. |
 | Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 43 passed, including percentile rank and allowlisted mutation telemetry. |
 | Architecture/contract tests | passed | Architecture 41 passed. This pass did not change schemas. |
-| PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 19 passed, including 20-sample assignment mutation p95 ≤ 2 s and warmed Enrollment authorization p95 ≤ 50 ms. Full suite/OCI still open. |
+| PostgreSQL migration/isolation/concurrency/fault tests | passed | Included in full `FlexAgent.slnx` Release: 1438 passed, 2 skipped. Enrollment p95 cases remain in that suite. |
 | Runtime/API authorization and HTTP-negative tests | passed | Enrollment HTTP 11 plus limiter 3 (local 14). Covers CSRF, missing session, malformed/overlong/unparsable list query values, guessed detail, unknown member, oversized body, and 429 after the frozen per-actor read quota. |
-| React component/accessibility tests | mixed | `ProductionEnrollmentPage.test.tsx` 4 passed, including honest suspend confirmation copy. `pnpm --filter @flex-agent/web typecheck` passed. Keyboard/400% not covered. |
-| Authenticated Playwright MCP desktop/narrow/both-theme evidence | mixed | Prior authenticated desktop/narrow/both-theme PNGs remain under `.playwright-mcp/`. This pass opened `http://localhost:18080/my-work` (HTTP 200) and reached Keycloak sign-in; 320 CSS-px / 400% populated Assignment evidence was not captured without an application session. |
-| Full regression, security, supply-chain, and performance gates | mixed | Confirmation pass 2026-08-23: `python3 scripts/check_docs.py` and `git diff --check` passed. Enrollment mutation and authorization p95 are locally gated. Full `dotnet test --solution FlexAgent.slnx` and OCI/SBOM were not run. |
+| React component/accessibility tests | passed | Enrollment/My work 429 recovery copy is covered: client maps `enrollment.rate_limited`; My work heading **Too many requests**; assign keeps the selected Participant. `pnpm --filter @flex-agent/web typecheck` passed. |
+| Authenticated Playwright MCP desktop/narrow/both-theme evidence | passed | Docker profile at `http://localhost:18080`. Participant login returned populated My work. Desktop list: `.playwright-mcp/page-2026-08-22T18-07-50-907Z.png`. 320×640 list: `.playwright-mcp/page-2026-08-22T18-08-02-305Z.png`. 320 assignment detail: `.playwright-mcp/page-2026-08-22T18-08-23-633Z.png`. 320 focus on Return to My work: `.playwright-mcp/page-2026-08-22T18-08-52-320Z.png`. 320 dark detail: `.playwright-mcp/page-2026-08-22T18-09-13-410Z.png`. Desktop dark detail: `.playwright-mcp/page-2026-08-22T18-09-30-514Z.png`. Visual: hierarchy and next action are clear; no overflow of primary copy at 320; shell still shows raw Organization/Enrollment locators. |
+| Full regression, security, supply-chain, and performance gates | passed | `dotnet test --solution FlexAgent.slnx -c Release` passed (1438 / 2 skipped). `bash build/scripts/verify-oci.sh` completed locally, including health probes and SBOM/vulnerability scan. |
 | Cursor/security remediations review (`888cd66`) | passed | External review approved with no blocking code finding. Prefix digest, ≥32-byte decoded keys, replica/rotation, and candidate `afterActorId` binding accepted. GitHub CI still absent for that SHA. |
 
 # Blockers
 
-- Authenticated 400% / 320 CSS-px Playwright of populated My work and
-  assignment detail needs a current application session. This pass stopped
-  at Keycloak sign-in.
-- Independent review of the Enrollment cursor/security remediations on
-  `888cd66` is approved. Remaining independent backend/frontend/security
-  and QA review of the broader Enrollment slice, including this rate-limit
-  and p95 pass, has not run. Focused green results are local; no GitHub CI
-  status is attached to this working tree.
-- Full `dotnet test --solution FlexAgent.slnx` and OCI/SBOM gates were not
-  run in this pass. Coarse non-Enrollment gateway limits remain out of
-  this slice.
+- Independent backend/frontend/security/QA review of the broader
+  Enrollment slice is still required before this task can be marked
+  completed. GitHub CI is not attached to this working tree.
 
 # Completion
 
 - [x] Planned work is reconciled with actual changes
 - [x] Applicable focused tests pass
-- [ ] Applicable integration/regression checks pass
+- [x] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
 - [ ] Independent backend, frontend, security/privacy, and QA review findings are resolved or explicitly accepted by the authorized owner
