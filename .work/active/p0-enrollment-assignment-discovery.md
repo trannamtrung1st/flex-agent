@@ -526,11 +526,13 @@ SQL against `application_sessions`), a display-profile lock gap, and silent
 degradation on a mismatched `commitTransaction` handle. Those are remediated
 in this pass. The task stays **in-progress**.
 
-Reconfirmed on 2026-08-22 after remediation 5 plus CI follow-up: domain 27,
-architecture 41, Enrollment HTTP 5, Assessment HTTP negatives 19, and
-Enrollment PostgreSQL 16 all passed. Web Enrollment lint/tests 7 passed.
-The production shell again returns 403 without actor disclosure when an
-administrator or reviewer session lacks MFA.
+Reconfirmed on 2026-08-22 after remediation 5 plus CI follow-up, including a
+second confirmation pass before this note: domain 27, architecture 41,
+Enrollment HTTP 5, Assessment HTTP negatives 19, Enrollment PostgreSQL 16,
+and web Enrollment lint/tests 7 all passed. The production shell again
+returns 403 without actor disclosure when an administrator or reviewer
+session lacks MFA. Idempotent replay confirms after the locked Enrollment
+read.
 
 Remediation now in tree:
 
