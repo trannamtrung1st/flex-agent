@@ -2,7 +2,7 @@
 id: p0-enrollment-assignment-discovery
 status: in-progress
 created: 2026-08-22
-updated: 2026-08-22
+updated: 2026-08-23
 ---
 
 # Goal
@@ -535,15 +535,20 @@ SQL against `application_sessions`), a display-profile lock gap, and silent
 degradation on a mismatched `commitTransaction` handle. Those are remediated
 in this pass. The task stays **in-progress**.
 
-Reconfirmed on 2026-08-22 after remediation 8. Focused green: domain 29,
-architecture 41, Enrollment HTTP 5, Enrollment PostgreSQL 17. In-memory
-unit-of-work now snapshots Enrollment/event/operation/audit state and
-restores it when pre-commit confirmation fails or the callback throws.
-Both unit-of-work implementations require `IEnrollmentSessionPort` and a
-required `EnrollmentActorContext` on `ExecuteAsync`. `CommitSessionActor`
-is no longer a mutable transaction property. In-memory concurrent snapshot
-isolation remains a known fake-only P3 and is not treated as an MVP
-blocker. Shell bootstrap no longer applies administrator MFA globally.
+Review of `073e4f1` found no new material findings. The Enrollment
+session/transaction remediation sequence is closed: owner-port
+revalidation, assignment/lifecycle concurrency, revocation serialization,
+database-clock expiry, replay-after-locked-read, pre-commit confirmation
+on a required actor, in-memory rollback, required session port, and
+independent shell destinations. Do not make further architectural changes
+to this subsystem unless a new test exposes a concrete defect. The task
+stays **in-progress** for remaining verification only.
+
+Reconfirmed on 2026-08-23 after that review. Focused green remains domain
+29, architecture 41, Enrollment HTTP 5, Enrollment PostgreSQL 17.
+In-memory concurrent snapshot isolation remains a known fake-only P3 and
+is not treated as an MVP blocker. Shell bootstrap no longer applies
+administrator MFA globally.
 Home needs a valid current application session. Activities needs a qualifying
 administrator grant and administrator MFA. My work needs
 `assessment.assignment.discover` and the Participant authentication policy.
@@ -660,6 +665,9 @@ independent review.
 
 # Findings / deviations
 
+- Review of `073e4f1`: no new material findings. Session/transaction
+  architecture is complete for this slice. Remaining work is Playwright,
+  HTTP-negative, latency, full solution/OCI, and independent review.
 - Review of `5e76cc8`: in-memory rollback and required session port are
   correct, but `CommitSessionActor` remained nullable and publicly
   settable, so a future `ExecuteAsync` caller could skip pre-commit
