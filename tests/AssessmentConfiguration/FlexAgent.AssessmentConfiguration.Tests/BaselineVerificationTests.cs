@@ -23,7 +23,7 @@ public sealed class BaselineVerificationTests
         var status = BaselineVerification.Status(
             draft,
             AssessmentFixtures.PermittedSources(),
-            new BaselineDigestCheck(digest, digest));
+            BaselineDigestCheck.Present(digest, digest, draft.RevisionId, draft.RevisionId));
         Assert.Equal(BaselineVerification.Verified, status);
     }
 
@@ -34,7 +34,11 @@ public sealed class BaselineVerificationTests
         var status = BaselineVerification.Status(
             draft,
             AssessmentFixtures.PermittedSources(),
-            new BaselineDigestCheck(AssessmentFixtures.Digest('a'), AssessmentFixtures.Digest('b')));
+            BaselineDigestCheck.Present(
+                AssessmentFixtures.Digest('a'),
+                AssessmentFixtures.Digest('b'),
+                draft.RevisionId,
+                draft.RevisionId));
         Assert.Equal(BaselineVerification.Degraded, status);
     }
 
@@ -45,7 +49,19 @@ public sealed class BaselineVerificationTests
         var status = BaselineVerification.Status(
             draft,
             AssessmentFixtures.PermittedSources(),
-            new BaselineDigestCheck(AssessmentFixtures.Digest('a'), null));
+            BaselineDigestCheck.Present(AssessmentFixtures.Digest('a'), null, draft.RevisionId, draft.RevisionId));
+        Assert.Equal(BaselineVerification.Degraded, status);
+    }
+
+    [Fact]
+    public void Activated_draft_without_revision_ids_is_degraded()
+    {
+        var draft = AssessmentFixtures.CreateDraft().Value! with { HasActivatedCohort = true };
+        var digest = AssessmentFixtures.Digest('a');
+        var status = BaselineVerification.Status(
+            draft,
+            AssessmentFixtures.PermittedSources(),
+            new BaselineDigestCheck(digest, digest, true, null, null));
         Assert.Equal(BaselineVerification.Degraded, status);
     }
 
@@ -65,7 +81,7 @@ public sealed class BaselineVerificationTests
         var status = BaselineVerification.Status(
             draft,
             AssessmentFixtures.PermittedSources(),
-            new BaselineDigestCheck(digest, digest, BindingPresent: false));
+            BaselineDigestCheck.Missing());
         Assert.Equal(BaselineVerification.Degraded, status);
     }
 
@@ -77,11 +93,11 @@ public sealed class BaselineVerificationTests
         var status = BaselineVerification.Status(
             draft,
             AssessmentFixtures.PermittedSources(),
-            new BaselineDigestCheck(
+            BaselineDigestCheck.Present(
                 digest,
                 digest,
-                BoundRevisionId: Guid.Parse("99999999-9999-4999-8999-999999999999"),
-                DraftRevisionId: draft.RevisionId));
+                Guid.Parse("99999999-9999-4999-8999-999999999999"),
+                draft.RevisionId));
         Assert.Equal(BaselineVerification.Degraded, status);
     }
 
@@ -96,7 +112,7 @@ public sealed class BaselineVerificationTests
         var status = BaselineVerification.Status(
             draft,
             sources,
-            new BaselineDigestCheck(digest, digest));
+            BaselineDigestCheck.Present(digest, digest, draft.RevisionId, draft.RevisionId));
         Assert.Equal(BaselineVerification.Degraded, status);
     }
 
@@ -143,6 +159,10 @@ public sealed class BaselineVerificationTests
             BaselineVerification.Status(
                 draft with { HasActivatedCohort = true },
                 AssessmentFixtures.PermittedSources(),
-                new BaselineDigestCheck(found.ContentDigest, recomputed.Value)));
+                BaselineDigestCheck.Present(
+                    found.ContentDigest,
+                    recomputed.Value,
+                    draft.RevisionId,
+                    draft.RevisionId)));
     }
 }

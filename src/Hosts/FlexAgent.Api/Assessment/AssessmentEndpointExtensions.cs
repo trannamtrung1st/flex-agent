@@ -726,7 +726,7 @@ public static class AssessmentEndpointExtensions
             || cohort.BaselineId is null
             || string.IsNullOrWhiteSpace(cohort.BaselineDigest))
         {
-            return new BaselineDigestCheck(string.Empty, null, BindingPresent: false);
+            return BaselineDigestCheck.Missing();
         }
 
         var persisted = await baselines.FindBoundAsync(
@@ -737,21 +737,15 @@ public static class AssessmentEndpointExtensions
         if (persisted is null
             || !string.Equals(persisted.ContentDigest, cohort.BaselineDigest, StringComparison.Ordinal))
         {
-            return new BaselineDigestCheck(
-                cohort.BaselineDigest,
-                null,
-                BindingPresent: false,
-                BoundRevisionId: cohort.BoundRevisionId,
-                DraftRevisionId: draft.RevisionId);
+            return BaselineDigestCheck.Missing();
         }
 
         var recomputed = digester.Digest(persisted.Document);
-        return new BaselineDigestCheck(
+        return BaselineDigestCheck.Present(
             persisted.ContentDigest,
             recomputed is { Succeeded: true } ? recomputed.Value : null,
-            BindingPresent: true,
-            BoundRevisionId: cohort.BoundRevisionId,
-            DraftRevisionId: draft.RevisionId);
+            cohort.BoundRevisionId,
+            draft.RevisionId);
     }
 
     private static object ProjectSource(ExactSourceRef source) => new

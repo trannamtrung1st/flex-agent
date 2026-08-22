@@ -618,6 +618,11 @@ enable model execution.
       retain downstream Enrollment/Submission/Attempt/Session gaps, record all
       remaining evidence, mark this task completed, and preserve it for the
       next vertical-slice handoff.
+- [x] Record approval of `54cc4cf`: the prior P1 false-`verified` and P2
+      loopback-bind findings are closed. Apply the remaining P3 nits
+      (`Present`/`Missing` verification evidence, inspect every published
+      18080/80 mapping including via `docker compose config`) and do not
+      extend the Assessment MVP slice further.
 
 # Current state
 
@@ -648,6 +653,16 @@ Confirm pass 2026-08-22: `BaselineVerificationTests` **9 passed**,
 `AuthenticatedBrowserProfileTests` **7 passed**, profile `validate`
 accepted the loopback bind. GET always supplies a digest/binding check
 for activated Activities.
+
+External review of `54cc4cf` approved the P1/P2 closeout. Remaining P3s
+are now applied: `BaselineDigestCheck.Present`/`Missing` require
+binding and revision IDs for `verified`, and profile `validate` rejects
+every published 18080/80 mapping that is not `127.0.0.1`, including
+`0.0.0.0:18080:80`, using source tokens plus `docker compose config
+--format json`. Confirm: `BaselineVerificationTests` **10 passed**,
+Assessment suite **85 passed**, `AuthenticatedBrowserProfileTests`
+**7 passed**, `validate` passed. Release evidence remains partial; no
+GitHub combined-status is attached to HEAD.
 
 Closeout 2026-08-21 evening: the remaining review Highs are closed.
 Confirmation now includes the specified compact Task, Agent, Harness,
@@ -1077,17 +1092,17 @@ isolated. The task is completed and retained for external review.
 | Execution baseline | passed | Start SHA `ef911ee`. Before behavior changes: Architecture 35 passed; Contract 135 passed; CanonicalJson 25 passed; web lint warning-only, typecheck passed, unit 60 passed. PostgreSQL/Runtime/Sessions/e2e smoke were not all re-run in this session due to parallel-build lock and time; Architecture was re-run after the lock. |
 | Source-authority/transaction decision | approved | `ADR-017` and Assessment `PROP-7` approved 2026-08-21. Sessions file registries are excluded; Production fails closed for a required source without exact transaction-aware authority. |
 | Approved documentation promotion | passed | ADR-017/index, Assessment `PROP-7` and traceability, ADR-010 `STACK-DEC-26`/`STACK-DEC-27`, MVP identity ownership, Keycloak local profile, and development-harness guidance reconciled; `python3 scripts/check_docs.py` and `git diff --check` passed. Local `markdownlint-cli2` was unavailable; CI remains the Markdown-lint authority. |
-| Assessment focused tests | passed for domain/application | `dotnet test --project tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — **84 passed**, including missing digest check, missing bound baseline, and bound-revision mismatch as `degraded`; digest-mismatch degraded verification; stored-baseline recompute; empty-knowledge warning; draft-cohort retarget; `AssessmentHttpStatus` mapping; and admission-then-revoke races |
+| Assessment focused tests | passed for domain/application | `dotnet test --project tests/AssessmentConfiguration/FlexAgent.AssessmentConfiguration.Tests` — **85 passed**, including missing revision IDs, missing digest check, missing bound baseline, and bound-revision mismatch as `degraded`; `Present`/`Missing` constructors; digest-mismatch degraded verification; stored-baseline recompute; empty-knowledge warning; draft-cohort retarget; `AssessmentHttpStatus` mapping; and admission-then-revoke races |
 | PostgreSQL migration/integration | passed for this closeout | `AssessmentActivationPersistenceTests` **21 passed**, including save-then-retarget plus later activate, and hosted GET `verified` after digest recompute with confirmation fields. Full `MigrationUpgradeTests` matrix **33 passed** after `0042` was not re-run this evening |
 | API/runtime contracts | partial | `AssessmentHttpNegativeContractTests` **19 passed**, including prior anonymous/CSRF/MFA-admin cases plus Reviewer-without-MFA **403**, Reviewer-with-MFA shell **200** and create **403**/activate **409**, unauthorized create/readiness **403**, guessed save **404**, save/readiness CSRF **400**, and empty-title create **400**. Privilege-change rotation, pagination bounds, and hosted wrong-Organization HTTP remain on the PostgreSQL suite rather than this in-memory host |
 | Web unit/accessibility | passed for closeout | Focused setup, activities, and production-assessment tests **32 passed**, including compact confirmation sections and named source options |
-| Authenticated browser profile | passed for composition | `AuthenticatedBrowserProfileTests` **7 passed**; `KeycloakContractProfileTests` **1 passed**. Compose publishes `127.0.0.1:18080:80`. `bash build/scripts/authenticated-browser-profile.sh validate` rejects a non-loopback gateway and accepts the current file. Prior `up` reached `http://localhost:18080`. Host probes: `/auth/session` 200 anonymous, `/v1/assessment/shell` 401, `/admin` 404, `/health` 404, `/realms/flex-agent` 200, SPA `/` 200 |
+| Authenticated browser profile | passed for composition | `AuthenticatedBrowserProfileTests` **7 passed**; `KeycloakContractProfileTests` **1 passed**. Compose publishes `127.0.0.1:18080:80`. `validate` inspects every 18080/80 mapping in the compose file and via `docker compose config --format json` `host_ip`. Prior `up` reached `http://localhost:18080`. Host probes: `/auth/session` 200 anonymous, `/v1/assessment/shell` 401, `/admin` 404, `/health` 404, `/realms/flex-agent` 200, SPA `/` 200 |
 | Playwright MCP | passed for rebuilt-profile closeout | After SPA/API rebuild: create labels `page-2026-08-21T16-49-33-029Z.png`; confirmation compact summary `page-2026-08-21T16-50-23-355Z.png`. Prior denied, checking, save-failure, activating, success, degraded, light-theme, skip-link, stale, blocked, access-changed, save-and-leave, reconciling, reduced-motion, and 400-percent PNGs remain. Audit-fault, exception, invalid-snapshot, and live OTP were not produced. |
 | Architecture | passed | `dotnet test --project tests/Architecture/FlexAgent.Architecture.Tests` — **35 passed** |
 | Runtime | passed earlier closeout; HTTP subset rechecked | Full Runtime **204** was recorded earlier. This consistency pass re-ran `AssessmentHttpNegativeContractTests` **19 passed** only |
 | Performance | passed for local same-origin | Readiness p95 **6 ms** / 20 CSRF POSTs. Activation p95 **17.5 ms** / max **50 ms** / 12 CSRF POSTs, all 200, OIDC excluded. Multi-tenant load not measured |
 | Locked regression/supply-chain/OCI/docs/leakage | partial | This evening: `python3 scripts/check_docs.py`, `git diff --check`, and `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` passed. Prior closeout locked restore and API SBOM/Grype passed. `verify-oci.sh`, SPA SBOM, and `pnpm audit` were not re-run this evening |
-| Independent reviews | implementation complete / release evidence partial | 2026-08-22 approve-with-changes P1/P2s addressed: GET verification fail-closes without a digest/binding, gateway is loopback-bound, and closeout wording no longer implies every aggregate gate ran. Remaining residuals are `PROP-8` approval, dedicated reconciling PNG, 400-percent chrome clip, Reviewer browser, live OTP, OCI/SPA SBOM, and no GitHub combined-status on HEAD |
+| Independent reviews | `54cc4cf` approved; P3 nits applied | External review approved `54cc4cf` with no new correctness or architectural blocker. P3 hardening applied after approval. Remaining residuals are `PROP-8` approval, dedicated reconciling PNG, 400-percent chrome clip, Reviewer browser, live OTP, OCI/SPA SBOM, and no GitHub combined-status on HEAD |
 
 # Blockers
 

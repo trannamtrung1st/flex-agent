@@ -128,6 +128,9 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("http://localhost:18080", script);
         Assert.Contains("127.0.0.1:18080:80", script);
         Assert.Contains("non-loopback gateway publication is not permitted", script);
+        Assert.Contains("config --format json", script);
+        Assert.Contains("host_ip", script);
+        Assert.Contains("0.0.0.0:18080:80", script);
         Assert.Contains("authenticated-browser.compose.yaml", script);
     }
 

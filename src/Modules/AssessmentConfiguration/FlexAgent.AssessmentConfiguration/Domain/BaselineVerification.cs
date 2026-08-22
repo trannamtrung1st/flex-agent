@@ -3,9 +3,20 @@ namespace FlexAgent.AssessmentConfiguration.Domain;
 public sealed record BaselineDigestCheck(
     string StoredDigest,
     string? RecomputedDigest,
-    bool BindingPresent = true,
-    Guid? BoundRevisionId = null,
-    Guid? DraftRevisionId = null);
+    bool BindingPresent,
+    Guid? BoundRevisionId,
+    Guid? DraftRevisionId)
+{
+    public static BaselineDigestCheck Missing() =>
+        new(string.Empty, null, false, null, null);
+
+    public static BaselineDigestCheck Present(
+        string storedDigest,
+        string? recomputedDigest,
+        Guid boundRevisionId,
+        Guid draftRevisionId) =>
+        new(storedDigest, recomputedDigest, true, boundRevisionId, draftRevisionId);
+}
 
 public static class BaselineVerification
 {
@@ -48,12 +59,12 @@ public static class BaselineVerification
 
         if (digest is null
             || !digest.BindingPresent
+            || digest.BoundRevisionId is null
+            || digest.DraftRevisionId is null
+            || digest.BoundRevisionId != digest.DraftRevisionId
             || string.IsNullOrWhiteSpace(digest.StoredDigest)
             || string.IsNullOrWhiteSpace(digest.RecomputedDigest)
-            || !string.Equals(digest.StoredDigest, digest.RecomputedDigest, StringComparison.Ordinal)
-            || (digest.BoundRevisionId is { } boundRevision
-                && digest.DraftRevisionId is { } draftRevision
-                && boundRevision != draftRevision))
+            || !string.Equals(digest.StoredDigest, digest.RecomputedDigest, StringComparison.Ordinal))
         {
             return Degraded;
         }
