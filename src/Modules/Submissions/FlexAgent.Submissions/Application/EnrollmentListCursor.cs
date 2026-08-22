@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text;
 using FlexAgent.Submissions.Domain;
 
 namespace FlexAgent.Submissions.Application;
@@ -9,53 +10,134 @@ public sealed record EnrollmentListCursorScope(
     Guid OrganizationId,
     Guid ActorId,
     Guid ActivityId,
-    Guid CohortId)
+    Guid CohortId,
+    string Prefix)
 {
     public const string MyWork = "my-work";
     public const string Enrollments = "enrollments";
+    public const string ParticipantOptions = "participant-options";
 
     public static EnrollmentListCursorScope ForMyWork(EnrollmentActorContext actor) =>
-        new(MyWork, actor.Organization.OrganizationId, actor.Actor.ActorId, Guid.Empty, Guid.Empty);
+        new(MyWork, actor.Organization.OrganizationId, actor.Actor.ActorId, Guid.Empty, Guid.Empty, string.Empty);
 
     public static EnrollmentListCursorScope ForEnrollments(
         EnrollmentActorContext actor,
         Guid activityId,
         Guid cohortId) =>
-        new(Enrollments, actor.Organization.OrganizationId, actor.Actor.ActorId, activityId, cohortId);
+        new(Enrollments, actor.Organization.OrganizationId, actor.Actor.ActorId, activityId, cohortId, string.Empty);
+
+    public static EnrollmentListCursorScope ForParticipantOptions(
+        EnrollmentActorContext actor,
+        Guid activityId,
+        Guid cohortId,
+        string? prefix) =>
+        new(
+            ParticipantOptions,
+            actor.Organization.OrganizationId,
+            actor.Actor.ActorId,
+            activityId,
+            cohortId,
+            NormalizePrefix(prefix));
+
+    public static string NormalizePrefix(string? prefix) =>
+        string.IsNullOrWhiteSpace(prefix) ? string.Empty : prefix.Trim();
+}
+
+public sealed record EnrollmentCursorSigningKey(string KeyId, byte[] Material);
+
+public static class EnrollmentCursorKeyResolver
+{
+    public const int MinimumKeyBytes = 32;
+    public const int MaximumKeyIdLength = 32;
+
+    public static bool IsValidKeyId(string keyId) =>
+        !string.IsNullOrWhiteSpace(keyId)
+        && keyId.Length <= MaximumKeyIdLength
+        && keyId.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_');
+
+    public static EnrollmentCursorSigningKey Materialize(string keyId, string secret)
+    {
+        if (!IsValidKeyId(keyId))
+        {
+            throw new ArgumentException("Enrollment cursor key IDs must be short ASCII tokens.", nameof(keyId));
+        }
+
+        if (string.IsNullOrWhiteSpace(secret))
+        {
+            throw new ArgumentException("Enrollment cursor secrets must not be empty.", nameof(secret));
+        }
+
+        var material = Encoding.UTF8.GetBytes(secret);
+        if (material.Length < MinimumKeyBytes)
+        {
+            material = SHA256.HashData(material);
+        }
+
+        return new EnrollmentCursorSigningKey(keyId, material);
+    }
 }
 
 public interface IEnrollmentCursorSigner
 {
+    string CurrentKeyId { get; }
+
     string Sign(ReadOnlySpan<byte> payload);
 
-    bool Verify(ReadOnlySpan<byte> payload, string tag);
+    bool Verify(ReadOnlySpan<byte> payload, string keyId, string tag);
 }
 
 public sealed class HmacEnrollmentCursorSigner : IEnrollmentCursorSigner
 {
-    private readonly byte[] _key;
+    private readonly EnrollmentCursorSigningKey _current;
+    private readonly EnrollmentCursorSigningKey? _previous;
 
-    public HmacEnrollmentCursorSigner(byte[]? key = null)
+    public HmacEnrollmentCursorSigner(EnrollmentCursorSigningKey current, EnrollmentCursorSigningKey? previous = null)
     {
-        _key = key ?? RandomNumberGenerator.GetBytes(32);
-        if (_key.Length < 32)
+        if (!EnrollmentCursorKeyResolver.IsValidKeyId(current.KeyId) || current.Material.Length < EnrollmentCursorKeyResolver.MinimumKeyBytes)
         {
-            throw new ArgumentException("Enrollment cursor keys must be at least 32 bytes.", nameof(key));
+            throw new ArgumentException("Enrollment cursor keys must have a valid ID and at least 32 bytes.", nameof(current));
         }
+
+        if (previous is not null
+            && (!EnrollmentCursorKeyResolver.IsValidKeyId(previous.KeyId)
+                || previous.Material.Length < EnrollmentCursorKeyResolver.MinimumKeyBytes
+                || string.Equals(previous.KeyId, current.KeyId, StringComparison.Ordinal)))
+        {
+            throw new ArgumentException("The previous Enrollment cursor key must be a distinct valid key.", nameof(previous));
+        }
+
+        _current = current;
+        _previous = previous;
+        CurrentKeyId = current.KeyId;
     }
 
-    public string Sign(ReadOnlySpan<byte> payload) =>
-        Encode(HMACSHA256.HashData(_key, payload));
+    public string CurrentKeyId { get; }
 
-    public bool Verify(ReadOnlySpan<byte> payload, string tag)
+    public string Sign(ReadOnlySpan<byte> payload) =>
+        Encode(HMACSHA256.HashData(_current.Material, payload));
+
+    public bool Verify(ReadOnlySpan<byte> payload, string keyId, string tag)
     {
-        if (!TryDecode(tag, out var expected))
+        var key = Resolve(keyId);
+        if (key is null || !TryDecode(tag, out var expected))
         {
             return false;
         }
 
-        var actual = HMACSHA256.HashData(_key, payload);
+        var actual = HMACSHA256.HashData(key.Material, payload);
         return CryptographicOperations.FixedTimeEquals(actual, expected);
+    }
+
+    private EnrollmentCursorSigningKey? Resolve(string keyId)
+    {
+        if (string.Equals(keyId, _current.KeyId, StringComparison.Ordinal))
+        {
+            return _current;
+        }
+
+        return _previous is not null && string.Equals(keyId, _previous.KeyId, StringComparison.Ordinal)
+            ? _previous
+            : null;
     }
 
     internal static string Encode(ReadOnlySpan<byte> bytes) =>
@@ -84,11 +166,14 @@ public static class EnrollmentListCursor
         EnrollmentListCursorScope scope,
         DateTimeOffset updatedAt,
         Guid enrollmentId,
-        IEnrollmentCursorSigner signer)
-    {
-        var payload = Payload(scope, updatedAt.UtcTicks, enrollmentId);
-        return $"v1.{HmacEnrollmentCursorSigner.Encode(payload)}.{signer.Sign(payload)}";
-    }
+        IEnrollmentCursorSigner signer) =>
+        Format(scope, updatedAt.UtcTicks, enrollmentId, signer);
+
+    public static string IssueAfterActor(
+        EnrollmentListCursorScope scope,
+        Guid afterActorId,
+        IEnrollmentCursorSigner signer) =>
+        Format(scope, 0, afterActorId, signer);
 
     public static bool TryOpen(
         string? cursor,
@@ -109,17 +194,18 @@ public static class EnrollmentListCursor
             return false;
         }
 
-        var parts = cursor.Split('.', 3);
-        if (parts.Length != 3
+        var parts = cursor.Split('.', 4);
+        if (parts.Length != 4
             || !string.Equals(parts[0], "v1", StringComparison.Ordinal)
-            || !HmacEnrollmentCursorSigner.TryDecode(parts[1], out var payload)
-            || !signer.Verify(payload, parts[2]))
+            || !EnrollmentCursorKeyResolver.IsValidKeyId(parts[1])
+            || !HmacEnrollmentCursorSigner.TryDecode(parts[2], out var payload)
+            || !signer.Verify(payload, parts[1], parts[3]))
         {
             return false;
         }
 
-        var fields = System.Text.Encoding.UTF8.GetString(payload).Split('|');
-        if (fields.Length != 7
+        var fields = Encoding.UTF8.GetString(payload).Split('|');
+        if (fields.Length != 8
             || !string.Equals(fields[0], expected.QueryKind, StringComparison.Ordinal)
             || !Guid.TryParse(fields[1], out var organizationId)
             || organizationId != expected.OrganizationId
@@ -129,21 +215,33 @@ public static class EnrollmentListCursor
             || activityId != expected.ActivityId
             || !Guid.TryParse(fields[4], out var cohortId)
             || cohortId != expected.CohortId
-            || !long.TryParse(fields[5], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ticks)
+            || !HmacEnrollmentCursorSigner.TryDecode(fields[5], out var prefixBytes)
+            || !string.Equals(Encoding.UTF8.GetString(prefixBytes), expected.Prefix, StringComparison.Ordinal)
+            || !long.TryParse(fields[6], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ticks)
             || ticks < DateTimeOffset.MinValue.UtcTicks
             || ticks > DateTimeOffset.MaxValue.UtcTicks
-            || !Guid.TryParse(fields[6], out var id))
+            || !Guid.TryParse(fields[7], out var id))
         {
             return false;
         }
 
-        updatedAt = new DateTimeOffset(ticks, TimeSpan.Zero);
+        updatedAt = ticks == 0 ? null : new DateTimeOffset(ticks, TimeSpan.Zero);
         enrollmentId = id;
         return true;
     }
 
-    private static byte[] Payload(EnrollmentListCursorScope scope, long ticks, Guid enrollmentId) =>
-        System.Text.Encoding.UTF8.GetBytes(string.Create(
+    private static string Format(
+        EnrollmentListCursorScope scope,
+        long ticks,
+        Guid id,
+        IEnrollmentCursorSigner signer)
+    {
+        var payload = Payload(scope, ticks, id);
+        return $"v1.{signer.CurrentKeyId}.{HmacEnrollmentCursorSigner.Encode(payload)}.{signer.Sign(payload)}";
+    }
+
+    private static byte[] Payload(EnrollmentListCursorScope scope, long ticks, Guid id) =>
+        Encoding.UTF8.GetBytes(string.Create(
             CultureInfo.InvariantCulture,
-            $"{scope.QueryKind}|{scope.OrganizationId:D}|{scope.ActorId:D}|{scope.ActivityId:D}|{scope.CohortId:D}|{ticks}|{enrollmentId:D}"));
+            $"{scope.QueryKind}|{scope.OrganizationId:D}|{scope.ActorId:D}|{scope.ActivityId:D}|{scope.CohortId:D}|{HmacEnrollmentCursorSigner.Encode(Encoding.UTF8.GetBytes(scope.Prefix))}|{ticks}|{id:D}"));
 }

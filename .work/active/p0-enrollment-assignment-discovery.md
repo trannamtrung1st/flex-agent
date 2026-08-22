@@ -506,6 +506,10 @@ not be marked implemented by this task.
   cross-scope, overlong, and one-bit-tampered cursors; reject out-of-range
   and unparsable limits with 400/`no-store`. The 2 s mutation p95 gate stays
   open; the PostgreSQL assignment check is a single-sample smoke only.
+- [x] Review remediation: load a shared current/previous Enrollment cursor
+  signing key from deployment-managed secret or configuration so replicas
+  can verify each other's tokens; bind participant-options cursors the same
+  way and pass only `afterActorId` to IdentityAccess.
 
 # Planned verification command set
 
@@ -627,10 +631,10 @@ unparsable limit, and overlong cursor with 400/`no-store` instead of
 coercing to the default page size. Candidate `q` over
 `MaximumQueryPrefixLength` is also 400.
 
-The HMAC key is process-local (≥32 random bytes) as an interim default:
-restart invalidates issued cursors; a multi-instance shared key is not
-implemented and is not treated as a new ADR. SQL filters remain the
-disclosure boundary.
+Cursor HMAC keys are shared across API replicas via
+`enrollment-cursor-{keyId}` or `Enrollment:CursorSigning` current/previous
+materials. Production/Staging fail closed without a key. SQL filters
+remain the disclosure boundary.
 
 A single PostgreSQL assignment smoke used `Stopwatch` and finished under
 2 s. That does **not** close representative synchronous Enrollment
@@ -647,6 +651,25 @@ kind/org/actor/activity/cohort; stores consume `afterTime`/`afterId` only;
 HTTP rejects out-of-range, unparsable, and overlong list query values
 with 400/`no-store`; assignment timing remains a single-sample smoke.
 Local green: domain 35, Enrollment HTTP 10, architecture 41, Enrollment
+PostgreSQL 18, `git diff --check` clean. No GitHub CI on this SHA.
+
+Review of `5c89aec` required a shared replica key and candidate cursor
+binding. Tokens are now `v1.{keyId}.{payload}.{hmac}`. The host loads
+current and optional previous materials from `enrollment-cursor-{id}` or
+`Enrollment:CursorSigning:Keys:{id}`; Production/Staging fail closed
+without them. Same-key replica verify and different-key rejection are
+tested; the previous key still opens tokens after rotation. Participant
+options use `queryKind=participant-options` plus normalized prefix;
+IdentityAccess/PostgreSQL receive only `afterActorId`. Malformed or raw
+UUID candidate cursors fail as `enrollment.invalid_field`. Local green
+after this pass: domain 39, Enrollment HTTP 10, architecture 41,
+Enrollment PostgreSQL 18. No GitHub CI on this working tree.
+
+Confirmation pass 2026-08-23 before commit: no per-process random signer;
+replicas with the same configured key verify each other's tokens; a
+different key and a retired previous-only signer fail closed; candidate
+lists open HMAC scope and pass only `afterActorId` to IdentityAccess.
+Local green: domain 39, Enrollment HTTP 10, architecture 41, Enrollment
 PostgreSQL 18, `git diff --check` clean. No GitHub CI on this SHA.
 
 # Decisions
@@ -713,14 +736,25 @@ PostgreSQL 18, `git diff --check` clean. No GitHub CI on this SHA.
   Submission/Attempt consumers, but do not claim `AC-SUBM-4` end-to-end until
   those consumers enforce it. This task verifies immediate denial at the
   Enrollment boundary and participant/admin projections only.
-- Authenticate Enrollment/My work list cursors with HMAC-SHA256 over a
-  scope-bound payload (query kind, Organization, actor, Activity, Cohort,
-  ticks, Enrollment ID). Interim default: process-local ≥32-byte key so
-  restart invalidates tokens. A shared multi-instance key is out of this
-  remediations slice and is not a new ADR.
+- Authenticate Enrollment, My work, and participant-options list cursors
+  with HMAC-SHA256 over a scope-bound payload (query kind, Organization,
+  actor, Activity, Cohort, normalized prefix, ticks or after-actor). Tokens
+  include a key ID. Replicas share `Enrollment:CursorSigning` current and
+  optional previous materials from mounted secrets (`enrollment-cursor-{id}`)
+  or configuration. Production/Staging fail closed without a key. Development
+  and Testing may derive a deterministic non-production key from the key ID
+  so local replicas stay consistent. Rotation accepts the previous key until
+  it is removed. This is not a new ADR.
 
 # Findings / deviations
 
+- Review of `5c89aec`: a per-process random HMAC key would reject valid
+  `next_cursor` values across horizontally scaled API replicas, and
+  participant-options still forwarded raw UUID cursors. Shared
+  current/previous keys and candidate HMAC binding close those contracts.
+  Remaining residuals: mutation p95, per-actor rate limit, 50 ms
+  authorization p95, 400% zoom, no GitHub CI on this SHA, and independent
+  review.
 - Review of the unsigned-cursor closeout: a syntactically valid
   `updatedAt:enrollmentId` Base64 token was still accepted, so a caller
   could restart pagination or replay another actor/cohort cursor. HMAC
@@ -837,7 +871,7 @@ PostgreSQL 18, `git diff --check` clean. No GitHub CI on this SHA.
 | `python3 scripts/check_docs.py` | passed | Documentation validation passed on 2026-08-22. |
 | whitespace/diff validation | passed | `git diff --check` passed; direct `git diff --no-index --check` on the untracked task file produced no whitespace diagnostics (its status `1` is the expected no-index difference result). |
 | Secret scan | passed | `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` found no leaks during the readiness review. |
-| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 35 passed, including forged restart, same-scope continue, cross-scope, one-bit tamper, overflow, out-of-range limit, and overlong cursor. |
+| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 39 passed, including shared-key replica verify, different-key rejection, previous-key rotation, and candidate same-scope/cross-scope/forged-cursor cases. |
 | Architecture/contract tests | passed | Architecture 41 passed. This pass did not change schemas. |
 | PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 18 passed. `Assignment_completes_within_the_documented_synchronous_bound` is a `Stopwatch` single-sample smoke under 2 s and does not close mutation p95. Full suite/OCI still open. |
 | Runtime/API authorization and HTTP-negative tests | mixed | `EnrollmentHttpNegativeContractTests` now covers CSRF, missing session, malformed cursor, `limit=0`, `limit=999999`, unparsable limit, overlong cursor, guessed detail, unknown member, and oversized body (local 10 after the unparsable-limit case). Per-actor rate-limit HTTP cases remain because the gateway/app limiter is not implemented. |

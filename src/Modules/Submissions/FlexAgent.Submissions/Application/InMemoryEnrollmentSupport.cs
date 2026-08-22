@@ -405,18 +405,21 @@ public sealed class InMemoryCandidatePort : IEnrollmentCandidatePort
     public Task<CursorPage<EnrollmentCandidate>> ListEligibleAsync(
         Guid organizationId,
         string? prefix,
-        string? cursor,
+        Guid? afterActorId,
         int limit,
         CancellationToken cancellationToken = default)
     {
-        var items = Candidates
+        var filtered = Candidates
             .Where(item =>
-                string.IsNullOrWhiteSpace(prefix)
-                || item.DisplayLabel.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(item => item.DisplayLabel, StringComparer.Ordinal)
-            .Take(limit)
+                (string.IsNullOrWhiteSpace(prefix)
+                    || item.DisplayLabel.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                && (afterActorId is null || item.ActorId.CompareTo(afterActorId.Value) > 0))
+            .OrderBy(item => item.ActorId)
+            .Take(limit + 1)
             .ToArray();
-        return Task.FromResult(new CursorPage<EnrollmentCandidate>(items, null, false));
+        var hasMore = filtered.Length > limit;
+        var items = filtered.Take(limit).ToArray();
+        return Task.FromResult(new CursorPage<EnrollmentCandidate>(items, null, hasMore));
     }
 
     public Task<EnrollmentCandidate?> RevalidateEligibleAsync(

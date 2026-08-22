@@ -54,7 +54,7 @@ public sealed class IdentityEnrollmentCandidatePort(IHumanDisplayProfileDirector
     public async Task<CursorPage<EnrollmentCandidate>> ListEligibleAsync(
         Guid organizationId,
         string? prefix,
-        string? cursor,
+        Guid? afterActorId,
         int limit,
         CancellationToken cancellationToken = default)
     {
@@ -62,12 +62,12 @@ public sealed class IdentityEnrollmentCandidatePort(IHumanDisplayProfileDirector
             organizationId,
             EnrollmentAuthorizationActions.Receive,
             prefix,
-            cursor,
+            afterActorId,
             limit,
             cancellationToken);
         return new CursorPage<EnrollmentCandidate>(
             page.Items.Select(item => new EnrollmentCandidate(item.ActorId, item.DisplayLabel)).ToArray(),
-            page.NextCursor,
+            null,
             page.HasMore);
     }
 

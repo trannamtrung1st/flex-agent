@@ -29,9 +29,11 @@ public sealed class EnrollmentQueryService(
             return EnrollmentDecision<CursorPage<EnrollmentCandidate>>.Fail(denied);
         }
 
+        var normalizedPrefix = EnrollmentListCursorScope.NormalizePrefix(prefix);
+        var scope = EnrollmentListCursorScope.ForParticipantOptions(actor, activityId, cohortId, normalizedPrefix);
         if (!IsValidLimit(limit)
-            || (prefix?.Length ?? 0) > EnrollmentPageBounds.MaximumQueryPrefixLength
-            || (cursor?.Length ?? 0) > EnrollmentPageBounds.MaximumCursorLength)
+            || normalizedPrefix.Length > EnrollmentPageBounds.MaximumQueryPrefixLength
+            || !EnrollmentListCursor.TryOpen(cursor, scope, cursors, out _, out var afterActorId))
         {
             return EnrollmentDecision<CursorPage<EnrollmentCandidate>>.Fail(EnrollmentFailureCodes.InvalidField);
         }
@@ -43,11 +45,18 @@ public sealed class EnrollmentQueryService(
 
         var page = await candidates.ListEligibleAsync(
             actor.Organization.OrganizationId,
-            prefix,
-            cursor,
+            string.IsNullOrEmpty(normalizedPrefix) ? null : normalizedPrefix,
+            afterActorId,
             limit,
             cancellationToken);
-        return EnrollmentDecision<CursorPage<EnrollmentCandidate>>.Ok(page, "enrollment.ok");
+        return EnrollmentDecision<CursorPage<EnrollmentCandidate>>.Ok(
+            new CursorPage<EnrollmentCandidate>(
+                page.Items,
+                page.HasMore && page.Items.Count > 0
+                    ? EnrollmentListCursor.IssueAfterActor(scope, page.Items[^1].ActorId, cursors)
+                    : null,
+                page.HasMore),
+            "enrollment.ok");
     }
 
     public async Task<EnrollmentDecision<CursorPage<EnrollmentSummary>>> ListEnrollmentsAsync(

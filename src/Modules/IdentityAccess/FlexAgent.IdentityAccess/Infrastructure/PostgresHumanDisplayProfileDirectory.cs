@@ -12,27 +12,17 @@ public sealed class PostgresHumanDisplayProfileDirectory(PostgresConnectionAcces
         Guid organizationId,
         string requiredAction,
         string? prefix,
-        string? cursor,
+        Guid? afterActorId,
         int limit,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-        Guid? afterId = null;
-        if (!string.IsNullOrWhiteSpace(cursor) && !Guid.TryParse(cursor, out var parsed))
-        {
-            return new HumanDisplayCandidatePage([], null, false);
-        }
-        else if (!string.IsNullOrWhiteSpace(cursor))
-        {
-            afterId = Guid.Parse(cursor);
-        }
-
         var parameters = new DynamicParameters();
         parameters.Add("OrganizationId", organizationId, DbType.Guid);
         parameters.Add("RequiredAction", requiredAction, DbType.String);
         parameters.Add("Prefix", string.IsNullOrWhiteSpace(prefix) ? null : prefix, DbType.String);
         parameters.Add("PrefixPattern", string.IsNullOrWhiteSpace(prefix) ? null : prefix + "%", DbType.String);
-        parameters.Add("AfterId", afterId, DbType.Guid);
+        parameters.Add("AfterId", afterActorId, DbType.Guid);
         parameters.Add("Limit", limit + 1, DbType.Int32);
         var rows = (await connection.QueryAsync<HumanDisplayCandidate>(
             new CommandDefinition(
@@ -57,10 +47,7 @@ public sealed class PostgresHumanDisplayProfileDirectory(PostgresConnectionAcces
                 cancellationToken: cancellationToken))).ToArray();
         var hasMore = rows.Length > limit;
         var taken = rows.Take(limit).ToArray();
-        return new HumanDisplayCandidatePage(
-            taken,
-            hasMore ? taken[^1].ActorId.ToString("D") : null,
-            hasMore);
+        return new HumanDisplayCandidatePage(taken, hasMore);
     }
 
     public async Task<HumanDisplayCandidate?> RevalidateEligibleAsync(

@@ -206,7 +206,7 @@ public interface IEnrollmentCandidatePort
     Task<CursorPage<EnrollmentCandidate>> ListEligibleAsync(
         Guid organizationId,
         string? prefix,
-        string? cursor,
+        Guid? afterActorId,
         int limit,
         CancellationToken cancellationToken = default);
 

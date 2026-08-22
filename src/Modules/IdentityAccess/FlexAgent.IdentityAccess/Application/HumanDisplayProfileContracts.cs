@@ -4,7 +4,6 @@ public sealed record HumanDisplayCandidate(Guid ActorId, string DisplayLabel);
 
 public sealed record HumanDisplayCandidatePage(
     IReadOnlyList<HumanDisplayCandidate> Items,
-    string? NextCursor,
     bool HasMore);
 
 public interface IHumanDisplayProfileDirectory
@@ -13,7 +12,7 @@ public interface IHumanDisplayProfileDirectory
         Guid organizationId,
         string requiredAction,
         string? prefix,
-        string? cursor,
+        Guid? afterActorId,
         int limit,
         CancellationToken cancellationToken = default);
 

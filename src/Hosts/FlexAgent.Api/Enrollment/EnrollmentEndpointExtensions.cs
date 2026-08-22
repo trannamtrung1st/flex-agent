@@ -26,7 +26,8 @@ public static class EnrollmentEndpointExtensions
         }
 
         services.AddSingleton<IEnrollmentCoordinator, EnrollmentCoordinator>();
-        services.AddSingleton<IEnrollmentCursorSigner, HmacEnrollmentCursorSigner>();
+        services.AddSingleton<IEnrollmentCursorSigner>(provider =>
+            CreateCursorSigner(provider, configuration, environment));
         services.AddSingleton<IEnrollmentQueryService, EnrollmentQueryService>();
         services.AddSingleton<IEnrollmentClock, SystemEnrollmentClock>();
 
@@ -480,6 +481,47 @@ public static class EnrollmentEndpointExtensions
         {
             return null;
         }
+    }
+
+    private static HmacEnrollmentCursorSigner CreateCursorSigner(
+        IServiceProvider provider,
+        IConfiguration configuration,
+        IHostEnvironment environment)
+    {
+        var secrets = provider.GetService<ISecretSource>();
+        var currentId = configuration["Enrollment:CursorSigning:CurrentKeyId"] ?? "current";
+        var previousId = configuration["Enrollment:CursorSigning:PreviousKeyId"];
+        return new HmacEnrollmentCursorSigner(
+            ReadCursorKey(currentId, configuration, secrets, environment, required: true),
+            string.IsNullOrWhiteSpace(previousId)
+                ? null
+                : ReadCursorKey(previousId, configuration, secrets, environment, required: true));
+    }
+
+    private static EnrollmentCursorSigningKey ReadCursorKey(
+        string keyId,
+        IConfiguration configuration,
+        ISecretSource? secrets,
+        IHostEnvironment environment,
+        bool required)
+    {
+        var secret = secrets?.TryReadAsync($"enrollment-cursor-{keyId}").GetAwaiter().GetResult();
+        if (string.IsNullOrWhiteSpace(secret))
+        {
+            secret = configuration[$"Enrollment:CursorSigning:Keys:{keyId}"];
+        }
+
+        if (string.IsNullOrWhiteSpace(secret))
+        {
+            if (required && (environment.IsProduction() || environment.IsEnvironment("Staging")))
+            {
+                throw new InvalidOperationException($"Required secret 'enrollment-cursor-{keyId}' is not configured.");
+            }
+
+            secret = $"flex-agent-test-only-enrollment-cursor-{keyId}";
+        }
+
+        return EnrollmentCursorKeyResolver.Materialize(keyId, secret);
     }
 
     private static string? FormatUtc(DateTimeOffset? value) =>

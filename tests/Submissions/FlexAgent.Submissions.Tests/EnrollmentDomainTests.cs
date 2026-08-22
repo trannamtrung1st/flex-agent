@@ -406,6 +406,129 @@ public sealed class EnrollmentDomainTests
     }
 
     [Fact]
+    public async Task Forged_and_malformed_candidate_cursors_are_rejected()
+    {
+        var harness = CreateHarness();
+        var forged = Guid.Empty.ToString("D");
+        var malformed = await harness.Queries.ListCandidatesAsync(
+            AdministratorContext(),
+            ActivityId,
+            CohortId,
+            null,
+            "not-a-cursor",
+            20,
+            TestContext.Current.CancellationToken);
+        var replay = await harness.Queries.ListCandidatesAsync(
+            AdministratorContext(),
+            ActivityId,
+            CohortId,
+            null,
+            forged,
+            20,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(EnrollmentFailureCodes.InvalidField, malformed.OutcomeCode);
+        Assert.Equal(EnrollmentFailureCodes.InvalidField, replay.OutcomeCode);
+        Assert.Null(malformed.Value);
+        Assert.Null(replay.Value);
+    }
+
+    [Fact]
+    public async Task Same_scope_candidate_cursor_continues_and_cross_scope_is_rejected()
+    {
+        var harness = CreateHarness();
+        var first = await harness.Queries.ListCandidatesAsync(
+            AdministratorContext(),
+            ActivityId,
+            CohortId,
+            null,
+            null,
+            1,
+            TestContext.Current.CancellationToken);
+        Assert.True(first.Succeeded);
+        Assert.True(first.Value!.HasMore);
+        Assert.False(string.IsNullOrWhiteSpace(first.Value.NextCursor));
+
+        var second = await harness.Queries.ListCandidatesAsync(
+            AdministratorContext(),
+            ActivityId,
+            CohortId,
+            null,
+            first.Value.NextCursor,
+            1,
+            TestContext.Current.CancellationToken);
+        var otherPrefix = await harness.Queries.ListCandidatesAsync(
+            AdministratorContext(),
+            ActivityId,
+            CohortId,
+            "Synthetic",
+            first.Value.NextCursor,
+            1,
+            TestContext.Current.CancellationToken);
+        harness.Cohorts.Binding = Binding() with { CohortId = OtherCohortId };
+        var otherCohort = await harness.Queries.ListCandidatesAsync(
+            AdministratorContext(),
+            ActivityId,
+            OtherCohortId,
+            null,
+            first.Value.NextCursor,
+            1,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(second.Succeeded);
+        Assert.Single(first.Value.Items);
+        Assert.Single(second.Value!.Items);
+        Assert.NotEqual(first.Value.Items[0].ActorId, second.Value.Items[0].ActorId);
+        Assert.Equal(EnrollmentFailureCodes.InvalidField, otherPrefix.OutcomeCode);
+        Assert.Equal(EnrollmentFailureCodes.InvalidField, otherCohort.OutcomeCode);
+    }
+
+    [Fact]
+    public void Shared_configured_cursor_keys_verify_across_signers()
+    {
+        var material = EnrollmentCursorKeyResolver.Materialize("k1", "shared-replica-secret-value");
+        var issuer = new HmacEnrollmentCursorSigner(material);
+        var replica = new HmacEnrollmentCursorSigner(
+            EnrollmentCursorKeyResolver.Materialize("k1", "shared-replica-secret-value"));
+        var scope = EnrollmentListCursorScope.ForMyWork(ParticipantContext());
+        var cursor = EnrollmentListCursor.Issue(scope, Now, ParticipantId, issuer);
+
+        Assert.True(EnrollmentListCursor.TryOpen(cursor, scope, replica, out var updatedAt, out var enrollmentId));
+        Assert.Equal(Now, updatedAt);
+        Assert.Equal(ParticipantId, enrollmentId);
+
+        var other = new HmacEnrollmentCursorSigner(
+            EnrollmentCursorKeyResolver.Materialize("k1", "different-replica-secret-value"));
+        Assert.False(EnrollmentListCursor.TryOpen(cursor, scope, other, out _, out _));
+    }
+
+    [Fact]
+    public void Previous_cursor_key_still_verifies_after_rotation()
+    {
+        var previous = EnrollmentCursorKeyResolver.Materialize("k0", "previous-cursor-secret-value");
+        var current = EnrollmentCursorKeyResolver.Materialize("k1", "current-cursor-secret-value");
+        var issued = EnrollmentListCursor.Issue(
+            EnrollmentListCursorScope.ForMyWork(ParticipantContext()),
+            Now,
+            ParticipantId,
+            new HmacEnrollmentCursorSigner(previous));
+
+        Assert.True(EnrollmentListCursor.TryOpen(
+            issued,
+            EnrollmentListCursorScope.ForMyWork(ParticipantContext()),
+            new HmacEnrollmentCursorSigner(current, previous),
+            out _,
+            out var enrollmentId));
+        Assert.Equal(ParticipantId, enrollmentId);
+        Assert.False(EnrollmentListCursor.TryOpen(
+            issued,
+            EnrollmentListCursorScope.ForMyWork(ParticipantContext()),
+            new HmacEnrollmentCursorSigner(current),
+            out _,
+            out _));
+    }
+
+    [Fact]
     public async Task Closed_assignment_is_unavailable_to_the_participant()
     {
         var harness = CreateHarness();
@@ -650,7 +773,8 @@ public sealed class EnrollmentDomainTests
             cohorts,
             candidates,
             store,
-            new HmacEnrollmentCursorSigner());
+            new HmacEnrollmentCursorSigner(
+                EnrollmentCursorKeyResolver.Materialize("test", "flex-agent-test-only-enrollment-cursor")));
         return new Harness(coordinator, queries, store, authorization, cohorts, unitOfWork, audit, sessions, operations);
     }
 
