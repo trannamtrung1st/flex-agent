@@ -66,6 +66,68 @@ public sealed class EnrollmentHttpNegativeContractTests
     }
 
     [Fact]
+    public async Task My_work_with_an_out_of_range_limit_is_invalid_and_not_cached()
+    {
+        await using var context = await LoginAsync(permitEnrollment: true);
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/assessment/my-work?limit=0");
+        request.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        using var response = await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(EnrollmentFailureCodes.InvalidField, body, StringComparison.Ordinal);
+        AssertNoAssignment(body);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
+    public async Task My_work_with_an_over_maximum_limit_is_invalid_and_not_cached()
+    {
+        await using var context = await LoginAsync(permitEnrollment: true);
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/assessment/my-work?limit=999999");
+        request.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        using var response = await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(
+            EnrollmentFailureCodes.InvalidField,
+            await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken),
+            StringComparison.Ordinal);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
+    public async Task My_work_with_an_unparsable_limit_is_invalid_and_not_cached()
+    {
+        await using var context = await LoginAsync(permitEnrollment: true);
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/assessment/my-work?limit=not-a-number");
+        request.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        using var response = await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(EnrollmentFailureCodes.InvalidField, body, StringComparison.Ordinal);
+        AssertNoAssignment(body);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
+    public async Task My_work_with_an_overlong_cursor_is_invalid_and_not_cached()
+    {
+        await using var context = await LoginAsync(permitEnrollment: true);
+        var cursor = new string('a', EnrollmentPageBounds.MaximumCursorLength + 1);
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/v1/assessment/my-work?cursor={cursor}");
+        request.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        using var response = await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(EnrollmentFailureCodes.InvalidField, body, StringComparison.Ordinal);
+        AssertNoAssignment(body);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
     public async Task Guessed_my_work_detail_is_concealed_as_not_found()
     {
         await using var context = await LoginAsync();

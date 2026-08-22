@@ -191,7 +191,8 @@ public sealed class InMemoryEnrollmentStore : IEnrollmentStore
         Guid organizationId,
         Guid activityId,
         Guid cohortId,
-        string? cursor,
+        DateTimeOffset? afterTime,
+        Guid? afterId,
         int limit,
         CancellationToken cancellationToken)
     {
@@ -203,13 +204,14 @@ public sealed class InMemoryEnrollmentStore : IEnrollmentStore
             .OrderBy(item => item.UpdatedAtUtc)
             .ThenBy(item => item.EnrollmentId)
             .ToArray();
-        return Task.FromResult(TakePage(items, cursor, limit));
+        return Task.FromResult(TakePage(items, afterTime, afterId, limit));
     }
 
     public Task<CursorPage<Enrollment>> ListCurrentForParticipantAsync(
         Guid organizationId,
         Guid participantActorId,
-        string? cursor,
+        DateTimeOffset? afterTime,
+        Guid? afterId,
         int limit,
         CancellationToken cancellationToken)
     {
@@ -221,19 +223,15 @@ public sealed class InMemoryEnrollmentStore : IEnrollmentStore
             .OrderBy(item => item.UpdatedAtUtc)
             .ThenBy(item => item.EnrollmentId)
             .ToArray();
-        return Task.FromResult(TakePage(items, cursor, limit));
+        return Task.FromResult(TakePage(items, afterTime, afterId, limit));
     }
 
     private static CursorPage<Enrollment> TakePage(
         IReadOnlyList<Enrollment> items,
-        string? cursor,
+        DateTimeOffset? afterTime,
+        Guid? afterId,
         int limit)
     {
-        if (!EnrollmentListCursor.TryParse(cursor, out var afterTime, out var afterId))
-        {
-            return new CursorPage<Enrollment>([], null, false);
-        }
-
         var filtered = afterTime is null || afterId is null
             ? items
             : items
@@ -244,10 +242,7 @@ public sealed class InMemoryEnrollmentStore : IEnrollmentStore
         var page = filtered.Take(limit + 1).ToArray();
         var hasMore = page.Length > limit;
         var taken = page.Take(limit).ToArray();
-        return new CursorPage<Enrollment>(
-            taken,
-            hasMore ? EnrollmentListCursor.Format(taken[^1].UpdatedAtUtc, taken[^1].EnrollmentId) : null,
-            hasMore);
+        return new CursorPage<Enrollment>(taken, null, hasMore);
     }
 }
 

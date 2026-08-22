@@ -26,6 +26,7 @@ public static class EnrollmentEndpointExtensions
         }
 
         services.AddSingleton<IEnrollmentCoordinator, EnrollmentCoordinator>();
+        services.AddSingleton<IEnrollmentCursorSigner, HmacEnrollmentCursorSigner>();
         services.AddSingleton<IEnrollmentQueryService, EnrollmentQueryService>();
         services.AddSingleton<IEnrollmentClock, SystemEnrollmentClock>();
 
@@ -92,13 +93,26 @@ public static class EnrollmentEndpointExtensions
             return;
         }
 
+        if (!TryReadListQuery(context, out var limit, out var cursor))
+        {
+            await WriteError(context, StatusCodes.Status400BadRequest, EnrollmentFailureCodes.InvalidField);
+            return;
+        }
+
+        var prefix = context.Request.Query["q"].FirstOrDefault();
+        if ((prefix?.Length ?? 0) > EnrollmentPageBounds.MaximumQueryPrefixLength)
+        {
+            await WriteError(context, StatusCodes.Status400BadRequest, EnrollmentFailureCodes.InvalidField);
+            return;
+        }
+
         var result = await queries.ListCandidatesAsync(
             actor,
             activityId,
             cohortId,
-            context.Request.Query["q"].FirstOrDefault(),
-            context.Request.Query["cursor"].FirstOrDefault(),
-            ParseLimit(context),
+            prefix,
+            cursor,
+            limit,
             context.RequestAborted);
         await WriteQuery(context, result, page => new
         {
@@ -122,12 +136,18 @@ public static class EnrollmentEndpointExtensions
             return;
         }
 
+        if (!TryReadListQuery(context, out var limit, out var cursor))
+        {
+            await WriteError(context, StatusCodes.Status400BadRequest, EnrollmentFailureCodes.InvalidField);
+            return;
+        }
+
         var result = await queries.ListEnrollmentsAsync(
             actor,
             activityId,
             cohortId,
-            context.Request.Query["cursor"].FirstOrDefault(),
-            ParseLimit(context),
+            cursor,
+            limit,
             context.RequestAborted);
         await WriteQuery(context, result, page => new
         {
@@ -192,10 +212,16 @@ public static class EnrollmentEndpointExtensions
             return;
         }
 
+        if (!TryReadListQuery(context, out var limit, out var cursor))
+        {
+            await WriteError(context, StatusCodes.Status400BadRequest, EnrollmentFailureCodes.InvalidField);
+            return;
+        }
+
         var result = await queries.ListMyWorkAsync(
             actor,
-            context.Request.Query["cursor"].FirstOrDefault(),
-            ParseLimit(context),
+            cursor,
+            limit,
             context.RequestAborted);
         await WriteQuery(context, result, page => new
         {
@@ -461,16 +487,24 @@ public static class EnrollmentEndpointExtensions
             ? null
             : value.Value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
 
-    private static int ParseLimit(HttpContext context)
+    private static bool TryReadListQuery(HttpContext context, out int limit, out string? cursor)
     {
-        if (!int.TryParse(context.Request.Query["limit"].FirstOrDefault(), out var limit))
+        cursor = context.Request.Query["cursor"].FirstOrDefault();
+        if ((cursor?.Length ?? 0) > EnrollmentPageBounds.MaximumCursorLength)
         {
-            return EnrollmentPageBounds.DefaultLimit;
+            limit = 0;
+            return false;
         }
 
-        return limit is < 1 or > EnrollmentPageBounds.MaximumLimit
-            ? EnrollmentPageBounds.DefaultLimit
-            : limit;
+        var raw = context.Request.Query["limit"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            limit = EnrollmentPageBounds.DefaultLimit;
+            return true;
+        }
+
+        return int.TryParse(raw, out limit)
+            && limit is >= 1 and <= EnrollmentPageBounds.MaximumLimit;
     }
 }
 

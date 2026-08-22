@@ -6,7 +6,8 @@ public sealed class EnrollmentQueryService(
     IEnrollmentAuthorizationPort authorization,
     IActivatedCohortPort cohorts,
     IEnrollmentCandidatePort candidates,
-    IEnrollmentStore enrollments) : IEnrollmentQueryService
+    IEnrollmentStore enrollments,
+    IEnrollmentCursorSigner cursors) : IEnrollmentQueryService
 {
     public async Task<EnrollmentDecision<CursorPage<EnrollmentCandidate>>> ListCandidatesAsync(
         EnrollmentActorContext actor,
@@ -28,6 +29,13 @@ public sealed class EnrollmentQueryService(
             return EnrollmentDecision<CursorPage<EnrollmentCandidate>>.Fail(denied);
         }
 
+        if (!IsValidLimit(limit)
+            || (prefix?.Length ?? 0) > EnrollmentPageBounds.MaximumQueryPrefixLength
+            || (cursor?.Length ?? 0) > EnrollmentPageBounds.MaximumCursorLength)
+        {
+            return EnrollmentDecision<CursorPage<EnrollmentCandidate>>.Fail(EnrollmentFailureCodes.InvalidField);
+        }
+
         if (await cohorts.FindActivatedAsync(actor.Organization.OrganizationId, activityId, cohortId, cancellationToken) is null)
         {
             return EnrollmentDecision<CursorPage<EnrollmentCandidate>>.Fail(EnrollmentFailureCodes.Denied);
@@ -37,7 +45,7 @@ public sealed class EnrollmentQueryService(
             actor.Organization.OrganizationId,
             prefix,
             cursor,
-            NormalizeLimit(limit),
+            limit,
             cancellationToken);
         return EnrollmentDecision<CursorPage<EnrollmentCandidate>>.Ok(page, "enrollment.ok");
     }
@@ -61,7 +69,9 @@ public sealed class EnrollmentQueryService(
             return EnrollmentDecision<CursorPage<EnrollmentSummary>>.Fail(denied);
         }
 
-        if (!EnrollmentListCursor.TryParse(cursor, out _, out _))
+        var scope = EnrollmentListCursorScope.ForEnrollments(actor, activityId, cohortId);
+        if (!IsValidLimit(limit)
+            || !EnrollmentListCursor.TryOpen(cursor, scope, cursors, out var afterTime, out var afterId))
         {
             return EnrollmentDecision<CursorPage<EnrollmentSummary>>.Fail(EnrollmentFailureCodes.InvalidField);
         }
@@ -70,17 +80,18 @@ public sealed class EnrollmentQueryService(
             actor.Organization.OrganizationId,
             activityId,
             cohortId,
-            cursor,
-            NormalizeLimit(limit),
+            afterTime,
+            afterId,
+            limit,
             cancellationToken);
-        var items = new List<EnrollmentSummary>();
+        var items = new List<EnrollmentSummary>(page.Items.Count);
         foreach (var enrollment in page.Items)
         {
             items.Add(await ToSummaryAsync(actor, enrollment, cancellationToken));
         }
 
         return EnrollmentDecision<CursorPage<EnrollmentSummary>>.Ok(
-            new CursorPage<EnrollmentSummary>(items, page.NextCursor, page.HasMore),
+            new CursorPage<EnrollmentSummary>(items, SignNext(scope, page), page.HasMore),
             "enrollment.ok");
     }
 
@@ -140,7 +151,9 @@ public sealed class EnrollmentQueryService(
             return EnrollmentDecision<CursorPage<AssignmentSummary>>.Fail(denied);
         }
 
-        if (!EnrollmentListCursor.TryParse(cursor, out _, out _))
+        var scope = EnrollmentListCursorScope.ForMyWork(actor);
+        if (!IsValidLimit(limit)
+            || !EnrollmentListCursor.TryOpen(cursor, scope, cursors, out var afterTime, out var afterId))
         {
             return EnrollmentDecision<CursorPage<AssignmentSummary>>.Fail(EnrollmentFailureCodes.InvalidField);
         }
@@ -148,8 +161,9 @@ public sealed class EnrollmentQueryService(
         var page = await enrollments.ListCurrentForParticipantAsync(
             actor.Organization.OrganizationId,
             actor.Actor.ActorId,
-            cursor,
-            NormalizeLimit(limit),
+            afterTime,
+            afterId,
+            limit,
             cancellationToken);
         var items = new List<AssignmentSummary>();
         foreach (var enrollment in page.Items)
@@ -163,7 +177,10 @@ public sealed class EnrollmentQueryService(
         }
 
         return EnrollmentDecision<CursorPage<AssignmentSummary>>.Ok(
-            new CursorPage<AssignmentSummary>(items, page.NextCursor, page.HasMore),
+            new CursorPage<AssignmentSummary>(
+                items,
+                SignNext(scope, page),
+                page.HasMore),
             "enrollment.ok");
     }
 
@@ -222,6 +239,11 @@ public sealed class EnrollmentQueryService(
         return decision.IsPermitted ? null : EnrollmentFailureCodes.Denied;
     }
 
+    private string? SignNext(EnrollmentListCursorScope scope, CursorPage<Enrollment> page) =>
+        page.HasMore && page.Items.Count > 0
+            ? EnrollmentListCursor.Issue(scope, page.Items[^1].UpdatedAtUtc, page.Items[^1].EnrollmentId, cursors)
+            : null;
+
     private async Task<EnrollmentSummary> ToSummaryAsync(
         EnrollmentActorContext actor,
         Enrollment enrollment,
@@ -269,8 +291,6 @@ public sealed class EnrollmentQueryService(
             EnrollmentProjection.ParticipantActions(enrollment.Status, available));
     }
 
-    private static int NormalizeLimit(int limit) =>
-        limit is < 1 or > EnrollmentPageBounds.MaximumLimit
-            ? EnrollmentPageBounds.DefaultLimit
-            : limit;
+    private static bool IsValidLimit(int limit) =>
+        limit is >= 1 and <= EnrollmentPageBounds.MaximumLimit;
 }

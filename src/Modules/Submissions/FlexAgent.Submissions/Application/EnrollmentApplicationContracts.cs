@@ -258,14 +258,16 @@ public interface IEnrollmentStore
         Guid organizationId,
         Guid activityId,
         Guid cohortId,
-        string? cursor,
+        DateTimeOffset? afterTime,
+        Guid? afterId,
         int limit,
         CancellationToken cancellationToken);
 
     Task<CursorPage<Enrollment>> ListCurrentForParticipantAsync(
         Guid organizationId,
         Guid participantActorId,
-        string? cursor,
+        DateTimeOffset? afterTime,
+        Guid? afterId,
         int limit,
         CancellationToken cancellationToken);
 }

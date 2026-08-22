@@ -108,4 +108,6 @@ public static class EnrollmentPageBounds
 {
     public const int DefaultLimit = 20;
     public const int MaximumLimit = 50;
+    public const int MaximumCursorLength = 512;
+    public const int MaximumQueryPrefixLength = 64;
 }

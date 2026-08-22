@@ -307,7 +307,8 @@ public sealed class PostgresEnrollmentStore(PostgresConnectionAccessor connectio
         Guid organizationId,
         Guid activityId,
         Guid cohortId,
-        string? cursor,
+        DateTimeOffset? afterTime,
+        Guid? afterId,
         int limit,
         CancellationToken cancellationToken) =>
         ListAsync(
@@ -318,14 +319,16 @@ public sealed class PostgresEnrollmentStore(PostgresConnectionAccessor connectio
               AND cohort_id = @CohortId
             """,
             new { OrganizationId = organizationId, ActivityId = activityId, CohortId = cohortId },
-            cursor,
+            afterTime,
+            afterId,
             limit,
             cancellationToken);
 
     public Task<CursorPage<Enrollment>> ListCurrentForParticipantAsync(
         Guid organizationId,
         Guid participantActorId,
-        string? cursor,
+        DateTimeOffset? afterTime,
+        Guid? afterId,
         int limit,
         CancellationToken cancellationToken) =>
         ListAsync(
@@ -336,22 +339,20 @@ public sealed class PostgresEnrollmentStore(PostgresConnectionAccessor connectio
               AND status IN ('active', 'suspended')
             """,
             new { OrganizationId = organizationId, ParticipantActorId = participantActorId },
-            cursor,
+            afterTime,
+            afterId,
             limit,
             cancellationToken);
 
     private async Task<CursorPage<Enrollment>> ListAsync(
         string fromWhere,
         object parameters,
-        string? cursor,
+        DateTimeOffset? afterTime,
+        Guid? afterId,
         int limit,
         CancellationToken cancellationToken)
     {
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-        if (!EnrollmentListCursor.TryParse(cursor, out var afterTime, out var afterId))
-        {
-            return new CursorPage<Enrollment>([], null, false);
-        }
         var dynamicParameters = new DynamicParameters(parameters);
         dynamicParameters.Add("AfterTime", afterTime, DbType.DateTimeOffset);
         dynamicParameters.Add("AfterId", afterId, DbType.Guid);
@@ -370,10 +371,7 @@ public sealed class PostgresEnrollmentStore(PostgresConnectionAccessor connectio
                 cancellationToken: cancellationToken))).ToArray();
         var hasMore = rows.Length > limit;
         var taken = rows.Take(limit).Select(row => row.ToEnrollment()).ToArray();
-        return new CursorPage<Enrollment>(
-            taken,
-            hasMore ? EnrollmentListCursor.Format(taken[^1].UpdatedAtUtc, taken[^1].EnrollmentId) : null,
-            hasMore);
+        return new CursorPage<Enrollment>(taken, null, hasMore);
     }
 
     private static async Task InsertEventAsync(

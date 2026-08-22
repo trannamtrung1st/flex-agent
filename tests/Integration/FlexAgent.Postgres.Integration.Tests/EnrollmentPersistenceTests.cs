@@ -80,7 +80,8 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
         var page = await store.ListCurrentForParticipantAsync(
             harness.OrganizationId,
             harness.ParticipantId,
-            cursor: null,
+            afterTime: null,
+            afterId: null,
             limit: 20,
             CancellationToken);
         Assert.Empty(page.Items);
@@ -91,11 +92,11 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
     public async Task Assignment_completes_within_the_documented_synchronous_bound()
     {
         var harness = await SeedActivatedAsync();
-        var started = DateTimeOffset.UtcNow;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
         var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-latency"), CancellationToken);
-        var elapsed = DateTimeOffset.UtcNow - started;
+        clock.Stop();
         Assert.True(assigned.Succeeded, assigned.OutcomeCode);
-        Assert.True(elapsed.TotalSeconds <= 2, $"assignment took {elapsed.TotalMilliseconds} ms");
+        Assert.True(clock.Elapsed.TotalSeconds <= 2, $"assignment smoke took {clock.Elapsed.TotalMilliseconds} ms");
     }
 
     [Fact]

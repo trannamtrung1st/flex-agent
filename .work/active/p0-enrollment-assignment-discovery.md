@@ -501,8 +501,11 @@ not be marked implemented by this task.
   PostgreSQL assignment latency bound; focused architecture/domain/HTTP/web
   suites. Full solution/OCI gates, per-actor rate limits, 50 ms authorization
   p95, 400% zoom, and independent review remain open.
-- [>] Closeout: record evidence, self-review residuals, keep the task
-  in-progress for independent review and remaining gates.
+- [x] Review remediation: bind Enrollment/My work cursors to actor,
+  Organization, query, and resource scope with an HMAC; reject forged,
+  cross-scope, overlong, and one-bit-tampered cursors; reject out-of-range
+  and unparsable limits with 400/`no-store`. The 2 s mutation p95 gate stays
+  open; the PostgreSQL assignment check is a single-sample smoke only.
 
 # Planned verification command set
 
@@ -549,10 +552,10 @@ independent shell destinations. Do not make further architectural changes
 to this subsystem unless a new test exposes a concrete defect. The task
 stays **in-progress** for remaining verification only.
 
-Confirmed again on 2026-08-23 before commit: domain 31, Enrollment HTTP 6,
-and ProductionEnrollmentPage 4 still pass; live `/my-work` still shows the
-assigned Enrollment. Focused green remains architecture 41 and Enrollment
-PostgreSQL 18 from the prior pass.
+Confirmed again on 2026-08-23 before the unsigned-cursor commit: domain 31,
+Enrollment HTTP 6, and ProductionEnrollmentPage 4 still pass; live `/my-work`
+still shows the assigned Enrollment. Focused green remains architecture 41
+and Enrollment PostgreSQL 18 from the prior pass.
 An overflow list cursor (`long.MaxValue` ticks) is now rejected as
 `enrollment.invalid_field` instead of throwing. Live Participant My work
 still shows the assigned Enrollment after reload.
@@ -610,16 +613,41 @@ and Keycloak logout, a Participant login from `/my-work` returned to
 populated My work list/detail. Independent shell destinations held:
 administrator saw Home/Activities; Participant saw Home/My work.
 
-This pass also fail-closed tampered Enrollment/My work cursors
-(`enrollment.invalid_field`, HTTP 400, `no-store`) instead of restarting
-the first page, unified in-memory/PostgreSQL cursor encoding, and corrected
-suspend confirmation copy so it no longer describes a terminal My work
-removal. A PostgreSQL assignment completed inside the documented 2 s
-synchronous bound.
+Unsigned Base64 `updatedAt:enrollmentId` cursors were still forgeable
+after the first fail-closed pass. Review of that closeout required
+scope-bound HMAC tokens. List tokens are now
+`v1.{base64url(payload)}.{hmac}` where the payload binds query kind,
+Organization, actor, Activity, Cohort, ticks, and Enrollment ID.
+`EnrollmentQueryService` opens the token against the current actor/scope
+before the store sees `afterTime`/`afterId`. Empty cursor remains first
+page. Forged restart tuples, stolen cross-actor tokens, wrong query kind,
+one-bit HMAC flips, overflow ticks, and overlong tokens fail as
+`enrollment.invalid_field`. HTTP rejects `limit=0`, `limit=999999`,
+unparsable limit, and overlong cursor with 400/`no-store` instead of
+coercing to the default page size. Candidate `q` over
+`MaximumQueryPrefixLength` is also 400.
 
-What remains: per-actor/Organization rate limits, measured 50 ms
-authorization p95, 400% zoom/keyboard matrix, full `FlexAgent.slnx` and
-OCI/SBOM gates, and independent backend/frontend/security review.
+The HMAC key is process-local (≥32 random bytes) as an interim default:
+restart invalidates issued cursors; a multi-instance shared key is not
+implemented and is not treated as a new ADR. SQL filters remain the
+disclosure boundary.
+
+A single PostgreSQL assignment smoke used `Stopwatch` and finished under
+2 s. That does **not** close representative synchronous Enrollment
+mutation p95 ≤ 2 seconds.
+
+What remains: representative mutation p95 (multi-sample), per-actor/
+Organization rate limits, measured 50 ms authorization p95, 400%
+zoom/keyboard matrix, full `FlexAgent.slnx` and OCI/SBOM gates,
+independently reproduced CI on this SHA, and independent
+backend/frontend/security review.
+
+Confirmation pass 2026-08-23 before commit: HMAC tokens bind query
+kind/org/actor/activity/cohort; stores consume `afterTime`/`afterId` only;
+HTTP rejects out-of-range, unparsable, and overlong list query values
+with 400/`no-store`; assignment timing remains a single-sample smoke.
+Local green: domain 35, Enrollment HTTP 10, architecture 41, Enrollment
+PostgreSQL 18, `git diff --check` clean. No GitHub CI on this SHA.
 
 # Decisions
 
@@ -685,9 +713,26 @@ OCI/SBOM gates, and independent backend/frontend/security review.
   Submission/Attempt consumers, but do not claim `AC-SUBM-4` end-to-end until
   those consumers enforce it. This task verifies immediate denial at the
   Enrollment boundary and participant/admin projections only.
+- Authenticate Enrollment/My work list cursors with HMAC-SHA256 over a
+  scope-bound payload (query kind, Organization, actor, Activity, Cohort,
+  ticks, Enrollment ID). Interim default: process-local ≥32-byte key so
+  restart invalidates tokens. A shared multi-instance key is out of this
+  remediations slice and is not a new ADR.
 
 # Findings / deviations
 
+- Review of the unsigned-cursor closeout: a syntactically valid
+  `updatedAt:enrollmentId` Base64 token was still accepted, so a caller
+  could restart pagination or replay another actor/cohort cursor. HMAC
+  scope binding plus same-scope/cross-scope/one-bit tests close that
+  contract. HTTP now returns 400/`no-store` for out-of-range and
+  unparsable limits and overlong cursors instead of coercing to the
+  default page size. A one-sample assignment timing check must not close
+  p95. Candidate-list IdentityAccess Guid cursors still fail as an empty
+  page rather than `enrollment.invalid_field`. No GitHub CI status is
+  attached to this working tree. Remaining residuals: mutation p95,
+  per-actor rate limit, 50 ms authorization p95, 400% zoom, raw UUID
+  breadcrumbs, no in-shell sign-out, and independent review.
 - Consistency review 2026-08-23: focused suites remain green. Overflow
   cursor ticks are rejected. Candidate-list tamper still returns an empty
   page (IdentityAccess Guid cursor) rather than `enrollment.invalid_field`.
@@ -792,10 +837,10 @@ OCI/SBOM gates, and independent backend/frontend/security review.
 | `python3 scripts/check_docs.py` | passed | Documentation validation passed on 2026-08-22. |
 | whitespace/diff validation | passed | `git diff --check` passed; direct `git diff --no-index --check` on the untracked task file produced no whitespace diagnostics (its status `1` is the expected no-index difference result). |
 | Secret scan | passed | `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` found no leaks during the readiness review. |
-| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 31 passed, including tampered and overflow My work cursors. |
+| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 35 passed, including forged restart, same-scope continue, cross-scope, one-bit tamper, overflow, out-of-range limit, and overlong cursor. |
 | Architecture/contract tests | passed | Architecture 41 passed. This pass did not change schemas. |
-| PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 18 passed, including empty current list and `Assignment_completes_within_the_documented_synchronous_bound` (under 2 s). Full suite/OCI still open. |
-| Runtime/API authorization and HTTP-negative tests | mixed | `EnrollmentHttpNegativeContractTests` 6 passed, including tampered My work cursor → 400 `enrollment.invalid_field` and `no-store`. Domain replay-after-revoke already exists. Per-actor rate-limit HTTP cases remain because the gateway/app limiter is not implemented. |
+| PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 18 passed. `Assignment_completes_within_the_documented_synchronous_bound` is a `Stopwatch` single-sample smoke under 2 s and does not close mutation p95. Full suite/OCI still open. |
+| Runtime/API authorization and HTTP-negative tests | mixed | `EnrollmentHttpNegativeContractTests` now covers CSRF, missing session, malformed cursor, `limit=0`, `limit=999999`, unparsable limit, overlong cursor, guessed detail, unknown member, and oversized body (local 10 after the unparsable-limit case). Per-actor rate-limit HTTP cases remain because the gateway/app limiter is not implemented. |
 | React component/accessibility tests | mixed | `ProductionEnrollmentPage.test.tsx` 4 passed, including honest suspend confirmation copy. `pnpm --filter @flex-agent/web typecheck` passed. Keyboard/400% not covered. |
 | Authenticated Playwright MCP desktop/narrow/both-theme evidence | mixed | Live profile at `http://localhost:18080`. Administrator empty assign: `.playwright-mcp/page-2026-08-22T17-11-13-250Z.png`. Assignment success: `.playwright-mcp/page-2026-08-22T17-11-35-754Z.png`. Suspend confirm: `.playwright-mcp/page-2026-08-22T17-11-58-222Z.png`. Suspended list: `.playwright-mcp/page-2026-08-22T17-12-37-201Z.png`. Restored active: `.playwright-mcp/page-2026-08-22T17-13-07-918Z.png`. Dark desktop: `.playwright-mcp/page-2026-08-22T17-13-54-571Z.png`. Narrow 390 dark assign: `.playwright-mcp/page-2026-08-22T17-14-13-248Z.png`. Participant populated My work: `.playwright-mcp/page-2026-08-22T17-15-43-086Z.png`. Assignment detail desktop: `.playwright-mcp/page-2026-08-22T17-15-58-472Z.png`. Narrow detail: `.playwright-mcp/page-2026-08-22T17-16-29-301Z.png`. 400% not captured. Live SPA still has the old suspend sentence until rebuild. |
 | Full regression, security, supply-chain, and performance gates | mixed | `python3 scripts/check_docs.py` passed; `git diff --check` passed after removing an extra EOF blank line. `gitleaks detect` warned about 4 historical findings and did not add Enrollment credentials. Full `dotnet test --solution FlexAgent.slnx`, OCI/SBOM, and authorization p95 were not run. |
@@ -803,10 +848,12 @@ OCI/SBOM gates, and independent backend/frontend/security review.
 # Blockers
 
 - Per-actor/Organization request limits are specified for this slice and are
-  not implemented. Coarse gateway limits and a 50 ms in-service authorization
-  p95 remain unverified. This is a remaining verification/product-ops gap, not
-  a Playwright blocker.
+  not implemented. Coarse gateway limits, representative Enrollment mutation
+  p95 ≤ 2 s, and a 50 ms in-service authorization p95 remain unverified.
+  This is a remaining verification/product-ops gap, not a Playwright blocker.
 - Independent backend, frontend, and security/privacy review has not run.
+  Focused green results above are local; no GitHub CI status is attached
+  to this working tree.
 
 # Completion
 

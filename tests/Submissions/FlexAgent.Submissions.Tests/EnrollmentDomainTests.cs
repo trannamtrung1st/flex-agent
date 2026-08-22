@@ -14,7 +14,9 @@ public sealed class EnrollmentDomainTests
     private static readonly Guid BaselineId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4");
     private static readonly Guid TaskSourceId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa5");
     private static readonly Guid TaskVersionId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6");
+    private static readonly Guid OtherActivityId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7");
     private static readonly Guid ParticipantId = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1");
+    private static readonly Guid OtherParticipantId = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb3");
     private static readonly Guid AdministratorId = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2");
     private static readonly string Digest = new string('a', 64);
 
@@ -268,6 +270,25 @@ public sealed class EnrollmentDomainTests
     }
 
     [Fact]
+    public async Task Forged_restart_cursor_is_rejected_without_listing()
+    {
+        var harness = CreateHarness();
+        await harness.Coordinator.AssignAsync(AssignCommand("key-cursor-forge"), TestContext.Current.CancellationToken);
+        var forged = Convert.ToBase64String(
+            System.Text.Encoding.UTF8.GetBytes($"0:{Guid.Empty:D}"));
+
+        var page = await harness.Queries.ListMyWorkAsync(
+            ParticipantContext(),
+            forged,
+            20,
+            TestContext.Current.CancellationToken);
+
+        Assert.False(page.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.InvalidField, page.OutcomeCode);
+        Assert.Null(page.Value);
+    }
+
+    [Fact]
     public async Task Overflow_my_work_cursor_is_rejected_without_listing()
     {
         var harness = CreateHarness();
@@ -284,6 +305,104 @@ public sealed class EnrollmentDomainTests
         Assert.False(page.Succeeded);
         Assert.Equal(EnrollmentFailureCodes.InvalidField, page.OutcomeCode);
         Assert.Null(page.Value);
+    }
+
+    [Fact]
+    public async Task Same_scope_my_work_cursor_continues_the_page()
+    {
+        var harness = CreateHarness();
+        await harness.Coordinator.AssignAsync(AssignCommand("key-page-1"), TestContext.Current.CancellationToken);
+        harness.Cohorts.Binding = Binding() with { ActivityId = OtherActivityId, CohortId = OtherCohortId };
+        await harness.Coordinator.AssignAsync(
+            AssignCommand("key-page-2", OtherCohortId, OtherActivityId),
+            TestContext.Current.CancellationToken);
+
+        var first = await harness.Queries.ListMyWorkAsync(
+            ParticipantContext(),
+            null,
+            1,
+            TestContext.Current.CancellationToken);
+        Assert.True(first.Succeeded);
+        Assert.True(first.Value!.HasMore);
+        Assert.False(string.IsNullOrWhiteSpace(first.Value.NextCursor));
+
+        var second = await harness.Queries.ListMyWorkAsync(
+            ParticipantContext(),
+            first.Value.NextCursor,
+            1,
+            TestContext.Current.CancellationToken);
+        Assert.True(second.Succeeded);
+        Assert.Single(first.Value.Items);
+        Assert.Single(second.Value!.Items);
+        Assert.NotEqual(first.Value.Items[0].EnrollmentId, second.Value.Items[0].EnrollmentId);
+    }
+
+    [Fact]
+    public async Task Cross_scope_and_one_bit_tampered_cursors_are_rejected()
+    {
+        var harness = CreateHarness();
+        await harness.Coordinator.AssignAsync(AssignCommand("key-scope-1"), TestContext.Current.CancellationToken);
+        harness.Cohorts.Binding = Binding() with { ActivityId = OtherActivityId, CohortId = OtherCohortId };
+        await harness.Coordinator.AssignAsync(
+            AssignCommand("key-scope-2", OtherCohortId, OtherActivityId),
+            TestContext.Current.CancellationToken);
+        var first = await harness.Queries.ListMyWorkAsync(
+            ParticipantContext(),
+            null,
+            1,
+            TestContext.Current.CancellationToken);
+        var cursor = first.Value!.NextCursor!;
+        var tampered = cursor[..^1] + (cursor[^1] == 'A' ? 'B' : 'A');
+
+        var stolen = await harness.Queries.ListMyWorkAsync(
+            ParticipantContext() with
+            {
+                Actor = new TrustedActor(OtherParticipantId, HumanInteractiveActorTypes.Interactive),
+            },
+            cursor,
+            1,
+            TestContext.Current.CancellationToken);
+        var flipped = await harness.Queries.ListMyWorkAsync(
+            ParticipantContext(),
+            tampered,
+            1,
+            TestContext.Current.CancellationToken);
+        var wrongQuery = await harness.Queries.ListEnrollmentsAsync(
+            AdministratorContext(),
+            ActivityId,
+            CohortId,
+            cursor,
+            1,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(EnrollmentFailureCodes.InvalidField, stolen.OutcomeCode);
+        Assert.Equal(EnrollmentFailureCodes.InvalidField, flipped.OutcomeCode);
+        Assert.Equal(EnrollmentFailureCodes.InvalidField, wrongQuery.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Out_of_range_limit_and_overlong_cursor_are_rejected()
+    {
+        var harness = CreateHarness();
+        var zero = await harness.Queries.ListMyWorkAsync(
+            ParticipantContext(),
+            null,
+            0,
+            TestContext.Current.CancellationToken);
+        var over = await harness.Queries.ListMyWorkAsync(
+            ParticipantContext(),
+            null,
+            EnrollmentPageBounds.MaximumLimit + 1,
+            TestContext.Current.CancellationToken);
+        var longCursor = await harness.Queries.ListMyWorkAsync(
+            ParticipantContext(),
+            new string('a', EnrollmentPageBounds.MaximumCursorLength + 1),
+            20,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(EnrollmentFailureCodes.InvalidField, zero.OutcomeCode);
+        Assert.Equal(EnrollmentFailureCodes.InvalidField, over.OutcomeCode);
+        Assert.Equal(EnrollmentFailureCodes.InvalidField, longCursor.OutcomeCode);
     }
 
     [Fact]
@@ -512,6 +631,7 @@ public sealed class EnrollmentDomainTests
         var cohorts = new FixedActivatedCohortPort { Binding = Binding() };
         var candidates = new InMemoryCandidatePort();
         candidates.Candidates.Add(new EnrollmentCandidate(ParticipantId, "Synthetic Participant"));
+        candidates.Candidates.Add(new EnrollmentCandidate(OtherParticipantId, "Other Participant"));
         var audit = new RecordingEnrollmentAuditPort();
         var sessions = new AllowEnrollmentSessionPort();
         var unitOfWork = new InMemoryEnrollmentUnitOfWork(sessions, store, operations, audit);
@@ -525,26 +645,37 @@ public sealed class EnrollmentDomainTests
             unitOfWork,
             sessions,
             new FixedEnrollmentClock(Now));
-        var queries = new EnrollmentQueryService(authorization, cohorts, candidates, store);
+        var queries = new EnrollmentQueryService(
+            authorization,
+            cohorts,
+            candidates,
+            store,
+            new HmacEnrollmentCursorSigner());
         return new Harness(coordinator, queries, store, authorization, cohorts, unitOfWork, audit, sessions, operations);
     }
 
-    private static AssignEnrollmentCommand AssignCommand(string key, Guid? cohortId = null)
+    private static AssignEnrollmentCommand AssignCommand(
+        string key,
+        Guid? cohortId = null,
+        Guid? activityId = null,
+        Guid? participantId = null)
     {
         var cohort = cohortId ?? CohortId;
+        var activity = activityId ?? ActivityId;
+        var participant = participantId ?? ParticipantId;
         return new AssignEnrollmentCommand(
             AdministratorContext(),
-            ActivityId,
+            activity,
             cohort,
-            ParticipantId,
+            participant,
             key,
             EnrollmentCommandDigest.Compute(
                 EnrollmentOperationKinds.Assign,
                 OrganizationId,
-                ActivityId,
+                activity,
                 cohort,
                 null,
-                ParticipantId,
+                participant,
                 null,
                 null));
     }
