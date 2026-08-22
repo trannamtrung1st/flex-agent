@@ -492,6 +492,9 @@ not be marked implemented by this task.
 - [x] Review remediation 7: roll back in-memory Enrollment/operation/audit
   mutations when the pre-commit session confirmation fails, and require a
   non-null session port on both unit-of-work implementations.
+- [x] Review remediation 8: require the Enrollment actor on
+  `IEnrollmentUnitOfWork.ExecuteAsync` and confirm session liveness from that
+  argument so callers cannot skip the pre-commit check.
 - [>] Remaining verification: administrator assign/lifecycle Playwright,
   remaining HTTP/collaboration negatives, latency measurement, full
   solution/OCI gates, and independent review.
@@ -532,12 +535,15 @@ SQL against `application_sessions`), a display-profile lock gap, and silent
 degradation on a mismatched `commitTransaction` handle. Those are remediated
 in this pass. The task stays **in-progress**.
 
-Reconfirmed on 2026-08-22 after remediation 7. Focused green: domain 28,
+Reconfirmed on 2026-08-22 after remediation 8. Focused green: domain 29,
 architecture 41, Enrollment HTTP 5, Enrollment PostgreSQL 17. In-memory
 unit-of-work now snapshots Enrollment/event/operation/audit state and
 restores it when pre-commit confirmation fails or the callback throws.
-Both unit-of-work implementations require `IEnrollmentSessionPort`.
-Shell bootstrap no longer applies administrator MFA globally.
+Both unit-of-work implementations require `IEnrollmentSessionPort` and a
+required `EnrollmentActorContext` on `ExecuteAsync`. `CommitSessionActor`
+is no longer a mutable transaction property. In-memory concurrent snapshot
+isolation remains a known fake-only P3 and is not treated as an MVP
+blocker. Shell bootstrap no longer applies administrator MFA globally.
 Home needs a valid current application session. Activities needs a qualifying
 administrator grant and administrator MFA. My work needs
 `assessment.assignment.discover` and the Participant authentication policy.
@@ -654,6 +660,14 @@ independent review.
 
 # Findings / deviations
 
+- Review of `5e76cc8`: in-memory rollback and required session port are
+  correct, but `CommitSessionActor` remained nullable and publicly
+  settable, so a future `ExecuteAsync` caller could skip pre-commit
+  confirmation. Remediation 8 makes the actor a required unit-of-work
+  argument and removes the mutable transaction property. Concurrent
+  in-memory snapshot clobber is a known fake-only P3; production
+  PostgreSQL plus deny-by-default in-memory host composition keep it
+  out of MVP scope.
 - Review of `f753b7e`: production PostgreSQL pre-commit and independent
   shell destinations are correct. The in-memory unit of work reported
   denied but left Enrollment/event/operation/audit mutations in place, and
@@ -733,7 +747,7 @@ independent review.
 | `python3 scripts/check_docs.py` | passed | Documentation validation passed on 2026-08-22. |
 | whitespace/diff validation | passed | `git diff --check` passed; direct `git diff --no-index --check` on the untracked task file produced no whitespace diagnostics (its status `1` is the expected no-index difference result). |
 | Secret scan | passed | `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` found no leaks during the readiness review. |
-| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 28 passed, including stale-session denial, expiry after the early lock for assign and lifecycle, expiry after a replay Enrollment read, pre-commit expiry denial with empty Enrollment/event/operation/audit state, and lifecycle Enrollment resource-type authorization. |
+| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 29 passed, including stale-session denial, expiry after the early lock for assign and lifecycle, expiry after a replay Enrollment read, pre-commit expiry denial with empty Enrollment/event/operation/audit state, required-actor confirmation on a direct unit-of-work call, and lifecycle Enrollment resource-type authorization. |
 | Architecture/contract tests | passed | Architecture 41 passed, including `Submissions_infrastructure_does_not_query_identity_application_sessions`. Earlier contract catalog 100 remains from `f1a6b44`; this pass did not change schemas. |
 | PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 17 passed, including source/eligibility/session revocation races, session-expiry during a held Assessment lock, session-expiry during a held Enrollment replay read (`enrollment.denied`), outbox-lock expiry that rolls back after writes, profile-deletion race (`enrollment.ineligible`), and fail-closed invalid commit-transaction handles. Full suite/OCI still open. |
 | Runtime/API authorization and HTTP-negative tests | mixed | `EnrollmentHttpNegativeContractTests` 5 passed (CSRF, unauthenticated My work `no-store`, guessed detail concealment, unknown member, oversized body). `AssessmentHttpNegativeContractTests` 20 passed, including independent shell destinations for administrator-without-MFA, reviewer-without-MFA, and dual-capability without administrator MFA. Cursor tampering, replay-after-revoke, and rate-limit cases remain. |

@@ -14,6 +14,7 @@ public sealed class InMemoryEnrollmentUnitOfWork(
     public bool OutboxAccepted { get; set; } = true;
 
     public async Task<T> ExecuteAsync<T>(
+        EnrollmentActorContext actor,
         Func<IEnrollmentTransaction, Task<T>> action,
         CancellationToken cancellationToken = default)
     {
@@ -26,8 +27,7 @@ public sealed class InMemoryEnrollmentUnitOfWork(
         try
         {
             var result = await action(transaction);
-            if (transaction.CommitSessionActor is { } actor
-                && !await sessions.ConfirmLiveAsync(actor, transaction, cancellationToken))
+            if (!await sessions.ConfirmLiveAsync(actor, transaction, cancellationToken))
             {
                 throw new EnrollmentSessionExpiredException();
             }
@@ -87,8 +87,6 @@ public sealed class InMemoryEnrollmentTransaction : IEnrollmentTransaction
     public bool OutboxAccepted { get; set; } = true;
 
     public object CommitHandle => this;
-
-    public EnrollmentActorContext? CommitSessionActor { get; set; }
 }
 
 public sealed class InMemoryEnrollmentStore : IEnrollmentStore

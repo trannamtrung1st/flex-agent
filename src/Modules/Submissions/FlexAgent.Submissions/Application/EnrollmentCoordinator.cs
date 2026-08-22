@@ -269,9 +269,8 @@ public sealed class EnrollmentCoordinator(
 
         try
         {
-        return await unitOfWork.ExecuteAsync(async transaction =>
+        return await unitOfWork.ExecuteAsync(actor, async transaction =>
         {
-            transaction.CommitSessionActor = actor;
             await operations.AcquireLockAsync(
                 actor.Organization.OrganizationId,
                 actor.Actor.ActorId,

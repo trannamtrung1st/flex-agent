@@ -509,7 +509,7 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
         var unitOfWork = new PostgresEnrollmentUnitOfWork(
             Fixture.Services.ConnectionAccessor,
             new IdentityEnrollmentSessionPort(new PostgresApplicationSessionStore(Fixture.Services.ConnectionAccessor)));
-        await unitOfWork.ExecuteAsync(async transaction =>
+        await unitOfWork.ExecuteAsync(harness.Actor, async transaction =>
         {
             var current = await store.FindAsync(
                 harness.OrganizationId,

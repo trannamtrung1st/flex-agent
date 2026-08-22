@@ -374,6 +374,22 @@ public sealed class EnrollmentDomainTests
     }
 
     [Fact]
+    public async Task Direct_unit_of_work_execute_always_confirms_the_required_actor()
+    {
+        var harness = CreateHarness();
+        harness.Sessions.ConfirmWhen = () => false;
+        await Assert.ThrowsAsync<EnrollmentSessionExpiredException>(() =>
+            harness.UnitOfWork.ExecuteAsync(
+                AdministratorContext(),
+                _ => Task.FromResult(true),
+                TestContext.Current.CancellationToken));
+        Assert.Equal(1, harness.Sessions.ConfirmCount);
+        Assert.Empty(harness.Store.Items);
+        Assert.Empty(harness.Operations.Items);
+        Assert.Equal(0, harness.Audit.RequiredWrites);
+    }
+
+    [Fact]
     public async Task Lifecycle_authorization_uses_the_enrollment_resource_type()
     {
         var harness = CreateHarness();
