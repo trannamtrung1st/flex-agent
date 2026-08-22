@@ -280,4 +280,95 @@ describe("ProductionEnrollmentPage", () => {
     expect(await screen.findByText("Enrollment updated.")).toBeInTheDocument();
     expect(keys).toEqual(["enr-fixed-key", "enr-fixed-key"]);
   });
+
+  it("issues a new assign key when the selected Participant changes after a lost response", async () => {
+    let uuid = 0;
+    const keys: Array<{ participant: string; key: string }> = [];
+    vi.stubGlobal("crypto", { randomUUID: () => `key-${++uuid}` });
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/auth/session")) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ authenticated: true, csrf_token: "csrf" }) });
+      }
+      if (url.includes("/v1/assessment/shell")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({
+            schema_version: "v1",
+            actor_id: "admin",
+            organization_id: "org",
+            relationship: "administrator",
+            navigation: [{ destination_id: "activities", is_available: true }],
+            permitted_actions: ["assessment.enrollment.assign"],
+          }),
+        });
+      }
+      if (url.includes("participant-options")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({
+            schema_version: "v1",
+            items: [
+              { actor_id: "part-1", display_label: "Synthetic Participant" },
+              { actor_id: "part-2", display_label: "Second Participant" },
+            ],
+            has_more: false,
+          }),
+        });
+      }
+      if (url.includes("/enrollments") && init?.method === "POST") {
+        const body = JSON.parse(String(init.body));
+        keys.push({ participant: body.participant_actor_id, key: body.idempotency_key });
+        if (keys.length === 1) {
+          return Promise.reject(new TypeError("Failed to fetch"));
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({
+            schema_version: "v1",
+            succeeded: true,
+            outcome_code: "enrollment.assigned",
+            enrollment_id: "enr-2",
+            status: "active",
+            revision: 1,
+            visibility: "current",
+            permitted_actions: ["suspend_enrollment"],
+          }),
+        });
+      }
+      if (url.includes("/enrollments")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ schema_version: "v1", items: [], has_more: false }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    }));
+
+    render(
+      <ProductionApiProvider>
+        <MemoryRouter initialEntries={["/activities/act-1/cohorts/coh-1/participants"]}>
+          <Routes>
+            <Route path="/activities/:activityId/cohorts/:cohortId/participants" element={<ProductionEnrollmentPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ProductionApiProvider>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Assign Participants" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Participant"), { target: { value: "part-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Assign Participant" }));
+    expect(await screen.findByText("The assignment could not be completed.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Participant"), { target: { value: "part-2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Assign Participant" }));
+    expect(await screen.findByText("Participant assigned.")).toBeInTheDocument();
+    expect(keys).toEqual([
+      { participant: "part-1", key: "enr-key-1" },
+      { participant: "part-2", key: "enr-key-2" },
+    ]);
+  });
 });

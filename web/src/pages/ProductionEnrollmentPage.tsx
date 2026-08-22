@@ -32,8 +32,13 @@ export function ProductionEnrollmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ enrollment: EnrollmentSummaryV1; operation: keyof typeof reasonFor } | null>(null);
-  const assignKeyRef = useRef<string | null>(null);
-  const lifecycleKeyRef = useRef<string | null>(null);
+  const assignCommandRef = useRef<{ participantActorId: string; key: string } | null>(null);
+  const lifecycleCommandRef = useRef<{
+    enrollmentId: string;
+    operation: string;
+    expectedRevision: number;
+    key: string;
+  } | null>(null);
   const headingId = useId();
 
   useEffect(() => {
@@ -97,7 +102,13 @@ export function ProductionEnrollmentPage() {
             <select
               id="participant-select"
               value={selected}
-              onChange={(event) => { setSelected(event.target.value); }}
+              onChange={(event) => {
+                const next = event.target.value;
+                if (assignCommandRef.current?.participantActorId !== next) {
+                  assignCommandRef.current = null;
+                }
+                setSelected(next);
+              }}
             >
               <option value="">Select a Participant</option>
               {candidates.map((candidate) => (
@@ -109,20 +120,26 @@ export function ProductionEnrollmentPage() {
               disabled={!selected || pending !== null}
               onClick={() => {
                 setPending("assign");
-                const key = assignKeyRef.current ?? createEnrollmentIdempotencyKey();
-                assignKeyRef.current = key;
-                client.assign(activityId, cohortId, selected, key)
+                const retained = assignCommandRef.current?.participantActorId === selected
+                  ? assignCommandRef.current
+                  : { participantActorId: selected, key: createEnrollmentIdempotencyKey() };
+                assignCommandRef.current = retained;
+                client.assign(activityId, cohortId, selected, retained.key)
                   .then(async (outcome) => {
                     if (!outcome.succeeded) {
-                      if (outcome.outcome_code === "enrollment.conflict" || outcome.outcome_code === "enrollment.unavailable") {
-                        assignKeyRef.current = null;
+                      if (
+                        outcome.outcome_code === "enrollment.conflict"
+                        || outcome.outcome_code === "enrollment.unavailable"
+                        || outcome.outcome_code === "enrollment.idempotency_conflict"
+                      ) {
+                        assignCommandRef.current = null;
                       }
                       setError(outcome.outcome_code === "enrollment.conflict"
                         ? "This Participant already has a live Enrollment in another Cohort."
                         : "The assignment could not be completed.");
                       return;
                     }
-                    assignKeyRef.current = null;
+                    assignCommandRef.current = null;
                     setStatus(outcome.outcome_code === "enrollment.assignment.deduplicated"
                       ? "This Participant is already assigned to this Cohort."
                       : "Participant assigned.");
@@ -184,8 +201,18 @@ export function ProductionEnrollmentPage() {
             return;
           }
           setPending(current.operation);
-          const key = lifecycleKeyRef.current ?? createEnrollmentIdempotencyKey();
-          lifecycleKeyRef.current = key;
+          const identity = {
+            enrollmentId: current.enrollment.enrollment_id,
+            operation: current.operation,
+            expectedRevision: current.enrollment.revision,
+          };
+          const retained = lifecycleCommandRef.current
+            && lifecycleCommandRef.current.enrollmentId === identity.enrollmentId
+            && lifecycleCommandRef.current.operation === identity.operation
+            && lifecycleCommandRef.current.expectedRevision === identity.expectedRevision
+            ? lifecycleCommandRef.current
+            : { ...identity, key: createEnrollmentIdempotencyKey() };
+          lifecycleCommandRef.current = retained;
           client.mutate(
             activityId,
             cohortId,
@@ -193,12 +220,12 @@ export function ProductionEnrollmentPage() {
             current.operation,
             reasonFor[current.operation],
             current.enrollment.revision,
-            key,
+            retained.key,
           )
             .then(async (outcome) => {
               if (!outcome.succeeded) {
                 if (outcome.outcome_code === "enrollment.stale_revision") {
-                  lifecycleKeyRef.current = null;
+                  lifecycleCommandRef.current = null;
                   setEnrollments((await client.listEnrollments(activityId, cohortId)).items);
                   setConfirm(null);
                   setError("This Enrollment changed. Review the current state before trying again.");
@@ -207,7 +234,7 @@ export function ProductionEnrollmentPage() {
                 setError("The Enrollment could not be updated.");
                 return;
               }
-              lifecycleKeyRef.current = null;
+              lifecycleCommandRef.current = null;
               setStatus("Enrollment updated.");
               setEnrollments((await client.listEnrollments(activityId, cohortId)).items);
               setConfirm(null);

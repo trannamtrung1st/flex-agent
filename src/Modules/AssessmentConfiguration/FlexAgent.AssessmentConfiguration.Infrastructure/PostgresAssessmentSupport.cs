@@ -44,28 +44,52 @@ public sealed class PostgresAssessmentBaselineStore(
 {
     private static readonly JsonSerializerOptions DocumentJson = new(JsonSerializerDefaults.Web);
 
+    public Task<PersistedActivationBaseline?> FindBoundAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        CancellationToken cancellationToken) =>
+        FindBoundAsync(organizationId, activityId, cohortId, null, cancellationToken);
+
     public async Task<PersistedActivationBaseline?> FindBoundAsync(
         Guid organizationId,
         Guid activityId,
         Guid cohortId,
+        object? commitTransaction,
         CancellationToken cancellationToken)
     {
-        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-        var row = await connection.QuerySingleOrDefaultAsync<(string ContentDigest, string Document)>(
-            new CommandDefinition(
-                """
-                SELECT b.content_digest, b.document::text
-                FROM assessment_activation_baselines b
-                INNER JOIN assessment_cohort_baseline_bindings bind
-                    ON bind.organization_id = b.organization_id
-                   AND bind.activity_id = b.activity_id
-                   AND bind.baseline_id = b.baseline_id
-                WHERE b.organization_id = @OrganizationId
-                  AND b.activity_id = @ActivityId
-                  AND bind.cohort_id = @CohortId
-                """,
-                new { OrganizationId = organizationId, ActivityId = activityId, CohortId = cohortId },
-                cancellationToken: cancellationToken));
+        const string sql = """
+            SELECT b.content_digest, b.document::text
+            FROM assessment_activation_baselines b
+            INNER JOIN assessment_cohort_baseline_bindings bind
+                ON bind.organization_id = b.organization_id
+               AND bind.activity_id = b.activity_id
+               AND bind.baseline_id = b.baseline_id
+            WHERE b.organization_id = @OrganizationId
+              AND b.activity_id = @ActivityId
+              AND bind.cohort_id = @CohortId
+            """;
+        var lockedSql = sql + " FOR SHARE";
+        (string ContentDigest, string Document) row;
+        if (commitTransaction is NpgsqlTransaction npgsql)
+        {
+            row = await npgsql.Connection!.QuerySingleOrDefaultAsync<(string ContentDigest, string Document)>(
+                new CommandDefinition(
+                    lockedSql,
+                    new { OrganizationId = organizationId, ActivityId = activityId, CohortId = cohortId },
+                    npgsql,
+                    cancellationToken: cancellationToken));
+        }
+        else
+        {
+            await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+            row = await connection.QuerySingleOrDefaultAsync<(string ContentDigest, string Document)>(
+                new CommandDefinition(
+                    sql,
+                    new { OrganizationId = organizationId, ActivityId = activityId, CohortId = cohortId },
+                    cancellationToken: cancellationToken));
+        }
+
         if (string.IsNullOrWhiteSpace(row.ContentDigest) || string.IsNullOrWhiteSpace(row.Document))
         {
             return null;
@@ -789,6 +813,7 @@ public sealed class PostgresActivatedCohortBindingReader(
     PostgresConnectionAccessor connections,
     IAssessmentDraftStore drafts,
     IAssessmentSourceCatalog catalog,
+    IAssessmentSourceTransactionPort sourceTransactions,
     IAssessmentBaselineStore baselines,
     IActivationBaselineDigester digester) : IActivatedCohortBindingReader
 {
@@ -861,14 +886,38 @@ public sealed class PostgresActivatedCohortBindingReader(
             return null;
         }
 
-        var draft = await drafts.GetDraftAsync(organizationId, activityId, cancellationToken);
-        var sources = draft is null
-            ? Array.Empty<TrustedSourceDescriptor>()
-            : await catalog.LoadExactAsync(
+        ActivityDraft? draft;
+        IReadOnlyList<TrustedSourceDescriptor> sources;
+        PersistedActivationBaseline? persisted;
+        if (commitTransaction is not null)
+        {
+            var assessmentTransaction = new SharedAssessmentTransaction(commitTransaction);
+            draft = await drafts.GetDraftAsync(organizationId, activityId, assessmentTransaction, cancellationToken);
+            sources = draft is null
+                ? Array.Empty<TrustedSourceDescriptor>()
+                : await sourceTransactions.RevalidateExactAsync(
+                    organizationId,
+                    BaselineVerification.References(draft),
+                    assessmentTransaction,
+                    cancellationToken);
+            persisted = await baselines.FindBoundAsync(
                 organizationId,
-                BaselineVerification.References(draft),
+                activityId,
+                cohortId,
+                commitTransaction,
                 cancellationToken);
-        var persisted = await baselines.FindBoundAsync(organizationId, activityId, cohortId, cancellationToken);
+        }
+        else
+        {
+            draft = await drafts.GetDraftAsync(organizationId, activityId, cancellationToken);
+            sources = draft is null
+                ? Array.Empty<TrustedSourceDescriptor>()
+                : await catalog.LoadExactAsync(
+                    organizationId,
+                    BaselineVerification.References(draft),
+                    cancellationToken);
+            persisted = await baselines.FindBoundAsync(organizationId, activityId, cohortId, cancellationToken);
+        }
         BaselineDigestCheck digest;
         if (persisted is null
             || !string.Equals(persisted.ContentDigest, row.ContentDigest, StringComparison.Ordinal))
@@ -918,5 +967,14 @@ public sealed class PostgresActivatedCohortBindingReader(
         string Title,
         string Content,
         Guid BoundRevisionId);
+
+    private sealed class SharedAssessmentTransaction(object handle) : IAssessmentActivationTransaction
+    {
+        public bool AuditAccepted { get; set; } = true;
+
+        public bool OutboxAccepted { get; set; } = true;
+
+        public object? PersistenceContext => handle;
+    }
 }
 

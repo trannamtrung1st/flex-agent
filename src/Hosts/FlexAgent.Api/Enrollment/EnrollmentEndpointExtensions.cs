@@ -38,6 +38,7 @@ public static class EnrollmentEndpointExtensions
             services.AddSingleton<IEnrollmentOperationStore, InMemoryEnrollmentOperationStore>();
             services.AddSingleton<IEnrollmentAuditPort, RecordingEnrollmentAuditPort>();
             services.AddSingleton<IEnrollmentUnitOfWork, InMemoryEnrollmentUnitOfWork>();
+            services.AddSingleton<IEnrollmentSessionPort, AllowEnrollmentSessionPort>();
             return services;
         }
 
@@ -50,6 +51,7 @@ public static class EnrollmentEndpointExtensions
         services.AddSingleton<IEnrollmentAuditPort, PostgresEnrollmentAuditPort>();
         services.AddSingleton<IEnrollmentAuthorizationPort, KernelEnrollmentAuthorizationPort>();
         services.AddSingleton<IEnrollmentUnitOfWork, PostgresEnrollmentUnitOfWork>();
+        services.AddSingleton<IEnrollmentSessionPort, PostgresEnrollmentSessionPort>();
         return services;
     }
 
@@ -339,7 +341,8 @@ public static class EnrollmentEndpointExtensions
             session.Strength,
             Guid.CreateVersion7(),
             "https",
-            authorization.PermittedActions);
+            authorization.PermittedActions,
+            session.ApplicationSessionId);
     }
 
     private static async Task<bool> ValidateMutationAsync(HttpContext context, IAntiforgery antiforgery)

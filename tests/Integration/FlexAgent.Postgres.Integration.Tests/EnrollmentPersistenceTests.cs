@@ -12,6 +12,7 @@ using FlexAgent.Postgres.Outbox;
 using FlexAgent.Submissions.Application;
 using FlexAgent.Submissions.Domain;
 using FlexAgent.Submissions.Infrastructure;
+using Npgsql;
 
 namespace FlexAgent.Postgres.Integration.Tests;
 
@@ -181,6 +182,142 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
         var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-degraded"), CancellationToken);
         Assert.False(assigned.Succeeded);
         Assert.Equal(EnrollmentFailureCodes.Unavailable, assigned.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Concurrent_source_revocation_fails_uncommitted_assignment()
+    {
+        var harness = await SeedActivatedAsync();
+        await using var revokeConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await revokeConnection.OpenAsync(CancellationToken);
+        await using var revokeTransaction = await revokeConnection.BeginTransactionAsync(CancellationToken);
+        await revokeConnection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE configuration_source_readiness_descriptors
+                SET lifecycle_state = 'revoked'
+                WHERE organization_id = @OrganizationId
+                """,
+                new { harness.OrganizationId },
+                revokeTransaction,
+                cancellationToken: CancellationToken));
+
+        var assignTask = harness.Coordinator.AssignAsync(harness.AssignCommand("assign-revoke"), CancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(200), CancellationToken);
+        Assert.False(assignTask.IsCompleted);
+
+        await revokeTransaction.CommitAsync(CancellationToken);
+        var assigned = await assignTask.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken);
+        Assert.False(assigned.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Unavailable, assigned.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Concurrent_eligibility_revocation_fails_uncommitted_assignment()
+    {
+        var harness = await SeedActivatedAsync();
+        await using var revokeConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await revokeConnection.OpenAsync(CancellationToken);
+        await using var revokeTransaction = await revokeConnection.BeginTransactionAsync(CancellationToken);
+        await revokeConnection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE actor_organization_grants
+                SET revoked_at = CLOCK_TIMESTAMP()
+                WHERE organization_id = @OrganizationId
+                  AND actor_id = @ParticipantId
+                  AND granted_action = @Action
+                  AND revoked_at IS NULL
+                """,
+                new
+                {
+                    harness.OrganizationId,
+                    harness.ParticipantId,
+                    Action = EnrollmentAuthorizationActions.Receive,
+                },
+                revokeTransaction,
+                cancellationToken: CancellationToken));
+
+        var assignTask = harness.Coordinator.AssignAsync(harness.AssignCommand("assign-ineligible"), CancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(200), CancellationToken);
+        Assert.False(assignTask.IsCompleted);
+
+        await revokeTransaction.CommitAsync(CancellationToken);
+        var assigned = await assignTask.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken);
+        Assert.False(assigned.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Ineligible, assigned.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Concurrent_session_revocation_fails_uncommitted_assignment()
+    {
+        var harness = await SeedActivatedAsync();
+        await using var revokeConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await revokeConnection.OpenAsync(CancellationToken);
+        await using var revokeTransaction = await revokeConnection.BeginTransactionAsync(CancellationToken);
+        await revokeConnection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE application_sessions
+                SET revoked_at = CLOCK_TIMESTAMP(), terminal_reason = 'test.revoke'
+                WHERE application_session_id = @ApplicationSessionId
+                """,
+                new { harness.ApplicationSessionId },
+                revokeTransaction,
+                cancellationToken: CancellationToken));
+
+        var assignTask = harness.Coordinator.AssignAsync(harness.AssignCommand("assign-session"), CancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(200), CancellationToken);
+        Assert.False(assignTask.IsCompleted);
+
+        await revokeTransaction.CommitAsync(CancellationToken);
+        var assigned = await assignTask.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken);
+        Assert.False(assigned.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Denied, assigned.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Live_uniqueness_conflict_keeps_the_transaction_usable()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-1"), CancellationToken);
+        Assert.True(assigned.Succeeded, assigned.OutcomeCode);
+        var store = new PostgresEnrollmentStore(Fixture.Services.ConnectionAccessor);
+        var unitOfWork = new PostgresEnrollmentUnitOfWork(Fixture.Services.ConnectionAccessor);
+        await unitOfWork.ExecuteAsync(async transaction =>
+        {
+            var current = await store.FindAsync(
+                harness.OrganizationId,
+                assigned.EnrollmentId!.Value,
+                null,
+                CancellationToken);
+            var duplicate = current! with { EnrollmentId = Guid.CreateVersion7() };
+            await Assert.ThrowsAsync<EnrollmentLiveUniquenessException>(() => store.InsertAsync(
+                duplicate,
+                new EnrollmentEvent(
+                    Guid.CreateVersion7(),
+                    duplicate.EnrollmentId,
+                    duplicate.OrganizationId,
+                    1,
+                    "absent",
+                    EnrollmentStates.Active,
+                    EnrollmentReasonCodes.RestrictionRemoved,
+                    harness.Actor.Actor.ActorId,
+                    DateTimeOffset.UtcNow,
+                    harness.Actor.CorrelationId,
+                    null,
+                    1),
+                transaction,
+                CancellationToken));
+            var live = await store.FindLiveForParticipantAsync(
+                harness.OrganizationId,
+                harness.ActivityId,
+                harness.ParticipantId,
+                transaction,
+                CancellationToken);
+            Assert.Equal(assigned.EnrollmentId, live?.EnrollmentId);
+            return true;
+        }, CancellationToken);
     }
 
     [Fact]
@@ -395,6 +532,30 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
             participantId,
             EnrollmentAuthorizationActions.Receive);
 
+        var applicationSessionId = Guid.CreateVersion7();
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO application_sessions (
+                    application_session_id, actor_id, organization_id, issuer, subject,
+                    credential_digest, authentication_strength, created_at, last_seen_at,
+                    idle_expires_at, absolute_expires_at)
+                VALUES (
+                    @ApplicationSessionId, @ActorId, @OrganizationId, 'https://issuer.test', @Subject,
+                    @CredentialDigest, 'mfa', CLOCK_TIMESTAMP(), CLOCK_TIMESTAMP(),
+                    CLOCK_TIMESTAMP() + INTERVAL '20 minutes', CLOCK_TIMESTAMP() + INTERVAL '8 hours')
+                """,
+                new
+                {
+                    ApplicationSessionId = applicationSessionId,
+                    ActorId = seeded.ActorId,
+                    OrganizationId = seeded.OrganizationId,
+                    Subject = seeded.ActorId.ToString("D"),
+                    CredentialDigest = applicationSessionId.ToString("N") + new string('a', 32),
+                });
+        }
+
         var enrollmentActor = new EnrollmentActorContext(
             seeded.Actor,
             seeded.Scope,
@@ -408,7 +569,9 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
                 EnrollmentAuthorizationActions.Close,
                 EnrollmentAuthorizationActions.List,
                 EnrollmentAuthorizationActions.Read,
-            ]);
+            ],
+            applicationSessionId);
+        var baselines = new PostgresAssessmentBaselineStore(connections, new PostgresAuditEventWriter(), new PostgresOutboxItemWriter());
         var coordinator = new EnrollmentCoordinator(
             new KernelEnrollmentAuthorizationPort(kernel, kernel),
             new AssessmentActivatedCohortPort(
@@ -416,13 +579,15 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
                     connections,
                     store,
                     catalog,
-                    new PostgresAssessmentBaselineStore(connections, new PostgresAuditEventWriter(), new PostgresOutboxItemWriter()),
+                    catalog,
+                    baselines,
                     new ActivationBaselineDigester())),
             new IdentityEnrollmentCandidatePort(new PostgresHumanDisplayProfileDirectory(connections)),
             new PostgresEnrollmentStore(connections),
             new PostgresEnrollmentOperationStore(),
             new PostgresEnrollmentAuditPort(new PostgresAuditEventWriter(), new PostgresOutboxItemWriter()),
-            new PostgresEnrollmentUnitOfWork(connections));
+            new PostgresEnrollmentUnitOfWork(connections),
+            new PostgresEnrollmentSessionPort());
         return new EnrollmentHarness(
             coordinator,
             enrollmentActor,
@@ -430,7 +595,8 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
             created.Value.ActivityId,
             cohort.CohortId,
             participantId,
-            activated.BaselineDigest);
+            activated.BaselineDigest,
+            applicationSessionId);
     }
 
     private sealed record EnrollmentHarness(
@@ -440,7 +606,8 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
         Guid ActivityId,
         Guid CohortId,
         Guid ParticipantId,
-        string? BaselineDigest)
+        string? BaselineDigest,
+        Guid ApplicationSessionId)
     {
         public AssignEnrollmentCommand AssignCommand(string key, Guid? cohortId = null) =>
             new(

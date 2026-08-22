@@ -10,7 +10,8 @@ public sealed record EnrollmentActorContext(
     AuthenticationStrength Strength,
     Guid CorrelationId,
     string SourceChannel,
-    IReadOnlyList<string> GrantedActions);
+    IReadOnlyList<string> GrantedActions,
+    Guid ApplicationSessionId);
 
 public sealed record AssignEnrollmentCommand(
     EnrollmentActorContext Actor,
@@ -150,6 +151,14 @@ public interface IEnrollmentQueryService
     Task<EnrollmentDecision<AssignmentSummary>> GetMyWorkAsync(
         EnrollmentActorContext actor,
         Guid enrollmentId,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IEnrollmentSessionPort
+{
+    Task<bool> RevalidateLiveAsync(
+        EnrollmentActorContext actor,
+        IEnrollmentTransaction transaction,
         CancellationToken cancellationToken = default);
 }
 

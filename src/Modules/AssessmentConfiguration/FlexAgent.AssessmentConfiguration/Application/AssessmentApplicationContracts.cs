@@ -354,6 +354,13 @@ public interface IAssessmentBaselineStore
         Guid cohortId,
         CancellationToken cancellationToken);
 
+    Task<PersistedActivationBaseline?> FindBoundAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        object? commitTransaction,
+        CancellationToken cancellationToken);
+
     Task InsertAsync(
         Guid organizationId,
         Guid activityId,

@@ -262,9 +262,17 @@ public sealed class InMemoryAssessmentBaselineStore : IAssessmentBaselineStore
         Guid organizationId,
         Guid activityId,
         Guid cohortId,
+        CancellationToken cancellationToken) =>
+        FindBoundAsync(organizationId, activityId, cohortId, null, cancellationToken);
+
+    public Task<PersistedActivationBaseline?> FindBoundAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        object? commitTransaction,
         CancellationToken cancellationToken)
     {
-        _ = cancellationToken;
+        _ = (commitTransaction, cancellationToken);
         _baselines.TryGetValue((organizationId, activityId, cohortId), out var baseline);
         return Task.FromResult(baseline);
     }

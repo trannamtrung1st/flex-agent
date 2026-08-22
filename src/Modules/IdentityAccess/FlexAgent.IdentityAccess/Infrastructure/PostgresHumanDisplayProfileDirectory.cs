@@ -84,6 +84,9 @@ public sealed class PostgresHumanDisplayProfileDirectory(PostgresConnectionAcces
                AND grant_row.granted_action = @RequiredAction
             WHERE profile.organization_id = @OrganizationId
               AND profile.actor_id = @ActorId
+            FOR SHARE OF actor
+            FOR SHARE OF binding
+            FOR SHARE OF grant_row
             """;
         var parameters = new { OrganizationId = organizationId, ActorId = actorId, RequiredAction = requiredAction };
         if (commitTransaction is NpgsqlTransaction npgsql)

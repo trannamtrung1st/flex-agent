@@ -300,6 +300,34 @@ public sealed class EnrollmentDomainTests
     }
 
     [Fact]
+    public async Task Stale_application_session_denies_assignment()
+    {
+        var harness = CreateHarness();
+        harness.Sessions.Permit = false;
+        var result = await harness.Coordinator.AssignAsync(AssignCommand("key-session"), TestContext.Current.CancellationToken);
+        Assert.False(result.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Denied, result.OutcomeCode);
+        Assert.Empty(harness.Store.Items);
+    }
+
+    [Fact]
+    public async Task Lifecycle_authorization_uses_the_enrollment_resource_type()
+    {
+        var harness = CreateHarness();
+        var assigned = await harness.Coordinator.AssignAsync(AssignCommand("key-auth"), TestContext.Current.CancellationToken);
+        Assert.Equal(EnrollmentResourceTypes.Cohort, harness.Authorization.LastResourceType);
+        await harness.Coordinator.MutateAsync(
+            LifecycleCommand(
+                EnrollmentOperationKinds.Suspend,
+                EnrollmentReasonCodes.TemporaryRestriction,
+                assigned.EnrollmentId!.Value,
+                assigned.Revision!.Value,
+                "suspend-auth"),
+            TestContext.Current.CancellationToken);
+        Assert.Equal(EnrollmentResourceTypes.Enrollment, harness.Authorization.LastResourceType);
+    }
+
+    [Fact]
     public async Task Zero_row_lifecycle_update_returns_stale_revision()
     {
         var harness = CreateHarness();
@@ -371,6 +399,7 @@ public sealed class EnrollmentDomainTests
         candidates.Candidates.Add(new EnrollmentCandidate(ParticipantId, "Synthetic Participant"));
         var audit = new RecordingEnrollmentAuditPort();
         var unitOfWork = new InMemoryEnrollmentUnitOfWork();
+        var sessions = new AllowEnrollmentSessionPort();
         var coordinator = new EnrollmentCoordinator(
             authorization,
             cohorts,
@@ -379,9 +408,10 @@ public sealed class EnrollmentDomainTests
             operations,
             audit,
             unitOfWork,
+            sessions,
             new FixedEnrollmentClock(Now));
         var queries = new EnrollmentQueryService(authorization, cohorts, candidates, store);
-        return new Harness(coordinator, queries, store, authorization, cohorts, unitOfWork, audit);
+        return new Harness(coordinator, queries, store, authorization, cohorts, unitOfWork, audit, sessions);
     }
 
     private static AssignEnrollmentCommand AssignCommand(string key, Guid? cohortId = null)
@@ -445,7 +475,8 @@ public sealed class EnrollmentDomainTests
                 EnrollmentAuthorizationActions.Restore,
                 EnrollmentAuthorizationActions.Close,
                 EnrollmentAuthorizationActions.Revoke,
-            ]);
+            ],
+            Guid.CreateVersion7());
 
     private static EnrollmentActorContext ParticipantContext() =>
         new(
@@ -455,7 +486,8 @@ public sealed class EnrollmentDomainTests
             new AuthenticationStrength(null, []),
             Guid.CreateVersion7(),
             "https",
-            [EnrollmentAuthorizationActions.Discover]);
+            [EnrollmentAuthorizationActions.Discover],
+            Guid.CreateVersion7());
 
     private static ActivatedCohortBinding Binding() =>
         new(
@@ -485,5 +517,6 @@ public sealed class EnrollmentDomainTests
         AllowEnrollmentAuthorizationPort Authorization,
         FixedActivatedCohortPort Cohorts,
         InMemoryEnrollmentUnitOfWork UnitOfWork,
-        RecordingEnrollmentAuditPort Audit);
+        RecordingEnrollmentAuditPort Audit,
+        AllowEnrollmentSessionPort Sessions);
 }

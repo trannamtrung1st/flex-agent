@@ -474,6 +474,11 @@ not be marked implemented by this task.
   return Assessment's authoritative verification state and refuse assignment
   when degraded; write successful assignment audit against the created
   Enrollment; retain one client idempotency key for a pending mutation.
+- [x] Review remediation 2: revalidate Assessment draft/source/baseline and
+  the administrator application session inside the Enrollment transaction;
+  lock Participant eligibility rows; insert live Enrollment without aborting
+  on uniqueness; bind browser retry keys to command identity; authorize
+  lifecycle mutations as Enrollment resources.
 - [>] Remaining verification: administrator assign/lifecycle Playwright,
   remaining HTTP/collaboration negatives, latency measurement, full
   solution/OCI gates, and independent review.
@@ -509,10 +514,13 @@ not be marked implemented by this task.
 
 # Current state
 
-External review of `f1a6b44` found four backend defects and one client retry
-gap. This pass remediates those findings. Confirmation on 2026-08-22:
-domain 22, architecture 40, Enrollment HTTP 5, Enrollment PostgreSQL 8,
-and focused web enrollment 6 all passed. The task stays **in-progress**.
+External review of `d6cc43f` found remaining commit-time races, a uniqueness
+fallback abort, a global retry key, and lifecycle authorization labeling.
+Those are remediated in this pass. The task stays **in-progress**.
+
+Reconfirmed on 2026-08-22 before commit: domain 24, architecture 40,
+Enrollment HTTP 5, Enrollment PostgreSQL 12, and focused web enrollment 7
+all passed.
 
 Remediation now in tree:
 
@@ -680,11 +688,11 @@ independent review.
 | `python3 scripts/check_docs.py` | passed | Documentation validation passed on 2026-08-22. |
 | whitespace/diff validation | passed | `git diff --check` passed; direct `git diff --no-index --check` on the untracked task file produced no whitespace diagnostics (its status `1` is the expected no-index difference result). |
 | Secret scan | passed | `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` found no leaks during the readiness review. |
-| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 22 passed, including degraded-assignment denial, assignment audit resource ID, and store stale-revision translation. |
+| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 24 passed, including stale-session denial and lifecycle Enrollment resource-type authorization. |
 | Architecture/contract tests | passed | Architecture 40 passed after the review remediations. Earlier contract catalog 100 remains from `f1a6b44`; this pass did not change schemas. |
-| PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 8 passed, including `Task.WhenAll` same-cohort dedupe, different-cohort conflict, concurrent lifecycle stale-revision, and revoked-source degraded assignment. Full suite/OCI still open. |
+| PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 12 passed, including source-revocation, eligibility-revocation, and session-revocation races plus uniqueness insert that keeps the transaction usable. Full suite/OCI still open. |
 | Runtime/API authorization and HTTP-negative tests | mixed | `EnrollmentHttpNegativeContractTests` 5 passed (CSRF, unauthenticated My work `no-store`, guessed detail concealment, unknown member, oversized body). MFA/dual-capability, cursor tampering, replay-after-revoke, and rate-limit cases remain. |
-| React component/accessibility tests | mixed | Focused vitest 6 passed for the enrollment client/page, including retained lifecycle idempotency key after a lost response. `pnpm --filter @flex-agent/web typecheck` passed. Keyboard/400% not covered. |
+| React component/accessibility tests | mixed | Focused vitest 7 passed, including retained lifecycle key and a new assign key after the selected Participant changes. `pnpm --filter @flex-agent/web typecheck` passed. Keyboard/400% not covered. |
 | Authenticated Playwright MCP desktop/narrow/both-theme evidence | mixed | Rebuilt profile. Participant empty **My work**: `.playwright-mcp/page-2026-08-22T07-21-45-872Z.png` (desktop light), `.playwright-mcp/page-2026-08-22T07-21-58-086Z.png` (desktop dark), `.playwright-mcp/page-2026-08-22T07-22-09-933Z.png` (narrow 390 dark). Administrator assign/lifecycle, populated/suspended/unavailable, and 400% screenshots were not captured. |
 | Full regression, security, supply-chain, and performance gates | mixed | `python3 scripts/check_docs.py` passed; `git diff --check` passed; `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` found no leaks. Full `dotnet test --solution FlexAgent.slnx`, web build, OCI/SBOM, and p95 latency were not run. |
 

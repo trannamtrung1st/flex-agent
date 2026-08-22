@@ -11,6 +11,7 @@ public sealed class EnrollmentCoordinator(
     IEnrollmentOperationStore operations,
     IEnrollmentAuditPort audit,
     IEnrollmentUnitOfWork unitOfWork,
+    IEnrollmentSessionPort sessions,
     IEnrollmentClock? clock = null) : IEnrollmentCoordinator
 {
     private readonly IEnrollmentClock _clock = clock ?? new SystemEnrollmentClock();
@@ -25,6 +26,7 @@ public sealed class EnrollmentCoordinator(
             command.ActivityId,
             command.CohortId,
             command.CohortId,
+            EnrollmentResourceTypes.Cohort,
             command.IdempotencyKey,
             command.TrustedCommandDigest,
             EnrollmentCommandDigest.Compute(
@@ -148,6 +150,7 @@ public sealed class EnrollmentCoordinator(
             command.ActivityId,
             command.CohortId,
             command.EnrollmentId,
+            EnrollmentResourceTypes.Enrollment,
             command.IdempotencyKey,
             command.TrustedCommandDigest,
             EnrollmentCommandDigest.Compute(
@@ -210,6 +213,7 @@ public sealed class EnrollmentCoordinator(
         Guid activityId,
         Guid cohortId,
         Guid resourceId,
+        string resourceType,
         string idempotencyKey,
         string trustedDigest,
         string expectedDigest,
@@ -236,7 +240,7 @@ public sealed class EnrollmentCoordinator(
             actor,
             action,
             resourceId,
-            EnrollmentResourceTypes.Cohort,
+            resourceType,
             cancellationToken);
         if (!admission.IsPermitted)
         {
@@ -255,6 +259,10 @@ public sealed class EnrollmentCoordinator(
                 idempotencyKey,
                 transaction,
                 cancellationToken);
+            if (!await sessions.RevalidateLiveAsync(actor, transaction, cancellationToken))
+            {
+                return Fail(EnrollmentFailureCodes.Denied);
+            }
 
             var existing = await operations.FindAsync(
                 actor.Organization.OrganizationId,
@@ -275,7 +283,7 @@ public sealed class EnrollmentCoordinator(
                     actor,
                     action,
                     resourceId,
-                    EnrollmentResourceTypes.Cohort,
+                    resourceType,
                     transaction,
                     cancellationToken);
                 if (!replayAuth.IsPermitted)
@@ -328,7 +336,7 @@ public sealed class EnrollmentCoordinator(
                 actor,
                 action,
                 resourceId,
-                EnrollmentResourceTypes.Cohort,
+                resourceType,
                 transaction,
                 cancellationToken);
             if (!reauthorized.IsPermitted)

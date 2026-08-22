@@ -218,17 +218,33 @@ public sealed class InMemoryEnrollmentOperationStore : IEnrollmentOperationStore
     }
 }
 
+public sealed class AllowEnrollmentSessionPort : IEnrollmentSessionPort
+{
+    public bool Permit { get; set; } = true;
+
+    public Task<bool> RevalidateLiveAsync(
+        EnrollmentActorContext actor,
+        IEnrollmentTransaction transaction,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(Permit);
+}
+
 public sealed class AllowEnrollmentAuthorizationPort : IEnrollmentAuthorizationPort
 {
     public bool Permit { get; set; } = true;
+
+    public string? LastResourceType { get; private set; }
 
     public Task<AuthorizationDecision> AuthorizeAdmissionAsync(
         EnrollmentActorContext actor,
         string action,
         Guid resourceId,
         string resourceType,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(Decision());
+        CancellationToken cancellationToken = default)
+    {
+        LastResourceType = resourceType;
+        return Task.FromResult(Decision());
+    }
 
     public Task<AuthorizationDecision> ReauthorizeAsync(
         EnrollmentActorContext actor,
@@ -236,8 +252,11 @@ public sealed class AllowEnrollmentAuthorizationPort : IEnrollmentAuthorizationP
         Guid resourceId,
         string resourceType,
         IEnrollmentTransaction transaction,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(Decision());
+        CancellationToken cancellationToken = default)
+    {
+        LastResourceType = resourceType;
+        return Task.FromResult(Decision());
+    }
 
     private AuthorizationDecision Decision() =>
         Permit

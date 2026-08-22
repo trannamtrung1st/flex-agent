@@ -76,6 +76,90 @@ public sealed class KernelEnrollmentAuthorizationPort(
             cancellationToken);
 }
 
+public sealed class PostgresEnrollmentSessionPort : IEnrollmentSessionPort
+{
+    public async Task<bool> RevalidateLiveAsync(
+        EnrollmentActorContext actor,
+        IEnrollmentTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        var postgres = (PostgresEnrollmentTransaction)transaction;
+        var row = await postgres.Scope.Connection.QuerySingleOrDefaultAsync<SessionCommitRow>(
+            new CommandDefinition(
+                """
+                SELECT
+                    session.application_session_id AS ApplicationSessionId,
+                    session.actor_id AS ActorId,
+                    session.organization_id AS OrganizationId,
+                    session.issuer AS Issuer,
+                    session.subject AS Subject,
+                    session.credential_digest AS CredentialDigest,
+                    session.created_at AS CreatedAtUtc,
+                    session.last_seen_at AS LastSeenAtUtc,
+                    session.idle_expires_at AS IdleExpiresAtUtc,
+                    session.absolute_expires_at AS AbsoluteExpiresAtUtc,
+                    session.revoked_at AS RevokedAtUtc,
+                    session.rotated_at AS RotatedAtUtc
+                FROM application_sessions AS session
+                INNER JOIN actors AS actor
+                    ON actor.id = session.actor_id
+                   AND actor.disabled_at IS NULL
+                WHERE session.application_session_id = @ApplicationSessionId
+                  AND session.actor_id = @ActorId
+                  AND session.organization_id = @OrganizationId
+                  AND session.revoked_at IS NULL
+                  AND session.rotated_at IS NULL
+                FOR SHARE OF session
+                FOR SHARE OF actor
+                """,
+                new
+                {
+                    actor.ApplicationSessionId,
+                    ActorId = actor.Actor.ActorId,
+                    OrganizationId = actor.Organization.OrganizationId,
+                },
+                postgres.Scope.Transaction,
+                cancellationToken: cancellationToken));
+        if (row is null)
+        {
+            return false;
+        }
+
+        var session = new ApplicationSessionRecord(
+            row.ApplicationSessionId,
+            row.ActorId,
+            row.OrganizationId,
+            new ExactIssuerSubject(row.Issuer, row.Subject),
+            row.CredentialDigest,
+            actor.Strength,
+            null,
+            new ApplicationSessionLifetime(
+                row.CreatedAtUtc,
+                row.LastSeenAtUtc,
+                row.IdleExpiresAtUtc,
+                row.AbsoluteExpiresAtUtc),
+            row.RevokedAtUtc,
+            row.RotatedAtUtc,
+            null,
+            null);
+        return ApplicationSessionPolicy.AuthenticateFailureReason(session, DateTimeOffset.UtcNow) is null;
+    }
+
+    private sealed record SessionCommitRow(
+        Guid ApplicationSessionId,
+        Guid ActorId,
+        Guid OrganizationId,
+        string Issuer,
+        string Subject,
+        string? CredentialDigest,
+        DateTimeOffset CreatedAtUtc,
+        DateTimeOffset LastSeenAtUtc,
+        DateTimeOffset IdleExpiresAtUtc,
+        DateTimeOffset AbsoluteExpiresAtUtc,
+        DateTimeOffset? RevokedAtUtc,
+        DateTimeOffset? RotatedAtUtc);
+}
+
 public sealed class PostgresEnrollmentAuditPort(
     IAuditEventWriter auditEventWriter,
     IOutboxItemWriter outboxItemWriter) : IEnrollmentAuditPort
@@ -211,29 +295,28 @@ public sealed class PostgresEnrollmentStore(PostgresConnectionAccessor connectio
         CancellationToken cancellationToken)
     {
         var postgres = (PostgresEnrollmentTransaction)transaction;
-        try
-        {
-            await postgres.Scope.Connection.ExecuteAsync(
-                new CommandDefinition(
-                    """
-                    INSERT INTO submissions_enrollments (
-                        organization_id, enrollment_id, activity_id, cohort_id, baseline_id,
-                        task_source_id, task_version_id, task_content_digest, lifecycle_policy_id,
-                        lifecycle_policy_version, participant_actor_id, status, revision,
-                        assigned_by_actor_id, assigned_at, updated_at)
-                    VALUES (
-                        @OrganizationId, @EnrollmentId, @ActivityId, @CohortId, @BaselineId,
-                        @TaskSourceId, @TaskVersionId, @TaskContentDigest, @LifecyclePolicyId,
-                        @LifecyclePolicyVersion, @ParticipantActorId, @Status, @Revision,
-                        @AssignedByActorId, @AssignedAtUtc, @UpdatedAtUtc)
-                    """,
-                    enrollment,
-                    postgres.Scope.Transaction,
-                    cancellationToken: cancellationToken));
-        }
-        catch (PostgresException exception) when (
-            exception.SqlState is "23505"
-            && exception.ConstraintName is "uq_submissions_enrollments_live_participant")
+        var inserted = await postgres.Scope.Connection.QuerySingleOrDefaultAsync<Guid?>(
+            new CommandDefinition(
+                """
+                INSERT INTO submissions_enrollments (
+                    organization_id, enrollment_id, activity_id, cohort_id, baseline_id,
+                    task_source_id, task_version_id, task_content_digest, lifecycle_policy_id,
+                    lifecycle_policy_version, participant_actor_id, status, revision,
+                    assigned_by_actor_id, assigned_at, updated_at)
+                VALUES (
+                    @OrganizationId, @EnrollmentId, @ActivityId, @CohortId, @BaselineId,
+                    @TaskSourceId, @TaskVersionId, @TaskContentDigest, @LifecyclePolicyId,
+                    @LifecyclePolicyVersion, @ParticipantActorId, @Status, @Revision,
+                    @AssignedByActorId, @AssignedAtUtc, @UpdatedAtUtc)
+                ON CONFLICT (organization_id, activity_id, participant_actor_id)
+                    WHERE status IN ('active', 'suspended')
+                DO NOTHING
+                RETURNING enrollment_id
+                """,
+                enrollment,
+                postgres.Scope.Transaction,
+                cancellationToken: cancellationToken));
+        if (inserted is null)
         {
             throw new EnrollmentLiveUniquenessException();
         }
