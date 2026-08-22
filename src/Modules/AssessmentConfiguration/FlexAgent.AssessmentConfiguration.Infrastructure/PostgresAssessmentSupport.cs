@@ -785,8 +785,12 @@ public sealed class PostgresAssessmentRelationshipResolver(PostgresConnectionAcc
         action is "assessment.assignment.discover" or "assessment.enrollment.receive";
 }
 
-public sealed class PostgresActivatedCohortBindingReader(PostgresConnectionAccessor connections)
-    : IActivatedCohortBindingReader
+public sealed class PostgresActivatedCohortBindingReader(
+    PostgresConnectionAccessor connections,
+    IAssessmentDraftStore drafts,
+    IAssessmentSourceCatalog catalog,
+    IAssessmentBaselineStore baselines,
+    IActivationBaselineDigester digester) : IActivatedCohortBindingReader
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -806,7 +810,8 @@ public sealed class PostgresActivatedCohortBindingReader(PostgresConnectionAcces
                 baseline.content_digest,
                 cohort.state,
                 revision.title,
-                revision.content::text
+                revision.content::text,
+                cohort.bound_revision_id
             FROM assessment_cohorts AS cohort
             INNER JOIN assessment_cohort_baseline_bindings AS bind
                 ON bind.organization_id = cohort.organization_id
@@ -856,6 +861,34 @@ public sealed class PostgresActivatedCohortBindingReader(PostgresConnectionAcces
             return null;
         }
 
+        var draft = await drafts.GetDraftAsync(organizationId, activityId, cancellationToken);
+        var sources = draft is null
+            ? Array.Empty<TrustedSourceDescriptor>()
+            : await catalog.LoadExactAsync(
+                organizationId,
+                BaselineVerification.References(draft),
+                cancellationToken);
+        var persisted = await baselines.FindBoundAsync(organizationId, activityId, cohortId, cancellationToken);
+        BaselineDigestCheck digest;
+        if (persisted is null
+            || !string.Equals(persisted.ContentDigest, row.ContentDigest, StringComparison.Ordinal))
+        {
+            digest = BaselineDigestCheck.Missing();
+        }
+        else
+        {
+            var recomputed = digester.Digest(persisted.Document);
+            digest = BaselineDigestCheck.Present(
+                persisted.ContentDigest,
+                recomputed.Succeeded ? recomputed.Value : null,
+                row.BoundRevisionId,
+                draft?.RevisionId ?? Guid.Empty);
+        }
+
+        var verification = draft is null
+            ? BaselineVerification.Degraded
+            : BaselineVerification.Status(draft, sources, digest);
+
         return new ActivatedCohortBindingSnapshot(
             row.OrganizationId,
             row.ActivityId,
@@ -872,7 +905,7 @@ public sealed class PostgresActivatedCohortBindingReader(PostgresConnectionAcces
             content.Timing.StartsAtUtc,
             content.Timing.EndsAtUtc,
             content.Timing.DeadlineUtc,
-            false);
+            !string.Equals(verification, BaselineVerification.Verified, StringComparison.Ordinal));
     }
 
     private sealed record ActivatedCohortRow(
@@ -883,6 +916,7 @@ public sealed class PostgresActivatedCohortBindingReader(PostgresConnectionAcces
         string ContentDigest,
         string State,
         string Title,
-        string Content);
+        string Content,
+        Guid BoundRevisionId);
 }
 

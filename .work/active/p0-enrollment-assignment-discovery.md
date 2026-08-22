@@ -468,10 +468,15 @@ not be marked implemented by this task.
   assignment success, My work active list, setup handoff, and 403 clearing.
   Lifecycle confirmation, empty/suspended/unavailable, and delayed-response
   races are only partially covered.
+- [x] Review remediation: serialize assignment by `(organization, activity,
+  participant)` before the live-row read; lock Enrollment rows for lifecycle
+  updates and translate zero-row updates to `enrollment.stale_revision`;
+  return Assessment's authoritative verification state and refuse assignment
+  when degraded; write successful assignment audit against the created
+  Enrollment; retain one client idempotency key for a pending mutation.
 - [>] Remaining verification: administrator assign/lifecycle Playwright,
-  empty-list PostgreSQL test execution, remaining HTTP/collaboration
-  negatives, latency measurement, full solution/OCI gates, and independent
-  review.
+  remaining HTTP/collaboration negatives, latency measurement, full
+  solution/OCI gates, and independent review.
 
 # Planned verification command set
 
@@ -504,11 +509,26 @@ not be marked implemented by this task.
 
 # Current state
 
-Confirmation pass on 2026-08-22: domain 19, architecture 40, contract catalog
-100, Enrollment HTTP 5, and focused web 30 all passed. Live participant empty
-My work still renders. Remaining gaps (admin assign Playwright, Postgres empty
-list execution, full solution/OCI, independent review) are unchanged. The task
-stays **in-progress**.
+External review of `f1a6b44` found four backend defects and one client retry
+gap. This pass remediates those findings. Confirmation on 2026-08-22:
+domain 22, architecture 40, Enrollment HTTP 5, Enrollment PostgreSQL 8,
+and focused web enrollment 6 all passed. The task stays **in-progress**.
+
+Remediation now in tree:
+
+- Assignment acquires an advisory lock keyed by
+  `(organization, activity, participant)` before the live-row read. Unique
+  index races translate to Deduplicated/Conflict instead of HTTP 500.
+- Transactional Enrollment reads use `FOR UPDATE`. Zero-row optimistic
+  updates throw `EnrollmentStaleRevisionException` and map to
+  `enrollment.stale_revision`.
+- `PostgresActivatedCohortBindingReader` recomputes Assessment
+  `BaselineVerification` and assignment fails closed when degraded.
+- Successful assignment required-durable audit uses the created Enrollment
+  ID; pre-creation assignment denials still name the Cohort.
+- The production client retains one idempotency key for a pending assign or
+  lifecycle command. Lost-response retry reuses that key. Stale revision
+  reloads the list and starts a new logical command.
 
 What exists now: Submissions core/infrastructure, migration `0043`, owner
 ports, production HTTP under `/v1/assessment`, Draft 2020-12 Enrollment
@@ -593,6 +613,12 @@ independent review.
 
 # Findings / deviations
 
+- Review of `f1a6b44`: concurrent assignment could 500 on the live unique
+  index; concurrent lifecycle could 500 on a zero-row revision update;
+  production binding snapshots hardcoded `VerificationDegraded = false`;
+  successful assignment audit used the Cohort ID under the Enrollment
+  resource type; the browser generated a new idempotency key on every
+  retry. Fixed in this pass.
 - First live **My work** list returned HTTP 500: PostgreSQL could not type
   null `@AfterTime`/`@AfterId` cursor parameters. Fixed with explicit
   `DbType.DateTimeOffset` and `DbType.Guid`. Empty list now renders.
@@ -654,11 +680,11 @@ independent review.
 | `python3 scripts/check_docs.py` | passed | Documentation validation passed on 2026-08-22. |
 | whitespace/diff validation | passed | `git diff --check` passed; direct `git diff --no-index --check` on the untracked task file produced no whitespace diagnostics (its status `1` is the expected no-index difference result). |
 | Secret scan | passed | `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` found no leaks during the readiness review. |
-| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 19 passed. |
-| Architecture/contract tests | passed | Architecture 40 passed. Contract catalog 100 passed after representative count 16→20 and schema count 22→26. Mapping parity includes Enrollment DTOs. |
-| PostgreSQL migration/isolation/concurrency/fault tests | mixed | Earlier session: 3 assignment/close/history tests passed. This session added an empty current-list persistence test; it has not yet been executed against real PostgreSQL. |
+| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 22 passed, including degraded-assignment denial, assignment audit resource ID, and store stale-revision translation. |
+| Architecture/contract tests | passed | Architecture 40 passed after the review remediations. Earlier contract catalog 100 remains from `f1a6b44`; this pass did not change schemas. |
+| PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 8 passed, including `Task.WhenAll` same-cohort dedupe, different-cohort conflict, concurrent lifecycle stale-revision, and revoked-source degraded assignment. Full suite/OCI still open. |
 | Runtime/API authorization and HTTP-negative tests | mixed | `EnrollmentHttpNegativeContractTests` 5 passed (CSRF, unauthenticated My work `no-store`, guessed detail concealment, unknown member, oversized body). MFA/dual-capability, cursor tampering, replay-after-revoke, and rate-limit cases remain. |
-| React component/accessibility tests | mixed | Focused vitest including conflict/suspend confirm, empty/suspended My work, and denied-Activities-keeps-My-work-nav. `pnpm --filter @flex-agent/web typecheck` passed. Keyboard/400% not covered. |
+| React component/accessibility tests | mixed | Focused vitest 6 passed for the enrollment client/page, including retained lifecycle idempotency key after a lost response. `pnpm --filter @flex-agent/web typecheck` passed. Keyboard/400% not covered. |
 | Authenticated Playwright MCP desktop/narrow/both-theme evidence | mixed | Rebuilt profile. Participant empty **My work**: `.playwright-mcp/page-2026-08-22T07-21-45-872Z.png` (desktop light), `.playwright-mcp/page-2026-08-22T07-21-58-086Z.png` (desktop dark), `.playwright-mcp/page-2026-08-22T07-22-09-933Z.png` (narrow 390 dark). Administrator assign/lifecycle, populated/suspended/unavailable, and 400% screenshots were not captured. |
 | Full regression, security, supply-chain, and performance gates | mixed | `python3 scripts/check_docs.py` passed; `git diff --check` passed; `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` found no leaks. Full `dotnet test --solution FlexAgent.slnx`, web build, OCI/SBOM, and p95 latency were not run. |
 

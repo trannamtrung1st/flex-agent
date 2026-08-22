@@ -69,12 +69,19 @@ public sealed class InMemoryEnrollmentStore : IEnrollmentStore
         return Task.CompletedTask;
     }
 
+    public bool ForceStaleUpdate { get; set; }
+
     public Task UpdateAsync(
         Enrollment enrollment,
         EnrollmentEvent enrollmentEvent,
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken)
     {
+        if (ForceStaleUpdate)
+        {
+            throw new EnrollmentStaleRevisionException();
+        }
+
         var index = _enrollments.FindIndex(item => item.EnrollmentId == enrollment.EnrollmentId);
         if (index >= 0)
         {
@@ -174,6 +181,14 @@ public sealed class InMemoryEnrollmentOperationStore : IEnrollmentOperationStore
         string operationKind,
         Guid resourceId,
         string idempotencyKey,
+        IEnrollmentTransaction transaction,
+        CancellationToken cancellationToken) =>
+        Task.CompletedTask;
+
+    public Task AcquireLiveParticipantLockAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid participantActorId,
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken) =>
         Task.CompletedTask;
@@ -302,6 +317,10 @@ public sealed class RecordingEnrollmentAuditPort : IEnrollmentAuditPort
 
     public int AvailabilityWrites { get; private set; }
 
+    public Guid? LastResourceId { get; private set; }
+
+    public string? LastResourceType { get; private set; }
+
     public Task WriteRequiredDurableAsync(
         EnrollmentActorContext actor,
         string action,
@@ -314,6 +333,8 @@ public sealed class RecordingEnrollmentAuditPort : IEnrollmentAuditPort
         CancellationToken cancellationToken)
     {
         RequiredWrites++;
+        LastResourceId = resourceId;
+        LastResourceType = resourceType;
         return Task.CompletedTask;
     }
 

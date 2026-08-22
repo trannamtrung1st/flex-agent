@@ -163,12 +163,13 @@ public sealed class PostgresEnrollmentStore(PostgresConnectionAccessor connectio
     {
         if (transaction is PostgresEnrollmentTransaction postgres)
         {
-            return await postgres.Scope.Connection.QuerySingleOrDefaultAsync<EnrollmentRow>(
+            var locked = await postgres.Scope.Connection.QuerySingleOrDefaultAsync<EnrollmentRow>(
                 new CommandDefinition(
-                    SelectSql + " WHERE organization_id = @OrganizationId AND enrollment_id = @EnrollmentId",
+                    SelectSql + " WHERE organization_id = @OrganizationId AND enrollment_id = @EnrollmentId FOR UPDATE",
                     new { OrganizationId = organizationId, EnrollmentId = enrollmentId },
                     postgres.Scope.Transaction,
-                    cancellationToken: cancellationToken)).ContinueWith(task => task.Result?.ToEnrollment(), cancellationToken);
+                    cancellationToken: cancellationToken));
+            return locked?.ToEnrollment();
         }
 
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
@@ -210,23 +211,33 @@ public sealed class PostgresEnrollmentStore(PostgresConnectionAccessor connectio
         CancellationToken cancellationToken)
     {
         var postgres = (PostgresEnrollmentTransaction)transaction;
-        await postgres.Scope.Connection.ExecuteAsync(
-            new CommandDefinition(
-                """
-                INSERT INTO submissions_enrollments (
-                    organization_id, enrollment_id, activity_id, cohort_id, baseline_id,
-                    task_source_id, task_version_id, task_content_digest, lifecycle_policy_id,
-                    lifecycle_policy_version, participant_actor_id, status, revision,
-                    assigned_by_actor_id, assigned_at, updated_at)
-                VALUES (
-                    @OrganizationId, @EnrollmentId, @ActivityId, @CohortId, @BaselineId,
-                    @TaskSourceId, @TaskVersionId, @TaskContentDigest, @LifecyclePolicyId,
-                    @LifecyclePolicyVersion, @ParticipantActorId, @Status, @Revision,
-                    @AssignedByActorId, @AssignedAtUtc, @UpdatedAtUtc)
-                """,
-                enrollment,
-                postgres.Scope.Transaction,
-                cancellationToken: cancellationToken));
+        try
+        {
+            await postgres.Scope.Connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO submissions_enrollments (
+                        organization_id, enrollment_id, activity_id, cohort_id, baseline_id,
+                        task_source_id, task_version_id, task_content_digest, lifecycle_policy_id,
+                        lifecycle_policy_version, participant_actor_id, status, revision,
+                        assigned_by_actor_id, assigned_at, updated_at)
+                    VALUES (
+                        @OrganizationId, @EnrollmentId, @ActivityId, @CohortId, @BaselineId,
+                        @TaskSourceId, @TaskVersionId, @TaskContentDigest, @LifecyclePolicyId,
+                        @LifecyclePolicyVersion, @ParticipantActorId, @Status, @Revision,
+                        @AssignedByActorId, @AssignedAtUtc, @UpdatedAtUtc)
+                    """,
+                    enrollment,
+                    postgres.Scope.Transaction,
+                    cancellationToken: cancellationToken));
+        }
+        catch (PostgresException exception) when (
+            exception.SqlState is "23505"
+            && exception.ConstraintName is "uq_submissions_enrollments_live_participant")
+        {
+            throw new EnrollmentLiveUniquenessException();
+        }
+
         await InsertEventAsync(enrollmentEvent, postgres, cancellationToken);
     }
 
@@ -259,7 +270,7 @@ public sealed class PostgresEnrollmentStore(PostgresConnectionAccessor connectio
                 cancellationToken: cancellationToken));
         if (updated != 1)
         {
-            throw new InvalidOperationException("enrollment.stale_revision");
+            throw new EnrollmentStaleRevisionException();
         }
 
         await InsertEventAsync(enrollmentEvent, postgres, cancellationToken);
@@ -440,6 +451,22 @@ public sealed class PostgresEnrollmentOperationStore : IEnrollmentOperationStore
             new CommandDefinition(
                 "SELECT pg_advisory_xact_lock(hashtextextended(@Key, 0))",
                 new { Key = $"{organizationId:D}:{actorId:D}:{operationKind}:{resourceId:D}:{idempotencyKey}" },
+                postgres.Scope.Transaction,
+                cancellationToken: cancellationToken));
+    }
+
+    public async Task AcquireLiveParticipantLockAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid participantActorId,
+        IEnrollmentTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var postgres = (PostgresEnrollmentTransaction)transaction;
+        await postgres.Scope.Connection.ExecuteAsync(
+            new CommandDefinition(
+                "SELECT pg_advisory_xact_lock(hashtextextended(@Key, 0))",
+                new { Key = $"enrollment.live:{organizationId:D}:{activityId:D}:{participantActorId:D}" },
                 postgres.Scope.Transaction,
                 cancellationToken: cancellationToken));
     }

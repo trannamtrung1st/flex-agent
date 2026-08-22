@@ -57,6 +57,10 @@ export interface MyWorkPageV1 {
 
 export type EnrollmentMutationV1 = EnrollmentMutationOutcomeV1;
 
+export function createEnrollmentIdempotencyKey(): string {
+  return `enr-${crypto.randomUUID()}`;
+}
+
 export function createProductionEnrollmentClient(fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>) {
   return {
     listCandidates(activityId: string, cohortId: string) {
@@ -74,7 +78,12 @@ export function createProductionEnrollmentClient(fetchJson: <T>(path: string, in
         `/v1/assessment/activities/${activityId}/cohorts/${cohortId}/enrollments/${enrollmentId}`,
       );
     },
-    assign(activityId: string, cohortId: string, participantActorId: string) {
+    assign(
+      activityId: string,
+      cohortId: string,
+      participantActorId: string,
+      idempotencyKey: string,
+    ) {
       return readMutation(
         fetchJson,
         `/v1/assessment/activities/${activityId}/cohorts/${cohortId}/enrollments`,
@@ -84,7 +93,7 @@ export function createProductionEnrollmentClient(fetchJson: <T>(path: string, in
           body: JSON.stringify({
             schema_version: "v1",
             participant_actor_id: participantActorId,
-            idempotency_key: `enr-${crypto.randomUUID()}`,
+            idempotency_key: idempotencyKey,
           }),
         },
       );
@@ -96,6 +105,7 @@ export function createProductionEnrollmentClient(fetchJson: <T>(path: string, in
       operation: "suspend" | "restore" | "close" | "revoke",
       reasonCode: string,
       expectedRevision: number,
+      idempotencyKey: string,
     ) {
       return readMutation(
         fetchJson,
@@ -107,7 +117,7 @@ export function createProductionEnrollmentClient(fetchJson: <T>(path: string, in
             schema_version: "v1",
             reason_code: reasonCode,
             expected_revision: expectedRevision,
-            idempotency_key: `enr-${crypto.randomUUID()}`,
+            idempotency_key: idempotencyKey,
           }),
         },
       );

@@ -48,6 +48,12 @@ public sealed class EnrollmentCoordinator(
                     return Fail(EnrollmentFailureCodes.Ineligible);
                 }
 
+                await operations.AcquireLiveParticipantLockAsync(
+                    command.Actor.Organization.OrganizationId,
+                    command.ActivityId,
+                    command.ParticipantActorId,
+                    transaction,
+                    cancellationToken);
                 var live = await enrollments.FindLiveForParticipantAsync(
                     command.Actor.Organization.OrganizationId,
                     command.ActivityId,
@@ -89,7 +95,26 @@ public sealed class EnrollmentCoordinator(
                     EnrollmentStates.Active,
                     EnrollmentReasonCodes.RestrictionRemoved,
                     command.Actor);
-                await enrollments.InsertAsync(created.Value, enrollmentEvent, transaction, cancellationToken);
+                try
+                {
+                    await enrollments.InsertAsync(created.Value, enrollmentEvent, transaction, cancellationToken);
+                }
+                catch (EnrollmentLiveUniquenessException)
+                {
+                    var raced = await enrollments.FindLiveForParticipantAsync(
+                        command.Actor.Organization.OrganizationId,
+                        command.ActivityId,
+                        command.ParticipantActorId,
+                        transaction,
+                        cancellationToken);
+                    if (raced is not null && raced.CohortId == command.CohortId)
+                    {
+                        return Success(raced, EnrollmentOutcomes.Deduplicated, command.Actor.GrantedActions);
+                    }
+
+                    return Fail(EnrollmentFailureCodes.Conflict);
+                }
+
                 await audit.WriteAvailabilityAsync(created.Value, command.Actor, transaction, cancellationToken);
                 return Success(created.Value, EnrollmentOutcomes.Assigned, command.Actor.GrantedActions);
             },
@@ -164,7 +189,15 @@ public sealed class EnrollmentCoordinator(
                     transitioned.Value.Status,
                     command.ReasonCode,
                     command.Actor);
-                await enrollments.UpdateAsync(transitioned.Value, enrollmentEvent, transaction, cancellationToken);
+                try
+                {
+                    await enrollments.UpdateAsync(transitioned.Value, enrollmentEvent, transaction, cancellationToken);
+                }
+                catch (EnrollmentStaleRevisionException)
+                {
+                    return Fail(EnrollmentFailureCodes.StaleRevision);
+                }
+
                 return Success(transitioned.Value, transitioned.OutcomeCode, command.Actor.GrantedActions);
             },
             cancellationToken);
@@ -284,7 +317,9 @@ public sealed class EnrollmentCoordinator(
                 cohortId,
                 transaction,
                 cancellationToken);
-            if (binding is null || binding.CohortState != "activated")
+            if (binding is null
+                || binding.CohortState != "activated"
+                || (operationKind == EnrollmentOperationKinds.Assign && binding.VerificationDegraded))
             {
                 return Fail(EnrollmentFailureCodes.Unavailable);
             }
@@ -325,11 +360,16 @@ public sealed class EnrollmentCoordinator(
                     cancellationToken);
             }
 
+            var auditResourceId = outcome.EnrollmentId ?? resourceId;
+            var auditResourceType = outcome.EnrollmentId is not null
+                || operationKind != EnrollmentOperationKinds.Assign
+                    ? EnrollmentResourceTypes.Enrollment
+                    : EnrollmentResourceTypes.Cohort;
             await audit.WriteRequiredDurableAsync(
                 actor,
                 action,
-                resourceId,
-                EnrollmentResourceTypes.Enrollment,
+                auditResourceId,
+                auditResourceType,
                 outcome.Succeeded ? AuthorizationOutcomes.Permit : AuthorizationOutcomes.Deny,
                 outcome.Succeeded ? null : outcome.OutcomeCode,
                 reauthorized,
@@ -346,6 +386,14 @@ public sealed class EnrollmentCoordinator(
         catch (EnrollmentAuditUnavailableException)
         {
             return Fail(EnrollmentFailureCodes.AuditUnavailable);
+        }
+        catch (EnrollmentStaleRevisionException)
+        {
+            return Fail(EnrollmentFailureCodes.StaleRevision);
+        }
+        catch (EnrollmentLiveUniquenessException)
+        {
+            return Fail(EnrollmentFailureCodes.Conflict);
         }
     }
 
@@ -387,3 +435,7 @@ public sealed class EnrollmentCoordinator(
 }
 
 public sealed class EnrollmentAuditUnavailableException : Exception;
+
+public sealed class EnrollmentStaleRevisionException : Exception;
+
+public sealed class EnrollmentLiveUniquenessException : Exception;

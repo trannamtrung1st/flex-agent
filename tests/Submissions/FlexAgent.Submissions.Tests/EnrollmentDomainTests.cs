@@ -279,6 +279,46 @@ public sealed class EnrollmentDomainTests
     }
 
     [Fact]
+    public async Task Degraded_activation_verification_fails_assignment()
+    {
+        var harness = CreateHarness();
+        harness.Cohorts.Binding = Binding() with { VerificationDegraded = true };
+        var result = await harness.Coordinator.AssignAsync(AssignCommand("key-degraded"), TestContext.Current.CancellationToken);
+        Assert.False(result.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Unavailable, result.OutcomeCode);
+        Assert.Empty(harness.Store.Items);
+    }
+
+    [Fact]
+    public async Task Successful_assignment_audits_the_created_enrollment()
+    {
+        var harness = CreateHarness();
+        var assigned = await harness.Coordinator.AssignAsync(AssignCommand("key-audit"), TestContext.Current.CancellationToken);
+        Assert.True(assigned.Succeeded);
+        Assert.Equal(assigned.EnrollmentId, harness.Audit.LastResourceId);
+        Assert.Equal(EnrollmentResourceTypes.Enrollment, harness.Audit.LastResourceType);
+    }
+
+    [Fact]
+    public async Task Zero_row_lifecycle_update_returns_stale_revision()
+    {
+        var harness = CreateHarness();
+        var assigned = await harness.Coordinator.AssignAsync(AssignCommand("key-stale"), TestContext.Current.CancellationToken);
+        harness.Store.ForceStaleUpdate = true;
+        var result = await harness.Coordinator.MutateAsync(
+            LifecycleCommand(
+                EnrollmentOperationKinds.Suspend,
+                EnrollmentReasonCodes.TemporaryRestriction,
+                assigned.EnrollmentId!.Value,
+                assigned.Revision!.Value,
+                "suspend-stale"),
+            TestContext.Current.CancellationToken);
+        Assert.False(result.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.StaleRevision, result.OutcomeCode);
+        Assert.Equal(EnrollmentStates.Active, harness.Store.Items[0].Status);
+    }
+
+    [Fact]
     public void Command_digest_changes_when_participant_or_reason_changes()
     {
         var first = EnrollmentCommandDigest.Compute(
@@ -341,7 +381,7 @@ public sealed class EnrollmentDomainTests
             unitOfWork,
             new FixedEnrollmentClock(Now));
         var queries = new EnrollmentQueryService(authorization, cohorts, candidates, store);
-        return new Harness(coordinator, queries, store, authorization, cohorts, unitOfWork);
+        return new Harness(coordinator, queries, store, authorization, cohorts, unitOfWork, audit);
     }
 
     private static AssignEnrollmentCommand AssignCommand(string key, Guid? cohortId = null)
@@ -444,5 +484,6 @@ public sealed class EnrollmentDomainTests
         InMemoryEnrollmentStore Store,
         AllowEnrollmentAuthorizationPort Authorization,
         FixedActivatedCohortPort Cohorts,
-        InMemoryEnrollmentUnitOfWork UnitOfWork);
+        InMemoryEnrollmentUnitOfWork UnitOfWork,
+        RecordingEnrollmentAuditPort Audit);
 }

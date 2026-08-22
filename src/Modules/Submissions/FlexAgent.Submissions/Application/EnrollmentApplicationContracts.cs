@@ -267,6 +267,13 @@ public interface IEnrollmentOperationStore
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken);
 
+    Task AcquireLiveParticipantLockAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid participantActorId,
+        IEnrollmentTransaction transaction,
+        CancellationToken cancellationToken);
+
     Task<EnrollmentOperation?> FindAsync(
         Guid organizationId,
         Guid actorId,

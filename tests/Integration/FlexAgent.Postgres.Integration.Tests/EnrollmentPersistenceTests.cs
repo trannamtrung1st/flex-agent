@@ -87,6 +87,103 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
     }
 
     [Fact]
+    public async Task Concurrent_same_cohort_assignments_deduplicate()
+    {
+        var harness = await SeedActivatedAsync();
+        var results = await Task.WhenAll(
+            harness.Coordinator.AssignAsync(harness.AssignCommand("assign-race-a"), CancellationToken),
+            harness.Coordinator.AssignAsync(harness.AssignCommand("assign-race-b"), CancellationToken));
+
+        Assert.All(results, result => Assert.True(result.Succeeded, result.OutcomeCode));
+        Assert.Equal(results[0].EnrollmentId, results[1].EnrollmentId);
+        Assert.Contains(results, result => result.OutcomeCode == EnrollmentOutcomes.Assigned);
+        Assert.Contains(results, result => result.OutcomeCode is EnrollmentOutcomes.Assigned or EnrollmentOutcomes.Deduplicated);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var count = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM submissions_enrollments
+            WHERE organization_id = @OrganizationId AND activity_id = @ActivityId
+            """,
+            new { harness.OrganizationId, harness.ActivityId });
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public async Task Concurrent_different_cohort_assignments_conflict_without_a_500()
+    {
+        var harness = await SeedActivatedAsync();
+        var otherCohortId = await CloneActivatedCohortAsync(harness);
+        var first = harness.Coordinator.AssignAsync(harness.AssignCommand("assign-a"), CancellationToken);
+        var second = harness.Coordinator.AssignAsync(
+            harness.AssignCommand("assign-b", otherCohortId),
+            CancellationToken);
+        var results = await Task.WhenAll(first, second);
+
+        Assert.Contains(results, result => result.Succeeded && result.OutcomeCode == EnrollmentOutcomes.Assigned);
+        Assert.Contains(results, result => !result.Succeeded && result.OutcomeCode == EnrollmentFailureCodes.Conflict);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var count = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM submissions_enrollments
+            WHERE organization_id = @OrganizationId
+              AND activity_id = @ActivityId
+              AND status IN ('active', 'suspended')
+            """,
+            new { harness.OrganizationId, harness.ActivityId });
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public async Task Concurrent_lifecycle_commands_return_stale_revision_instead_of_500()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-1"), CancellationToken);
+        Assert.True(assigned.Succeeded, assigned.OutcomeCode);
+        var results = await Task.WhenAll(
+            harness.Coordinator.MutateAsync(
+                harness.LifecycleCommand(
+                    EnrollmentOperationKinds.Suspend,
+                    EnrollmentReasonCodes.TemporaryRestriction,
+                    assigned.EnrollmentId!.Value,
+                    assigned.Revision!.Value,
+                    "suspend-a"),
+                CancellationToken),
+            harness.Coordinator.MutateAsync(
+                harness.LifecycleCommand(
+                    EnrollmentOperationKinds.Suspend,
+                    EnrollmentReasonCodes.TemporaryRestriction,
+                    assigned.EnrollmentId.Value,
+                    assigned.Revision.Value,
+                    "suspend-b"),
+                CancellationToken));
+
+        Assert.Contains(results, result => result.Succeeded && result.OutcomeCode == EnrollmentOutcomes.Suspended);
+        Assert.Contains(results, result => !result.Succeeded && result.OutcomeCode == EnrollmentFailureCodes.StaleRevision);
+    }
+
+    [Fact]
+    public async Task Degraded_baseline_verification_fails_assignment()
+    {
+        var harness = await SeedActivatedAsync();
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE configuration_source_readiness_descriptors
+                SET lifecycle_state = 'revoked'
+                WHERE organization_id = @OrganizationId
+                """,
+                new { harness.OrganizationId });
+        }
+
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-degraded"), CancellationToken);
+        Assert.False(assigned.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Unavailable, assigned.OutcomeCode);
+    }
+
+    [Fact]
     public async Task History_rejects_updates()
     {
         var harness = await SeedActivatedAsync();
@@ -102,6 +199,47 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
         Assert.Contains("append-only", thrown.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    private async Task<Guid> CloneActivatedCohortAsync(EnrollmentHarness harness)
+    {
+        var otherCohortId = Guid.CreateVersion7();
+        var otherBaselineId = Guid.CreateVersion7();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO assessment_activation_baselines (
+                organization_id, activity_id, baseline_id, content_digest, procedure_id,
+                schema_version, canonicalization_version, document, created_at,
+                actor_id, correlation_id)
+            SELECT organization_id, activity_id, @OtherBaselineId, content_digest, procedure_id,
+                   schema_version, canonicalization_version, document, CLOCK_TIMESTAMP(),
+                   actor_id, correlation_id
+            FROM assessment_activation_baselines
+            WHERE organization_id = @OrganizationId AND activity_id = @ActivityId
+            LIMIT 1;
+
+            INSERT INTO assessment_cohorts (
+                organization_id, activity_id, cohort_id, state, bound_revision_id,
+                bound_revision_number, created_at, updated_at)
+            SELECT organization_id, activity_id, @OtherCohortId, state, bound_revision_id,
+                   bound_revision_number, CLOCK_TIMESTAMP(), CLOCK_TIMESTAMP()
+            FROM assessment_cohorts
+            WHERE organization_id = @OrganizationId AND activity_id = @ActivityId AND cohort_id = @CohortId;
+
+            INSERT INTO assessment_cohort_baseline_bindings (
+                organization_id, activity_id, cohort_id, baseline_id, bound_at)
+            VALUES (@OrganizationId, @ActivityId, @OtherCohortId, @OtherBaselineId, CLOCK_TIMESTAMP());
+            """,
+            new
+            {
+                harness.OrganizationId,
+                harness.ActivityId,
+                harness.CohortId,
+                OtherCohortId = otherCohortId,
+                OtherBaselineId = otherBaselineId,
+            });
+        return otherCohortId;
+    }
+
     private async Task<EnrollmentHarness> SeedActivatedAsync()
     {
         var seeded = await Fixture.SeedOrganizationAsync();
@@ -113,6 +251,7 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
                      AssessmentAuthorizationActions.SaveActivity,
                      AssessmentAuthorizationActions.ActivateCohort,
                      EnrollmentAuthorizationActions.Assign,
+                     EnrollmentAuthorizationActions.Suspend,
                      EnrollmentAuthorizationActions.Close,
                      EnrollmentAuthorizationActions.Read,
                      EnrollmentAuthorizationActions.List,
@@ -265,13 +404,20 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
             "https",
             [
                 EnrollmentAuthorizationActions.Assign,
+                EnrollmentAuthorizationActions.Suspend,
                 EnrollmentAuthorizationActions.Close,
                 EnrollmentAuthorizationActions.List,
                 EnrollmentAuthorizationActions.Read,
             ]);
         var coordinator = new EnrollmentCoordinator(
             new KernelEnrollmentAuthorizationPort(kernel, kernel),
-            new AssessmentActivatedCohortPort(new PostgresActivatedCohortBindingReader(connections)),
+            new AssessmentActivatedCohortPort(
+                new PostgresActivatedCohortBindingReader(
+                    connections,
+                    store,
+                    catalog,
+                    new PostgresAssessmentBaselineStore(connections, new PostgresAuditEventWriter(), new PostgresOutboxItemWriter()),
+                    new ActivationBaselineDigester())),
             new IdentityEnrollmentCandidatePort(new PostgresHumanDisplayProfileDirectory(connections)),
             new PostgresEnrollmentStore(connections),
             new PostgresEnrollmentOperationStore(),
@@ -296,18 +442,18 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
         Guid ParticipantId,
         string? BaselineDigest)
     {
-        public AssignEnrollmentCommand AssignCommand(string key) =>
+        public AssignEnrollmentCommand AssignCommand(string key, Guid? cohortId = null) =>
             new(
                 Actor,
                 ActivityId,
-                CohortId,
+                cohortId ?? CohortId,
                 ParticipantId,
                 key,
                 EnrollmentCommandDigest.Compute(
                     EnrollmentOperationKinds.Assign,
                     OrganizationId,
                     ActivityId,
-                    CohortId,
+                    cohortId ?? CohortId,
                     null,
                     ParticipantId,
                     null,

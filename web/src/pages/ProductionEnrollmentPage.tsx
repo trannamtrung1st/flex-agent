@@ -1,7 +1,11 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useProductionApi } from "../api/production-api";
-import { createProductionEnrollmentClient, type EnrollmentSummaryV1 } from "../api/production-enrollment";
+import {
+  createEnrollmentIdempotencyKey,
+  createProductionEnrollmentClient,
+  type EnrollmentSummaryV1,
+} from "../api/production-enrollment";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { Dialog } from "../components/ui/Dialog";
@@ -28,6 +32,8 @@ export function ProductionEnrollmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ enrollment: EnrollmentSummaryV1; operation: keyof typeof reasonFor } | null>(null);
+  const assignKeyRef = useRef<string | null>(null);
+  const lifecycleKeyRef = useRef<string | null>(null);
   const headingId = useId();
 
   useEffect(() => {
@@ -103,14 +109,20 @@ export function ProductionEnrollmentPage() {
               disabled={!selected || pending !== null}
               onClick={() => {
                 setPending("assign");
-                client.assign(activityId, cohortId, selected)
+                const key = assignKeyRef.current ?? createEnrollmentIdempotencyKey();
+                assignKeyRef.current = key;
+                client.assign(activityId, cohortId, selected, key)
                   .then(async (outcome) => {
                     if (!outcome.succeeded) {
+                      if (outcome.outcome_code === "enrollment.conflict" || outcome.outcome_code === "enrollment.unavailable") {
+                        assignKeyRef.current = null;
+                      }
                       setError(outcome.outcome_code === "enrollment.conflict"
                         ? "This Participant already has a live Enrollment in another Cohort."
                         : "The assignment could not be completed.");
                       return;
                     }
+                    assignKeyRef.current = null;
                     setStatus(outcome.outcome_code === "enrollment.assignment.deduplicated"
                       ? "This Participant is already assigned to this Cohort."
                       : "Participant assigned.");
@@ -172,6 +184,8 @@ export function ProductionEnrollmentPage() {
             return;
           }
           setPending(current.operation);
+          const key = lifecycleKeyRef.current ?? createEnrollmentIdempotencyKey();
+          lifecycleKeyRef.current = key;
           client.mutate(
             activityId,
             cohortId,
@@ -179,12 +193,21 @@ export function ProductionEnrollmentPage() {
             current.operation,
             reasonFor[current.operation],
             current.enrollment.revision,
+            key,
           )
             .then(async (outcome) => {
               if (!outcome.succeeded) {
+                if (outcome.outcome_code === "enrollment.stale_revision") {
+                  lifecycleKeyRef.current = null;
+                  setEnrollments((await client.listEnrollments(activityId, cohortId)).items);
+                  setConfirm(null);
+                  setError("This Enrollment changed. Review the current state before trying again.");
+                  return;
+                }
                 setError("The Enrollment could not be updated.");
                 return;
               }
+              lifecycleKeyRef.current = null;
               setStatus("Enrollment updated.");
               setEnrollments((await client.listEnrollments(activityId, cohortId)).items);
               setConfirm(null);
