@@ -495,9 +495,14 @@ not be marked implemented by this task.
 - [x] Review remediation 8: require the Enrollment actor on
   `IEnrollmentUnitOfWork.ExecuteAsync` and confirm session liveness from that
   argument so callers cannot skip the pre-commit check.
-- [>] Remaining verification: administrator assign/lifecycle Playwright,
-  remaining HTTP/collaboration negatives, latency measurement, full
-  solution/OCI gates, and independent review.
+- [x] Remaining verification progressed: live administrator create/activate/
+  assign/suspend/restore Playwright; participant populated My work list/detail
+  after login return to `/my-work`; tampered-cursor fail-closed tests; one
+  PostgreSQL assignment latency bound; focused architecture/domain/HTTP/web
+  suites. Full solution/OCI gates, per-actor rate limits, 50 ms authorization
+  p95, 400% zoom, and independent review remain open.
+- [>] Closeout: record evidence, self-review residuals, keep the task
+  in-progress for independent review and remaining gates.
 
 # Planned verification command set
 
@@ -544,8 +549,13 @@ independent shell destinations. Do not make further architectural changes
 to this subsystem unless a new test exposes a concrete defect. The task
 stays **in-progress** for remaining verification only.
 
-Reconfirmed on 2026-08-23 after that review. Focused green remains domain
-29, architecture 41, Enrollment HTTP 5, Enrollment PostgreSQL 17.
+Confirmed again on 2026-08-23 before commit: domain 31, Enrollment HTTP 6,
+and ProductionEnrollmentPage 4 still pass; live `/my-work` still shows the
+assigned Enrollment. Focused green remains architecture 41 and Enrollment
+PostgreSQL 18 from the prior pass.
+An overflow list cursor (`long.MaxValue` ticks) is now rejected as
+`enrollment.invalid_field` instead of throwing. Live Participant My work
+still shows the assigned Enrollment after reload.
 In-memory concurrent snapshot isolation remains a known fake-only P3 and
 is not treated as an MVP blocker. Shell bootstrap no longer applies
 administrator MFA globally.
@@ -593,10 +603,23 @@ A null-cursor PostgreSQL type error that returned HTTP 500 on first My work
 read was fixed (`AfterTime`/`AfterId` now have explicit `DbType`s). Denied
 Activities now stays inside the shell so Home/My work remain reachable.
 
-What remains: administrator assign/lifecycle Playwright (no pre-seeded
-activated Cohort), full HTTP/collaboration/latency matrices, the new empty
-list persistence test against real PostgreSQL, full solution/OCI gates, and
-independent review.
+The Playwright blocker is cleared without seeding Assessment tables: an
+administrator created and activated a Campaign in the live profile, then
+assigned, suspended, and restored Synthetic Participant. After application
+and Keycloak logout, a Participant login from `/my-work` returned to
+populated My work list/detail. Independent shell destinations held:
+administrator saw Home/Activities; Participant saw Home/My work.
+
+This pass also fail-closed tampered Enrollment/My work cursors
+(`enrollment.invalid_field`, HTTP 400, `no-store`) instead of restarting
+the first page, unified in-memory/PostgreSQL cursor encoding, and corrected
+suspend confirmation copy so it no longer describes a terminal My work
+removal. A PostgreSQL assignment completed inside the documented 2 s
+synchronous bound.
+
+What remains: per-actor/Organization rate limits, measured 50 ms
+authorization p95, 400% zoom/keyboard matrix, full `FlexAgent.slnx` and
+OCI/SBOM gates, and independent backend/frontend/security review.
 
 # Decisions
 
@@ -665,6 +688,20 @@ independent review.
 
 # Findings / deviations
 
+- Consistency review 2026-08-23: focused suites remain green. Overflow
+  cursor ticks are rejected. Candidate-list tamper still returns an empty
+  page (IdentityAccess Guid cursor) rather than `enrollment.invalid_field`.
+  The running SPA image still has the pre-fix suspend sentence until
+  rebuild. Remaining residuals: raw UUID breadcrumbs, no in-shell sign-out,
+  no per-actor rate limit, no 50 ms authorization p95, no 400% zoom, and
+  no independent review.
+- Self-review 2026-08-23: tampered list cursors previously treated parse
+  failure as a first page. Fixed at the query boundary. Suspend confirmation
+  previously claimed terminal My work removal; copy now distinguishes
+  suspend/restore from close/revoke. Remaining residuals: raw UUID
+  breadcrumbs, no in-shell sign-out, cramped desktop assign control row,
+  no per-actor rate limit, no 50 ms authorization p95, no 400% zoom
+  evidence, and no independent review.
 - Review of `073e4f1`: no new material findings. Session/transaction
   architecture is complete for this slice. Remaining work is Playwright,
   HTTP-negative, latency, full solution/OCI, and independent review.
@@ -700,9 +737,9 @@ independent review.
 - Participant destination denial previously replaced the entire shell, so a
   Participant who landed on `/activities` could not reach **My work**. Denied
   destinations now render inside the shell with a Home recovery link.
-- Login from `/` still landed on `/activities` in the live profile. The
-  destination is now recoverable; the default post-login path still needs a
-  follow-up if it is not the requested same-origin return path.
+- Login from `/my-work` returned to `/my-work` for the Participant. Login from
+  `/` as an administrator still lands on Activities when that destination is
+  available; that is the existing administrator default, not a Participant leak.
 - The current production setup deliberately says **Assign Participants** is
   omitted; the approved UI journey requires that action once a separately
   authorized production Enrollment destination exists.
@@ -755,21 +792,21 @@ independent review.
 | `python3 scripts/check_docs.py` | passed | Documentation validation passed on 2026-08-22. |
 | whitespace/diff validation | passed | `git diff --check` passed; direct `git diff --no-index --check` on the untracked task file produced no whitespace diagnostics (its status `1` is the expected no-index difference result). |
 | Secret scan | passed | `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` found no leaks during the readiness review. |
-| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 29 passed, including stale-session denial, expiry after the early lock for assign and lifecycle, expiry after a replay Enrollment read, pre-commit expiry denial with empty Enrollment/event/operation/audit state, required-actor confirmation on a direct unit-of-work call, and lifecycle Enrollment resource-type authorization. |
-| Architecture/contract tests | passed | Architecture 41 passed, including `Submissions_infrastructure_does_not_query_identity_application_sessions`. Earlier contract catalog 100 remains from `f1a6b44`; this pass did not change schemas. |
-| PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 17 passed, including source/eligibility/session revocation races, session-expiry during a held Assessment lock, session-expiry during a held Enrollment replay read (`enrollment.denied`), outbox-lock expiry that rolls back after writes, profile-deletion race (`enrollment.ineligible`), and fail-closed invalid commit-transaction handles. Full suite/OCI still open. |
-| Runtime/API authorization and HTTP-negative tests | mixed | `EnrollmentHttpNegativeContractTests` 5 passed (CSRF, unauthenticated My work `no-store`, guessed detail concealment, unknown member, oversized body). `AssessmentHttpNegativeContractTests` 20 passed, including independent shell destinations for administrator-without-MFA, reviewer-without-MFA, and dual-capability without administrator MFA. Cursor tampering, replay-after-revoke, and rate-limit cases remain. |
-| React component/accessibility tests | mixed | Focused vitest 7 passed, including retained lifecycle key and a new assign key after the selected Participant changes. `pnpm --filter @flex-agent/web typecheck` passed. Keyboard/400% not covered. |
-| Authenticated Playwright MCP desktop/narrow/both-theme evidence | mixed | Rebuilt profile. Participant empty **My work**: `.playwright-mcp/page-2026-08-22T07-21-45-872Z.png` (desktop light), `.playwright-mcp/page-2026-08-22T07-21-58-086Z.png` (desktop dark), `.playwright-mcp/page-2026-08-22T07-22-09-933Z.png` (narrow 390 dark). Administrator assign/lifecycle, populated/suspended/unavailable, and 400% screenshots were not captured. |
-| Full regression, security, supply-chain, and performance gates | mixed | `python3 scripts/check_docs.py` passed; `git diff --check` passed; `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` found no leaks. Full `dotnet test --solution FlexAgent.slnx`, web build, OCI/SBOM, and p95 latency were not run. |
+| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 31 passed, including tampered and overflow My work cursors. |
+| Architecture/contract tests | passed | Architecture 41 passed. This pass did not change schemas. |
+| PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 18 passed, including empty current list and `Assignment_completes_within_the_documented_synchronous_bound` (under 2 s). Full suite/OCI still open. |
+| Runtime/API authorization and HTTP-negative tests | mixed | `EnrollmentHttpNegativeContractTests` 6 passed, including tampered My work cursor → 400 `enrollment.invalid_field` and `no-store`. Domain replay-after-revoke already exists. Per-actor rate-limit HTTP cases remain because the gateway/app limiter is not implemented. |
+| React component/accessibility tests | mixed | `ProductionEnrollmentPage.test.tsx` 4 passed, including honest suspend confirmation copy. `pnpm --filter @flex-agent/web typecheck` passed. Keyboard/400% not covered. |
+| Authenticated Playwright MCP desktop/narrow/both-theme evidence | mixed | Live profile at `http://localhost:18080`. Administrator empty assign: `.playwright-mcp/page-2026-08-22T17-11-13-250Z.png`. Assignment success: `.playwright-mcp/page-2026-08-22T17-11-35-754Z.png`. Suspend confirm: `.playwright-mcp/page-2026-08-22T17-11-58-222Z.png`. Suspended list: `.playwright-mcp/page-2026-08-22T17-12-37-201Z.png`. Restored active: `.playwright-mcp/page-2026-08-22T17-13-07-918Z.png`. Dark desktop: `.playwright-mcp/page-2026-08-22T17-13-54-571Z.png`. Narrow 390 dark assign: `.playwright-mcp/page-2026-08-22T17-14-13-248Z.png`. Participant populated My work: `.playwright-mcp/page-2026-08-22T17-15-43-086Z.png`. Assignment detail desktop: `.playwright-mcp/page-2026-08-22T17-15-58-472Z.png`. Narrow detail: `.playwright-mcp/page-2026-08-22T17-16-29-301Z.png`. 400% not captured. Live SPA still has the old suspend sentence until rebuild. |
+| Full regression, security, supply-chain, and performance gates | mixed | `python3 scripts/check_docs.py` passed; `git diff --check` passed after removing an extra EOF blank line. `gitleaks detect` warned about 4 historical findings and did not add Enrollment credentials. Full `dotnet test --solution FlexAgent.slnx`, OCI/SBOM, and authorization p95 were not run. |
 
 # Blockers
 
-- Administrator assignment and lifecycle Playwright is blocked on the lack of
-  a pre-seeded activated Cohort in the authenticated profile. Creating and
-  activating a Campaign through the UI was not completed in this session.
-- Per-actor/org rate limits and measured 50 ms / 2 s p95 latency remain
-  unverified. No independent backend/frontend/security review has run.
+- Per-actor/Organization request limits are specified for this slice and are
+  not implemented. Coarse gateway limits and a 50 ms in-service authorization
+  p95 remain unverified. This is a remaining verification/product-ops gap, not
+  a Playwright blocker.
+- Independent backend, frontend, and security/privacy review has not run.
 
 # Completion
 

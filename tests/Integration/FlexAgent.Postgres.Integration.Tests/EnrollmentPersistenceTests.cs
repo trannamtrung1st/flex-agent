@@ -88,6 +88,17 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
     }
 
     [Fact]
+    public async Task Assignment_completes_within_the_documented_synchronous_bound()
+    {
+        var harness = await SeedActivatedAsync();
+        var started = DateTimeOffset.UtcNow;
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-latency"), CancellationToken);
+        var elapsed = DateTimeOffset.UtcNow - started;
+        Assert.True(assigned.Succeeded, assigned.OutcomeCode);
+        Assert.True(elapsed.TotalSeconds <= 2, $"assignment took {elapsed.TotalMilliseconds} ms");
+    }
+
+    [Fact]
     public async Task Concurrent_same_cohort_assignments_deduplicate()
     {
         var harness = await SeedActivatedAsync();

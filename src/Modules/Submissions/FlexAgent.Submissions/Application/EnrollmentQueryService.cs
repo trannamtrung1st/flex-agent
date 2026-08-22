@@ -61,6 +61,11 @@ public sealed class EnrollmentQueryService(
             return EnrollmentDecision<CursorPage<EnrollmentSummary>>.Fail(denied);
         }
 
+        if (!EnrollmentListCursor.TryParse(cursor, out _, out _))
+        {
+            return EnrollmentDecision<CursorPage<EnrollmentSummary>>.Fail(EnrollmentFailureCodes.InvalidField);
+        }
+
         var page = await enrollments.ListForCohortAsync(
             actor.Organization.OrganizationId,
             activityId,
@@ -133,6 +138,11 @@ public sealed class EnrollmentQueryService(
         if (denied is not null)
         {
             return EnrollmentDecision<CursorPage<AssignmentSummary>>.Fail(denied);
+        }
+
+        if (!EnrollmentListCursor.TryParse(cursor, out _, out _))
+        {
+            return EnrollmentDecision<CursorPage<AssignmentSummary>>.Fail(EnrollmentFailureCodes.InvalidField);
         }
 
         var page = await enrollments.ListCurrentForParticipantAsync(

@@ -192,6 +192,7 @@ describe("ProductionEnrollmentPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
     expect(screen.getByRole("heading", { name: "Suspend this Enrollment?" })).toBeInTheDocument();
+    expect(screen.getByText(/The Participant will still see this Assignment as Suspended/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Confirm suspend" }));
     expect(await screen.findByText("Enrollment updated.")).toBeInTheDocument();
   });

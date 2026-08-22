@@ -246,7 +246,11 @@ export function ProductionEnrollmentPage() {
         {confirm ? (
           <p>
             This changes {confirm.enrollment.display_label} to {confirm.operation} with reason {reasonFor[confirm.operation]}.
-            Terminal changes keep history and remove the Assignment from current My work.
+            {confirm.operation === "close" || confirm.operation === "revoke"
+              ? " This terminal change keeps history and removes the Assignment from current My work."
+              : confirm.operation === "suspend"
+                ? " The Participant will still see this Assignment as Suspended, without Open assignment."
+                : " The Participant will see this Assignment as Active again."}
           </p>
         ) : null}
       </Dialog>

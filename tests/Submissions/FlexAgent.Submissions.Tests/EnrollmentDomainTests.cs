@@ -251,6 +251,42 @@ public sealed class EnrollmentDomainTests
     }
 
     [Fact]
+    public async Task Tampered_my_work_cursor_is_rejected_without_listing()
+    {
+        var harness = CreateHarness();
+        await harness.Coordinator.AssignAsync(AssignCommand("key-cursor"), TestContext.Current.CancellationToken);
+
+        var page = await harness.Queries.ListMyWorkAsync(
+            ParticipantContext(),
+            "not-a-cursor",
+            20,
+            TestContext.Current.CancellationToken);
+
+        Assert.False(page.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.InvalidField, page.OutcomeCode);
+        Assert.Null(page.Value);
+    }
+
+    [Fact]
+    public async Task Overflow_my_work_cursor_is_rejected_without_listing()
+    {
+        var harness = CreateHarness();
+        await harness.Coordinator.AssignAsync(AssignCommand("key-cursor-overflow"), TestContext.Current.CancellationToken);
+        var overflow = Convert.ToBase64String(
+            System.Text.Encoding.UTF8.GetBytes($"{long.MaxValue}:{Guid.CreateVersion7():D}"));
+
+        var page = await harness.Queries.ListMyWorkAsync(
+            ParticipantContext(),
+            overflow,
+            20,
+            TestContext.Current.CancellationToken);
+
+        Assert.False(page.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.InvalidField, page.OutcomeCode);
+        Assert.Null(page.Value);
+    }
+
+    [Fact]
     public async Task Closed_assignment_is_unavailable_to_the_participant()
     {
         var harness = CreateHarness();

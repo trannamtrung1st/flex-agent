@@ -7,6 +7,7 @@ using FlexAgent.Api;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.IdentityAccess.Infrastructure;
+using FlexAgent.Submissions.Application;
 using FlexAgent.Submissions.Domain;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -45,6 +46,21 @@ public sealed class EnrollmentHttpNegativeContractTests
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Contains(HumanAuthenticationReasonCodes.MissingSession, body, StringComparison.Ordinal);
+        AssertNoAssignment(body);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
+    public async Task Tampered_my_work_cursor_is_invalid_and_not_cached()
+    {
+        await using var context = await LoginAsync(permitEnrollment: true);
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/assessment/my-work?cursor=not-a-cursor");
+        request.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        using var response = await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(EnrollmentFailureCodes.InvalidField, body, StringComparison.Ordinal);
         AssertNoAssignment(body);
         Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
     }
@@ -111,11 +127,11 @@ public sealed class EnrollmentHttpNegativeContractTests
             StringComparison.Ordinal);
     }
 
-    private static async Task<LoggedInContext> LoginAsync()
+    private static async Task<LoggedInContext> LoginAsync(bool permitEnrollment = false)
     {
         var rsa = RSA.Create(2048);
         var tokens = new FakeOidcAuthorizationClient();
-        var factory = CreateFactory(rsa, tokens);
+        var factory = CreateFactory(rsa, tokens, permitEnrollment);
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         SeedBinding(factory);
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -159,7 +175,8 @@ public sealed class EnrollmentHttpNegativeContractTests
 
     private static WebApplicationFactory<ApiProgram> CreateFactory(
         RSA? rsa = null,
-        FakeOidcAuthorizationClient? tokens = null)
+        FakeOidcAuthorizationClient? tokens = null,
+        bool permitEnrollment = false)
     {
         rsa ??= RSA.Create(2048);
         tokens ??= new FakeOidcAuthorizationClient();
@@ -180,6 +197,10 @@ public sealed class EnrollmentHttpNegativeContractTests
             {
                 services.AddSingleton<IOidcAuthorizationClient>(tokens);
                 services.AddSingleton<IJwksKeySource>(new StaticJwksKeySource(keys));
+                if (permitEnrollment)
+                {
+                    services.AddSingleton<IEnrollmentAuthorizationPort>(_ => new AllowEnrollmentAuthorizationPort { Permit = true });
+                }
             });
         });
     }

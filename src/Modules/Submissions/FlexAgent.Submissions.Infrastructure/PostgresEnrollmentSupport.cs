@@ -348,7 +348,10 @@ public sealed class PostgresEnrollmentStore(PostgresConnectionAccessor connectio
         CancellationToken cancellationToken)
     {
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-        EnrollmentCursor.TryParse(cursor, out var afterTime, out var afterId);
+        if (!EnrollmentListCursor.TryParse(cursor, out var afterTime, out var afterId))
+        {
+            return new CursorPage<Enrollment>([], null, false);
+        }
         var dynamicParameters = new DynamicParameters(parameters);
         dynamicParameters.Add("AfterTime", afterTime, DbType.DateTimeOffset);
         dynamicParameters.Add("AfterId", afterId, DbType.Guid);
@@ -369,7 +372,7 @@ public sealed class PostgresEnrollmentStore(PostgresConnectionAccessor connectio
         var taken = rows.Take(limit).Select(row => row.ToEnrollment()).ToArray();
         return new CursorPage<Enrollment>(
             taken,
-            hasMore ? EnrollmentCursor.Format(taken[^1].UpdatedAtUtc, taken[^1].EnrollmentId) : null,
+            hasMore ? EnrollmentListCursor.Format(taken[^1].UpdatedAtUtc, taken[^1].EnrollmentId) : null,
             hasMore);
     }
 
@@ -533,40 +536,5 @@ public sealed class PostgresEnrollmentOperationStore : IEnrollmentOperationStore
                 operation,
                 postgres.Scope.Transaction,
                 cancellationToken: cancellationToken));
-    }
-}
-
-internal static class EnrollmentCursor
-{
-    public static string Format(DateTimeOffset updatedAt, Guid enrollmentId) =>
-        Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{updatedAt.UtcTicks}:{enrollmentId:D}"));
-
-    public static bool TryParse(string? cursor, out DateTimeOffset? updatedAt, out Guid? enrollmentId)
-    {
-        updatedAt = null;
-        enrollmentId = null;
-        if (string.IsNullOrWhiteSpace(cursor))
-        {
-            return true;
-        }
-
-        try
-        {
-            var decoded = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
-            var parts = decoded.Split(':', 2);
-            if (parts.Length == 2
-                && long.TryParse(parts[0], out var ticks)
-                && Guid.TryParse(parts[1], out var id))
-            {
-                updatedAt = new DateTimeOffset(ticks, TimeSpan.Zero);
-                enrollmentId = id;
-                return true;
-            }
-        }
-        catch (FormatException)
-        {
-        }
-
-        return false;
     }
 }
