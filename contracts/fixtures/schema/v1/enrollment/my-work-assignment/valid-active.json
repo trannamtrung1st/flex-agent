@@ -1,0 +1,13 @@
+{
+  "enrollment_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  "status": "active",
+  "visibility": "current",
+  "activity_title": "Campaign",
+  "task_title": "Task 1",
+  "time_zone_id": "UTC",
+  "starts_at_utc": "2026-09-01T00:00:00Z",
+  "ends_at_utc": "2026-09-30T23:59:00Z",
+  "deadline_utc": "2026-09-30T17:00:00Z",
+  "summary_available": true,
+  "permitted_actions": ["open_assignment"]
+}

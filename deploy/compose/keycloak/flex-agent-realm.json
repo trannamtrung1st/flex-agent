@@ -76,6 +76,7 @@
       ]
     },
     {
+      "id": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
       "username": "synthetic.participant",
       "enabled": true,
       "email": "synthetic.participant@example.test",

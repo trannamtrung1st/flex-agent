@@ -86,6 +86,7 @@ describe("AssessmentSetupPage", () => {
     expect(await screen.findByRole("heading", { name: "Setup and readiness" })).toBeInTheDocument();
     expect(screen.getByText(/approved reads disabled/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Assign Participants" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Assign Participants" })).not.toBeInTheDocument();
   });
 
   it("requires confirmation before activation", async () => {
@@ -191,6 +192,22 @@ describe("AssessmentSetupPage", () => {
     expect(await screen.findByText("No permitted source revisions are selected.")).toBeInTheDocument();
   });
 
+  it("offers Assign Participants when the activated view returns the action", async () => {
+    renderSetup({
+      ...readyView,
+      has_activated_cohort: true,
+      permitted_actions: ["assign_participants"],
+      baseline_digest: "a".repeat(64),
+      overall_severity: undefined,
+      issues: undefined,
+    });
+    expect(await screen.findByRole("heading", { name: "Cohort activated" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Assign Participants" })).toHaveAttribute(
+      "href",
+      "/activities/act-1/cohorts/cohort-1/participants",
+    );
+  });
+
   it("shows a degraded activated baseline without assignment", async () => {
     renderSetup({
       ...readyView,
@@ -204,6 +221,7 @@ describe("AssessmentSetupPage", () => {
     expect(await screen.findByRole("heading", { name: "Baseline verification is degraded" })).toBeInTheDocument();
     expect(screen.queryByText("Readiness has not been checked for this saved revision.")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Assign Participants" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Assign Participants" })).not.toBeInTheDocument();
   });
 
   it("announces reconciliation after an uncertain activation", async () => {

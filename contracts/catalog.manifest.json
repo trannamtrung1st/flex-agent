@@ -84,6 +84,26 @@
       "category": "iso8601_positive_duration",
       "schema_id": "https://flex-agent.local/contracts/schemas/v1/common/iso8601-positive-duration-fixture.v1.schema.json",
       "fixture_dir": "fixtures/schema/v1/common/iso8601-positive-duration"
+    },
+    {
+      "category": "enrollment_assign_command",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/enrollment/enrollment-assign-command.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/enrollment/enrollment-assign-command"
+    },
+    {
+      "category": "enrollment_lifecycle_command",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/enrollment/enrollment-lifecycle-command.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/enrollment/enrollment-lifecycle-command"
+    },
+    {
+      "category": "enrollment_mutation_outcome",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/enrollment/enrollment-mutation-outcome.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/enrollment/enrollment-mutation-outcome"
+    },
+    {
+      "category": "my_work_assignment",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v1/enrollment/my-work-assignment.v1.schema.json",
+      "fixture_dir": "fixtures/schema/v1/enrollment/my-work-assignment"
     }
   ],
   "digest_schemas": [

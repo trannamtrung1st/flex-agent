@@ -758,17 +758,131 @@ public sealed class PostgresAssessmentRelationshipResolver(PostgresConnectionAcc
                 new { OrganizationId = organizationId, ActorId = actorId },
                 cancellationToken: cancellationToken))).ToArray();
 
-        var relationship = actions.Any(action =>
-                action is AssessmentAuthorizationActions.CreateActivity
-                    or AssessmentAuthorizationActions.SaveActivity
-                    or AssessmentAuthorizationActions.CheckReadiness
-                    or AssessmentAuthorizationActions.ActivateCohort
-                    or AssessmentAuthorizationActions.SelectSources)
+        var relationship = actions.Any(IsAdministratorAction)
             ? AuthenticationStrengthEvaluator.AdministratorRelationship
-            : actions.Length > 0
+            : actions.Any(action => !IsParticipantOnlyAction(action))
                 ? AuthenticationStrengthEvaluator.ReviewerRelationship
                 : string.Empty;
         return new AssessmentActorAuthorization(relationship, actions);
     }
+
+    private static bool IsAdministratorAction(string action) =>
+        action is AssessmentAuthorizationActions.CreateActivity
+            or AssessmentAuthorizationActions.SaveActivity
+            or AssessmentAuthorizationActions.CheckReadiness
+            or AssessmentAuthorizationActions.ActivateCohort
+            or AssessmentAuthorizationActions.SelectSources
+            or "assessment.enrollment.candidate.read"
+            or "assessment.enrollment.list"
+            or "assessment.enrollment.read"
+            or "assessment.enrollment.assign"
+            or "assessment.enrollment.suspend"
+            or "assessment.enrollment.restore"
+            or "assessment.enrollment.close"
+            or "assessment.enrollment.revoke";
+
+    private static bool IsParticipantOnlyAction(string action) =>
+        action is "assessment.assignment.discover" or "assessment.enrollment.receive";
+}
+
+public sealed class PostgresActivatedCohortBindingReader(PostgresConnectionAccessor connections)
+    : IActivatedCohortBindingReader
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    public async Task<ActivatedCohortBindingSnapshot?> GetActivatedAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        object? commitTransaction,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT
+                cohort.organization_id,
+                cohort.activity_id,
+                cohort.cohort_id,
+                bind.baseline_id,
+                baseline.content_digest,
+                cohort.state,
+                revision.title,
+                revision.content::text
+            FROM assessment_cohorts AS cohort
+            INNER JOIN assessment_cohort_baseline_bindings AS bind
+                ON bind.organization_id = cohort.organization_id
+               AND bind.activity_id = cohort.activity_id
+               AND bind.cohort_id = cohort.cohort_id
+            INNER JOIN assessment_activation_baselines AS baseline
+                ON baseline.organization_id = bind.organization_id
+               AND baseline.activity_id = bind.activity_id
+               AND baseline.baseline_id = bind.baseline_id
+            INNER JOIN assessment_activity_revisions AS revision
+                ON revision.organization_id = cohort.organization_id
+               AND revision.activity_id = cohort.activity_id
+               AND revision.revision_id = cohort.bound_revision_id
+            WHERE cohort.organization_id = @OrganizationId
+              AND cohort.activity_id = @ActivityId
+              AND cohort.cohort_id = @CohortId
+              AND cohort.state = 'activated'
+            """;
+        ActivatedCohortRow? row;
+        if (commitTransaction is NpgsqlTransaction npgsql)
+        {
+            row = await npgsql.Connection!.QuerySingleOrDefaultAsync<ActivatedCohortRow>(
+                new CommandDefinition(
+                    sql,
+                    new { OrganizationId = organizationId, ActivityId = activityId, CohortId = cohortId },
+                    npgsql,
+                    cancellationToken: cancellationToken));
+        }
+        else
+        {
+            await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+            row = await connection.QuerySingleOrDefaultAsync<ActivatedCohortRow>(
+                new CommandDefinition(
+                    sql,
+                    new { OrganizationId = organizationId, ActivityId = activityId, CohortId = cohortId },
+                    cancellationToken: cancellationToken));
+        }
+
+        if (row is null)
+        {
+            return null;
+        }
+
+        var content = JsonSerializer.Deserialize<AssessmentDraftContent>(row.Content, JsonOptions);
+        if (content is null)
+        {
+            return null;
+        }
+
+        return new ActivatedCohortBindingSnapshot(
+            row.OrganizationId,
+            row.ActivityId,
+            row.CohortId,
+            row.BaselineId,
+            row.ContentDigest,
+            row.State,
+            content.Task.RequirementSource.SourceId,
+            content.Task.RequirementSource.VersionId,
+            content.Task.RequirementSource.ContentDigest,
+            row.Title,
+            content.Task.Title,
+            content.Timing.TimeZoneId,
+            content.Timing.StartsAtUtc,
+            content.Timing.EndsAtUtc,
+            content.Timing.DeadlineUtc,
+            false);
+    }
+
+    private sealed record ActivatedCohortRow(
+        Guid OrganizationId,
+        Guid ActivityId,
+        Guid CohortId,
+        Guid BaselineId,
+        string ContentDigest,
+        string State,
+        string Title,
+        string Content);
 }
 

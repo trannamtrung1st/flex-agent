@@ -13,6 +13,8 @@
     <Project Path="src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/FlexAgent.Sessions.Infrastructure.csproj" />
       <Project Path="src/Modules/Sessions/FlexAgent.Sessions.OpenAiCompatible/FlexAgent.Sessions.OpenAiCompatible.csproj" />
       <Project Path="src/Modules/Sessions/FlexAgent.Sessions.OpenRouter/FlexAgent.Sessions.OpenRouter.csproj" />
+    <Project Path="src/Modules/Submissions/FlexAgent.Submissions/FlexAgent.Submissions.csproj" />
+    <Project Path="src/Modules/Submissions/FlexAgent.Submissions.Infrastructure/FlexAgent.Submissions.Infrastructure.csproj" />
     <Project Path="src/Modules/SyntheticBrowser/FlexAgent.SyntheticBrowser/FlexAgent.SyntheticBrowser.csproj" />
   </Folder>
   <Folder Name="/tests/">
@@ -23,6 +25,7 @@
     <Project Path="tests/Integration/FlexAgent.Postgres.Integration.Tests/FlexAgent.Postgres.Integration.Tests.csproj" />
     <Project Path="tests/Runtime/FlexAgent.Runtime.Tests/FlexAgent.Runtime.Tests.csproj" />
     <Project Path="tests/Sessions/FlexAgent.Sessions.Tests/FlexAgent.Sessions.Tests.csproj" />
+    <Project Path="tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj" />
       <Project Path="tests/Sessions/FlexAgent.Sessions.OpenAiCompatible.Tests/FlexAgent.Sessions.OpenAiCompatible.Tests.csproj" />
       <Project Path="tests/Sessions/FlexAgent.Sessions.OpenRouter.Tests/FlexAgent.Sessions.OpenRouter.Tests.csproj" />
   </Folder>

@@ -8,6 +8,7 @@ import { ThemeToggle } from "./ThemeToggle";
 const DESTINATION_ROUTES: Record<string, { label: string; route: string }> = {
   home: { label: "Home", route: "/" },
   activities: { label: "Activities", route: "/activities" },
+  "my-work": { label: "My work", route: "/my-work" },
 };
 
 export function ProductionAppShell() {
@@ -33,12 +34,11 @@ export function ProductionAppShell() {
       continue;
     }
 
-    const destination = item.destination_id === "home" || item.destination_id === "activities"
-      ? DESTINATION_ROUTES[item.destination_id]
-      : undefined;
-    if (destination) {
-      destinations.push({ id: item.destination_id, ...destination });
+    if (item.destination_id !== "home" && item.destination_id !== "activities" && item.destination_id !== "my-work") {
+      continue;
     }
+
+    destinations.push({ id: item.destination_id, ...DESTINATION_ROUTES[item.destination_id] });
   }
 
   return (

@@ -32,6 +32,7 @@ internal static class ArchitectureTestSupport
         "FlexAgent.IdentityAccess.Infrastructure",
         "FlexAgent.Configuration.Infrastructure",
         "FlexAgent.AssessmentConfiguration.Infrastructure",
+        "FlexAgent.Submissions.Infrastructure",
     ];
 
     internal static void AssertNoForbiddenDependencies(

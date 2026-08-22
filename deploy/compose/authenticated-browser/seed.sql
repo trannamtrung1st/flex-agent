@@ -38,9 +38,58 @@ FROM (
         ('assessment.source.select'),
         ('assessment.activation.reconcile'),
         ('assessment.baseline.read'),
-        ('assessment.baseline.provenance.read')
+        ('assessment.baseline.provenance.read'),
+        ('assessment.enrollment.candidate.read'),
+        ('assessment.enrollment.list'),
+        ('assessment.enrollment.read'),
+        ('assessment.enrollment.assign'),
+        ('assessment.enrollment.suspend'),
+        ('assessment.enrollment.restore'),
+        ('assessment.enrollment.close'),
+        ('assessment.enrollment.revoke')
 ) AS grants(granted_action)
 ON CONFLICT (organization_id, actor_id, granted_action) DO NOTHING;
+
+-- synthetic.participant actor, display profile, and discovery grants.
+INSERT INTO actors (id, created_at)
+VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab', CLOCK_TIMESTAMP())
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO human_identity_bindings (
+    binding_id, issuer, subject, actor_id, created_at, disabled_at)
+VALUES (
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc',
+    'http://localhost:18080/realms/flex-agent',
+    'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab',
+    CLOCK_TIMESTAMP(),
+    NULL)
+ON CONFLICT (issuer, subject) DO NOTHING;
+
+INSERT INTO actor_organization_grants (
+    organization_id, actor_id, relationship_version, granted_action, created_at)
+SELECT
+    'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab',
+    1,
+    granted_action,
+    CLOCK_TIMESTAMP()
+FROM (
+    VALUES
+        ('assessment.assignment.discover'),
+        ('assessment.enrollment.receive')
+) AS grants(granted_action)
+ON CONFLICT (organization_id, actor_id, granted_action) DO NOTHING;
+
+INSERT INTO identity_human_display_profiles (
+    organization_id, actor_id, display_label, created_at, updated_at)
+VALUES (
+    'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab',
+    'Synthetic Participant',
+    CLOCK_TIMESTAMP(),
+    CLOCK_TIMESTAMP())
+ON CONFLICT (organization_id, actor_id) DO NOTHING;
 
 INSERT INTO configuration_sources (id, organization_id, source_kind, created_at)
 VALUES

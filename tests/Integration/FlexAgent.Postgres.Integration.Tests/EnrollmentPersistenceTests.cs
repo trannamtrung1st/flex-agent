@@ -1,0 +1,341 @@
+using Dapper;
+using FlexAgent.AssessmentConfiguration.Application;
+using FlexAgent.AssessmentConfiguration.Canonicalization;
+using FlexAgent.AssessmentConfiguration.Domain;
+using FlexAgent.AssessmentConfiguration.Infrastructure;
+using FlexAgent.IdentityAccess.Application;
+using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.IdentityAccess.Infrastructure;
+using FlexAgent.Postgres.Audit;
+using FlexAgent.Postgres.Integration.Tests.Support;
+using FlexAgent.Postgres.Outbox;
+using FlexAgent.Submissions.Application;
+using FlexAgent.Submissions.Domain;
+using FlexAgent.Submissions.Infrastructure;
+
+namespace FlexAgent.Postgres.Integration.Tests;
+
+public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixture)
+    : PostgresIntegrationTest(fixture)
+{
+    [Fact]
+    public async Task Assignment_binds_the_activated_cohort_without_mutating_the_baseline()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-1"), CancellationToken);
+        Assert.True(assigned.Succeeded, assigned.OutcomeCode);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var digest = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT content_digest
+            FROM assessment_activation_baselines
+            WHERE organization_id = @OrganizationId AND activity_id = @ActivityId
+            """,
+            new { OrganizationId = harness.OrganizationId, ActivityId = harness.ActivityId });
+        var enrollment = await connection.QuerySingleAsync<(Guid BaselineId, string Status)>(
+            """
+            SELECT baseline_id, status
+            FROM submissions_enrollments
+            WHERE organization_id = @OrganizationId AND enrollment_id = @EnrollmentId
+            """,
+            new { OrganizationId = harness.OrganizationId, EnrollmentId = assigned.EnrollmentId });
+        Assert.Equal(digest, harness.BaselineDigest);
+        Assert.Equal(EnrollmentStates.Active, enrollment.Status);
+        Assert.Equal(assigned.EnrollmentId, await connection.ExecuteScalarAsync<Guid>(
+            """
+            SELECT enrollment_id
+            FROM submissions_enrollment_events
+            WHERE organization_id = @OrganizationId
+            LIMIT 1
+            """,
+            new { OrganizationId = harness.OrganizationId }));
+    }
+
+    [Fact]
+    public async Task Terminal_assignment_can_create_a_new_enrollment_identity()
+    {
+        var harness = await SeedActivatedAsync();
+        var first = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-1"), CancellationToken);
+        var closed = await harness.Coordinator.MutateAsync(
+            harness.LifecycleCommand(
+                EnrollmentOperationKinds.Close,
+                EnrollmentReasonCodes.ActivityOrEnrollmentEnd,
+                first.EnrollmentId!.Value,
+                first.Revision!.Value,
+                "close-1"),
+            CancellationToken);
+        Assert.True(closed.Succeeded, closed.OutcomeCode);
+        var second = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-2"), CancellationToken);
+        Assert.True(second.Succeeded, second.OutcomeCode);
+        Assert.NotEqual(first.EnrollmentId, second.EnrollmentId);
+    }
+
+    [Fact]
+    public async Task Current_participant_list_is_empty_without_an_enrollment()
+    {
+        var harness = await SeedActivatedAsync();
+        var store = new PostgresEnrollmentStore(Fixture.Services.ConnectionAccessor);
+        var page = await store.ListCurrentForParticipantAsync(
+            harness.OrganizationId,
+            harness.ParticipantId,
+            cursor: null,
+            limit: 20,
+            CancellationToken);
+        Assert.Empty(page.Items);
+        Assert.False(page.HasMore);
+    }
+
+    [Fact]
+    public async Task History_rejects_updates()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-1"), CancellationToken);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var thrown = await Assert.ThrowsAnyAsync<Exception>(() => connection.ExecuteAsync(
+            """
+            UPDATE submissions_enrollment_events
+            SET reason_code = 'access_revoked'
+            WHERE organization_id = @OrganizationId AND enrollment_id = @EnrollmentId
+            """,
+            new { harness.OrganizationId, EnrollmentId = assigned.EnrollmentId }));
+        Assert.Contains("append-only", thrown.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<EnrollmentHarness> SeedActivatedAsync()
+    {
+        var seeded = await Fixture.SeedOrganizationAsync();
+        foreach (var action in new[]
+                 {
+                     AssessmentAuthorizationActions.CreateActivity,
+                     AssessmentAuthorizationActions.SelectSources,
+                     AssessmentAuthorizationActions.ReadActivity,
+                     AssessmentAuthorizationActions.SaveActivity,
+                     AssessmentAuthorizationActions.ActivateCohort,
+                     EnrollmentAuthorizationActions.Assign,
+                     EnrollmentAuthorizationActions.Close,
+                     EnrollmentAuthorizationActions.Read,
+                     EnrollmentAuthorizationActions.List,
+                 })
+        {
+            await Fixture.GrantOrganizationActionAsync(seeded.OrganizationId, seeded.ActorId, action);
+        }
+
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            foreach (var source in AssessmentDevelopmentSources.ForOrganization(seeded.OrganizationId))
+            {
+                await connection.ExecuteAsync(
+                    """
+                    INSERT INTO configuration_sources (id, organization_id, source_kind, created_at)
+                    VALUES (@SourceId, @OrganizationId, @SourceKind, CLOCK_TIMESTAMP())
+                    ON CONFLICT DO NOTHING;
+                    INSERT INTO configuration_source_versions (
+                        id, organization_id, configuration_source_id, schema_version, procedure_id,
+                        content_digest, idempotency_key, created_at)
+                    VALUES (
+                        @VersionId, @OrganizationId, @SourceId, 'v1', 'activation-baseline-jcs-sha256-v1',
+                        @ContentDigest, @IdempotencyKey, CLOCK_TIMESTAMP());
+                INSERT INTO configuration_source_readiness_descriptors (
+                    organization_id, configuration_source_id, version_id, source_kind, category,
+                    lifecycle_state, compatibility_key, capability_text_enabled, capability_voice_enabled,
+                    capability_tools_enabled, capability_dynamic_memory_writes_enabled,
+                    capability_shared_session_enabled, capability_direct_deployment_enabled,
+                    production_eligible, transactionally_revalidatable, effective_values, created_at)
+                VALUES (
+                    @OrganizationId, @SourceId, @VersionId, @SourceKind, @Category, @Lifecycle,
+                    @Compatibility, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE,
+                    @EffectiveValues::jsonb, CLOCK_TIMESTAMP());
+                """,
+                    new
+                    {
+                        OrganizationId = seeded.OrganizationId,
+                        source.SourceId,
+                        source.VersionId,
+                        source.SourceKind,
+                        source.Category,
+                        source.ContentDigest,
+                        IdempotencyKey = source.VersionId.ToString("D"),
+                        Lifecycle = source.LifecycleState,
+                        Compatibility = source.CompatibilityKey,
+                        EffectiveValues = """{"ref":"seeded"}""",
+                    });
+            }
+        }
+
+        var connections = Fixture.Services.ConnectionAccessor;
+        var kernel = new PostgresAuthorizationKernel(connections);
+        var store = new PostgresAssessmentDraftStore(connections, new PostgresAuditEventWriter());
+        var catalog = new PostgresAssessmentSourceCatalog(connections);
+        var drafts = new AssessmentDraftHandler(
+            new KernelAssessmentAuthorizationPort(kernel, kernel),
+            catalog,
+            store,
+            new PostgresAssessmentUnitOfWork(connections));
+        var actor = new AssessmentActorContext(
+            seeded.Actor,
+            seeded.Scope,
+            AuthenticationStrengthEvaluator.AdministratorRelationship,
+            new AuthenticationStrength("mfa", ["mfa"]),
+            Guid.CreateVersion7(),
+            "https");
+        var created = await drafts.CreateAsync(
+            new CreateAssessmentDraftCommand(
+                actor,
+                "P0 Assessment",
+                new TaskBinding(
+                    Guid.CreateVersion7(),
+                    "Task 1",
+                    "Submit one written response",
+                    AssessmentDevelopmentSources.TaskRequirement),
+                new TimingRules(
+                    new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero),
+                    new DateTimeOffset(2026, 9, 30, 23, 59, 0, TimeSpan.Zero),
+                    new DateTimeOffset(2026, 9, 30, 17, 0, 0, TimeSpan.Zero),
+                    "UTC",
+                    2,
+                    3600),
+                AssessmentDevelopmentSources.OrganizationPolicy,
+                AssessmentDevelopmentSources.Agent,
+                AssessmentDevelopmentSources.Harness,
+                AssessmentDevelopmentSources.Workflow,
+                AssessmentDevelopmentSources.AdaptiveFollowUp,
+                AssessmentDevelopmentSources.Rubric,
+                AssessmentDevelopmentSources.ModelDeployment,
+                [AssessmentDevelopmentSources.Knowledge],
+                AssessmentDevelopmentSources.Capability,
+                AssessmentDevelopmentSources.ReviewRelease,
+                DeploymentEnvironments.Development),
+            CancellationToken);
+        Assert.True(created.Succeeded, created.OutcomeCode);
+        var cohort = await store.FindCohortForActivityAsync(seeded.OrganizationId, created.Value!.ActivityId, CancellationToken);
+        var activation = new AssessmentActivationCoordinator(
+            new KernelAssessmentAuthorizationPort(kernel, kernel),
+            catalog,
+            store,
+            new PostgresAssessmentUnitOfWork(connections),
+            new ActivationBaselineDigester(),
+            new AssessmentCommandDigest(),
+            new PostgresAssessmentBaselineStore(connections, new PostgresAuditEventWriter(), new PostgresOutboxItemWriter()),
+            new PostgresAssessmentAttemptStore(new PostgresAuditEventWriter()));
+        var command = new ActivateCohortCommand(
+            actor,
+            created.Value.ActivityId,
+            cohort!.CohortId,
+            created.Value.RevisionId,
+            created.Value.RevisionNumber,
+            "act-1",
+            string.Empty,
+            DeploymentEnvironments.Development);
+        command = command with { TrustedCommandDigest = new AssessmentCommandDigest().Compute(command) };
+        var activated = await activation.ActivateAsync(command, CancellationToken);
+        Assert.True(activated.Succeeded, activated.OutcomeCode);
+
+        var participantId = Guid.CreateVersion7();
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO actors (id, created_at) VALUES (@ActorId, CLOCK_TIMESTAMP());
+                INSERT INTO human_identity_bindings (binding_id, issuer, subject, actor_id, created_at)
+                VALUES (@BindingId, 'https://issuer.test', @Subject, @ActorId, CLOCK_TIMESTAMP());
+                INSERT INTO identity_human_display_profiles (organization_id, actor_id, display_label, created_at, updated_at)
+                VALUES (@OrganizationId, @ActorId, 'Synthetic Participant', CLOCK_TIMESTAMP(), CLOCK_TIMESTAMP());
+                """,
+                new
+                {
+                    ActorId = participantId,
+                    BindingId = Guid.CreateVersion7(),
+                    Subject = Guid.CreateVersion7().ToString("D"),
+                    OrganizationId = seeded.OrganizationId,
+                });
+        }
+
+        await Fixture.GrantOrganizationActionAsync(
+            seeded.OrganizationId,
+            participantId,
+            EnrollmentAuthorizationActions.Receive);
+
+        var enrollmentActor = new EnrollmentActorContext(
+            seeded.Actor,
+            seeded.Scope,
+            AuthenticationStrengthEvaluator.AdministratorRelationship,
+            new AuthenticationStrength("mfa", ["mfa"]),
+            Guid.CreateVersion7(),
+            "https",
+            [
+                EnrollmentAuthorizationActions.Assign,
+                EnrollmentAuthorizationActions.Close,
+                EnrollmentAuthorizationActions.List,
+                EnrollmentAuthorizationActions.Read,
+            ]);
+        var coordinator = new EnrollmentCoordinator(
+            new KernelEnrollmentAuthorizationPort(kernel, kernel),
+            new AssessmentActivatedCohortPort(new PostgresActivatedCohortBindingReader(connections)),
+            new IdentityEnrollmentCandidatePort(new PostgresHumanDisplayProfileDirectory(connections)),
+            new PostgresEnrollmentStore(connections),
+            new PostgresEnrollmentOperationStore(),
+            new PostgresEnrollmentAuditPort(new PostgresAuditEventWriter(), new PostgresOutboxItemWriter()),
+            new PostgresEnrollmentUnitOfWork(connections));
+        return new EnrollmentHarness(
+            coordinator,
+            enrollmentActor,
+            seeded.OrganizationId,
+            created.Value.ActivityId,
+            cohort.CohortId,
+            participantId,
+            activated.BaselineDigest);
+    }
+
+    private sealed record EnrollmentHarness(
+        EnrollmentCoordinator Coordinator,
+        EnrollmentActorContext Actor,
+        Guid OrganizationId,
+        Guid ActivityId,
+        Guid CohortId,
+        Guid ParticipantId,
+        string? BaselineDigest)
+    {
+        public AssignEnrollmentCommand AssignCommand(string key) =>
+            new(
+                Actor,
+                ActivityId,
+                CohortId,
+                ParticipantId,
+                key,
+                EnrollmentCommandDigest.Compute(
+                    EnrollmentOperationKinds.Assign,
+                    OrganizationId,
+                    ActivityId,
+                    CohortId,
+                    null,
+                    ParticipantId,
+                    null,
+                    null));
+
+        public EnrollmentLifecycleCommand LifecycleCommand(
+            string operation,
+            string reason,
+            Guid enrollmentId,
+            long revision,
+            string key) =>
+            new(
+                Actor,
+                ActivityId,
+                CohortId,
+                enrollmentId,
+                operation,
+                reason,
+                revision,
+                key,
+                EnrollmentCommandDigest.Compute(
+                    operation,
+                    OrganizationId,
+                    ActivityId,
+                    CohortId,
+                    enrollmentId,
+                    null,
+                    reason,
+                    revision));
+    }
+}

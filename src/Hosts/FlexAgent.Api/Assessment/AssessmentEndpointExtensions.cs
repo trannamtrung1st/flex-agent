@@ -130,15 +130,12 @@ public static class AssessmentEndpointExtensions
             return;
         }
 
-        var strength = AssessmentAuthenticationPolicy.Evaluate(
-            resolved.Actor,
-            AssessmentAuthorizationActions.ReadActivity);
-        if (strength is not null)
-        {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await context.Response.WriteAsJsonAsync(new { error = strength });
-            return;
-        }
+        var grants = resolved.Authorization.PermittedActions;
+        var activitiesAvailable = grants.Any(FlexAgent.Submissions.Application.EnrollmentAuthenticationPolicy.IsAdministratorDestinationGrant)
+            && AssessmentAuthenticationPolicy.Evaluate(resolved.Actor, AssessmentAuthorizationActions.ReadActivity) is null;
+        var myWorkAvailable = grants.Contains(
+            FlexAgent.Submissions.Domain.EnrollmentAuthorizationActions.Discover,
+            StringComparer.Ordinal);
 
         await context.Response.WriteAsJsonAsync(new
         {
@@ -148,8 +145,9 @@ public static class AssessmentEndpointExtensions
             relationship = resolved.Actor.Relationship,
             navigation = new[]
             {
-                new { destination_id = "home", is_available = resolved.Authorization.PermittedActions.Count > 0 },
-                new { destination_id = "activities", is_available = resolved.Authorization.PermittedActions.Count > 0 },
+                new { destination_id = "home", is_available = true },
+                new { destination_id = "activities", is_available = activitiesAvailable },
+                new { destination_id = "my-work", is_available = myWorkAvailable },
             },
             permitted_actions = resolved.Authorization.PermittedActions,
         });

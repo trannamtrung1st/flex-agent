@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FlexAgent.Submissions</RootNamespace>
+    <AssemblyName>FlexAgent.Submissions</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\FlexAgent.CanonicalJson\FlexAgent.CanonicalJson.csproj" />
+    <ProjectReference Include="..\..\IdentityAccess\FlexAgent.IdentityAccess\FlexAgent.IdentityAccess.csproj" />
+    <ProjectReference Include="..\..\AssessmentConfiguration\FlexAgent.AssessmentConfiguration\FlexAgent.AssessmentConfiguration.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="FlexAgent.Submissions.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Submissions.Infrastructure" />
+    <InternalsVisibleTo Include="FlexAgent.Postgres.Integration.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Architecture.Tests" />
+    <InternalsVisibleTo Include="FlexAgent.Runtime.Tests" />
+  </ItemGroup>
+
+</Project>

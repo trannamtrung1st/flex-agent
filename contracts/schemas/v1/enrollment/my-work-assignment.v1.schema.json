@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/enrollment/my-work-assignment.v1.schema.json",
+  "title": "My work assignment v1",
+  "description": "Participant-visible current Assignment projection without intake or Attempt authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enrollment_id",
+    "status",
+    "visibility",
+    "summary_available",
+    "permitted_actions"
+  ],
+  "properties": {
+    "enrollment_id": {
+      "type": "string",
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "suspended"]
+    },
+    "visibility": {
+      "type": "string",
+      "enum": ["current", "restricted"]
+    },
+    "activity_title": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "task_title": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "time_zone_id": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "starts_at_utc": {
+      "oneOf": [
+        {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        { "type": "null" }
+      ]
+    },
+    "ends_at_utc": {
+      "oneOf": [
+        {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        { "type": "null" }
+      ]
+    },
+    "deadline_utc": {
+      "oneOf": [
+        {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        { "type": "null" }
+      ]
+    },
+    "summary_available": {
+      "type": "boolean"
+    },
+    "permitted_actions": {
+      "type": "array",
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["open_assignment", "return_to_my_work"]
+      }
+    }
+  }
+}

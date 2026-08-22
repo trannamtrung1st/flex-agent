@@ -10,6 +10,15 @@ function labelForSegment(segment: string, index: number, segments: string[]): st
   if (segment === "setup") {
     return "Setup and readiness";
   }
+  if (segment === "participants") {
+    return "Assign Participants";
+  }
+  if (segment === "enrollments") {
+    return "Enrollment";
+  }
+  if (segment === "my-work" && index === 0) {
+    return "My work";
+  }
   if (segment === "sessions") {
     return "Session";
   }

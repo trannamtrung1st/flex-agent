@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/enrollment/enrollment-mutation-outcome.v1.schema.json",
+  "title": "Enrollment mutation outcome v1",
+  "description": "Server-derived Enrollment assignment or lifecycle outcome without protected Participant content.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "succeeded",
+    "outcome_code",
+    "permitted_actions"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "succeeded": {
+      "type": "boolean"
+    },
+    "outcome_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._]{0,127}$"
+    },
+    "enrollment_id": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "status": {
+      "type": ["string", "null"],
+      "enum": ["active", "suspended", "closed", "revoked", null]
+    },
+    "revision": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "visibility": {
+      "type": ["string", "null"],
+      "enum": ["current", "restricted", "unavailable", null]
+    },
+    "permitted_actions": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "assign_participants",
+          "suspend_enrollment",
+          "restore_enrollment",
+          "close_enrollment",
+          "revoke_enrollment",
+          "open_assignment",
+          "return_to_my_work"
+        ]
+      }
+    }
+  }
+}

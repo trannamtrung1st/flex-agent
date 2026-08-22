@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v1/enrollment/enrollment-lifecycle-command.v1.schema.json",
+  "title": "Enrollment lifecycle command v1",
+  "description": "Administrator command that suspends, restores, closes, or revokes one Enrollment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reason_code",
+    "expected_revision",
+    "idempotency_key"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/schema_version"
+    },
+    "reason_code": {
+      "type": "string",
+      "enum": [
+        "temporary_restriction",
+        "restriction_removed",
+        "activity_or_enrollment_end",
+        "access_revoked"
+      ]
+    },
+    "expected_revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    }
+  }
+}

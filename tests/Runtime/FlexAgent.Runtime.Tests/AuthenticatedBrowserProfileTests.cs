@@ -103,6 +103,10 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("assessment.source.select", seed);
         Assert.Contains("assessment.activation.reconcile", seed);
         Assert.Contains("assessment.baseline.read", seed);
+        Assert.Contains("assessment.enrollment.assign", seed);
+        Assert.Contains("assessment.assignment.discover", seed);
+        Assert.Contains("identity_human_display_profiles", seed);
+        Assert.Contains("synthetic.participant", seed);
         Assert.Contains("configuration_source_readiness_descriptors", seed);
         Assert.DoesNotContain("INSERT INTO assessment_activities", seed);
         Assert.DoesNotContain("/browser", seed);

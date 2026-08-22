@@ -32,6 +32,8 @@
     <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.Infrastructure\FlexAgent.Sessions.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.OpenAiCompatible\FlexAgent.Sessions.OpenAiCompatible.csproj" />
     <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.OpenRouter\FlexAgent.Sessions.OpenRouter.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Submissions\FlexAgent.Submissions\FlexAgent.Submissions.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Submissions\FlexAgent.Submissions.Infrastructure\FlexAgent.Submissions.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\src\Infrastructure\FlexAgent.Postgres\FlexAgent.Postgres.csproj" />
   </ItemGroup>
 

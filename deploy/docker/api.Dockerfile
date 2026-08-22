@@ -13,6 +13,8 @@ COPY src/Modules/Configuration/FlexAgent.Configuration/ src/Modules/Configuratio
 COPY src/Modules/IdentityAccess/FlexAgent.IdentityAccess/ src/Modules/IdentityAccess/FlexAgent.IdentityAccess/
 COPY src/Modules/Sessions/FlexAgent.Sessions/ src/Modules/Sessions/FlexAgent.Sessions/
 COPY src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/ src/Modules/Sessions/FlexAgent.Sessions.Infrastructure/
+COPY src/Modules/Submissions/FlexAgent.Submissions/ src/Modules/Submissions/FlexAgent.Submissions/
+COPY src/Modules/Submissions/FlexAgent.Submissions.Infrastructure/ src/Modules/Submissions/FlexAgent.Submissions.Infrastructure/
 COPY src/Modules/SyntheticBrowser/FlexAgent.SyntheticBrowser/ src/Modules/SyntheticBrowser/FlexAgent.SyntheticBrowser/
 COPY src/Hosts/FlexAgent.Api/ src/Hosts/FlexAgent.Api/
 COPY contracts/schemas/v1/common/primitives.v1.schema.json contracts/schemas/v1/common/primitives.v1.schema.json

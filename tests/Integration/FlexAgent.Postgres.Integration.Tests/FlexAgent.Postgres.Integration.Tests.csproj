@@ -31,6 +31,8 @@
     <ProjectReference Include="..\..\..\src\Modules\IdentityAccess\FlexAgent.IdentityAccess\FlexAgent.IdentityAccess.csproj" />
     <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
     <ProjectReference Include="..\..\..\src\Modules\Sessions\FlexAgent.Sessions.Infrastructure\FlexAgent.Sessions.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Submissions\FlexAgent.Submissions\FlexAgent.Submissions.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Submissions\FlexAgent.Submissions.Infrastructure\FlexAgent.Submissions.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\src\Infrastructure\FlexAgent.Postgres\FlexAgent.Postgres.csproj" />
     <ProjectReference Include="..\..\..\src\BuildingBlocks\FlexAgent.CanonicalJson\FlexAgent.CanonicalJson.csproj" />
   </ItemGroup>

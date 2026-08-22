@@ -367,8 +367,17 @@ export function AssessmentSetupPage({
               <h3 ref={successHeadingRef} tabIndex={-1}>
                 {view.verification_status === "degraded" ? "Baseline verification is degraded" : "Cohort activated"}
               </h3>
-              <p>Baseline digest {view.baseline_digest ?? "is recorded"}. Assign Participants is omitted until a production Enrollment destination exists.</p>
+              <p>Baseline digest {view.baseline_digest ?? "is recorded"}.</p>
             </Alert>
+            {view.permitted_actions.includes("assign_participants") && view.cohort_id ? (
+              <p>
+                <Link to={`/activities/${view.activity_id}/cohorts/${view.cohort_id}/participants`}>
+                  Assign Participants
+                </Link>
+              </p>
+            ) : (
+              <p>Assign Participants is available after the current administrator is authorized for Enrollment.</p>
+            )}
             <Button type="button" variant="secondary" onClick={() => { setNewCohortOpen(true); }}>
               Change assessment configuration
             </Button>

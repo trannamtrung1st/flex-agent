@@ -12,6 +12,8 @@
     <ProjectReference Include="..\..\Modules\IdentityAccess\FlexAgent.IdentityAccess\FlexAgent.IdentityAccess.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\FlexAgent.Sessions\FlexAgent.Sessions.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\FlexAgent.Sessions.Infrastructure\FlexAgent.Sessions.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Submissions\FlexAgent.Submissions\FlexAgent.Submissions.csproj" />
+    <ProjectReference Include="..\..\Modules\Submissions\FlexAgent.Submissions.Infrastructure\FlexAgent.Submissions.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Modules\SyntheticBrowser\FlexAgent.SyntheticBrowser\FlexAgent.SyntheticBrowser.csproj" />
   </ItemGroup>
 

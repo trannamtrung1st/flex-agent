@@ -237,3 +237,41 @@ export interface SseSessionEventV1 {
   occurred_at: string;
   payload: SseSessionEventPayloadV1;
 }
+
+export interface EnrollmentAssignCommandV1 {
+  schema_version: SchemaVersionV1;
+  participant_actor_id: string;
+  idempotency_key: string;
+}
+
+export interface EnrollmentLifecycleCommandV1 {
+  schema_version: SchemaVersionV1;
+  reason_code: 'temporary_restriction' | 'restriction_removed' | 'activity_or_enrollment_end' | 'access_revoked';
+  expected_revision: number;
+  idempotency_key: string;
+}
+
+export interface EnrollmentMutationOutcomeV1 {
+  schema_version: SchemaVersionV1;
+  succeeded: boolean;
+  outcome_code: string;
+  enrollment_id?: string | null;
+  status?: string | null;
+  revision?: number | null;
+  visibility?: string | null;
+  permitted_actions: string[];
+}
+
+export interface MyWorkAssignmentV1 {
+  enrollment_id: string;
+  status: string;
+  visibility: string;
+  activity_title?: string | null;
+  task_title?: string | null;
+  time_zone_id?: string | null;
+  starts_at_utc?: string | null;
+  ends_at_utc?: string | null;
+  deadline_utc?: string | null;
+  summary_available: boolean;
+  permitted_actions: string[];
+}

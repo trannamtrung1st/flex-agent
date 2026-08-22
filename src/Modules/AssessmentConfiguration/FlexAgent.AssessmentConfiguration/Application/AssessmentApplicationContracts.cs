@@ -201,7 +201,9 @@ public static class AssessmentDraftProjection
     {
         if (hasActivatedCohort)
         {
-            return [];
+            return grantedActions.Contains("assessment.enrollment.assign", StringComparer.Ordinal)
+                ? ["assign_participants"]
+                : [];
         }
 
         var actions = new List<string>();
@@ -315,6 +317,34 @@ public sealed class SystemAssessmentClock : IAssessmentClock
 }
 
 public sealed record PersistedActivationBaseline(string ContentDigest, ActivationBaselineDocument Document);
+
+public sealed record ActivatedCohortBindingSnapshot(
+    Guid OrganizationId,
+    Guid ActivityId,
+    Guid CohortId,
+    Guid BaselineId,
+    string BaselineDigest,
+    string CohortState,
+    Guid TaskSourceId,
+    Guid TaskVersionId,
+    string TaskContentDigest,
+    string ActivityTitle,
+    string TaskTitle,
+    string TimeZoneId,
+    DateTimeOffset StartsAtUtc,
+    DateTimeOffset EndsAtUtc,
+    DateTimeOffset DeadlineUtc,
+    bool VerificationDegraded);
+
+public interface IActivatedCohortBindingReader
+{
+    Task<ActivatedCohortBindingSnapshot?> GetActivatedAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        object? commitTransaction,
+        CancellationToken cancellationToken = default);
+}
 
 public interface IAssessmentBaselineStore
 {

@@ -36,12 +36,14 @@ const ProductionApiContext = createContext<ProductionApiValue | null>(null);
 
 export function ProductionApiProvider({ children }: { children: ReactNode }) {
   const csrfRef = useRef<string | null>(null);
+  const generationRef = useRef(0);
   const [apiState, setApiState] = useState<ProductionApiState>("loading");
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const [shell, setShell] = useState<ProductionShellContextV1 | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const clearProtectedState = useCallback((next: ProductionApiState, message: string | null = null) => {
+    generationRef.current += 1;
     csrfRef.current = null;
     setCsrfToken(null);
     setShell(null);
@@ -50,6 +52,7 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const fetchJson = useCallback(async <T,>(path: string, init?: RequestInit): Promise<T> => {
+    const generation = generationRef.current;
     const headers = new Headers(init?.headers);
     headers.set("Accept", "application/json");
     if (init?.method && init.method !== "GET" && csrfRef.current) {
@@ -61,6 +64,10 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
       headers,
       credentials: "same-origin",
     });
+    if (generation !== generationRef.current) {
+      throw new ProductionApiError(0, "Stale response");
+    }
+
     const outcomeCode = response.ok ? undefined : await readOutcomeCode(response);
 
     if (response.status === 401) {
@@ -69,6 +76,7 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
     }
 
     if (response.status === 403) {
+      clearProtectedState("denied", "Your access changed");
       throw new ProductionApiError(403, "Your access changed", outcomeCode);
     }
 
@@ -148,7 +156,9 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
       errorMessage,
       fetchJson,
       login: () => {
-        window.location.assign("/auth/login?return_path=/activities");
+        const path = `${window.location.pathname}${window.location.search}`;
+        const safe = path.startsWith("/") && !path.startsWith("//") && !path.includes("://") ? path : "/";
+        window.location.assign(`/auth/login?return_path=${encodeURIComponent(safe)}`);
       },
     }),
     [apiState, csrfToken, errorMessage, fetchJson, shell],

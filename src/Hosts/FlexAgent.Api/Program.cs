@@ -19,6 +19,7 @@ builder.Services.AddSyntheticBrowser(builder.Configuration);
 builder.Services.AddProductionSessionEvents(builder.Configuration, builder.Environment);
 builder.Services.AddHumanAuthentication(builder.Configuration, builder.Environment);
 builder.Services.AddAssessmentConfiguration(builder.Configuration, builder.Environment);
+builder.Services.AddEnrollment(builder.Configuration, builder.Environment);
 
 var app = builder.Build();
 var humanAuthentication = app.Services.GetRequiredService<HumanAuthenticationHostOptions>();
@@ -47,6 +48,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.MapSyntheticBrowserEndpoints();
 app.MapHumanAuthenticationEndpoints();
 app.MapAssessmentEndpoints();
+app.MapEnrollmentEndpoints();
 app.MapProductionSessionEventEndpoints();
 
 app.Run();

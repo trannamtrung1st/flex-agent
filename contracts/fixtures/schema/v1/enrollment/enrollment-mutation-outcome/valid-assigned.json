@@ -1,0 +1,14 @@
+{
+  "schema_version": "v1",
+  "succeeded": true,
+  "outcome_code": "enrollment.assigned",
+  "enrollment_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  "status": "active",
+  "revision": 1,
+  "visibility": "current",
+  "permitted_actions": [
+    "suspend_enrollment",
+    "close_enrollment",
+    "revoke_enrollment"
+  ]
+}

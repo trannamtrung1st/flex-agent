@@ -1,0 +1,6 @@
+{
+  "schema_version": "v1",
+  "participant_actor_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab",
+  "idempotency_key": "enr-assign-synthetic-0001",
+  "display_label": "must-not-be-accepted"
+}

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FlexAgent.Contracts.Audit;
+using FlexAgent.Contracts.Enrollment;
 using FlexAgent.Contracts.Evidence;
 using FlexAgent.Contracts.Manifest;
 using FlexAgent.Contracts.Session;
@@ -71,6 +72,10 @@ public sealed class ContractMappingParityTests
         Assert.Contains("PreExecutionRejectedOutcomeV1", exported);
         Assert.Contains("AttemptsExhaustedOutcomeV1", exported);
         Assert.Contains("TrustedTriggerProvenanceV1", exported);
+        Assert.Contains("EnrollmentAssignCommandV1", exported);
+        Assert.Contains("EnrollmentLifecycleCommandV1", exported);
+        Assert.Contains("EnrollmentMutationOutcomeV1", exported);
+        Assert.Contains("MyWorkAssignmentV1", exported);
         Assert.DoesNotContain(exported, name => name.Contains("Authorization", StringComparison.Ordinal));
         Assert.DoesNotContain(exported, name => name.Contains("Secret", StringComparison.Ordinal));
     }
@@ -219,6 +224,52 @@ public sealed class ContractMappingParityTests
             schemas,
             "https://flex-agent.local/contracts/schemas/v1/evidence/evidence-locator.v1.schema.json",
             evidence);
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/enrollment/enrollment-assign-command.v1.schema.json",
+            new EnrollmentAssignCommandV1(
+                "v1",
+                Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab"),
+                "enr-assign-synthetic-0001"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/enrollment/enrollment-lifecycle-command.v1.schema.json",
+            new EnrollmentLifecycleCommandV1(
+                "v1",
+                "temporary_restriction",
+                1,
+                "enr-suspend-synthetic-0001"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/enrollment/enrollment-mutation-outcome.v1.schema.json",
+            new EnrollmentMutationOutcomeV1(
+                "v1",
+                true,
+                "enrollment.assigned",
+                Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+                "active",
+                1,
+                "current",
+                ["suspend_enrollment", "close_enrollment", "revoke_enrollment"]));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v1/enrollment/my-work-assignment.v1.schema.json",
+            new MyWorkAssignmentV1(
+                Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+                "active",
+                "current",
+                "Campaign",
+                "Task 1",
+                "UTC",
+                "2026-09-01T00:00:00Z",
+                "2026-09-30T23:59:00Z",
+                "2026-09-30T17:00:00Z",
+                true,
+                ["open_assignment"]));
     }
 
     private void ValidateDto(IReadOnlyDictionary<string, Json.Schema.JsonSchema> schemas, string schemaId, object dto)

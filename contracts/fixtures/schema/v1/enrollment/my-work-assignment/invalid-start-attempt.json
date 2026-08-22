@@ -1,0 +1,7 @@
+{
+  "enrollment_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  "status": "active",
+  "visibility": "current",
+  "summary_available": true,
+  "permitted_actions": ["start_attempt"]
+}

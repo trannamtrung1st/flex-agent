@@ -94,7 +94,7 @@ describe("production application session", () => {
     expect(screen.getByText("org:none")).toBeInTheDocument();
   });
 
-  it("does not drop a ready session when a resource request is forbidden", async () => {
+  it("clears protected session state when a resource request is forbidden", async () => {
     vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       if (url.includes("/auth/session")) {
@@ -162,8 +162,8 @@ describe("production application session", () => {
     await waitFor(() => {
       expect(screen.getByText("resource:denied")).toBeInTheDocument();
     });
-    expect(screen.getByText("state:ready")).toBeInTheDocument();
-    expect(screen.getByText("csrf:csrf-1")).toBeInTheDocument();
+    expect(screen.getByText("state:denied")).toBeInTheDocument();
+    expect(screen.getByText("csrf:none")).toBeInTheDocument();
   });
 
   it("keeps the default App on the synthetic provider when production mode is unset", async () => {

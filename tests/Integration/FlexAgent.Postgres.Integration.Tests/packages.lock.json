@@ -207,6 +207,8 @@
           "FlexAgent.IdentityAccess": "[1.0.0, )",
           "FlexAgent.Sessions": "[1.0.0, )",
           "FlexAgent.Sessions.Infrastructure": "[1.0.0, )",
+          "FlexAgent.Submissions": "[1.0.0, )",
+          "FlexAgent.Submissions.Infrastructure": "[1.0.0, )",
           "FlexAgent.SyntheticBrowser": "[1.0.0, )"
         }
       },
@@ -268,6 +270,25 @@
           "FlexAgent.IdentityAccess": "[1.0.0, )",
           "FlexAgent.Postgres": "[1.0.0, )",
           "FlexAgent.Sessions": "[1.0.0, )"
+        }
+      },
+      "flexagent.submissions": {
+        "type": "Project",
+        "dependencies": {
+          "FlexAgent.AssessmentConfiguration": "[1.0.0, )",
+          "FlexAgent.CanonicalJson": "[1.0.0, )",
+          "FlexAgent.IdentityAccess": "[1.0.0, )"
+        }
+      },
+      "flexagent.submissions.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "Dapper": "[2.1.79, )",
+          "FlexAgent.AssessmentConfiguration": "[1.0.0, )",
+          "FlexAgent.IdentityAccess": "[1.0.0, )",
+          "FlexAgent.Postgres": "[1.0.0, )",
+          "FlexAgent.Submissions": "[1.0.0, )",
+          "Npgsql": "[10.0.3, )"
         }
       },
       "flexagent.syntheticbrowser": {
