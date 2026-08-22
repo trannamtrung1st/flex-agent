@@ -182,7 +182,7 @@ public sealed class PostgresHumanIdentityBindingStore(PostgresConnectionAccessor
 }
 
 public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor connectionAccessor)
-    : IApplicationSessionStore
+    : IApplicationSessionStore, IApplicationSessionCommitPort
 {
     public async Task InsertAsync(ApplicationSessionRecord session, CancellationToken cancellationToken = default)
     {
@@ -322,6 +322,42 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 new { ApplicationSessionId = applicationSessionId },
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
         return row?.ToRecord();
+    }
+
+    public async Task<bool> RevalidateLiveAsync(
+        Guid applicationSessionId,
+        Guid actorId,
+        Guid organizationId,
+        object commitTransaction,
+        CancellationToken cancellationToken = default)
+    {
+        var transaction = PostgresCommitTransaction.Required(commitTransaction);
+        var row = await transaction.Connection!.QuerySingleOrDefaultAsync<SessionRow>(
+            new CommandDefinition(
+                """
+                SELECT session.*
+                FROM application_sessions AS session
+                INNER JOIN actors AS actor
+                    ON actor.id = session.actor_id
+                   AND actor.disabled_at IS NULL
+                WHERE session.application_session_id = @ApplicationSessionId
+                  AND session.actor_id = @ActorId
+                  AND session.organization_id = @OrganizationId
+                  AND session.revoked_at IS NULL
+                  AND session.rotated_at IS NULL
+                FOR SHARE OF session
+                FOR SHARE OF actor
+                """,
+                new
+                {
+                    ApplicationSessionId = applicationSessionId,
+                    ActorId = actorId,
+                    OrganizationId = organizationId,
+                },
+                transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return row is not null
+            && ApplicationSessionPolicy.AuthenticateFailureReason(row.ToRecord(), DateTimeOffset.UtcNow) is null;
     }
 
     public async Task TerminateLiveAsync(

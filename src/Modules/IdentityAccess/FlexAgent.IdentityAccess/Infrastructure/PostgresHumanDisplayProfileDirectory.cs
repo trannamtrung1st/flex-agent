@@ -2,7 +2,6 @@ using System.Data;
 using Dapper;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.Postgres;
-using Npgsql;
 
 namespace FlexAgent.IdentityAccess.Infrastructure;
 
@@ -84,15 +83,20 @@ public sealed class PostgresHumanDisplayProfileDirectory(PostgresConnectionAcces
                AND grant_row.granted_action = @RequiredAction
             WHERE profile.organization_id = @OrganizationId
               AND profile.actor_id = @ActorId
+            """;
+        var lockedSql = sql + """
+            
+            FOR SHARE OF profile
             FOR SHARE OF actor
             FOR SHARE OF binding
             FOR SHARE OF grant_row
             """;
         var parameters = new { OrganizationId = organizationId, ActorId = actorId, RequiredAction = requiredAction };
-        if (commitTransaction is NpgsqlTransaction npgsql)
+        var transaction = PostgresCommitTransaction.Optional(commitTransaction);
+        if (transaction is not null)
         {
-            return await npgsql.Connection!.QuerySingleOrDefaultAsync<HumanDisplayCandidate>(
-                new CommandDefinition(sql, parameters, npgsql, cancellationToken: cancellationToken));
+            return await transaction.Connection!.QuerySingleOrDefaultAsync<HumanDisplayCandidate>(
+                new CommandDefinition(lockedSql, parameters, transaction, cancellationToken: cancellationToken));
         }
 
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);

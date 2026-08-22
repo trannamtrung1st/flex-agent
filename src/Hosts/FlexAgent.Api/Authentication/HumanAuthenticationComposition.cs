@@ -68,6 +68,8 @@ internal static class HumanAuthenticationComposition
             services.AddSingleton<IDatabaseClock, PostgresDatabaseClock>();
             services.AddSingleton<IHumanIdentityBindingStore, PostgresHumanIdentityBindingStore>();
             services.AddSingleton<IApplicationSessionStore, PostgresApplicationSessionStore>();
+            services.AddSingleton<IApplicationSessionCommitPort>(sp =>
+                (IApplicationSessionCommitPort)sp.GetRequiredService<IApplicationSessionStore>());
             services.AddSingleton<IOidcLoginTransactionStore, PostgresOidcLoginTransactionStore>();
             services.AddSingleton<ILogoutTokenReplayStore, PostgresLogoutTokenReplayStore>();
             services.AddSingleton<IAuthenticationSecurityEventWriter, PostgresAuthenticationSecurityEventWriter>();
@@ -89,6 +91,8 @@ internal static class HumanAuthenticationComposition
             services.AddSingleton<IHumanIdentityBindingStore>(sp => sp.GetRequiredService<MemoryHumanIdentityBindingStore>());
             services.AddSingleton<MemoryApplicationSessionStore>();
             services.AddSingleton<IApplicationSessionStore>(sp => sp.GetRequiredService<MemoryApplicationSessionStore>());
+            services.AddSingleton<IApplicationSessionCommitPort>(sp =>
+                (IApplicationSessionCommitPort)sp.GetRequiredService<IApplicationSessionStore>());
             services.AddSingleton<IOidcLoginTransactionStore, MemoryOidcLoginTransactionStore>();
             services.AddSingleton<ILogoutTokenReplayStore, MemoryLogoutTokenReplayStore>();
             services.AddSingleton<IAuthenticationSecurityEventWriter, MemoryAuthenticationSecurityEventWriter>();

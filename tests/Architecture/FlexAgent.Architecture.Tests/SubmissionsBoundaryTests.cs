@@ -57,10 +57,45 @@ public sealed class SubmissionsBoundaryTests
     }
 
     [Fact]
+    public void Submissions_infrastructure_does_not_query_identity_application_sessions()
+    {
+        var infrastructure = Path.Combine(
+            FindRepositoryRoot(),
+            "src",
+            "Modules",
+            "Submissions",
+            "FlexAgent.Submissions.Infrastructure");
+        Assert.True(Directory.Exists(infrastructure), infrastructure);
+        foreach (var path in Directory.EnumerateFiles(infrastructure, "*.cs", SearchOption.AllDirectories))
+        {
+            Assert.DoesNotContain(
+                "application_sessions",
+                File.ReadAllText(path),
+                StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
     public void Negative_control_detects_domain_type_that_references_npgsql()
     {
         ArchitectureTestSupport.AssertNegativeControlDetectsForbiddenDependency<SubmissionsNegativeControlFixtures.ViolatingDomainType>(
             "Npgsql");
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "FlexAgent.slnx")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("Could not locate repository root.");
     }
 }
 

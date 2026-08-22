@@ -277,6 +277,92 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
     }
 
     [Fact]
+    public async Task Concurrent_profile_deletion_fails_uncommitted_assignment()
+    {
+        var harness = await SeedActivatedAsync();
+        await using var deleteConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await deleteConnection.OpenAsync(CancellationToken);
+        await using var deleteTransaction = await deleteConnection.BeginTransactionAsync(CancellationToken);
+        await deleteConnection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                DELETE FROM identity_human_display_profiles
+                WHERE organization_id = @OrganizationId
+                  AND actor_id = @ParticipantId
+                """,
+                new
+                {
+                    harness.OrganizationId,
+                    harness.ParticipantId,
+                },
+                deleteTransaction,
+                cancellationToken: CancellationToken));
+
+        var assignTask = harness.Coordinator.AssignAsync(harness.AssignCommand("assign-profile"), CancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(200), CancellationToken);
+        Assert.False(assignTask.IsCompleted);
+
+        await deleteTransaction.CommitAsync(CancellationToken);
+        var assigned = await assignTask.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken);
+        Assert.False(assigned.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Ineligible, assigned.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Invalid_commit_transaction_handle_fails_closed()
+    {
+        var connections = Fixture.Services.ConnectionAccessor;
+        var directory = new PostgresHumanDisplayProfileDirectory(connections);
+        var invalid = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            directory.RevalidateEligibleAsync(
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                EnrollmentAuthorizationActions.Receive,
+                "forged",
+                CancellationToken));
+        Assert.Equal("commit.transaction.invalid", invalid.Message);
+
+        var baselines = new PostgresAssessmentBaselineStore(
+            connections,
+            new PostgresAuditEventWriter(),
+            new PostgresOutboxItemWriter());
+        invalid = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            baselines.FindBoundAsync(
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                "forged",
+                CancellationToken));
+        Assert.Equal("commit.transaction.invalid", invalid.Message);
+
+        var reader = new PostgresActivatedCohortBindingReader(
+            connections,
+            new PostgresAssessmentDraftStore(connections, new PostgresAuditEventWriter()),
+            new PostgresAssessmentSourceCatalog(connections),
+            new PostgresAssessmentSourceCatalog(connections),
+            baselines,
+            new ActivationBaselineDigester());
+        invalid = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            reader.GetActivatedAsync(
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                "forged",
+                CancellationToken));
+        Assert.Equal("commit.transaction.invalid", invalid.Message);
+
+        var sessions = new PostgresApplicationSessionStore(connections);
+        invalid = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            sessions.RevalidateLiveAsync(
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                "forged",
+                CancellationToken));
+        Assert.Equal("commit.transaction.invalid", invalid.Message);
+    }
+
+    [Fact]
     public async Task Live_uniqueness_conflict_keeps_the_transaction_usable()
     {
         var harness = await SeedActivatedAsync();
@@ -587,7 +673,7 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
             new PostgresEnrollmentOperationStore(),
             new PostgresEnrollmentAuditPort(new PostgresAuditEventWriter(), new PostgresOutboxItemWriter()),
             new PostgresEnrollmentUnitOfWork(connections),
-            new PostgresEnrollmentSessionPort());
+            new IdentityEnrollmentSessionPort(new PostgresApplicationSessionStore(connections)));
         return new EnrollmentHarness(
             coordinator,
             enrollmentActor,

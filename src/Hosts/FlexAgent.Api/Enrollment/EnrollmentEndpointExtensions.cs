@@ -51,7 +51,7 @@ public static class EnrollmentEndpointExtensions
         services.AddSingleton<IEnrollmentAuditPort, PostgresEnrollmentAuditPort>();
         services.AddSingleton<IEnrollmentAuthorizationPort, KernelEnrollmentAuthorizationPort>();
         services.AddSingleton<IEnrollmentUnitOfWork, PostgresEnrollmentUnitOfWork>();
-        services.AddSingleton<IEnrollmentSessionPort, PostgresEnrollmentSessionPort>();
+        services.AddSingleton<IEnrollmentSessionPort, IdentityEnrollmentSessionPort>();
         return services;
     }
 

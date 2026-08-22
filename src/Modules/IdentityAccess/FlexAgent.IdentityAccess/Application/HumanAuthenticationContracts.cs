@@ -150,6 +150,16 @@ public interface IApplicationSessionStore
         CancellationToken cancellationToken = default);
 }
 
+public interface IApplicationSessionCommitPort
+{
+    Task<bool> RevalidateLiveAsync(
+        Guid applicationSessionId,
+        Guid actorId,
+        Guid organizationId,
+        object commitTransaction,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IOidcLoginTransactionStore
 {
     Task CreateAsync(OidcLoginTransaction transaction, CancellationToken cancellationToken = default);

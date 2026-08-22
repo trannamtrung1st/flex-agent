@@ -105,7 +105,7 @@ public sealed class MemoryHumanIdentityBindingStore : IHumanIdentityBindingStore
     private static string Key(ExactIssuerSubject identity) => $"{identity.Issuer}\n{identity.Subject}";
 }
 
-public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
+public sealed class MemoryApplicationSessionStore : IApplicationSessionStore, IApplicationSessionCommitPort
 {
     private readonly ConcurrentDictionary<Guid, ApplicationSessionRecord> _sessions = new();
     private readonly HashSet<string> _revokedProviderSessions = new(StringComparer.Ordinal);
@@ -171,6 +171,25 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore
         cancellationToken.ThrowIfCancellationRequested();
         _sessions.TryGetValue(applicationSessionId, out var session);
         return Task.FromResult(session);
+    }
+
+    public Task<bool> RevalidateLiveAsync(
+        Guid applicationSessionId,
+        Guid actorId,
+        Guid organizationId,
+        object commitTransaction,
+        CancellationToken cancellationToken = default)
+    {
+        _ = commitTransaction;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!_sessions.TryGetValue(applicationSessionId, out var session)
+            || session.ActorId != actorId
+            || session.OrganizationId != organizationId)
+        {
+            return Task.FromResult(false);
+        }
+
+        return Task.FromResult(ApplicationSessionPolicy.AuthenticateFailureReason(session, DateTimeOffset.UtcNow) is null);
     }
 
     public Task TerminateLiveAsync(

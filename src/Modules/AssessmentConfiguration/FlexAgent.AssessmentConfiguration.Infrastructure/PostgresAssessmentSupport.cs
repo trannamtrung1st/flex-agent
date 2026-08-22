@@ -71,13 +71,14 @@ public sealed class PostgresAssessmentBaselineStore(
             """;
         var lockedSql = sql + " FOR SHARE";
         (string ContentDigest, string Document) row;
-        if (commitTransaction is NpgsqlTransaction npgsql)
+        var transaction = PostgresCommitTransaction.Optional(commitTransaction);
+        if (transaction is not null)
         {
-            row = await npgsql.Connection!.QuerySingleOrDefaultAsync<(string ContentDigest, string Document)>(
+            row = await transaction.Connection!.QuerySingleOrDefaultAsync<(string ContentDigest, string Document)>(
                 new CommandDefinition(
                     lockedSql,
                     new { OrganizationId = organizationId, ActivityId = activityId, CohortId = cohortId },
-                    npgsql,
+                    transaction,
                     cancellationToken: cancellationToken));
         }
         else
@@ -856,13 +857,14 @@ public sealed class PostgresActivatedCohortBindingReader(
               AND cohort.state = 'activated'
             """;
         ActivatedCohortRow? row;
-        if (commitTransaction is NpgsqlTransaction npgsql)
+        var transaction = PostgresCommitTransaction.Optional(commitTransaction);
+        if (transaction is not null)
         {
-            row = await npgsql.Connection!.QuerySingleOrDefaultAsync<ActivatedCohortRow>(
+            row = await transaction.Connection!.QuerySingleOrDefaultAsync<ActivatedCohortRow>(
                 new CommandDefinition(
                     sql,
                     new { OrganizationId = organizationId, ActivityId = activityId, CohortId = cohortId },
-                    npgsql,
+                    transaction,
                     cancellationToken: cancellationToken));
         }
         else
@@ -889,9 +891,9 @@ public sealed class PostgresActivatedCohortBindingReader(
         ActivityDraft? draft;
         IReadOnlyList<TrustedSourceDescriptor> sources;
         PersistedActivationBaseline? persisted;
-        if (commitTransaction is not null)
+        if (transaction is not null)
         {
-            var assessmentTransaction = new SharedAssessmentTransaction(commitTransaction);
+            var assessmentTransaction = new SharedAssessmentTransaction(transaction);
             draft = await drafts.GetDraftAsync(organizationId, activityId, assessmentTransaction, cancellationToken);
             sources = draft is null
                 ? Array.Empty<TrustedSourceDescriptor>()
@@ -904,7 +906,7 @@ public sealed class PostgresActivatedCohortBindingReader(
                 organizationId,
                 activityId,
                 cohortId,
-                commitTransaction,
+                transaction,
                 cancellationToken);
         }
         else

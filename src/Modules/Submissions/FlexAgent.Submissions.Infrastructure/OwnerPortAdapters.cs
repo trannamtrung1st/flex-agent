@@ -92,3 +92,17 @@ public sealed class IdentityEnrollmentCandidatePort(IHumanDisplayProfileDirector
         CancellationToken cancellationToken = default) =>
         directory.FindDisplayLabelAsync(organizationId, actorId, cancellationToken);
 }
+
+public sealed class IdentityEnrollmentSessionPort(IApplicationSessionCommitPort sessions) : IEnrollmentSessionPort
+{
+    public Task<bool> RevalidateLiveAsync(
+        EnrollmentActorContext actor,
+        IEnrollmentTransaction transaction,
+        CancellationToken cancellationToken = default) =>
+        sessions.RevalidateLiveAsync(
+            actor.ApplicationSessionId,
+            actor.Actor.ActorId,
+            actor.Organization.OrganizationId,
+            transaction.CommitHandle,
+            cancellationToken);
+}
