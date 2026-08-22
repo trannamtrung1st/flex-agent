@@ -14,11 +14,13 @@ public sealed class EnrollmentRequestLimiterTests
         var organizationId = Guid.CreateVersion7();
         var actorId = Guid.CreateVersion7();
 
-        Assert.True(limiter.TryAcquire(organizationId, actorId, EnrollmentRequestSurfaces.Read));
-        Assert.True(limiter.TryAcquire(organizationId, actorId, EnrollmentRequestSurfaces.Read));
-        Assert.False(limiter.TryAcquire(organizationId, actorId, EnrollmentRequestSurfaces.Read));
-        Assert.True(limiter.TryAcquire(organizationId, actorId, EnrollmentRequestSurfaces.Mutation));
-        Assert.False(limiter.TryAcquire(organizationId, actorId, EnrollmentRequestSurfaces.Mutation));
+        Assert.True(limiter.TryAcquire(organizationId, actorId, EnrollmentRequestSurfaces.Read).Permitted);
+        Assert.True(limiter.TryAcquire(organizationId, actorId, EnrollmentRequestSurfaces.Read).Permitted);
+        var deniedRead = limiter.TryAcquire(organizationId, actorId, EnrollmentRequestSurfaces.Read);
+        Assert.False(deniedRead.Permitted);
+        Assert.True(deniedRead.RetryAfterSeconds >= 1);
+        Assert.True(limiter.TryAcquire(organizationId, actorId, EnrollmentRequestSurfaces.Mutation).Permitted);
+        Assert.False(limiter.TryAcquire(organizationId, actorId, EnrollmentRequestSurfaces.Mutation).Permitted);
     }
 
     [Fact]
@@ -30,10 +32,29 @@ public sealed class EnrollmentRequestLimiterTests
         var actorId = Guid.CreateVersion7();
         var otherActorId = Guid.CreateVersion7();
 
-        Assert.True(limiter.TryAcquire(organizationId, actorId, EnrollmentRequestSurfaces.Read));
-        Assert.False(limiter.TryAcquire(organizationId, actorId, EnrollmentRequestSurfaces.Read));
-        Assert.True(limiter.TryAcquire(organizationId, otherActorId, EnrollmentRequestSurfaces.Read));
-        Assert.True(limiter.TryAcquire(otherOrganizationId, actorId, EnrollmentRequestSurfaces.Read));
+        Assert.True(limiter.TryAcquire(organizationId, actorId, EnrollmentRequestSurfaces.Read).Permitted);
+        Assert.False(limiter.TryAcquire(organizationId, actorId, EnrollmentRequestSurfaces.Read).Permitted);
+        Assert.True(limiter.TryAcquire(organizationId, otherActorId, EnrollmentRequestSurfaces.Read).Permitted);
+        Assert.True(limiter.TryAcquire(otherOrganizationId, actorId, EnrollmentRequestSurfaces.Read).Permitted);
+    }
+
+    [Fact]
+    public void Configuration_cannot_raise_the_frozen_read_or_mutation_ceiling()
+    {
+        Assert.Throws<InvalidOperationException>(() => CreateLimiter(readLimit: EnrollmentRequestLimitDefaults.ReadPermitLimit + 1, mutationLimit: 1));
+        Assert.Throws<InvalidOperationException>(() => CreateLimiter(readLimit: 1, mutationLimit: EnrollmentRequestLimitDefaults.MutationPermitLimit + 1));
+    }
+
+    [Fact]
+    public void Configuration_cannot_shorten_the_frozen_window()
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+            new FixedWindowEnrollmentRequestLimiter(Options.Create(new EnrollmentRequestLimitOptions
+            {
+                ReadPermitLimit = 1,
+                MutationPermitLimit = 1,
+                WindowSeconds = EnrollmentRequestLimitDefaults.WindowSeconds - 1,
+            })));
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useProductionApi } from "../api/production-api";
 import {
@@ -7,6 +7,7 @@ import {
   enrollmentFailureCopy,
   type AssignmentSummaryV1,
 } from "../api/production-enrollment";
+import { Button } from "../components/ui/Button";
 import { ProtectedLoading } from "../components/ui/ProtectedLoading";
 import { StatusPanel } from "../components/ui/StatusPanel";
 
@@ -15,30 +16,50 @@ export function ProductionMyWorkPage() {
   const client = useMemo(() => createProductionEnrollmentClient(fetchJson), [fetchJson]);
   const [items, setItems] = useState<AssignmentSummaryV1[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const load = useCallback((signal?: { cancelled: boolean }) => {
+    setPending(true);
     client.listMyWork()
       .then((page) => {
-        if (!cancelled) {
-          setItems(page.items);
+        if (signal?.cancelled) {
+          return;
         }
+        setItems(page.items);
+        setError(null);
       })
       .catch((caught) => {
-        if (!cancelled) {
+        if (!signal?.cancelled) {
           setError(enrollmentFailureCopy(caught, "My work is not available."));
         }
+      })
+      .finally(() => {
+        if (!signal?.cancelled) {
+          setPending(false);
+        }
       });
-    return () => {
-      cancelled = true;
-    };
   }, [client]);
+
+  useEffect(() => {
+    const signal = { cancelled: false };
+    load(signal);
+    return () => {
+      signal.cancelled = true;
+    };
+  }, [load]);
 
   if (error) {
     const rateLimited = error === EnrollmentRateLimitedCopy;
     return (
       <StatusPanel title={rateLimited ? "Too many requests" : "My work unavailable"} variant="danger">
         <p>{error}</p>
+        {rateLimited ? (
+          <p>
+            <Button type="button" disabled={pending} onClick={() => { load(); }}>
+              Try again
+            </Button>
+          </p>
+        ) : null}
       </StatusPanel>
     );
   }

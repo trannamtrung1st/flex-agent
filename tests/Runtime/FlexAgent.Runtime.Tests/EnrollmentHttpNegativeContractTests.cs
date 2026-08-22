@@ -65,6 +65,7 @@ public sealed class EnrollmentHttpNegativeContractTests
         Assert.Contains(EnrollmentFailureCodes.RateLimited, body, StringComparison.Ordinal);
         AssertNoAssignment(body);
         Assert.Equal("no-store", third.Headers.CacheControl?.ToString());
+        Assert.True(third.Headers.RetryAfter?.Delta >= TimeSpan.FromSeconds(1));
     }
 
     [Fact]

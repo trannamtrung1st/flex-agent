@@ -338,7 +338,9 @@ not be marked implemented by this task.
   current actor, Organization, query, and resource scope. Cursor tampering,
   over-limit requests, and page traversal after access change fail safely. The
   gateway applies bounded per-actor/Organization request limits without using
-  high-cardinality protected labels.
+  high-cardinality protected labels. This slice ships a replica-local API
+  limiter as defense in depth; a shared gateway-enforced quota remains an
+  explicit residual.
 - Cookie-authenticated mutations require the established CSRF token. Assign and
   administrator Enrollment reads/mutations require current administrator MFA;
   Participant discovery uses the current Organization authentication policy
@@ -516,15 +518,21 @@ not be marked implemented by this task.
 - [x] External review of `888cd66` approved the cursor/security remediations
   with no blocking code findings. The task stays **in-progress** for already
   recorded residuals.
-- [x] Close remaining in-scope residuals: per-actor/Organization Enrollment
-  request limits, multi-sample mutation p95, in-service authorization p95,
-  and bounded mutation/limit telemetry without protected labels. Authenticated
-  400% Playwright, full `FlexAgent.slnx`/OCI, and independent slice review
-  remain recorded residuals.
+- [x] Close remaining in-scope residuals that this slice can meet without a
+  shared gateway store: replica-local per-actor/Organization Enrollment
+  request limits as defense in depth, multi-sample mutation p95, in-service
+  authorization p95, and bounded mutation/limit telemetry without protected
+  labels. Shared/gateway-enforced bounded quota, authenticated 400%
+  Playwright, full `FlexAgent.slnx`/OCI, and independent slice review remain
+  recorded residuals.
 - [x] Continue Docker-backed verification: sign in through the authenticated
   browser profile and capture 400%/keyboard My work evidence.
 - [x] Add dedicated Enrollment/My work 429 recovery copy, then continue
   remaining solution/OCI verification.
+- [x] Review of `1fec6b3`: keep the replica-local limiter as MVP defense
+  in depth, fail closed when configuration raises the frozen ceiling or
+  shortens the window, and leave a shared gateway quota as an explicit
+  residual.
 
 # Planned verification command set
 
@@ -557,16 +565,18 @@ not be marked implemented by this task.
 
 # Current state
 
-This pass closed the remaining specified Enrollment operational residuals
-that could be implemented without a new ADR:
+This pass added replica-local Enrollment request limiting as defense in
+depth. It does **not** close the gateway-wide bounded-quota contract:
 
-- Authenticated Enrollment reads and mutations now acquire a replica-local
+- Authenticated Enrollment reads and mutations acquire a process-local
   fixed-window quota keyed by `(organization, actor, surface)`. Interim
   defaults are 60 reads and 20 mutations per 10-second window. Testing may
-  lower those values. Saturation of 10,000 live partitions fail-closes.
-  Metrics/logs use only `read`/`mutation` and `permitted`/`limited`.
-- HTTP 429/`enrollment.rate_limited`/`no-store` is covered after two allowed
-  My work reads when the test read quota is 2.
+  lower those values. Configuration above the frozen ceilings or a window
+  shorter than 10 seconds fails closed. Saturation of 10,000 live
+  partitions fail-closes. Metrics/logs use only `read`/`mutation` and
+  `permitted`/`limited`.
+- HTTP 429/`enrollment.rate_limited`/`no-store` plus `Retry-After` is
+  covered after two allowed My work reads when the test read quota is 2.
 - Assignment mutation p95 is a 20-sample PostgreSQL gate against the
   approved 2-second `PROP-5` bound, after one activated Campaign seed.
 - In-service Enrollment authorization p95 is a warmed 20-sample PostgreSQL
@@ -576,13 +586,24 @@ that could be implemented without a new ADR:
 Confirmation pass 2026-08-23 before the 429-recovery commit: Enrollment
 and My work web tests 12 passed; `pnpm --filter @flex-agent/web
 typecheck` passed; `check_docs` and `git diff --check` passed. The task
-stays **in-progress** only for independent slice review and GitHub CI.
+stays **in-progress** for the gateway-wide quota residual, independent
+slice review, and GitHub CI.
 
 Follow-up 2026-08-23 after Docker 400% evidence: Enrollment and My work
 now show recoverable **Too many requests** copy for `429` /
 `enrollment.rate_limited` and keep the selected Participant on assign.
 `dotnet test --solution FlexAgent.slnx -c Release` passed (1438 / 2
 skipped). `bash build/scripts/verify-oci.sh` completed.
+
+Review remediation 2026-08-23 for `1fec6b3`: constructor and
+`ValidateOnStart` reject raised 60/20 ceilings or a window shorter than
+10 seconds. Denied admissions return `Retry-After`. My work’s standalone
+rate-limit panel now has **Try again**. The shared/gateway-enforced
+quota is left open. Focused green: Enrollment HTTP + limiter 16;
+Enrollment/My work web 12; `pnpm --filter @flex-agent/web typecheck`;
+`check_docs`; `git diff --check`. Live 429/Try again was not recaptured:
+the running authenticated profile predates this change, and hitting the
+frozen 60-read quota would lock the synthetic Participant.
 
 Docker follow-up 2026-08-23: `authenticated-browser-profile.sh status`
 showed the loopback profile healthy (API, SPA, Keycloak, Postgres,
@@ -825,11 +846,14 @@ accessibility, full CI/OCI, and remaining independent review.
   approved `PROP-*`. Authenticated reads allow 60 permits and mutations
   allow 20 permits per 10-second window per `(organization, actor)`.
   Surfaces are independent. Unauthenticated requests return 401 before a
-  quota is consumed. The limiter is replica-local until a shared gateway
-  store exists, so effective capacity scales with process count. Labels
+  quota is consumed. The process-local limiter is MVP defense in depth,
+  not the gateway-wide contract: each API replica has independent
+  in-memory partitions, so effective capacity scales with process count.
+  A shared/gateway-enforced quota remains an explicit residual. Labels
   never include actor, Organization, Enrollment, or Participant
-  identifiers. Deployments may lower the numbers; they must not raise them
-  without an approved operational default.
+  identifiers. Deployments may only lower the frozen 60/20 ceilings or
+  lengthen the 10-second window. Values above those ceilings or a shorter
+  window fail closed at startup.
 - Authenticate Enrollment, My work, and participant-options list cursors
   with HMAC-SHA256 over a scope-bound payload (query kind, Organization,
   actor, Activity, Cohort, SHA-256 digest of the normalized prefix, ticks
@@ -847,9 +871,17 @@ accessibility, full CI/OCI, and remaining independent review.
 
 # Findings / deviations
 
+- Review of `1fec6b3`: request changes. P1 — do not mark the
+  gateway/per-actor quota closed while the limiter is replica-local
+  in-memory state. P2 — `Enrollment:RequestLimits` accepted values above
+  the frozen 60/20/≥10s ceiling. Remediation keeps the local limiter,
+  fail-closes raised ceilings or a shorter window, returns `Retry-After`
+  on 429, and adds **Try again** on the My work rate-limit panel. The
+  shared/gateway-enforced quota stays an explicit residual.
 - Follow-up 2026-08-23: 429 recovery copy, full `FlexAgent.slnx`, and
   local OCI verification are closed. Raw Organization/Enrollment
-  locators and independent slice review remain.
+  locators, shared/gateway rate-limit quota, and independent slice review
+  remain.
 - Review of `888cd66`: approved. No blocking defect. Cursor/security
   remediations from the prior reviews are closed. Compatibility of the
   changed `v1` payload and Base64 secret encoding is a non-blocking note
@@ -987,14 +1019,16 @@ accessibility, full CI/OCI, and remaining independent review.
 | Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 43 passed, including percentile rank and allowlisted mutation telemetry. |
 | Architecture/contract tests | passed | Architecture 41 passed. This pass did not change schemas. |
 | PostgreSQL migration/isolation/concurrency/fault tests | passed | Included in full `FlexAgent.slnx` Release: 1438 passed, 2 skipped. Enrollment p95 cases remain in that suite. |
-| Runtime/API authorization and HTTP-negative tests | passed | Enrollment HTTP 11 plus limiter 3 (local 14). Covers CSRF, missing session, malformed/overlong/unparsable list query values, guessed detail, unknown member, oversized body, and 429 after the frozen per-actor read quota. |
-| React component/accessibility tests | passed | Enrollment/My work 429 recovery copy is covered: client maps `enrollment.rate_limited`; My work heading **Too many requests**; assign keeps the selected Participant. `pnpm --filter @flex-agent/web typecheck` passed. |
+| Runtime/API authorization and HTTP-negative tests | passed | Enrollment HTTP + limiter 16. Covers CSRF, missing session, malformed/overlong/unparsable list query values, guessed detail, unknown member, oversized body, 429 + `Retry-After` after a lowered read quota, and fail-closed raised ceilings / shortened window. |
+| React component/accessibility tests | passed | Enrollment/My work 429 recovery: client maps `enrollment.rate_limited`; My work heading **Too many requests** plus **Try again** reloads the list; assign keeps the selected Participant. `pnpm --filter @flex-agent/web typecheck` passed. |
 | Authenticated Playwright MCP desktop/narrow/both-theme evidence | passed | Docker profile at `http://localhost:18080`. Participant login returned populated My work. Desktop list: `.playwright-mcp/page-2026-08-22T18-07-50-907Z.png`. 320×640 list: `.playwright-mcp/page-2026-08-22T18-08-02-305Z.png`. 320 assignment detail: `.playwright-mcp/page-2026-08-22T18-08-23-633Z.png`. 320 focus on Return to My work: `.playwright-mcp/page-2026-08-22T18-08-52-320Z.png`. 320 dark detail: `.playwright-mcp/page-2026-08-22T18-09-13-410Z.png`. Desktop dark detail: `.playwright-mcp/page-2026-08-22T18-09-30-514Z.png`. Visual: hierarchy and next action are clear; no overflow of primary copy at 320; shell still shows raw Organization/Enrollment locators. |
 | Full regression, security, supply-chain, and performance gates | passed | `dotnet test --solution FlexAgent.slnx -c Release` passed (1438 / 2 skipped). `bash build/scripts/verify-oci.sh` completed locally, including health probes and SBOM/vulnerability scan. |
 | Cursor/security remediations review (`888cd66`) | passed | External review approved with no blocking code finding. Prefix digest, ≥32-byte decoded keys, replica/rotation, and candidate `afterActorId` binding accepted. GitHub CI still absent for that SHA. |
 
 # Blockers
 
+- Shared/gateway-enforced per-actor/Organization Enrollment request
+  limits remain open. The API-process limiter is defense in depth only.
 - Independent backend/frontend/security/QA review of the broader
   Enrollment slice is still required before this task can be marked
   completed. GitHub CI is not attached to this working tree.

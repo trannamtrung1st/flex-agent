@@ -27,7 +27,10 @@ public static class EnrollmentEndpointExtensions
             return services;
         }
 
-        services.Configure<EnrollmentRequestLimitOptions>(configuration.GetSection("Enrollment:RequestLimits"));
+        services.AddOptions<EnrollmentRequestLimitOptions>()
+            .Bind(configuration.GetSection("Enrollment:RequestLimits"))
+            .Validate(EnrollmentRequestLimitOptions.MeetsFrozenCeiling, "Enrollment request limits may only be tightened below the frozen 60/20 per 10-second ceiling.")
+            .ValidateOnStart();
         services.AddSingleton<IEnrollmentRequestLimiter, FixedWindowEnrollmentRequestLimiter>();
         services.AddSingleton<IEnrollmentTelemetry, LoggingEnrollmentTelemetry>();
         services.AddSingleton<IEnrollmentCoordinator, EnrollmentCoordinator>();
@@ -357,10 +360,15 @@ public static class EnrollmentEndpointExtensions
 
         var limiter = context.RequestServices.GetRequiredService<IEnrollmentRequestLimiter>();
         var telemetry = context.RequestServices.GetRequiredService<IEnrollmentTelemetry>();
-        if (!limiter.TryAcquire(actor.Organization.OrganizationId, actor.Actor.ActorId, surface))
+        var admission = limiter.TryAcquire(actor.Organization.OrganizationId, actor.Actor.ActorId, surface);
+        if (!admission.Permitted)
         {
             telemetry.RecordRequestLimit(surface, EnrollmentTelemetryLabels.Limited);
-            await WriteError(context, StatusCodes.Status429TooManyRequests, EnrollmentFailureCodes.RateLimited);
+            await WriteError(
+                context,
+                StatusCodes.Status429TooManyRequests,
+                EnrollmentFailureCodes.RateLimited,
+                admission.RetryAfterSeconds);
             return null;
         }
 
@@ -452,9 +460,14 @@ public static class EnrollmentEndpointExtensions
         await context.Response.WriteAsJsonAsync(projector(result.Value));
     }
 
-    private static Task WriteError(HttpContext context, int status, string code)
+    private static Task WriteError(HttpContext context, int status, string code, int? retryAfterSeconds = null)
     {
         context.Response.Headers.CacheControl = "no-store";
+        if (retryAfterSeconds is > 0)
+        {
+            context.Response.Headers.RetryAfter = retryAfterSeconds.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
         context.Response.StatusCode = status;
         return context.Response.WriteAsJsonAsync(new { error = code });
     }

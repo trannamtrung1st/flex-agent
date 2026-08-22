@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProductionApiProvider } from "../api/production-api";
 import { ProductionMyWorkPage } from "./ProductionMyWorkPage";
@@ -182,5 +182,13 @@ describe("ProductionMyWorkPage", () => {
     expect(await screen.findByRole("heading", { name: "Too many requests" })).toBeInTheDocument();
     expect(screen.getByText("Too many requests. Wait a moment, then try again.")).toBeInTheDocument();
     expect(screen.queryByText("My work is not available.")).not.toBeInTheDocument();
+    const retry = screen.getByRole("button", { name: "Try again" });
+    fireEvent.click(retry);
+    expect(await screen.findByRole("button", { name: "Try again" })).toBeInTheDocument();
+    const fetchMock = vi.mocked(fetch);
+    expect(fetchMock.mock.calls.filter(([input]) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      return url.includes("/v1/assessment/my-work");
+    }).length).toBeGreaterThan(1);
   });
 });
