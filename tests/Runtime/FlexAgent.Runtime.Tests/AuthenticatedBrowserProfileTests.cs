@@ -18,7 +18,8 @@ public sealed class AuthenticatedBrowserProfileTests
     public void Compose_uses_the_canonical_gateway_without_a_host_database_port()
     {
         var compose = File.ReadAllText(ComposePath());
-        Assert.Contains("18080:80", compose);
+        Assert.Contains("127.0.0.1:18080:80", compose);
+        Assert.DoesNotMatch(@"-\s*""18080:80""", compose);
         Assert.DoesNotContain("5432:5432", compose);
         Assert.Contains("Host=postgres;Port=5432", compose);
         Assert.Contains("reach PostgreSQL at postgres:5432", compose);
@@ -125,6 +126,8 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.DoesNotContain("read -p", script);
         Assert.DoesNotContain("read -r", script);
         Assert.Contains("http://localhost:18080", script);
+        Assert.Contains("127.0.0.1:18080:80", script);
+        Assert.Contains("non-loopback gateway publication is not permitted", script);
         Assert.Contains("authenticated-browser.compose.yaml", script);
     }
 

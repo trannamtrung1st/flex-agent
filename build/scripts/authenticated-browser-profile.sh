@@ -23,6 +23,16 @@ validate() {
     exit 1
   fi
 
+  if ! grep -q '127.0.0.1:18080:80' "${COMPOSE_FILE}"; then
+    echo "gateway must bind only to loopback 127.0.0.1:18080" >&2
+    exit 1
+  fi
+
+  if grep -E '^\s*-\s*"?18080:80"?' "${COMPOSE_FILE}"; then
+    echo "non-loopback gateway publication is not permitted" >&2
+    exit 1
+  fi
+
   if grep -q '/browser' "${COMPOSE_FILE}" "${NGINX_FILE}"; then
     echo "synthetic browser route is not permitted in this profile" >&2
     exit 1

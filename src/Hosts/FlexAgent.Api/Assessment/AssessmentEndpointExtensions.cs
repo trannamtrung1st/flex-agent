@@ -403,23 +403,16 @@ public static class AssessmentEndpointExtensions
                 draft.OrganizationId,
                 BaselineVerification.References(draft),
                 context.RequestAborted);
-            BaselineDigestCheck? digestCheck = null;
-            if (cohort is not null)
-            {
-                var persisted = await baselines.FindBoundAsync(
-                    draft.OrganizationId,
+            verificationStatus = BaselineVerification.Status(
+                draft,
+                sources,
+                await LoadActivatedDigestCheckAsync(
+                    baselines,
+                    digester,
+                    draft,
                     activityId,
-                    cohort.CohortId,
-                    context.RequestAborted);
-                var recomputed = persisted is null
-                    ? null
-                    : digester.Digest(persisted.Document);
-                digestCheck = new BaselineDigestCheck(
-                    persisted?.ContentDigest ?? cohort.BaselineDigest ?? string.Empty,
-                    recomputed is { Succeeded: true } ? recomputed.Value : null);
-            }
-
-            verificationStatus = BaselineVerification.Status(draft, sources, digestCheck);
+                    cohort,
+                    context.RequestAborted));
         }
 
         var capabilities = draft.Content.RequestedCapabilities;
@@ -718,6 +711,47 @@ public static class AssessmentEndpointExtensions
                 Guid.CreateVersion7(),
                 "https"),
             authorization);
+    }
+
+    private static async Task<BaselineDigestCheck> LoadActivatedDigestCheckAsync(
+        IAssessmentBaselineStore baselines,
+        IActivationBaselineDigester digester,
+        ActivityDraft draft,
+        Guid activityId,
+        AssessmentCohort? cohort,
+        CancellationToken cancellationToken)
+    {
+        if (cohort is null
+            || cohort.State != CohortStates.Activated
+            || cohort.BaselineId is null
+            || string.IsNullOrWhiteSpace(cohort.BaselineDigest))
+        {
+            return new BaselineDigestCheck(string.Empty, null, BindingPresent: false);
+        }
+
+        var persisted = await baselines.FindBoundAsync(
+            draft.OrganizationId,
+            activityId,
+            cohort.CohortId,
+            cancellationToken);
+        if (persisted is null
+            || !string.Equals(persisted.ContentDigest, cohort.BaselineDigest, StringComparison.Ordinal))
+        {
+            return new BaselineDigestCheck(
+                cohort.BaselineDigest,
+                null,
+                BindingPresent: false,
+                BoundRevisionId: cohort.BoundRevisionId,
+                DraftRevisionId: draft.RevisionId);
+        }
+
+        var recomputed = digester.Digest(persisted.Document);
+        return new BaselineDigestCheck(
+            persisted.ContentDigest,
+            recomputed is { Succeeded: true } ? recomputed.Value : null,
+            BindingPresent: true,
+            BoundRevisionId: cohort.BoundRevisionId,
+            DraftRevisionId: draft.RevisionId);
     }
 
     private static object ProjectSource(ExactSourceRef source) => new

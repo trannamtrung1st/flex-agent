@@ -50,13 +50,53 @@ public sealed class BaselineVerificationTests
     }
 
     [Fact]
+    public void Activated_draft_without_a_digest_check_is_degraded()
+    {
+        var draft = AssessmentFixtures.CreateDraft().Value! with { HasActivatedCohort = true };
+        var status = BaselineVerification.Status(draft, AssessmentFixtures.PermittedSources());
+        Assert.Equal(BaselineVerification.Degraded, status);
+    }
+
+    [Fact]
+    public void Activated_draft_without_a_bound_baseline_is_degraded()
+    {
+        var draft = AssessmentFixtures.CreateDraft().Value! with { HasActivatedCohort = true };
+        var digest = AssessmentFixtures.Digest('a');
+        var status = BaselineVerification.Status(
+            draft,
+            AssessmentFixtures.PermittedSources(),
+            new BaselineDigestCheck(digest, digest, BindingPresent: false));
+        Assert.Equal(BaselineVerification.Degraded, status);
+    }
+
+    [Fact]
+    public void Activated_draft_with_a_bound_revision_mismatch_is_degraded()
+    {
+        var draft = AssessmentFixtures.CreateDraft().Value! with { HasActivatedCohort = true };
+        var digest = AssessmentFixtures.Digest('a');
+        var status = BaselineVerification.Status(
+            draft,
+            AssessmentFixtures.PermittedSources(),
+            new BaselineDigestCheck(
+                digest,
+                digest,
+                BoundRevisionId: Guid.Parse("99999999-9999-4999-8999-999999999999"),
+                DraftRevisionId: draft.RevisionId));
+        Assert.Equal(BaselineVerification.Degraded, status);
+    }
+
+    [Fact]
     public void Activated_draft_with_revoked_source_is_degraded()
     {
         var draft = AssessmentFixtures.CreateDraft().Value! with { HasActivatedCohort = true };
         var sources = AssessmentFixtures.PermittedSources();
         sources[6] = sources[6] with { LifecycleState = SourceLifecycleStates.Revoked };
 
-        var status = BaselineVerification.Status(draft, sources);
+        var digest = AssessmentFixtures.Digest('a');
+        var status = BaselineVerification.Status(
+            draft,
+            sources,
+            new BaselineDigestCheck(digest, digest));
         Assert.Equal(BaselineVerification.Degraded, status);
     }
 
