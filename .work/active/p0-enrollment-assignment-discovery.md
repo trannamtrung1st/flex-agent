@@ -484,6 +484,8 @@ not be marked implemented by this task.
   commit-transaction handle.
 - [x] Review remediation 4: confirm application-session validity against the
   database clock immediately before Enrollment mutation or replay disclosure.
+- [x] Review remediation 5: confirm replay liveness after the locked Enrollment
+  read, immediately before disclosure.
 - [>] Remaining verification: administrator assign/lifecycle Playwright,
   remaining HTTP/collaboration negatives, latency measurement, full
   solution/OCI gates, and independent review.
@@ -524,10 +526,11 @@ SQL against `application_sessions`), a display-profile lock gap, and silent
 degradation on a mismatched `commitTransaction` handle. Those are remediated
 in this pass. The task stays **in-progress**.
 
-Reconfirmed on 2026-08-22 after remediation 4, including a second confirmation
-pass before commit: domain 26, architecture 41, Enrollment HTTP 5, and
-Enrollment PostgreSQL 15 all passed. Focused web enrollment tests were not
-re-run because this pass is server-only.
+Reconfirmed on 2026-08-22 after remediation 5 plus CI follow-up: domain 27,
+architecture 41, Enrollment HTTP 5, Assessment HTTP negatives 19, and
+Enrollment PostgreSQL 16 all passed. Web Enrollment lint/tests 7 passed.
+The production shell again returns 403 without actor disclosure when an
+administrator or reviewer session lacks MFA.
 
 Remediation now in tree:
 
@@ -554,6 +557,7 @@ only adapts that port. Eligibility revalidation locks the display-profile
 row. Owner ports fail closed on a non-null, non-`NpgsqlTransaction` handle.
 The early session lock remains; IdentityAccess then confirms liveness with
 `clock_timestamp()` immediately before mutation or replay disclosure.
+Idempotent replay confirms after the locked Enrollment read.
 
 Live evidence now covers the rebuilt profile at `http://localhost:18080`:
 participant **My work** empty state at desktop light, dark, and narrow 390px.
@@ -700,9 +704,9 @@ independent review.
 | `python3 scripts/check_docs.py` | passed | Documentation validation passed on 2026-08-22. |
 | whitespace/diff validation | passed | `git diff --check` passed; direct `git diff --no-index --check` on the untracked task file produced no whitespace diagnostics (its status `1` is the expected no-index difference result). |
 | Secret scan | passed | `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` found no leaks during the readiness review. |
-| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 26 passed, including stale-session denial, expiry after the early lock for assign and lifecycle, and lifecycle Enrollment resource-type authorization. |
+| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 27 passed, including stale-session denial, expiry after the early lock for assign and lifecycle, expiry after a replay Enrollment read, and lifecycle Enrollment resource-type authorization. |
 | Architecture/contract tests | passed | Architecture 41 passed, including `Submissions_infrastructure_does_not_query_identity_application_sessions`. Earlier contract catalog 100 remains from `f1a6b44`; this pass did not change schemas. |
-| PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 15 passed, including source/eligibility/session revocation races, session-expiry during a held Assessment lock (`enrollment.denied`), profile-deletion race (`enrollment.ineligible`), and fail-closed invalid commit-transaction handles. Full suite/OCI still open. |
+| PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 16 passed, including source/eligibility/session revocation races, session-expiry during a held Assessment lock, session-expiry during a held Enrollment replay read (`enrollment.denied`), profile-deletion race (`enrollment.ineligible`), and fail-closed invalid commit-transaction handles. Full suite/OCI still open. |
 | Runtime/API authorization and HTTP-negative tests | mixed | `EnrollmentHttpNegativeContractTests` 5 passed (CSRF, unauthenticated My work `no-store`, guessed detail concealment, unknown member, oversized body). MFA/dual-capability, cursor tampering, replay-after-revoke, and rate-limit cases remain. |
 | React component/accessibility tests | mixed | Focused vitest 7 passed, including retained lifecycle key and a new assign key after the selected Participant changes. `pnpm --filter @flex-agent/web typecheck` passed. Keyboard/400% not covered. |
 | Authenticated Playwright MCP desktop/narrow/both-theme evidence | mixed | Rebuilt profile. Participant empty **My work**: `.playwright-mcp/page-2026-08-22T07-21-45-872Z.png` (desktop light), `.playwright-mcp/page-2026-08-22T07-21-58-086Z.png` (desktop dark), `.playwright-mcp/page-2026-08-22T07-22-09-933Z.png` (narrow 390 dark). Administrator assign/lifecycle, populated/suspended/unavailable, and 400% screenshots were not captured. |

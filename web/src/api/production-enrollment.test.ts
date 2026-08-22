@@ -27,6 +27,14 @@ describe("production enrollment client", () => {
     });
     const client = createProductionEnrollmentClient(fetchJson);
     await client.mutate("act-1", "coh-1", "enr-1", "suspend", "temporary_restriction", 1, "enr-retry-1");
-    expect(JSON.parse(String(fetchJson.mock.calls[0][1].body)).idempotency_key).toBe("enr-retry-1");
+    const init = fetchJson.mock.calls[0]?.[1] as RequestInit | undefined;
+    const body = init?.body;
+    if (typeof body !== "string") {
+      throw new Error("expected a JSON request body");
+    }
+
+    expect(JSON.parse(body)).toEqual(
+      expect.objectContaining({ idempotency_key: "enr-retry-1" }),
+    );
   });
 });

@@ -130,9 +130,20 @@ public static class AssessmentEndpointExtensions
             return;
         }
 
+        var privilegedStrength = AssessmentAuthenticationPolicy.Evaluate(
+            resolved.Actor,
+            AssessmentAuthorizationActions.ReadActivity);
+        if (privilegedStrength is HumanAuthenticationReasonCodes.UnrecognizedAuthenticationStrength
+            or HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new { error = privilegedStrength });
+            return;
+        }
+
         var grants = resolved.Authorization.PermittedActions;
         var activitiesAvailable = grants.Any(FlexAgent.Submissions.Application.EnrollmentAuthenticationPolicy.IsAdministratorDestinationGrant)
-            && AssessmentAuthenticationPolicy.Evaluate(resolved.Actor, AssessmentAuthorizationActions.ReadActivity) is null;
+            && privilegedStrength is null;
         var myWorkAvailable = grants.Contains(
             FlexAgent.Submissions.Domain.EnrollmentAuthorizationActions.Discover,
             StringComparer.Ordinal);

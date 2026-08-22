@@ -3,6 +3,14 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProductionApiProvider } from "../api/production-api";
 import { ProductionEnrollmentPage } from "./ProductionEnrollmentPage";
 
+function jsonBody(init?: RequestInit): { idempotency_key?: string; participant_actor_id?: string } {
+  if (typeof init?.body !== "string") {
+    return {};
+  }
+
+  return JSON.parse(init.body) as { idempotency_key?: string; participant_actor_id?: string };
+}
+
 describe("ProductionEnrollmentPage", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -218,8 +226,8 @@ describe("ProductionEnrollmentPage", () => {
         });
       }
       if (url.includes("/suspend") && init?.method === "POST") {
-        const body = JSON.parse(String(init.body));
-        keys.push(body.idempotency_key);
+        const body = jsonBody(init);
+        keys.push(body.idempotency_key ?? "");
         if (keys.length === 1) {
           return Promise.reject(new TypeError("Failed to fetch"));
         }
@@ -284,7 +292,7 @@ describe("ProductionEnrollmentPage", () => {
   it("issues a new assign key when the selected Participant changes after a lost response", async () => {
     let uuid = 0;
     const keys: Array<{ participant: string; key: string }> = [];
-    vi.stubGlobal("crypto", { randomUUID: () => `key-${++uuid}` });
+    vi.stubGlobal("crypto", { randomUUID: () => `key-${String(++uuid)}` });
     vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       if (url.includes("/auth/session")) {
@@ -319,8 +327,8 @@ describe("ProductionEnrollmentPage", () => {
         });
       }
       if (url.includes("/enrollments") && init?.method === "POST") {
-        const body = JSON.parse(String(init.body));
-        keys.push({ participant: body.participant_actor_id, key: body.idempotency_key });
+        const body = jsonBody(init);
+        keys.push({ participant: body.participant_actor_id ?? "", key: body.idempotency_key ?? "" });
         if (keys.length === 1) {
           return Promise.reject(new TypeError("Failed to fetch"));
         }

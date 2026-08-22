@@ -38,13 +38,22 @@ public sealed class InMemoryEnrollmentStore : IEnrollmentStore
 
     public IReadOnlyList<Enrollment> Items => _enrollments;
 
+    public int TransactionalFindCount { get; private set; }
+
     public Task<Enrollment?> FindAsync(
         Guid organizationId,
         Guid enrollmentId,
         IEnrollmentTransaction? transaction,
-        CancellationToken cancellationToken) =>
-        Task.FromResult(_enrollments.SingleOrDefault(item =>
+        CancellationToken cancellationToken)
+    {
+        if (transaction is not null)
+        {
+            TransactionalFindCount++;
+        }
+
+        return Task.FromResult(_enrollments.SingleOrDefault(item =>
             item.OrganizationId == organizationId && item.EnrollmentId == enrollmentId));
+    }
 
     public Task<Enrollment?> FindLiveForParticipantAsync(
         Guid organizationId,
@@ -224,6 +233,8 @@ public sealed class AllowEnrollmentSessionPort : IEnrollmentSessionPort
 
     public bool ConfirmPermit { get; set; } = true;
 
+    public Func<bool>? ConfirmWhen { get; set; }
+
     public int RevalidateCount { get; private set; }
 
     public int ConfirmCount { get; private set; }
@@ -243,7 +254,7 @@ public sealed class AllowEnrollmentSessionPort : IEnrollmentSessionPort
         CancellationToken cancellationToken = default)
     {
         ConfirmCount++;
-        return Task.FromResult(ConfirmPermit);
+        return Task.FromResult(ConfirmWhen?.Invoke() ?? ConfirmPermit);
     }
 }
 

@@ -317,6 +317,55 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
     }
 
     [Fact]
+    public async Task Concurrent_session_expiry_fails_uncommitted_replay()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-replay"), CancellationToken);
+        Assert.True(assigned.Succeeded, assigned.OutcomeCode);
+
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE application_sessions
+                SET idle_expires_at = CLOCK_TIMESTAMP() + INTERVAL '1 second'
+                WHERE application_session_id = @ApplicationSessionId
+                """,
+                new { harness.ApplicationSessionId });
+        }
+
+        await using var holdConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await holdConnection.OpenAsync(CancellationToken);
+        await using var holdTransaction = await holdConnection.BeginTransactionAsync(CancellationToken);
+        await holdConnection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                SELECT enrollment_id
+                FROM submissions_enrollments
+                WHERE organization_id = @OrganizationId
+                  AND enrollment_id = @EnrollmentId
+                FOR UPDATE
+                """,
+                new
+                {
+                    harness.OrganizationId,
+                    EnrollmentId = assigned.EnrollmentId,
+                },
+                holdTransaction,
+                cancellationToken: CancellationToken));
+
+        var replayTask = harness.Coordinator.AssignAsync(harness.AssignCommand("assign-replay"), CancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(200), CancellationToken);
+        Assert.False(replayTask.IsCompleted);
+
+        await Task.Delay(TimeSpan.FromMilliseconds(1200), CancellationToken);
+        await holdTransaction.CommitAsync(CancellationToken);
+        var replayed = await replayTask.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken);
+        Assert.False(replayed.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Denied, replayed.OutcomeCode);
+    }
+
+    [Fact]
     public async Task Concurrent_profile_deletion_fails_uncommitted_assignment()
     {
         var harness = await SeedActivatedAsync();

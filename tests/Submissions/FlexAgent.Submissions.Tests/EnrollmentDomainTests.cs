@@ -345,6 +345,19 @@ public sealed class EnrollmentDomainTests
     }
 
     [Fact]
+    public async Task Session_expiry_after_replay_enrollment_read_denies_assignment()
+    {
+        var harness = CreateHarness();
+        var assigned = await harness.Coordinator.AssignAsync(AssignCommand("key-replay"), TestContext.Current.CancellationToken);
+        Assert.True(assigned.Succeeded, assigned.OutcomeCode);
+        harness.Sessions.ConfirmWhen = () => harness.Store.TransactionalFindCount == 0;
+        var replayed = await harness.Coordinator.AssignAsync(AssignCommand("key-replay"), TestContext.Current.CancellationToken);
+        Assert.False(replayed.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Denied, replayed.OutcomeCode);
+        Assert.True(harness.Store.TransactionalFindCount >= 1);
+    }
+
+    [Fact]
     public async Task Lifecycle_authorization_uses_the_enrollment_resource_type()
     {
         var harness = CreateHarness();

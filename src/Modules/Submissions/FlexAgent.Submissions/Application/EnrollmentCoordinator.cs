@@ -311,11 +311,6 @@ public sealed class EnrollmentCoordinator(
                     return Fail(EnrollmentFailureCodes.Denied);
                 }
 
-                if (await DeniedIfSessionExpiredAsync(actor, transaction, cancellationToken) is { } expiredReplay)
-                {
-                    return expiredReplay;
-                }
-
                 if (existing.EnrollmentId is { } existingId)
                 {
                     var replayed = await enrollments.FindAsync(
@@ -325,8 +320,18 @@ public sealed class EnrollmentCoordinator(
                         cancellationToken);
                     if (replayed is not null)
                     {
+                        if (await DeniedIfSessionExpiredAsync(actor, transaction, cancellationToken) is { } expiredReplay)
+                        {
+                            return expiredReplay;
+                        }
+
                         return Success(replayed, existing.OutcomeCode, actor.GrantedActions);
                     }
+                }
+
+                if (await DeniedIfSessionExpiredAsync(actor, transaction, cancellationToken) is { } expiredReplayOutcome)
+                {
+                    return expiredReplayOutcome;
                 }
 
                 return new EnrollmentMutationOutcome(
