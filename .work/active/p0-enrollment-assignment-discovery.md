@@ -513,6 +513,9 @@ not be marked implemented by this task.
 - [x] Review remediation: bind a SHA-256 digest of the normalized candidate
   prefix so issued cursors stay within `MaximumCursorLength`; reject cursor
   signing secrets that are not ≥32 decoded bytes.
+- [x] External review of `888cd66` approved the cursor/security remediations
+  with no blocking code findings. The task stays **in-progress** for already
+  recorded residuals.
 
 # Planned verification command set
 
@@ -688,6 +691,18 @@ tests use decoded 32-byte fixtures. Local green: domain 41, Enrollment
 HTTP 10, architecture 41, Enrollment PostgreSQL 18, `git diff --check`
 clean. No GitHub CI on this SHA.
 
+External review of `888cd66` (2026-08-23): **approved**. No blocking code
+finding. Prefix digest size, ≥32-byte decoded signing secrets, current/
+previous replica keys, and candidate `afterActorId` binding close the
+cursor/security thread. Compatibility note accepted without a format bump
+or dual-read window because `a4aadf3`–`888cd66` are an unreleased
+remediation sequence; a released mixed-version rollout would need a new
+token version or temporary dual accept. Focused green remains local
+(domain 41, Enrollment HTTP 10, architecture 41, Enrollment PostgreSQL
+18). No GitHub CI on that SHA. The Enrollment task stays open for
+mutation p95, authorization p95, per-actor rate limits, 400%
+accessibility, full CI/OCI, and remaining independent review.
+
 # Decisions
 
 - Use the architecture-approved `Submissions` module name even though this
@@ -762,10 +777,18 @@ clean. No GitHub CI on this SHA.
   rejected. Production/Staging fail closed without a key. Development and
   Testing may derive a deterministic 32-byte non-production key so local
   replicas stay consistent. Rotation accepts the previous key until it is
-  removed. This is not a new ADR.
+  removed. Do not dual-read the pre-`888cd66` `v1` payload or plain-text
+  secrets: those remediations were unreleased. If that format is later found
+  in a deployed environment, bump the token version or add a temporary
+  dual-accept window before mixed-version rollout. This is not a new ADR.
 
 # Findings / deviations
 
+- Review of `888cd66`: approved. No blocking defect. Cursor/security
+  remediations from the prior reviews are closed. Compatibility of the
+  changed `v1` payload and Base64 secret encoding is a non-blocking note
+  for this unreleased sequence. Residuals remain operational/verification
+  only.
 - Review of `a4aadf3`: embedding the Base64 prefix made a valid 64-character
   Unicode search issue an overlong `next_cursor`, and `Materialize`
   accepted `"password"` by hashing it. Prefix digest binding and
@@ -902,6 +925,7 @@ clean. No GitHub CI on this SHA.
 | React component/accessibility tests | mixed | `ProductionEnrollmentPage.test.tsx` 4 passed, including honest suspend confirmation copy. `pnpm --filter @flex-agent/web typecheck` passed. Keyboard/400% not covered. |
 | Authenticated Playwright MCP desktop/narrow/both-theme evidence | mixed | Live profile at `http://localhost:18080`. Administrator empty assign: `.playwright-mcp/page-2026-08-22T17-11-13-250Z.png`. Assignment success: `.playwright-mcp/page-2026-08-22T17-11-35-754Z.png`. Suspend confirm: `.playwright-mcp/page-2026-08-22T17-11-58-222Z.png`. Suspended list: `.playwright-mcp/page-2026-08-22T17-12-37-201Z.png`. Restored active: `.playwright-mcp/page-2026-08-22T17-13-07-918Z.png`. Dark desktop: `.playwright-mcp/page-2026-08-22T17-13-54-571Z.png`. Narrow 390 dark assign: `.playwright-mcp/page-2026-08-22T17-14-13-248Z.png`. Participant populated My work: `.playwright-mcp/page-2026-08-22T17-15-43-086Z.png`. Assignment detail desktop: `.playwright-mcp/page-2026-08-22T17-15-58-472Z.png`. Narrow detail: `.playwright-mcp/page-2026-08-22T17-16-29-301Z.png`. 400% not captured. Live SPA still has the old suspend sentence until rebuild. |
 | Full regression, security, supply-chain, and performance gates | mixed | `python3 scripts/check_docs.py` passed; `git diff --check` passed after removing an extra EOF blank line. `gitleaks detect` warned about 4 historical findings and did not add Enrollment credentials. Full `dotnet test --solution FlexAgent.slnx`, OCI/SBOM, and authorization p95 were not run. |
+| Cursor/security remediations review (`888cd66`) | passed | External review approved with no blocking code finding. Prefix digest, ≥32-byte decoded keys, replica/rotation, and candidate `afterActorId` binding accepted. GitHub CI still absent for that SHA. |
 
 # Blockers
 
@@ -909,9 +933,10 @@ clean. No GitHub CI on this SHA.
   not implemented. Coarse gateway limits, representative Enrollment mutation
   p95 ≤ 2 s, and a 50 ms in-service authorization p95 remain unverified.
   This is a remaining verification/product-ops gap, not a Playwright blocker.
-- Independent backend, frontend, and security/privacy review has not run.
-  Focused green results above are local; no GitHub CI status is attached
-  to this working tree.
+- Independent review of the Enrollment cursor/security remediations on
+  `888cd66` is approved. Remaining independent backend/frontend/security
+  and QA review of the broader Enrollment slice has not run. Focused green
+  results are local; no GitHub CI status is attached to that SHA.
 
 # Completion
 
