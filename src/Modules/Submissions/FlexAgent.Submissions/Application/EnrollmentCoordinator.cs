@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.Submissions.Domain;
 
@@ -12,9 +13,11 @@ public sealed class EnrollmentCoordinator(
     IEnrollmentAuditPort audit,
     IEnrollmentUnitOfWork unitOfWork,
     IEnrollmentSessionPort sessions,
-    IEnrollmentClock? clock = null) : IEnrollmentCoordinator
+    IEnrollmentClock? clock = null,
+    IEnrollmentTelemetry? telemetry = null) : IEnrollmentCoordinator
 {
     private readonly IEnrollmentClock _clock = clock ?? new SystemEnrollmentClock();
+    private readonly IEnrollmentTelemetry _telemetry = telemetry ?? NullEnrollmentTelemetry.Instance;
 
     public Task<EnrollmentMutationOutcome> AssignAsync(
         AssignEnrollmentCommand command,
@@ -227,6 +230,41 @@ public sealed class EnrollmentCoordinator(
     }
 
     private async Task<EnrollmentMutationOutcome> ExecuteAsync(
+        EnrollmentActorContext actor,
+        string action,
+        string operationKind,
+        Guid activityId,
+        Guid cohortId,
+        Guid resourceId,
+        string resourceType,
+        string idempotencyKey,
+        string trustedDigest,
+        string expectedDigest,
+        Func<IEnrollmentTransaction, ActivatedCohortBinding, Task<EnrollmentMutationOutcome>> commit,
+        CancellationToken cancellationToken)
+    {
+        var started = Stopwatch.GetTimestamp();
+        var outcome = await ExecuteMeasuredAsync(
+            actor,
+            action,
+            operationKind,
+            activityId,
+            cohortId,
+            resourceId,
+            resourceType,
+            idempotencyKey,
+            trustedDigest,
+            expectedDigest,
+            commit,
+            cancellationToken);
+        _telemetry.RecordMutation(
+            operationKind,
+            EnrollmentTelemetryLabels.ClassifyMutation(outcome.Succeeded, outcome.OutcomeCode),
+            Stopwatch.GetElapsedTime(started));
+        return outcome;
+    }
+
+    private async Task<EnrollmentMutationOutcome> ExecuteMeasuredAsync(
         EnrollmentActorContext actor,
         string action,
         string operationKind,

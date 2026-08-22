@@ -516,6 +516,11 @@ not be marked implemented by this task.
 - [x] External review of `888cd66` approved the cursor/security remediations
   with no blocking code findings. The task stays **in-progress** for already
   recorded residuals.
+- [x] Close remaining in-scope residuals: per-actor/Organization Enrollment
+  request limits, multi-sample mutation p95, in-service authorization p95,
+  and bounded mutation/limit telemetry without protected labels. Authenticated
+  400% Playwright, full `FlexAgent.slnx`/OCI, and independent slice review
+  remain recorded residuals.
 
 # Planned verification command set
 
@@ -547,6 +552,35 @@ not be marked implemented by this task.
   verify:oci` gates.
 
 # Current state
+
+This pass closed the remaining specified Enrollment operational residuals
+that could be implemented without a new ADR:
+
+- Authenticated Enrollment reads and mutations now acquire a replica-local
+  fixed-window quota keyed by `(organization, actor, surface)`. Interim
+  defaults are 60 reads and 20 mutations per 10-second window. Testing may
+  lower those values. Saturation of 10,000 live partitions fail-closes.
+  Metrics/logs use only `read`/`mutation` and `permitted`/`limited`.
+- HTTP 429/`enrollment.rate_limited`/`no-store` is covered after two allowed
+  My work reads when the test read quota is 2.
+- Assignment mutation p95 is a 20-sample PostgreSQL gate against the
+  approved 2-second `PROP-5` bound, after one activated Campaign seed.
+- In-service Enrollment authorization p95 is a warmed 20-sample PostgreSQL
+  grant lookup against the 50 ms `PROP-8` bound.
+- Mutation telemetry records only allowlisted operation/outcome labels.
+
+The live profile at `http://localhost:18080` returned the production
+sign-in page for `/my-work`. This pass did not complete Keycloak login, so
+400% reflow screenshots of populated My work/assignment were not captured.
+
+Confirmation pass 2026-08-23 before commit: domain 43, architecture 41,
+Enrollment HTTP plus limiter 14, Enrollment PostgreSQL 19, `check_docs`,
+and `git diff --check` are green. Mutation p95 and warmed authorization
+p95 remain asserted in `EnrollmentPersistenceTests`. The task stays
+**in-progress** for authenticated 400% evidence, full solution/OCI gates,
+GitHub CI on this SHA, and independent backend/frontend/security/QA
+review of the broader slice. Cursor/security review of `888cd66` remains
+approved.
 
 External review of `d95f740` found an IdentityAccess ownership leak (Submissions
 SQL against `application_sessions`), a display-profile lock gap, and silent
@@ -767,6 +801,15 @@ accessibility, full CI/OCI, and remaining independent review.
   Submission/Attempt consumers, but do not claim `AC-SUBM-4` end-to-end until
   those consumers enforce it. This task verifies immediate denial at the
   Enrollment boundary and participant/admin projections only.
+- Enrollment request limits are an interim operational default, not a new
+  approved `PROP-*`. Authenticated reads allow 60 permits and mutations
+  allow 20 permits per 10-second window per `(organization, actor)`.
+  Surfaces are independent. Unauthenticated requests return 401 before a
+  quota is consumed. The limiter is replica-local until a shared gateway
+  store exists, so effective capacity scales with process count. Labels
+  never include actor, Organization, Enrollment, or Participant
+  identifiers. Deployments may lower the numbers; they must not raise them
+  without an approved operational default.
 - Authenticate Enrollment, My work, and participant-options list cursors
   with HMAC-SHA256 over a scope-bound payload (query kind, Organization,
   actor, Activity, Cohort, SHA-256 digest of the normalized prefix, ticks
@@ -784,6 +827,12 @@ accessibility, full CI/OCI, and remaining independent review.
 
 # Findings / deviations
 
+- Closeout pass 2026-08-23: per-actor/Organization Enrollment quotas,
+  20-sample mutation p95, and warmed authorization p95 are implemented and
+  locally green. The production React client has no dedicated 429 recovery
+  copy yet. 400% zoom remains unverified because this pass reached
+  Keycloak sign-in without an authenticated application session. Full
+  `FlexAgent.slnx`/OCI and independent slice review remain open.
 - Review of `888cd66`: approved. No blocking defect. Cursor/security
   remediations from the prior reviews are closed. Compatibility of the
   changed `v1` payload and Base64 secret encoding is a non-blocking note
@@ -918,29 +967,32 @@ accessibility, full CI/OCI, and remaining independent review.
 | `python3 scripts/check_docs.py` | passed | Documentation validation passed on 2026-08-22. |
 | whitespace/diff validation | passed | `git diff --check` passed; direct `git diff --no-index --check` on the untracked task file produced no whitespace diagnostics (its status `1` is the expected no-index difference result). |
 | Secret scan | passed | `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` found no leaks during the readiness review. |
-| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 41 passed, including max-length Unicode candidate pagination and rejection of short cursor secrets. |
+| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 43 passed, including percentile rank and allowlisted mutation telemetry. |
 | Architecture/contract tests | passed | Architecture 41 passed. This pass did not change schemas. |
-| PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 18 passed. `Assignment_completes_within_the_documented_synchronous_bound` is a `Stopwatch` single-sample smoke under 2 s and does not close mutation p95. Full suite/OCI still open. |
-| Runtime/API authorization and HTTP-negative tests | mixed | `EnrollmentHttpNegativeContractTests` now covers CSRF, missing session, malformed cursor, `limit=0`, `limit=999999`, unparsable limit, overlong cursor, guessed detail, unknown member, and oversized body (local 10 after the unparsable-limit case). Per-actor rate-limit HTTP cases remain because the gateway/app limiter is not implemented. |
+| PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 19 passed, including 20-sample assignment mutation p95 ≤ 2 s and warmed Enrollment authorization p95 ≤ 50 ms. Full suite/OCI still open. |
+| Runtime/API authorization and HTTP-negative tests | passed | Enrollment HTTP 11 plus limiter 3 (local 14). Covers CSRF, missing session, malformed/overlong/unparsable list query values, guessed detail, unknown member, oversized body, and 429 after the frozen per-actor read quota. |
 | React component/accessibility tests | mixed | `ProductionEnrollmentPage.test.tsx` 4 passed, including honest suspend confirmation copy. `pnpm --filter @flex-agent/web typecheck` passed. Keyboard/400% not covered. |
-| Authenticated Playwright MCP desktop/narrow/both-theme evidence | mixed | Live profile at `http://localhost:18080`. Administrator empty assign: `.playwright-mcp/page-2026-08-22T17-11-13-250Z.png`. Assignment success: `.playwright-mcp/page-2026-08-22T17-11-35-754Z.png`. Suspend confirm: `.playwright-mcp/page-2026-08-22T17-11-58-222Z.png`. Suspended list: `.playwright-mcp/page-2026-08-22T17-12-37-201Z.png`. Restored active: `.playwright-mcp/page-2026-08-22T17-13-07-918Z.png`. Dark desktop: `.playwright-mcp/page-2026-08-22T17-13-54-571Z.png`. Narrow 390 dark assign: `.playwright-mcp/page-2026-08-22T17-14-13-248Z.png`. Participant populated My work: `.playwright-mcp/page-2026-08-22T17-15-43-086Z.png`. Assignment detail desktop: `.playwright-mcp/page-2026-08-22T17-15-58-472Z.png`. Narrow detail: `.playwright-mcp/page-2026-08-22T17-16-29-301Z.png`. 400% not captured. Live SPA still has the old suspend sentence until rebuild. |
-| Full regression, security, supply-chain, and performance gates | mixed | `python3 scripts/check_docs.py` passed; `git diff --check` passed after removing an extra EOF blank line. `gitleaks detect` warned about 4 historical findings and did not add Enrollment credentials. Full `dotnet test --solution FlexAgent.slnx`, OCI/SBOM, and authorization p95 were not run. |
+| Authenticated Playwright MCP desktop/narrow/both-theme evidence | mixed | Prior authenticated desktop/narrow/both-theme PNGs remain under `.playwright-mcp/`. This pass opened `http://localhost:18080/my-work` (HTTP 200) and reached Keycloak sign-in; 320 CSS-px / 400% populated Assignment evidence was not captured without an application session. |
+| Full regression, security, supply-chain, and performance gates | mixed | Confirmation pass 2026-08-23: `python3 scripts/check_docs.py` and `git diff --check` passed. Enrollment mutation and authorization p95 are locally gated. Full `dotnet test --solution FlexAgent.slnx` and OCI/SBOM were not run. |
 | Cursor/security remediations review (`888cd66`) | passed | External review approved with no blocking code finding. Prefix digest, ≥32-byte decoded keys, replica/rotation, and candidate `afterActorId` binding accepted. GitHub CI still absent for that SHA. |
 
 # Blockers
 
-- Per-actor/Organization request limits are specified for this slice and are
-  not implemented. Coarse gateway limits, representative Enrollment mutation
-  p95 ≤ 2 s, and a 50 ms in-service authorization p95 remain unverified.
-  This is a remaining verification/product-ops gap, not a Playwright blocker.
+- Authenticated 400% / 320 CSS-px Playwright of populated My work and
+  assignment detail needs a current application session. This pass stopped
+  at Keycloak sign-in.
 - Independent review of the Enrollment cursor/security remediations on
   `888cd66` is approved. Remaining independent backend/frontend/security
-  and QA review of the broader Enrollment slice has not run. Focused green
-  results are local; no GitHub CI status is attached to that SHA.
+  and QA review of the broader Enrollment slice, including this rate-limit
+  and p95 pass, has not run. Focused green results are local; no GitHub CI
+  status is attached to this working tree.
+- Full `dotnet test --solution FlexAgent.slnx` and OCI/SBOM gates were not
+  run in this pass. Coarse non-Enrollment gateway limits remain out of
+  this slice.
 
 # Completion
 
-- [ ] Planned work is reconciled with actual changes
+- [x] Planned work is reconciled with actual changes
 - [x] Applicable focused tests pass
 - [ ] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked

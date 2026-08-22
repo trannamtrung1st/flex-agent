@@ -793,7 +793,45 @@ public sealed class EnrollmentDomainTests
         return created with { Status = status };
     }
 
-    private static Harness CreateHarness()
+    [Fact]
+    public void Latency_percentile_uses_the_ceiling_rank()
+    {
+        var samples = new[]
+        {
+            TimeSpan.FromMilliseconds(10),
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(30),
+            TimeSpan.FromMilliseconds(40),
+            TimeSpan.FromMilliseconds(100),
+        };
+
+        Assert.Equal(TimeSpan.FromMilliseconds(100), EnrollmentLatencyObjectives.Percentile(samples, 95));
+    }
+
+    [Fact]
+    public async Task Mutation_telemetry_uses_only_allowlisted_labels()
+    {
+        var telemetry = new RecordingEnrollmentTelemetry();
+        var harness = CreateHarness(telemetry);
+
+        var assigned = await harness.Coordinator.AssignAsync(
+            AssignCommand("assign-telemetry"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(assigned.Succeeded, assigned.OutcomeCode);
+        Assert.Single(telemetry.Points);
+        Assert.All(telemetry.Points[0], pair =>
+        {
+            Assert.Contains(pair.Key, EnrollmentTelemetryLabels.AllowedKeys);
+            Assert.Contains(pair.Value, EnrollmentTelemetryLabels.AllowedValues);
+            Assert.DoesNotContain(ParticipantId.ToString("D"), pair.Value, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(OrganizationId.ToString("D"), pair.Value, StringComparison.OrdinalIgnoreCase);
+        });
+        Assert.Equal(EnrollmentOperationKinds.Assign, telemetry.Points[0][EnrollmentTelemetryLabels.Operation]);
+        Assert.Equal(EnrollmentTelemetryLabels.Succeeded, telemetry.Points[0][EnrollmentTelemetryLabels.Outcome]);
+    }
+
+    private static Harness CreateHarness(IEnrollmentTelemetry? telemetry = null)
     {
         var store = new InMemoryEnrollmentStore();
         var operations = new InMemoryEnrollmentOperationStore();
@@ -814,7 +852,8 @@ public sealed class EnrollmentDomainTests
             audit,
             unitOfWork,
             sessions,
-            new FixedEnrollmentClock(Now));
+            new FixedEnrollmentClock(Now),
+            telemetry);
         var queries = new EnrollmentQueryService(
             authorization,
             cohorts,

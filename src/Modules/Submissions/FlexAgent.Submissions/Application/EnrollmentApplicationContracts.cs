@@ -351,3 +351,108 @@ public sealed class SystemEnrollmentClock : IEnrollmentClock
 {
     public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
 }
+
+public static class EnrollmentTelemetryLabels
+{
+    public const string Operation = "operation";
+    public const string Outcome = "outcome";
+    public const string Surface = "surface";
+    public const string Decision = "decision";
+
+    public const string Succeeded = "succeeded";
+    public const string Denied = "denied";
+    public const string Conflict = "conflict";
+    public const string Unavailable = "unavailable";
+    public const string Invalid = "invalid";
+    public const string Permitted = "permitted";
+    public const string Limited = "limited";
+
+    public static readonly HashSet<string> AllowedKeys = new(StringComparer.Ordinal)
+    {
+        Operation,
+        Outcome,
+        Surface,
+        Decision,
+    };
+
+    public static readonly HashSet<string> AllowedValues = new(StringComparer.Ordinal)
+    {
+        EnrollmentOperationKinds.Assign,
+        EnrollmentOperationKinds.Suspend,
+        EnrollmentOperationKinds.Restore,
+        EnrollmentOperationKinds.Close,
+        EnrollmentOperationKinds.Revoke,
+        EnrollmentRequestSurfaces.Read,
+        EnrollmentRequestSurfaces.Mutation,
+        Succeeded,
+        Denied,
+        Conflict,
+        Unavailable,
+        Invalid,
+        Permitted,
+        Limited,
+        EnrollmentFailureCodes.RateLimited,
+    };
+
+    public static string ClassifyMutation(bool succeeded, string outcomeCode)
+    {
+        if (succeeded)
+        {
+            return Succeeded;
+        }
+
+        return outcomeCode switch
+        {
+            EnrollmentFailureCodes.Denied or EnrollmentFailureCodes.Ineligible => Denied,
+            EnrollmentFailureCodes.Conflict
+                or EnrollmentFailureCodes.IdempotencyConflict
+                or EnrollmentFailureCodes.StaleRevision
+                or EnrollmentFailureCodes.Terminal => Conflict,
+            EnrollmentFailureCodes.AuditUnavailable
+                or EnrollmentFailureCodes.Unavailable
+                or EnrollmentFailureCodes.MissingLifecyclePolicy => Unavailable,
+            _ => Invalid,
+        };
+    }
+}
+
+public interface IEnrollmentTelemetry
+{
+    void RecordMutation(string operationKind, string outcomeClass, TimeSpan duration);
+
+    void RecordRequestLimit(string surface, string decision);
+}
+
+public sealed class NullEnrollmentTelemetry : IEnrollmentTelemetry
+{
+    public static NullEnrollmentTelemetry Instance { get; } = new();
+
+    public void RecordMutation(string operationKind, string outcomeClass, TimeSpan duration)
+    {
+    }
+
+    public void RecordRequestLimit(string surface, string decision)
+    {
+    }
+}
+
+public sealed class RecordingEnrollmentTelemetry : IEnrollmentTelemetry
+{
+    private readonly List<IReadOnlyDictionary<string, string>> _points = [];
+
+    public IReadOnlyList<IReadOnlyDictionary<string, string>> Points => _points;
+
+    public void RecordMutation(string operationKind, string outcomeClass, TimeSpan duration) =>
+        _points.Add(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [EnrollmentTelemetryLabels.Operation] = operationKind,
+            [EnrollmentTelemetryLabels.Outcome] = outcomeClass,
+        });
+
+    public void RecordRequestLimit(string surface, string decision) =>
+        _points.Add(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [EnrollmentTelemetryLabels.Surface] = surface,
+            [EnrollmentTelemetryLabels.Decision] = decision,
+        });
+}

@@ -27,6 +27,9 @@ public static class EnrollmentEndpointExtensions
             return services;
         }
 
+        services.Configure<EnrollmentRequestLimitOptions>(configuration.GetSection("Enrollment:RequestLimits"));
+        services.AddSingleton<IEnrollmentRequestLimiter, FixedWindowEnrollmentRequestLimiter>();
+        services.AddSingleton<IEnrollmentTelemetry, LoggingEnrollmentTelemetry>();
         services.AddSingleton<IEnrollmentCoordinator, EnrollmentCoordinator>();
         services.AddSingleton<IEnrollmentCursorSigner>(provider =>
             CreateCursorSigner(provider, configuration, environment));
@@ -89,10 +92,9 @@ public static class EnrollmentEndpointExtensions
         Guid cohortId,
         IEnrollmentQueryService queries)
     {
-        var actor = await TryActorAsync(context);
+        var actor = await AcceptAuthenticatedAsync(context, EnrollmentRequestSurfaces.Read);
         if (actor is null)
         {
-            await WriteError(context, StatusCodes.Status401Unauthorized, HumanAuthenticationReasonCodes.MissingSession);
             return;
         }
 
@@ -132,10 +134,9 @@ public static class EnrollmentEndpointExtensions
         Guid cohortId,
         IEnrollmentQueryService queries)
     {
-        var actor = await TryActorAsync(context);
+        var actor = await AcceptAuthenticatedAsync(context, EnrollmentRequestSurfaces.Read);
         if (actor is null)
         {
-            await WriteError(context, StatusCodes.Status401Unauthorized, HumanAuthenticationReasonCodes.MissingSession);
             return;
         }
 
@@ -168,10 +169,9 @@ public static class EnrollmentEndpointExtensions
         Guid enrollmentId,
         IEnrollmentQueryService queries)
     {
-        var actor = await TryActorAsync(context);
+        var actor = await AcceptAuthenticatedAsync(context, EnrollmentRequestSurfaces.Read);
         if (actor is null)
         {
-            await WriteError(context, StatusCodes.Status401Unauthorized, HumanAuthenticationReasonCodes.MissingSession);
             return;
         }
 
@@ -208,10 +208,9 @@ public static class EnrollmentEndpointExtensions
 
     private static async Task ListMyWork(HttpContext context, IEnrollmentQueryService queries)
     {
-        var actor = await TryActorAsync(context);
+        var actor = await AcceptAuthenticatedAsync(context, EnrollmentRequestSurfaces.Read);
         if (actor is null)
         {
-            await WriteError(context, StatusCodes.Status401Unauthorized, HumanAuthenticationReasonCodes.MissingSession);
             return;
         }
 
@@ -237,10 +236,9 @@ public static class EnrollmentEndpointExtensions
 
     private static async Task GetMyWork(HttpContext context, Guid enrollmentId, IEnrollmentQueryService queries)
     {
-        var actor = await TryActorAsync(context);
+        var actor = await AcceptAuthenticatedAsync(context, EnrollmentRequestSurfaces.Read);
         if (actor is null)
         {
-            await WriteError(context, StatusCodes.Status401Unauthorized, HumanAuthenticationReasonCodes.MissingSession);
             return;
         }
 
@@ -260,10 +258,9 @@ public static class EnrollmentEndpointExtensions
             return;
         }
 
-        var actor = await TryActorAsync(context);
+        var actor = await AcceptAuthenticatedAsync(context, EnrollmentRequestSurfaces.Mutation);
         if (actor is null)
         {
-            await WriteError(context, StatusCodes.Status401Unauthorized, HumanAuthenticationReasonCodes.MissingSession);
             return;
         }
 
@@ -306,10 +303,9 @@ public static class EnrollmentEndpointExtensions
             return;
         }
 
-        var actor = await TryActorAsync(context);
+        var actor = await AcceptAuthenticatedAsync(context, EnrollmentRequestSurfaces.Mutation);
         if (actor is null)
         {
-            await WriteError(context, StatusCodes.Status401Unauthorized, HumanAuthenticationReasonCodes.MissingSession);
             return;
         }
 
@@ -346,6 +342,30 @@ public static class EnrollmentEndpointExtensions
                 digest),
             context.RequestAborted);
         await WriteMutation(context, outcome);
+    }
+
+    private static async Task<EnrollmentActorContext?> AcceptAuthenticatedAsync(
+        HttpContext context,
+        string surface)
+    {
+        var actor = await TryActorAsync(context);
+        if (actor is null)
+        {
+            await WriteError(context, StatusCodes.Status401Unauthorized, HumanAuthenticationReasonCodes.MissingSession);
+            return null;
+        }
+
+        var limiter = context.RequestServices.GetRequiredService<IEnrollmentRequestLimiter>();
+        var telemetry = context.RequestServices.GetRequiredService<IEnrollmentTelemetry>();
+        if (!limiter.TryAcquire(actor.Organization.OrganizationId, actor.Actor.ActorId, surface))
+        {
+            telemetry.RecordRequestLimit(surface, EnrollmentTelemetryLabels.Limited);
+            await WriteError(context, StatusCodes.Status429TooManyRequests, EnrollmentFailureCodes.RateLimited);
+            return null;
+        }
+
+        telemetry.RecordRequestLimit(surface, EnrollmentTelemetryLabels.Permitted);
+        return actor;
     }
 
     private static async Task<EnrollmentActorContext?> TryActorAsync(HttpContext context)

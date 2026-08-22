@@ -51,6 +51,23 @@ public sealed class EnrollmentHttpNegativeContractTests
     }
 
     [Fact]
+    public async Task My_work_over_the_actor_read_limit_is_rate_limited_and_not_cached()
+    {
+        await using var context = await LoginAsync(permitEnrollment: true, readPermitLimit: 2);
+        using var first = await SendMyWorkAsync(context);
+        using var second = await SendMyWorkAsync(context);
+        using var third = await SendMyWorkAsync(context);
+        var body = await third.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, third.StatusCode);
+        Assert.Contains(EnrollmentFailureCodes.RateLimited, body, StringComparison.Ordinal);
+        AssertNoAssignment(body);
+        Assert.Equal("no-store", third.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
     public async Task Tampered_my_work_cursor_is_invalid_and_not_cached()
     {
         await using var context = await LoginAsync(permitEnrollment: true);
@@ -189,11 +206,13 @@ public sealed class EnrollmentHttpNegativeContractTests
             StringComparison.Ordinal);
     }
 
-    private static async Task<LoggedInContext> LoginAsync(bool permitEnrollment = false)
+    private static async Task<LoggedInContext> LoginAsync(
+        bool permitEnrollment = false,
+        int? readPermitLimit = null)
     {
         var rsa = RSA.Create(2048);
         var tokens = new FakeOidcAuthorizationClient();
-        var factory = CreateFactory(rsa, tokens, permitEnrollment);
+        var factory = CreateFactory(rsa, tokens, permitEnrollment, readPermitLimit);
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         SeedBinding(factory);
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -235,10 +254,18 @@ public sealed class EnrollmentHttpNegativeContractTests
             .GetResult();
     }
 
+    private static async Task<HttpResponseMessage> SendMyWorkAsync(LoggedInContext context)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/assessment/my-work");
+        request.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        return await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
+    }
+
     private static WebApplicationFactory<ApiProgram> CreateFactory(
         RSA? rsa = null,
         FakeOidcAuthorizationClient? tokens = null,
-        bool permitEnrollment = false)
+        bool permitEnrollment = false,
+        int? readPermitLimit = null)
     {
         rsa ??= RSA.Create(2048);
         tokens ??= new FakeOidcAuthorizationClient();
@@ -255,6 +282,10 @@ public sealed class EnrollmentHttpNegativeContractTests
             builder.UseSetting("HumanAuthentication:RedirectUri", "https://app.example/auth/callback");
             builder.UseSetting("HumanAuthentication:AcceptedAcr:0", "acr:mfa");
             builder.UseSetting("HumanAuthentication:AcceptedAmr:0", "mfa");
+            if (readPermitLimit is not null)
+            {
+                builder.UseSetting("Enrollment:RequestLimits:ReadPermitLimit", readPermitLimit.Value.ToString());
+            }
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<IOidcAuthorizationClient>(tokens);

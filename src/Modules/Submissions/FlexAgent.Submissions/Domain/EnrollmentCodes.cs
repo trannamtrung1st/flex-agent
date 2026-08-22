@@ -57,6 +57,7 @@ public static class EnrollmentFailureCodes
     public const string MissingLifecyclePolicy = "enrollment.missing_lifecycle_policy";
     public const string InvalidReason = "enrollment.invalid_reason";
     public const string Ineligible = "enrollment.ineligible";
+    public const string RateLimited = "enrollment.rate_limited";
 }
 
 public static class EnrollmentOutcomes
@@ -110,4 +111,43 @@ public static class EnrollmentPageBounds
     public const int MaximumLimit = 50;
     public const int MaximumCursorLength = 512;
     public const int MaximumQueryPrefixLength = 64;
+}
+
+public static class EnrollmentRequestSurfaces
+{
+    public const string Read = "read";
+    public const string Mutation = "mutation";
+}
+
+public static class EnrollmentRequestLimitDefaults
+{
+    public const int ReadPermitLimit = 60;
+    public const int MutationPermitLimit = 20;
+    public const int WindowSeconds = 10;
+    public const int MaximumTrackedPartitions = 10_000;
+}
+
+public static class EnrollmentLatencyObjectives
+{
+    public static TimeSpan MutationP95 { get; } = TimeSpan.FromSeconds(2);
+
+    public static TimeSpan AuthorizationP95 { get; } = TimeSpan.FromMilliseconds(50);
+
+    public static TimeSpan Percentile(IReadOnlyList<TimeSpan> samples, double percentile)
+    {
+        ArgumentNullException.ThrowIfNull(samples);
+        if (samples.Count == 0)
+        {
+            throw new ArgumentException("At least one sample is required.", nameof(samples));
+        }
+
+        if (percentile is <= 0 or > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(percentile));
+        }
+
+        var ordered = samples.OrderBy(sample => sample).ToArray();
+        var index = (int)Math.Ceiling(percentile / 100d * ordered.Length) - 1;
+        return ordered[Math.Clamp(index, 0, ordered.Length - 1)];
+    }
 }

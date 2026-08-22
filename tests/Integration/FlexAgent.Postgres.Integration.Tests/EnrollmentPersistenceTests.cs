@@ -89,14 +89,61 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
     }
 
     [Fact]
-    public async Task Assignment_completes_within_the_documented_synchronous_bound()
+    public async Task Assignment_mutation_p95_stays_inside_the_documented_synchronous_bound()
     {
         var harness = await SeedActivatedAsync();
-        var clock = System.Diagnostics.Stopwatch.StartNew();
-        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-latency"), CancellationToken);
-        clock.Stop();
-        Assert.True(assigned.Succeeded, assigned.OutcomeCode);
-        Assert.True(clock.Elapsed.TotalSeconds <= 2, $"assignment smoke took {clock.Elapsed.TotalMilliseconds} ms");
+        var samples = new List<TimeSpan>(20);
+        for (var index = 0; index < 20; index++)
+        {
+            var participantId = index == 0
+                ? harness.ParticipantId
+                : await AddEligibleParticipantAsync(harness.OrganizationId);
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+            var assigned = await harness.Coordinator.AssignAsync(
+                harness.AssignCommand($"assign-p95-{index}", participantId: participantId),
+                CancellationToken);
+            samples.Add(System.Diagnostics.Stopwatch.GetElapsedTime(started));
+            Assert.True(assigned.Succeeded, assigned.OutcomeCode);
+        }
+
+        var p95 = EnrollmentLatencyObjectives.Percentile(samples, 95);
+        Assert.True(
+            p95 <= EnrollmentLatencyObjectives.MutationP95,
+            $"assignment mutation p95 {p95.TotalMilliseconds:F1}ms exceeded 2000ms");
+    }
+
+    [Fact]
+    public async Task Enrollment_authorization_p95_stays_inside_the_in_service_objective()
+    {
+        var harness = await SeedActivatedAsync();
+        var kernel = new PostgresAuthorizationKernel(Fixture.Services.ConnectionAccessor);
+        var port = new KernelEnrollmentAuthorizationPort(kernel, kernel);
+        var warmup = await port.AuthorizeAdmissionAsync(
+            harness.Actor,
+            EnrollmentAuthorizationActions.Assign,
+            harness.CohortId,
+            EnrollmentResourceTypes.Cohort,
+            CancellationToken);
+        Assert.True(warmup.IsPermitted);
+
+        var samples = new List<TimeSpan>(20);
+        for (var index = 0; index < 20; index++)
+        {
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+            var decision = await port.AuthorizeAdmissionAsync(
+                harness.Actor,
+                EnrollmentAuthorizationActions.Assign,
+                harness.CohortId,
+                EnrollmentResourceTypes.Cohort,
+                CancellationToken);
+            samples.Add(System.Diagnostics.Stopwatch.GetElapsedTime(started));
+            Assert.True(decision.IsPermitted);
+        }
+
+        var p95 = EnrollmentLatencyObjectives.Percentile(samples, 95);
+        Assert.True(
+            p95 <= EnrollmentLatencyObjectives.AuthorizationP95,
+            $"enrollment authorization p95 {p95.TotalMilliseconds:F1}ms exceeded 50ms");
     }
 
     [Fact]
@@ -837,6 +884,35 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
             applicationSessionId);
     }
 
+    private async Task<Guid> AddEligibleParticipantAsync(Guid organizationId)
+    {
+        var participantId = Guid.CreateVersion7();
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO actors (id, created_at) VALUES (@ActorId, CLOCK_TIMESTAMP());
+                INSERT INTO human_identity_bindings (binding_id, issuer, subject, actor_id, created_at)
+                VALUES (@BindingId, 'https://issuer.test', @Subject, @ActorId, CLOCK_TIMESTAMP());
+                INSERT INTO identity_human_display_profiles (organization_id, actor_id, display_label, created_at, updated_at)
+                VALUES (@OrganizationId, @ActorId, 'Synthetic Participant', CLOCK_TIMESTAMP(), CLOCK_TIMESTAMP());
+                """,
+                new
+                {
+                    ActorId = participantId,
+                    BindingId = Guid.CreateVersion7(),
+                    Subject = Guid.CreateVersion7().ToString("D"),
+                    OrganizationId = organizationId,
+                });
+        }
+
+        await Fixture.GrantOrganizationActionAsync(
+            organizationId,
+            participantId,
+            EnrollmentAuthorizationActions.Receive);
+        return participantId;
+    }
+
     private sealed record EnrollmentHarness(
         EnrollmentCoordinator Coordinator,
         EnrollmentActorContext Actor,
@@ -847,12 +923,14 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
         string? BaselineDigest,
         Guid ApplicationSessionId)
     {
-        public AssignEnrollmentCommand AssignCommand(string key, Guid? cohortId = null) =>
-            new(
+        public AssignEnrollmentCommand AssignCommand(string key, Guid? cohortId = null, Guid? participantId = null)
+        {
+            var participant = participantId ?? ParticipantId;
+            return new(
                 Actor,
                 ActivityId,
                 cohortId ?? CohortId,
-                ParticipantId,
+                participant,
                 key,
                 EnrollmentCommandDigest.Compute(
                     EnrollmentOperationKinds.Assign,
@@ -860,9 +938,10 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
                     ActivityId,
                     cohortId ?? CohortId,
                     null,
-                    ParticipantId,
+                    participant,
                     null,
                     null));
+        }
 
         public EnrollmentLifecycleCommand LifecycleCommand(
             string operation,
