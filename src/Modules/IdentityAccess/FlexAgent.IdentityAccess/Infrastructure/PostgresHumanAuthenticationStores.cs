@@ -324,30 +324,58 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
         return row?.ToRecord();
     }
 
-    public async Task<bool> RevalidateLiveAsync(
+    public Task<bool> RevalidateLiveAsync(
         Guid applicationSessionId,
         Guid actorId,
         Guid organizationId,
         object commitTransaction,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        EvaluateLiveAsync(applicationSessionId, actorId, organizationId, commitTransaction, lockRows: true, cancellationToken);
+
+    public Task<bool> ConfirmLiveAsync(
+        Guid applicationSessionId,
+        Guid actorId,
+        Guid organizationId,
+        object commitTransaction,
+        CancellationToken cancellationToken = default) =>
+        EvaluateLiveAsync(applicationSessionId, actorId, organizationId, commitTransaction, lockRows: false, cancellationToken);
+
+    private async Task<bool> EvaluateLiveAsync(
+        Guid applicationSessionId,
+        Guid actorId,
+        Guid organizationId,
+        object commitTransaction,
+        bool lockRows,
+        CancellationToken cancellationToken)
     {
         var transaction = PostgresCommitTransaction.Required(commitTransaction);
-        var row = await transaction.Connection!.QuerySingleOrDefaultAsync<SessionRow>(
-            new CommandDefinition(
-                """
-                SELECT session.*
-                FROM application_sessions AS session
-                INNER JOIN actors AS actor
-                    ON actor.id = session.actor_id
-                   AND actor.disabled_at IS NULL
-                WHERE session.application_session_id = @ApplicationSessionId
-                  AND session.actor_id = @ActorId
-                  AND session.organization_id = @OrganizationId
-                  AND session.revoked_at IS NULL
-                  AND session.rotated_at IS NULL
+        var sql = """
+            SELECT session.*, clock_timestamp() AS EvaluatedAt
+            FROM application_sessions AS session
+            INNER JOIN actors AS actor
+                ON actor.id = session.actor_id
+               AND actor.disabled_at IS NULL
+            WHERE session.application_session_id = @ApplicationSessionId
+              AND session.actor_id = @ActorId
+              AND session.organization_id = @OrganizationId
+              AND session.revoked_at IS NULL
+              AND session.rotated_at IS NULL
+              AND session.credential_digest IS NOT NULL
+              AND session.idle_expires_at > clock_timestamp()
+              AND session.absolute_expires_at > clock_timestamp()
+            """;
+        if (lockRows)
+        {
+            sql += """
+                
                 FOR SHARE OF session
                 FOR SHARE OF actor
-                """,
+                """;
+        }
+
+        var row = await transaction.Connection!.QuerySingleOrDefaultAsync<SessionRow>(
+            new CommandDefinition(
+                sql,
                 new
                 {
                     ApplicationSessionId = applicationSessionId,
@@ -357,7 +385,7 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
                 transaction,
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
         return row is not null
-            && ApplicationSessionPolicy.AuthenticateFailureReason(row.ToRecord(), DateTimeOffset.UtcNow) is null;
+            && ApplicationSessionPolicy.AuthenticateFailureReason(row.ToRecord(), row.EvaluatedAt.ToUniversalTime()) is null;
     }
 
     public async Task TerminateLiveAsync(
@@ -892,6 +920,7 @@ public sealed class PostgresApplicationSessionStore(PostgresConnectionAccessor c
         public DateTime? RotatedAt { get; init; }
         public Guid? PredecessorSessionId { get; init; }
         public string? TerminalReason { get; init; }
+        public DateTimeOffset EvaluatedAt { get; init; }
 
         public ApplicationSessionRecord ToRecord() =>
             new(

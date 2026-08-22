@@ -192,6 +192,14 @@ public sealed class MemoryApplicationSessionStore : IApplicationSessionStore, IA
         return Task.FromResult(ApplicationSessionPolicy.AuthenticateFailureReason(session, DateTimeOffset.UtcNow) is null);
     }
 
+    public Task<bool> ConfirmLiveAsync(
+        Guid applicationSessionId,
+        Guid actorId,
+        Guid organizationId,
+        object commitTransaction,
+        CancellationToken cancellationToken = default) =>
+        RevalidateLiveAsync(applicationSessionId, actorId, organizationId, commitTransaction, cancellationToken);
+
     public Task TerminateLiveAsync(
         Guid applicationSessionId,
         DateTimeOffset terminatedAt,

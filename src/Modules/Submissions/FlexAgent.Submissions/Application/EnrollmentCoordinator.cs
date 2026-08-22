@@ -66,6 +66,11 @@ public sealed class EnrollmentCoordinator(
                 {
                     if (live.CohortId == command.CohortId)
                     {
+                        if (await DeniedIfSessionExpiredAsync(command.Actor, transaction, cancellationToken) is { } expired)
+                        {
+                            return expired;
+                        }
+
                         return Success(live, EnrollmentOutcomes.Deduplicated, command.Actor.GrantedActions);
                     }
 
@@ -97,6 +102,11 @@ public sealed class EnrollmentCoordinator(
                     EnrollmentStates.Active,
                     EnrollmentReasonCodes.RestrictionRemoved,
                     command.Actor);
+                if (await DeniedIfSessionExpiredAsync(command.Actor, transaction, cancellationToken) is { } expiredBeforeInsert)
+                {
+                    return expiredBeforeInsert;
+                }
+
                 try
                 {
                     await enrollments.InsertAsync(created.Value, enrollmentEvent, transaction, cancellationToken);
@@ -111,6 +121,11 @@ public sealed class EnrollmentCoordinator(
                         cancellationToken);
                     if (raced is not null && raced.CohortId == command.CohortId)
                     {
+                        if (await DeniedIfSessionExpiredAsync(command.Actor, transaction, cancellationToken) is { } expired)
+                        {
+                            return expired;
+                        }
+
                         return Success(raced, EnrollmentOutcomes.Deduplicated, command.Actor.GrantedActions);
                     }
 
@@ -192,6 +207,11 @@ public sealed class EnrollmentCoordinator(
                     transitioned.Value.Status,
                     command.ReasonCode,
                     command.Actor);
+                if (await DeniedIfSessionExpiredAsync(command.Actor, transaction, cancellationToken) is { } expired)
+                {
+                    return expired;
+                }
+
                 try
                 {
                     await enrollments.UpdateAsync(transitioned.Value, enrollmentEvent, transaction, cancellationToken);
@@ -289,6 +309,11 @@ public sealed class EnrollmentCoordinator(
                 if (!replayAuth.IsPermitted)
                 {
                     return Fail(EnrollmentFailureCodes.Denied);
+                }
+
+                if (await DeniedIfSessionExpiredAsync(actor, transaction, cancellationToken) is { } expiredReplay)
+                {
+                    return expiredReplay;
                 }
 
                 if (existing.EnrollmentId is { } existingId)
@@ -404,6 +429,14 @@ public sealed class EnrollmentCoordinator(
             return Fail(EnrollmentFailureCodes.Conflict);
         }
     }
+
+    private async Task<EnrollmentMutationOutcome?> DeniedIfSessionExpiredAsync(
+        EnrollmentActorContext actor,
+        IEnrollmentTransaction transaction,
+        CancellationToken cancellationToken) =>
+        await sessions.ConfirmLiveAsync(actor, transaction, cancellationToken)
+            ? null
+            : Fail(EnrollmentFailureCodes.Denied);
 
     private EnrollmentEvent NewEvent(
         Enrollment enrollment,

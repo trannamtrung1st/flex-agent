@@ -158,6 +158,13 @@ public interface IApplicationSessionCommitPort
         Guid organizationId,
         object commitTransaction,
         CancellationToken cancellationToken = default);
+
+    Task<bool> ConfirmLiveAsync(
+        Guid applicationSessionId,
+        Guid actorId,
+        Guid organizationId,
+        object commitTransaction,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IOidcLoginTransactionStore

@@ -105,4 +105,15 @@ public sealed class IdentityEnrollmentSessionPort(IApplicationSessionCommitPort 
             actor.Organization.OrganizationId,
             transaction.CommitHandle,
             cancellationToken);
+
+    public Task<bool> ConfirmLiveAsync(
+        EnrollmentActorContext actor,
+        IEnrollmentTransaction transaction,
+        CancellationToken cancellationToken = default) =>
+        sessions.ConfirmLiveAsync(
+            actor.ApplicationSessionId,
+            actor.Actor.ActorId,
+            actor.Organization.OrganizationId,
+            transaction.CommitHandle,
+            cancellationToken);
 }

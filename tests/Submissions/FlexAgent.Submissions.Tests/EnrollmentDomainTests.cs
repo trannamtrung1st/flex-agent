@@ -311,6 +311,40 @@ public sealed class EnrollmentDomainTests
     }
 
     [Fact]
+    public async Task Session_expiry_after_the_early_lock_denies_assignment()
+    {
+        var harness = CreateHarness();
+        harness.Sessions.ConfirmPermit = false;
+        var result = await harness.Coordinator.AssignAsync(AssignCommand("key-session-confirm"), TestContext.Current.CancellationToken);
+        Assert.False(result.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Denied, result.OutcomeCode);
+        Assert.Empty(harness.Store.Items);
+        Assert.True(harness.Sessions.RevalidateCount >= 1);
+        Assert.True(harness.Sessions.ConfirmCount >= 1);
+    }
+
+    [Fact]
+    public async Task Session_expiry_after_the_early_lock_denies_lifecycle()
+    {
+        var harness = CreateHarness();
+        var assigned = await harness.Coordinator.AssignAsync(AssignCommand("key-session-life"), TestContext.Current.CancellationToken);
+        Assert.True(assigned.Succeeded);
+        harness.Sessions.ConfirmPermit = false;
+        var result = await harness.Coordinator.MutateAsync(
+            LifecycleCommand(
+                EnrollmentOperationKinds.Suspend,
+                EnrollmentReasonCodes.TemporaryRestriction,
+                assigned.EnrollmentId!.Value,
+                assigned.Revision!.Value,
+                "suspend-session-confirm"),
+            TestContext.Current.CancellationToken);
+        Assert.False(result.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Denied, result.OutcomeCode);
+        Assert.Equal(EnrollmentStates.Active, harness.Store.Items[0].Status);
+        Assert.True(harness.Sessions.ConfirmCount >= 2);
+    }
+
+    [Fact]
     public async Task Lifecycle_authorization_uses_the_enrollment_resource_type()
     {
         var harness = CreateHarness();

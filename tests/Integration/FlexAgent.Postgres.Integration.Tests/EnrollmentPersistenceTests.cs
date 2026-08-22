@@ -277,6 +277,46 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
     }
 
     [Fact]
+    public async Task Concurrent_session_expiry_fails_uncommitted_assignment()
+    {
+        var harness = await SeedActivatedAsync();
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE application_sessions
+                SET idle_expires_at = CLOCK_TIMESTAMP() + INTERVAL '1 second'
+                WHERE application_session_id = @ApplicationSessionId
+                """,
+                new { harness.ApplicationSessionId });
+        }
+
+        await using var holdConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await holdConnection.OpenAsync(CancellationToken);
+        await using var holdTransaction = await holdConnection.BeginTransactionAsync(CancellationToken);
+        await holdConnection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE configuration_source_readiness_descriptors
+                SET lifecycle_state = lifecycle_state
+                WHERE organization_id = @OrganizationId
+                """,
+                new { harness.OrganizationId },
+                holdTransaction,
+                cancellationToken: CancellationToken));
+
+        var assignTask = harness.Coordinator.AssignAsync(harness.AssignCommand("assign-expired"), CancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(200), CancellationToken);
+        Assert.False(assignTask.IsCompleted);
+
+        await Task.Delay(TimeSpan.FromMilliseconds(1200), CancellationToken);
+        await holdTransaction.CommitAsync(CancellationToken);
+        var assigned = await assignTask.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken);
+        Assert.False(assigned.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Denied, assigned.OutcomeCode);
+    }
+
+    [Fact]
     public async Task Concurrent_profile_deletion_fails_uncommitted_assignment()
     {
         var harness = await SeedActivatedAsync();

@@ -222,11 +222,29 @@ public sealed class AllowEnrollmentSessionPort : IEnrollmentSessionPort
 {
     public bool Permit { get; set; } = true;
 
+    public bool ConfirmPermit { get; set; } = true;
+
+    public int RevalidateCount { get; private set; }
+
+    public int ConfirmCount { get; private set; }
+
     public Task<bool> RevalidateLiveAsync(
         EnrollmentActorContext actor,
         IEnrollmentTransaction transaction,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(Permit);
+        CancellationToken cancellationToken = default)
+    {
+        RevalidateCount++;
+        return Task.FromResult(Permit);
+    }
+
+    public Task<bool> ConfirmLiveAsync(
+        EnrollmentActorContext actor,
+        IEnrollmentTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        ConfirmCount++;
+        return Task.FromResult(ConfirmPermit);
+    }
 }
 
 public sealed class AllowEnrollmentAuthorizationPort : IEnrollmentAuthorizationPort

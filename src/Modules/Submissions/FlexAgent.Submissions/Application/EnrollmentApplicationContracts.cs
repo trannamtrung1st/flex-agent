@@ -160,6 +160,11 @@ public interface IEnrollmentSessionPort
         EnrollmentActorContext actor,
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken = default);
+
+    Task<bool> ConfirmLiveAsync(
+        EnrollmentActorContext actor,
+        IEnrollmentTransaction transaction,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IEnrollmentAuthorizationPort
