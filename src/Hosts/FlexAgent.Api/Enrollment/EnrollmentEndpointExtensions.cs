@@ -34,11 +34,14 @@ public static class EnrollmentEndpointExtensions
             services.AddSingleton<IEnrollmentAuthorizationPort>(_ => new AllowEnrollmentAuthorizationPort { Permit = false });
             services.AddSingleton<IActivatedCohortPort, FixedActivatedCohortPort>();
             services.AddSingleton<IEnrollmentCandidatePort, InMemoryCandidatePort>();
-            services.AddSingleton<IEnrollmentStore, InMemoryEnrollmentStore>();
-            services.AddSingleton<IEnrollmentOperationStore, InMemoryEnrollmentOperationStore>();
-            services.AddSingleton<IEnrollmentAuditPort, RecordingEnrollmentAuditPort>();
-            services.AddSingleton<IEnrollmentUnitOfWork, InMemoryEnrollmentUnitOfWork>();
+            services.AddSingleton<InMemoryEnrollmentStore>();
+            services.AddSingleton<IEnrollmentStore>(static provider => provider.GetRequiredService<InMemoryEnrollmentStore>());
+            services.AddSingleton<InMemoryEnrollmentOperationStore>();
+            services.AddSingleton<IEnrollmentOperationStore>(static provider => provider.GetRequiredService<InMemoryEnrollmentOperationStore>());
+            services.AddSingleton<RecordingEnrollmentAuditPort>();
+            services.AddSingleton<IEnrollmentAuditPort>(static provider => provider.GetRequiredService<RecordingEnrollmentAuditPort>());
             services.AddSingleton<IEnrollmentSessionPort, AllowEnrollmentSessionPort>();
+            services.AddSingleton<IEnrollmentUnitOfWork, InMemoryEnrollmentUnitOfWork>();
             return services;
         }
 

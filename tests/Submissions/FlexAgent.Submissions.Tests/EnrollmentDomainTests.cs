@@ -366,6 +366,11 @@ public sealed class EnrollmentDomainTests
         Assert.False(result.Succeeded);
         Assert.Equal(EnrollmentFailureCodes.Denied, result.OutcomeCode);
         Assert.True(harness.Sessions.ConfirmCount >= 2);
+        Assert.Empty(harness.Store.Items);
+        Assert.Empty(harness.Store.Events);
+        Assert.Empty(harness.Operations.Items);
+        Assert.Equal(0, harness.Audit.RequiredWrites);
+        Assert.Equal(0, harness.Audit.AvailabilityWrites);
     }
 
     [Fact]
@@ -457,7 +462,7 @@ public sealed class EnrollmentDomainTests
         candidates.Candidates.Add(new EnrollmentCandidate(ParticipantId, "Synthetic Participant"));
         var audit = new RecordingEnrollmentAuditPort();
         var sessions = new AllowEnrollmentSessionPort();
-        var unitOfWork = new InMemoryEnrollmentUnitOfWork(sessions);
+        var unitOfWork = new InMemoryEnrollmentUnitOfWork(sessions, store, operations, audit);
         var coordinator = new EnrollmentCoordinator(
             authorization,
             cohorts,
@@ -469,7 +474,7 @@ public sealed class EnrollmentDomainTests
             sessions,
             new FixedEnrollmentClock(Now));
         var queries = new EnrollmentQueryService(authorization, cohorts, candidates, store);
-        return new Harness(coordinator, queries, store, authorization, cohorts, unitOfWork, audit, sessions);
+        return new Harness(coordinator, queries, store, authorization, cohorts, unitOfWork, audit, sessions, operations);
     }
 
     private static AssignEnrollmentCommand AssignCommand(string key, Guid? cohortId = null)
@@ -576,5 +581,6 @@ public sealed class EnrollmentDomainTests
         FixedActivatedCohortPort Cohorts,
         InMemoryEnrollmentUnitOfWork UnitOfWork,
         RecordingEnrollmentAuditPort Audit,
-        AllowEnrollmentSessionPort Sessions);
+        AllowEnrollmentSessionPort Sessions,
+        InMemoryEnrollmentOperationStore Operations);
 }

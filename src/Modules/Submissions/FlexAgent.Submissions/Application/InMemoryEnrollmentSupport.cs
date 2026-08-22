@@ -3,7 +3,11 @@ using FlexAgent.Submissions.Domain;
 
 namespace FlexAgent.Submissions.Application;
 
-public sealed class InMemoryEnrollmentUnitOfWork(IEnrollmentSessionPort? sessions = null) : IEnrollmentUnitOfWork
+public sealed class InMemoryEnrollmentUnitOfWork(
+    IEnrollmentSessionPort sessions,
+    InMemoryEnrollmentStore store,
+    InMemoryEnrollmentOperationStore operations,
+    RecordingEnrollmentAuditPort audit) : IEnrollmentUnitOfWork
 {
     public bool AuditAccepted { get; set; } = true;
 
@@ -13,20 +17,66 @@ public sealed class InMemoryEnrollmentUnitOfWork(IEnrollmentSessionPort? session
         Func<IEnrollmentTransaction, Task<T>> action,
         CancellationToken cancellationToken = default)
     {
+        var snapshot = new InMemoryEnrollmentSnapshot(store, operations, audit);
         var transaction = new InMemoryEnrollmentTransaction
         {
             AuditAccepted = AuditAccepted,
             OutboxAccepted = OutboxAccepted,
         };
-        var result = await action(transaction);
-        if (transaction.CommitSessionActor is { } actor
-            && sessions is not null
-            && !await sessions.ConfirmLiveAsync(actor, transaction, cancellationToken))
+        try
         {
-            throw new EnrollmentSessionExpiredException();
-        }
+            var result = await action(transaction);
+            if (transaction.CommitSessionActor is { } actor
+                && !await sessions.ConfirmLiveAsync(actor, transaction, cancellationToken))
+            {
+                throw new EnrollmentSessionExpiredException();
+            }
 
-        return result;
+            return result;
+        }
+        catch
+        {
+            snapshot.Restore();
+            throw;
+        }
+    }
+}
+
+file sealed class InMemoryEnrollmentSnapshot
+{
+    private readonly InMemoryEnrollmentStore _store;
+    private readonly InMemoryEnrollmentOperationStore _operations;
+    private readonly RecordingEnrollmentAuditPort _audit;
+    private readonly Enrollment[] _enrollments;
+    private readonly EnrollmentEvent[] _events;
+    private readonly EnrollmentOperation[] _operationItems;
+    private readonly int _requiredWrites;
+    private readonly int _availabilityWrites;
+    private readonly Guid? _lastResourceId;
+    private readonly string? _lastResourceType;
+
+    public InMemoryEnrollmentSnapshot(
+        InMemoryEnrollmentStore store,
+        InMemoryEnrollmentOperationStore operations,
+        RecordingEnrollmentAuditPort audit)
+    {
+        _store = store;
+        _operations = operations;
+        _audit = audit;
+        _enrollments = [.. store.Items];
+        _events = [.. store.Events];
+        _operationItems = [.. operations.Items];
+        _requiredWrites = audit.RequiredWrites;
+        _availabilityWrites = audit.AvailabilityWrites;
+        _lastResourceId = audit.LastResourceId;
+        _lastResourceType = audit.LastResourceType;
+    }
+
+    public void Restore()
+    {
+        _store.Restore(_enrollments, _events);
+        _operations.Restore(_operationItems);
+        _audit.Restore(_requiredWrites, _availabilityWrites, _lastResourceId, _lastResourceType);
     }
 }
 
@@ -48,7 +98,19 @@ public sealed class InMemoryEnrollmentStore : IEnrollmentStore
 
     public IReadOnlyList<Enrollment> Items => _enrollments;
 
+    public IReadOnlyList<EnrollmentEvent> Events => _events;
+
     public int TransactionalFindCount { get; private set; }
+
+    public void Restore(
+        IReadOnlyList<Enrollment> enrollments,
+        IReadOnlyList<EnrollmentEvent> events)
+    {
+        _enrollments.Clear();
+        _enrollments.AddRange(enrollments);
+        _events.Clear();
+        _events.AddRange(events);
+    }
 
     public Task<Enrollment?> FindAsync(
         Guid organizationId,
@@ -193,6 +255,14 @@ public sealed class InMemoryEnrollmentStore : IEnrollmentStore
 public sealed class InMemoryEnrollmentOperationStore : IEnrollmentOperationStore
 {
     private readonly List<EnrollmentOperation> _operations = [];
+
+    public IReadOnlyList<EnrollmentOperation> Items => _operations;
+
+    public void Restore(IReadOnlyList<EnrollmentOperation> operations)
+    {
+        _operations.Clear();
+        _operations.AddRange(operations);
+    }
 
     public Task AcquireLockAsync(
         Guid organizationId,
@@ -378,6 +448,18 @@ public sealed class RecordingEnrollmentAuditPort : IEnrollmentAuditPort
     public Guid? LastResourceId { get; private set; }
 
     public string? LastResourceType { get; private set; }
+
+    public void Restore(
+        int requiredWrites,
+        int availabilityWrites,
+        Guid? lastResourceId,
+        string? lastResourceType)
+    {
+        RequiredWrites = requiredWrites;
+        AvailabilityWrites = availabilityWrites;
+        LastResourceId = lastResourceId;
+        LastResourceType = lastResourceType;
+    }
 
     public Task WriteRequiredDurableAsync(
         EnrollmentActorContext actor,

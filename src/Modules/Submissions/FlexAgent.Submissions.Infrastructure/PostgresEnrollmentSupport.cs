@@ -27,7 +27,7 @@ public sealed class PostgresEnrollmentTransaction(PostgresTransactionScope scope
 
 public sealed class PostgresEnrollmentUnitOfWork(
     PostgresConnectionAccessor connections,
-    IEnrollmentSessionPort? sessions = null) : IEnrollmentUnitOfWork
+    IEnrollmentSessionPort sessions) : IEnrollmentUnitOfWork
 {
     public async Task<T> ExecuteAsync<T>(
         Func<IEnrollmentTransaction, Task<T>> action,
@@ -37,7 +37,6 @@ public sealed class PostgresEnrollmentUnitOfWork(
         var transaction = new PostgresEnrollmentTransaction(scope);
         var result = await action(transaction);
         if (transaction.CommitSessionActor is { } actor
-            && sessions is not null
             && !await sessions.ConfirmLiveAsync(actor, transaction, cancellationToken))
         {
             throw new EnrollmentSessionExpiredException();

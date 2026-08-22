@@ -506,7 +506,9 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
         var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-1"), CancellationToken);
         Assert.True(assigned.Succeeded, assigned.OutcomeCode);
         var store = new PostgresEnrollmentStore(Fixture.Services.ConnectionAccessor);
-        var unitOfWork = new PostgresEnrollmentUnitOfWork(Fixture.Services.ConnectionAccessor);
+        var unitOfWork = new PostgresEnrollmentUnitOfWork(
+            Fixture.Services.ConnectionAccessor,
+            new IdentityEnrollmentSessionPort(new PostgresApplicationSessionStore(Fixture.Services.ConnectionAccessor)));
         await unitOfWork.ExecuteAsync(async transaction =>
         {
             var current = await store.FindAsync(
