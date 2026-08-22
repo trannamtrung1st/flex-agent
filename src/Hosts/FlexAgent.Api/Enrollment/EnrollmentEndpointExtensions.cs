@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using FlexAgent.AssessmentConfiguration.Application;
 using FlexAgent.AssessmentConfiguration.Domain;
@@ -518,7 +520,8 @@ public static class EnrollmentEndpointExtensions
                 throw new InvalidOperationException($"Required secret 'enrollment-cursor-{keyId}' is not configured.");
             }
 
-            secret = $"flex-agent-test-only-enrollment-cursor-{keyId}";
+            secret = Convert.ToBase64String(
+                SHA256.HashData(Encoding.UTF8.GetBytes($"flex-agent-test-only-enrollment-cursor-{keyId}")));
         }
 
         return EnrollmentCursorKeyResolver.Materialize(keyId, secret);

@@ -352,7 +352,10 @@ public sealed class EnrollmentDomainTests
             1,
             TestContext.Current.CancellationToken);
         var cursor = first.Value!.NextCursor!;
-        var tampered = cursor[..^1] + (cursor[^1] == 'A' ? 'B' : 'A');
+        var lastDot = cursor.LastIndexOf('.');
+        var tag = cursor[(lastDot + 1)..];
+        var flippedTag = (tag[0] == 'A' ? 'B' : 'A') + tag[1..];
+        var tampered = cursor[..(lastDot + 1)] + flippedTag;
 
         var stolen = await harness.Queries.ListMyWorkAsync(
             ParticipantContext() with
@@ -484,12 +487,48 @@ public sealed class EnrollmentDomainTests
     }
 
     [Fact]
+    public async Task Maximum_length_unicode_candidate_prefix_issues_an_openable_cursor()
+    {
+        var harness = CreateHarness();
+        var prefix = new string('é', EnrollmentPageBounds.MaximumQueryPrefixLength);
+        harness.Candidates.Candidates.Add(
+            new EnrollmentCandidate(Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8"), prefix + " One"));
+        harness.Candidates.Candidates.Add(
+            new EnrollmentCandidate(Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb9"), prefix + " Two"));
+
+        var first = await harness.Queries.ListCandidatesAsync(
+            AdministratorContext(),
+            ActivityId,
+            CohortId,
+            prefix,
+            null,
+            1,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(first.Succeeded);
+        Assert.True(first.Value!.HasMore);
+        Assert.True(first.Value.NextCursor!.Length <= EnrollmentPageBounds.MaximumCursorLength);
+
+        var second = await harness.Queries.ListCandidatesAsync(
+            AdministratorContext(),
+            ActivityId,
+            CohortId,
+            prefix,
+            first.Value.NextCursor,
+            1,
+            TestContext.Current.CancellationToken);
+        Assert.True(second.Succeeded);
+        Assert.Single(second.Value!.Items);
+        Assert.NotEqual(first.Value.Items[0].ActorId, second.Value.Items[0].ActorId);
+    }
+
+    [Fact]
     public void Shared_configured_cursor_keys_verify_across_signers()
     {
-        var material = EnrollmentCursorKeyResolver.Materialize("k1", "shared-replica-secret-value");
+        var material = EnrollmentCursorKeyResolver.Materialize("k1", CursorSecret("shared-replica"));
         var issuer = new HmacEnrollmentCursorSigner(material);
         var replica = new HmacEnrollmentCursorSigner(
-            EnrollmentCursorKeyResolver.Materialize("k1", "shared-replica-secret-value"));
+            EnrollmentCursorKeyResolver.Materialize("k1", CursorSecret("shared-replica")));
         var scope = EnrollmentListCursorScope.ForMyWork(ParticipantContext());
         var cursor = EnrollmentListCursor.Issue(scope, Now, ParticipantId, issuer);
 
@@ -498,15 +537,23 @@ public sealed class EnrollmentDomainTests
         Assert.Equal(ParticipantId, enrollmentId);
 
         var other = new HmacEnrollmentCursorSigner(
-            EnrollmentCursorKeyResolver.Materialize("k1", "different-replica-secret-value"));
+            EnrollmentCursorKeyResolver.Materialize("k1", CursorSecret("different-replica")));
         Assert.False(EnrollmentListCursor.TryOpen(cursor, scope, other, out _, out _));
+    }
+
+    [Fact]
+    public void Short_cursor_secrets_are_rejected()
+    {
+        var thrown = Assert.Throws<ArgumentException>(() =>
+            EnrollmentCursorKeyResolver.Materialize("k1", "password"));
+        Assert.Contains("32", thrown.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Previous_cursor_key_still_verifies_after_rotation()
     {
-        var previous = EnrollmentCursorKeyResolver.Materialize("k0", "previous-cursor-secret-value");
-        var current = EnrollmentCursorKeyResolver.Materialize("k1", "current-cursor-secret-value");
+        var previous = EnrollmentCursorKeyResolver.Materialize("k0", CursorSecret("previous-cursor"));
+        var current = EnrollmentCursorKeyResolver.Materialize("k1", CursorSecret("current-cursor"));
         var issued = EnrollmentListCursor.Issue(
             EnrollmentListCursorScope.ForMyWork(ParticipantContext()),
             Now,
@@ -774,9 +821,22 @@ public sealed class EnrollmentDomainTests
             candidates,
             store,
             new HmacEnrollmentCursorSigner(
-                EnrollmentCursorKeyResolver.Materialize("test", "flex-agent-test-only-enrollment-cursor")));
-        return new Harness(coordinator, queries, store, authorization, cohorts, unitOfWork, audit, sessions, operations);
+                EnrollmentCursorKeyResolver.Materialize("test", CursorSecret("flex-agent-test-only-enrollment-cursor"))));
+        return new Harness(
+            coordinator,
+            queries,
+            store,
+            authorization,
+            cohorts,
+            unitOfWork,
+            audit,
+            sessions,
+            operations,
+            candidates);
     }
+
+    private static string CursorSecret(string seed) =>
+        Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(seed)));
 
     private static AssignEnrollmentCommand AssignCommand(
         string key,
@@ -889,5 +949,6 @@ public sealed class EnrollmentDomainTests
         InMemoryEnrollmentUnitOfWork UnitOfWork,
         RecordingEnrollmentAuditPort Audit,
         AllowEnrollmentSessionPort Sessions,
-        InMemoryEnrollmentOperationStore Operations);
+        InMemoryEnrollmentOperationStore Operations,
+        InMemoryCandidatePort Candidates);
 }

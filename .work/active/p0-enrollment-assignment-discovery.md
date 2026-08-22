@@ -510,6 +510,9 @@ not be marked implemented by this task.
   signing key from deployment-managed secret or configuration so replicas
   can verify each other's tokens; bind participant-options cursors the same
   way and pass only `afterActorId` to IdentityAccess.
+- [x] Review remediation: bind a SHA-256 digest of the normalized candidate
+  prefix so issued cursors stay within `MaximumCursorLength`; reject cursor
+  signing secrets that are not ≥32 decoded bytes.
 
 # Planned verification command set
 
@@ -672,6 +675,19 @@ lists open HMAC scope and pass only `afterActorId` to IdentityAccess.
 Local green: domain 39, Enrollment HTTP 10, architecture 41, Enrollment
 PostgreSQL 18, `git diff --check` clean. No GitHub CI on this SHA.
 
+Review of `a4aadf3` found that a 64-character Unicode prefix could issue a
+cursor longer than 512 characters, and that short secrets were hashed to
+32 bytes instead of rejected. The payload now binds `SHA-256(normalized
+prefix)` so a maximum-length `é` prefix still pages. Cursor secrets must
+decode from Base64/Base64URL to at least 32 bytes.
+
+Confirmation pass 2026-08-23 before commit: a 64-character `é` candidate
+prefix issues a cursor at or below 512 characters and the next page opens
+it; `"password"` is rejected as signing material; replica and rotation
+tests use decoded 32-byte fixtures. Local green: domain 41, Enrollment
+HTTP 10, architecture 41, Enrollment PostgreSQL 18, `git diff --check`
+clean. No GitHub CI on this SHA.
+
 # Decisions
 
 - Use the architecture-approved `Submissions` module name even though this
@@ -738,16 +754,24 @@ PostgreSQL 18, `git diff --check` clean. No GitHub CI on this SHA.
   Enrollment boundary and participant/admin projections only.
 - Authenticate Enrollment, My work, and participant-options list cursors
   with HMAC-SHA256 over a scope-bound payload (query kind, Organization,
-  actor, Activity, Cohort, normalized prefix, ticks or after-actor). Tokens
-  include a key ID. Replicas share `Enrollment:CursorSigning` current and
-  optional previous materials from mounted secrets (`enrollment-cursor-{id}`)
-  or configuration. Production/Staging fail closed without a key. Development
-  and Testing may derive a deterministic non-production key from the key ID
-  so local replicas stay consistent. Rotation accepts the previous key until
-  it is removed. This is not a new ADR.
+  actor, Activity, Cohort, SHA-256 digest of the normalized prefix, ticks
+  or after-actor). Tokens include a key ID. Replicas share
+  `Enrollment:CursorSigning` current and optional previous materials from
+  mounted secrets (`enrollment-cursor-{id}`) or configuration. Secrets must
+  be Base64/Base64URL of at least 32 random bytes; shorter values are
+  rejected. Production/Staging fail closed without a key. Development and
+  Testing may derive a deterministic 32-byte non-production key so local
+  replicas stay consistent. Rotation accepts the previous key until it is
+  removed. This is not a new ADR.
 
 # Findings / deviations
 
+- Review of `a4aadf3`: embedding the Base64 prefix made a valid 64-character
+  Unicode search issue an overlong `next_cursor`, and `Materialize`
+  accepted `"password"` by hashing it. Prefix digest binding and
+  decoded-length ≥32 enforcement close those contracts. Remaining
+  residuals: mutation p95, per-actor rate limit, 50 ms authorization p95,
+  400% zoom, no GitHub CI on this SHA, and independent review.
 - Review of `5c89aec`: a per-process random HMAC key would reject valid
   `next_cursor` values across horizontally scaled API replicas, and
   participant-options still forwarded raw UUID cursors. Shared
@@ -871,7 +895,7 @@ PostgreSQL 18, `git diff --check` clean. No GitHub CI on this SHA.
 | `python3 scripts/check_docs.py` | passed | Documentation validation passed on 2026-08-22. |
 | whitespace/diff validation | passed | `git diff --check` passed; direct `git diff --no-index --check` on the untracked task file produced no whitespace diagnostics (its status `1` is the expected no-index difference result). |
 | Secret scan | passed | `gitleaks detect --source . --config gitleaks.toml --no-banner --redact` found no leaks during the readiness review. |
-| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 39 passed, including shared-key replica verify, different-key rejection, previous-key rotation, and candidate same-scope/cross-scope/forged-cursor cases. |
+| Focused Submissions domain tests | passed | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release` — 41 passed, including max-length Unicode candidate pagination and rejection of short cursor secrets. |
 | Architecture/contract tests | passed | Architecture 41 passed. This pass did not change schemas. |
 | PostgreSQL migration/isolation/concurrency/fault tests | mixed | `EnrollmentPersistenceTests` 18 passed. `Assignment_completes_within_the_documented_synchronous_bound` is a `Stopwatch` single-sample smoke under 2 s and does not close mutation p95. Full suite/OCI still open. |
 | Runtime/API authorization and HTTP-negative tests | mixed | `EnrollmentHttpNegativeContractTests` now covers CSRF, missing session, malformed cursor, `limit=0`, `limit=999999`, unparsable limit, overlong cursor, guessed detail, unknown member, and oversized body (local 10 after the unparsable-limit case). Per-actor rate-limit HTTP cases remain because the gateway/app limiter is not implemented. |

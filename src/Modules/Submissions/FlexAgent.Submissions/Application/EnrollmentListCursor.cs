@@ -62,15 +62,13 @@ public static class EnrollmentCursorKeyResolver
             throw new ArgumentException("Enrollment cursor key IDs must be short ASCII tokens.", nameof(keyId));
         }
 
-        if (string.IsNullOrWhiteSpace(secret))
+        if (string.IsNullOrWhiteSpace(secret)
+            || !HmacEnrollmentCursorSigner.TryDecode(secret.Trim(), out var material)
+            || material.Length < MinimumKeyBytes)
         {
-            throw new ArgumentException("Enrollment cursor secrets must not be empty.", nameof(secret));
-        }
-
-        var material = Encoding.UTF8.GetBytes(secret);
-        if (material.Length < MinimumKeyBytes)
-        {
-            material = SHA256.HashData(material);
+            throw new ArgumentException(
+                "Enrollment cursor secrets must be Base64 or Base64URL of at least 32 random bytes.",
+                nameof(secret));
         }
 
         return new EnrollmentCursorSigningKey(keyId, material);
@@ -215,8 +213,9 @@ public static class EnrollmentListCursor
             || activityId != expected.ActivityId
             || !Guid.TryParse(fields[4], out var cohortId)
             || cohortId != expected.CohortId
-            || !HmacEnrollmentCursorSigner.TryDecode(fields[5], out var prefixBytes)
-            || !string.Equals(Encoding.UTF8.GetString(prefixBytes), expected.Prefix, StringComparison.Ordinal)
+            || !HmacEnrollmentCursorSigner.TryDecode(fields[5], out var prefixDigest)
+            || prefixDigest.Length != 32
+            || !CryptographicOperations.FixedTimeEquals(prefixDigest, PrefixDigest(expected.Prefix))
             || !long.TryParse(fields[6], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ticks)
             || ticks < DateTimeOffset.MinValue.UtcTicks
             || ticks > DateTimeOffset.MaxValue.UtcTicks
@@ -243,5 +242,8 @@ public static class EnrollmentListCursor
     private static byte[] Payload(EnrollmentListCursorScope scope, long ticks, Guid id) =>
         Encoding.UTF8.GetBytes(string.Create(
             CultureInfo.InvariantCulture,
-            $"{scope.QueryKind}|{scope.OrganizationId:D}|{scope.ActorId:D}|{scope.ActivityId:D}|{scope.CohortId:D}|{HmacEnrollmentCursorSigner.Encode(Encoding.UTF8.GetBytes(scope.Prefix))}|{ticks}|{id:D}"));
+            $"{scope.QueryKind}|{scope.OrganizationId:D}|{scope.ActorId:D}|{scope.ActivityId:D}|{scope.CohortId:D}|{HmacEnrollmentCursorSigner.Encode(PrefixDigest(scope.Prefix))}|{ticks}|{id:D}"));
+
+    private static byte[] PrefixDigest(string prefix) =>
+        SHA256.HashData(Encoding.UTF8.GetBytes(prefix));
 }
