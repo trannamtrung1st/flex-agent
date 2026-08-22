@@ -358,6 +358,17 @@ public sealed class EnrollmentDomainTests
     }
 
     [Fact]
+    public async Task Session_expiry_at_pre_commit_denies_assignment()
+    {
+        var harness = CreateHarness();
+        harness.Sessions.ConfirmWhen = () => harness.Sessions.ConfirmCount == 1;
+        var result = await harness.Coordinator.AssignAsync(AssignCommand("key-pre-commit"), TestContext.Current.CancellationToken);
+        Assert.False(result.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Denied, result.OutcomeCode);
+        Assert.True(harness.Sessions.ConfirmCount >= 2);
+    }
+
+    [Fact]
     public async Task Lifecycle_authorization_uses_the_enrollment_resource_type()
     {
         var harness = CreateHarness();
@@ -445,8 +456,8 @@ public sealed class EnrollmentDomainTests
         var candidates = new InMemoryCandidatePort();
         candidates.Candidates.Add(new EnrollmentCandidate(ParticipantId, "Synthetic Participant"));
         var audit = new RecordingEnrollmentAuditPort();
-        var unitOfWork = new InMemoryEnrollmentUnitOfWork();
         var sessions = new AllowEnrollmentSessionPort();
+        var unitOfWork = new InMemoryEnrollmentUnitOfWork(sessions);
         var coordinator = new EnrollmentCoordinator(
             authorization,
             cohorts,

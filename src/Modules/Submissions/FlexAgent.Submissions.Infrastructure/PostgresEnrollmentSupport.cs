@@ -21,9 +21,13 @@ public sealed class PostgresEnrollmentTransaction(PostgresTransactionScope scope
     public object CommitHandle => scope.Transaction;
 
     public PostgresTransactionScope Scope => scope;
+
+    public EnrollmentActorContext? CommitSessionActor { get; set; }
 }
 
-public sealed class PostgresEnrollmentUnitOfWork(PostgresConnectionAccessor connections) : IEnrollmentUnitOfWork
+public sealed class PostgresEnrollmentUnitOfWork(
+    PostgresConnectionAccessor connections,
+    IEnrollmentSessionPort? sessions = null) : IEnrollmentUnitOfWork
 {
     public async Task<T> ExecuteAsync<T>(
         Func<IEnrollmentTransaction, Task<T>> action,
@@ -32,6 +36,13 @@ public sealed class PostgresEnrollmentUnitOfWork(PostgresConnectionAccessor conn
         await using var scope = await PostgresTransactionScope.BeginAsync(connections, cancellationToken);
         var transaction = new PostgresEnrollmentTransaction(scope);
         var result = await action(transaction);
+        if (transaction.CommitSessionActor is { } actor
+            && sessions is not null
+            && !await sessions.ConfirmLiveAsync(actor, transaction, cancellationToken))
+        {
+            throw new EnrollmentSessionExpiredException();
+        }
+
         await scope.CommitAsync(cancellationToken);
         return result;
     }

@@ -330,6 +330,8 @@ public interface IEnrollmentTransaction
     bool OutboxAccepted { get; set; }
 
     object CommitHandle { get; }
+
+    EnrollmentActorContext? CommitSessionActor { get; set; }
 }
 
 public interface IEnrollmentUnitOfWork

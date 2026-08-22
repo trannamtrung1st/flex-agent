@@ -3,13 +3,13 @@ using FlexAgent.Submissions.Domain;
 
 namespace FlexAgent.Submissions.Application;
 
-public sealed class InMemoryEnrollmentUnitOfWork : IEnrollmentUnitOfWork
+public sealed class InMemoryEnrollmentUnitOfWork(IEnrollmentSessionPort? sessions = null) : IEnrollmentUnitOfWork
 {
     public bool AuditAccepted { get; set; } = true;
 
     public bool OutboxAccepted { get; set; } = true;
 
-    public Task<T> ExecuteAsync<T>(
+    public async Task<T> ExecuteAsync<T>(
         Func<IEnrollmentTransaction, Task<T>> action,
         CancellationToken cancellationToken = default)
     {
@@ -18,7 +18,15 @@ public sealed class InMemoryEnrollmentUnitOfWork : IEnrollmentUnitOfWork
             AuditAccepted = AuditAccepted,
             OutboxAccepted = OutboxAccepted,
         };
-        return action(transaction);
+        var result = await action(transaction);
+        if (transaction.CommitSessionActor is { } actor
+            && sessions is not null
+            && !await sessions.ConfirmLiveAsync(actor, transaction, cancellationToken))
+        {
+            throw new EnrollmentSessionExpiredException();
+        }
+
+        return result;
     }
 }
 
@@ -29,6 +37,8 @@ public sealed class InMemoryEnrollmentTransaction : IEnrollmentTransaction
     public bool OutboxAccepted { get; set; } = true;
 
     public object CommitHandle => this;
+
+    public EnrollmentActorContext? CommitSessionActor { get; set; }
 }
 
 public sealed class InMemoryEnrollmentStore : IEnrollmentStore

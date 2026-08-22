@@ -317,6 +317,54 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
     }
 
     [Fact]
+    public async Task Concurrent_session_expiry_rolls_back_when_commit_is_blocked_after_writes()
+    {
+        var harness = await SeedActivatedAsync();
+        await using (var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken))
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE application_sessions
+                SET idle_expires_at = CLOCK_TIMESTAMP() + INTERVAL '1 second'
+                WHERE application_session_id = @ApplicationSessionId
+                """,
+                new { harness.ApplicationSessionId });
+        }
+
+        await using var holdConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await holdConnection.OpenAsync(CancellationToken);
+        await using var holdTransaction = await holdConnection.BeginTransactionAsync(CancellationToken);
+        await holdConnection.ExecuteAsync(
+            new CommandDefinition(
+                "LOCK TABLE outbox_items IN EXCLUSIVE MODE",
+                transaction: holdTransaction,
+                cancellationToken: CancellationToken));
+
+        var assignTask = harness.Coordinator.AssignAsync(harness.AssignCommand("assign-pre-commit"), CancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(200), CancellationToken);
+        Assert.False(assignTask.IsCompleted);
+
+        await Task.Delay(TimeSpan.FromMilliseconds(1200), CancellationToken);
+        await holdTransaction.CommitAsync(CancellationToken);
+        var assigned = await assignTask.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken);
+        Assert.False(assigned.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Denied, assigned.OutcomeCode);
+
+        await using var verify = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var count = await verify.ExecuteScalarAsync<int>(
+            new CommandDefinition(
+                """
+                SELECT COUNT(*)
+                FROM submissions_enrollments
+                WHERE organization_id = @OrganizationId
+                  AND activity_id = @ActivityId
+                """,
+                new { harness.OrganizationId, harness.ActivityId },
+                cancellationToken: CancellationToken));
+        Assert.Equal(0, count);
+    }
+
+    [Fact]
     public async Task Concurrent_session_expiry_fails_uncommitted_replay()
     {
         var harness = await SeedActivatedAsync();
@@ -747,6 +795,7 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
             ],
             applicationSessionId);
         var baselines = new PostgresAssessmentBaselineStore(connections, new PostgresAuditEventWriter(), new PostgresOutboxItemWriter());
+        var sessions = new IdentityEnrollmentSessionPort(new PostgresApplicationSessionStore(connections));
         var coordinator = new EnrollmentCoordinator(
             new KernelEnrollmentAuthorizationPort(kernel, kernel),
             new AssessmentActivatedCohortPort(
@@ -761,8 +810,8 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
             new PostgresEnrollmentStore(connections),
             new PostgresEnrollmentOperationStore(),
             new PostgresEnrollmentAuditPort(new PostgresAuditEventWriter(), new PostgresOutboxItemWriter()),
-            new PostgresEnrollmentUnitOfWork(connections),
-            new IdentityEnrollmentSessionPort(new PostgresApplicationSessionStore(connections)));
+            new PostgresEnrollmentUnitOfWork(connections, sessions),
+            sessions);
         return new EnrollmentHarness(
             coordinator,
             enrollmentActor,

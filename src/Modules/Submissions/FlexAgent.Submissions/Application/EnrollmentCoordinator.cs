@@ -271,6 +271,7 @@ public sealed class EnrollmentCoordinator(
         {
         return await unitOfWork.ExecuteAsync(async transaction =>
         {
+            transaction.CommitSessionActor = actor;
             await operations.AcquireLockAsync(
                 actor.Organization.OrganizationId,
                 actor.Actor.ActorId,
@@ -433,6 +434,10 @@ public sealed class EnrollmentCoordinator(
         {
             return Fail(EnrollmentFailureCodes.Conflict);
         }
+        catch (EnrollmentSessionExpiredException)
+        {
+            return Fail(EnrollmentFailureCodes.Denied);
+        }
     }
 
     private async Task<EnrollmentMutationOutcome?> DeniedIfSessionExpiredAsync(
@@ -485,3 +490,5 @@ public sealed class EnrollmentAuditUnavailableException : Exception;
 public sealed class EnrollmentStaleRevisionException : Exception;
 
 public sealed class EnrollmentLiveUniquenessException : Exception;
+
+public sealed class EnrollmentSessionExpiredException : Exception;

@@ -130,23 +130,23 @@ public static class AssessmentEndpointExtensions
             return;
         }
 
-        var privilegedStrength = AssessmentAuthenticationPolicy.Evaluate(
-            resolved.Actor,
-            AssessmentAuthorizationActions.ReadActivity);
-        if (privilegedStrength is HumanAuthenticationReasonCodes.UnrecognizedAuthenticationStrength
-            or HumanAuthenticationReasonCodes.InsufficientAuthenticationStrength)
-        {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await context.Response.WriteAsJsonAsync(new { error = privilegedStrength });
-            return;
-        }
-
         var grants = resolved.Authorization.PermittedActions;
         var activitiesAvailable = grants.Any(FlexAgent.Submissions.Application.EnrollmentAuthenticationPolicy.IsAdministratorDestinationGrant)
-            && privilegedStrength is null;
+            && AssessmentAuthenticationPolicy.Evaluate(resolved.Actor, AssessmentAuthorizationActions.ReadActivity) is null;
         var myWorkAvailable = grants.Contains(
             FlexAgent.Submissions.Domain.EnrollmentAuthorizationActions.Discover,
-            StringComparer.Ordinal);
+            StringComparer.Ordinal)
+            && FlexAgent.Submissions.Application.EnrollmentAuthenticationPolicy.Evaluate(
+                new FlexAgent.Submissions.Application.EnrollmentActorContext(
+                    resolved.Actor.Actor,
+                    resolved.Actor.Organization,
+                    resolved.Actor.Relationship,
+                    resolved.Actor.Strength,
+                    resolved.Actor.CorrelationId,
+                    resolved.Actor.SourceChannel,
+                    grants,
+                    Guid.Empty),
+                FlexAgent.Submissions.Domain.EnrollmentAuthorizationActions.Discover) is null;
 
         await context.Response.WriteAsJsonAsync(new
         {

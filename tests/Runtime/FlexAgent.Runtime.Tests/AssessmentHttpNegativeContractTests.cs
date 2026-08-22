@@ -9,6 +9,7 @@ using FlexAgent.AssessmentConfiguration.Domain;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.IdentityAccess.Infrastructure;
+using FlexAgent.Submissions.Domain;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -189,7 +190,7 @@ public sealed class AssessmentHttpNegativeContractTests
     }
 
     [Fact]
-    public async Task Administrator_without_mfa_cannot_read_shell_or_list_and_browser_mfa_flag_is_ignored()
+    public async Task Administrator_without_mfa_keeps_the_shell_but_cannot_use_activities_or_list()
     {
         await using var context = await LoginAsync(mfa: false, relationship: AuthenticationStrengthEvaluator.AdministratorRelationship);
         using var shell = await SendGetAsync(context, "/v1/assessment/shell");
@@ -197,10 +198,12 @@ public sealed class AssessmentHttpNegativeContractTests
         var shellBody = await shell.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var listBody = await list.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.Forbidden, shell.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, shell.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, list.StatusCode);
-        Assert.Contains(HumanAuthenticationReasonCodes.UnrecognizedAuthenticationStrength, shellBody, StringComparison.Ordinal);
-        Assert.DoesNotContain("actor_id", shellBody, StringComparison.Ordinal);
+        using var shellDocument = JsonDocument.Parse(shellBody);
+        Assert.False(string.IsNullOrWhiteSpace(shellDocument.RootElement.GetProperty("actor_id").GetString()));
+        Assert.False(DestinationAvailable(shellDocument, "activities"));
+        Assert.False(DestinationAvailable(shellDocument, "my-work"));
         Assert.DoesNotContain("activities", listBody, StringComparison.Ordinal);
     }
 
@@ -275,7 +278,7 @@ public sealed class AssessmentHttpNegativeContractTests
     }
 
     [Fact]
-    public async Task Reviewer_without_mfa_cannot_read_shell_or_activity_and_cannot_mutate()
+    public async Task Reviewer_without_mfa_keeps_the_shell_but_cannot_read_activity_or_mutate()
     {
         await using var context = await LoginAsync(
             mfa: false,
@@ -292,12 +295,34 @@ public sealed class AssessmentHttpNegativeContractTests
         var shellBody = await shell.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var activityBody = await activity.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.Forbidden, shell.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, shell.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, activity.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, create.StatusCode);
-        Assert.Contains(HumanAuthenticationReasonCodes.UnrecognizedAuthenticationStrength, shellBody, StringComparison.Ordinal);
-        Assert.DoesNotContain("actor_id", shellBody, StringComparison.Ordinal);
+        using var shellDocument = JsonDocument.Parse(shellBody);
+        Assert.False(string.IsNullOrWhiteSpace(shellDocument.RootElement.GetProperty("actor_id").GetString()));
+        Assert.False(DestinationAvailable(shellDocument, "activities"));
+        Assert.False(DestinationAvailable(shellDocument, "my-work"));
         Assert.DoesNotContain("title", activityBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Dual_capability_actor_without_administrator_mfa_keeps_my_work_and_hides_activities()
+    {
+        await using var context = await LoginAsync(
+            mfa: false,
+            relationship: AuthenticationStrengthEvaluator.AdministratorRelationship,
+            actions:
+            [
+                EnrollmentAuthorizationActions.Assign,
+                EnrollmentAuthorizationActions.Discover,
+            ]);
+        using var shell = await SendGetAsync(context, "/v1/assessment/shell");
+        using var shellDocument = JsonDocument.Parse(await shell.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(HttpStatusCode.OK, shell.StatusCode);
+        Assert.False(string.IsNullOrWhiteSpace(shellDocument.RootElement.GetProperty("actor_id").GetString()));
+        Assert.False(DestinationAvailable(shellDocument, "activities"));
+        Assert.True(DestinationAvailable(shellDocument, "my-work"));
     }
 
     [Fact]
@@ -402,6 +427,19 @@ public sealed class AssessmentHttpNegativeContractTests
         request.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
         request.Headers.TryAddWithoutValidation(HumanAuthenticationHostOptions.AntiforgeryHeaderName, context.CsrfToken);
         return await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
+    }
+
+    private static bool DestinationAvailable(JsonDocument document, string destinationId)
+    {
+        foreach (var item in document.RootElement.GetProperty("navigation").EnumerateArray())
+        {
+            if (string.Equals(item.GetProperty("destination_id").GetString(), destinationId, StringComparison.Ordinal))
+            {
+                return item.GetProperty("is_available").GetBoolean();
+            }
+        }
+
+        return false;
     }
 
     private static async Task<HttpResponseMessage> SendGetAsync(LoggedInContext context, string url)
