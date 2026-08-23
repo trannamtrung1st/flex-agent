@@ -1,7 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { completeProductionLogout, SignOutFailedCopy } from "./production-logout";
+import { ProductionApiError } from "./production-api-error";
+import {
+  completeProductionLogout,
+  isKnownPreLogoutRejection,
+  SignOutUnconfirmedCopy,
+} from "./production-logout";
 
-export type ProductionApiState = "loading" | "idle" | "ready" | "denied";
+export { ProductionApiError } from "./production-api-error";
+
+export type ProductionApiState = "loading" | "idle" | "ready" | "denied" | "signing-out";
 
 export interface ProductionShellContextV1 {
   schema_version: string;
@@ -10,18 +17,6 @@ export interface ProductionShellContextV1 {
   relationship: string;
   navigation: Array<{ destination_id: string; is_available: boolean }>;
   permitted_actions: string[];
-}
-
-export class ProductionApiError extends Error {
-  readonly status: number;
-  readonly outcomeCode?: string;
-
-  constructor(status: number, message: string, outcomeCode?: string) {
-    super(message);
-    this.name = "ProductionApiError";
-    this.status = status;
-    this.outcomeCode = outcomeCode;
-  }
 }
 
 interface ProductionApiValue {
@@ -93,62 +88,63 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
     return (await response.json()) as T;
   }, [clearProtectedState]);
 
+  const bootstrap = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const sessionResponse = await fetch("/auth/session", {
+        credentials: "same-origin",
+        signal,
+      });
+      if (!sessionResponse.ok) {
+        setApiState("idle");
+        return;
+      }
+
+      const session = await sessionResponse.json() as {
+        authenticated: boolean;
+        csrf_token?: string;
+      };
+
+      csrfRef.current = session.csrf_token ?? null;
+      setCsrfToken(session.csrf_token ?? null);
+      if (!session.authenticated) {
+        setApiState("idle");
+        return;
+      }
+
+      const shellResponse = await fetch("/v1/assessment/shell", {
+        credentials: "same-origin",
+        signal,
+      });
+      if (shellResponse.status === 401) {
+        clearProtectedState("idle");
+        return;
+      }
+
+      if (!shellResponse.ok) {
+        clearProtectedState("denied", "Your access changed");
+        return;
+      }
+
+      setShell(await shellResponse.json() as ProductionShellContextV1);
+      setErrorMessage(null);
+      setApiState("ready");
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setApiState("idle");
+      void error;
+    }
+  }, [clearProtectedState]);
+
   useEffect(() => {
     const controller = new AbortController();
-    void (async () => {
-      try {
-        const sessionResponse = await fetch("/auth/session", {
-          credentials: "same-origin",
-          signal: controller.signal,
-        });
-        if (!sessionResponse.ok) {
-          setApiState("idle");
-          return;
-        }
-
-        const session = await sessionResponse.json() as {
-          authenticated: boolean;
-          csrf_token?: string;
-        };
-
-        csrfRef.current = session.csrf_token ?? null;
-        setCsrfToken(session.csrf_token ?? null);
-        if (!session.authenticated) {
-          setApiState("idle");
-          return;
-        }
-
-        const shellResponse = await fetch("/v1/assessment/shell", {
-          credentials: "same-origin",
-          signal: controller.signal,
-        });
-        if (shellResponse.status === 401) {
-          clearProtectedState("idle");
-          return;
-        }
-
-        if (!shellResponse.ok) {
-          clearProtectedState("denied", "Your access changed");
-          return;
-        }
-
-        setShell(await shellResponse.json() as ProductionShellContextV1);
-        setErrorMessage(null);
-        setApiState("ready");
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        setApiState("idle");
-        void error;
-      }
-    })();
-
+    void Promise.resolve().then(() => bootstrap(controller.signal));
     return () => {
       controller.abort();
     };
-  }, [clearProtectedState]);
+  }, [bootstrap]);
 
   const value = useMemo<ProductionApiValue>(
     () => ({
@@ -163,16 +159,23 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
         window.location.assign(`/auth/login?return_path=${encodeURIComponent(safe)}`);
       },
       logout: async () => {
+        const csrf = csrfRef.current;
+        clearProtectedState("signing-out");
         try {
-          const nextLocation = await completeProductionLogout(csrfRef.current);
-          clearProtectedState("idle");
+          const nextLocation = await completeProductionLogout(csrf);
           window.location.assign(nextLocation);
         } catch (caught: unknown) {
-          setErrorMessage(caught instanceof ProductionApiError ? caught.message : SignOutFailedCopy);
+          if (isKnownPreLogoutRejection(caught)) {
+            await bootstrap();
+            return;
+          }
+
+          setErrorMessage(SignOutUnconfirmedCopy);
+          setApiState("signing-out");
         }
       },
     }),
-    [apiState, clearProtectedState, csrfToken, errorMessage, fetchJson, shell],
+    [apiState, bootstrap, clearProtectedState, csrfToken, errorMessage, fetchJson, shell],
   );
 
   return <ProductionApiContext.Provider value={value}>{children}</ProductionApiContext.Provider>;

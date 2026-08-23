@@ -19,6 +19,21 @@ export function ProductionAppShell() {
     return <ProtectedLoading label="Establishing session context…" />;
   }
 
+  if (apiState === "signing-out") {
+    return (
+      <div className="shell-content" style={{ padding: "2rem 1.25rem" }}>
+        <StatusPanel title="Signing out">
+          <p role={errorMessage ? "alert" : undefined}>{errorMessage ?? "Signing out…"}</p>
+          {errorMessage ? (
+            <p>
+              <Button type="button" onClick={() => { void logout(); }}>Try again</Button>
+            </p>
+          ) : null}
+        </StatusPanel>
+      </div>
+    );
+  }
+
   if (apiState === "denied") {
     return (
       <div className="shell-content" style={{ padding: "2rem 1.25rem" }}>

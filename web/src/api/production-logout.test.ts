@@ -1,5 +1,10 @@
-import { ProductionApiError } from "./production-api";
-import { completeProductionLogout, SignOutFailedCopy } from "./production-logout";
+import { ProductionApiError } from "./production-api-error";
+import {
+  completeProductionLogout,
+  isKnownPreLogoutRejection,
+  SignOutFailedCopy,
+  SignOutUnconfirmedCopy,
+} from "./production-logout";
 
 describe("completeProductionLogout", () => {
   it("returns home after a successful local-only logout", async () => {
@@ -24,10 +29,17 @@ describe("completeProductionLogout", () => {
     );
   });
 
-  it("rejects a transport failure without treating logout as complete", async () => {
+  it("rejects a transport failure as an unconfirmed logout", async () => {
     const fetchImpl = vi.fn(() => Promise.reject(new TypeError("Failed to fetch")));
 
     await expect(completeProductionLogout("csrf", fetchImpl)).rejects.toBeInstanceOf(TypeError);
+    expect(isKnownPreLogoutRejection(new TypeError("Failed to fetch"))).toBe(false);
+    expect(SignOutUnconfirmedCopy).toContain("could not be confirmed");
+  });
+
+  it("treats antiforgery 400 as a known pre-logout rejection", () => {
+    expect(isKnownPreLogoutRejection(new ProductionApiError(400, SignOutFailedCopy))).toBe(true);
+    expect(isKnownPreLogoutRejection(new ProductionApiError(500, SignOutFailedCopy))).toBe(false);
   });
 
   it("rejects a non-https next location", async () => {

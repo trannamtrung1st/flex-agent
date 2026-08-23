@@ -1,6 +1,11 @@
-import { ProductionApiError } from "./production-api";
+import { ProductionApiError } from "./production-api-error";
 
 export const SignOutFailedCopy = "Sign out could not be completed.";
+export const SignOutUnconfirmedCopy = "Sign out status could not be confirmed. Try again.";
+
+export function isKnownPreLogoutRejection(error: unknown): error is ProductionApiError {
+  return error instanceof ProductionApiError && error.status === 400;
+}
 
 export function productionLogoutNextLocation(endSessionUrl: unknown): string {
   if (typeof endSessionUrl !== "string" || endSessionUrl.length === 0) {

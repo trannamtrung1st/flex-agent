@@ -174,9 +174,63 @@ describe("production destination guards", () => {
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Sign out could not be completed.");
     expect(assign).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Sign out" })).toBeInTheDocument();
+    expect(screen.queryByText("Sign out status could not be confirmed. Try again.")).not.toBeInTheDocument();
+  });
+
+  it("clears protected content when logout confirmation is lost", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", {
+      href: "http://localhost/",
+      origin: "http://localhost",
+      pathname: "/",
+      search: "",
+      assign,
+    });
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/auth/session")) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ authenticated: true, csrf_token: "csrf" }) });
+      }
+      if (url.includes("/v1/assessment/shell")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({
+            schema_version: "v1",
+            actor_id: "part",
+            organization_id: "11111111-1111-4111-8111-111111111111",
+            relationship: "",
+            navigation: [{ destination_id: "home", is_available: true }],
+            permitted_actions: [],
+          }),
+        });
+      }
+      if (url.includes("/auth/logout")) {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    }));
+
+    render(
+      <ProductionApiProvider>
+        <MemoryRouter>
+          <Routes>
+            <Route element={<ProductionAppShell />}>
+              <Route path="/" element={<p>Assignment content</p>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </ProductionApiProvider>,
+    );
+
+    expect(await screen.findByText("Assignment content")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sign out status could not be confirmed. Try again.");
+    expect(screen.queryByText("Assignment content")).not.toBeInTheDocument();
+    expect(assign).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
   it("navigates to the provider end-session URL after a successful revoke", async () => {

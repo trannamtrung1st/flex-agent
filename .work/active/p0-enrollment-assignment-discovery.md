@@ -546,6 +546,9 @@ not be marked implemented by this task.
 - [x] Review of `626ea8d`: complete Sign out only after a successful
   local revoke, return a browser-safe `end_session_url`, and do not
   present CSRF/transport failure as logged out.
+- [x] Review of `c7a96fa`: clear protected chrome when Sign out starts,
+  keep it cleared on an unconfirmed logout, and re-bootstrap only after
+  a known pre-revoke 400.
 
 # Planned verification command set
 
@@ -901,6 +904,15 @@ accessibility, full CI/OCI, and remaining independent review.
   only after `logged_out: true`, using an `https` end-session URL when
   present. CSRF 400 and transport failure keep the session chrome and
   announce **Sign out could not be completed.**
+- Review of `c7a96fa`: P1 closed (confirmed `logged_out: true` and
+  top-level provider navigation). P2 follow-up — a dropped logout
+  response could leave Assignment/Enrollment chrome visible after the
+  server had already revoked. Sign out now clears protected state
+  immediately (`signing-out`), navigates only after a confirmed revoke,
+  keeps a cleared **Sign out status could not be confirmed. Try again.**
+  panel when the result is ambiguous, and re-bootstraps `/auth/session`
+  plus shell after a known HTTP 400. `ProductionApiError` lives in
+  `production-api-error.ts` to break the logout/API import cycle.
 - Review of `1f698a5`: approved. Narrow gitleaks allowlist only.
 - Implementation run [32610425519](https://github.com/trannamtrung1st/flex-agent/actions/runs/32610425519)
   on `626ea8d`: web, dotnet, and OCI passed; supply-chain failed at
@@ -1074,6 +1086,7 @@ accessibility, full CI/OCI, and remaining independent review.
 | GitHub Implementation (`d71ba10`, run 32590813013) | failed locally remediated | Web job failed ESLint: implicit `catch` types and `setState` in the My work effect. Confirmation pass: `pnpm lint` 0 errors, focused web tests 20, typecheck, `check_docs`, `git diff --check`. Live Sign out / locator-free chrome not recaptured. |
 | GitHub Implementation (`626ea8d`, run 32610425519) | failed locally remediated | Web, dotnet, and OCI passed. Supply-chain Secret scan failed on Enrollment fixture idempotency keys. `gitleaks.toml` now allowlists `enr-assign-synthetic-` / `enr-suspend-synthetic-` `\d{4}` under `contracts/fixtures/`. Local gitleaks: no leaks. |
 | Sign-out completion (`626ea8d` P1) | passed locally | Auth HTTP 10: antiforgery 400 leaves the session; success returns `logged_out` / nullable `end_session_url` / `no-store` without a 302. Web logout tests cover local `/`, HTTPS provider URL, CSRF 400, transport failure, and rejected `javascript:` next locations. Live Playwright of Sign out not recaptured. |
+| Sign-out ambiguous response (`c7a96fa` P2) | passed locally | Focused web: `production-logout.test.ts`, `production-routes.test.tsx`, `production-api.test.tsx` — 16 passed. Typecheck and `pnpm lint` (0 errors). Transport-lost logout clears Assignment content, stays on a Signing-out panel with unconfirmed copy + **Try again**, and does not `location.assign`. Known 400 re-bootstraps and restores Sign out without the unconfirmed alert. Live Playwright of Sign out still not recaptured (Docker SPA images not rebuilt for this chrome). |
 
 # Blockers
 

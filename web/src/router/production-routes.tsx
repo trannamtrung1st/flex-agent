@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link, Navigate, createBrowserRouter } from "react-router-dom";
 import { useProductionApi } from "../api/production-api";
 import { ProductionAppShell } from "../components/shell/ProductionAppShell";
+import { Button } from "../components/ui/Button";
 import { ProtectedLoading } from "../components/ui/ProtectedLoading";
 import { StatusPanel } from "../components/ui/StatusPanel";
 import { ProductionActivitiesPage } from "../pages/ProductionActivitiesPage";
@@ -37,10 +38,23 @@ export function ProductionDestinationGuard({
 }
 
 function ProductionGate() {
-  const { apiState, errorMessage } = useProductionApi();
+  const { apiState, errorMessage, logout } = useProductionApi();
 
   if (apiState === "loading") {
     return <ProtectedLoading label="Establishing session context…" />;
+  }
+
+  if (apiState === "signing-out") {
+    return (
+      <StatusPanel title="Signing out">
+        <p role={errorMessage ? "alert" : undefined}>{errorMessage ?? "Signing out…"}</p>
+        {errorMessage ? (
+          <p>
+            <Button type="button" onClick={() => { void logout(); }}>Try again</Button>
+          </p>
+        ) : null}
+      </StatusPanel>
+    );
   }
 
   if (apiState === "idle") {
