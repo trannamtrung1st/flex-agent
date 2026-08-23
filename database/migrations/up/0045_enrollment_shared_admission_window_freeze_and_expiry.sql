@@ -1,36 +1,8 @@
 -- Additive Enrollment shared-admission hardening. Do not edit 0001-0044.
--- Freeze policy window_seconds so a mid-window duration change cannot
--- expire the live counter and issue a second budget. Store and index
--- expires_at so hot-path cleanup is a bounded expiry-range lookup.
-
-CREATE OR REPLACE FUNCTION submissions_enrollment_request_policies_tighten_only()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    IF NEW.policy_revision <= OLD.policy_revision THEN
-        RAISE EXCEPTION 'enrollment request policy revision must increase';
-    END IF;
-
-    IF NEW.window_seconds IS DISTINCT FROM OLD.window_seconds THEN
-        RAISE EXCEPTION 'enrollment request policy window cannot change';
-    END IF;
-
-    IF NEW.read_permit_limit > OLD.read_permit_limit
-        OR NEW.mutation_permit_limit > OLD.mutation_permit_limit THEN
-        RAISE EXCEPTION 'enrollment request policy may only tighten';
-    END IF;
-
-    RETURN NEW;
-END;
-$$;
-
-ALTER TABLE submissions_enrollment_request_policies
-    DROP CONSTRAINT chk_submissions_enrollment_request_policies_window;
-
-ALTER TABLE submissions_enrollment_request_policies
-    ADD CONSTRAINT chk_submissions_enrollment_request_policies_window
-        CHECK (window_seconds = 10);
+-- Freeze policy window_seconds at 10. A 0044 database may already have a
+-- longer window; do not rewrite that policy while live counters remain.
+-- Store and index expires_at so hot-path cleanup is a bounded expiry-range
+-- lookup.
 
 ALTER TABLE submissions_enrollment_request_counters
     ADD COLUMN expires_at timestamptz;
@@ -62,6 +34,65 @@ DROP INDEX ix_submissions_enrollment_request_counters_cleanup;
 
 CREATE INDEX ix_submissions_enrollment_request_counters_expires_at
     ON submissions_enrollment_request_counters (expires_at);
+
+DELETE FROM submissions_enrollment_request_counters
+WHERE expires_at <= clock_timestamp();
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM submissions_enrollment_request_counters
+        WHERE window_seconds IS DISTINCT FROM 10
+    ) THEN
+        RAISE EXCEPTION
+            'enrollment shared admission cannot freeze the 10-second window while live counters still use a longer window; wait until those windows expire or drain submissions_enrollment_request_counters';
+    END IF;
+END
+$$;
+
+DROP TRIGGER trg_submissions_enrollment_request_policies_tighten_only
+    ON submissions_enrollment_request_policies;
+
+ALTER TABLE submissions_enrollment_request_policies
+    DROP CONSTRAINT chk_submissions_enrollment_request_policies_window;
+
+UPDATE submissions_enrollment_request_policies
+SET window_seconds = 10,
+    activated_at = clock_timestamp()
+WHERE singleton_key = 1
+  AND window_seconds IS DISTINCT FROM 10;
+
+ALTER TABLE submissions_enrollment_request_policies
+    ADD CONSTRAINT chk_submissions_enrollment_request_policies_window
+        CHECK (window_seconds = 10);
+
+CREATE OR REPLACE FUNCTION submissions_enrollment_request_policies_tighten_only()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.policy_revision <= OLD.policy_revision THEN
+        RAISE EXCEPTION 'enrollment request policy revision must increase';
+    END IF;
+
+    IF NEW.window_seconds IS DISTINCT FROM OLD.window_seconds THEN
+        RAISE EXCEPTION 'enrollment request policy window cannot change';
+    END IF;
+
+    IF NEW.read_permit_limit > OLD.read_permit_limit
+        OR NEW.mutation_permit_limit > OLD.mutation_permit_limit THEN
+        RAISE EXCEPTION 'enrollment request policy may only tighten';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_submissions_enrollment_request_policies_tighten_only
+    BEFORE UPDATE ON submissions_enrollment_request_policies
+    FOR EACH ROW
+    EXECUTE FUNCTION submissions_enrollment_request_policies_tighten_only();
 
 CREATE OR REPLACE FUNCTION submissions_try_acquire_enrollment_request_permit(
     p_organization_id uuid,
