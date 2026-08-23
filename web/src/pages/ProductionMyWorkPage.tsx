@@ -19,8 +19,7 @@ export function ProductionMyWorkPage() {
   const [pending, setPending] = useState(false);
 
   const load = useCallback((signal?: { cancelled: boolean }) => {
-    setPending(true);
-    client.listMyWork()
+    return client.listMyWork()
       .then((page) => {
         if (signal?.cancelled) {
           return;
@@ -28,21 +27,16 @@ export function ProductionMyWorkPage() {
         setItems(page.items);
         setError(null);
       })
-      .catch((caught) => {
+      .catch((caught: unknown) => {
         if (!signal?.cancelled) {
           setError(enrollmentFailureCopy(caught, "My work is not available."));
-        }
-      })
-      .finally(() => {
-        if (!signal?.cancelled) {
-          setPending(false);
         }
       });
   }, [client]);
 
   useEffect(() => {
     const signal = { cancelled: false };
-    load(signal);
+    void load(signal);
     return () => {
       signal.cancelled = true;
     };
@@ -55,7 +49,16 @@ export function ProductionMyWorkPage() {
         <p>{error}</p>
         {rateLimited ? (
           <p>
-            <Button type="button" disabled={pending} onClick={() => { load(); }}>
+            <Button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                setPending(true);
+                void load().finally(() => {
+                  setPending(false);
+                });
+              }}
+            >
               Try again
             </Button>
           </p>

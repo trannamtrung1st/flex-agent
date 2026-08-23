@@ -58,7 +58,7 @@ export function ProductionEnrollmentPage() {
         setEnrollments(enrollmentPage.items);
         setError(null);
       })
-      .catch((caught) => {
+      .catch((caught: unknown) => {
         if (!cancelled) {
           setError(enrollmentFailureCopy(caught, "This Enrollment workspace is not available."));
         }
@@ -152,7 +152,7 @@ export function ProductionEnrollmentPage() {
                     setError(null);
                     setEnrollments((await client.listEnrollments(activityId, cohortId)).items);
                   })
-                  .catch((caught) => {
+                  .catch((caught: unknown) => {
                     setError(enrollmentFailureCopy(caught, "The assignment could not be completed."));
                   })
                   .finally(() => { setPending(null); });
@@ -247,7 +247,7 @@ export function ProductionEnrollmentPage() {
               setEnrollments((await client.listEnrollments(activityId, cohortId)).items);
               setConfirm(null);
             })
-            .catch((caught) => {
+            .catch((caught: unknown) => {
               setError(enrollmentFailureCopy(caught, "The Enrollment could not be updated."));
             })
             .finally(() => { setPending(null); });

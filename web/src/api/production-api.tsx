@@ -30,6 +30,7 @@ interface ProductionApiValue {
   errorMessage: string | null;
   fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>;
   login: () => void;
+  logout: () => Promise<void>;
 }
 
 const ProductionApiContext = createContext<ProductionApiValue | null>(null);
@@ -160,8 +161,28 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
         const safe = path.startsWith("/") && !path.startsWith("//") && !path.includes("://") ? path : "/";
         window.location.assign(`/auth/login?return_path=${encodeURIComponent(safe)}`);
       },
+      logout: async () => {
+        const headers = new Headers();
+        if (csrfRef.current) {
+          headers.set("X-Flex-CSRF", csrfRef.current);
+        }
+
+        try {
+          await fetch("/auth/logout", {
+            method: "POST",
+            credentials: "same-origin",
+            headers,
+            redirect: "manual",
+          });
+        } catch {
+          // Local session chrome still clears after a transport failure.
+        }
+
+        clearProtectedState("idle");
+        window.location.assign("/");
+      },
     }),
-    [apiState, csrfToken, errorMessage, fetchJson, shell],
+    [apiState, clearProtectedState, csrfToken, errorMessage, fetchJson, shell],
   );
 
   return <ProductionApiContext.Provider value={value}>{children}</ProductionApiContext.Provider>;

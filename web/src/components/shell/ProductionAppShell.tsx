@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useProductionApi } from "../../api/production-api";
+import { Button } from "../ui/Button";
 import { ProtectedLoading } from "../ui/ProtectedLoading";
 import { StatusPanel } from "../ui/StatusPanel";
 import { Breadcrumbs } from "./Breadcrumbs";
@@ -12,7 +13,7 @@ const DESTINATION_ROUTES: Record<string, { label: string; route: string }> = {
 };
 
 export function ProductionAppShell() {
-  const { apiState, errorMessage, shell } = useProductionApi();
+  const { apiState, errorMessage, logout, shell } = useProductionApi();
 
   if (apiState === "loading") {
     return <ProtectedLoading label="Establishing session context…" />;
@@ -47,11 +48,14 @@ export function ProductionAppShell() {
 
       <header className="shell-header" role="banner">
         <div className="shell-brand">
-          <span className="shell-org">Organization {shell?.organization_id ?? "Flex Agent"}</span>
+          <span className="shell-org">Organization</span>
           <span className="shell-title">Activity workspace</span>
         </div>
         <div className="shell-header-actions">
           <ThemeToggle />
+          <Button type="button" variant="ghost" size="sm" onClick={() => { void logout(); }}>
+            Sign out
+          </Button>
         </div>
       </header>
 

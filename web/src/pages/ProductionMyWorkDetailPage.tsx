@@ -26,7 +26,7 @@ export function ProductionMyWorkDetailPage() {
           setAssignment(result.assignment);
         }
       })
-      .catch((caught) => {
+      .catch((caught: unknown) => {
         if (!cancelled) {
           setError(enrollmentFailureCopy(caught, ""));
           setUnavailable(true);

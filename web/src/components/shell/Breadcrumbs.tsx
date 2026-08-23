@@ -1,6 +1,29 @@
 import { Link, useLocation } from "react-router-dom";
 
+const ResourceLocator = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function labelForLocator(previous: string | undefined): string {
+  switch (previous) {
+    case "activities":
+      return "Activity";
+    case "cohorts":
+      return "Cohort";
+    case "enrollments":
+      return "Enrollment";
+    case "my-work":
+      return "Assignment";
+    case "sessions":
+      return "Session";
+    default:
+      return "Item";
+  }
+}
+
 function labelForSegment(segment: string, index: number, segments: string[]): string {
+  if (ResourceLocator.test(segment)) {
+    return labelForLocator(segments[index - 1]);
+  }
+
   if (segment === "activities" && index === 0) {
     return "Activities";
   }
@@ -12,6 +35,9 @@ function labelForSegment(segment: string, index: number, segments: string[]): st
   }
   if (segment === "participants") {
     return "Assign Participants";
+  }
+  if (segment === "cohorts") {
+    return "Cohorts";
   }
   if (segment === "enrollments") {
     return "Enrollment";

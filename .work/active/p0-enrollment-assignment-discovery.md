@@ -533,6 +533,13 @@ not be marked implemented by this task.
   in depth, fail closed when configuration raises the frozen ceiling or
   shortens the window, and leave a shared gateway quota as an explicit
   residual.
+- [x] External review of `d71ba10` approved the rate-limit closeout with
+  no blocking code finding. Shared/gateway-enforced quota, GitHub CI, and
+  broader independent slice review remain residuals.
+- [x] Fix the `d71ba10` Implementation web job (typed catch variables and
+  no synchronous setState in the My work effect), hide raw
+  Organization/Enrollment locators in production chrome, and add
+  in-shell Sign out. Live Playwright of the new chrome remains a residual.
 
 # Planned verification command set
 
@@ -594,6 +601,15 @@ now show recoverable **Too many requests** copy for `429` /
 `enrollment.rate_limited` and keep the selected Participant on assign.
 `dotnet test --solution FlexAgent.slnx -c Release` passed (1438 / 2
 skipped). `bash build/scripts/verify-oci.sh` completed.
+
+External review of `d71ba10` (2026-08-23): **approved**. No blocking
+code finding. The `1fec6b3` findings are closed. Shared/gateway quota
+remains an explicit residual. Implementation
+[run 32590813013](https://github.com/trannamtrung1st/flex-agent/actions/runs/32590813013)
+failed the web job: Enrollment `catch` callbacks needed `: unknown`,
+and My work `setPending` ran synchronously inside `useEffect`. Those
+lint failures are fixed. Chrome residuals continue: hide raw locators
+and add in-shell Sign out. The task stays **in-progress**.
 
 Review remediation 2026-08-23 for `1fec6b3`: constructor and
 `ValidateOnStart` reject raised 60/20 ceilings or a window shorter than
@@ -871,6 +887,13 @@ accessibility, full CI/OCI, and remaining independent review.
 
 # Findings / deviations
 
+- Review of `d71ba10`: approved. No blocking code finding. The two
+  findings against `1fec6b3` are closed. Shared/gateway-wide per-actor
+  quota stays an explicit product/operations residual. Immediate **Try
+  again** without a `Retry-After` countdown is a non-blocking UX note.
+  Implementation run [32590813013](https://github.com/trannamtrung1st/flex-agent/actions/runs/32590813013)
+  failed the web job on ESLint (`catch` without `: unknown`, and
+  `setPending` inside the My work effect).
 - Review of `1fec6b3`: request changes. P1 — do not mark the
   gateway/per-actor quota closed while the limiter is replica-local
   in-memory state. P2 — `Enrollment:RequestLimits` accepted values above
@@ -1024,6 +1047,8 @@ accessibility, full CI/OCI, and remaining independent review.
 | Authenticated Playwright MCP desktop/narrow/both-theme evidence | passed | Docker profile at `http://localhost:18080`. Participant login returned populated My work. Desktop list: `.playwright-mcp/page-2026-08-22T18-07-50-907Z.png`. 320×640 list: `.playwright-mcp/page-2026-08-22T18-08-02-305Z.png`. 320 assignment detail: `.playwright-mcp/page-2026-08-22T18-08-23-633Z.png`. 320 focus on Return to My work: `.playwright-mcp/page-2026-08-22T18-08-52-320Z.png`. 320 dark detail: `.playwright-mcp/page-2026-08-22T18-09-13-410Z.png`. Desktop dark detail: `.playwright-mcp/page-2026-08-22T18-09-30-514Z.png`. Visual: hierarchy and next action are clear; no overflow of primary copy at 320; shell still shows raw Organization/Enrollment locators. |
 | Full regression, security, supply-chain, and performance gates | passed | `dotnet test --solution FlexAgent.slnx -c Release` passed (1438 / 2 skipped). `bash build/scripts/verify-oci.sh` completed locally, including health probes and SBOM/vulnerability scan. |
 | Cursor/security remediations review (`888cd66`) | passed | External review approved with no blocking code finding. Prefix digest, ≥32-byte decoded keys, replica/rotation, and candidate `afterActorId` binding accepted. GitHub CI still absent for that SHA. |
+| Rate-limit closeout review (`d71ba10`) | passed | External review approved with no blocking code finding. Shared/gateway quota remains a residual. Immediate Try-again countdown is a non-blocking UX note. |
+| GitHub Implementation (`d71ba10`, run 32590813013) | failed locally remediated | Web job failed ESLint: implicit `catch` types and `setState` in the My work effect. Confirmation pass: `pnpm lint` 0 errors, focused web tests 20, typecheck, `check_docs`, `git diff --check`. Live Sign out / locator-free chrome not recaptured. |
 
 # Blockers
 
