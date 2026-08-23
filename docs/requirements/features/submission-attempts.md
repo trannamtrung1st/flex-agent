@@ -6,14 +6,15 @@
 - Owner: Product Lead
 - Approvers: Product Lead, Architecture Lead, UI/UX reviewer, Security/Privacy reviewer
 - Approved date: 2026-08-06
-- Last amended: 2026-08-23 — approved `PROP-9`–`PROP-15` timing and
-  Accommodation readiness contract
+- Last amended: 2026-08-23 — approved `PROP-8`, `REQ-SUBM-57`–`REQ-SUBM-58`,
+  and `AC-SUBM-40`–`AC-SUBM-41` for replica-independent Enrollment request
+  limits, plus `PROP-9`–`PROP-15` timing and Accommodation readiness contracts
 - Source: [Enrollment / participation](../../product/concept-model.md#enrollment-participation), [Attempt](../../product/concept-model.md#attempt), [Submission](../../product/concept-model.md#submission), [Assessment fairness constraints](../../product/concept-model.md#assessment-fairness-constraints), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice), and [MVP executable workflow](../../product/mvp-scope.md#mvp-executable-workflow)
 - Catalog entry: P0 #4 — [P0 authoring order](../README.md#p0-authoring-order)
 - Related requirements: Consumes the activated cohort and frozen attempt/submission rules from [`assessment-setup.md`](assessment-setup.md), the authorization contract from [`auth-resource-isolation.md`](auth-resource-isolation.md), and supplies trusted enrollment, participant, attempt, submission-version, accommodation, and permitted-timing data to [`resolved-session-configuration.md`](resolved-session-configuration.md) and [`session-text-lifecycle.md`](session-text-lifecycle.md).
 - Related UI/UX: The approved [Submission and Attempt interaction specification](../../ui-ux/submission-attempt.md) governs administrator Enrollment and exception-approval interaction plus Participant Submission, accepted-version, Attempt-readiness, start, reconciliation, accessibility, responsive, and protected-content behavior.
-- Related decisions: [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs compatible protected references from the resolved configuration and manifest. [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) and [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) govern authorization enforcement and durable audit. [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) governs the atomic attempt/session-start and exact Submission-binding boundary required by `PROP-2`. [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs quarantine and immutable artifact storage. [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md) selects the object-store default and configurable `ArtifactSafetyScanner` boundary, while the [MVP operational defaults](../mvp-operational-defaults.md) govern intake, authentication-session, lifecycle, and recovery defaults. `PROP-1`–`PROP-7` were approved on 2026-08-06; `PROP-9`–`PROP-15` were approved on 2026-08-23 and are recorded under [Approved decision dispositions](#approved-decision-dispositions). Proposed [ADR-018](../../architecture/decisions/ADR-018-enrollment-request-limit-scope.md) and `PROP-8` cover Enrollment request-limit scope and do not govern until approved.
-- Decision approval: `PROP-1`–`PROP-7`, the text-plus-attachment and capability-gated access direction, and the complete feature specification were approved on 2026-08-06. `PROP-9`–`PROP-15` were approved on 2026-08-23 to resolve accommodation timing, policy precedence, dimensions, reasons, approval separation, lifecycle, and v2 projection compatibility. `PROP-8` remains Proposed only and does not change approved Enrollment behavior until accepted.
+- Related decisions: [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs compatible protected references from the resolved configuration and manifest. [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) and [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) govern authorization enforcement and durable audit. [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) governs the atomic attempt/session-start and exact Submission-binding boundary required by `PROP-2`. [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs quarantine and immutable artifact storage. [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md) selects the object-store default and configurable `ArtifactSafetyScanner` boundary, while the [MVP operational defaults](../mvp-operational-defaults.md) govern intake, authentication-session, lifecycle, and recovery defaults. `PROP-1`–`PROP-7` were approved on 2026-08-06; `PROP-8`–`PROP-15` and [ADR-018](../../architecture/decisions/ADR-018-enrollment-request-limit-scope.md) were approved on 2026-08-23 and are recorded under [Approved decision dispositions](#approved-decision-dispositions).
+- Decision approval: `PROP-1`–`PROP-7`, the text-plus-attachment and capability-gated access direction, and the complete feature specification were approved on 2026-08-06. `PROP-8` was approved on 2026-08-23 to keep replica-local request limits in the first Enrollment slice and move replica-independent quota to a separate task; the same-day readiness review approved `REQ-SUBM-57`–`REQ-SUBM-58` and `AC-SUBM-40`–`AC-SUBM-41` as that task's observable contract. `PROP-9`–`PROP-15` were approved on 2026-08-23 to resolve accommodation timing, policy precedence, dimensions, reasons, approval separation, lifecycle, and v2 projection compatibility.
 
 This approved specification is authoritative for observable Submission, enrollment, and Attempt behavior in the MVP. Architecture and implementation must preserve its stable requirements, acceptance criteria, and approved decision dispositions.
 
@@ -349,6 +350,29 @@ An `Accepted version` is immutable. `Rejected` or incomplete intake does not bec
   time, eligibility state, and minimized accommodation consequence. V1 and v2
   remain available in parallel during migration; this feature does not retire
   or reinterpret v1.
+- `REQ-SUBM-57` — Under approved decision `PROP-8`, every authenticated
+  Enrollment or **My work** read and Enrollment mutation must acquire one
+  deployment-wide permit after the current application session resolves and
+  before protected query or mutation work begins. The permit partition is the
+  trusted `(Organization, actor, surface)` tuple, where `surface` is exactly
+  `read` or `mutation`. All API replicas share one fixed-window budget. The
+  approved defaults and maximums are 60 reads and 20 mutations per 10-second
+  window; a deployment may only lower a permit limit or lengthen the window
+  through one versioned deployment-wide policy. Unauthenticated requests do
+  not consume this actor-scoped quota and remain subject to coarse ingress
+  controls.
+- `REQ-SUBM-58` — Shared Enrollment admission must use an authoritative service
+  clock and an atomic bounded increment so concurrency, retry, process
+  restart, or replica routing cannot exceed the deployment-wide budget. Proven
+  exhaustion returns `429`, `enrollment.rate_limited`, `Retry-After`, and
+  `Cache-Control: no-store`. Missing, unavailable, timed-out, or
+  configuration-mismatched shared admission state fails closed as
+  `503`/`enrollment.unavailable` with `no-store`; it must not fall back to an
+  independent local permit decision. Replica-local limiting may remain only as
+  defense in depth. Counter state is protected, operational, short-lived, and
+  excluded from business audit; telemetry uses only bounded surface and
+  outcome labels without Organization, actor, Participant, or Enrollment
+  identifiers.
 
 ## Data, evidence, and audit
 
@@ -814,6 +838,30 @@ The inspection surface must answer these questions through protected structured 
 - **And** an unsupported version fails explicitly rather than being silently
   interpreted with another schema.
 
+### `AC-SUBM-40` — Enrollment request limits aggregate across API replicas
+
+- **Given** two API replicas use the same approved deployment-wide quota
+  policy and one authenticated actor in one Organization sends requests for
+  the same Enrollment surface through both replicas
+- **When** the combined requests consume the configured fixed-window budget
+- **Then** at most that one shared budget is permitted across both replicas
+- **And** the next request returns `429`, `enrollment.rate_limited`, an accurate
+  positive `Retry-After`, and `Cache-Control: no-store`
+- **And** another actor, Organization, or surface retains an independent
+  budget without exposing either partition in telemetry or error content.
+
+### `AC-SUBM-41` — Shared-admission uncertainty fails closed without becoming exhaustion
+
+- **Given** an authenticated Enrollment request and unavailable, timed-out, or
+  policy-mismatched shared admission state
+- **When** the service cannot prove that a global permit was acquired
+- **Then** no protected Enrollment query or mutation begins
+- **And** the response is `503`/`enrollment.unavailable` with
+  `Cache-Control: no-store`, not `429`
+- **And** no replica-local fallback can grant the request
+- **And** recovery uses the same authoritative database clock and policy so a
+  retry cannot create a second window or widen the configured budget.
+
 ## Edge and failure cases
 
 | Case | Required outcome |
@@ -885,19 +933,16 @@ Metrics, logs, traces, and alerts must use bounded labels and must not contain r
 
 ## Open questions
 
-`Q-1`–`Q-7` were resolved on 2026-08-06. Accommodation-readiness
-questions were resolved as approved `PROP-9`–`PROP-15` on 2026-08-23.
+`Q-1`–`Q-7` were resolved on 2026-08-06. `Q-8` was resolved as approved
+`PROP-8`, and the accommodation-readiness questions were resolved as approved
+`PROP-9`–`PROP-15`, on 2026-08-23.
 Deployment-specific count, size, timing-bound, and production reason values
 remain required exact policy configuration; they are not unresolved product
 semantics and are not inferred from synthetic fixtures.
 
-- `Q-8` — Must the first Enrollment production slice include replica-independent per-actor/Organization request limits at the gateway or a shared store?
-  - **Interim default:** No. This slice's implemented admission control is the replica-local API limiter already shipped (authenticated reads 60 permits and mutations 20 permits per 10-second window per `(organization, actor, surface)`, with fail-closed raised ceilings). Replica-independent, shared, or gateway-enforced per-actor/Organization Enrollment quota stays out of this slice until `PROP-8` is decided.
-  - **Rationale:** [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) already assigns the gateway coarse request/connection/rate limits, not actor-keyed product quotas. A shared counter store or actor-aware gateway policy is a new operational component not selected for this Enrollment slice.
-
 ## Proposed defaults requiring approval
 
-- `PROP-8` — Keep this Enrollment slice's implemented request-limit contract as the replica-local API limiter. Move replica-independent / shared / gateway-enforced per-actor/Organization Enrollment quota to the separately tracked task `.work/active/p0-enrollment-shared-request-quota.md`. Do not treat ADR-006 coarse gateway limits as that per-actor contract. This proposal is working guidance only until Product Lead, Architecture Lead, and Security/Privacy reviewer accept or reject it.
+None.
 
 ## Approved decision dispositions
 
@@ -910,6 +955,7 @@ semantics and are not inferred from synthetic fixtures.
 | `Q-5` / `PROP-5` | Require a 2-second 95th-percentile objective for synchronous enrollment mutation, attempt eligibility, and accepted-version metadata finalization under the documented preconditions and exclusions. | Aligns participant-facing readiness operations while measuring transfers and external dependencies separately. |
 | `Q-6` / `PROP-6` | Require in-product assignment discovery; defer email, SMS, calendar, and other external channels until their delivery and privacy contracts are approved. | Preserves a complete authorized MVP path without inventing provider behavior. |
 | `Q-7` / `PROP-7` | Treat accommodation and retry-entitlement grants, changes, revocations, and consumption as `required_durable` mutation-coupled audit events under ADR-003. | Preserves fairness-relevant exception history and blocks unaudited mutation. |
+| `Q-8` / `PROP-8` | Keep the first Enrollment slice's implemented request-limit contract replica-local and move replica-independent/shared/gateway-enforced per-actor/Organization Enrollment quota to the separately tracked follow-on task. ADR-006 coarse gateway limits are not that actor-scoped product quota. | Closes the first slice against its implemented contract without inventing a shared store, while retaining an explicit owner and multi-replica verification requirement for the residual. |
 | `PROP-9` | Map Submission to `[starts_at_utc, deadline_utc)` and Attempt start to `[starts_at_utc, ends_at_utc)`; keep per-Attempt duration independent of the latest start instant. | Makes the frozen timing model and exclusive `PROP-3` boundary directly implementable without importing Session-duration behavior. |
 | `PROP-10` | Evaluate new timing decisions against the frozen baseline accommodation bounds and exact current Organization policy; current policy may narrow future effect without rewriting history. | Preserves Cohort fairness while enforcing current non-bypassable limits and failing closed on stale or unavailable policy. |
 | `PROP-11` | Support `submission_deadline_utc`, `attempt_start_not_before_utc`, `attempt_start_before_utc`, and `per_attempt_duration_seconds` as one-value replacement dimensions; normalize absolute or relative policy-source bounds against the verified baseline before evaluation; permit at most one current effect per Enrollment/dimension and supersede rather than compose or edit. | Provides deterministic calculation, concurrency constraints, and audit reconstruction without implicit delta addition. |
@@ -929,5 +975,5 @@ semantics and are not inferred from synthetic fixtures.
 | `REQ-SUBM-24`–`REQ-SUBM-35`, `REQ-SUBM-44`–`REQ-SUBM-48`, `AC-SUBM-13`–`AC-SUBM-18`, `AC-SUBM-30`–`AC-SUBM-32`, `PROP-2`, `PROP-4` | Protected intake, versioned material-category policy, capability compatibility, immutable version lineage, atomic binding, and preview/download — approved [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md), [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md), and [MVP architecture](../../architecture/mvp-architecture.md); implementation TBD | Text/Markdown detection and encoding, type/size/count, integrity, capability absence, inert-link/repository, receipt cutoff, revocation, idempotency, atomic-binding failure, immutability, link-reuse tests | Direct-text/file selection, agent-readable/not-inspected disclosure, receiving, validating, rejected, accepted, version history, binding, retry states | Gap |
 | `REQ-SUBM-36`–`REQ-SUBM-42`, `REQ-SUBM-49`, `AC-SUBM-19`–`AC-SUBM-21`, `AC-SUBM-24`–`AC-SUBM-26`, `PROP-7` | ADR-002/ADR-003 authorization and audit adapters, lifecycle policy, structured history, assigned-review handoff, and approved [`review-result-release.md`](review-result-release.md) contract — implementation TBD | Cross-org/participant/session/version, assigned-review scope, repository-style enumeration denial, list/count, audit durability/redaction, accommodation/retry audit failure, retention/export, learning-disabled tests | Participant/reviewer/admin scoped histories, assigned review workspace, denial, download, degraded/unavailable states | Gap |
 | UX/accessibility requirements, `AC-SUBM-23` | Approved [Submission and Attempt interaction specification](../../ui-ux/submission-attempt.md); accessible component implementation TBD | Component keyboard, focus, announcement, validation association, zoom/reflow tests | Playwright desktop/narrow screenshots for every applicable state | Gap |
-| Performance/reliability requirements, `AC-SUBM-9`, `AC-SUBM-17`, `AC-SUBM-27`, `PROP-5` | Enrollment mutation idempotency, coordinator consistency, bounded mutation/request-limit telemetry, and replica-local per-actor/Organization Enrollment request limits. Replica-independent / gateway-enforced per-actor quota is Proposed `PROP-8`, not implemented. Attempt eligibility, metadata finalization, and hosted load labs remain TBD. | PostgreSQL 20-sample assignment mutation p95 and in-service Enrollment authorization p95; HTTP 429 after the frozen read quota | Progress, cancel, retry, delayed validation, uncertain outcome, recovery states for later Submission/Attempt work remain unimplemented | Partial |
+| Performance/reliability requirements, `REQ-SUBM-57`–`REQ-SUBM-58`, `AC-SUBM-9`, `AC-SUBM-17`, `AC-SUBM-27`, `AC-SUBM-40`–`AC-SUBM-41`, `PROP-5`, `PROP-8` | Enrollment mutation idempotency, coordinator consistency, bounded mutation/request-limit telemetry, and replica-local defense in depth are implemented. Approved `PROP-8` and ADR-018 assign PostgreSQL-backed replica-independent quota to the separate follow-on task; it is ready but not implemented. Attempt eligibility, metadata finalization, and hosted load labs remain TBD. | Existing PostgreSQL assignment and authorization latency evidence plus local HTTP 429 coverage; follow-on must add two-process aggregate-budget, database-clock boundary, policy-mismatch, timeout/outage, cleanup, restart, and recovery tests | Existing recoverable 429 UI remains applicable; shared-admission 503 uses the existing protected unavailable state and adds no new interaction contract | Partial |
 | Security/privacy requirements, `AC-SUBM-14`, `AC-SUBM-18`–`AC-SUBM-21`, `AC-SUBM-26`, `AC-SUBM-28` | Scoped storage/intake/access adapters and untrusted-content boundary — approved [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md), and [MVP architecture](../../architecture/mvp-architecture.md); implementation TBD | Complete negative authorization/isolation, malicious-content, object-access, prompt-injection, data-leakage suite | Permission-denied, safe rejection, redacted metadata, unavailable and scoped-download evidence | Gap |

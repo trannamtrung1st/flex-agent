@@ -250,7 +250,9 @@ intake/version criteria remain unimplemented.
 ## Persistence
 
 - Recheck migration head before implementation. At planning time it is
-  `0043`; the next additive migration is expected to be `0044`.
+  `0043`. The shared-quota task is expected to consume `0044` if implemented
+  first, so this task must use the next available additive migration rather
+  than assume `0044`.
 - Persist stable accommodation ID; Organization/Enrollment/activity/cohort/
   baseline/Participant binding; dimension and normalized value; exact policy
   identity/version/digest at request and decision; frozen baseline policy
@@ -292,7 +294,8 @@ intake/version criteria remain unimplemented.
 - Route new reads through the existing Enrollment `read` request-limit surface
   and new commands through its `mutation` surface so alternate paths cannot
   create an unbounded quota. Replica-independent gateway enforcement remains
-  Proposed under `PROP-8` and is not a completion claim for this task.
+  assigned to a separate task under approved `PROP-8` and ADR-018 and is not a
+  completion claim for this task.
 - Do not reinterpret strict `my-work-assignment.v1` baseline timing as
   accommodated timing or append fields that its `additionalProperties: false`
   contract rejects. Add strict v2 Enrollment and **My work** projections, serve
@@ -475,11 +478,12 @@ the owning authority rather than introduce a code-level exception.
 # Findings / deviations
 
 - **Sequencing risk — Enrollment predecessor closeout:**
-  `.work/active/p0-enrollment-assignment-discovery.md` remains `in-progress`
-  pending its separate request-quota disposition and broad independent review.
+  `.work/active/p0-enrollment-assignment-discovery.md` is completed after broad
+  independent review; its request-quota disposition is resolved by approved
+  `PROP-8` / ADR-018.
   Its implemented surfaces and recorded verification are sufficient to start
-  this slice, whose first step rechecks them. This task must not claim that
-  predecessor complete or absorb proposed `PROP-8`/ADR-018 behavior.
+  this slice, whose first step rechecks them. This task must not absorb or claim
+  the separate shared-quota behavior governed by approved `PROP-8`/ADR-018.
 - **Implementation surface — current policy:** Configuration does not yet expose
   the approved accommodation-policy vocabulary or a transaction-aware current-
   policy port. Implement that owner port; production positive behavior fails
@@ -513,7 +517,7 @@ the owning authority rather than introduce a code-level exception.
 | Check | Status | Evidence |
 | --- | --- | --- |
 | Governing sources reconciled | passed for implementation | Approved concept, feature, operational, UI/UX, and architecture documents agree on timing mapping, frozen/current policy, dimensions, reasons, separation, lifecycle, and strict v2 rollout. |
-| Current code/migration/contract/UI seam inventory | passed for planning | Assessment exposes only baseline start/end/deadline/timezone; Submissions injects a fixed Enrollment lifecycle reference; planning-time head is `0043`; strict v1 contracts/routes/UI exist; accommodations and current-policy resolver do not. Enrollment implementation is present, but its separate closeout task remains in progress. |
+| Current code/migration/contract/UI seam inventory | passed for planning | Assessment exposes only baseline start/end/deadline/timezone; Submissions injects a fixed Enrollment lifecycle reference; planning-time head is `0043`; strict v1 contracts/routes/UI exist; accommodations and current-policy resolver do not. Enrollment implementation and its separate closeout task are completed. |
 | Planning document validation | passed | `python3 scripts/check_docs.py`; `git diff --check`; no-index whitespace check for this new task file produced no diagnostics (status `1` is the expected difference result). |
 | Timing semantics readiness | passed | `REQ-SUBM-50`, `AC-SUBM-33`, and `PROP-9` approve both half-open windows and separate duration. |
 | Accommodation-policy readiness | passed | `REQ-SUBM-51`–`REQ-SUBM-54`, `AC-SUBM-34`–`AC-SUBM-36`, and `PROP-10`–`PROP-13` define frozen/current validation, dimensions, normalized replacement, reasons, and approval separation. Production positive behavior remains fail closed until exact policy configuration exists. |
@@ -555,8 +559,9 @@ current Organization policy is configured and resolved through the new
 Configuration owner port. Development and repeatable tests use the explicitly
 synthetic development fixture category. No external credential, paid provider,
 or deployment is required to implement and verify this task. Before final
-integration/closeout, recheck the Enrollment predecessor's still-open review
-and quota disposition; do not silently absorb its Proposed behavior.
+integration/closeout, recheck the completed Enrollment predecessor and the
+independently tracked shared-quota implementation; do not silently absorb or
+claim the quota task's behavior.
 
 # Completion
 

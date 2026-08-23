@@ -1,8 +1,9 @@
 ---
 id: p0-enrollment-assignment-discovery
-status: in-progress
+status: completed
 created: 2026-08-22
 updated: 2026-08-23
+closed: 2026-08-23
 ---
 
 # Goal
@@ -341,9 +342,9 @@ not be marked implemented by this task.
   Enrollment quotas. ADR-006 remains coarse gateway request/connection/rate
   limits. The implemented admission control is the replica-local API limiter
   without high-cardinality protected labels. Replica-independent / shared /
-  gateway-enforced per-actor quota is Proposed `PROP-8` / ADR-018 and is
-  tracked in `.work/active/p0-enrollment-shared-request-quota.md`. That
-  proposal is not approved behavior.
+  gateway-enforced per-actor quota is assigned by approved `PROP-8` / ADR-018
+  to `.work/active/p0-enrollment-shared-request-quota.md` and is not an
+  implementation claim for this slice.
 - Cookie-authenticated mutations require the established CSRF token. Assign and
   administrator Enrollment reads/mutations require current administrator MFA;
   Participant discovery uses the current Organization authentication policy
@@ -560,10 +561,14 @@ not be marked implemented by this task.
   ADR-018 and a separate shared-quota task instead of completing over an
   unmet gateway-quota sentence. Keep independent broader-slice review
   open until it is performed or explicitly waived.
-- [>] External review of `08269b6` approved the closeout remediation.
-  Wait for an authorized `PROP-8` / ADR-018 disposition or implement
-  shared quota in this slice, and for broader independent Enrollment
-  review or an explicit owner waiver.
+- [x] External review of `8760ef2` approved the `08269b6` closeout
+  bookkeeping. That SHA did not decide `PROP-8` / ADR-018; quota
+  disposition and broader independent review stayed open there.
+- [x] Authorized approval of `PROP-8` / ADR-018 assigns replica-independent
+  quota to `.work/active/p0-enrollment-shared-request-quota.md`; this slice
+  closes against its implemented replica-local limiter.
+- [x] Broader independent Enrollment review approved by the authorized owner;
+  reconcile final state and retain this completed task for history.
 
 # Planned verification command set
 
@@ -596,12 +601,29 @@ not be marked implemented by this task.
 
 # Current state
 
+Completed and approved (2026-08-23). The broader Enrollment work-item review
+is approved with no remaining blocking finding. Applicable focused,
+integration, full-solution, OCI, security, accessibility, and authenticated
+browser evidence remains recorded below. GitHub combined status is not
+attached to this local tree and remains an explicit evidence residual rather
+than an implementation blocker.
+
+`PROP-8` and ADR-018 are approved. The first
+Enrollment slice keeps its implemented replica-local limiter; replica-
+independent quota is owned by
+`.work/active/p0-enrollment-shared-request-quota.md`. The quota-scope closeout
+condition is resolved. Replica-independent quota proceeds separately.
+
+External review of `8760ef2` (2026-08-23): **approved**. No findings.
+Compared with `08269b6`, that commit only updates Enrollment work-tracking
+files. It records the previous approval without treating it as a decision
+on `PROP-8` or ADR-018. `[x]` on the `2ae4cb7` review means the requested
+closeout remediation itself is done; the follow-on `[>]` at that SHA
+carried quota disposition and broader independent review. GitHub combined
+statuses were not visible for that SHA (verification gap, not a defect).
+
 External review of `08269b6` (2026-08-23): **approved**. No blocking
 finding. The `2ae4cb7` closeout findings are closed as bookkeeping only.
-`PROP-8` and ADR-018 remain Proposed and do not govern. The slice stays
-**in-progress** until (1) an authorized `PROP-8` / ADR-018 disposition
-or shared-quota implementation in this slice, and (2) broader
-independent Enrollment review or an explicit authorized-owner waiver.
 `python3 scripts/check_docs.py` passed after the ADR/index/task links.
 
 Review of `2ae4cb7` (2026-08-23): **request changes**. The Sign out /
@@ -911,14 +933,15 @@ accessibility, full CI/OCI, and remaining independent review.
   Submission/Attempt consumers, but do not claim `AC-SUBM-4` end-to-end until
   those consumers enforce it. This task verifies immediate denial at the
   Enrollment boundary and participant/admin projections only.
-- Enrollment request limits for this slice are Proposed `PROP-8` /
-  ADR-018, not an approved closeout. Authenticated reads allow 60 permits
+- Approved `PROP-8` / ADR-018 close this slice against its implemented
+  replica-local request limits. Authenticated reads allow 60 permits
   and mutations allow 20 permits per 10-second window per
   `(organization, actor, surface)`. Surfaces are independent.
   Unauthenticated requests return 401 before a quota is consumed. The
   process-local limiter is the implemented defense in depth: each API
   replica has independent in-memory partitions, so effective capacity
-  scales with process count. Replica-independent / gateway-enforced quota
+  scales with process count. The separate replica-independent /
+  gateway-enforced quota task
   is owned by `.work/active/p0-enrollment-shared-request-quota.md` and
   must not be treated as satisfied by this slice. Labels never include
   actor, Organization, Enrollment, or Participant identifiers.
@@ -975,6 +998,11 @@ accessibility, full CI/OCI, and remaining independent review.
   reviews through `6ed131f` are not an independent broader-slice review;
   that checkbox is open again. GitHub combined checks remain a
   verification gap for documentation-only SHAs.
+- Review of `8760ef2`: **approved**. No findings. Documentation/bookkeeping
+  only versus `08269b6`. That SHA does not decide `PROP-8` / ADR-018 and
+  does not close broader independent Enrollment review. GitHub combined
+  checks were not visible; `check_docs` on the prior ADR/task-link pass
+  remains the relevant local validation for that documentation change.
 - Review of `08269b6`: **approved**. No blocking finding. The `2ae4cb7`
   closeout remediations are accepted as bookkeeping. `PROP-8` / ADR-018
   stay Proposed and do not govern. Shared quota and independent
@@ -1158,19 +1186,13 @@ accessibility, full CI/OCI, and remaining independent review.
 | Authenticated Playwright of locator-free chrome and Sign out | passed | Rebuilt profile at `http://localhost:18080`. Participant My work desktop: `.playwright-mcp/page-2026-08-23T02-20-49-656Z.png`. Assignment detail desktop: `.playwright-mcp/page-2026-08-23T02-20-59-952Z.png`. 320×640 detail: `.playwright-mcp/page-2026-08-23T02-21-14-020Z.png`. 320 dark: `.playwright-mcp/page-2026-08-23T02-21-27-704Z.png`. Desktop dark: `.playwright-mcp/page-2026-08-23T02-21-40-561Z.png`. After Sign out: `.playwright-mcp/page-2026-08-23T02-21-56-709Z.png`. Visual: Organization without UUID; breadcrumbs Home / My work / Assignment; **Sign out** visible at 1280 and 320 in both themes; no overflow of primary copy; confirmed logout leaves **Sign in required** with no Assignment content. Transient **Signing out** panel was not captured because confirmed revoke navigated immediately. |
 | Closeout review (`2ae4cb7`) | request changes | P1/P2 accepted. Slice reopened. `PROP-8` and Proposed ADR-018 plus `.work/active/p0-enrollment-shared-request-quota.md` are the formal move, not an approved decision. Broader independent review remains open. |
 | Closeout remediation review (`08269b6`) | passed | External review approved with no blocking finding. Bookkeeping only; quota disposition and broader independent review remain open. `python3 scripts/check_docs.py` passed on 2026-08-23. GitHub combined checks not visible from this tree. |
+| Closeout bookkeeping review (`8760ef2`) | passed | External review approved with no findings. Work-tracking only; at that SHA `PROP-8` / ADR-018 stay Proposed and broader independent review stays open. GitHub combined checks not visible from this tree. |
+| Broader Enrollment work-item review | passed | Authorized owner confirmed the Enrollment work item reviewed and approved on 2026-08-23; quota ownership is resolved by approved `PROP-8` / ADR-018. |
 
 # Blockers
 
-- Replica-independent / shared / gateway-enforced per-actor/Organization
-  Enrollment request limits are unmet as a closable contract. `PROP-8`
-  and Proposed ADR-018 are awaiting owner decision; they do not yet
-  move or satisfy the requirement.
-- Independent backend/frontend/security/QA review of the broader
-  Enrollment slice is still required, or the authorized owner must
-  explicitly waive it. Sequential remediation reviews through `6ed131f`
-  are not that review.
-- GitHub combined status checks are not attached from this working tree
-  (`gh` unauthenticated).
+None. GitHub combined status checks are not attached from this working tree
+(`gh` unauthenticated) and remain recorded as unverified external evidence.
 
 # Completion
 
@@ -1179,5 +1201,5 @@ accessibility, full CI/OCI, and remaining independent review.
 - [x] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
-- [ ] Independent backend, frontend, security/privacy, and QA review findings are resolved or explicitly accepted by the authorized owner
-- [ ] Task state is safe and complete for external review
+- [x] Independent backend, frontend, security/privacy, and QA review findings are resolved or explicitly accepted by the authorized owner
+- [x] Task state is safe and complete for external review

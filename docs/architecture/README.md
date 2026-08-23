@@ -112,6 +112,14 @@ implementation of that ADR is present and independently reviewed; Production
 and Staging enablement still require approved deployment-profile evidence, a
 live issuer, and live-provider qualification.
 
+Approved [ADR-017](decisions/ADR-017-assessment-source-authority-and-activation-transaction.md)
+governs Assessment source authority and atomic activation. Approved and
+amended [ADR-018](decisions/ADR-018-enrollment-request-limit-scope.md) closes
+the first Enrollment slice against its replica-local limiter and makes the
+separate replica-independent quota implementation-ready through a
+PostgreSQL-backed application admission port, database UTC, atomic bounded
+acquisition, and fail-closed shared-state behavior.
+
 ## Purpose
 
 This area governs how the system is structured: boundaries, data ownership, runtime flows, deployment topology, quality attributes, and integration contracts.
@@ -128,6 +136,7 @@ This area governs how the system is structured: boundaries, data ownership, runt
 | Review the approved P0 Decision-output envelope | [ADR-014: Agent output envelope and P0 compatibility](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
 | Review the approved timer-lane service delegation | [ADR-015: Session timer-lane service delegation](decisions/ADR-015-session-timer-lane-service-delegation.md) |
 | Review the approved Worker identity and Invocation delegation | [ADR-016: Worker workload identity and bounded Invocation delegation](decisions/ADR-016-worker-workload-identity-and-invocation-delegation.md) |
+| Review Enrollment request-limit ownership and realization | [ADR-018: Enrollment request-limit scope](decisions/ADR-018-enrollment-request-limit-scope.md) |
 | Review the approved implementation stack and workspace | [ADR-010: .NET implementation stack](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) |
 | Structure or review a backend module | [Backend module architecture](backend-module-architecture.md) |
 | Review approved OSS component defaults and pending evidence gates | [ADR-008: bounded OSS component set](decisions/ADR-008-bounded-oss-component-set.md) |
