@@ -35,6 +35,22 @@ DROP INDEX ix_submissions_enrollment_request_counters_cleanup;
 CREATE INDEX ix_submissions_enrollment_request_counters_expires_at
     ON submissions_enrollment_request_counters (expires_at);
 
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM submissions_enrollment_request_counters AS counters
+        CROSS JOIN submissions_enrollment_request_policies AS policies
+        WHERE policies.singleton_key = 1
+          AND counters.expires_at > clock_timestamp()
+          AND counters.window_seconds IS DISTINCT FROM policies.window_seconds
+    ) THEN
+        RAISE EXCEPTION
+            'enrollment shared admission cannot freeze the policy while live counters still use a different window; wait until those windows expire';
+    END IF;
+END
+$$;
+
 CREATE OR REPLACE FUNCTION submissions_enrollment_request_policies_tighten_only()
 RETURNS TRIGGER
 LANGUAGE plpgsql

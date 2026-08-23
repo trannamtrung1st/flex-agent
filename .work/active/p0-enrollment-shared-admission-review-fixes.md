@@ -49,14 +49,14 @@ whose window was legitimately lengthened.
 - [x] Green — additive migration `0045` and matching limiter freeze
 - [x] Reconcile ADR/spec notes; run focused Postgres and runtime tests
 - [x] Freeze the deployed window in place instead of normalizing to 10 seconds
+- [x] Refuse `0045` while live counters still store a pre-change window duration
 
 # Current state
 
-Review findings now freeze the already-deployed window rather than rewriting
-it to 10 seconds. Live 0044 longer-window counters survive `0045`; the policy
-value cannot change afterward. Counters carry `expires_at` with indexed
-`SKIP LOCKED` cleanup. Application configuration may use any window ≥ 10
-seconds and must still match PostgreSQL exactly.
+`0045` also refuses to freeze while a live counter still stores a different
+`window_seconds` than the current policy. Recovery is to wait until that row
+expires; deleting live counters is not an accepted path. After expiry, the
+deployed window (including a valid 20-second `0044` policy) is frozen in place.
 
 # Decisions
 
@@ -73,9 +73,10 @@ seconds and must still match PostgreSQL exactly.
   requires an exact match with the PostgreSQL policy, so replicas cannot drift.
 - `0045` freezes whatever valid window is already stored. It does not delete
   live counters, does not rewrite 20 → 10, and does not bypass the policy
-  trigger. Editing `0045` in place is acceptable only because this hash has
-  not been applied outside disposable review databases; a later production
-  apply of the previous `0045` would need `0046` instead.
+  trigger. If a live counter still stores a pre-change duration, migration
+  fails until that window expires. Editing `0045` in place is acceptable only
+  because this hash has not been applied outside disposable review databases;
+  a later production apply of the previous `0045` would need `0046` instead.
 
 # Findings / deviations
 
@@ -93,7 +94,7 @@ seconds and must still match PostgreSQL exactly.
 | --- | --- | --- |
 | Limiter ceiling | passed | `EnrollmentRequestLimiterTests` — 21 runtime Enrollment tests passed, including minimum-window rejection and longer-window acceptance |
 | Shared admission | passed | `EnrollmentSharedAdmissionTests` — 8 passed |
-| Mutated 0044 upgrade | passed | `Upgrade_from_mutated_0044_keeps_the_deployed_window_and_live_counters` — red on drain refusal, then green with window=20 and live permit_count=20 preserved |
+| Mutated 0044 upgrade | passed | `Upgrade_from_mutated_0044_keeps_aligned_exhausted_counters_controlling_acquisition` and `Upgrade_from_0044_refuses_live_old_window_counters_then_freezes_after_natural_expiry` — 2 passed |
 | HTTP 429/503 | passed | included in the 21 runtime Enrollment tests |
 | Docs | passed | ADR/spec notes updated; `python3 scripts/check_docs.py` passed |
 
