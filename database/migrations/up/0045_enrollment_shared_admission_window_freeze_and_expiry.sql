@@ -2,14 +2,20 @@
 -- Freeze the already-deployed window_seconds value so it cannot change
 -- mid-flight. Do not rewrite a valid longer 0044 window back to 10 seconds.
 -- Store and index expires_at so hot-path cleanup is a bounded expiry-range
--- lookup.
+-- lookup. Backfill and the freeze guard use the overlapping frozen-policy
+-- horizon (max of stored and deployed window), not only the old counter
+-- duration, so a 10s row cannot be cleaned up while the corresponding 20s
+-- budget is still open.
 
 ALTER TABLE submissions_enrollment_request_counters
     ADD COLUMN expires_at timestamptz;
 
-UPDATE submissions_enrollment_request_counters
-SET expires_at = window_start + make_interval(secs => window_seconds)
-WHERE expires_at IS NULL;
+UPDATE submissions_enrollment_request_counters AS counters
+SET expires_at = counters.window_start + make_interval(
+        secs => GREATEST(counters.window_seconds, policies.window_seconds))
+FROM submissions_enrollment_request_policies AS policies
+WHERE policies.singleton_key = 1
+  AND counters.expires_at IS NULL;
 
 ALTER TABLE submissions_enrollment_request_counters
     ALTER COLUMN expires_at SET NOT NULL;
@@ -42,11 +48,13 @@ BEGIN
         FROM submissions_enrollment_request_counters AS counters
         CROSS JOIN submissions_enrollment_request_policies AS policies
         WHERE policies.singleton_key = 1
-          AND counters.expires_at > clock_timestamp()
+          AND counters.window_start + make_interval(
+                secs => GREATEST(counters.window_seconds, policies.window_seconds))
+              > clock_timestamp()
           AND counters.window_seconds IS DISTINCT FROM policies.window_seconds
     ) THEN
         RAISE EXCEPTION
-            'enrollment shared admission cannot freeze the policy while live counters still use a different window; wait until those windows expire';
+            'enrollment shared admission cannot freeze the policy while counters still overlap the frozen policy window; wait until those overlapping budgets expire';
     END IF;
 END
 $$;

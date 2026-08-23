@@ -133,12 +133,13 @@ The follow-on PostgreSQL admission port landed on 2026-08-23 as migration
 `0045_enrollment_shared_admission_window_freeze_and_expiry.sql` freezes the
 already-deployed `window_seconds` value so it cannot change mid-window, and
 stores indexed `expires_at` so hot-path cleanup is a bounded expiry-range
-delete with `SKIP LOCKED`. A valid longer 0044 window is kept; `0045` refuses to freeze while live
-counters still store a different duration, and operators wait for those
-windows to expire rather than deleting them. Replicas must still match that
-policy exactly. Lengthening the window after freeze remains a
-future coordinated-activation design. Replica-local limiting remains defense in
-depth. NGINX remains transport-only and Redis remains unselected.
+delete with `SKIP LOCKED`. A valid longer 0044 window is kept; `0045` refuses
+to freeze while a mismatched counter still overlaps the frozen policy window
+(`window_start + max(stored duration, deployed duration)`), and operators wait
+for that overlap to end rather than deleting rows. Replicas must still match
+that policy exactly. Lengthening the window after freeze remains a future
+coordinated-activation design. Replica-local limiting remains defense in depth.
+NGINX remains transport-only and Redis remains unselected.
 
 ## Related
 

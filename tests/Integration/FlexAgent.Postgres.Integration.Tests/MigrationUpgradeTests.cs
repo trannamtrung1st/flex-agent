@@ -283,6 +283,85 @@ public sealed class MigrationUpgradeTests
     }
 
     [Fact]
+    public async Task Upgrade_from_0044_refuses_old_window_counters_until_the_frozen_policy_window_ends()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            cancellationToken,
+            inclusiveMaxScriptName: Current0044ScriptName);
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+        var actorId = Guid.CreateVersion7();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO submissions_enrollment_request_counters (
+                organization_id, actor_id, surface, window_start, window_seconds, policy_revision, permit_count)
+            VALUES (
+                @OrganizationId,
+                @ActorId,
+                'mutation',
+                clock_timestamp() - INTERVAL '15 seconds',
+                10,
+                1,
+                20);
+
+            UPDATE submissions_enrollment_request_policies
+            SET policy_revision = policy_revision + 1,
+                window_seconds = 20,
+                activated_at = clock_timestamp()
+            WHERE singleton_key = 1;
+            """,
+            new { OrganizationId = Guid.CreateVersion7(), ActorId = actorId });
+
+        var blocked = await Assert.ThrowsAsync<PostgresException>(() =>
+            GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+                connectionString,
+                migrationsDirectory,
+                cancellationToken));
+        Assert.Contains("expire", blocked.MessageText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("drain", blocked.MessageText, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(
+            0,
+            await connection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM grate_migrations WHERE script_name = @ScriptName;",
+                new { ScriptName = Current0045ScriptName }));
+
+        await connection.ExecuteAsync(
+            """
+            UPDATE submissions_enrollment_request_counters
+            SET window_start = clock_timestamp() - INTERVAL '1 hour'
+            WHERE actor_id = @ActorId;
+            """,
+            new { ActorId = actorId });
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            cancellationToken);
+
+        Assert.Equal(
+            20,
+            await connection.ExecuteScalarAsync<int>(
+                """
+                SELECT window_seconds
+                FROM submissions_enrollment_request_policies
+                WHERE singleton_key = 1;
+                """));
+        Assert.Equal(
+            1,
+            await connection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM grate_migrations WHERE script_name = @ScriptName;",
+                new { ScriptName = Current0045ScriptName }));
+    }
+
+    [Fact]
     public async Task Upgrade_from_empty_0005_applies_0006()
     {
         await using var container = await StartContainerAsync();
