@@ -4,7 +4,7 @@ Architecture Decision Records (ADRs) for Flex Agent.
 
 ## Status
 
-**Seventeen approved decisions.** ADR-012 through ADR-014 plus their approved upstream
+**Seventeen approved decisions, plus Proposed ADR-018.** ADR-012 through ADR-014 plus their approved upstream
 product/requirement revisions govern structured Agent Invocation/Decision,
 next-timer replacement, and the P0 Decision-output envelope.
 [ADR-015](ADR-015-session-timer-lane-service-delegation.md) records the Worker
@@ -49,6 +49,7 @@ reproducible synthetic authenticated-browser profile for local verification.
 | [ADR-015](ADR-015-session-timer-lane-service-delegation.md) | Approved | Per-Session `session.timer_lane.fire` service delegation, timer-schedule envelope reference, explicit Worker timer-polling capability, and commit-time reauthorization |
 | [ADR-016](ADR-016-worker-workload-identity-and-invocation-delegation.md) | Approved | Provider-neutral Worker workload identity, OAuth 2.0 client-credentials signed-JWT reference profile, versioned service-actor binding, and per-Session `session.invocation.execute` delegation |
 | [ADR-017](ADR-017-assessment-source-authority-and-activation-transaction.md) | Approved | Configuration-owned transactional source descriptors, named Assessment activation coordinator, Sessions file-registry exclusion, and Production fail-closed source participation |
+| [ADR-018](ADR-018-enrollment-request-limit-scope.md) | Proposed | First Enrollment slice keeps replica-local request limits; replica-independent / gateway per-actor quota is a separate task. Not approved and does not govern until accepted |
 
 ## Purpose
 

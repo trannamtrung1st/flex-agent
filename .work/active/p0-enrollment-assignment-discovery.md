@@ -1,6 +1,6 @@
 ---
 id: p0-enrollment-assignment-discovery
-status: completed
+status: in-progress
 created: 2026-08-22
 updated: 2026-08-23
 ---
@@ -336,11 +336,14 @@ not be marked implemented by this task.
 - Candidate and list queries use a positive default/maximum page bound frozen in
   the transport schema, deterministic ordering, and a cursor bound to the
   current actor, Organization, query, and resource scope. Cursor tampering,
-  over-limit requests, and page traversal after access change fail safely. The
-  gateway applies bounded per-actor/Organization request limits without using
-  high-cardinality protected labels. This slice ships a replica-local API
-  limiter as defense in depth; a shared gateway-enforced quota remains an
-  explicit residual.
+  over-limit requests, and page traversal after access change fail safely.
+  This slice does **not** claim that the gateway applies per-actor/Organization
+  Enrollment quotas. ADR-006 remains coarse gateway request/connection/rate
+  limits. The implemented admission control is the replica-local API limiter
+  without high-cardinality protected labels. Replica-independent / shared /
+  gateway-enforced per-actor quota is Proposed `PROP-8` / ADR-018 and is
+  tracked in `.work/active/p0-enrollment-shared-request-quota.md`. That
+  proposal is not approved behavior.
 - Cookie-authenticated mutations require the established CSRF token. Assign and
   administrator Enrollment reads/mutations require current administrator MFA;
   Participant discovery uses the current Organization authentication policy
@@ -553,6 +556,10 @@ not be marked implemented by this task.
   follow-up. Recapture live Playwright of locator-free chrome and Sign out
   on rebuilt Docker images, then close the slice with remaining residuals
   recorded.
+- [>] Review of `2ae4cb7`: reopen the closeout. Propose `PROP-8` /
+  ADR-018 and a separate shared-quota task instead of completing over an
+  unmet gateway-quota sentence. Keep independent broader-slice review
+  open until it is performed or explicitly waived.
 
 # Planned verification command set
 
@@ -585,6 +592,18 @@ not be marked implemented by this task.
 
 # Current state
 
+Review of `2ae4cb7` (2026-08-23): **request changes**. The Sign out /
+locator-free chrome thread remains closed. The slice is **in-progress**
+again. Completing over an unmet “gateway applies per-actor/Organization
+limits” sentence, or checking independent broader-slice review from
+sequential remediation reviews, is not accepted. `PROP-8` and Proposed
+ADR-018 now ask Product/Architecture/Security owners to move
+replica-independent quota to
+`.work/active/p0-enrollment-shared-request-quota.md`. Those records are
+**not approved**. Independent backend/frontend/security/QA review of the
+broader Enrollment slice remains required unless the authorized owner
+explicitly waives it.
+
 External review of `6ed131f` (2026-08-23): **approved**. No blocking
 finding. The logout thread `626ea8d` → `c7a96fa` → `6ed131f` is closed.
 Authenticated Docker profile was rebuilt (`authenticated-browser-profile.sh
@@ -592,9 +611,7 @@ up`). Synthetic Participant login reached populated My work and assignment
 detail with locator-free Organization chrome, **Sign out**, and
 Home / My work / Assignment breadcrumbs. Confirmed Sign out navigated to
 `/` **Sign in required** with no Assignment content; `/auth/session` was
-anonymous. The first Enrollment slice is **completed**. Shared/gateway
-quota and GitHub CI on this working tree remain recorded residuals, not
-open implementation work.
+anonymous.
 
 This pass added replica-local Enrollment request limiting as defense in
 depth. It does **not** close the gateway-wide bounded-quota contract:
@@ -882,18 +899,20 @@ accessibility, full CI/OCI, and remaining independent review.
   Submission/Attempt consumers, but do not claim `AC-SUBM-4` end-to-end until
   those consumers enforce it. This task verifies immediate denial at the
   Enrollment boundary and participant/admin projections only.
-- Enrollment request limits are an interim operational default, not a new
-  approved `PROP-*`. Authenticated reads allow 60 permits and mutations
-  allow 20 permits per 10-second window per `(organization, actor)`.
-  Surfaces are independent. Unauthenticated requests return 401 before a
-  quota is consumed. The process-local limiter is MVP defense in depth,
-  not the gateway-wide contract: each API replica has independent
-  in-memory partitions, so effective capacity scales with process count.
-  A shared/gateway-enforced quota remains an explicit residual. Labels
-  never include actor, Organization, Enrollment, or Participant
-  identifiers. Deployments may only lower the frozen 60/20 ceilings or
-  lengthen the 10-second window. Values above those ceilings or a shorter
-  window fail closed at startup.
+- Enrollment request limits for this slice are Proposed `PROP-8` /
+  ADR-018, not an approved closeout. Authenticated reads allow 60 permits
+  and mutations allow 20 permits per 10-second window per
+  `(organization, actor, surface)`. Surfaces are independent.
+  Unauthenticated requests return 401 before a quota is consumed. The
+  process-local limiter is the implemented defense in depth: each API
+  replica has independent in-memory partitions, so effective capacity
+  scales with process count. Replica-independent / gateway-enforced quota
+  is owned by `.work/active/p0-enrollment-shared-request-quota.md` and
+  must not be treated as satisfied by this slice. Labels never include
+  actor, Organization, Enrollment, or Participant identifiers.
+  Deployments may only lower the frozen 60/20 ceilings or lengthen the
+  10-second window. Values above those ceilings or a shorter window fail
+  closed at startup.
 - Authenticate Enrollment, My work, and participant-options list cursors
   with HMAC-SHA256 over a scope-bound payload (query kind, Organization,
   actor, Activity, Cohort, SHA-256 digest of the normalized prefix, ticks
@@ -936,6 +955,14 @@ accessibility, full CI/OCI, and remaining independent review.
   `ProductionApiError` cycle is closed. GitHub combined checks were not
   visible on this SHA at review time. Live Playwright of locator-free
   chrome and confirmed Sign out was recaptured on rebuilt Docker images.
+- Review of `2ae4cb7`: request changes. P1 — marking the slice completed
+  while the task still stated a gateway per-actor/Organization quota did
+  not implement that quota or change the approved contract. Remediation
+  proposes `PROP-8` and ADR-018 and tracks shared quota in
+  `p0-enrollment-shared-request-quota`. P2 — sequential remediation
+  reviews through `6ed131f` are not an independent broader-slice review;
+  that checkbox is open again. GitHub combined checks remain a
+  verification gap for documentation-only SHAs.
 - Review of `1f698a5`: approved. Narrow gitleaks allowlist only.
 - Implementation run [32610425519](https://github.com/trannamtrung1st/flex-agent/actions/runs/32610425519)
   on `626ea8d`: web, dotnet, and OCI passed; supply-chain failed at
@@ -1112,17 +1139,20 @@ accessibility, full CI/OCI, and remaining independent review.
 | Sign-out ambiguous response (`c7a96fa` P2) | passed locally | Focused web: `production-logout.test.ts`, `production-routes.test.tsx`, `production-api.test.tsx` — 16 passed. Typecheck and `pnpm lint` (0 errors). Transport-lost logout clears Assignment content, stays on a Signing-out panel with unconfirmed copy + **Try again**, and does not `location.assign`. Known 400 re-bootstraps and restores Sign out without the unconfirmed alert. |
 | Sign-out / chrome review (`6ed131f`) | passed | External review approved with no blocking finding. Logout thread closed. GitHub combined checks were not visible from this tree (`gh` unauthenticated). |
 | Authenticated Playwright of locator-free chrome and Sign out | passed | Rebuilt profile at `http://localhost:18080`. Participant My work desktop: `.playwright-mcp/page-2026-08-23T02-20-49-656Z.png`. Assignment detail desktop: `.playwright-mcp/page-2026-08-23T02-20-59-952Z.png`. 320×640 detail: `.playwright-mcp/page-2026-08-23T02-21-14-020Z.png`. 320 dark: `.playwright-mcp/page-2026-08-23T02-21-27-704Z.png`. Desktop dark: `.playwright-mcp/page-2026-08-23T02-21-40-561Z.png`. After Sign out: `.playwright-mcp/page-2026-08-23T02-21-56-709Z.png`. Visual: Organization without UUID; breadcrumbs Home / My work / Assignment; **Sign out** visible at 1280 and 320 in both themes; no overflow of primary copy; confirmed logout leaves **Sign in required** with no Assignment content. Transient **Signing out** panel was not captured because confirmed revoke navigated immediately. |
+| Closeout review (`2ae4cb7`) | request changes | P1/P2 accepted. Slice reopened. `PROP-8` and Proposed ADR-018 plus `.work/active/p0-enrollment-shared-request-quota.md` are the formal move, not an approved decision. Broader independent review remains open. |
 
 # Blockers
 
-None. Remaining residuals are recorded below and are not open
-implementation work for this slice:
-
-- Shared/gateway-enforced per-actor/Organization Enrollment request
-  limits stay residual. The API-process limiter is defense in depth only.
+- Replica-independent / shared / gateway-enforced per-actor/Organization
+  Enrollment request limits are unmet as a closable contract. `PROP-8`
+  and Proposed ADR-018 are awaiting owner decision; they do not yet
+  move or satisfy the requirement.
+- Independent backend/frontend/security/QA review of the broader
+  Enrollment slice is still required, or the authorized owner must
+  explicitly waive it. Sequential remediation reviews through `6ed131f`
+  are not that review.
 - GitHub combined status checks are not attached from this working tree
-  (`gh` unauthenticated). Sequential external reviews through `6ed131f`
-  are approved.
+  (`gh` unauthenticated).
 
 # Completion
 
@@ -1131,5 +1161,5 @@ implementation work for this slice:
 - [x] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
-- [x] Independent backend, frontend, security/privacy, and QA review findings are resolved or explicitly accepted by the authorized owner
-- [x] Task state is safe and complete for external review
+- [ ] Independent backend, frontend, security/privacy, and QA review findings are resolved or explicitly accepted by the authorized owner
+- [ ] Task state is safe and complete for external review
