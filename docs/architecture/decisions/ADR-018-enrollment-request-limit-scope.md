@@ -125,6 +125,13 @@ new infrastructure service remain unselected.
   authenticated Enrollment requests and intentionally fails closed when a
   permit cannot be proven.
 
+## Implementation
+
+The follow-on PostgreSQL admission port landed on 2026-08-23 as migration
+`0044_enrollment_shared_request_admission.sql` and
+`IEnrollmentSharedAdmissionPort`. Replica-local limiting remains defense in
+depth. NGINX remains transport-only and Redis remains unselected.
+
 ## Related
 
 - Requirements: `Q-8` / `PROP-8` in

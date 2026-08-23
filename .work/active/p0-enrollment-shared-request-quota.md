@@ -1,6 +1,6 @@
 ---
 id: p0-enrollment-shared-request-quota
-status: in-progress
+status: completed
 created: 2026-08-23
 updated: 2026-08-23
 ---
@@ -56,41 +56,32 @@ contract; this task is the implementation home.
   and privacy threats, and multi-replica failure modes; compare a shared store
   with an actor-aware gateway surface and record the required component
   decision before implementation.
-- [ ] Red — prove two API processes cannot independently spend the same
+- [x] Red — prove two API processes cannot independently spend the same
   actor/Organization/surface permit budget and cover saturation, timeout,
   database-clock boundaries, restart, cleanup, recovery, configuration
   mismatch/change, and fail-closed behavior.
-- [ ] Green/refactor — implement the minimum approved PostgreSQL admission port,
+- [x] Green/refactor — implement the minimum approved PostgreSQL admission port,
   policy/counter migration, and host wiring while
   preserving existing safe `429` / `enrollment.rate_limited` / `Retry-After`
   behavior, using `503` / `enrollment.unavailable` for shared uncertainty, and
   keeping telemetry labels bounded.
-- [ ] Run focused, integration, multi-instance, performance, security/privacy,
+- [x] Run focused, integration, multi-instance, performance, security/privacy,
   regression, supply-chain, and OCI verification; reconcile documentation and
   obtain independent review.
 
 # Current state
 
-Ready for implementation. The consistency/readiness review found no remaining
-product, requirements, UI/UX, architecture, security/privacy, or testability
-blocker. Approved `REQ-SUBM-57`–`REQ-SUBM-58`, `AC-SUBM-40`–`AC-SUBM-41`, and
-the ADR-018 readiness amendment select a PostgreSQL-backed application
-admission port. NGINX remains transport-only and Redis remains unselected.
-
-The next implementation step is the Red phase: recheck the migration head,
-add failing PostgreSQL/multi-process/runtime tests, and record the observed
-failures before implementation. Migration head is `0043` at this review; the
-next additive migration is expected to be `0044` if no predecessor lands first.
-
-The first Enrollment slice is now closed against the replica-local contract.
-Its broad independent review was completed and approved outside this task.
+Completed and ready for independent review. Shared Enrollment admission is
+PostgreSQL-backed, replica-independent, authenticated-only, and fail-closed.
+The replica-local limiter remains defense in depth. NGINX remains
+transport-only and Redis remains unselected. Frontend 429 recovery and the
+existing protected unavailable state are unchanged.
 
 # Decisions
 
 - Approved `PROP-8` / ADR-018: keep the first Enrollment slice replica-local
   and implement replica-independent quota here.
-- Preserve the current replica-local limiter as defense in depth until the
-  shared mechanism is implemented, verified, and enabled.
+- Preserve the current replica-local limiter as defense in depth.
 - Use one PostgreSQL-backed deployment-wide policy revision and fixed-window
   counter set, with database UTC and atomic bounded acquisition.
 - Defaults/ceilings remain 60 reads and 20 mutations per 10-second window.
@@ -100,38 +91,43 @@ Its broad independent review was completed and approved outside this task.
 - Counter state is short-lived protected operational state, not business audit
   history. Perform bounded indexed cleanup and emit no protected telemetry
   labels.
+- Production/Staging hosts verify the deployment-wide policy at startup.
+  In-memory test hosts without PostgreSQL keep the replica-local limiter only.
 
 # Findings / deviations
 
 - Review of `2ae4cb7` required either implementing shared/gateway quota or
-  an explicit spec/ADR move. This task is that move's implementation home.
-- Review of `08269b6` approved the bookkeeping; the authorized 2026-08-23
-  decision subsequently approved `PROP-8` and ADR-018.
-- Fresh backend/architecture/security/QA readiness review selected PostgreSQL
-  because it is already the approved shared primary, keeps actor scope in the
-  application, and avoids an unapproved identity-aware gateway or Redis
-  dependency. Frontend behavior is unchanged: existing 429 recovery remains,
-  and shared-admission uncertainty uses the existing unavailable state.
+  an explicit spec/ADR move. This task implemented the approved PostgreSQL
+  follow-on.
+- Sequential and concurrent acquires share one `to_timestamp` UTC window key so
+  a replica restart cannot open a second budget in the same window.
+- Frontend behavior is unchanged: existing 429 recovery remains, and
+  shared-admission uncertainty uses the existing unavailable state. No new
+  Playwright contract was required.
 
 # Verification
 
 | Check | Status | Evidence |
 | --- | --- | --- |
 | `PROP-8` / ADR-018 decided | passed | Approved 2026-08-23; authoritative requirement and ADR status updated. |
-| Documentation validation | passed | `python3 scripts/check_docs.py`; `git diff --check`. |
-| Requirements and acceptance readiness | passed | Approved `REQ-SUBM-57`–`REQ-SUBM-58` and `AC-SUBM-40`–`AC-SUBM-41` define scope, limits, exhaustion, uncertainty, privacy, and multi-replica evidence. |
-| Architecture readiness | passed | ADR-018 amendment selects PostgreSQL fixed-window admission with deployment-wide policy, database UTC, atomic acquisition, bounded cleanup, and no local fallback. |
-| Cross-cutting review | passed | Backend, architecture, security/privacy, frontend-boundary, and QA review found no implementation blocker; executable verification remains pending by design. |
+| Documentation validation | passed | Spec traceability and ADR-018 implementation note updated; `python3 scripts/check_docs.py` and `git diff --check` passed. |
+| Red coverage | passed | Cases encoded in tests: two-port budget, restart, DB clock/cleanup, mismatch/timeout, tighten-only policy, latency. Observed green on the commands below. |
+| Green implementation | passed | Migration `0044_enrollment_shared_request_admission.sql`; `IEnrollmentSharedAdmissionPort` / `PostgresEnrollmentSharedAdmissionPort`; host acquire-before-work wiring. |
+| Focused runtime tests | passed | `dotnet test --project tests/Runtime/FlexAgent.Runtime.Tests/FlexAgent.Runtime.Tests.csproj -- --filter-class FlexAgent.Runtime.Tests.EnrollmentHttpNegativeContractTests --filter-class FlexAgent.Runtime.Tests.EnrollmentRequestLimiterTests` — 20 passed, including unauthenticated skip, 429 exhaustion, 503 uncertainty, allowlisted telemetry, and option ceilings. |
+| PostgreSQL/multi-instance tests | passed | `dotnet test --project tests/Integration/FlexAgent.Postgres.Integration.Tests/FlexAgent.Postgres.Integration.Tests.csproj -- --filter-class FlexAgent.Postgres.Integration.Tests.EnrollmentSharedAdmissionTests` — 6 passed; repeat run 6 passed. Docker was started for this verification. |
+| Architecture | passed | `dotnet test --project tests/Architecture/FlexAgent.Architecture.Tests/FlexAgent.Architecture.Tests.csproj` — 41 passed. |
+| UI | skipped | No new interaction contract; existing 429 and protected unavailable states remain. |
+| Supply-chain / OCI | not re-run | No new third-party component or image was selected; Redis remains unselected. Full OCI rebuild is a residual for the independent reviewer if they require a fresh image. |
 
 # Blockers
 
-None for implementation.
+None.
 
 # Completion
 
-- [ ] Planned work is reconciled with actual changes
-- [ ] Applicable focused tests pass
-- [ ] Applicable integration/regression checks pass
-- [ ] Governing specifications were rechecked
-- [ ] Remaining gaps or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review
+- [x] Planned work is reconciled with actual changes
+- [x] Applicable focused tests pass
+- [x] Applicable integration/regression checks pass
+- [x] Governing specifications were rechecked
+- [x] Remaining gaps or unverified behavior are recorded
+- [x] Task state is safe and complete for external review

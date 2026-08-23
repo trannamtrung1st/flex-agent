@@ -69,6 +69,64 @@ public sealed class EnrollmentHttpNegativeContractTests
     }
 
     [Fact]
+    public async Task Unauthenticated_my_work_does_not_acquire_a_shared_admission_permit()
+    {
+        var shared = new StubSharedAdmissionPort { Result = EnrollmentSharedAdmissionResult.Permitted() };
+        await using var factory = CreateFactory(sharedAdmission: shared);
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var response = await client.GetAsync("/v1/assessment/my-work", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(0, shared.AcquireCount);
+    }
+
+    [Fact]
+    public async Task Shared_admission_exhaustion_is_rate_limited_without_running_protected_work()
+    {
+        var shared = new StubSharedAdmissionPort { Result = EnrollmentSharedAdmissionResult.Exhausted(7) };
+        await using var context = await LoginAsync(
+            permitEnrollment: true,
+            sharedAdmission: shared,
+            queries: new ThrowingEnrollmentQueryService());
+        using var response = await SendMyWorkAsync(context);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.Contains(EnrollmentFailureCodes.RateLimited, body, StringComparison.Ordinal);
+        AssertNoAssignment(body);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+        Assert.Equal(TimeSpan.FromSeconds(7), response.Headers.RetryAfter?.Delta);
+        Assert.Equal(1, shared.AcquireCount);
+    }
+
+    [Fact]
+    public async Task Shared_admission_uncertainty_is_unavailable_not_rate_limited()
+    {
+        var shared = new StubSharedAdmissionPort { Result = EnrollmentSharedAdmissionResult.Unavailable() };
+        var telemetry = new RecordingEnrollmentTelemetry();
+        await using var context = await LoginAsync(
+            permitEnrollment: true,
+            sharedAdmission: shared,
+            queries: new ThrowingEnrollmentQueryService(),
+            telemetry: telemetry);
+        using var response = await SendMyWorkAsync(context);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Contains(EnrollmentFailureCodes.Unavailable, body, StringComparison.Ordinal);
+        Assert.DoesNotContain(EnrollmentFailureCodes.RateLimited, body, StringComparison.Ordinal);
+        AssertNoAssignment(body);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+        Assert.Null(response.Headers.RetryAfter);
+        Assert.Equal(EnrollmentTelemetryLabels.Unavailable, telemetry.Points[0][EnrollmentTelemetryLabels.Decision]);
+        Assert.All(telemetry.Points[0], pair =>
+        {
+            Assert.Contains(pair.Key, EnrollmentTelemetryLabels.AllowedKeys);
+            Assert.Contains(pair.Value, EnrollmentTelemetryLabels.AllowedValues);
+        });
+    }
+
+    [Fact]
     public async Task Tampered_my_work_cursor_is_invalid_and_not_cached()
     {
         await using var context = await LoginAsync(permitEnrollment: true);
@@ -209,11 +267,14 @@ public sealed class EnrollmentHttpNegativeContractTests
 
     private static async Task<LoggedInContext> LoginAsync(
         bool permitEnrollment = false,
-        int? readPermitLimit = null)
+        int? readPermitLimit = null,
+        IEnrollmentSharedAdmissionPort? sharedAdmission = null,
+        IEnrollmentQueryService? queries = null,
+        IEnrollmentTelemetry? telemetry = null)
     {
         var rsa = RSA.Create(2048);
         var tokens = new FakeOidcAuthorizationClient();
-        var factory = CreateFactory(rsa, tokens, permitEnrollment, readPermitLimit);
+        var factory = CreateFactory(rsa, tokens, permitEnrollment, readPermitLimit, sharedAdmission, queries, telemetry);
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         SeedBinding(factory);
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -266,7 +327,10 @@ public sealed class EnrollmentHttpNegativeContractTests
         RSA? rsa = null,
         FakeOidcAuthorizationClient? tokens = null,
         bool permitEnrollment = false,
-        int? readPermitLimit = null)
+        int? readPermitLimit = null,
+        IEnrollmentSharedAdmissionPort? sharedAdmission = null,
+        IEnrollmentQueryService? queries = null,
+        IEnrollmentTelemetry? telemetry = null)
     {
         rsa ??= RSA.Create(2048);
         tokens ??= new FakeOidcAuthorizationClient();
@@ -294,6 +358,18 @@ public sealed class EnrollmentHttpNegativeContractTests
                 if (permitEnrollment)
                 {
                     services.AddSingleton<IEnrollmentAuthorizationPort>(_ => new AllowEnrollmentAuthorizationPort { Permit = true });
+                }
+                if (sharedAdmission is not null)
+                {
+                    services.AddSingleton(sharedAdmission);
+                }
+                if (queries is not null)
+                {
+                    services.AddSingleton(queries);
+                }
+                if (telemetry is not null)
+                {
+                    services.AddSingleton(telemetry);
                 }
             });
         });
@@ -378,5 +454,68 @@ public sealed class EnrollmentHttpNegativeContractTests
             string? requiredKid,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<JwksKeySnapshot?>(JwksKeySnapshot.Borrowed(keys));
+    }
+
+    private sealed class StubSharedAdmissionPort : IEnrollmentSharedAdmissionPort
+    {
+        public EnrollmentSharedAdmissionResult Result { get; init; }
+
+        public int AcquireCount;
+
+        public Task<EnrollmentSharedAdmissionResult> AcquireAsync(
+            Guid organizationId,
+            Guid actorId,
+            string surface,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref AcquireCount);
+            return Task.FromResult(Result);
+        }
+
+        public Task<bool> PolicyMatchesAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(true);
+    }
+
+    private sealed class ThrowingEnrollmentQueryService : IEnrollmentQueryService
+    {
+        public Task<EnrollmentDecision<CursorPage<EnrollmentCandidate>>> ListCandidatesAsync(
+            EnrollmentActorContext actor,
+            Guid activityId,
+            Guid cohortId,
+            string? prefix,
+            string? cursor,
+            int limit,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Protected Enrollment query must not run.");
+
+        public Task<EnrollmentDecision<CursorPage<EnrollmentSummary>>> ListEnrollmentsAsync(
+            EnrollmentActorContext actor,
+            Guid activityId,
+            Guid cohortId,
+            string? cursor,
+            int limit,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Protected Enrollment query must not run.");
+
+        public Task<EnrollmentDecision<EnrollmentDetail>> GetEnrollmentAsync(
+            EnrollmentActorContext actor,
+            Guid activityId,
+            Guid cohortId,
+            Guid enrollmentId,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Protected Enrollment query must not run.");
+
+        public Task<EnrollmentDecision<CursorPage<AssignmentSummary>>> ListMyWorkAsync(
+            EnrollmentActorContext actor,
+            string? cursor,
+            int limit,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Protected Enrollment query must not run.");
+
+        public Task<EnrollmentDecision<AssignmentSummary>> GetMyWorkAsync(
+            EnrollmentActorContext actor,
+            Guid enrollmentId,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Protected Enrollment query must not run.");
     }
 }

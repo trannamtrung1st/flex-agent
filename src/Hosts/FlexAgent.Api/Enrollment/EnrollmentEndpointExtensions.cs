@@ -13,6 +13,7 @@ using FlexAgent.Submissions.Application;
 using FlexAgent.Submissions.Domain;
 using FlexAgent.Submissions.Infrastructure;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.Extensions.Options;
 
 namespace FlexAgent.Api;
 
@@ -65,6 +66,19 @@ public static class EnrollmentEndpointExtensions
         services.AddSingleton<IEnrollmentAuthorizationPort, KernelEnrollmentAuthorizationPort>();
         services.AddSingleton<IEnrollmentUnitOfWork, PostgresEnrollmentUnitOfWork>();
         services.AddSingleton<IEnrollmentSessionPort, IdentityEnrollmentSessionPort>();
+        services.AddSingleton(provider =>
+        {
+            var options = provider.GetRequiredService<IOptions<EnrollmentRequestLimitOptions>>().Value;
+            return new EnrollmentSharedAdmissionSettings(
+                options.ReadPermitLimit,
+                options.MutationPermitLimit,
+                options.WindowSeconds,
+                options.PolicyRevision,
+                TimeSpan.FromMilliseconds(options.AdmissionTimeoutMilliseconds),
+                options.CleanupBatchSize);
+        });
+        services.AddSingleton<IEnrollmentSharedAdmissionPort, PostgresEnrollmentSharedAdmissionPort>();
+        services.AddSingleton<IHostedService, EnrollmentSharedAdmissionStartupGuard>();
         return services;
     }
 
@@ -358,8 +372,50 @@ public static class EnrollmentEndpointExtensions
             return null;
         }
 
-        var limiter = context.RequestServices.GetRequiredService<IEnrollmentRequestLimiter>();
         var telemetry = context.RequestServices.GetRequiredService<IEnrollmentTelemetry>();
+        var sharedAdmission = context.RequestServices.GetService<IEnrollmentSharedAdmissionPort>();
+        if (sharedAdmission is not null)
+        {
+            EnrollmentSharedAdmissionResult shared;
+            try
+            {
+                shared = await sharedAdmission.AcquireAsync(
+                    actor.Organization.OrganizationId,
+                    actor.Actor.ActorId,
+                    surface,
+                    context.RequestAborted);
+            }
+            catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch
+            {
+                telemetry.RecordRequestLimit(surface, EnrollmentTelemetryLabels.Unavailable);
+                await WriteError(context, StatusCodes.Status503ServiceUnavailable, EnrollmentFailureCodes.Unavailable);
+                return null;
+            }
+
+            if (shared.Decision == EnrollmentSharedAdmissionDecision.Unavailable)
+            {
+                telemetry.RecordRequestLimit(surface, EnrollmentTelemetryLabels.Unavailable);
+                await WriteError(context, StatusCodes.Status503ServiceUnavailable, EnrollmentFailureCodes.Unavailable);
+                return null;
+            }
+
+            if (shared.Decision == EnrollmentSharedAdmissionDecision.Exhausted)
+            {
+                telemetry.RecordRequestLimit(surface, EnrollmentTelemetryLabels.Limited);
+                await WriteError(
+                    context,
+                    StatusCodes.Status429TooManyRequests,
+                    EnrollmentFailureCodes.RateLimited,
+                    shared.RetryAfterSeconds);
+                return null;
+            }
+        }
+
+        var limiter = context.RequestServices.GetRequiredService<IEnrollmentRequestLimiter>();
         var admission = limiter.TryAcquire(actor.Organization.OrganizationId, actor.Actor.ActorId, surface);
         if (!admission.Permitted)
         {

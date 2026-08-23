@@ -352,6 +352,56 @@ public sealed class SystemEnrollmentClock : IEnrollmentClock
     public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
 }
 
+public enum EnrollmentSharedAdmissionDecision
+{
+    Permitted = 0,
+    Exhausted = 1,
+    Unavailable = 2,
+}
+
+public readonly record struct EnrollmentSharedAdmissionResult(
+    EnrollmentSharedAdmissionDecision Decision,
+    int RetryAfterSeconds)
+{
+    public static EnrollmentSharedAdmissionResult Permitted() =>
+        new(EnrollmentSharedAdmissionDecision.Permitted, 0);
+
+    public static EnrollmentSharedAdmissionResult Exhausted(int retryAfterSeconds) =>
+        new(EnrollmentSharedAdmissionDecision.Exhausted, Math.Max(1, retryAfterSeconds));
+
+    public static EnrollmentSharedAdmissionResult Unavailable() =>
+        new(EnrollmentSharedAdmissionDecision.Unavailable, 0);
+}
+
+public sealed record EnrollmentSharedAdmissionSettings(
+    int ReadPermitLimit,
+    int MutationPermitLimit,
+    int WindowSeconds,
+    int PolicyRevision,
+    TimeSpan Timeout,
+    int CleanupBatchSize)
+{
+    public static EnrollmentSharedAdmissionSettings FromDefaults() =>
+        new(
+            EnrollmentRequestLimitDefaults.ReadPermitLimit,
+            EnrollmentRequestLimitDefaults.MutationPermitLimit,
+            EnrollmentRequestLimitDefaults.WindowSeconds,
+            EnrollmentRequestLimitDefaults.PolicyRevision,
+            TimeSpan.FromMilliseconds(EnrollmentRequestLimitDefaults.AdmissionTimeoutMilliseconds),
+            EnrollmentRequestLimitDefaults.CleanupBatchSize);
+}
+
+public interface IEnrollmentSharedAdmissionPort
+{
+    Task<EnrollmentSharedAdmissionResult> AcquireAsync(
+        Guid organizationId,
+        Guid actorId,
+        string surface,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> PolicyMatchesAsync(CancellationToken cancellationToken = default);
+}
+
 public static class EnrollmentTelemetryLabels
 {
     public const string Operation = "operation";

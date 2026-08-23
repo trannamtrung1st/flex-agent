@@ -125,6 +125,9 @@ public static class EnrollmentRequestLimitDefaults
     public const int MutationPermitLimit = 20;
     public const int WindowSeconds = 10;
     public const int MaximumTrackedPartitions = 10_000;
+    public const int PolicyRevision = 1;
+    public const int AdmissionTimeoutMilliseconds = 250;
+    public const int CleanupBatchSize = 64;
 }
 
 public static class EnrollmentLatencyObjectives

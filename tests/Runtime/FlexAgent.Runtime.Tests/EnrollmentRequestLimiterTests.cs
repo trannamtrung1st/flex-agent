@@ -58,6 +58,27 @@ public sealed class EnrollmentRequestLimiterTests
     }
 
     [Fact]
+    public void Configuration_cannot_use_an_invalid_shared_admission_timeout_or_cleanup_batch()
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+            new FixedWindowEnrollmentRequestLimiter(Options.Create(new EnrollmentRequestLimitOptions
+            {
+                ReadPermitLimit = 1,
+                MutationPermitLimit = 1,
+                WindowSeconds = 60,
+                AdmissionTimeoutMilliseconds = 49,
+            })));
+        Assert.Throws<InvalidOperationException>(() =>
+            new FixedWindowEnrollmentRequestLimiter(Options.Create(new EnrollmentRequestLimitOptions
+            {
+                ReadPermitLimit = 1,
+                MutationPermitLimit = 1,
+                WindowSeconds = 60,
+                CleanupBatchSize = 0,
+            })));
+    }
+
+    [Fact]
     public void Request_limit_telemetry_exposes_only_surface_and_decision()
     {
         var telemetry = new RecordingEnrollmentTelemetry();

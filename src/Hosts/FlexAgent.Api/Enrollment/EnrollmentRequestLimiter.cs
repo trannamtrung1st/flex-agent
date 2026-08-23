@@ -12,10 +12,19 @@ public sealed class EnrollmentRequestLimitOptions
 
     public int WindowSeconds { get; set; } = EnrollmentRequestLimitDefaults.WindowSeconds;
 
+    public int PolicyRevision { get; set; } = EnrollmentRequestLimitDefaults.PolicyRevision;
+
+    public int AdmissionTimeoutMilliseconds { get; set; } = EnrollmentRequestLimitDefaults.AdmissionTimeoutMilliseconds;
+
+    public int CleanupBatchSize { get; set; } = EnrollmentRequestLimitDefaults.CleanupBatchSize;
+
     public static bool MeetsFrozenCeiling(EnrollmentRequestLimitOptions options) =>
         options.ReadPermitLimit is >= 1 and <= EnrollmentRequestLimitDefaults.ReadPermitLimit
         && options.MutationPermitLimit is >= 1 and <= EnrollmentRequestLimitDefaults.MutationPermitLimit
-        && options.WindowSeconds >= EnrollmentRequestLimitDefaults.WindowSeconds;
+        && options.WindowSeconds >= EnrollmentRequestLimitDefaults.WindowSeconds
+        && options.PolicyRevision >= 1
+        && options.AdmissionTimeoutMilliseconds is >= 50 and <= 2000
+        && options.CleanupBatchSize is >= 1 and <= 256;
 
     public static void EnsureFrozenCeiling(EnrollmentRequestLimitOptions options)
     {
