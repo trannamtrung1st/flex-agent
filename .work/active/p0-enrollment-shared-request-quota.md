@@ -64,6 +64,8 @@ None approved. Interim default: keep the replica-local limiter until decided.
 
 - Review of `2ae4cb7` required either implementing shared/gateway quota or
   an explicit spec/ADR move. This task is that move's implementation home.
+- Review of `08269b6` approved that bookkeeping. `PROP-8` / ADR-018 are
+  still not an authorized disposition.
 
 # Verification
 

@@ -556,10 +556,14 @@ not be marked implemented by this task.
   follow-up. Recapture live Playwright of locator-free chrome and Sign out
   on rebuilt Docker images, then close the slice with remaining residuals
   recorded.
-- [>] Review of `2ae4cb7`: reopen the closeout. Propose `PROP-8` /
+- [x] Review of `2ae4cb7`: reopen the closeout. Propose `PROP-8` /
   ADR-018 and a separate shared-quota task instead of completing over an
   unmet gateway-quota sentence. Keep independent broader-slice review
   open until it is performed or explicitly waived.
+- [>] External review of `08269b6` approved the closeout remediation.
+  Wait for an authorized `PROP-8` / ADR-018 disposition or implement
+  shared quota in this slice, and for broader independent Enrollment
+  review or an explicit owner waiver.
 
 # Planned verification command set
 
@@ -591,6 +595,14 @@ not be marked implemented by this task.
   verify:oci` gates.
 
 # Current state
+
+External review of `08269b6` (2026-08-23): **approved**. No blocking
+finding. The `2ae4cb7` closeout findings are closed as bookkeeping only.
+`PROP-8` and ADR-018 remain Proposed and do not govern. The slice stays
+**in-progress** until (1) an authorized `PROP-8` / ADR-018 disposition
+or shared-quota implementation in this slice, and (2) broader
+independent Enrollment review or an explicit authorized-owner waiver.
+`python3 scripts/check_docs.py` passed after the ADR/index/task links.
 
 Review of `2ae4cb7` (2026-08-23): **request changes**. The Sign out /
 locator-free chrome thread remains closed. The slice is **in-progress**
@@ -963,6 +975,11 @@ accessibility, full CI/OCI, and remaining independent review.
   reviews through `6ed131f` are not an independent broader-slice review;
   that checkbox is open again. GitHub combined checks remain a
   verification gap for documentation-only SHAs.
+- Review of `08269b6`: **approved**. No blocking finding. The `2ae4cb7`
+  closeout remediations are accepted as bookkeeping. `PROP-8` / ADR-018
+  stay Proposed and do not govern. Shared quota and independent
+  broader-slice review remain open blockers. GitHub combined checks were
+  not visible on this SHA; `check_docs` passed.
 - Review of `1f698a5`: approved. Narrow gitleaks allowlist only.
 - Implementation run [32610425519](https://github.com/trannamtrung1st/flex-agent/actions/runs/32610425519)
   on `626ea8d`: web, dotnet, and OCI passed; supply-chain failed at
@@ -1140,6 +1157,7 @@ accessibility, full CI/OCI, and remaining independent review.
 | Sign-out / chrome review (`6ed131f`) | passed | External review approved with no blocking finding. Logout thread closed. GitHub combined checks were not visible from this tree (`gh` unauthenticated). |
 | Authenticated Playwright of locator-free chrome and Sign out | passed | Rebuilt profile at `http://localhost:18080`. Participant My work desktop: `.playwright-mcp/page-2026-08-23T02-20-49-656Z.png`. Assignment detail desktop: `.playwright-mcp/page-2026-08-23T02-20-59-952Z.png`. 320×640 detail: `.playwright-mcp/page-2026-08-23T02-21-14-020Z.png`. 320 dark: `.playwright-mcp/page-2026-08-23T02-21-27-704Z.png`. Desktop dark: `.playwright-mcp/page-2026-08-23T02-21-40-561Z.png`. After Sign out: `.playwright-mcp/page-2026-08-23T02-21-56-709Z.png`. Visual: Organization without UUID; breadcrumbs Home / My work / Assignment; **Sign out** visible at 1280 and 320 in both themes; no overflow of primary copy; confirmed logout leaves **Sign in required** with no Assignment content. Transient **Signing out** panel was not captured because confirmed revoke navigated immediately. |
 | Closeout review (`2ae4cb7`) | request changes | P1/P2 accepted. Slice reopened. `PROP-8` and Proposed ADR-018 plus `.work/active/p0-enrollment-shared-request-quota.md` are the formal move, not an approved decision. Broader independent review remains open. |
+| Closeout remediation review (`08269b6`) | passed | External review approved with no blocking finding. Bookkeeping only; quota disposition and broader independent review remain open. `python3 scripts/check_docs.py` passed on 2026-08-23. GitHub combined checks not visible from this tree. |
 
 # Blockers
 
