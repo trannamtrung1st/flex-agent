@@ -2,17 +2,43 @@
 -- Freeze the already-deployed window_seconds value so it cannot change
 -- mid-flight. Do not rewrite a valid longer 0044 window back to 10 seconds.
 -- Store and index expires_at so hot-path cleanup is a bounded expiry-range
--- lookup. Backfill and the freeze guard use the overlapping frozen-policy
--- horizon (max of stored and deployed window), not only the old counter
--- duration, so a 10s row cannot be cleaned up while the corresponding 20s
--- budget is still open.
+-- lookup. Backfill and the freeze guard use the aligned end of the deployed
+-- policy bucket that contains the last instant of a mismatched counter, not
+-- window_start + max(stored, deployed). That keeps a 12s row from being
+-- cleaned up while the overlapping 20s acquisition bucket is still open.
 
 ALTER TABLE submissions_enrollment_request_counters
     ADD COLUMN expires_at timestamptz;
 
+CREATE OR REPLACE FUNCTION submissions_enrollment_request_aligned_policy_window_end(
+    p_window_start timestamptz,
+    p_counter_window_seconds integer,
+    p_policy_window_seconds integer)
+RETURNS timestamptz
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT to_timestamp(
+        (
+            (
+                floor(extract(epoch FROM p_window_start))::bigint
+                + p_counter_window_seconds
+                + p_policy_window_seconds
+                - 1
+            ) / p_policy_window_seconds
+        ) * p_policy_window_seconds);
+$$;
+
 UPDATE submissions_enrollment_request_counters AS counters
-SET expires_at = counters.window_start + make_interval(
-        secs => GREATEST(counters.window_seconds, policies.window_seconds))
+SET expires_at = CASE
+        WHEN counters.window_seconds IS DISTINCT FROM policies.window_seconds THEN
+            submissions_enrollment_request_aligned_policy_window_end(
+                counters.window_start,
+                counters.window_seconds,
+                policies.window_seconds)
+        ELSE
+            counters.window_start + make_interval(secs => counters.window_seconds)
+    END
 FROM submissions_enrollment_request_policies AS policies
 WHERE policies.singleton_key = 1
   AND counters.expires_at IS NULL;
@@ -48,9 +74,10 @@ BEGIN
         FROM submissions_enrollment_request_counters AS counters
         CROSS JOIN submissions_enrollment_request_policies AS policies
         WHERE policies.singleton_key = 1
-          AND counters.window_start + make_interval(
-                secs => GREATEST(counters.window_seconds, policies.window_seconds))
-              > clock_timestamp()
+          AND submissions_enrollment_request_aligned_policy_window_end(
+                counters.window_start,
+                counters.window_seconds,
+                policies.window_seconds) > clock_timestamp()
           AND counters.window_seconds IS DISTINCT FROM policies.window_seconds
     ) THEN
         RAISE EXCEPTION

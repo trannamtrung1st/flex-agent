@@ -51,15 +51,17 @@ whose window was legitimately lengthened.
 - [x] Freeze the deployed window in place instead of normalizing to 10 seconds
 - [x] Refuse `0045` while live counters still store a pre-change window duration
 - [x] Refuse `0045` until overlapping frozen-policy budgets end, not just the old counter expiry
+- [x] Refuse `0045` until the aligned end of the overlapping deployed-policy bucket, not `start + max(duration)`
 
 # Current state
 
-`0045` backfills `expires_at` and refuses freeze using
-`window_start + max(stored window, deployed window)`, so a 10-second row that
-has already expired on its own duration still blocks until the overlapping
-frozen-policy budget ends. Recovery remains wait-only. After that overlap
-ends, the deployed window (including a valid 20-second `0044` policy) is
-frozen in place.
+`0045` backfills `expires_at` and refuses freeze using the aligned end of the
+deployed-policy bucket that contains the last instant of a mismatched
+counter (`ceil(old_end / deployed_window) * deployed_window` in epoch
+seconds). A 12-second row starting at second 36 stays unsafe until second 60,
+not 56. Recovery remains wait-only. After that aligned overlap ends, the
+deployed window (including a valid 20-second `0044` policy) is frozen in
+place.
 
 # Decisions
 
@@ -77,8 +79,8 @@ frozen in place.
 - `0045` freezes whatever valid window is already stored. It does not delete
   live counters, does not rewrite 20 → 10, and does not bypass the policy
   trigger. If a mismatched counter still overlaps the frozen policy window,
-  migration fails until that overlap ends (`window_start + max(stored,
-  deployed)`). Editing `0045` in place is acceptable only
+  migration fails until the aligned deployed-policy bucket that contains the
+  last old instant ends. Editing `0045` in place is acceptable only
   because this hash has not been applied outside disposable review databases;
   a later production apply of the previous `0045` would need `0046` instead.
 
@@ -98,7 +100,7 @@ frozen in place.
 | --- | --- | --- |
 | Limiter ceiling | passed | `EnrollmentRequestLimiterTests` — 21 runtime Enrollment tests passed, including minimum-window rejection and longer-window acceptance |
 | Shared admission | passed | `EnrollmentSharedAdmissionTests` — 8 passed |
-| Mutated 0044 upgrade | passed | `Upgrade_from_mutated_0044_keeps_aligned_exhausted_counters_controlling_acquisition`, `Upgrade_from_0044_refuses_live_old_window_counters_then_freezes_after_natural_expiry`, and `Upgrade_from_0044_refuses_old_window_counters_until_the_frozen_policy_window_ends` — 3 passed |
+| Mutated 0044 upgrade | passed | `Upgrade_from_mutated_0044_keeps_aligned_exhausted_counters_controlling_acquisition`, `Upgrade_from_0044_refuses_live_old_window_counters_then_freezes_after_natural_expiry`, `Upgrade_from_0044_refuses_old_window_counters_until_the_frozen_policy_window_ends`, `Upgrade_from_0044_backfills_12s_counter_expiry_to_the_aligned_20s_bucket_end`, and `Upgrade_from_0044_refuses_12s_counters_until_the_aligned_20s_bucket_ends` — 5 passed |
 | HTTP 429/503 | passed | included in the 21 runtime Enrollment tests |
 | Docs | passed | ADR/spec notes updated; `python3 scripts/check_docs.py` passed |
 
