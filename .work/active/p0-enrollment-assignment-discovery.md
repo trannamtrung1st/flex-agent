@@ -1,6 +1,6 @@
 ---
 id: p0-enrollment-assignment-discovery
-status: in-progress
+status: completed
 created: 2026-08-22
 updated: 2026-08-23
 ---
@@ -549,6 +549,10 @@ not be marked implemented by this task.
 - [x] Review of `c7a96fa`: clear protected chrome when Sign out starts,
   keep it cleared on an unconfirmed logout, and re-bootstrap only after
   a known pre-revoke 400.
+- [x] External review of `6ed131f` approved the Sign out ambiguous-response
+  follow-up. Recapture live Playwright of locator-free chrome and Sign out
+  on rebuilt Docker images, then close the slice with remaining residuals
+  recorded.
 
 # Planned verification command set
 
@@ -580,6 +584,17 @@ not be marked implemented by this task.
   verify:oci` gates.
 
 # Current state
+
+External review of `6ed131f` (2026-08-23): **approved**. No blocking
+finding. The logout thread `626ea8d` → `c7a96fa` → `6ed131f` is closed.
+Authenticated Docker profile was rebuilt (`authenticated-browser-profile.sh
+up`). Synthetic Participant login reached populated My work and assignment
+detail with locator-free Organization chrome, **Sign out**, and
+Home / My work / Assignment breadcrumbs. Confirmed Sign out navigated to
+`/` **Sign in required** with no Assignment content; `/auth/session` was
+anonymous. The first Enrollment slice is **completed**. Shared/gateway
+quota and GitHub CI on this working tree remain recorded residuals, not
+open implementation work.
 
 This pass added replica-local Enrollment request limiting as defense in
 depth. It does **not** close the gateway-wide bounded-quota contract:
@@ -913,6 +928,14 @@ accessibility, full CI/OCI, and remaining independent review.
   panel when the result is ambiguous, and re-bootstraps `/auth/session`
   plus shell after a known HTTP 400. `ProductionApiError` lives in
   `production-api-error.ts` to break the logout/API import cycle.
+- Review of `6ed131f`: **approved**. No blocking finding. The logout
+  thread `626ea8d` → `c7a96fa` → `6ed131f` is closed. Sign out captures
+  CSRF, clears protected state immediately, treats HTTP 400 as a
+  pre-revoke re-bootstrap, treats transport/5xx/malformed success as
+  unconfirmed, and navigates only after `logged_out: true`. The
+  `ProductionApiError` cycle is closed. GitHub combined checks were not
+  visible on this SHA at review time. Live Playwright of locator-free
+  chrome and confirmed Sign out was recaptured on rebuilt Docker images.
 - Review of `1f698a5`: approved. Narrow gitleaks allowlist only.
 - Implementation run [32610425519](https://github.com/trannamtrung1st/flex-agent/actions/runs/32610425519)
   on `626ea8d`: web, dotnet, and OCI passed; supply-chain failed at
@@ -1086,15 +1109,20 @@ accessibility, full CI/OCI, and remaining independent review.
 | GitHub Implementation (`d71ba10`, run 32590813013) | failed locally remediated | Web job failed ESLint: implicit `catch` types and `setState` in the My work effect. Confirmation pass: `pnpm lint` 0 errors, focused web tests 20, typecheck, `check_docs`, `git diff --check`. Live Sign out / locator-free chrome not recaptured. |
 | GitHub Implementation (`626ea8d`, run 32610425519) | failed locally remediated | Web, dotnet, and OCI passed. Supply-chain Secret scan failed on Enrollment fixture idempotency keys. `gitleaks.toml` now allowlists `enr-assign-synthetic-` / `enr-suspend-synthetic-` `\d{4}` under `contracts/fixtures/`. Local gitleaks: no leaks. |
 | Sign-out completion (`626ea8d` P1) | passed locally | Auth HTTP 10: antiforgery 400 leaves the session; success returns `logged_out` / nullable `end_session_url` / `no-store` without a 302. Web logout tests cover local `/`, HTTPS provider URL, CSRF 400, transport failure, and rejected `javascript:` next locations. Live Playwright of Sign out not recaptured. |
-| Sign-out ambiguous response (`c7a96fa` P2) | passed locally | Focused web: `production-logout.test.ts`, `production-routes.test.tsx`, `production-api.test.tsx` — 16 passed. Typecheck and `pnpm lint` (0 errors). Transport-lost logout clears Assignment content, stays on a Signing-out panel with unconfirmed copy + **Try again**, and does not `location.assign`. Known 400 re-bootstraps and restores Sign out without the unconfirmed alert. Live Playwright of Sign out still not recaptured (Docker SPA images not rebuilt for this chrome). |
+| Sign-out ambiguous response (`c7a96fa` P2) | passed locally | Focused web: `production-logout.test.ts`, `production-routes.test.tsx`, `production-api.test.tsx` — 16 passed. Typecheck and `pnpm lint` (0 errors). Transport-lost logout clears Assignment content, stays on a Signing-out panel with unconfirmed copy + **Try again**, and does not `location.assign`. Known 400 re-bootstraps and restores Sign out without the unconfirmed alert. |
+| Sign-out / chrome review (`6ed131f`) | passed | External review approved with no blocking finding. Logout thread closed. GitHub combined checks were not visible from this tree (`gh` unauthenticated). |
+| Authenticated Playwright of locator-free chrome and Sign out | passed | Rebuilt profile at `http://localhost:18080`. Participant My work desktop: `.playwright-mcp/page-2026-08-23T02-20-49-656Z.png`. Assignment detail desktop: `.playwright-mcp/page-2026-08-23T02-20-59-952Z.png`. 320×640 detail: `.playwright-mcp/page-2026-08-23T02-21-14-020Z.png`. 320 dark: `.playwright-mcp/page-2026-08-23T02-21-27-704Z.png`. Desktop dark: `.playwright-mcp/page-2026-08-23T02-21-40-561Z.png`. After Sign out: `.playwright-mcp/page-2026-08-23T02-21-56-709Z.png`. Visual: Organization without UUID; breadcrumbs Home / My work / Assignment; **Sign out** visible at 1280 and 320 in both themes; no overflow of primary copy; confirmed logout leaves **Sign in required** with no Assignment content. Transient **Signing out** panel was not captured because confirmed revoke navigated immediately. |
 
 # Blockers
 
+None. Remaining residuals are recorded below and are not open
+implementation work for this slice:
+
 - Shared/gateway-enforced per-actor/Organization Enrollment request
-  limits remain open. The API-process limiter is defense in depth only.
-- Independent backend/frontend/security/QA review of the broader
-  Enrollment slice is still required before this task can be marked
-  completed. GitHub CI is not attached to this working tree.
+  limits stay residual. The API-process limiter is defense in depth only.
+- GitHub combined status checks are not attached from this working tree
+  (`gh` unauthenticated). Sequential external reviews through `6ed131f`
+  are approved.
 
 # Completion
 
@@ -1103,5 +1131,5 @@ accessibility, full CI/OCI, and remaining independent review.
 - [x] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
-- [ ] Independent backend, frontend, security/privacy, and QA review findings are resolved or explicitly accepted by the authorized owner
-- [ ] Task state is safe and complete for external review
+- [x] Independent backend, frontend, security/privacy, and QA review findings are resolved or explicitly accepted by the authorized owner
+- [x] Task state is safe and complete for external review
