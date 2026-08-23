@@ -129,8 +129,15 @@ new infrastructure service remain unselected.
 
 The follow-on PostgreSQL admission port landed on 2026-08-23 as migration
 `0044_enrollment_shared_request_admission.sql` and
-`IEnrollmentSharedAdmissionPort`. Replica-local limiting remains defense in
-depth. NGINX remains transport-only and Redis remains unselected.
+`IEnrollmentSharedAdmissionPort`. Migration
+`0045_enrollment_shared_admission_window_freeze_and_expiry.sql` freezes
+`window_seconds` at 10 seconds so a policy change cannot expire a live
+counter and issue a second budget in the same aligned window, and stores
+indexed `expires_at` so hot-path cleanup is a bounded expiry-range delete
+with `SKIP LOCKED`. Lengthening the window remains a future coordinated
+activation design, not an MVP operator control. Replica-local limiting
+remains defense in depth. NGINX remains transport-only and Redis remains
+unselected.
 
 ## Related
 
@@ -140,4 +147,6 @@ depth. NGINX remains transport-only and Redis remains unselected.
   `AC-SUBM-40`–`AC-SUBM-41`
 - Follow-on implementation:
   [`.work/active/p0-enrollment-shared-request-quota.md`](../../../.work/active/p0-enrollment-shared-request-quota.md)
+- Review fixes:
+  [`.work/active/p0-enrollment-shared-admission-review-fixes.md`](../../../.work/active/p0-enrollment-shared-admission-review-fixes.md)
 - Does not supersede ADR-006

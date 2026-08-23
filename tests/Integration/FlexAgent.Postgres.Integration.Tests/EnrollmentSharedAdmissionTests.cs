@@ -227,6 +227,131 @@ public sealed class EnrollmentSharedAdmissionTests(PostgresIntegrationFixture fi
     }
 
     [Fact]
+    public async Task Policy_cannot_change_window_seconds_because_that_would_reset_the_shared_budget()
+    {
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(CancellationToken);
+        var organizationId = Guid.CreateVersion7();
+        var actorId = Guid.CreateVersion7();
+        var port = CreatePort();
+        for (var i = 0; i < EnrollmentRequestLimitDefaults.MutationPermitLimit; i++)
+        {
+            Assert.Equal(
+                EnrollmentSharedAdmissionDecision.Permitted,
+                (await port.AcquireAsync(
+                    organizationId,
+                    actorId,
+                    EnrollmentRequestSurfaces.Mutation,
+                    CancellationToken)).Decision);
+        }
+
+        var lengthened = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE submissions_enrollment_request_policies
+                SET policy_revision = policy_revision + 1,
+                    window_seconds = 20,
+                    activated_at = clock_timestamp()
+                WHERE singleton_key = 1;
+                """,
+                transaction: transaction,
+                cancellationToken: CancellationToken)));
+        Assert.Contains("window", lengthened.MessageText, StringComparison.OrdinalIgnoreCase);
+
+        Assert.Equal(
+            EnrollmentSharedAdmissionDecision.Exhausted,
+            (await port.AcquireAsync(
+                organizationId,
+                actorId,
+                EnrollmentRequestSurfaces.Mutation,
+                CancellationToken)).Decision);
+        await transaction.RollbackAsync(CancellationToken);
+    }
+
+    [Fact]
+    public async Task Cleanup_uses_indexed_expires_at_and_does_not_remove_live_windows()
+    {
+        var liveOrganizationId = Guid.CreateVersion7();
+        var expiredOrganizationId = Guid.CreateVersion7();
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var windowStart = await connection.ExecuteScalarAsync<DateTimeOffset>(
+            """
+            SELECT to_timestamp(
+                (floor(extract(epoch FROM clock_timestamp()) / 10))::bigint * 10);
+            """);
+        for (var i = 0; i < 80; i++)
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO submissions_enrollment_request_counters (
+                    organization_id, actor_id, surface, window_start, window_seconds, policy_revision, permit_count)
+                VALUES (
+                    @OrganizationId,
+                    @ActorId,
+                    'read',
+                    @WindowStart,
+                    10,
+                    1,
+                    1);
+                """,
+                new
+                {
+                    OrganizationId = liveOrganizationId,
+                    ActorId = Guid.CreateVersion7(),
+                    WindowStart = windowStart,
+                });
+        }
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO submissions_enrollment_request_counters (
+                organization_id, actor_id, surface, window_start, window_seconds, policy_revision, permit_count)
+            VALUES (
+                @OrganizationId,
+                @ActorId,
+                'read',
+                clock_timestamp() - INTERVAL '1 hour',
+                10,
+                1,
+                4);
+            """,
+            new { OrganizationId = expiredOrganizationId, ActorId = Guid.CreateVersion7() });
+
+        var indexes = (await connection.QueryAsync<string>(
+            """
+            SELECT indexname
+            FROM pg_indexes
+            WHERE tablename = 'submissions_enrollment_request_counters';
+            """)).ToArray();
+        Assert.Contains(indexes, name => name.Contains("expires_at", StringComparison.Ordinal));
+        Assert.DoesNotContain("ix_submissions_enrollment_request_counters_cleanup", indexes);
+
+        var result = await CreatePort().AcquireAsync(
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            EnrollmentRequestSurfaces.Read,
+            CancellationToken);
+        Assert.Equal(EnrollmentSharedAdmissionDecision.Permitted, result.Decision);
+
+        var expiredRemaining = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM submissions_enrollment_request_counters
+            WHERE organization_id = @OrganizationId;
+            """,
+            new { OrganizationId = expiredOrganizationId });
+        var liveRemaining = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM submissions_enrollment_request_counters
+            WHERE organization_id = @OrganizationId;
+            """,
+            new { OrganizationId = liveOrganizationId });
+        Assert.Equal(0, expiredRemaining);
+        Assert.Equal(80, liveRemaining);
+    }
+
+    [Fact]
     public async Task Representative_shared_admission_stays_inside_the_mutation_latency_objective()
     {
         var organizationId = Guid.CreateVersion7();

@@ -46,7 +46,7 @@ public sealed class EnrollmentRequestLimiterTests
     }
 
     [Fact]
-    public void Configuration_cannot_shorten_the_frozen_window()
+    public void Configuration_cannot_change_the_frozen_window()
     {
         Assert.Throws<InvalidOperationException>(() =>
             new FixedWindowEnrollmentRequestLimiter(Options.Create(new EnrollmentRequestLimitOptions
@@ -54,6 +54,13 @@ public sealed class EnrollmentRequestLimiterTests
                 ReadPermitLimit = 1,
                 MutationPermitLimit = 1,
                 WindowSeconds = EnrollmentRequestLimitDefaults.WindowSeconds - 1,
+            })));
+        Assert.Throws<InvalidOperationException>(() =>
+            new FixedWindowEnrollmentRequestLimiter(Options.Create(new EnrollmentRequestLimitOptions
+            {
+                ReadPermitLimit = 1,
+                MutationPermitLimit = 1,
+                WindowSeconds = EnrollmentRequestLimitDefaults.WindowSeconds + 10,
             })));
     }
 
@@ -65,7 +72,7 @@ public sealed class EnrollmentRequestLimiterTests
             {
                 ReadPermitLimit = 1,
                 MutationPermitLimit = 1,
-                WindowSeconds = 60,
+                WindowSeconds = EnrollmentRequestLimitDefaults.WindowSeconds,
                 AdmissionTimeoutMilliseconds = 49,
             })));
         Assert.Throws<InvalidOperationException>(() =>
@@ -73,7 +80,7 @@ public sealed class EnrollmentRequestLimiterTests
             {
                 ReadPermitLimit = 1,
                 MutationPermitLimit = 1,
-                WindowSeconds = 60,
+                WindowSeconds = EnrollmentRequestLimitDefaults.WindowSeconds,
                 CleanupBatchSize = 0,
             })));
     }
@@ -96,6 +103,6 @@ public sealed class EnrollmentRequestLimiterTests
         {
             ReadPermitLimit = readLimit,
             MutationPermitLimit = mutationLimit,
-            WindowSeconds = 60,
+            WindowSeconds = EnrollmentRequestLimitDefaults.WindowSeconds,
         }));
 }

@@ -21,7 +21,7 @@ public sealed class EnrollmentRequestLimitOptions
     public static bool MeetsFrozenCeiling(EnrollmentRequestLimitOptions options) =>
         options.ReadPermitLimit is >= 1 and <= EnrollmentRequestLimitDefaults.ReadPermitLimit
         && options.MutationPermitLimit is >= 1 and <= EnrollmentRequestLimitDefaults.MutationPermitLimit
-        && options.WindowSeconds >= EnrollmentRequestLimitDefaults.WindowSeconds
+        && options.WindowSeconds == EnrollmentRequestLimitDefaults.WindowSeconds
         && options.PolicyRevision >= 1
         && options.AdmissionTimeoutMilliseconds is >= 50 and <= 2000
         && options.CleanupBatchSize is >= 1 and <= 256;
@@ -31,7 +31,7 @@ public sealed class EnrollmentRequestLimitOptions
         if (!MeetsFrozenCeiling(options))
         {
             throw new InvalidOperationException(
-                "Enrollment request limits may only be tightened. Reads must be 1–60, mutations 1–20, and the window at least 10 seconds.");
+                "Enrollment request limits may only be tightened. Reads must be 1–60, mutations 1–20, and the shared window is frozen at 10 seconds.");
         }
     }
 }
