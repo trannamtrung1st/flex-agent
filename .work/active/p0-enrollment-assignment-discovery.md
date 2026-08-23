@@ -540,6 +540,9 @@ not be marked implemented by this task.
   no synchronous setState in the My work effect), hide raw
   Organization/Enrollment locators in production chrome, and add
   in-shell Sign out. Live Playwright of the new chrome remains a residual.
+- [x] Fix Implementation supply-chain on `626ea8d`: allowlist documented
+  Enrollment synthetic `idempotency_key` fixture values so gitleaks no
+  longer treats them as generic API keys.
 
 # Planned verification command set
 
@@ -887,6 +890,14 @@ accessibility, full CI/OCI, and remaining independent review.
 
 # Findings / deviations
 
+- Implementation run [32610425519](https://github.com/trannamtrung1st/flex-agent/actions/runs/32610425519)
+  on `626ea8d`: web, dotnet, and OCI passed; supply-chain failed at
+  Secret scan. Gitleaks flagged historical Enrollment fixture keys
+  `enr-assign-synthetic-0001` and `enr-suspend-synthetic-0001` as
+  `generic-api-key`. Those values are documented synthetic contract
+  fixtures, not credentials. The project allowlist now includes them
+  beside `idem-synthetic-\d{4}`. Local `gitleaks detect --source . --config
+  gitleaks.toml --no-banner --redact` reports no leaks.
 - Review of `d71ba10`: approved. No blocking code finding. The two
   findings against `1fec6b3` are closed. Shared/gateway-wide per-actor
   quota stays an explicit product/operations residual. Immediate **Try
@@ -1049,6 +1060,7 @@ accessibility, full CI/OCI, and remaining independent review.
 | Cursor/security remediations review (`888cd66`) | passed | External review approved with no blocking code finding. Prefix digest, ≥32-byte decoded keys, replica/rotation, and candidate `afterActorId` binding accepted. GitHub CI still absent for that SHA. |
 | Rate-limit closeout review (`d71ba10`) | passed | External review approved with no blocking code finding. Shared/gateway quota remains a residual. Immediate Try-again countdown is a non-blocking UX note. |
 | GitHub Implementation (`d71ba10`, run 32590813013) | failed locally remediated | Web job failed ESLint: implicit `catch` types and `setState` in the My work effect. Confirmation pass: `pnpm lint` 0 errors, focused web tests 20, typecheck, `check_docs`, `git diff --check`. Live Sign out / locator-free chrome not recaptured. |
+| GitHub Implementation (`626ea8d`, run 32610425519) | failed locally remediated | Web, dotnet, and OCI passed. Supply-chain Secret scan failed on Enrollment fixture idempotency keys. `gitleaks.toml` now allowlists `enr-assign-synthetic-` / `enr-suspend-synthetic-` `\d{4}` under `contracts/fixtures/`. Local gitleaks: no leaks. |
 
 # Blockers
 
