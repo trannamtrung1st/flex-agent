@@ -130,17 +130,13 @@ new infrastructure service remain unselected.
 The follow-on PostgreSQL admission port landed on 2026-08-23 as migration
 `0044_enrollment_shared_request_admission.sql` and
 `IEnrollmentSharedAdmissionPort`. Migration
-`0045_enrollment_shared_admission_window_freeze_and_expiry.sql` freezes
-`window_seconds` at 10 seconds so a policy change cannot expire a live
-counter and issue a second budget in the same aligned window, and stores
-indexed `expires_at` so hot-path cleanup is a bounded expiry-range delete
-with `SKIP LOCKED`. If a 0044 database already lengthened the window, 0045
-deletes expired counters first and refuses to freeze while live longer-window
-counters remain; after that drain it sets the policy to 10 seconds without
-rewriting live budgets. Lengthening the window remains a future coordinated
-activation design, not an MVP operator control. Replica-local limiting
-remains defense in depth. NGINX remains transport-only and Redis remains
-unselected.
+`0045_enrollment_shared_admission_window_freeze_and_expiry.sql` freezes the
+already-deployed `window_seconds` value so it cannot change mid-window, and
+stores indexed `expires_at` so hot-path cleanup is a bounded expiry-range
+delete with `SKIP LOCKED`. A valid longer 0044 window is kept; replicas must
+still match that policy exactly. Lengthening the window after freeze remains a
+future coordinated-activation design. Replica-local limiting remains defense in
+depth. NGINX remains transport-only and Redis remains unselected.
 
 ## Related
 

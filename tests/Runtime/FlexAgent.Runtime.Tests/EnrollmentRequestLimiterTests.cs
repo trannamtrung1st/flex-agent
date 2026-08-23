@@ -46,7 +46,7 @@ public sealed class EnrollmentRequestLimiterTests
     }
 
     [Fact]
-    public void Configuration_cannot_change_the_frozen_window()
+    public void Configuration_cannot_shorten_the_minimum_window()
     {
         Assert.Throws<InvalidOperationException>(() =>
             new FixedWindowEnrollmentRequestLimiter(Options.Create(new EnrollmentRequestLimitOptions
@@ -55,13 +55,19 @@ public sealed class EnrollmentRequestLimiterTests
                 MutationPermitLimit = 1,
                 WindowSeconds = EnrollmentRequestLimitDefaults.WindowSeconds - 1,
             })));
-        Assert.Throws<InvalidOperationException>(() =>
-            new FixedWindowEnrollmentRequestLimiter(Options.Create(new EnrollmentRequestLimitOptions
-            {
-                ReadPermitLimit = 1,
-                MutationPermitLimit = 1,
-                WindowSeconds = EnrollmentRequestLimitDefaults.WindowSeconds + 10,
-            })));
+    }
+
+    [Fact]
+    public void Configuration_may_use_a_longer_window_than_the_minimum()
+    {
+        var limiter = new FixedWindowEnrollmentRequestLimiter(Options.Create(new EnrollmentRequestLimitOptions
+        {
+            ReadPermitLimit = 1,
+            MutationPermitLimit = 1,
+            WindowSeconds = EnrollmentRequestLimitDefaults.WindowSeconds + 10,
+        }));
+
+        Assert.True(limiter.TryAcquire(Guid.CreateVersion7(), Guid.CreateVersion7(), EnrollmentRequestSurfaces.Read).Permitted);
     }
 
     [Fact]

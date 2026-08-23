@@ -134,7 +134,7 @@ public sealed class MigrationUpgradeTests
     }
 
     [Fact]
-    public async Task Upgrade_from_mutated_0044_window_refuses_live_longer_windows_then_freezes_after_drain()
+    public async Task Upgrade_from_mutated_0044_keeps_the_deployed_window_and_live_counters()
     {
         await using var container = await StartContainerAsync();
         var connectionString = container.GetConnectionString();
@@ -149,6 +149,7 @@ public sealed class MigrationUpgradeTests
 
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
+        var actorId = Guid.CreateVersion7();
         await connection.ExecuteAsync(
             """
             UPDATE submissions_enrollment_request_policies
@@ -160,28 +161,15 @@ public sealed class MigrationUpgradeTests
             INSERT INTO submissions_enrollment_request_counters (
                 organization_id, actor_id, surface, window_start, window_seconds, policy_revision, permit_count)
             VALUES (
-                gen_random_uuid(),
-                gen_random_uuid(),
+                @OrganizationId,
+                @ActorId,
                 'mutation',
                 clock_timestamp(),
                 20,
                 2,
-                1);
-            """);
-
-        var blocked = await Assert.ThrowsAsync<PostgresException>(() =>
-            GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
-                connectionString,
-                migrationsDirectory,
-                cancellationToken));
-        Assert.Contains("longer window", blocked.MessageText, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(
-            0,
-            await connection.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM grate_migrations WHERE script_name = @ScriptName;",
-                new { ScriptName = Current0045ScriptName }));
-
-        await connection.ExecuteAsync("DELETE FROM submissions_enrollment_request_counters;");
+                20);
+            """,
+            new { OrganizationId = Guid.CreateVersion7(), ActorId = actorId });
 
         await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
             connectionString,
@@ -189,13 +177,22 @@ public sealed class MigrationUpgradeTests
             cancellationToken);
 
         Assert.Equal(
-            10,
+            20,
             await connection.ExecuteScalarAsync<int>(
                 """
                 SELECT window_seconds
                 FROM submissions_enrollment_request_policies
                 WHERE singleton_key = 1;
                 """));
+        Assert.Equal(
+            20,
+            await connection.ExecuteScalarAsync<int>(
+                """
+                SELECT permit_count
+                FROM submissions_enrollment_request_counters
+                WHERE actor_id = @ActorId;
+                """,
+                new { ActorId = actorId }));
         Assert.Equal(
             1,
             await connection.ExecuteScalarAsync<int>(
@@ -205,6 +202,16 @@ public sealed class MigrationUpgradeTests
                 WHERE script_name = @ScriptName;
                 """,
                 new { ScriptName = Current0045ScriptName }));
+
+        var shortened = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
+            """
+            UPDATE submissions_enrollment_request_policies
+            SET policy_revision = policy_revision + 1,
+                window_seconds = 10,
+                activated_at = clock_timestamp()
+            WHERE singleton_key = 1;
+            """));
+        Assert.Contains("window", shortened.MessageText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -2,7 +2,7 @@
 id: p0-enrollment-shared-admission-review-fixes
 status: completed
 created: 2026-08-23
-updated: 2026-08-23
+updated: 2026-08-24
 ---
 
 # Goal
@@ -26,16 +26,15 @@ whose window was legitimately lengthened.
 
 ## In
 
-- Freeze `window_seconds` on the deployment-wide policy for MVP (no dynamic
-  window changes).
+- Freeze the already-deployed `window_seconds` value (minimum 10 seconds). Do
+  not rewrite a valid longer 0044 window to 10 seconds, and do not delete live
+  counters as an upgrade recovery path.
 - Persist and index explicit counter expiry; bound cleanup by that index;
   skip locked rows so concurrent acquires do not contend on the same stale
   rows.
-- Tests that catch the mid-window reset and prove expiry-keyed cleanup.
-- Safe `0044` → `0045` upgrade when `window_seconds > 10` is already stored:
-  drain expired counters, refuse while live longer-window counters remain,
-  then freeze at 10 seconds.
-- Document the MVP freeze, drain contract, and remaining load-lab gap.
+- Tests that catch the mid-window reset, prove expiry-keyed cleanup, and prove
+  `0044` → `0045` keeps a live longer-window budget.
+- Document the freeze-in-place contract and remaining load-lab gap.
 
 ## Out
 
@@ -49,16 +48,15 @@ whose window was legitimately lengthened.
 - [x] Red — policy window change and expiry-index cleanup tests
 - [x] Green — additive migration `0045` and matching limiter freeze
 - [x] Reconcile ADR/spec notes; run focused Postgres and runtime tests
-- [x] Safe `0044` → `0045` transition for a previously valid `window_seconds > 10` policy, plus a targeted upgrade test
+- [x] Freeze the deployed window in place instead of normalizing to 10 seconds
 
 # Current state
 
-Review findings on `78c81a7` and the follow-up `0044` upgrade incompatibility
-are implemented in additive migration `0045`. `window_seconds` cannot change
-after freeze. Counters carry `expires_at` with an index and `SKIP LOCKED`
-cleanup. A mutated 0044 policy with live longer-window counters blocks `0045`
-until those rows expire or are drained; an empty/drained database then freezes
-at 10 seconds. Ready for independent re-review.
+Review findings now freeze the already-deployed window rather than rewriting
+it to 10 seconds. Live 0044 longer-window counters survive `0045`; the policy
+value cannot change afterward. Counters carry `expires_at` with indexed
+`SKIP LOCKED` cleanup. Application configuration may use any window ≥ 10
+seconds and must still match PostgreSQL exactly.
 
 # Decisions
 
@@ -71,13 +69,13 @@ at 10 seconds. Ready for independent re-review.
 - Cleanup uses `expires_at <= now ORDER BY expires_at FOR UPDATE SKIP LOCKED
   LIMIT n`.
 - Do not edit landed `0044`.
-- Replica-local limiter configuration must use the same frozen 10-second
-  window so it cannot drift from the shared policy.
-- `0045` does not silently rewrite `window_seconds` while live counters still
-  use a longer window. It deletes expired rows, fails closed with an explicit
-  drain error if any longer-window counters remain, then sets the policy to
-  10 seconds. Policy revision is left unchanged so replicas matching the
-  frozen 10-second application contract can continue.
+- Replica configuration may use any window ≥ 10 seconds. Startup already
+  requires an exact match with the PostgreSQL policy, so replicas cannot drift.
+- `0045` freezes whatever valid window is already stored. It does not delete
+  live counters, does not rewrite 20 → 10, and does not bypass the policy
+  trigger. Editing `0045` in place is acceptable only because this hash has
+  not been applied outside disposable review databases; a later production
+  apply of the previous `0045` would need `0046` instead.
 
 # Findings / deviations
 
@@ -86,17 +84,17 @@ at 10 seconds. Ready for independent re-review.
   counters. The cleanup test uses 80 live rows plus one expired row and
   asserts the expiry index exists.
 - GitHub CI was not re-run from this agent.
-- Whether `0044` was deployed is unknown here; the drain/fail-closed path
-  covers that environment if it exists.
+- Whether `0044`/`0045` was applied outside disposable databases is unknown;
+  this change edits `0045` in place under the pre-release assumption.
 
 # Verification
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Limiter freeze | passed | `EnrollmentRequestLimiterTests` — previously 6 passed |
-| Shared admission | passed | `EnrollmentSharedAdmissionTests` — 8 passed after the 0045 rewrite |
-| Mutated 0044 upgrade | passed | `Upgrade_from_mutated_0044_window_refuses_live_longer_windows_then_freezes_after_drain` — red on CHECK failure, then green after drain/fail-closed path |
-| HTTP 429/503 | passed | previously recorded; not re-run this pass |
+| Limiter ceiling | passed | `EnrollmentRequestLimiterTests` — 21 runtime Enrollment tests passed, including minimum-window rejection and longer-window acceptance |
+| Shared admission | passed | `EnrollmentSharedAdmissionTests` — 8 passed |
+| Mutated 0044 upgrade | passed | `Upgrade_from_mutated_0044_keeps_the_deployed_window_and_live_counters` — red on drain refusal, then green with window=20 and live permit_count=20 preserved |
+| HTTP 429/503 | passed | included in the 21 runtime Enrollment tests |
 | Docs | passed | ADR/spec notes updated; `python3 scripts/check_docs.py` passed |
 
 # Blockers
