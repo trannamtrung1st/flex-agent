@@ -6,11 +6,18 @@ Product concepts and invariants live under [product documentation](../product/RE
 
 ## Status
 
-**Approved MVP version 0.10 baseline.** The
+**Approved MVP version 0.10 baseline, amended 2026-08-23 for effective timing,
+Accommodation ownership, and parallel v2 Enrollment projections.** The
 [MVP architecture](mvp-architecture.md) governs P0
 boundaries, logical ownership, runtime flows, trust boundaries, SPA/API/gateway
 topology, OIDC direction, resilience, quality attributes, OSS-first
 self-hostability, and evolution seams.
+
+Approved `AR-DEC-26`–`AR-DEC-27` keep effective timing and Accommodation state
+in Participation and Submission, consume frozen policy facts from Assessment
+Configuration and exact current Organization policy from Configuration owner
+ports, and preserve strict v1 meaning while adding parallel
+`/v2/assessment` Enrollment and **My work** projections.
 
 [ADR-001](decisions/ADR-001-resolved-configuration-representation-and-integrity.md)
 through [ADR-007](decisions/ADR-007-oss-first-self-hostable-deployment.md) are

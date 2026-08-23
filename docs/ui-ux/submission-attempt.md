@@ -7,10 +7,10 @@
 | **Status** | Approved |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, UI/UX reviewer, Architecture Lead, Security/Privacy reviewer |
-| **Version** | 0.1 |
+| **Version** | 0.2 |
 | **Prepared date** | 2026-08-09 |
-| **Approved date** | 2026-08-09 |
-| **Approval reference** | Product decision confirmed in the authoring task on 2026-08-09 after business-analysis, UI/UX, architecture, security/privacy, traceability, and repository-consistency review; `UI-SUBM-DEC-1`–`UI-SUBM-DEC-10` and the Enrollment-based resolution of `Q-SUBM-UX-1` approved |
+| **Approved date** | Version 0.1 approved 2026-08-09; version 0.2 approved 2026-08-23 |
+| **Approval reference** | Version 0.2 approves mandatory distinct-actor fairness approval, the four bounded replacement dimensions, reason minimization, baseline/effective timing separation, and unsupported-timezone fallback; it preserves `UI-SUBM-DEC-1`–`UI-SUBM-DEC-9` and supersedes the v0.1 wording of `UI-SUBM-DEC-10` |
 | **Audience** | Product, design, frontend, backend, security/privacy, QA, and implementation reviewers |
 | **Governs** | Administrator Enrollment interaction and Participant Submission preparation, intake, accepted-version history, Attempt readiness, start, and recovery for a P0 assessment Campaign |
 | **Journeys** | [`JRN-MVP-2`](activity-campaign-journey.md#jrn-mvp-2-assign-participant) and [`JRN-MVP-3`](activity-campaign-journey.md#jrn-mvp-3-submit-work-and-start-attempt) |
@@ -122,7 +122,7 @@ The observable system outcomes remain those in the approved
 | Actor or service | Permitted interaction | Boundary shown in the interface |
 | --- | --- | --- |
 | Activity administrator | Assign a permitted Participant; inspect and mutate an Enrollment; request bounded accommodations or retry entitlements when authorized | Organization membership does not imply assignment, exception, raw Submission, history, or Session-control authority |
-| Fairness-exception approver | Within separately delegated scope, inspect and approve or reject a pending accommodation or retry exception from the owning Enrollment | Cannot approve without current exception authority, widen the request, bypass Organization bounds, or act as both requester and approver when governing policy requires separation |
+| Fairness-exception approver | Within separately delegated scope, inspect and approve or reject a pending accommodation or retry exception from the owning Enrollment | Cannot approve without current exception authority, widen the request, bypass Organization bounds, or be the requester for the same exception |
 | Participant | Discover an own visible assignment; prepare material; submit a version; inspect own accepted versions and Attempt facts; start or continue an eligible Attempt | Cannot choose owner, cohort, deadline, Attempt ordinal, entitlement, accommodation, exact binding, or another Participant's resource |
 | Assigned Reviewer | Open exact versions and binding facts supplied by an active assigned case | No Submission mutation, entitlement grant, unassigned browsing, mutable `latest` evidence, or general repository |
 | Enrollment/Attempt service | Return current scoped state, permitted actions, eligibility, commit outcome, and bounded failure categories | Browser role labels, identifiers, cached counts, clocks, and readiness displays are advisory only |
@@ -135,8 +135,9 @@ server authorization.
 
 ## Approved interaction decision dispositions
 
-The following decisions were approved on 2026-08-09. Stable IDs are retained
-for traceability and future supersession.
+The original decisions were approved on 2026-08-09. Version 0.2 amended
+`UI-SUBM-DEC-10` and approved `UI-SUBM-DEC-11`–`UI-SUBM-DEC-12` on
+2026-08-23. Stable IDs are retained for traceability and future supersession.
 
 | ID | Approved decision | Rationale and consequence |
 | --- | --- | --- |
@@ -149,7 +150,9 @@ for traceability and future supersession.
 | `UI-SUBM-DEC-7` | Present accepted versions newest first for action, while preserving a clearly numbered chronological lineage and exact Attempt-binding badges. Older history may use an accessible disclosure but must remain reachable and must not imply replacement. | Supports the next action without suggesting older versions were overwritten. |
 | `UI-SUBM-DEC-8` | Preview or download only after a deliberate exact-version action; render direct text and Markdown as inert content and identify unavailable or not-inspected material honestly. | Minimizes protected-content exposure and prevents participant content from spoofing trusted UI or enabling retrieval. |
 | `UI-SUBM-DEC-9` | Keep routine assignment to one Participant at a time in P0. Treat bulk assignment as a separate future interaction contract. | Matches the approved single-Enrollment command and avoids inventing partial-success and notification behavior. |
-| `UI-SUBM-DEC-10` | Own the P0 fairness-exception approval interaction in a bounded section on the Enrollment. Show a non-committed **Approval required** state to the requester; expose **Approve exception** and **Reject exception** only to a separately authorized approver; require requester/approver separation when governing policy requires it; and fail closed when no approved route or approver exists. | Preserves `REQ-ACT-42`, makes the exact baseline/request/effect visible in context, avoids an unnecessary governance destination, and prevents implicit self-approval or policy widening. This resolves `Q-SUBM-UX-1`. |
+| `UI-SUBM-DEC-10` | Own the P0 fairness-exception approval interaction in a bounded section on the Enrollment. Show a non-committed **Approval required** state to the requester; expose **Approve exception** and **Reject exception** only to a different separately authorized actor; and fail closed when no approved route or approver exists. | Preserves `REQ-ACT-42`, makes the exact baseline/request/effect visible in context, avoids an unnecessary governance destination, and prevents self-approval or policy widening. This resolves `Q-SUBM-UX-1`. |
+| `UI-SUBM-DEC-11` | Present only the currently permitted subset of four timing dimensions—Submission deadline, earliest Attempt start, latest Attempt start, and per-Attempt duration—as one normalized replacement value per request. Use a policy-supplied reason selection and collect no free-text reason or diagnosis. | Keeps the form bounded, understandable, and privacy-minimized while preventing client-authored dimensions, deltas, composition, or production reason vocabularies. |
+| `UI-SUBM-DEC-12` | Keep immutable baseline timing and current effective timing visibly distinct. When the browser cannot format the governing named timezone, show exact UTC plus the unchanged timezone identifier and state that local conversion is unavailable; never substitute the browser timezone. | Prevents an accommodation or display fallback from looking like a Cohort edit or changing the authoritative cutoff. |
 
 ## Information architecture
 
@@ -365,8 +368,13 @@ When the actor has the exact action, the form shows:
 
 - the immutable cohort baseline value;
 - the current effective Participant value;
-- only adjustment types and bounds returned as currently permitted;
-- required reason, effective/expiry facts, and consequence;
+- only the currently permitted subset of **Submission deadline**, **Earliest
+  Attempt start**, **Latest Attempt start**, and **Per-Attempt duration**, with
+  the server-returned permitted result range;
+- one replacement value rather than a delta or multi-dimension composition;
+- a required policy-supplied reason-category selection with no free-text or
+  diagnosis field;
+- effective/expiry facts and the exact consequence;
 - whether the request is policy-bounded or an exception requiring additional
   approval; and
 - the original Attempt when a retry entitlement is requested.
@@ -387,9 +395,8 @@ action. The approver sees the baseline, requested difference, Participant and
 Attempt scope, fairness consequence, requester, reason, and required audit
 consequence before selecting **Approve exception** or **Reject exception**.
 The approver cannot edit or broaden the request; a change requires a new
-request. When governing policy requires requester/approver separation, the
-requester must not receive either approval action even if the requester holds
-another administrative role.
+request. The requester must never receive either approval action for the same
+fairness exception, even if the requester holds another administrative role.
 
 Approval or rejection reauthorizes the actor and resource scope, revalidates
 the unchanged request and Organization bounds, and accepts the required durable
@@ -459,6 +466,11 @@ hours** is also supplementary and updates without changing the exact displayed
 boundary. Client time never changes eligibility. When the server reports
 conflicting, stale, or unavailable timing, the interface blocks finalization
 and uses an honest unavailable state.
+
+If the browser cannot format the governing named timezone, show the exact UTC
+instant and the unchanged named timezone identifier with **Local conversion
+unavailable**. Do not substitute the browser timezone, omit the governing zone,
+or imply that a fallback display changed the cutoff.
 
 Under the approved default policy, the effective limits cannot exceed:
 
@@ -865,7 +877,7 @@ journey.
 | --- | --- | --- | --- |
 | Assign one Participant; duplicate/conflict; activated cohort | `AC-SUBM-1`–`AC-SUBM-3`; `AC-AUTH-4`, `AC-AUTH-5`, `AC-AUTH-7`, `AC-AUTH-9`, `AC-AUTH-13`, `AC-AUTH-14` | Cohort Participants/Enrollments list, assignment form, Enrollment detail | Authorized, inactive cohort, cross-Organization, forged parent, equivalent/concurrent, conflict, audit-failure tests; empty/populated desktop and narrow evidence |
 | Suspend, restore, close, revoke; in-product discovery | `AC-SUBM-4`, `AC-SUBM-19`, `AC-SUBM-29`; `AC-AUTH-2`, `AC-AUTH-3`, `AC-AUTH-7`, `AC-AUTH-11`, `AC-AUTH-20` | Enrollment actions, My work list/detail, denial state | Revocation propagation, stale cache, list/count leakage, active Session non-deletion, permission-loss keyboard/focus evidence |
-| Accommodation and retry entitlement | `AC-SUBM-10`–`AC-SUBM-12`, `AC-SUBM-24`, `AC-SUBM-25`; `AC-AUTH-5`, `AC-AUTH-10`, `AC-AUTH-14`, `AC-AUTH-22` | Enrollment effective-rules, request, and exception-approval sections | Bounded value, wrong-scope approver, requester self-approval when separation is required, approve/reject, stale/concurrent/uncertain decision, missing approval, baseline immutability, and durable-audit failure tests; confirmation, approval-required, decision, and reconciliation evidence |
+| Accommodation and retry entitlement | `AC-SUBM-10`–`AC-SUBM-12`, `AC-SUBM-24`, `AC-SUBM-25`, `AC-SUBM-33`–`AC-SUBM-39`; `AC-AUTH-5`, `AC-AUTH-10`, `AC-AUTH-14`, `AC-AUTH-22`; `AC-OPS-7` | Enrollment baseline/effective rules, bounded request, reason selection, and exception-approval sections | Four known dimensions, bounded replacement value, no composition/free text, current-policy narrowing, wrong-scope approver, mandatory requester self-approval denial, approve/reject, expiry/lifecycle, stale/concurrent/uncertain decision, missing approval, baseline immutability, v1/v2 compatibility, unsupported-timezone fallback, and durable-audit failure tests; confirmation, approval-required, decision, and reconciliation evidence |
 | Submission requirements and permitted material | `AC-SUBM-13`, `AC-SUBM-14`, `AC-SUBM-22`, `AC-SUBM-30`; `AC-OPS-1`–`AC-OPS-3` | Task/timing summary, direct-text input, attachment list | Exact boundary/DST, UTF-8/type/count/size/aggregate, inert URL/archive/executable tests; keyboard/file-input and narrow evidence |
 | Receiving, validation, cancellation, finalization | `AC-SUBM-13`, `AC-SUBM-14`, `AC-SUBM-17`, `AC-SUBM-18`, `AC-SUBM-23`, `AC-SUBM-27` | Intake progress, per-item status, error summary, reconciliation | Network loss, cutoff receipt, timeout, dependency failure, cancellation race, duplicate/conflicting finalization, revocation, performance tests; announcements and recovery evidence |
 | Accepted immutable history and exact access | `AC-SUBM-15`, `AC-SUBM-19`–`AC-SUBM-21`, `AC-SUBM-25`, `AC-SUBM-26`; `AC-AUTH-6`, `AC-AUTH-8`, `AC-AUTH-15`, `AC-AUTH-23`, `AC-AUTH-24` | Version history, inert viewer, exact preview/download, assigned-review link | Immutability, wrong version/parent/actor, signed-access reuse/expiry/revocation, assigned-review, learning-disabled, lawful-unavailability tests; scoped viewer evidence |
@@ -918,7 +930,7 @@ None.
 
 | ID | Approved resolution | Consequence |
 | --- | --- | --- |
-| `Q-SUBM-UX-1` | Own additional approval for a permitted accommodation or retry fairness exception in a bounded section on the Enrollment. Expose decision actions only to a separately authorized approver, require requester/approver separation when governing policy requires it, and fail closed when no approved route or approver exists. | P0 does not add a general governance queue. Pending requests do not change Participant eligibility; approval/rejection cannot edit or widen the request and must reauthorize, revalidate, and durably audit before success. |
+| `Q-SUBM-UX-1` | Own additional approval for a permitted accommodation or retry fairness exception in a bounded section on the Enrollment. Expose decision actions only to a different separately authorized actor for every fairness exception and fail closed when no approved route or approver exists. | P0 does not add a general governance queue. Pending requests do not change Participant eligibility; the requester cannot decide the same exception; approval/rejection cannot edit or widen the request and must reauthorize, revalidate, and durably audit before success. |
 
 ## Downstream gaps and review needed
 
@@ -935,12 +947,13 @@ None.
 
 ## Approval record
 
-- Product review approved `UI-SUBM-DEC-1`–`UI-SUBM-DEC-10`, including one
+- Product review approved `UI-SUBM-DEC-1`–`UI-SUBM-DEC-12`, including one
   Assignment workspace, independent state tracks, explicit version submission,
   deliberate Attempt confirmation, start reconciliation, server-authoritative
   timing, newest-first immutable history, deliberate exact-version access,
-  one-at-a-time P0 assignment, and Enrollment-based fairness-exception
-  approval.
+  one-at-a-time P0 assignment, bounded/minimized accommodation input,
+  baseline/effective timing separation, timezone fallback, and Enrollment-based
+  distinct-actor fairness-exception approval.
 - UI/UX review confirmed information hierarchy, terminology, local-versus-
   accepted state, intake and Attempt transitions, content, focus, keyboard,
   announcements, narrow layout, 400 percent zoom/reflow, and reduced-motion
@@ -949,11 +962,11 @@ None.
   advisory, while timing, acceptance, exact version binding, entitlement
   consumption, idempotency, reconciliation, and Session readiness remain
   server-authoritative under `AR-DEC-12` and ADR-005.
-- Security/Privacy review confirmed scoped Enrollment approval, requester/
-  approver separation when required, upload and download isolation, inert
+- Security/Privacy review confirmed scoped Enrollment approval, mandatory
+  requester/approver separation for fairness exceptions, upload and download isolation, inert
   untrusted content, minimized protected display, fail-closed dependencies,
   durable audit gates, and disabled learning/retrieval behavior.
-- Traceability review confirmed coverage of `AC-SUBM-1`–`AC-SUBM-32`, the
+- Traceability review confirmed coverage of `AC-SUBM-1`–`AC-SUBM-39`, the
   applicable `AC-AUTH-*`, `AC-RSC-*`, and `AC-OPS-*` criteria, and both
   `JRN-MVP-2` and `JRN-MVP-3`. Implementation and test evidence remain open.
 

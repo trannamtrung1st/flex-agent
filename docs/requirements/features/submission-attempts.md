@@ -6,12 +6,14 @@
 - Owner: Product Lead
 - Approvers: Product Lead, Architecture Lead, UI/UX reviewer, Security/Privacy reviewer
 - Approved date: 2026-08-06
+- Last amended: 2026-08-23 — approved `PROP-9`–`PROP-15` timing and
+  Accommodation readiness contract
 - Source: [Enrollment / participation](../../product/concept-model.md#enrollment-participation), [Attempt](../../product/concept-model.md#attempt), [Submission](../../product/concept-model.md#submission), [Assessment fairness constraints](../../product/concept-model.md#assessment-fairness-constraints), [MVP validation slice](../../product/mvp-scope.md#mvp-validation-slice), and [MVP executable workflow](../../product/mvp-scope.md#mvp-executable-workflow)
 - Catalog entry: P0 #4 — [P0 authoring order](../README.md#p0-authoring-order)
 - Related requirements: Consumes the activated cohort and frozen attempt/submission rules from [`assessment-setup.md`](assessment-setup.md), the authorization contract from [`auth-resource-isolation.md`](auth-resource-isolation.md), and supplies trusted enrollment, participant, attempt, submission-version, accommodation, and permitted-timing data to [`resolved-session-configuration.md`](resolved-session-configuration.md) and [`session-text-lifecycle.md`](session-text-lifecycle.md).
 - Related UI/UX: The approved [Submission and Attempt interaction specification](../../ui-ux/submission-attempt.md) governs administrator Enrollment and exception-approval interaction plus Participant Submission, accepted-version, Attempt-readiness, start, reconciliation, accessibility, responsive, and protected-content behavior.
-- Related decisions: [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs compatible protected references from the resolved configuration and manifest. [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) and [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) govern authorization enforcement and durable audit. [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) governs the atomic attempt/session-start and exact Submission-binding boundary required by `PROP-2`. [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs quarantine and immutable artifact storage. [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md) selects the object-store default and configurable `ArtifactSafetyScanner` boundary, while the [MVP operational defaults](../mvp-operational-defaults.md#submission-intake-defaults) govern intake limits, validation, cleanup, and authorized delivery. `PROP-1`–`PROP-7` were approved on 2026-08-06 and are recorded under [Approved decision dispositions](#approved-decision-dispositions). Proposed [ADR-018](../../architecture/decisions/ADR-018-enrollment-request-limit-scope.md) and `PROP-8` cover Enrollment request-limit scope and do not govern until approved.
-- Decision approval: `PROP-1`–`PROP-7`, the text-plus-attachment and capability-gated access direction, and the complete feature specification were approved on 2026-08-06. `PROP-8` is Proposed only and does not change approved Enrollment behavior until accepted.
+- Related decisions: [ADR-001](../../architecture/decisions/ADR-001-resolved-configuration-representation-and-integrity.md) governs compatible protected references from the resolved configuration and manifest. [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md) and [ADR-003](../../architecture/decisions/ADR-003-authorization-audit-persistence.md) govern authorization enforcement and durable audit. [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md) governs the atomic attempt/session-start and exact Submission-binding boundary required by `PROP-2`. [ADR-006](../../architecture/decisions/ADR-006-mvp-architecture-baseline-and-evolution.md) governs quarantine and immutable artifact storage. [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md) selects the object-store default and configurable `ArtifactSafetyScanner` boundary, while the [MVP operational defaults](../mvp-operational-defaults.md) govern intake, authentication-session, lifecycle, and recovery defaults. `PROP-1`–`PROP-7` were approved on 2026-08-06; `PROP-9`–`PROP-15` were approved on 2026-08-23 and are recorded under [Approved decision dispositions](#approved-decision-dispositions). Proposed [ADR-018](../../architecture/decisions/ADR-018-enrollment-request-limit-scope.md) and `PROP-8` cover Enrollment request-limit scope and do not govern until approved.
+- Decision approval: `PROP-1`–`PROP-7`, the text-plus-attachment and capability-gated access direction, and the complete feature specification were approved on 2026-08-06. `PROP-9`–`PROP-15` were approved on 2026-08-23 to resolve accommodation timing, policy precedence, dimensions, reasons, approval separation, lifecycle, and v2 projection compatibility. `PROP-8` remains Proposed only and does not change approved Enrollment behavior until accepted.
 
 This approved specification is authoritative for observable Submission, enrollment, and Attempt behavior in the MVP. Architecture and implementation must preserve its stable requirements, acceptance criteria, and approved decision dispositions.
 
@@ -39,7 +41,7 @@ All actions are governed by [`auth-resource-isolation.md`](auth-resource-isolati
 | Actor | Permitted actions and scope | Explicit restrictions |
 | --- | --- | --- |
 | Participant | Within an active enrollment, view participant-visible assignment and timing facts; upload or enter permitted submission material; inspect the participant's accepted versions; request an eligible attempt; and retry recoverable intake failures | Cannot select a different participant, activity, cohort, baseline, task, attempt ordinal, timing window, accommodation, submission owner, or session binding; cannot access another participant's identity or records |
-| Activity administrator | Within delegated activity scope, create, inspect, suspend, close, or revoke enrollments; inspect attempt status; record accommodations within pre-approved policy bounds; and request or grant retry entitlement only through its approved authorization path | Cannot enroll into an unactivated cohort, widen organization or baseline limits, independently approve an exception that requires an additional authorized approver, rewrite consumed attempts or accepted submission versions, inspect raw participant content without a sensitive-content capability, or use an administrative role label as sufficient authority |
+| Activity administrator | Within delegated activity scope, create, inspect, suspend, close, or revoke enrollments; inspect attempt status; record accommodations within pre-approved policy bounds; and request or grant retry entitlement only through its approved authorization path | Cannot enroll into an unactivated cohort, widen organization or baseline limits, decide a fairness exception requested by the same actor, rewrite consumed attempts or accepted submission versions, inspect raw participant content without a sensitive-content capability, or use an administrative role label as sufficient authority |
 | Organization administrator | Within explicitly delegated organization and action scope, manage applicable enrollment or upload policy and inspect bounded operational history | Organization membership alone does not grant raw submission access, cross-activity mutation, or an exception to non-bypassable policy |
 | Assigned reviewer | Within active review assignment, inspect the exact submission versions and attempt facts made available to the review workflow | Cannot modify submissions, grant attempts or accommodations, inspect unassigned records, or treat a mutable latest-version alias as evidence |
 | Enrollment and attempt service | Under explicit service identity and bounded delegation, derive trusted ownership, evaluate eligibility, reserve or consume entitlement, reconcile retries, and emit protected events | Cannot trust event or client scope, create cross-organization links, grant an unapproved exception, or reuse one participant's attempt/session for another participant |
@@ -81,6 +83,14 @@ All actions are governed by [`auth-resource-isolation.md`](auth-resource-isolati
 ### Terminology and capability boundary
 
 - A **Submission** is the logical, versioned participant work linked to a task, activity, or session; it is not synonymous with a file.
+- An **Accommodation** is an immutable Enrollment-scoped record that replaces
+  one policy-adjustable timing dimension for one Participant while eligible. It
+  is not a Cohort edit, retry entitlement, running-Session extension, or
+  Participant-controlled preference.
+- A **fairness exception** is a requested replacement value outside the
+  pre-approved accommodation bounds. It remains non-effective until a distinct
+  currently authorized approver approves the unchanged request; it can never
+  widen a non-bypassable Organization boundary.
 - **Direct text** is participant text entered into the product as Submission material.
 - An **attachment** is a file item contained in an accepted Submission version.
 - Acceptance preserves material; it does not by itself authorize an agent, reviewer, model, parser, or tool to read it.
@@ -184,12 +194,30 @@ An `Accepted version` is immutable. `Rejected` or incomplete intake does not bec
 ### Administrator applies an accommodation or retry entitlement
 
 1. The administrator opens the participant's enrollment within delegated activity scope.
-2. The system shows the cohort bounds, current effective participant timing/attempt facts, and existing exceptions without exposing unrelated participants.
-3. The administrator selects an accommodation or retry type permitted by organization policy, supplies a reason, and confirms the bounded effect.
-4. The service distinguishes a policy-bounded participant-specific value from an exception to a frozen upper-scope or fairness rule. A separately permitted exception requires the additional authorized approval mandated by `REQ-ACT-42` before commit.
-5. The service reauthorizes at commit, verifies that the value does not widen a non-bypassable organization boundary, and creates an immutable record linked to the enrollment and original cohort baseline.
-6. The effective participant window or retry entitlement is derived from that record and supplied to session resolution; the cohort baseline remains unchanged.
-7. Authorized reviewers can see the fairness-relevant difference and provenance when reviewing the affected attempt.
+2. The system shows the immutable cohort value, current effective participant
+   timing/attempt facts, and existing exceptions without exposing unrelated
+   participants.
+3. The administrator selects one currently permitted dimension, one normalized
+   replacement value within the server-returned policy bounds, and one bounded
+   reason category, then confirms the exact consequence and effective/expiry
+   facts.
+4. The service resolves both the frozen baseline accommodation bounds and the
+   exact current Organization policy. It distinguishes a policy-bounded
+   participant-specific value from an exception outside the pre-approved
+   bounds.
+5. A fairness exception remains non-effective until a different current actor
+   with the exact approval action approves the unchanged request. The decision
+   cannot edit or widen the value and no absent or stale approval path is
+   inferred.
+6. The service reauthorizes and revalidates at commit, verifies that the value
+   does not widen a non-bypassable Organization boundary, resolves the approved
+   accommodation lifecycle policy, and creates an immutable record linked to
+   the Enrollment and original Cohort baseline.
+7. The effective participant window or retry entitlement is derived from that
+   record and supplied to session resolution; the Cohort baseline remains
+   unchanged.
+8. Authorized reviewers can see the fairness-relevant difference and
+   provenance when reviewing the affected Attempt.
 
 ### Prohibited transitions
 
@@ -224,7 +252,7 @@ An `Accepted version` is immutable. `Rejected` or incomplete intake does not bec
 - `REQ-SUBM-9` — The service must derive each participant's actual permitted attempt-start and submission window from the frozen cohort timing rules, authoritative enrollment state, current server time, and active permitted accommodation records.
 - `REQ-SUBM-10` — Persisted deadlines, effective windows, accommodation instants, and acceptance times must use UTC and retain the named timezone needed to display the governing rule unambiguously.
 - `REQ-SUBM-11` — A participant-specific accommodation must be explicitly authorized, reason-coded, bounded by organization policy, immutably linked to the enrollment and original cohort baseline, and visible as a fairness-relevant difference to authorized reviewers.
-- `REQ-SUBM-12` — An accommodation may narrow or extend only dimensions that an approved policy marks as adjustable and must never mutate the cohort baseline or widen a non-bypassable organization boundary. A requested value outside the pre-approved bounds is a fairness exception and must satisfy `REQ-ACT-42`, including additional authorized approval, or be rejected.
+- `REQ-SUBM-12` — An accommodation may narrow or extend only dimensions that an approved policy marks as adjustable and must never mutate the cohort baseline or widen a non-bypassable organization boundary. A requested value outside the pre-approved bounds is a fairness exception and must satisfy `REQ-ACT-42`, including approval by a different currently authorized actor, or be rejected.
 - `REQ-SUBM-13` — Eligibility and cutoff decisions must use authoritative service time and one documented boundary rule; client clocks, display timezone, upload progress, and request construction time are not authoritative.
 - `REQ-SUBM-14` — Expired, revoked, superseded, exhausted, or out-of-scope accommodations must not affect new eligibility decisions, and their historical effect must remain inspectable.
 
@@ -236,7 +264,7 @@ An `Accepted version` is immutable. `Rejected` or incomplete intake does not bec
 - `REQ-SUBM-18` — Under approved decision `PROP-1`, an attempt consumes entitlement only when the approved atomic session-start boundary commits the resolved configuration, initial manifest, session binding, exact submission-version binding required by approved decision `PROP-2`, attempt transition, and required audit state.
 - `REQ-SUBM-19` — A failure before that atomic commit must not consume entitlement; a timeout or uncertain response must be reconciled from authoritative state before another attempt is authorized.
 - `REQ-SUBM-20` — A session that aborts after the start boundary commits must retain a consumed `Aborted` attempt, frozen configuration, manifest, and reason category; it must not be deleted, reset, or reused.
-- `REQ-SUBM-21` — A permitted retry after consumption must be represented by a separate authorized entitlement with actor, reason, bounded scope, UTC time, original-attempt reference, approval provenance, and required audit; it must produce a new attempt record rather than changing the original ordinal or status. When the entitlement permits an attempt beyond the frozen baseline limit, it is a fairness exception and must satisfy `REQ-ACT-42`, including additional authorized approval.
+- `REQ-SUBM-21` — A permitted retry after consumption must be represented by a separate authorized entitlement with actor, reason, bounded scope, UTC time, original-attempt reference, approval provenance, and required audit; it must produce a new attempt record rather than changing the original ordinal or status. When the entitlement permits an attempt beyond the frozen baseline limit, it is a fairness exception and must satisfy `REQ-ACT-42`, including approval by a different currently authorized actor.
 - `REQ-SUBM-22` — At most one non-terminal session may be bound to an attempt, and an attempt/session binding must never be reassigned to another enrollment or participant.
 - `REQ-SUBM-23` — Attempt status, entitlement, accommodation, and failure information shown to a participant must be limited to actionable participant-facing facts and must not expose internal policy, other participants, hidden configuration, or security controls.
 
@@ -271,6 +299,56 @@ An `Accepted version` is immutable. `Rejected` or incomplete intake does not bec
 - `REQ-SUBM-47` — If a frozen requirement requires agent inspection of material and no compatible permitted capability can access every required item, the attempt must not start and must not consume entitlement. If agent inspection is not required, inaccessible optional material may remain preserved, but the participant and assigned reviewer must be told that the agent did not inspect it and it must not be represented as agent-consumed evidence.
 - `REQ-SUBM-48` — Submission links and repository references must remain inert untrusted content unless a separately approved external capability is present in the resolved session configuration and its governing release/specification permits retrieval. This feature does not authorize repository cloning, browsing, code execution, network fetching, or escalation from embedded content.
 - `REQ-SUBM-49` — The human-review workflow may expose exact accepted versions only through an active review assignment and current sensitive-content authorization. The MVP handoff supports an assigned review queue or workspace; it must not create a general-purpose submission repository, cross-assignment browsing, or authority derived from search visibility.
+- `REQ-SUBM-50` — Under approved decision `PROP-9`, the frozen timing fields map
+  to a Submission window `[starts_at_utc, deadline_utc)` and an Attempt-start
+  window `[starts_at_utc, ends_at_utc)`. `per_attempt_duration_seconds` remains
+  a separate Session duration limit and must not silently move the latest
+  Attempt-start instant.
+- `REQ-SUBM-51` — Under approved decision `PROP-10`, every new timing or
+  eligibility decision must evaluate the frozen Cohort timing and
+  accommodation bounds together with the exact current Organization policy.
+  A later current-policy narrowing may make a historical accommodation
+  ineligible without rewriting the Cohort baseline, accommodation, or prior
+  decisions. Missing, mutable, revoked, stale, incompatible, unavailable, or
+  cross-scope policy must fail closed.
+- `REQ-SUBM-52` — Under approved decision `PROP-11`, the initial timing-
+  accommodation dimensions are `submission_deadline_utc`,
+  `attempt_start_not_before_utc`, `attempt_start_before_utc`, and
+  `per_attempt_duration_seconds`. Each record stores one normalized replacement
+  value, not a delta. Organization policy must explicitly enable the dimension
+  and supply a positive bounded permitted result range. A policy source may
+  express absolute or relative bounds, but its owner port must normalize them
+  against the verified baseline into absolute UTC-instant or positive-seconds
+  result ranges before evaluation. At most one record per Enrollment and
+  dimension may affect a decision; a later approved record supersedes rather
+  than edits or adds to the prior value.
+- `REQ-SUBM-53` — Under approved decision `PROP-12`, every accommodation or
+  fairness-exception request must use a bounded reason category supplied by the
+  exact policy. Free-text explanations, diagnoses, and detailed personal
+  circumstances must not be collected by this feature. Development/Testing
+  fixtures may use a clearly synthetic category, but no Production reason
+  vocabulary or positive bound is implied by fixture data.
+- `REQ-SUBM-54` — Under approved decision `PROP-13`, every fairness exception
+  requires a different currently authorized requester and approver. Approval
+  and rejection must use a separate exact action, must not edit or widen the
+  request, and must reauthorize and revalidate the unchanged request, current
+  policy, non-bypassable bounds, Enrollment, and baseline immediately before
+  the required-durable decision commits. No current approver means no effect.
+- `REQ-SUBM-55` — Under approved decision `PROP-14`, accommodation records and
+  their decision history must resolve the approved lifecycle class in the
+  [MVP operational defaults](../mvp-operational-defaults.md#protected-data-lifecycle-defaults).
+  Business `expires_at` controls eligibility only and is not a deletion or
+  retention clock. Expired state is derived from authoritative service time;
+  implementations must not require a materialized expiry transition for
+  eligibility correctness. Related idempotency outcomes follow the separate
+  90-day operational-default row, and audit metadata follows its 730-day row.
+- `REQ-SUBM-56` — Under approved decision `PROP-15`, existing strict v1
+  Enrollment and **My work** projections retain their current baseline-field
+  meaning. Effective timing must be introduced through strict v2 projections
+  that distinguish baseline timing, effective timing, authoritative evaluation
+  time, eligibility state, and minimized accommodation consequence. V1 and v2
+  remain available in parallel during migration; this feature does not retire
+  or reinterpret v1.
 
 ## Data, evidence, and audit
 
@@ -282,7 +360,7 @@ Architecture may choose physical storage only if it preserves these ownership, a
 | --- | --- | --- |
 | Enrollment | Authorize one participant's relationship to one activated cohort | Enrollment ID, organization/activity/cohort/baseline/task/participant references, status, rule-source references, created actor/time, current revision |
 | Enrollment revision/event | Preserve status and assignment history | Enrollment reference, prior/new state, actor/service, reason, UTC time/order, correlation, authorization/delegation reference |
-| Accommodation | Record a bounded participant-specific fairness difference | Accommodation ID, enrollment and baseline references, permitted dimension, bounded value, policy reference, actor, reason, effective/expiry times, UTC creation time, status |
+| Accommodation | Record one bounded participant-specific timing difference without changing the baseline | Accommodation ID, Organization/enrollment/participant/activity/cohort/baseline references, one approved dimension and normalized replacement value, frozen and decision-time current policy references, bounded reason category, requester and optional distinct approver, effective/expiry times, lifecycle-policy reference, UTC creation/decision/revocation times, status/revision, supersession reference |
 | Retry entitlement | Permit one separately authorized additional try | Entitlement ID, enrollment, original attempt, reason category, actor, policy/approval reference, created/expiry times, consumption link |
 | Attempt | Preserve one controlled execution try | Attempt ID, enrollment/participant/task/baseline references, ordinal, entitlement source, status, requested/start/terminal times, session/configuration/manifest bindings, terminal reason |
 | Start command/outcome | Reconcile retries and uncertain responses | Idempotency key, trusted command digest, attempt/enrollment scope, start-boundary status, correlation, stable outcome/reason, timestamps |
@@ -300,7 +378,10 @@ At minimum, record:
 
 - Enrollment created, deduplicated, suspended, restored, closed, revoked, or rejected.
 - Assignment notification requested and bounded delivery outcome when applicable.
-- Accommodation requested, granted, rejected, expired, revoked, or applied.
+- Accommodation requested, granted, rejected, revoked, superseded, or applied;
+  and an expired, stale, or current-policy-ineligible record rejected when it
+  is presented for eligibility or mutation. Expiry may remain a derived state
+  and does not require a standalone expiry mutation.
 - Attempt eligibility checked when policy requires, start requested, blocked, deduplicated, committed, reconciled, completed, or aborted.
 - Retry entitlement granted, rejected, expired, revoked, or consumed.
 - Submission intake started when policy requires, cancelled, failed, rejected, accepted, or deduplicated.
@@ -452,7 +533,9 @@ The inspection surface must answer these questions through protected structured 
 - **When** the terminal state is recorded
 - **Then** the consumed attempt, configuration, manifest, and reason category remain unchanged and inspectable
 - **And** another attempt is unavailable unless the baseline limit permits it or an authorized retry entitlement is granted
-- **And** a retry entitlement that exceeds the frozen baseline limit requires the additional authorized approval and durable audit mandated by `REQ-ACT-42`
+- **And** a retry entitlement that exceeds the frozen baseline limit requires
+  approval by a different currently authorized actor and the durable audit
+  mandated by `REQ-ACT-42`
 - **And** the original attempt is not reset, deleted, or renumbered.
 
 ### `AC-SUBM-11` — Accommodation changes participant timing without changing the baseline
@@ -462,12 +545,17 @@ The inspection surface must answer these questions through protected structured 
 - **Then** the accommodation links immutably to the enrollment and original cohort baseline
 - **And** the actual permitted window reflects the approved difference
 - **And** the baseline remains unchanged
-- **And** a value outside pre-approved policy bounds is rejected unless it receives the additional authorized approval required for a separately permitted fairness exception
+- **And** a value outside pre-approved policy bounds is rejected unless it
+  remains inside non-bypassable bounds and receives approval by a different
+  currently authorized actor under a separately permitted fairness-exception
+  rule
 - **And** authorized fairness review can identify the difference and provenance.
 
 ### `AC-SUBM-12` — Unauthorized or stale exception is rejected
 
-- **Given** an accommodation or retry entitlement is absent, expired, revoked, unbounded, cross-scope, client-authored, not permitted by policy, or missing required additional approval
+- **Given** an accommodation or retry entitlement is absent, expired, revoked,
+  unbounded, cross-scope, client-authored, not permitted by policy, or missing
+  required approval by a different currently authorized actor
 - **When** it is used for eligibility
 - **Then** it has no effect
 - **And** no non-bypassable boundary is widened
@@ -599,7 +687,7 @@ The inspection surface must answer these questions through protected structured 
 
 - **Given** submission and attempt behavior is considered for release
 - **When** its verification suite runs
-- **Then** tests cover wrong organization/activity/cohort/participant, forged parent, guessed ID, revoked enrollment, stale accommodation, replayed retry entitlement, limit exhaustion, exact time boundaries, pre/post-commit failure, duplicate/concurrent start, duplicate finalization, object-key substitution, signed-access reuse, file-policy failures, malicious/archive content, version immutability, list/count leakage, and audit failure
+- **Then** tests cover wrong organization/activity/cohort/participant, forged parent, guessed ID, revoked enrollment, stale/expired/current-policy-ineligible accommodation, unknown dimension, unbounded value, implicit composition, free-text or unknown reason, requester self-approval, missing lifecycle policy, v1/v2 semantic drift, unsupported browser timezone, replayed retry entitlement, limit exhaustion, exact time boundaries, pre/post-commit failure, duplicate/concurrent start, duplicate finalization, object-key substitution, signed-access reuse, file-policy failures, malicious/archive content, version immutability, list/count leakage, and audit failure
 - **And** the feature is not release-ready while an applicable negative case is missing or failing.
 
 ### `AC-SUBM-29` — Participant discovers only currently authorized assignments
@@ -637,6 +725,94 @@ The inspection surface must answer these questions through protected structured 
 - **And** the participant receives a plain-language explanation and safe correction path
 - **And** an assigned reviewer can distinguish preserved material from material the agent inspected
 - **And** optional material may remain preserved only when the frozen requirement does not require agent inspection.
+
+### `AC-SUBM-33` — Frozen timing fields have one exact window interpretation
+
+- **Given** a verified baseline contains start, end, deadline, timezone, and an
+  optional per-Attempt duration
+- **When** Submission and Attempt-start eligibility are evaluated before,
+  exactly at, and after each boundary
+- **Then** Submission uses `[starts_at_utc, deadline_utc)`
+- **And** Attempt start uses `[starts_at_utc, ends_at_utc)`
+- **And** per-Attempt duration remains a separately displayed and resolved
+  Session limit rather than moving the Attempt-start cutoff
+- **And** client time or timezone formatting cannot change the outcome.
+
+### `AC-SUBM-34` — Current policy narrowing invalidates effect without rewriting history
+
+- **Given** an accommodation was permitted by its frozen baseline policy and a
+  later exact current Organization policy narrows the applicable bounds
+- **When** a new eligibility decision evaluates the accommodation
+- **Then** an out-of-current-policy replacement value has no effect
+- **And** the original baseline, accommodation, decision, and prior historical
+  effect remain unchanged and inspectable
+- **And** missing, stale, revoked, unavailable, incompatible, or cross-scope
+  current policy fails closed with a bounded non-disclosing state.
+
+### `AC-SUBM-35` — Accommodation dimensions and supersession are deterministic
+
+- **Given** the exact policy enables one of the four approved timing dimensions
+  and supplies a bounded result range
+- **When** an authorized administrator requests one normalized replacement
+  value
+- **Then** only a value within both frozen and current policy bounds may become
+  effective
+- **And** at most one record for that Enrollment and dimension affects the
+  decision
+- **And** a later approved record supersedes rather than edits or adds to the
+  prior value
+- **And** relative source bounds are normalized against the verified baseline
+  before comparison with an absolute requested result
+- **And** an unknown dimension, delta, implicit composition, zero or negative
+  duration, or unbounded value is rejected without changing timing.
+
+### `AC-SUBM-36` — Accommodation reasons are bounded and minimized
+
+- **Given** an authorized actor requests an accommodation or fairness exception
+- **When** the request is validated
+- **Then** it must use one reason category from the exact current policy
+- **And** free text, a diagnosis, detailed circumstances, an unknown category,
+  or a synthetic-only category in Production is rejected
+- **And** Participant projections expose only the approved plain-language
+  consequence, not the internal category or protected circumstances.
+
+### `AC-SUBM-37` — Every fairness exception uses a distinct approver
+
+- **Given** a requested value is outside the pre-approved accommodation bounds
+  but a separately approved rule permits a fairness exception
+- **When** approval or rejection is attempted
+- **Then** the requester cannot approve or reject the request even when holding
+  another administrative grant
+- **And** a different current actor must hold the exact decision action and
+  required authentication strength
+- **And** the unchanged request, Enrollment, baseline, current policy, bounds,
+  and authorization are revalidated at the required-durable commit
+- **And** no approver, stale authority, attempted edit, audit failure, or
+  uncertain response leaves the exception effective.
+
+### `AC-SUBM-38` — Business expiry and record lifecycle remain distinct
+
+- **Given** an accommodation has `expires_at` and an exact approved lifecycle
+  policy
+- **When** authoritative service time reaches `expires_at`
+- **Then** the record immediately stops affecting new eligibility without
+  requiring a materialized expiry transition
+- **And** its history remains available until the approved Activity-closure
+  lifecycle disposition, subject to hold and dependency-safe preservation
+- **And** expiry alone never authorizes deletion or shortening of audit
+  retention.
+
+### `AC-SUBM-39` — Effective timing rolls out without changing v1 meaning
+
+- **Given** an existing strict v1 Enrollment or **My work** consumer and a new
+  v2 consumer
+- **When** effective timing is introduced
+- **Then** v1 retains its existing fields and baseline meaning
+- **And** v2 exposes separate baseline and effective timing, authoritative
+  evaluation time, eligibility state, and minimized accommodation consequence
+- **And** both versions remain available while the production SPA migrates
+- **And** an unsupported version fails explicitly rather than being silently
+  interpreted with another schema.
 
 ## Edge and failure cases
 
@@ -709,7 +885,11 @@ Metrics, logs, traces, and alerts must use bounded labels and must not contain r
 
 ## Open questions
 
-`Q-1`–`Q-7` were resolved on 2026-08-06 as recorded below. Deployment-specific count, size, and operational policy values remain required configuration under `REQ-SUBM-44`; they are not unresolved product semantics.
+`Q-1`–`Q-7` were resolved on 2026-08-06. Accommodation-readiness
+questions were resolved as approved `PROP-9`–`PROP-15` on 2026-08-23.
+Deployment-specific count, size, timing-bound, and production reason values
+remain required exact policy configuration; they are not unresolved product
+semantics and are not inferred from synthetic fixtures.
 
 - `Q-8` — Must the first Enrollment production slice include replica-independent per-actor/Organization request limits at the gateway or a shared store?
   - **Interim default:** No. This slice's implemented admission control is the replica-local API limiter already shipped (authenticated reads 60 permits and mutations 20 permits per 10-second window per `(organization, actor, surface)`, with fail-closed raised ceilings). Replica-independent, shared, or gateway-enforced per-actor/Organization Enrollment quota stays out of this slice until `PROP-8` is decided.
@@ -730,6 +910,13 @@ Metrics, logs, traces, and alerts must use bounded labels and must not contain r
 | `Q-5` / `PROP-5` | Require a 2-second 95th-percentile objective for synchronous enrollment mutation, attempt eligibility, and accepted-version metadata finalization under the documented preconditions and exclusions. | Aligns participant-facing readiness operations while measuring transfers and external dependencies separately. |
 | `Q-6` / `PROP-6` | Require in-product assignment discovery; defer email, SMS, calendar, and other external channels until their delivery and privacy contracts are approved. | Preserves a complete authorized MVP path without inventing provider behavior. |
 | `Q-7` / `PROP-7` | Treat accommodation and retry-entitlement grants, changes, revocations, and consumption as `required_durable` mutation-coupled audit events under ADR-003. | Preserves fairness-relevant exception history and blocks unaudited mutation. |
+| `PROP-9` | Map Submission to `[starts_at_utc, deadline_utc)` and Attempt start to `[starts_at_utc, ends_at_utc)`; keep per-Attempt duration independent of the latest start instant. | Makes the frozen timing model and exclusive `PROP-3` boundary directly implementable without importing Session-duration behavior. |
+| `PROP-10` | Evaluate new timing decisions against the frozen baseline accommodation bounds and exact current Organization policy; current policy may narrow future effect without rewriting history. | Preserves Cohort fairness while enforcing current non-bypassable limits and failing closed on stale or unavailable policy. |
+| `PROP-11` | Support `submission_deadline_utc`, `attempt_start_not_before_utc`, `attempt_start_before_utc`, and `per_attempt_duration_seconds` as one-value replacement dimensions; normalize absolute or relative policy-source bounds against the verified baseline before evaluation; permit at most one current effect per Enrollment/dimension and supersede rather than compose or edit. | Provides deterministic calculation, concurrency constraints, and audit reconstruction without implicit delta addition. |
+| `PROP-12` | Require an exact policy allowlist of bounded reason categories; collect no free text, diagnosis, or detailed circumstances, and treat synthetic fixture categories as non-Production. | Minimizes sensitive data and prevents an example vocabulary from becoming policy. |
+| `PROP-13` | Require a different currently authorized requester and approver for every fairness exception; approval/rejection cannot edit the request and must revalidate and durably audit at commit. | Removes implicit self-approval and makes absence or staleness of the approval route fail closed. |
+| `PROP-14` | Retain accommodation and decision history for 365 days after Activity closure under the approved lifecycle matrix; keep audit metadata under its 730-day rule and related idempotency outcomes under their 90-day rule; treat business expiry as eligibility only. | Preserves fairness reconstruction and holds without turning `expires_at` into deletion authority. |
+| `PROP-15` | Preserve strict v1 Enrollment/**My work** baseline meaning; introduce parallel strict v2 projections and routes for separate baseline/effective timing and migrate the SPA without retiring v1 in this slice. | Avoids breaking strict or mixed-version consumers and prevents silent semantic reinterpretation. |
 | Discussion decision | Keep Submission broader than attachment; support direct text plus permitted attachments; gate agent access by exact binding and resolved capabilities; use assigned review queues/workspaces rather than a general review repository; keep external repository access deferred. | Separates preservation, agent access, and reviewer authorization while retaining the approved MVP tool boundary. |
 
 ## Traceability
@@ -737,8 +924,8 @@ Metrics, logs, traces, and alerts must use bounded labels and must not contain r
 | Requirement/AC | Implementation | Automated verification | Playwright/manual evidence | Status |
 | --- | --- | --- | --- | --- |
 | `REQ-SUBM-1`–`REQ-SUBM-8`, `REQ-SUBM-43`, `AC-SUBM-1`–`AC-SUBM-4`, `AC-SUBM-29`, `PROP-6` | Production Enrollment aggregate, activated-Cohort port, assignment/lifecycle HTTP and React, and in-product **My work** discovery. `AC-SUBM-4` is implemented only at the Enrollment decision boundary; Submission intake and Attempt start remain unimplemented. External delivery remains deferred under `PROP-6`. | Domain, PostgreSQL assignment/close/reassign, contract catalog, HMAC-scoped cursors, and HTTP CSRF/unknown-member/concealed-detail/rate-limit tests | Component empty/active/suspended/conflict/confirm states. Authenticated Playwright desktop/narrow/both-theme evidence exists; 400% zoom remains a recorded gap | Partial |
-| `REQ-SUBM-9`–`REQ-SUBM-14`, `AC-SUBM-11`, `AC-SUBM-12`, `AC-SUBM-22`, `PROP-3` | UTC window derivation and immutable accommodation model — approved [ADR-004](../../architecture/decisions/ADR-004-assessment-activation-baseline-and-atomicity.md) and [MVP architecture](../../architecture/mvp-architecture.md); implementation TBD | Timezone/DST, exact boundary, stale/revoked accommodation, upper-bound widening tests | Deadline/timezone, accommodation summary, too-early/expired, permission states | Gap |
-| `REQ-SUBM-15`–`REQ-SUBM-23`, `AC-SUBM-5`–`AC-SUBM-10`, `PROP-1` | Attempt entitlement/ordinal model, idempotency, concurrency, fairness-exception approval, and atomic start/reconciliation contract — approved [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md), [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), [MVP architecture](../../architecture/mvp-architecture.md), and [Submission and Attempt interaction specification](../../ui-ux/submission-attempt.md); implementation TBD | Limit, readiness, pre/post-commit fault injection, separately authorized exception approval/rejection, requester/approver separation when required, retry, timeout, and multiple-device/concurrent start tests | Eligible, confirmation, approval-required, exception decision/reconciliation, starting, active, exhausted, failure, uncertain/reconciled, and aborted states | Gap |
+| `REQ-SUBM-9`–`REQ-SUBM-14`, `REQ-SUBM-50`–`REQ-SUBM-56`, `AC-SUBM-11`, `AC-SUBM-12`, `AC-SUBM-22`, `AC-SUBM-33`–`AC-SUBM-39`, `PROP-3`, `PROP-9`–`PROP-15` | Approved UTC window mapping, immutable one-dimension accommodation model, frozen/current-policy resolution, minimized reasons, distinct fairness approval, lifecycle class, and parallel v2 projection rollout — [MVP architecture](../../architecture/mvp-architecture.md) and approved [Submission and Attempt interaction specification](../../ui-ux/submission-attempt.md); implementation TBD | Timezone/DST, exact boundary, current-policy narrowing, stale/revoked accommodation, dimension/supersession races, reason minimization, distinct approval, lifecycle, and v1/v2 compatibility tests | Baseline/effective timing, accommodation summary, approval, too-early/expired, permission, unsupported-timezone, and mixed-version states | Gap |
+| `REQ-SUBM-15`–`REQ-SUBM-23`, `AC-SUBM-5`–`AC-SUBM-10`, `PROP-1` | Attempt entitlement/ordinal model, idempotency, concurrency, fairness-exception approval, and atomic start/reconciliation contract — approved [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md), [ADR-002](../../architecture/decisions/ADR-002-authorization-enforcement-and-delegation.md), [MVP architecture](../../architecture/mvp-architecture.md), and [Submission and Attempt interaction specification](../../ui-ux/submission-attempt.md); implementation TBD | Limit, readiness, pre/post-commit fault injection, separately authorized exception approval/rejection, mandatory requester/approver separation, retry, timeout, and multiple-device/concurrent start tests | Eligible, confirmation, approval-required, exception decision/reconciliation, starting, active, exhausted, failure, uncertain/reconciled, and aborted states | Gap |
 | `REQ-SUBM-24`–`REQ-SUBM-35`, `REQ-SUBM-44`–`REQ-SUBM-48`, `AC-SUBM-13`–`AC-SUBM-18`, `AC-SUBM-30`–`AC-SUBM-32`, `PROP-2`, `PROP-4` | Protected intake, versioned material-category policy, capability compatibility, immutable version lineage, atomic binding, and preview/download — approved [ADR-005](../../architecture/decisions/ADR-005-atomic-attempt-start-and-submission-binding.md), [ADR-008](../../architecture/decisions/ADR-008-bounded-oss-component-set.md), and [MVP architecture](../../architecture/mvp-architecture.md); implementation TBD | Text/Markdown detection and encoding, type/size/count, integrity, capability absence, inert-link/repository, receipt cutoff, revocation, idempotency, atomic-binding failure, immutability, link-reuse tests | Direct-text/file selection, agent-readable/not-inspected disclosure, receiving, validating, rejected, accepted, version history, binding, retry states | Gap |
 | `REQ-SUBM-36`–`REQ-SUBM-42`, `REQ-SUBM-49`, `AC-SUBM-19`–`AC-SUBM-21`, `AC-SUBM-24`–`AC-SUBM-26`, `PROP-7` | ADR-002/ADR-003 authorization and audit adapters, lifecycle policy, structured history, assigned-review handoff, and approved [`review-result-release.md`](review-result-release.md) contract — implementation TBD | Cross-org/participant/session/version, assigned-review scope, repository-style enumeration denial, list/count, audit durability/redaction, accommodation/retry audit failure, retention/export, learning-disabled tests | Participant/reviewer/admin scoped histories, assigned review workspace, denial, download, degraded/unavailable states | Gap |
 | UX/accessibility requirements, `AC-SUBM-23` | Approved [Submission and Attempt interaction specification](../../ui-ux/submission-attempt.md); accessible component implementation TBD | Component keyboard, focus, announcement, validation association, zoom/reflow tests | Playwright desktop/narrow screenshots for every applicable state | Gap |

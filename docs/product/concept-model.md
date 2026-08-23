@@ -11,8 +11,8 @@ Canonical product concepts, relationships, lifecycles, and invariants for Flex A
 | **Approvers** | Product Lead, Architecture Lead |
 | **Version** | 0.5 |
 | **Effective date** | 2026-08-16 |
-| **Last reviewed** | 2026-08-16 |
-| **Approval reference** | v0.5 person-like persona and honest Agent identity boundary (`PROP-AGENT-1`) approved 2026-08-16; supersedes v0.4 and preserves its P0-compatible Agent Decision/output semantics |
+| **Last reviewed** | 2026-08-23 |
+| **Approval reference** | v0.5 person-like persona and honest Agent identity boundary (`PROP-AGENT-1`) approved 2026-08-16; amended 2026-08-23 to define Enrollment-scoped Accommodation meaning without expanding the P0 workflow; supersedes v0.4 and preserves its P0-compatible Agent Decision/output semantics |
 | **Related decisions** | Approved `PROP-AGENT-1`, [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), and [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) |
 
 Version 0.5 is **approved** and supersedes v0.4. It approves the person-like
@@ -21,7 +21,9 @@ the MVP or enabling general Agent authoring, voice, human-likeness treatment, or
 additional P0 effects. It preserves canonical Agent Invocation, Invocation
 Trigger, Agent Decision, Agent Output, requested-action, next-timer, and
 presentation-versus-visibility semantics from v0.4. Normative system behavior
-remains governed by approved feature specifications.
+remains governed by approved feature specifications. The approved 2026-08-23
+amendment defines Accommodation as separate Enrollment-scoped state; it does
+not permit mutation of a Cohort baseline or create Participant self-service.
 
 ## Purpose
 
@@ -41,6 +43,7 @@ Flex Agent separates **who the AI is**, **how it operates**, **what activity is 
 | **Campaign** | Managed multi-participant activity form with shared deadlines, cohorts, and comparable outcomes |
 | **Task** | Work expected from a participant within an activity |
 | **Enrollment / participation** | A participant's authorized relationship to an activity |
+| **Accommodation** | An authorized, policy-bounded, reason-coded participant-specific adjustment linked immutably to one Enrollment and its original Cohort baseline without changing that baseline |
 | **Attempt** | A controlled execution attempt; in the MVP, typically maps to one session |
 | **Session** | One isolated execution between a resolved configuration and a participant or authorized role |
 | **Agent Invocation** | Structured, versioned execution input supplied to the resolved Agent when reasoning is required; identifies a trusted trigger and authorized, purpose-bound context |
@@ -306,6 +309,17 @@ A person taking part in a session under activity enrollment or authorization rul
 
 An **enrollment** records a participant's authorized relationship to an activity, including permitted attempts, deadlines, cohort membership, and release visibility rules.
 
+An **accommodation** is separate state attached to one Enrollment. It records an
+authorized participant-specific difference from the original Cohort timing
+baseline under an exact approved policy and bounded reason category. It never
+edits the Activity, Cohort, baseline, or another Participant's rules. Expiry,
+revocation, supersession, or later policy narrowing can stop the accommodation
+from affecting new decisions while its fairness-relevant history remains
+inspectable under the applicable lifecycle policy. A value outside the
+pre-approved bounds is a fairness exception, not an ordinary accommodation,
+and requires the separately authorized approval governed by the owning feature
+specification.
+
 ### Attempt
 
 An **attempt** is a controlled execution try within enrollment limits. In the MVP, an attempt typically maps to one session. Attempt limits, timing, and outcome linkage are recorded for audit.
@@ -493,6 +507,7 @@ flowchart TB
   Campaign[Campaign]
   Task[Task]
   Enrollment[Enrollment]
+  Accommodation[Accommodation]
   Attempt[Attempt]
   Session[Session]
   TimerLane[Agent timer lane]
@@ -524,6 +539,8 @@ flowchart TB
   Activity -->|"defines"| Task
   Activity -->|"enrolls"| Enrollment
   Enrollment -->|"authorizes"| Participant
+  Enrollment -->|"may have"| Accommodation
+  OrgPolicy -->|"bounds"| Accommodation
   Enrollment -->|"permits"| Attempt
   Attempt -->|"executes as"| Session
   Session -->|"owns at most one"| TimerLane
@@ -565,6 +582,7 @@ flowchart TB
 | Agent | Reusable identity, capability declarations, knowledge defaults, default memory mode |
 | Harness | Operating procedures, workflows, allowed tools, policies, rubrics, snapshots |
 | Activity | Activity rules, tasks, participants, limits, selected agent/harness configuration |
+| Enrollment | Participant relationship, permitted-attempt context, and linked accommodation history without ownership of the frozen Cohort baseline |
 | Session | Isolated execution, trusted invocation admission, authoritative effects, events, evidence, evaluation, and exact resolved configuration used |
 
 ## Resolved execution manifest

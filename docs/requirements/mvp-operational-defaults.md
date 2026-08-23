@@ -10,10 +10,10 @@ sessions, protected-data lifecycle, and recovery placement.
 | **Status** | Approved |
 | **Owner** | Product Lead |
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
-| **Version** | 0.3 |
+| **Version** | 0.4 |
 | **Approved date** | 2026-08-06 |
-| **Last amended** | 2026-08-20 |
-| **Approval reference** | v0.3 authentication/session business decisions approved 2026-08-20; supersedes v0.2 |
+| **Last amended** | 2026-08-23 |
+| **Approval reference** | v0.4 accommodation-record lifecycle class approved 2026-08-23; supersedes v0.3 while preserving its authentication/session decisions |
 | **Applies to** | MVP reference deployment and any deployment that does not supply a stricter approved Organization policy |
 | **Governs** | Observable operational limits and lifecycle defaults; it does not select infrastructure products or make a compliance claim |
 
@@ -24,6 +24,8 @@ text/Markdown-only categories. Version 0.3 approves pre-provisioned human
 identity mapping, one server-derived Organization per application session, and
 bounded upstream account-disablement and forced-logout propagation without
 making ordinary provider availability the authority for an existing session.
+Version 0.4 adds the approved Accommodation and fairness-exception lifecycle
+class without treating business expiry as a disposition clock.
 Organization policy may impose stricter limits or shorter retention where
 dependencies permit, but lower scopes may not widen
 approved Organization bounds. A deployment-specific override must be explicit,
@@ -120,6 +122,7 @@ versioned, authorized, auditable, and tested before protected data is accepted.
 | Operational logs without protected content | Log event time | Delete within 30 days |
 | Terminal durable-work records and bounded failure diagnostics | Work terminal time | Delete or irreversibly minimize within 90 days |
 | Idempotency records | Related command or work terminal time | Retain for 90 days, then dispose dependency-safely |
+| Enrollment accommodations, fairness-exception requests, and decision history | Activity closure | Retain for 365 days; preserve the immutable baseline/policy/decision lineage and applicable holds; business expiry affects eligibility only |
 | Accepted Submissions and exact accepted versions | Activity closure | Retain for 365 days |
 | Session messages, transcripts, resolved configuration, and execution manifest | Activity closure | Retain for 365 days |
 | Evidence, Evaluations, Human revisions, Review decisions, Results, and Releases | Activity closure | Retain for 365 days |
@@ -148,6 +151,15 @@ versioned, authorized, auditable, and tested before protected data is accepted.
 - `REQ-OPS-23`: Raw protected content must not be copied into operational logs,
   metrics, traces, idempotency records, or failure diagnostics to extend its
   lifecycle indirectly.
+- `REQ-OPS-30`: Enrollment accommodations, fairness-exception requests, and
+  their approval, rejection, revocation, and supersession history must resolve
+  to the approved Activity-closure lifecycle row before creation. Retain them
+  for 365 days after Activity closure unless a stricter approved policy
+  shortens the duration without breaking required lineage or an authorized
+  hold suspends disposition. The accommodation's effective or expiry time is
+  not a deletion clock. Authentication and security audit metadata remains
+  governed by the separate 730-day row; related idempotency records remain
+  governed by the separate 90-day row.
 
 ## Recovery placement default
 
@@ -191,6 +203,13 @@ versioned, authorized, auditable, and tested before protected data is accepted.
   environment, when lineage and isolation checks run, then exact versions,
   integrity metadata, Organization scope, and hold/lifecycle state remain
   consistent.
+- `AC-OPS-7`: Given an accommodation expires before Activity closure and an
+  applicable hold may exist, when eligibility and lifecycle processing cross
+  those boundaries, then expiry immediately removes the accommodation's effect
+  but does not delete it, the Activity-closure clock governs disposition, an
+  authorized hold prevents disposal, and audit metadata retains its independent
+  730-day lifecycle while related idempotency records retain their independent
+  90-day lifecycle.
 
 ## Related decisions and specifications
 

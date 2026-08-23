@@ -7,7 +7,9 @@ Stable product strategy, domain concepts, and MVP boundaries for Flex Agent.
 **Concept model v0.5 approved; product overview and MVP scope v0.4 remain
 approved.** Concept model v0.5 adds the person-like persona and honest Agent
 identity boundary without expanding text-only MVP examination, enabling general
-Agent authoring, or enabling voice. Product documents govern product meaning
+Agent authoring, or enabling voice. Its approved 2026-08-23 amendment defines
+Enrollment-scoped Accommodation meaning without changing the Cohort baseline
+or enabling Participant self-service. Product documents govern product meaning
 and scope. They inform
 requirements, UI/UX, and architecture but do not replace approved feature
 specifications, UI/UX specifications, or ADRs within those areas of authority.
@@ -16,7 +18,7 @@ specifications, UI/UX specifications, or ADRs within those areas of authority.
 
 | Document | Status | Version | Owner | Approvers | Last reviewed | Approval reference |
 | --- | --- | --- | --- | --- | --- | --- |
-| [Concept model](concept-model.md) | Approved | 0.5 | Product Lead | Product Lead, Architecture Lead | 2026-08-16 | Person-like persona and honest Agent identity boundary; v0.4 execution semantics preserved |
+| [Concept model](concept-model.md) | Approved | 0.5 | Product Lead | Product Lead, Architecture Lead | 2026-08-23 | Person-like persona and honest Agent identity boundary; Enrollment-scoped Accommodation amendment; v0.4 execution semantics preserved |
 | [MVP scope](mvp-scope.md) | Approved | 0.4 | Product Lead | Product Lead, Architecture Lead | 2026-08-19 | Text-only P0 preserved; provider/host sequencing review remained compatible with Concept model v0.5 |
 | [Product overview](overview.md) | Approved | 0.4 | Product Lead | Product Lead, Architecture Lead | 2026-08-19 | Envelope and P0 profile summary; provider sequencing review preserved Concept model v0.5 and synthetic-only OpenRouter scope |
 
@@ -62,7 +64,8 @@ Illustrative examples in product documents are **not** MVP commitments until cap
 Concept model v0.5, product overview and MVP scope v0.4, and all seven P0
 feature specifications are the approved baseline. The baseline includes
 structured Agent Invocation/Decision, optional next-timer replacement, the
-P0-compatible Decision-output envelope, and the honest Agent identity boundary.
+P0-compatible Decision-output envelope, the honest Agent identity boundary,
+and Enrollment-scoped Accommodation meaning.
 
 1. Preserve all seven approved P0 contracts — see [P0 authoring order](../requirements/README.md#p0-authoring-order) and [`requirements/features/`](../requirements/features/README.md)
 2. Keep structured Agent Invocation/Decision, next-timer, and P0 output-envelope behavior aligned with approved Concept model v0.5, MVP scope v0.4, current requirement specifications, [ADR-012](../architecture/decisions/ADR-012-structured-agent-invocation-and-decision-boundary.md), [ADR-013](../architecture/decisions/ADR-013-agent-requested-next-timer-replacement.md), [ADR-014](../architecture/decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md), MVP architecture v0.10, and Session runtime contract v0.5; use the approved [OpenRouter synthetic-development profile](../operations/provider-profiles/openrouter-synthetic-development.md) only for non-sensitive local evidence and complete remaining provider and production verification gates before enabling real use

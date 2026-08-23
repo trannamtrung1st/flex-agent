@@ -11,8 +11,8 @@ Approved technical realization baseline for the P0 assessment vertical slice.
 | **Approvers** | Product Lead, Architecture Lead, Security/Privacy reviewer |
 | **Consulted perspectives** | Business analysis, architecture, security/privacy, UI/UX, documentation |
 | **Version** | 0.10 |
-| **Approved date** | Version 0.7 approved 2026-08-09; versions 0.8 and 0.9 approved 2026-08-11; version 0.10 approved 2026-08-14; version 0.10 amended 2026-08-14 for Text Session v0.5 catalog accuracy and independent-item validation verification, reviewed 2026-08-19 for provider/host status accuracy, and reviewed 2026-08-21 for OpenAI-compatible migration sequencing |
-| **Approval reference** | Version 0.10 is approved through ADR-006–ADR-014; [ADR-014](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) supplies the P0-compatible Decision-output envelope; the 2026-08-19 ADR-008/ADR-010 amendments preserve this baseline while approving synthetic-only OpenRouter development; the 2026-08-21 delivery review separated deterministic OpenAI-compatible migration from exact-profile qualification without weakening enablement gates |
+| **Approved date** | Version 0.7 approved 2026-08-09; versions 0.8 and 0.9 approved 2026-08-11; version 0.10 approved 2026-08-14; version 0.10 amended 2026-08-14 for Text Session v0.5 catalog accuracy and independent-item validation verification, reviewed 2026-08-19 for provider/host status accuracy, reviewed 2026-08-21 for OpenAI-compatible migration sequencing, and amended 2026-08-23 for effective timing/accommodation ownership and v2 projection rollout |
+| **Approval reference** | Version 0.10 is approved through ADR-006–ADR-014; [ADR-014](decisions/ADR-014-agent-output-envelope-and-p0-compatibility.md) supplies the P0-compatible Decision-output envelope; the 2026-08-19 ADR-008/ADR-010 amendments preserve this baseline while approving synthetic-only OpenRouter development; the 2026-08-21 delivery review separated deterministic OpenAI-compatible migration from exact-profile qualification without weakening enablement gates; the 2026-08-23 amendment approves `AR-DEC-26`–`AR-DEC-27` under `PROP-9`–`PROP-15` |
 | **Governs** | MVP system boundaries, logical ownership, runtime flows, consistency boundaries, trust boundaries, deployment shape, recovery baseline, and architecture verification |
 
 Version 0.10 is **approved** and supersedes version 0.9. This architecture does
@@ -144,7 +144,7 @@ The following are not new proposals; they follow from approved sources:
 
 ## Approved MVP realization decisions
 
-`AR-DEC-1`–`AR-DEC-25` are approved for MVP realization.
+`AR-DEC-1`–`AR-DEC-27` are approved for MVP realization.
 
 | ID | Decision | Rationale |
 | --- | --- | --- |
@@ -173,6 +173,8 @@ The following are not new proposals; they follow from approved sources:
 | `AR-DEC-23` | Use the provider-neutral Agent Invocation → Agent Decision envelope → independent validation → authoritative domain-effect/no-domain-effect boundary in ADR-012 as specialized by ADR-014. Persist admitted minimized Invocations, keep trigger provenance trusted, represent no-action explicitly, link rather than nest Invocation identity into the Turn/publication hierarchy, and preserve ADR-011 for every visible delta. | Supports non-message decision opportunities and future voice/tools/workflows without making model output authoritative or expanding P0 scope. |
 | `AR-DEC-24` | When frozen Session policy enables it, use one primary-store-owned Agent timer lane with a default active-time cadence. Permit one optional next-timer recommendation on a successful Decision; independently validate it and replace the lane's next schedule revision under ADR-013. | Adapts the next check without parallel timers, provider-native scheduling authority, or uncontrolled self-waking. |
 | `AR-DEC-25` | Realize a successful Agent Decision as the ADR-014 envelope with a P0 compatibility profile: at most one Participant message output, no voice or extra audiences/actions except the optional next-timer request, runtime-owned output identity, and immutable historical v1 reconstruction. | Prepares coordinated later channels without changing text-only P0 or rewriting frozen contracts. |
+| `AR-DEC-26` | Keep effective timing and Accommodation state in Participation and Submission. Assessment Configuration supplies a verified frozen baseline snapshot and exact frozen Organization-policy reference/values; Configuration supplies the exact current applicable Organization-policy version through narrow read and transaction-aware ports; Participation and Submission normalizes the accommodation contract, resolves the approved lifecycle policy, and applies one eligible replacement value per dimension. | Preserves one owner per durable state, ADR-017 source authority, current-policy narrowing, baseline immutability, and commit-time validation without cross-module SQL or making Assessment own downstream accommodation semantics. |
+| `AR-DEC-27` | Preserve the existing strict `/v1/assessment` Enrollment and **My work** projections unchanged. Add parallel strict `/v2/assessment` Enrollment and **My work** routes whose canonical v2 projections separate baseline timing, effective timing, authoritative evaluation time, eligibility state, and minimized accommodation consequence. Serve both versions while the SPA migrates; v1 retirement requires a later explicit contraction. | Prevents `additionalProperties: false` and semantic compatibility breaks, supports mixed-version deployment, and keeps URL/API version aligned with response schema meaning. |
 
 ## System context and trust boundaries
 
@@ -453,9 +455,9 @@ authority by itself.
 | --- | --- | --- |
 | Identity adapter | Validated external identity and application-session binding | External identity provider |
 | Authorization kernel | Versioned action/resource decisions, reason codes, trusted policy/relationship inputs | Authoritative relationships from owning components; ADR-002 |
-| Governance and lifecycle | Organization policy, lifecycle-policy versions, capability bounds, policy resolution | Authorization kernel; Activity policy selections |
-| Assessment configuration | Activity revisions, Tasks, Cohorts, readiness, immutable activation baseline and binding | Existing Agent/Harness revisions, governance, audit; ADR-004 |
-| Participation and Submission | Enrollments, accommodations, Attempt entitlement/state, intake metadata, Submission version lineage and validation state | Activated Cohort, artifact adapter, authorization, audit |
+| Governance and lifecycle | Organization policy, exact current applicable policy selection, lifecycle-policy versions, capability bounds, policy resolution | Authorization kernel; Activity policy selections |
+| Assessment configuration | Activity revisions, Tasks, Cohorts, readiness, immutable activation baseline and binding; verified frozen timing and policy snapshot port | Existing Agent/Harness revisions, governance, audit; ADR-004 and ADR-017 |
+| Participation and Submission | Enrollments, effective timing, normalized accommodation semantics and records, Attempt entitlement/state, intake metadata, Submission version lineage and validation state | Verified activated Cohort snapshot, current Organization policy, lifecycle resolver, artifact adapter, authorization, audit |
 | Session resolution | Precedence resolution, immutable resolved configuration, configuration digest, initial and append-only manifest protocol | Cohort baseline, exact Submission binding, policies; ADR-001 and ADR-005 |
 | Session execution | Canonical Session state, acknowledgments, ordered messages/turns, timing, pauses, transcript cutoff, terminal transition | Resolution, authorization, model adapter, audit/manifest |
 | Evaluation | Evaluation request/invocation, Evidence set and locators, evaluator modes, immutable Evaluation and replacement lineage | Terminal Session, exact sources, model/deterministic adapters, authorization |
@@ -477,7 +479,7 @@ logical ownership and validation remain distinct.
 | Agent/Harness revision and memory snapshot reference | Pre-provisioned configuration boundary | Immutable revision/reference for MVP use | Primary store plus protected source store as needed | Organization and verified content identity |
 | Activity revision and Task | Assessment configuration | Editable through new expected versions | Primary store | Organization and Activity lineage |
 | Cohort and activation baseline | Assessment configuration | Cohort state transition; baseline immutable | Primary store | Organization, Activity, Cohort, source digests; ADR-004 |
-| Enrollment, accommodation, Attempt entitlement/state | Participation and Submission | Explicit version/state transitions with audit | Primary store | Organization, Activity, Cohort, Participant and policy version |
+| Enrollment, accommodation, Attempt entitlement/state | Participation and Submission | Explicit version/state transitions with audit; accommodation expiry may be derived and supersession appends | Primary store | Organization, Activity, Cohort, Participant, frozen/current policy versions, lifecycle policy, requester/approver and predecessor |
 | Submission intake/version/item metadata | Participation and Submission | Append new version; accepted version immutable | Primary store | Organization, Activity, Participant, Task, validation and integrity identity |
 | Submission payload bytes | Artifact adapter under Submission ownership | Quarantine then immutable accepted object; policy-governed disposition | Private object storage | Opaque storage key bound through metadata; never treated as authorization |
 | Exact Submission binding | Participation/Attempt start contract | Immutable | Primary store | Attempt, Session and ordered exact versions; ADR-005 |
@@ -546,6 +548,60 @@ poisoned work moves to a restricted failed state with alerting and an authorized
 reconciliation path. Backpressure and fair claiming prevent one Organization,
 Activity, Session, provider outage, or oversized artifact from starving others.
 
+## Effective timing and Accommodation contracts
+
+The Assessment Configuration owner port returns a verified frozen snapshot,
+not an eligibility decision. Its minimum contract contains Organization,
+Activity, Cohort, baseline, Task, and digest identity; baseline verification
+state; `starts_at_utc`, `ends_at_utc`, `deadline_utc`, `time_zone_id`,
+`attempt_limit`, optional `per_attempt_duration_seconds`; and the exact frozen
+Organization-policy source identity plus normalized accommodation-domain
+values captured by activation.
+
+The Configuration owner port resolves the exact current applicable
+Organization-policy version at authoritative service time and can revalidate
+that version inside the accommodation mutation's approved shared PostgreSQL
+transaction capability. Its normalized `accommodation_policy.v1` result
+contains:
+
+- Organization, policy id/version/digest, effective interval, availability,
+  and environment eligibility;
+- the four known dimensions and whether each is enabled;
+- for each enabled dimension, a typed permitted result range for routine
+  accommodation plus a typed non-bypassable result range;
+- whether a separately approved fairness-exception rule exists and its exact
+  protected reference;
+- a bounded reason-category allowlist;
+- effective/expiry requirements and positive bounds; and
+- no lifecycle duration, diagnosis, or free-text reason.
+
+Source authoring may express relative allowances, but the owner port normalizes
+them against the verified baseline into absolute UTC-instant or positive-
+seconds result ranges before Submissions evaluates them. Unknown members,
+unknown dimensions, missing bounds, missing reason categories, mutable aliases,
+or synthetic-only Production values make positive mutation unavailable.
+
+Participation and Submission resolves the permitted range as the intersection
+of the frozen and current normalized ranges. A routine accommodation stores one
+replacement value inside the routine range. A fairness exception may store a
+value outside that routine range only when it remains inside every
+non-bypassable range and the exact exception rule plus distinct approval are
+current. A current-policy narrowing removes future effect without rewriting
+the stored record.
+
+Accommodation mutation uses a named coordinator and one primary-store
+transaction shared only through owner-approved transaction handles. It reloads
+Enrollment/baseline parentage, current policy, lifecycle policy, application
+session, exact action grant, authentication strength, and—when applicable—the
+different requester/approver relationship before committing Submissions state,
+idempotency outcome, and required audit/outbox. Reads and future Attempt or
+Submission commits independently re-evaluate authoritative timing; a DTO,
+client clock, cached policy, or `permitted_actions` list is never authority.
+Accommodation and decision history follows the 365-day Activity-closure class,
+related audit metadata its 730-day class, and related idempotency outcomes their
+90-day class; business expiry affects eligibility only and legal hold remains
+authoritative.
+
 ## Critical runtime flows
 
 ### 1. Assessment activation
@@ -561,7 +617,31 @@ Activity, Session, provider outage, or oversized artifact from starving others.
 5. A lost response reconciles by scoped idempotency key and Cohort binding. No
    asynchronous projection is authoritative for activation.
 
-### 2. Submission intake and Attempt/Session start
+### 2. Effective timing and Accommodation
+
+1. Participation and Submission loads the authoritative Enrollment and asks
+   Assessment Configuration for the verified frozen Cohort snapshot, including
+   start/end/deadline/timezone, Attempt limit, optional duration, baseline
+   digest, and exact frozen Organization-policy reference/effective values.
+2. It asks Configuration, through an Organization-scoped owner port, for the
+   exact current applicable policy and current availability. A protected
+   mutation revalidates that policy through the same approved primary-store
+   transaction capability; no Submissions SQL reads Configuration tables.
+3. The domain maps Submission to `[start, deadline)` and Attempt start to
+   `[start, end)`, then evaluates one current replacement value per enabled
+   dimension against the intersection of frozen and current permitted result
+   ranges. Server time determines eligibility and derived expiry.
+4. A bounded grant, fairness-exception decision, revocation, or supersession
+   reauthorizes the exact action and full resource chain, resolves lifecycle
+   policy, commits immutable state/idempotency outcome, and accepts required
+   audit/outbox in one transaction. A fairness decision also requires a
+   different requester and approver.
+5. Reads return explicit baseline/effective timing and evaluated-at state. An
+   expired or current-policy-ineligible record has no new effect but remains
+   historical; a missing or unverifiable owner returns unavailable rather than
+   baseline-only authority.
+
+### 3. Submission intake and Attempt/Session start
 
 1. An authorized Participant creates an intake against trusted Enrollment, Task,
    frozen requirement, and current policy.
@@ -579,7 +659,7 @@ Activity, Session, provider outage, or oversized artifact from starving others.
    readiness state. Uncertain responses reconcile before another Attempt is
    offered.
 
-### 3. Text Session turn and recovery
+### 4. Text Session turn and recovery
 
 The following flow is approved for version 0.10 through ADR-012, ADR-013, and
 ADR-014. Historical v1 `emit_message` maps to an accepted P0 `message` output.
@@ -648,7 +728,7 @@ returns current lifecycle, timer, and transcript deltas. A client connection,
 cached timer, or provider callback cannot keep a Session active after revocation
 or terminal state.
 
-### 4. Terminalization and Evaluation
+### 5. Terminalization and Evaluation
 
 1. Completion, expiry, authorized termination, or unrecoverable abort enters the
    terminal command boundary using authoritative Session time, version, and
@@ -669,7 +749,7 @@ or terminal state.
 6. A completed Evaluation creates or refreshes an eligible Review case without
    releasing any participant-visible Result.
 
-### 5. Review, Result, and Release
+### 6. Review, Result, and Release
 
 1. Scoped Review queues query authorized assignments before materialization.
 2. A Reviewer claims an expected Review-case version and inspects one exact
@@ -804,6 +884,13 @@ content.
   records using current serializers, policies, or mutable aliases.
 - Additive compatibility is permitted only when older consumers remain safe.
   Meaning-changing fields require a new version and migration/dual-read plan.
+- The strict v1 Enrollment and **My work** projections keep their baseline
+  timing meaning and remain available under `/v1/assessment`. Canonical v2
+  projections are served under parallel `/v2/assessment` routes and contain
+  separately versioned baseline timing, effective timing, evaluated-at,
+  eligibility, and minimized accommodation-consequence objects. The API and SPA
+  must support mixed deployment during migration; this slice does not contract
+  or silently enrich v1.
 - Database migrations preserve Organization scope, uniqueness, append-only
   history, exact version bindings, and rollback or forward-recovery semantics.
 - ADR-001 and ADR-004 conformance fixtures are shared test assets and gate any
@@ -821,7 +908,7 @@ requirement implemented.
 | Authorization and isolation | Identity adapter, authorization kernel, scoped repositories/adapters, service delegation, audit boundary | Positive/negative resource-action matrix across web, worker, query, event, cache, artifact, export, and concurrent Session paths |
 | Resolved session configuration | Session-resolution component, versioned source registry, canonicalizer/digest, immutable configuration, manifest append/seal, reconstruction verifier | Precedence/property tests, conformance fixtures, drift/substitution tests, append concurrency, seal/tamper and degraded-source reconstruction |
 | Assessment setup | Assessment configuration, readiness validator, Activity revision, Cohort, activation coordinator, lifecycle and policy resolver | Draft concurrency, source/fairness validation, ADR-004 atomic fault injection, idempotent reconciliation and cross-scope tests |
-| Submission and Attempts | Participation/Submission, artifact adapter, accommodation and entitlement model, exact binding and start coordinator | Quarantine/validation matrix, immutable versions, timing and entitlement races, ADR-005 fault injection, capability and object-access tests |
+| Submission and Attempts | Participation/Submission, Assessment frozen-baseline port, Configuration current-policy port, lifecycle resolver, accommodation and entitlement model, artifact adapter, exact binding and start coordinator | Frozen/current-policy narrowing, timing-boundary and supersession races, distinct approval, lifecycle, v1/v2 compatibility, quarantine/validation, immutable versions, ADR-005 fault injection, capability and object-access tests |
 | Text Session lifecycle | Session execution, ordered command/event protocol, approved Invocation/Decision envelope validation/effect boundary, P0 output profile, one-lane Agent timer scheduler, model adapter, server timer, terminal/seal coordinator, reconnect | Trusted/fake/duplicate/late triggers, envelope cardinality, schema-invalid execution outcome versus Decision rejection, independent output/action validation and partial rejection, empty-output inference rejection, voice/audience item rejection, no-action, default/accepted/rejected next timer, single-lane replacement, v1 dual-read, ordering/idempotency, multiple-device, pause/resume/expiry, provider late callback, revocation, recovery, manifest/audit failure and load tests |
 | Evidence and Evaluation | Evaluation request/invocation, Evidence locator/verifier, evaluator-mode runner, model adapter, immutable completion/lineage | Exact-source and locator tests, injection, deterministic conflict, sandbox/egress limits, provider retry, replacement and completion atomicity tests |
 | Human review and Result Release | Review case/assignment, candidate selector, revision/decision state machines, Result validator, atomic Release/current-visible resolver | Wrong-scope queue/case, stale/concurrent decision, content allowlist, pre-release denial, Release/audit/visibility fault injection, correction and lifecycle tests |
@@ -900,7 +987,7 @@ is staged, not all-or-nothing:
 
 1. Foundation, structured Agent Invocation/Decision, next-timer, and P0
    output-envelope work may proceed against ADR-001 through ADR-014 and
-   `AR-DEC-1` through `AR-DEC-25`,
+   `AR-DEC-1` through `AR-DEC-27`,
    subject to the stated schema, migration, security, and verification gates.
 2. Text Session, Evaluation, and Review/Release implementations must conform to
    the approved detailed contracts adopted by ADR-009 and, for Session
@@ -909,15 +996,21 @@ is staged, not all-or-nothing:
 3. Backend, frontend, security, and test plans must map each P0 requirement/AC
    group to implementation surfaces and repeatable verification using
    specification-driven TDD.
-4. Frontend implementation must conform to the approved Activity/Campaign
+4. Effective timing and Accommodation implementation may proceed against
+   `REQ-SUBM-50`–`REQ-SUBM-56`, `PROP-9`–`PROP-15`, and
+   `AR-DEC-26`–`AR-DEC-27`. Production positive accommodations remain
+   fail-closed until an exact current Organization policy supplies enabled
+   dimensions, bounded result ranges, and a reason allowlist; synthetic
+   Development/Testing policy values are not Production authority.
+5. Frontend implementation must conform to the approved Activity/Campaign
    journey, the five approved P0 surface specifications including Text Session
    v0.5, and the approved shared design system. The Participant Text Session
    synthetic journey has Playwright evidence and production HTTP SSE is
    implemented; remaining P0 surfaces and OIDC-authenticated journeys remain
    outstanding.
-5. Scaffold acceptance must pass ADR-010's runtime, schema, JCS, HTTP,
+6. Scaffold acceptance must pass ADR-010's runtime, schema, JCS, HTTP,
    PostgreSQL/Grate, module-boundary, supply-chain, and operability gates.
-6. Production pilot remains blocked on lifecycle, identity, upload, provider
+7. Production pilot remains blocked on lifecycle, identity, upload, provider
    privacy/credential isolation, recovery, security-operations, load, failure,
    restore, upgrade, SBOM, and runbook implementation evidence identified
    above. The synthetic single-host evaluation pilot is not a production
