@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { completeProductionLogout, SignOutFailedCopy } from "./production-logout";
 
 export type ProductionApiState = "loading" | "idle" | "ready" | "denied";
 
@@ -162,24 +163,13 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
         window.location.assign(`/auth/login?return_path=${encodeURIComponent(safe)}`);
       },
       logout: async () => {
-        const headers = new Headers();
-        if (csrfRef.current) {
-          headers.set("X-Flex-CSRF", csrfRef.current);
-        }
-
         try {
-          await fetch("/auth/logout", {
-            method: "POST",
-            credentials: "same-origin",
-            headers,
-            redirect: "manual",
-          });
-        } catch {
-          // Local session chrome still clears after a transport failure.
+          const nextLocation = await completeProductionLogout(csrfRef.current);
+          clearProtectedState("idle");
+          window.location.assign(nextLocation);
+        } catch (caught: unknown) {
+          setErrorMessage(caught instanceof ProductionApiError ? caught.message : SignOutFailedCopy);
         }
-
-        clearProtectedState("idle");
-        window.location.assign("/");
       },
     }),
     [apiState, clearProtectedState, csrfToken, errorMessage, fetchJson, shell],

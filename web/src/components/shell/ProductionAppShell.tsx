@@ -58,6 +58,9 @@ export function ProductionAppShell() {
           </Button>
         </div>
       </header>
+      {apiState === "ready" && errorMessage ? (
+        <p role="alert">{errorMessage}</p>
+      ) : null}
 
       <div className="shell-nav-mobile">
         <nav aria-label="Mobile navigation">

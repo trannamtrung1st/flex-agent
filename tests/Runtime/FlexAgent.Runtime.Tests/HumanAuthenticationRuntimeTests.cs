@@ -142,7 +142,64 @@ public sealed class HumanAuthenticationRuntimeTests
         using var logout = new HttpRequestMessage(HttpMethod.Post, "/auth/logout");
         logout.Headers.TryAddWithoutValidation(HumanAuthenticationHostOptions.AntiforgeryHeaderName, csrf);
         using var loggedOut = await client.SendAsync(logout, cancellationToken);
+        var body = await loggedOut.Content.ReadAsStringAsync(cancellationToken);
+        using var document = JsonDocument.Parse(body);
+
         Assert.True(loggedOut.IsSuccessStatusCode);
+        Assert.Null(loggedOut.Headers.Location);
+        Assert.True(document.RootElement.GetProperty("logged_out").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, document.RootElement.GetProperty("end_session_url").ValueKind);
+        Assert.Contains("no-store", loggedOut.Headers.CacheControl?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Logout_antiforgery_failure_leaves_the_session()
+    {
+        var rsa = RSA.Create(2048);
+        var tokens = new FakeOidcAuthorizationClient();
+        await using var factory = CreateFactory(rsa, tokens);
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var cancellationToken = TestContext.Current.CancellationToken;
+        SeedBinding(factory);
+        await LoginAsync(client, rsa, tokens, cancellationToken);
+
+        using var forged = new HttpRequestMessage(HttpMethod.Post, "/auth/logout");
+        forged.Headers.TryAddWithoutValidation("Origin", "https://evil.example");
+        using var forgedResponse = await client.SendAsync(forged, cancellationToken);
+        using var session = await client.GetAsync("/auth/session", cancellationToken);
+        var payload = JsonDocument.Parse(await session.Content.ReadAsStringAsync(cancellationToken));
+
+        Assert.Equal(HttpStatusCode.BadRequest, forgedResponse.StatusCode);
+        Assert.True(payload.RootElement.GetProperty("authenticated").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Logout_returns_the_configured_end_session_url_instead_of_redirecting()
+    {
+        var rsa = RSA.Create(2048);
+        var tokens = new FakeOidcAuthorizationClient();
+        const string endSession = "https://issuer.example/realms/flex/protocol/openid-connect/logout";
+        await using var factory = CreateFactory(rsa, tokens, endSession);
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var cancellationToken = TestContext.Current.CancellationToken;
+        SeedBinding(factory);
+        await LoginAsync(client, rsa, tokens, cancellationToken);
+
+        using var current = await client.GetAsync("/auth/session", cancellationToken);
+        var csrf = JsonDocument.Parse(await current.Content.ReadAsStringAsync(cancellationToken))
+            .RootElement.GetProperty("csrf_token").GetString();
+        using var logout = new HttpRequestMessage(HttpMethod.Post, "/auth/logout");
+        logout.Headers.TryAddWithoutValidation(HumanAuthenticationHostOptions.AntiforgeryHeaderName, csrf);
+        using var loggedOut = await client.SendAsync(logout, cancellationToken);
+        var body = await loggedOut.Content.ReadAsStringAsync(cancellationToken);
+        using var document = JsonDocument.Parse(body);
+
+        Assert.Equal(HttpStatusCode.OK, loggedOut.StatusCode);
+        Assert.Null(loggedOut.Headers.Location);
+        Assert.True(document.RootElement.GetProperty("logged_out").GetBoolean());
+        Assert.Equal(
+            endSession + "?client_id=" + Uri.EscapeDataString(ClientId),
+            document.RootElement.GetProperty("end_session_url").GetString());
     }
 
     [Fact]
@@ -310,7 +367,8 @@ public sealed class HumanAuthenticationRuntimeTests
 
     private static WebApplicationFactory<ApiProgram> CreateFactory(
         RSA? rsa = null,
-        FakeOidcAuthorizationClient? tokens = null)
+        FakeOidcAuthorizationClient? tokens = null,
+        string? endSessionEndpoint = null)
     {
         rsa ??= RSA.Create(2048);
         tokens ??= new FakeOidcAuthorizationClient();
@@ -325,6 +383,10 @@ public sealed class HumanAuthenticationRuntimeTests
             builder.UseSetting("HumanAuthentication:TokenEndpoint", "https://issuer.example/realms/flex/protocol/openid-connect/token");
             builder.UseSetting("HumanAuthentication:JwksUri", "https://issuer.example/realms/flex/protocol/openid-connect/certs");
             builder.UseSetting("HumanAuthentication:RedirectUri", "https://app.example/auth/callback");
+            if (endSessionEndpoint is not null)
+            {
+                builder.UseSetting("HumanAuthentication:EndSessionEndpoint", endSessionEndpoint);
+            }
             builder.UseSetting("HumanAuthentication:AcceptedAcr:0", "acr:mfa");
             builder.UseSetting("HumanAuthentication:AcceptedAmr:0", "mfa");
             builder.ConfigureServices(services =>

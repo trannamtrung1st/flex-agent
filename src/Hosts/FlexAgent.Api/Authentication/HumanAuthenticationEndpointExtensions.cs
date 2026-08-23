@@ -227,13 +227,25 @@ public static class HumanAuthenticationEndpointExtensions
         }
 
         AppendSessionCookie(context, string.Empty, options, persistent: false);
-        if (!string.IsNullOrWhiteSpace(options.EndSessionEndpoint))
+        context.Response.Headers.CacheControl = "no-store";
+        await context.Response.WriteAsJsonAsync(new
         {
-            context.Response.Redirect(options.EndSessionEndpoint + "?client_id=" + Uri.EscapeDataString(options.ClientId));
-            return;
+            logged_out = true,
+            end_session_url = TryEndSessionUrl(options),
+        });
+    }
+
+    private static string? TryEndSessionUrl(HumanAuthenticationHostOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(options.EndSessionEndpoint)
+            || !Uri.TryCreate(options.EndSessionEndpoint, UriKind.Absolute, out var uri)
+            || uri.Scheme != Uri.UriSchemeHttps
+            || !string.IsNullOrEmpty(uri.UserInfo))
+        {
+            return null;
         }
 
-        await context.Response.WriteAsJsonAsync(new { logged_out = true });
+        return options.EndSessionEndpoint + "?client_id=" + Uri.EscapeDataString(options.ClientId);
     }
 
     private static async Task BackChannelLogout(
