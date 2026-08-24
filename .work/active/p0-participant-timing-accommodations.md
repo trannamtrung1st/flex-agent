@@ -523,6 +523,14 @@ the owning authority rather than introduce a code-level exception.
   grant/decide pass `true` after policy validation; revoke passes `false`
   because it does not resolve current policy. Confirmed: Submissions 77;
   then commit/push.
+- **Remediation review approval (2026-08-24):** `03561b2` approved with no
+  blocking findings. Prior P1/P2 remediations remain closed. Non-blocking
+  backlog only: accommodation idempotency replay still returns a sparse
+  successful `AccommodationMutationOutcome` (null status/revision, empty
+  permitted actions) rather than reconstructing the original mutation
+  projection; defer unless the idempotency contract requires semantic-
+  equivalent replay. Broader PostgreSQL, OpenAPI/TS, HTTP negatives, and
+  Playwright evidence remain pending for slice closeout.
 
 # Verification
 
