@@ -132,6 +132,65 @@ public sealed class EnrollmentDomainTests
     }
 
     [Fact]
+    public void V1_administrator_actions_exclude_accommodation_vocabulary()
+    {
+        var granted = AllAdministratorGrants();
+        var actions = EnrollmentProjection.AdministratorActions(EnrollmentStates.Active, granted);
+
+        Assert.Contains(EnrollmentClientActions.Suspend, actions);
+        Assert.Contains(EnrollmentClientActions.Close, actions);
+        Assert.Contains(EnrollmentClientActions.Revoke, actions);
+        Assert.DoesNotContain(EnrollmentClientActions.RequestAccommodation, actions);
+        Assert.DoesNotContain(EnrollmentClientActions.RevokeAccommodation, actions);
+        Assert.DoesNotContain(EnrollmentClientActions.ApproveException, actions);
+        Assert.DoesNotContain(EnrollmentClientActions.RejectException, actions);
+    }
+
+    [Fact]
+    public void Timing_administrator_actions_add_accommodation_vocabulary_when_policy_is_available()
+    {
+        var granted = AllAdministratorGrants();
+        var actions = EnrollmentProjection.TimingAdministratorActions(
+            EnrollmentStates.Active,
+            granted,
+            accommodationPolicyAvailable: true);
+
+        Assert.Contains(EnrollmentClientActions.RequestAccommodation, actions);
+        Assert.Contains(EnrollmentClientActions.RevokeAccommodation, actions);
+        Assert.Contains(EnrollmentClientActions.ApproveException, actions);
+        Assert.Contains(EnrollmentClientActions.RejectException, actions);
+    }
+
+    [Fact]
+    public async Task V1_assignment_and_enrollment_reads_omit_accommodation_actions_when_actor_has_those_grants()
+    {
+        var harness = CreateHarness();
+        var assigned = await harness.Coordinator.AssignAsync(AssignCommand("key-v1-actions"), TestContext.Current.CancellationToken);
+        Assert.True(assigned.Succeeded);
+        AssertNoAccommodationActions(assigned.PermittedActions);
+
+        var listed = await harness.Queries.ListEnrollmentsAsync(
+            AdministratorContext(),
+            ActivityId,
+            CohortId,
+            null,
+            20,
+            TestContext.Current.CancellationToken);
+        Assert.True(listed.Succeeded);
+        var summary = Assert.Single(listed.Value!.Items);
+        AssertNoAccommodationActions(summary.PermittedActions);
+
+        var detail = await harness.Queries.GetEnrollmentAsync(
+            AdministratorContext(),
+            ActivityId,
+            CohortId,
+            assigned.EnrollmentId!.Value,
+            TestContext.Current.CancellationToken);
+        Assert.True(detail.Succeeded);
+        AssertNoAccommodationActions(detail.Value!.Summary.PermittedActions);
+    }
+
+    [Fact]
     public async Task Equivalent_assignment_retries_return_the_same_enrollment()
     {
         var harness = CreateHarness();
@@ -927,6 +986,29 @@ public sealed class EnrollmentDomainTests
                 null,
                 reason,
                 revision));
+
+    private static HashSet<string> AllAdministratorGrants() =>
+    [
+        EnrollmentAuthorizationActions.Assign,
+        EnrollmentAuthorizationActions.List,
+        EnrollmentAuthorizationActions.Read,
+        EnrollmentAuthorizationActions.Suspend,
+        EnrollmentAuthorizationActions.Restore,
+        EnrollmentAuthorizationActions.Close,
+        EnrollmentAuthorizationActions.Revoke,
+        EnrollmentAuthorizationActions.ReadAccommodation,
+        EnrollmentAuthorizationActions.GrantAccommodation,
+        EnrollmentAuthorizationActions.DecideAccommodation,
+        EnrollmentAuthorizationActions.RevokeAccommodation,
+    ];
+
+    private static void AssertNoAccommodationActions(IReadOnlyList<string> actions)
+    {
+        Assert.DoesNotContain(EnrollmentClientActions.RequestAccommodation, actions);
+        Assert.DoesNotContain(EnrollmentClientActions.RevokeAccommodation, actions);
+        Assert.DoesNotContain(EnrollmentClientActions.ApproveException, actions);
+        Assert.DoesNotContain(EnrollmentClientActions.RejectException, actions);
+    }
 
     private static EnrollmentActorContext AdministratorContext() =>
         new(

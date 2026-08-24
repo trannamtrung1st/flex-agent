@@ -238,11 +238,12 @@ public sealed class EnrollmentTimingQueryService(
             policy,
             history,
             _clock.UtcNow);
-        var dimensions = includePolicy && effectivePolicy is not null
-            ? effectivePolicy.Dimensions.Where(pair => pair.Value.Enabled).Select(pair => pair.Key).ToArray()
+        var eligiblePolicy = effectivePolicy is { EnvironmentEligible: true } ? effectivePolicy : null;
+        var policyAvailable = eligiblePolicy is not null;
+        var dimensions = includePolicy && eligiblePolicy is not null
+            ? eligiblePolicy.Dimensions.Where(pair => pair.Value.Enabled).Select(pair => pair.Key).ToArray()
             : [];
-        var reasons = includePolicy && effectivePolicy is not null ? effectivePolicy.ReasonCategories : [];
-        var policyAvailable = effectivePolicy is { EnvironmentEligible: true };
+        var reasons = includePolicy && eligiblePolicy is not null ? eligiblePolicy.ReasonCategories : [];
         var label = enrollment.ParticipantActorId.ToString("D");
         return new EnrollmentTimingDetail(
             new EnrollmentSummary(
@@ -254,7 +255,7 @@ public sealed class EnrollmentTimingQueryService(
                 enrollment.AssignedAtUtc,
                 enrollment.UpdatedAtUtc,
                 enrollment.VisibilityForParticipant(),
-                EnrollmentProjection.AdministratorActions(
+                EnrollmentProjection.TimingAdministratorActions(
                     enrollment.Status,
                     actor.GrantedActions.ToHashSet(StringComparer.Ordinal),
                     policyAvailable)),

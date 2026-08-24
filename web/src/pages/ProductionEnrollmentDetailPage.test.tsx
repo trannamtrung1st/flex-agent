@@ -251,11 +251,20 @@ describe("ProductionEnrollmentDetailPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Revoke current accommodation" }));
 
     const revokeCall = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
-      return url.includes("/revoke");
+      if (typeof input === "string") {
+        return input.includes("/revoke");
+      }
+      if (input instanceof URL) {
+        return input.href.includes("/revoke");
+      }
+      return input instanceof Request && input.url.includes("/revoke");
     });
     expect(revokeCall).toBeDefined();
-    const body = JSON.parse(String((revokeCall?.[1] as RequestInit).body));
+    const requestInit = revokeCall?.[1];
+    expect(requestInit).toBeDefined();
+    const rawBody = requestInit && "body" in requestInit ? requestInit.body : undefined;
+    expect(typeof rawBody).toBe("string");
+    const body = JSON.parse(rawBody as string) as { expected_revision: number };
     expect(body.expected_revision).toBe(2);
   });
 });

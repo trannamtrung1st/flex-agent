@@ -461,7 +461,10 @@ public sealed class AccommodationCoordinator(
             enrollment.EnrollmentId,
             accommodation.Status,
             accommodation.Revision,
-            EnrollmentProjection.AdministratorActions(enrollment.Status, granted.ToHashSet(StringComparer.Ordinal)));
+            EnrollmentProjection.TimingAdministratorActions(
+                enrollment.Status,
+                granted.ToHashSet(StringComparer.Ordinal),
+                accommodationPolicyAvailable: true));
 
     private static AccommodationMutationOutcome Fail(string outcomeCode) =>
         new(false, outcomeCode, null, null, null, null, []);

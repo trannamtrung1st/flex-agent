@@ -74,8 +74,7 @@ public static class EnrollmentProjection
 
     public static IReadOnlyList<string> AdministratorActions(
         string status,
-        IReadOnlySet<string> granted,
-        bool accommodationPolicyAvailable = true)
+        IReadOnlySet<string> granted)
     {
         var actions = new List<string>();
         if (!IsLive(status))
@@ -103,6 +102,20 @@ public static class EnrollmentProjection
         if (granted.Contains(EnrollmentAuthorizationActions.Revoke))
         {
             actions.Add(EnrollmentClientActions.Revoke);
+        }
+
+        return actions;
+    }
+
+    public static IReadOnlyList<string> TimingAdministratorActions(
+        string status,
+        IReadOnlySet<string> granted,
+        bool accommodationPolicyAvailable)
+    {
+        var actions = new List<string>(AdministratorActions(status, granted));
+        if (!IsLive(status))
+        {
+            return actions;
         }
 
         if (status == EnrollmentStates.Active

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useProductionApi } from "../api/production-api";
 import {
@@ -51,7 +51,7 @@ export function ProductionEnrollmentDetailPage() {
   const [confirmGrant, setConfirmGrant] = useState(false);
   const [pending, setPending] = useState(false);
 
-  const load = () => Promise.all([
+  const load = useCallback(() => Promise.all([
     client.getEnrollment(activityId, cohortId, enrollmentId),
     client.getEnrollmentTiming(activityId, cohortId, enrollmentId),
   ]).then(([enrollmentDetail, enrollmentTiming]) => {
@@ -63,7 +63,7 @@ export function ProductionEnrollmentDetailPage() {
         ? current
         : enrollmentTiming.permitted_dimensions[0] || "submission_deadline_utc");
     setError(null);
-  });
+  }), [activityId, client, cohortId, enrollmentId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,7 +76,7 @@ export function ProductionEnrollmentDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [activityId, client, cohortId, enrollmentId]);
+  }, [load]);
 
   if (error) {
     return (
@@ -94,6 +94,7 @@ export function ProductionEnrollmentDetailPage() {
   const zone = timing.effective.time_zone_id || timing.baseline.time_zone_id;
   const actions = new Set(timing.enrollment.permitted_actions);
   const pendingItem = timing.history.find((item) => item.status === "pending_approval");
+  const currentAccommodationId = timing.current_accommodation_id;
 
   return (
     <div>
@@ -123,7 +124,7 @@ export function ProductionEnrollmentDetailPage() {
           <h2>Request accommodation</h2>
           <label>
             Dimension
-            <select value={dimension} onChange={(event) => setDimension(event.target.value)}>
+            <select value={dimension} onChange={(event) => { setDimension(event.target.value); }}>
               {timing.permitted_dimensions.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
@@ -131,11 +132,11 @@ export function ProductionEnrollmentDetailPage() {
           </label>
           <label>
             Requested value (UTC)
-            <input value={requestedValue} onChange={(event) => setRequestedValue(event.target.value)} placeholder="2026-09-30T17:00:00Z" />
+            <input value={requestedValue} onChange={(event) => { setRequestedValue(event.target.value); }} placeholder="2026-09-30T17:00:00Z" />
           </label>
           <label>
             Reason
-            <select value={reasonCategory} onChange={(event) => setReasonCategory(event.target.value)}>
+            <select value={reasonCategory} onChange={(event) => { setReasonCategory(event.target.value); }}>
               {timing.permitted_reason_categories.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
@@ -143,13 +144,13 @@ export function ProductionEnrollmentDetailPage() {
           </label>
           <label>
             Expires at UTC
-            <input value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
+            <input value={expiresAt} onChange={(event) => { setExpiresAt(event.target.value); }} />
           </label>
           <label>
-            <input type="checkbox" checked={fairness} onChange={(event) => setFairness(event.target.checked)} />
+            <input type="checkbox" checked={fairness} onChange={(event) => { setFairness(event.target.checked); }} />
             Fairness exception (requires a different approver)
           </label>
-          <button type="button" onClick={() => setConfirmGrant(true)} disabled={pending || requestedValue.length === 0}>
+          <button type="button" onClick={() => { setConfirmGrant(true); }} disabled={pending || requestedValue.length === 0}>
             Request accommodation
           </button>
         </section>
@@ -169,8 +170,12 @@ export function ProductionEnrollmentDetailPage() {
                   setStatus(enrollmentOutcomeCopy(outcome.outcome_code, outcome.succeeded ? "Exception approved." : "Decision was not recorded."));
                   return load();
                 })
-                .catch((caught: unknown) => setError(enrollmentFailureCopy(caught, "Decision is not available.")))
-                .finally(() => setPending(false));
+                .catch((caught: unknown) => {
+                  setError(enrollmentFailureCopy(caught, "Decision is not available."));
+                })
+                .finally(() => {
+                  setPending(false);
+                });
             }}
           >
             Approve exception
@@ -185,8 +190,12 @@ export function ProductionEnrollmentDetailPage() {
                   setStatus(enrollmentOutcomeCopy(outcome.outcome_code, outcome.succeeded ? "Exception rejected." : "Decision was not recorded."));
                   return load();
                 })
-                .catch((caught: unknown) => setError(enrollmentFailureCopy(caught, "Decision is not available.")))
-                .finally(() => setPending(false));
+                .catch((caught: unknown) => {
+                  setError(enrollmentFailureCopy(caught, "Decision is not available."));
+                })
+                .finally(() => {
+                  setPending(false);
+                });
             }}
           >
             Reject exception
@@ -194,7 +203,7 @@ export function ProductionEnrollmentDetailPage() {
         </section>
       ) : null}
 
-      {timing.current_accommodation_id && actions.has("revoke_accommodation") ? (
+      {currentAccommodationId && actions.has("revoke_accommodation") ? (
         <p>
           <button
             type="button"
@@ -205,16 +214,20 @@ export function ProductionEnrollmentDetailPage() {
                 activityId,
                 cohortId,
                 enrollmentId,
-                timing.current_accommodation_id!,
-                timing.history.find((item) => item.accommodation_id === timing.current_accommodation_id)?.revision ?? timing.enrollment.revision,
+                currentAccommodationId,
+                timing.history.find((item) => item.accommodation_id === currentAccommodationId)?.revision ?? timing.enrollment.revision,
                 createEnrollmentIdempotencyKey(),
               )
                 .then((outcome) => {
                   setStatus(enrollmentOutcomeCopy(outcome.outcome_code, outcome.succeeded ? "Accommodation revoked." : "Revocation was not recorded."));
                   return load();
                 })
-                .catch((caught: unknown) => setError(enrollmentFailureCopy(caught, "Revocation is not available.")))
-                .finally(() => setPending(false));
+                .catch((caught: unknown) => {
+                  setError(enrollmentFailureCopy(caught, "Revocation is not available."));
+                })
+                .finally(() => {
+                  setPending(false);
+                });
             }}
           >
             Revoke current accommodation
@@ -251,7 +264,9 @@ export function ProductionEnrollmentDetailPage() {
         open={confirmGrant}
         title="Confirm accommodation"
         confirmLabel="Submit request"
-        onCancel={() => setConfirmGrant(false)}
+        onCancel={() => {
+          setConfirmGrant(false);
+        }}
         isConfirming={pending}
         onConfirm={() => {
           setPending(true);
@@ -269,8 +284,12 @@ export function ProductionEnrollmentDetailPage() {
               setStatus(enrollmentOutcomeCopy(outcome.outcome_code, outcome.succeeded ? "Accommodation recorded." : "Accommodation was not recorded."));
               return load();
             })
-            .catch((caught: unknown) => setError(enrollmentFailureCopy(caught, "Accommodation is not available.")))
-            .finally(() => setPending(false));
+            .catch((caught: unknown) => {
+              setError(enrollmentFailureCopy(caught, "Accommodation is not available."));
+            })
+            .finally(() => {
+              setPending(false);
+            });
         }}
       >
         <p>Baseline deadline: {timing.baseline.deadline_utc}.</p>

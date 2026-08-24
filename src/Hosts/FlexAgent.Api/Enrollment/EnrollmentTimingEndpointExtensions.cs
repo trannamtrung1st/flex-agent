@@ -314,6 +314,8 @@ public static class EnrollmentTimingEndpointExtensions
         revision = item.Revision,
         created_at_utc = EnrollmentEndpointExtensions.FormatUtc(item.CreatedAtUtc),
         decided_at_utc = EnrollmentEndpointExtensions.FormatUtc(item.DecidedAtUtc),
-        expires_at_utc = EnrollmentEndpointExtensions.FormatUtc(item.ExpiresAtUtc),
+        expires_at_utc = item.ExpiresAtUtc is null
+            ? null
+            : AccommodationPolicyNormalizer.FormatCanonicalInstant(item.ExpiresAtUtc.Value),
     };
 }

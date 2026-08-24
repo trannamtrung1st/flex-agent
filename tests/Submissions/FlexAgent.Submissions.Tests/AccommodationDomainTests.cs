@@ -414,6 +414,9 @@ public sealed class AccommodationDomainTests
             Guid.CreateVersion7(),
             1).Value!;
         Assert.Equal(AccommodationPolicyNormalizer.CanonicalizeExpiry(seventhDigitEarlier), stored.ExpiresAtUtc);
+        Assert.Equal(
+            "2026-09-25T17:00:00.750000Z",
+            AccommodationPolicyNormalizer.FormatCanonicalInstant(DateTimeOffset.Parse("2026-09-25T17:00:00.750000Z")));
     }
 
     [Fact]

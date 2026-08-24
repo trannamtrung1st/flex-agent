@@ -172,6 +172,8 @@ public sealed class AccommodationCoordinatorTests
         Assert.DoesNotContain(EnrollmentClientActions.ApproveException, timing.Value.Summary.PermittedActions);
         Assert.DoesNotContain(EnrollmentClientActions.RejectException, timing.Value.Summary.PermittedActions);
         Assert.Contains(EnrollmentClientActions.RevokeAccommodation, timing.Value.Summary.PermittedActions);
+        Assert.Empty(timing.Value.PermittedAccommodationDimensions);
+        Assert.Empty(timing.Value.PermittedReasonCategories);
 
         harness.Cohorts.Binding = Binding() with
         {

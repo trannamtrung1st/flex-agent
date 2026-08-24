@@ -255,6 +255,28 @@ public sealed class ContractMappingParityTests
                 "current",
                 ["suspend_enrollment", "close_enrollment", "revoke_enrollment"]));
 
+        var leakedAccommodationActions = JsonSerializer.SerializeToUtf8Bytes(
+            new EnrollmentMutationOutcomeV1(
+                "v1",
+                true,
+                "enrollment.assigned",
+                Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+                "active",
+                1,
+                "current",
+                [
+                    "suspend_enrollment",
+                    "request_accommodation",
+                    "revoke_accommodation",
+                    "approve_fairness_exception",
+                    "reject_fairness_exception",
+                ]),
+            SerializerOptions);
+        var leaked = _harness.ValidateInstance(
+            schemas["https://flex-agent.local/contracts/schemas/v1/enrollment/enrollment-mutation-outcome.v1.schema.json"],
+            leakedAccommodationActions);
+        Assert.False(leaked.IsValid);
+
         ValidateDto(
             schemas,
             "https://flex-agent.local/contracts/schemas/v1/enrollment/my-work-assignment.v1.schema.json",
