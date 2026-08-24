@@ -804,7 +804,11 @@ public sealed class PostgresAssessmentRelationshipResolver(PostgresConnectionAcc
             or "assessment.enrollment.suspend"
             or "assessment.enrollment.restore"
             or "assessment.enrollment.close"
-            or "assessment.enrollment.revoke";
+            or "assessment.enrollment.revoke"
+            or "assessment.enrollment.accommodation.read"
+            or "assessment.enrollment.accommodation.grant"
+            or "assessment.enrollment.accommodation.decide"
+            or "assessment.enrollment.accommodation.revoke";
 
     private static bool IsParticipantOnlyAction(string action) =>
         action is "assessment.assignment.discover" or "assessment.enrollment.receive";
@@ -956,7 +960,12 @@ public sealed class PostgresActivatedCohortBindingReader(
             content.Timing.StartsAtUtc,
             content.Timing.EndsAtUtc,
             content.Timing.DeadlineUtc,
-            !string.Equals(verification, BaselineVerification.Verified, StringComparison.Ordinal));
+            !string.Equals(verification, BaselineVerification.Verified, StringComparison.Ordinal),
+            content.Timing.AttemptLimit,
+            content.Timing.PerAttemptDurationSeconds,
+            content.OrganizationPolicy.SourceId,
+            content.OrganizationPolicy.VersionId,
+            content.OrganizationPolicy.ContentDigest);
     }
 
     private sealed record ActivatedCohortRow(

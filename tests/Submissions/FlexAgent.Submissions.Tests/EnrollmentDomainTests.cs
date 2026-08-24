@@ -944,6 +944,10 @@ public sealed class EnrollmentDomainTests
                 EnrollmentAuthorizationActions.Restore,
                 EnrollmentAuthorizationActions.Close,
                 EnrollmentAuthorizationActions.Revoke,
+                EnrollmentAuthorizationActions.ReadAccommodation,
+                EnrollmentAuthorizationActions.GrantAccommodation,
+                EnrollmentAuthorizationActions.DecideAccommodation,
+                EnrollmentAuthorizationActions.RevokeAccommodation,
             ],
             Guid.CreateVersion7());
 

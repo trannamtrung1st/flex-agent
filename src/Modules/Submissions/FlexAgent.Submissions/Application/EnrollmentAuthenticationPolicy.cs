@@ -15,6 +15,10 @@ public static class EnrollmentAuthenticationPolicy
         EnrollmentAuthorizationActions.Restore,
         EnrollmentAuthorizationActions.Close,
         EnrollmentAuthorizationActions.Revoke,
+        EnrollmentAuthorizationActions.ReadAccommodation,
+        EnrollmentAuthorizationActions.GrantAccommodation,
+        EnrollmentAuthorizationActions.DecideAccommodation,
+        EnrollmentAuthorizationActions.RevokeAccommodation,
     ];
 
     private static readonly HashSet<string> AllowedAcr =
@@ -79,12 +83,16 @@ public static class EnrollmentAuthenticationPolicy
             or EnrollmentAuthorizationActions.Restore
             or EnrollmentAuthorizationActions.Close
             or EnrollmentAuthorizationActions.Revoke
+            or EnrollmentAuthorizationActions.GrantAccommodation
+            or EnrollmentAuthorizationActions.DecideAccommodation
+            or EnrollmentAuthorizationActions.RevokeAccommodation
             ? EnrollmentAuditClasses.RequiredDurable
             : isDenial && AdministratorActions.Contains(action)
                 ? EnrollmentAuditClasses.Bufferable
                 : action is EnrollmentAuthorizationActions.CandidateRead
                     or EnrollmentAuthorizationActions.List
                     or EnrollmentAuthorizationActions.Read
+                    or EnrollmentAuthorizationActions.ReadAccommodation
                     ? EnrollmentAuditClasses.Bufferable
                     : EnrollmentAuditClasses.OperationalSample;
 }

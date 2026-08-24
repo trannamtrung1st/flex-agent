@@ -676,6 +676,10 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
                      EnrollmentAuthorizationActions.Close,
                      EnrollmentAuthorizationActions.Read,
                      EnrollmentAuthorizationActions.List,
+                     EnrollmentAuthorizationActions.ReadAccommodation,
+                     EnrollmentAuthorizationActions.GrantAccommodation,
+                     EnrollmentAuthorizationActions.DecideAccommodation,
+                     EnrollmentAuthorizationActions.RevokeAccommodation,
                  })
         {
             await Fixture.GrantOrganizationActionAsync(seeded.OrganizationId, seeded.ActorId, action);
@@ -853,6 +857,10 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
                 EnrollmentAuthorizationActions.Close,
                 EnrollmentAuthorizationActions.List,
                 EnrollmentAuthorizationActions.Read,
+                EnrollmentAuthorizationActions.ReadAccommodation,
+                EnrollmentAuthorizationActions.GrantAccommodation,
+                EnrollmentAuthorizationActions.DecideAccommodation,
+                EnrollmentAuthorizationActions.RevokeAccommodation,
             ],
             applicationSessionId);
         var baselines = new PostgresAssessmentBaselineStore(connections, new PostgresAuditEventWriter(), new PostgresOutboxItemWriter());

@@ -103,7 +103,12 @@ public sealed record ActivatedCohortBinding(
     DateTimeOffset DeadlineUtc,
     Guid LifecyclePolicyId,
     int LifecyclePolicyVersion,
-    bool VerificationDegraded);
+    bool VerificationDegraded,
+    int AttemptLimit = 1,
+    int? PerAttemptDurationSeconds = null,
+    Guid FrozenPolicySourceId = default,
+    Guid FrozenPolicyVersionId = default,
+    string FrozenPolicyDigest = "");
 
 public interface IEnrollmentCoordinator
 {
@@ -432,6 +437,9 @@ public static class EnrollmentTelemetryLabels
         EnrollmentOperationKinds.Restore,
         EnrollmentOperationKinds.Close,
         EnrollmentOperationKinds.Revoke,
+        AccommodationOperationKinds.Grant,
+        AccommodationOperationKinds.Decide,
+        AccommodationOperationKinds.Revoke,
         EnrollmentRequestSurfaces.Read,
         EnrollmentRequestSurfaces.Mutation,
         Succeeded,

@@ -1,8 +1,8 @@
 ---
 id: p0-participant-timing-accommodations
-status: planned
+status: in-progress
 created: 2026-08-23
-updated: 2026-08-23
+updated: 2026-08-24
 predecessors:
   - p0-assessment-setup-cohort-activation
   - p0-enrollment-assignment-discovery
@@ -360,22 +360,22 @@ intake/version criteria remain unimplemented.
   amendment, `PROP-9`–`PROP-15`, `REQ-SUBM-50`–`REQ-SUBM-56`,
   `AC-SUBM-33`–`AC-SUBM-39`, operational defaults v0.4, UI specification v0.2,
   and `AR-DEC-26`–`AR-DEC-27`.
-- [ ] Reconcile the implementation-time migration and contract heads, then
+- [x] Reconcile the implementation-time migration and contract heads, then
   freeze the requirement-to-domain/API/contract/UI/test mapping and the
   normalized frozen/current policy, timing, authorization, reason, lifecycle,
   and strict v2 compatibility contracts before the accommodation Red phase.
-- [ ] Red — run failing domain tests for baseline-only timing, exclusive
+- [x] Red — run failing domain tests for baseline-only timing, exclusive
   boundaries, UTC/timezone validation, current-policy narrowing, bounded
   accommodation lifecycle, exception approval, derived
   expiry/revocation/supersession, and unchanged baseline.
-- [ ] Green/refactor — implement minimum Submissions timing/accommodation
+- [x] Green/refactor — implement minimum Submissions timing/accommodation
   domain/application behavior with explicit clock and trusted policy/baseline
   ports.
 - [ ] Red — run failing PostgreSQL migration-upgrade, scope, immutability,
   concurrency, idempotency, decision-race, session/grant revocation,
   current-policy revalidation, authoritative-clock, audit-failure, and
   append-only-history tests.
-- [ ] Green/refactor — add migration, repositories, named coordinator,
+- [>] Green/refactor — add migration, repositories, named coordinator,
   owner-port extensions, IdentityAccess adapters, audit/outbox, and telemetry.
 - [ ] Red — run failing schema/fixture/catalog/OpenAPI/C#/TypeScript parity,
   HTTP positive/negative, CSRF, no-store, limit, redaction, and reconciliation
@@ -402,32 +402,32 @@ intake/version criteria remain unimplemented.
 
 # Current state
 
-Ready to start implementation. The completed Assessment predecessor and the
-implemented Enrollment predecessor surfaces provide the Submissions core and
-infrastructure, migration `0043`, exact
-Cohort/baseline/task Enrollment binding, current Enrollment decision,
-IdentityAccess session/authorization ports, durable audit/outbox, scoped
-PostgreSQL, canonical Enrollment schemas, production routes, and
-administrator/**My work** surfaces.
+Consistency review 2026-08-24. Additive migration `0046` is drafted.
+Domain/application timing and accommodation coordinators are implemented and
+21 focused Submissions tests pass (`AccommodationCoordinatorTests`,
+`AccommodationDomainTests`, `EffectiveTimingTests`), including idempotent
+grant replay of the original accommodation id. Production remains fail
+closed without an exact current Organization policy; development uses the
+synthetic policy fixture.
 
-The Assessment port already supplies verified baseline start, end, deadline,
-and timezone, but omits attempt limit, optional per-Attempt duration, and the
-frozen Organization-policy reference/effective values needed by this slice.
-The Submissions adapter currently injects a fixed Enrollment lifecycle-policy
-constant; that is not an accommodation-record lifecycle resolver. **My work**
-currently displays baseline facts descriptively and exposes no intake or
-Attempt authority. There is no accommodation aggregate, current-policy owner
-port, policy normalizer, persistence, action vocabulary, contract, or
-production UI.
+Fixes from this review: persist accommodation id on enrollment-operation
+replay; map stale revision and unique-grant races to conflict outcomes;
+revoke from the SPA using the accommodation revision. Parallel
+`/v2/assessment` timing/accommodation HTTP routes, C# v2 command DTOs, SPA
+Enrollment/**My work** timing UI, timezone formatter, and administrator seed
+grants are in tree. Remaining closeout: PostgreSQL isolation/concurrency/audit
+suites against `0046`, canonical catalog/OpenAPI fixtures, broader HTTP/React
+state coverage, Playwright MCP evidence, independent reviews, and spec
+traceability.
 
-The authoritative contracts are now approved. Implementation starts by
-rechecking the migration and contract heads and freezing the exact
-requirement-to-test mapping, then follows specification-driven red-green-
-refactor. Development and test environments may use an explicitly synthetic
-policy category. Production positive accommodations remain fail closed until
-Configuration supplies an exact current Organization policy satisfying the
-approved v1 policy contract; this is an enablement condition, not a code-task
-blocker.
+The Assessment port supplies verified baseline start, end, deadline, and
+timezone. Attempt limit, optional per-Attempt duration, and frozen
+Organization-policy identity still use adapter defaults when the binding
+omits them. Accommodation records, coordinators, additive `0046` persistence,
+v2 HTTP, and SPA timing UI now exist. **My work** shows exact effective
+cutoff and does not expose intake or Attempt start. Production positive
+accommodations remain fail closed until Configuration supplies an exact
+current Organization policy; development uses the synthetic fixture.
 
 # Decisions
 
@@ -523,11 +523,11 @@ the owning authority rather than introduce a code-level exception.
 | Accommodation-policy readiness | passed | `REQ-SUBM-51`–`REQ-SUBM-54`, `AC-SUBM-34`–`AC-SUBM-36`, and `PROP-10`–`PROP-13` define frozen/current validation, dimensions, normalized replacement, reasons, and approval separation. Production positive behavior remains fail closed until exact policy configuration exists. |
 | Lifecycle-policy readiness | passed | Operational defaults v0.4 `REQ-OPS-30`/`AC-OPS-7` and `PROP-14` define retention, audit, idempotency, hold, and business expiry. |
 | Contract compatibility | passed | `REQ-SUBM-56`, `AC-SUBM-39`, `PROP-15`, and `AR-DEC-27` preserve strict v1 while adding parallel strict v2 and migrating the SPA. |
-| Domain red/green | pending | Record exact failing/passing commands and results. |
+| Domain red/green | passed for focused coordinators | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release -- --filter-class FlexAgent.Submissions.Tests.AccommodationCoordinatorTests --filter-class FlexAgent.Submissions.Tests.AccommodationDomainTests --filter-class FlexAgent.Submissions.Tests.EffectiveTimingTests` → 21 passed. |
 | PostgreSQL migration/isolation/concurrency/fault tests | pending | Include populated-`0043` upgrade and real PostgreSQL negatives. |
 | Schema/OpenAPI/C#/TypeScript parity | pending | Run catalog, fixture, mapping, and runtime-boundary suites. |
-| API authorization/HTTP negatives | pending | Include CSRF, no-store, rate, revocation, wrong scope, audit failure, and reconciliation. |
-| React/accessibility | pending | Cover all implemented administrator and Participant states. |
+| API authorization/HTTP negatives | partial | CSRF grant rejection before session authentication passed. Broader grant/decide/revoke HTTP coverage still pending. |
+| React/accessibility | partial | Focused vitest for enrollment detail (including revoke revision), My work timing, timezone formatter, and enrollment client: 8 passed. Playwright MCP still pending. |
 | Authenticated Playwright MCP | pending | Real synthetic journeys; accessibility snapshots and desktop/narrow/400%/themes/focus/error screenshots. |
 | Regression/performance/security/supply-chain/OCI/docs | pending | Record commands, counts, skips, environment, timings, and residuals. |
 | Independent review | pending | Backend, frontend, security/privacy, and QA review required. |

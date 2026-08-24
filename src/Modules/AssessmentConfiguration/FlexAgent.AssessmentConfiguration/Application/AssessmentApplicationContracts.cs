@@ -334,7 +334,12 @@ public sealed record ActivatedCohortBindingSnapshot(
     DateTimeOffset StartsAtUtc,
     DateTimeOffset EndsAtUtc,
     DateTimeOffset DeadlineUtc,
-    bool VerificationDegraded);
+    bool VerificationDegraded,
+    int AttemptLimit = 1,
+    int? PerAttemptDurationSeconds = null,
+    Guid FrozenPolicySourceId = default,
+    Guid FrozenPolicyVersionId = default,
+    string FrozenPolicyDigest = "");
 
 public interface IActivatedCohortBindingReader
 {

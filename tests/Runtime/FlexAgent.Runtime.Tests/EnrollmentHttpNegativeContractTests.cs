@@ -37,6 +37,21 @@ public sealed class EnrollmentHttpNegativeContractTests
     }
 
     [Fact]
+    public async Task Accommodation_grant_without_antiforgery_is_rejected_before_session_authentication()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var url = $"/v2/assessment/activities/{Guid.CreateVersion7()}/cohorts/{Guid.CreateVersion7()}/enrollments/{Guid.CreateVersion7()}/accommodations";
+        using var response = await client.PostAsync(url, AssignContent(), TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("csrf.invalid", body, StringComparison.Ordinal);
+        AssertNoAssignment(body);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
     public async Task My_work_without_a_session_is_unauthorized_and_not_cached()
     {
         await using var factory = CreateFactory();

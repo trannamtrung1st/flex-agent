@@ -102,6 +102,24 @@ public static class EnrollmentProjection
             actions.Add(EnrollmentClientActions.Revoke);
         }
 
+        if (status == EnrollmentStates.Active
+            && granted.Contains(EnrollmentAuthorizationActions.GrantAccommodation))
+        {
+            actions.Add(EnrollmentClientActions.RequestAccommodation);
+        }
+
+        if (status == EnrollmentStates.Active
+            && granted.Contains(EnrollmentAuthorizationActions.RevokeAccommodation))
+        {
+            actions.Add(EnrollmentClientActions.RevokeAccommodation);
+        }
+
+        if (granted.Contains(EnrollmentAuthorizationActions.DecideAccommodation))
+        {
+            actions.Add(EnrollmentClientActions.ApproveException);
+            actions.Add(EnrollmentClientActions.RejectException);
+        }
+
         return actions;
     }
 

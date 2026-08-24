@@ -46,7 +46,11 @@ FROM (
         ('assessment.enrollment.suspend'),
         ('assessment.enrollment.restore'),
         ('assessment.enrollment.close'),
-        ('assessment.enrollment.revoke')
+        ('assessment.enrollment.revoke'),
+        ('assessment.enrollment.accommodation.read'),
+        ('assessment.enrollment.accommodation.grant'),
+        ('assessment.enrollment.accommodation.decide'),
+        ('assessment.enrollment.accommodation.revoke')
 ) AS grants(granted_action)
 ON CONFLICT (organization_id, actor_id, granted_action) DO NOTHING;
 

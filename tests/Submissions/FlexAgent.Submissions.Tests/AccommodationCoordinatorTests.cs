@@ -1,0 +1,252 @@
+using FlexAgent.IdentityAccess.Domain;
+using FlexAgent.Submissions.Application;
+using FlexAgent.Submissions.Domain;
+
+namespace FlexAgent.Submissions.Tests;
+
+public sealed class AccommodationCoordinatorTests
+{
+    private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-08-22T06:00:00Z");
+    private static readonly Guid OrganizationId = Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc");
+    private static readonly Guid ActivityId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1");
+    private static readonly Guid CohortId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2");
+    private static readonly Guid ParticipantId = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1");
+    private static readonly Guid AdministratorId = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2");
+    private static readonly Guid ApproverId = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8");
+
+    [Fact]
+    public async Task Grant_inside_routine_bounds_changes_effective_deadline_without_changing_baseline()
+    {
+        var harness = await AssignedHarnessAsync();
+        var enrollmentId = harness.EnrollmentId;
+        var requested = Now.AddDays(22);
+        var granted = await harness.Accommodations.GrantAsync(
+            GrantCommand(enrollmentId, 1, "grant-1", Format(requested), fairness: false),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(granted.Succeeded, granted.OutcomeCode);
+        Assert.Equal(AccommodationStates.Granted, granted.Status);
+
+        var detail = await harness.Timing.GetEnrollmentTimingAsync(
+            Administrator(),
+            ActivityId,
+            CohortId,
+            enrollmentId,
+            TestContext.Current.CancellationToken);
+        Assert.True(detail.Succeeded);
+        Assert.Equal(requested, detail.Value!.Timing.EffectiveSubmissionExclusiveEndUtc);
+        Assert.Equal(Now.AddDays(20), detail.Value.Timing.Baseline.DeadlineUtc);
+        Assert.Equal(granted.AccommodationId, detail.Value!.Timing.CurrentAccommodationId);
+
+        var replayed = await harness.Accommodations.GrantAsync(
+            GrantCommand(enrollmentId, 1, "grant-1", Format(requested), fairness: false),
+            TestContext.Current.CancellationToken);
+        Assert.True(replayed.Succeeded, replayed.OutcomeCode);
+        Assert.Equal(granted.AccommodationId, replayed.AccommodationId);
+    }
+
+    [Fact]
+    public async Task Fairness_exception_stays_pending_until_a_distinct_approver_decides()
+    {
+        var harness = await AssignedHarnessAsync();
+        var enrollmentId = harness.EnrollmentId;
+        var requested = Now.AddDays(40);
+        var pending = await harness.Accommodations.GrantAsync(
+            GrantCommand(enrollmentId, 1, "grant-fair", Format(requested), fairness: true),
+            TestContext.Current.CancellationToken);
+        Assert.True(pending.Succeeded, pending.OutcomeCode);
+        Assert.Equal(AccommodationStates.PendingApproval, pending.Status);
+
+        var self = await harness.Accommodations.DecideAsync(
+            DecideCommand(enrollmentId, pending.AccommodationId!.Value, 1, "decide-self", true, Administrator()),
+            TestContext.Current.CancellationToken);
+        Assert.False(self.Succeeded);
+        Assert.Equal(AccommodationFailureCodes.DistinctApproverRequired, self.OutcomeCode);
+
+        var approved = await harness.Accommodations.DecideAsync(
+            DecideCommand(enrollmentId, pending.AccommodationId.Value, 1, "decide-ok", true, Approver()),
+            TestContext.Current.CancellationToken);
+        Assert.True(approved.Succeeded, approved.OutcomeCode);
+        Assert.Equal(AccommodationStates.Granted, approved.Status);
+    }
+
+    private async Task<TimingHarness> AssignedHarnessAsync()
+    {
+        var store = new InMemoryEnrollmentStore();
+        var operations = new InMemoryEnrollmentOperationStore();
+        var accommodations = new InMemoryAccommodationStore();
+        var authorization = new AllowEnrollmentAuthorizationPort();
+        var cohorts = new FixedActivatedCohortPort { Binding = Binding() };
+        var candidates = new InMemoryCandidatePort();
+        candidates.Candidates.Add(new EnrollmentCandidate(ParticipantId, "Synthetic Participant"));
+        var audit = new RecordingEnrollmentAuditPort();
+        var sessions = new AllowEnrollmentSessionPort();
+        var unitOfWork = new InMemoryEnrollmentUnitOfWork(sessions, store, operations, audit);
+        var enrollmentCoordinator = new EnrollmentCoordinator(
+            authorization,
+            cohorts,
+            candidates,
+            store,
+            operations,
+            audit,
+            unitOfWork,
+            sessions,
+            new FixedEnrollmentClock(Now));
+        var assigned = await enrollmentCoordinator.AssignAsync(
+            new AssignEnrollmentCommand(
+                Administrator(),
+                ActivityId,
+                CohortId,
+                ParticipantId,
+                "assign-1",
+                EnrollmentCommandDigest.Compute(
+                    EnrollmentOperationKinds.Assign,
+                    OrganizationId,
+                    ActivityId,
+                    CohortId,
+                    null,
+                    ParticipantId,
+                    null,
+                    null)),
+            TestContext.Current.CancellationToken);
+        Assert.True(assigned.Succeeded, assigned.OutcomeCode);
+        var policies = new FixedAccommodationPolicyPort();
+        var accommodationCoordinator = new AccommodationCoordinator(
+            authorization,
+            cohorts,
+            store,
+            accommodations,
+            operations,
+            audit,
+            unitOfWork,
+            sessions,
+            policies,
+            new FixedEnrollmentClock(Now));
+        var timing = new EnrollmentTimingQueryService(
+            authorization,
+            cohorts,
+            store,
+            accommodations,
+            policies,
+            new FixedEnrollmentClock(Now));
+        return new TimingHarness(assigned.EnrollmentId!.Value, accommodationCoordinator, timing);
+    }
+
+    private static GrantAccommodationCommand GrantCommand(
+        Guid enrollmentId,
+        long revision,
+        string key,
+        string value,
+        bool fairness) =>
+        new(
+            Administrator(),
+            ActivityId,
+            CohortId,
+            enrollmentId,
+            AccommodationDimensions.SubmissionDeadlineUtc,
+            value,
+            AccommodationReasonCategories.DevelopmentSynthetic,
+            null,
+            fairness,
+            revision,
+            key,
+            AccommodationCommandDigest.Compute(
+                AccommodationOperationKinds.Grant,
+                OrganizationId,
+                ActivityId,
+                CohortId,
+                enrollmentId,
+                null,
+                AccommodationDimensions.SubmissionDeadlineUtc,
+                value,
+                AccommodationReasonCategories.DevelopmentSynthetic,
+                fairness,
+                revision));
+
+    private static DecideAccommodationCommand DecideCommand(
+        Guid enrollmentId,
+        Guid accommodationId,
+        long revision,
+        string key,
+        bool approve,
+        EnrollmentActorContext actor) =>
+        new(
+            actor,
+            ActivityId,
+            CohortId,
+            enrollmentId,
+            accommodationId,
+            approve,
+            revision,
+            key,
+            AccommodationCommandDigest.Compute(
+                AccommodationOperationKinds.Decide,
+                OrganizationId,
+                ActivityId,
+                CohortId,
+                enrollmentId,
+                accommodationId,
+                null,
+                null,
+                null,
+                approve,
+                revision));
+
+    private static EnrollmentActorContext Administrator() =>
+        Actor(AdministratorId, AuthenticationStrengthEvaluator.AdministratorRelationship, [
+            EnrollmentAuthorizationActions.Assign,
+            EnrollmentAuthorizationActions.Read,
+            EnrollmentAuthorizationActions.GrantAccommodation,
+            EnrollmentAuthorizationActions.DecideAccommodation,
+            EnrollmentAuthorizationActions.RevokeAccommodation,
+            EnrollmentAuthorizationActions.ReadAccommodation,
+        ]);
+
+    private static EnrollmentActorContext Approver() =>
+        Actor(ApproverId, AuthenticationStrengthEvaluator.AdministratorRelationship, [
+            EnrollmentAuthorizationActions.DecideAccommodation,
+            EnrollmentAuthorizationActions.Read,
+        ]);
+
+    private static EnrollmentActorContext Actor(Guid actorId, string relationship, IReadOnlyList<string> actions) =>
+        new(
+            new TrustedActor(actorId, HumanInteractiveActorTypes.Interactive),
+            new OrganizationScope(OrganizationId),
+            relationship,
+            new AuthenticationStrength("mfa", ["mfa"]),
+            Guid.CreateVersion7(),
+            "https",
+            actions,
+            Guid.CreateVersion7());
+
+    private static ActivatedCohortBinding Binding() =>
+        new(
+            OrganizationId,
+            ActivityId,
+            CohortId,
+            Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4"),
+            new string('a', 64),
+            "activated",
+            Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa5"),
+            Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6"),
+            new string('a', 64),
+            "Campaign",
+            "Task",
+            "America/New_York",
+            Now,
+            Now.AddDays(30),
+            Now.AddDays(20),
+            EnrollmentLifecyclePolicy.RestrictedPreservationPolicyId,
+            EnrollmentLifecyclePolicy.RestrictedPreservationVersion,
+            false,
+            2,
+            3600);
+
+    private static string Format(DateTimeOffset value) =>
+        value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
+
+    private sealed record TimingHarness(
+        Guid EnrollmentId,
+        IAccommodationCoordinator Accommodations,
+        IEnrollmentTimingQueryService Timing);
+}

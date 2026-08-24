@@ -35,6 +35,9 @@ public static class EnrollmentEndpointExtensions
         services.AddSingleton<IEnrollmentRequestLimiter, FixedWindowEnrollmentRequestLimiter>();
         services.AddSingleton<IEnrollmentTelemetry, LoggingEnrollmentTelemetry>();
         services.AddSingleton<IEnrollmentCoordinator, EnrollmentCoordinator>();
+        services.AddSingleton<IAccommodationCoordinator, AccommodationCoordinator>();
+        services.AddSingleton<IEnrollmentTimingQueryService, EnrollmentTimingQueryService>();
+        services.AddSingleton<IAccommodationPolicyPort, EnvironmentAccommodationPolicyPort>();
         services.AddSingleton<IEnrollmentCursorSigner>(provider =>
             CreateCursorSigner(provider, configuration, environment));
         services.AddSingleton<IEnrollmentQueryService, EnrollmentQueryService>();
@@ -52,6 +55,8 @@ public static class EnrollmentEndpointExtensions
             services.AddSingleton<RecordingEnrollmentAuditPort>();
             services.AddSingleton<IEnrollmentAuditPort>(static provider => provider.GetRequiredService<RecordingEnrollmentAuditPort>());
             services.AddSingleton<IEnrollmentSessionPort, AllowEnrollmentSessionPort>();
+            services.AddSingleton<InMemoryAccommodationStore>();
+            services.AddSingleton<IAccommodationStore>(static provider => provider.GetRequiredService<InMemoryAccommodationStore>());
             services.AddSingleton<IEnrollmentUnitOfWork, InMemoryEnrollmentUnitOfWork>();
             return services;
         }
@@ -62,6 +67,7 @@ public static class EnrollmentEndpointExtensions
         services.AddSingleton<IEnrollmentCandidatePort, IdentityEnrollmentCandidatePort>();
         services.AddSingleton<IEnrollmentStore, PostgresEnrollmentStore>();
         services.AddSingleton<IEnrollmentOperationStore, PostgresEnrollmentOperationStore>();
+        services.AddSingleton<IAccommodationStore, PostgresAccommodationStore>();
         services.AddSingleton<IEnrollmentAuditPort, PostgresEnrollmentAuditPort>();
         services.AddSingleton<IEnrollmentAuthorizationPort, KernelEnrollmentAuthorizationPort>();
         services.AddSingleton<IEnrollmentUnitOfWork, PostgresEnrollmentUnitOfWork>();
@@ -100,6 +106,7 @@ public static class EnrollmentEndpointExtensions
         group.MapPost("/activities/{activityId:guid}/cohorts/{cohortId:guid}/enrollments/{enrollmentId:guid}/revoke", Revoke);
         group.MapGet("/my-work", ListMyWork);
         group.MapGet("/my-work/{enrollmentId:guid}", GetMyWork);
+        endpoints.MapEnrollmentTimingEndpoints();
         return endpoints;
     }
 
@@ -361,7 +368,7 @@ public static class EnrollmentEndpointExtensions
         await WriteMutation(context, outcome);
     }
 
-    private static async Task<EnrollmentActorContext?> AcceptAuthenticatedAsync(
+    internal static async Task<EnrollmentActorContext?> AcceptAuthenticatedAsync(
         HttpContext context,
         string surface)
     {
@@ -432,7 +439,7 @@ public static class EnrollmentEndpointExtensions
         return actor;
     }
 
-    private static async Task<EnrollmentActorContext?> TryActorAsync(HttpContext context)
+    internal static async Task<EnrollmentActorContext?> TryActorAsync(HttpContext context)
     {
         var coordinator = context.RequestServices.GetRequiredService<IHumanAuthenticationCoordinator>();
         var options = context.RequestServices.GetRequiredService<HumanAuthenticationHostOptions>();
@@ -461,7 +468,7 @@ public static class EnrollmentEndpointExtensions
             session.ApplicationSessionId);
     }
 
-    private static async Task<bool> ValidateMutationAsync(HttpContext context, IAntiforgery antiforgery)
+    internal static async Task<bool> ValidateMutationAsync(HttpContext context, IAntiforgery antiforgery)
     {
         try
         {
@@ -499,7 +506,7 @@ public static class EnrollmentEndpointExtensions
             outcome.PermittedActions));
     }
 
-    private static async Task WriteQuery<T>(HttpContext context, EnrollmentDecision<T> result, Func<T, object> projector)
+    internal static async Task WriteQuery<T>(HttpContext context, EnrollmentDecision<T> result, Func<T, object> projector)
     {
         context.Response.Headers.CacheControl = "no-store";
         if (!result.Succeeded || result.Value is null)
@@ -516,7 +523,7 @@ public static class EnrollmentEndpointExtensions
         await context.Response.WriteAsJsonAsync(projector(result.Value));
     }
 
-    private static Task WriteError(HttpContext context, int status, string code, int? retryAfterSeconds = null)
+    internal static Task WriteError(HttpContext context, int status, string code, int? retryAfterSeconds = null)
     {
         context.Response.Headers.CacheControl = "no-store";
         if (retryAfterSeconds is > 0)
@@ -556,7 +563,7 @@ public static class EnrollmentEndpointExtensions
         permitted_actions = assignment.PermittedActions,
     };
 
-    private static async Task<T?> TryReadCommandAsync<T>(HttpContext context)
+    internal static async Task<T?> TryReadCommandAsync<T>(HttpContext context)
         where T : class
     {
         if (context.Request.ContentLength is > EnrollmentHttpLimits.MaximumBodyBytes)
@@ -616,7 +623,7 @@ public static class EnrollmentEndpointExtensions
         return EnrollmentCursorKeyResolver.Materialize(keyId, secret);
     }
 
-    private static string? FormatUtc(DateTimeOffset? value) =>
+    internal static string? FormatUtc(DateTimeOffset? value) =>
         value is null
             ? null
             : value.Value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);

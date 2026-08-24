@@ -45,7 +45,12 @@ public sealed class AssessmentActivatedCohortPort(IActivatedCohortBindingReader 
                 snapshot.DeadlineUtc,
                 EnrollmentLifecyclePolicy.RestrictedPreservationPolicyId,
                 EnrollmentLifecyclePolicy.RestrictedPreservationVersion,
-                snapshot.VerificationDegraded);
+                snapshot.VerificationDegraded,
+                snapshot.AttemptLimit,
+                snapshot.PerAttemptDurationSeconds,
+                snapshot.FrozenPolicySourceId,
+                snapshot.FrozenPolicyVersionId,
+                snapshot.FrozenPolicyDigest);
     }
 }
 

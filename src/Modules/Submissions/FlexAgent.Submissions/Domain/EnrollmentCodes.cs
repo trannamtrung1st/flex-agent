@@ -35,6 +35,10 @@ public static class EnrollmentAuthorizationActions
     public const string Close = "assessment.enrollment.close";
     public const string Revoke = "assessment.enrollment.revoke";
     public const string Discover = "assessment.assignment.discover";
+    public const string ReadAccommodation = "assessment.enrollment.accommodation.read";
+    public const string GrantAccommodation = "assessment.enrollment.accommodation.grant";
+    public const string DecideAccommodation = "assessment.enrollment.accommodation.decide";
+    public const string RevokeAccommodation = "assessment.enrollment.accommodation.revoke";
 }
 
 public static class EnrollmentResourceTypes
@@ -95,6 +99,10 @@ public static class EnrollmentClientActions
     public const string Revoke = "revoke_enrollment";
     public const string OpenAssignment = "open_assignment";
     public const string ReturnToMyWork = "return_to_my_work";
+    public const string RequestAccommodation = "request_accommodation";
+    public const string RevokeAccommodation = "revoke_accommodation";
+    public const string ApproveException = "approve_fairness_exception";
+    public const string RejectException = "reject_fairness_exception";
 }
 
 public static class EnrollmentLifecyclePolicy

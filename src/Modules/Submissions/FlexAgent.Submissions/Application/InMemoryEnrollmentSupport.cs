@@ -7,7 +7,8 @@ public sealed class InMemoryEnrollmentUnitOfWork(
     IEnrollmentSessionPort sessions,
     InMemoryEnrollmentStore store,
     InMemoryEnrollmentOperationStore operations,
-    RecordingEnrollmentAuditPort audit) : IEnrollmentUnitOfWork
+    RecordingEnrollmentAuditPort audit,
+    InMemoryAccommodationStore? accommodations = null) : IEnrollmentUnitOfWork
 {
     public bool AuditAccepted { get; set; } = true;
 
@@ -18,7 +19,7 @@ public sealed class InMemoryEnrollmentUnitOfWork(
         Func<IEnrollmentTransaction, Task<T>> action,
         CancellationToken cancellationToken = default)
     {
-        var snapshot = new InMemoryEnrollmentSnapshot(store, operations, audit);
+        var snapshot = new InMemoryEnrollmentSnapshot(store, operations, audit, accommodations);
         var transaction = new InMemoryEnrollmentTransaction
         {
             AuditAccepted = AuditAccepted,
@@ -55,17 +56,23 @@ file sealed class InMemoryEnrollmentSnapshot
     private readonly Guid? _lastResourceId;
     private readonly string? _lastResourceType;
 
+    private readonly InMemoryAccommodationStore? _accommodations;
+    private readonly Accommodation[] _accommodationItems;
+
     public InMemoryEnrollmentSnapshot(
         InMemoryEnrollmentStore store,
         InMemoryEnrollmentOperationStore operations,
-        RecordingEnrollmentAuditPort audit)
+        RecordingEnrollmentAuditPort audit,
+        InMemoryAccommodationStore? accommodations)
     {
         _store = store;
         _operations = operations;
         _audit = audit;
+        _accommodations = accommodations;
         _enrollments = [.. store.Items];
         _events = [.. store.Events];
         _operationItems = [.. operations.Items];
+        _accommodationItems = accommodations is null ? [] : [.. accommodations.Items];
         _requiredWrites = audit.RequiredWrites;
         _availabilityWrites = audit.AvailabilityWrites;
         _lastResourceId = audit.LastResourceId;
@@ -76,6 +83,11 @@ file sealed class InMemoryEnrollmentSnapshot
     {
         _store.Restore(_enrollments, _events);
         _operations.Restore(_operationItems);
+        if (_accommodations is not null)
+        {
+            _accommodations.Restore(_accommodationItems);
+        }
+
         _audit.Restore(_requiredWrites, _availabilityWrites, _lastResourceId, _lastResourceType);
     }
 }
