@@ -684,6 +684,11 @@ development policy, or an unqualified S3-compatible assumption.
   proxy. Migration `0047`, OpenAPI canonical refs, and administrator multi-dimension
   `current_accommodations[]` remain intact. This task is activated; Phase 0
   artifact-gate work is the next blocking step.
+- **CI remediation (`67ac540`):** Implementation run **32732247658** on
+  `14f8804` failed supply-chain Secret scan on accommodation fixture
+  `idempotency_key` values (`acc-revoke-synthetic-0001`). Narrow gitleaks
+  allowlist extended; local `gitleaks detect` reports no leaks. Await green
+  GitHub corroboration on `67ac540` or later.
 - **Artifact readiness gap:** `GATE-STACK-ARTIFACTS` has no executable repository
   evidence. No SeaweedFS service/profile, AWS SDK package, artifact-store port,
   safety-scanner port, or focused artifact integration project exists. This is

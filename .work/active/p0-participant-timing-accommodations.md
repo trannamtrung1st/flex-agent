@@ -559,6 +559,13 @@ the owning authority rather than introduce a code-level exception.
   intact. Technical predecessor clearance granted for Submission-intake
   activation; broader formal closeout review roles remain process bookkeeping
   only.
+- **Tenth confirmation pass (2026-08-24, `67ac540`):** GitHub Implementation
+  run **32732247658** on `14f8804` failed at supply-chain Secret scan:
+  `acc-revoke-synthetic-0001` in revoke fixture tripped `generic-api-key`.
+  `gitleaks.toml` now allowlists `acc-grant-synthetic|acc-decide-synthetic|
+  acc-revoke-synthetic` `\d{4}` under `contracts/fixtures/`. Local
+  `gitleaks detect` reports no leaks; Contract **159**, HTTP negatives **22**,
+  Node contracts **8** reconfirmed.
 
 # Verification
 
@@ -577,7 +584,7 @@ the owning authority rather than introduce a code-level exception.
 | API authorization/HTTP negatives | passed after eighth pass | `EnrollmentHttpNegativeContractTests` **22 passed**, including omitted `approve` → `400 invalid_field`, over-max `expected_revision`, grant/decide/revoke CSRF, unauthenticated timing GETs, unknown member, and `no-store`. |
 | React/accessibility | passed for focused Enrollment pages | `ProductionEnrollmentDetailPage` and `ProductionMyWorkPage` vitest **2 passed**; eslint/tsc unchanged from prior pass. |
 | Authenticated Playwright MCP | passed | Docker profile at `http://localhost:18080` after adding `/v2/assessment` nginx proxy. Administrator enrollment timing desktop: `.playwright-mcp/page-2026-08-24T13-16-35-405Z.png` (baseline/effective). After grant: `.playwright-mcp/page-2026-08-24T13-17-08-998Z.png` (per-dimension revoke). Participant My work detail 390×844: `.playwright-mcp/page-2026-08-24T13-18-33-475Z.png` — effective cutoff only, plain-language adjustment copy, no accommodation IDs in UI or `/v2/assessment/my-work/.../timing` JSON. |
-| Regression/performance/security/supply-chain/OCI/docs | not re-run this pass | Prior pass: docs check, gitleaks, supply-chain, OCI, and full `verify-dotnet` green with one retried migration flake. |
+| Regression/performance/security/supply-chain/OCI/docs | passed after `67ac540` CI fix | `gitleaks detect` no leaks after accommodation fixture allowlist. Contract **159**, HTTP negatives **22**, Node **8** reconfirmed this pass. Full `verify-supply-chain`/`verify-dotnet`/OCI not re-run locally; GitHub run **32732247658** on `14f8804` failed only at Secret scan (remediated in `67ac540`). |
 | Independent review | passed — external review `14f8804` | No blocking findings on Participant provenance, decide transport, revision bounds, or v2 gateway proxy. Prior `0047`/OpenAPI/admin multi-dimension fixes intact. |
 
 # Planned verification command set
