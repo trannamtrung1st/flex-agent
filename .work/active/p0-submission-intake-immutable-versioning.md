@@ -3,6 +3,7 @@ id: p0-submission-intake-immutable-versioning
 status: in-progress
 created: 2026-08-24
 updated: 2026-08-25
+review_chain_closeout_commit: b67a922
 predecessors:
   - p0-assessment-setup-cohort-activation
   - p0-enrollment-assignment-discovery
@@ -601,42 +602,35 @@ Session rows remain unimplemented or Partial as governed by their owners.
   supply-chain/license/SBOM/vulnerability/secret, OCI, backup/export/restore,
   and operability gates; record exact commands, counts, timings, skips, and
   residual risks.
-- [ ] Run independent backend, frontend, security/privacy, and QA review;
-  remediate blocking findings, reconcile actual changes with this plan and the
-  governing sources, update truthful implementation-status rows, and retain
-  the completed task record.
+- [x] Record external review approval of `b67a922` — the `7dac50c` → `28c22f3`
+  → `3bd256f` / `c60a280` → `b67a922` security/correctness remediation chain
+  is closed with no remaining blocking findings; no further remediation commit
+  is requested from that chain.
+- [ ] Run independent backend, frontend, security/privacy, and QA review for
+  remaining planned slice work; remediate any new blocking findings, reconcile
+  actual changes with this plan and the governing sources, update truthful
+  implementation-status rows, and retain the completed task record.
 
 # Current state
 
-External review of `c60a280` closed S3 organization isolation and predecessor
-lineage. The remaining P1 — Task identity omitted from the complete
-Submission parent tuple — is remediated with additive migration `0050` and
-raw-SQL regressions. The overall Submission slice remains in progress
-(concurrent finalize, contracts, production UI, Playwright, lifecycle). No UI
-surface changed in this remediation.
+External review approved `b67a922` with no new blocking finding. Migration
+`0050` closes the Task-binding parent-scope hole from `c60a280`; all findings
+raised in the security/correctness review chain from `7dac50c` through follow-up
+reviews are resolved. Repository-recorded evidence: `SubmissionPersistenceTests`
+**12 passed**; full PostgreSQL **340 passed / 1 failed** (Keycloak 403 flake).
+GitHub exposes no commit status checks for this SHA.
+
+The overall Submission slice remains **in progress**. Next-session work is the
+planned implementation scope, not further remediation from that review chain:
+PostgreSQL concurrent-finalize/work leases, `CompleteItemAsync`, worker/
+reconciliation/lifecycle, canonical contracts, production UI, Playwright, and
+proportionate full regression. No UI surface changed in the `0050` remediation.
 
 Planning/readiness audit completed on 2026-08-24. Approved product,
 requirements, UI/UX, operational, and architecture sources contain no open
-question blocking this bounded slice. The current production implementation has
-Enrollment/timing/accommodation foundations through migration `0047` and a
-production **My work** detail that intentionally states Submission intake and
-Attempt start are unavailable. The synthetic browser path contains a
-development-only `submission.submit_text` behavior; it is not production
-authority or verification for this task.
-
-Submissions has a core and infrastructure project but no material policy,
-intake/version aggregate, artifact-store/scanner port, AWS SDK dependency,
-SeaweedFS profile, Submission persistence, canonical Submission contracts,
-production intake routes, or production intake UI. Assessment currently exposes
-Task source identity/digest and summary facts but not a complete normalized
-frozen Submission requirement. Configuration does not yet expose a complete
-current material-policy owner port. Production positive intake must fail closed
-until both exact sources exist.
-
-The next action after predecessor closeout is the Artifact Gate Red step. Do not
-begin domain or UI behavior by substituting filesystem storage, in-memory bytes,
-the synthetic browser aggregate, opaque Assessment display text, a permissive
-development policy, or an unqualified S3-compatible assumption.
+question blocking this bounded slice. Production **My work** still exposes
+timing and submission summary only; full Participant intake UI, canonical
+contracts, and Worker validation/cleanup remain open.
 
 # Decisions
 
@@ -696,11 +690,10 @@ development policy, or an unqualified S3-compatible assumption.
   `idempotency_key` values (`acc-revoke-synthetic-0001`). Narrow gitleaks
   allowlist extended; local `gitleaks detect` reports no leaks. Await green
   GitHub corroboration on `67ac540` or later.
-- **Artifact readiness gap:** `GATE-STACK-ARTIFACTS` has no executable repository
-  evidence. No SeaweedFS service/profile, AWS SDK package, artifact-store port,
-  safety-scanner port, or focused artifact integration project exists. This is
-  an explicit functional-implementation gate inside this task, not an
-  implementation detail to defer.
+- **Artifact readiness gap (closed for core gate):** SeaweedFS/AWS SDK artifact
+  port, pinned profile, and six negative scope-isolation contract tests exist.
+  Lifecycle/cleanup/restore and paired database/artifact restore evidence remain
+  open planned work.
 - **Frozen requirement gap:** the current activated-Cohort binding carries Task
   source identity/digest and summary values but not the normalized frozen
   category/limit/scanner/preview/lifecycle contract required for authoritative
@@ -709,10 +702,11 @@ development policy, or an unqualified S3-compatible assumption.
 - **Current policy gap:** Configuration has no exact current material-policy
   selection port. Add a versioned read and transaction-aware revalidation seam;
   fail closed for positive Production intake until configured.
-- **Migration/contracts gap:** planning-time migration head is `0047`; canonical
-  contracts include Enrollment and Evidence locators but no Submission intake,
-  version, artifact-metadata, or material-policy schemas. Recheck heads before
-  Red and add only additive, strict versioned artifacts.
+- **Migration/contracts gap:** persistence head is `0050` with complete-scope
+  Task binding; canonical contracts still include Enrollment and Evidence
+  locators but no Submission intake, version, artifact-metadata, or
+  material-policy schemas. Recheck heads before Red and add only additive,
+  strict versioned artifacts.
 - **Synthetic/production split:** `SyntheticBrowser` and the non-production
   `MyWorkPage` already accept one text command, while
   `ProductionMyWorkDetailPage` intentionally exposes timing only. Do not reuse
@@ -750,8 +744,8 @@ development policy, or an unqualified S3-compatible assumption.
   writes `predecessor_version_id` for version N>1. `SubmissionPersistenceTests`
   added for parent substitution rejection, stable submission reuse, and lineage
   persistence. Full Postgres integration **330 passed** after `0049`.
-- **Parent-scope Task binding (`0050`):** Review of `c60a280` found `0049`
-  unique/FKs omitted `task_source_id`, `task_version_id`, and
+- **Parent-scope Task binding (`0050` / `b67a922`):** Review of `c60a280` found
+  `0049` unique/FKs omitted `task_source_id`, `task_version_id`, and
   `task_content_digest`. Additive `0050` extends Enrollment unique
   `uq_submissions_enrollments_complete_binding`, replaces
   `submissions_submissions` enrollment FK with a full binding parent FK,
@@ -761,6 +755,14 @@ development policy, or an unqualified S3-compatible assumption.
   substituted Task columns inserted. Green: those 9 plus the existing 3
   persistence cases and `Upgrade_from_0049_*` pass. Full Postgres **340
   passed / 1 failed** (`KeycloakBackChannelLogoutTests` 403, known flake).
+- **Independent review approval (`b67a922`):** External review found no new
+  blocking finding. Review sequence: `7dac50c` (six blockers) → `28c22f3`
+  (original six fixed) → `3bd256f` / `c60a280` (S3 isolation, lineage,
+  partial parent scope) → `b67a922` (Task-binding scope). All findings raised
+  in that chain are resolved. GitHub exposes no commit status checks for this
+  SHA. Remaining open items are planned slice work (concurrent finalize,
+  contracts, production UI, Playwright, lifecycle), not unresolved review
+  findings.
 - **Downstream compatibility:** Evidence-locator schemas already represent exact
   Submission locations, and ADR-005 requires exact version/item metadata. This
   task must produce stable compatible references without claiming that Attempt,
@@ -783,7 +785,7 @@ development policy, or an unqualified S3-compatible assumption.
 | React/accessibility | partial | `ProductionMyWorkDetailPage` shows submission requirements/history summary; full local preparation, confirmation dialog, viewer/download, and component tests remain. |
 | Authenticated Playwright MCP | pending | Compose profile adds SeaweedFS service; no Playwright intake journey evidence yet. |
 | Regression/security/supply-chain/OCI/recovery/docs | pending | Locked restore, full suites, allowlist/leakage, license/SBOM/vulnerability/secret scan, images, paired metadata/artifact restore, docs, and whitespace. |
-| Independent review | partial | Original six `7dac50c` blockers remediated at `28c22f3`; S3 isolation and lineage closed at `c60a280`. P1 missing Task fields in the parent-scope tuple remediates with `0050` and raw-SQL regressions. Concurrent finalize race and full security/QA pass remain open. |
+| Independent review — security/correctness remediation chain | passed — external review `b67a922` | No blocking findings. All issues raised from `7dac50c` through follow-up reviews resolved at `b67a922`, including S3 scope isolation, predecessor lineage, partial parent scope (`0049`), and Task-binding parent tuple (`0050`). `SubmissionPersistenceTests` **12 passed**; full PostgreSQL **340 passed / 1 failed** (Keycloak 403 flake). GitHub commit statuses not independently visible. Separate full-slice backend/frontend/QA review remains for unconsumed planned work. |
 
 # Planned verification command set
 
@@ -849,5 +851,9 @@ synthetic non-sensitive content.
 - [ ] Telemetry, logs, errors, browser state, audit, support artifacts, and test evidence contain no raw Submission content, credentials, access URLs, object keys, scanner/parser details, or protected high-cardinality labels
 - [ ] Focused, integration, performance, security, full regression, locked restore, supply-chain, OCI, docs, whitespace, and operability gates pass with exact recorded evidence
 - [ ] Governing specifications and implementation-status rows remain truthful without claiming Attempt, exact binding, Session, Agent reading, Reviewer access, Evidence, Evaluation, or Release
-- [ ] Independent backend, frontend, security/privacy, and QA findings are resolved or explicitly accepted by an authorized owner
+- [x] Security/correctness independent review findings from the `7dac50c` →
+  `b67a922` chain are resolved (approved `b67a922`)
+- [ ] Independent backend, frontend, security/privacy, and QA review for
+  remaining planned slice work is resolved or explicitly accepted by an
+  authorized owner
 - [ ] Remaining gaps and unverified behavior are recorded; task state is safe and complete for external review and retained
