@@ -24,6 +24,11 @@
           "xunit.v3.core.mtp-v2": "[3.2.2]"
         }
       },
+      "AWSSDK.Core": {
+        "type": "Transitive",
+        "resolved": "4.0.102",
+        "contentHash": "sjkYreyNPlYTnAxdnqd3MBoeTNZHXOzV9lKULS5VAn+6MJIqu87aZLlm56KhDANOBXRxwDJIW668ZlsFhaB6Zw=="
+      },
       "Humanizer.Core": {
         "type": "Transitive",
         "resolved": "3.0.10",
@@ -553,6 +558,7 @@
       "flexagent.submissions.infrastructure": {
         "type": "Project",
         "dependencies": {
+          "AWSSDK.S3": "[4.0.102.3, )",
           "Dapper": "[2.1.79, )",
           "FlexAgent.AssessmentConfiguration": "[1.0.0, )",
           "FlexAgent.IdentityAccess": "[1.0.0, )",
@@ -575,6 +581,15 @@
           "FlexAgent.Sessions.Infrastructure": "[1.0.0, )",
           "FlexAgent.Sessions.OpenAiCompatible": "[1.0.0, )",
           "FlexAgent.Sessions.OpenRouter": "[1.0.0, )"
+        }
+      },
+      "AWSSDK.S3": {
+        "type": "CentralTransitive",
+        "requested": "[4.0.102.3, )",
+        "resolved": "4.0.102.3",
+        "contentHash": "3UBPFahEW62lNqHutA94if/9YguOXswDkz+CMh8fo3qCl7PUdynwSEvE0rhHnRPok0rDkDEDpwddfk7h8Mg0gw==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.102, 5.0.0)"
         }
       },
       "Dapper": {

@@ -2,16 +2,6 @@
   "version": 2,
   "dependencies": {
     "net10.0": {
-      "Microsoft.AspNetCore.Mvc.Testing": {
-        "type": "Direct",
-        "requested": "[10.0.0, )",
-        "resolved": "10.0.0",
-        "contentHash": "Gdtv34h2qvynOEu+B2+6apBiiPhEs39namGax02UgaQMRetlxQ88p2/jK1eIdz3m1NRgYszNBN/jBdXkucZhvw==",
-        "dependencies": {
-          "Microsoft.AspNetCore.TestHost": "10.0.0",
-          "Microsoft.Extensions.DependencyModel": "10.0.0"
-        }
-      },
       "Testcontainers": {
         "type": "Direct",
         "requested": "[4.11.0, )",
@@ -20,17 +10,9 @@
         "dependencies": {
           "Docker.DotNet.Enhanced": "3.131.1",
           "Docker.DotNet.Enhanced.X509": "3.131.1",
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.3",
           "SSH.NET": "2025.1.0",
           "SharpZipLib": "1.4.2"
-        }
-      },
-      "Testcontainers.PostgreSql": {
-        "type": "Direct",
-        "requested": "[4.11.0, )",
-        "resolved": "4.11.0",
-        "contentHash": "OWGi0Og+qFpr2OPDignA74aJSfUd0nvZOaXNGWXwMJR1BvpdzhCNHQB2h7yLSTb0a8JVmmQQ4mUpHAC9q27NLw==",
-        "dependencies": {
-          "Testcontainers": "4.11.0"
         }
       },
       "xunit.v3.mtp-v2": {
@@ -57,7 +39,10 @@
       "Docker.DotNet.Enhanced": {
         "type": "Transitive",
         "resolved": "3.131.1",
-        "contentHash": "hGLHCNUsQbT2Ab/HUznRnNqYZQs40zInXa3eLwYjeNyfUYbw1pqqDGqcOLl5uGepS8IuigEYakEdAcVT/2ezYg=="
+        "contentHash": "hGLHCNUsQbT2Ab/HUznRnNqYZQs40zInXa3eLwYjeNyfUYbw1pqqDGqcOLl5uGepS8IuigEYakEdAcVT/2ezYg==",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.3"
+        }
       },
       "Docker.DotNet.Enhanced.X509": {
         "type": "Transitive",
@@ -67,44 +52,28 @@
           "Docker.DotNet.Enhanced": "3.131.1"
         }
       },
-      "Humanizer.Core": {
-        "type": "Transitive",
-        "resolved": "3.0.10",
-        "contentHash": "yZIhtw8sYuvsONzQbZxWpR60tMWYHXoo0DL6nyOqSFiU5POjBTSEyWFpTQtJEZuy+oqiYTXKXY/Mjx7KnqIQFw=="
-      },
-      "Json.More.Net": {
-        "type": "Transitive",
-        "resolved": "3.0.1",
-        "contentHash": "fRctF2J2SILYG6wqP21drmeEODmCVkVQ/b3MndDu2fT1swfySyUgq7ePCk+aENGlDcIm05fyfjh9vcuqDEfv3w=="
-      },
-      "JsonPointer.Net": {
-        "type": "Transitive",
-        "resolved": "7.0.2",
-        "contentHash": "oClYHv2ooeRrtPZyC9sb/Za/ie5pGhjTbNHlAyFg4XOCyU+606FdoZKS7UdaWvtsPlrF+U2w0Ja3TRvn5+spyA==",
-        "dependencies": {
-          "Humanizer.Core": "3.0.10",
-          "Json.More.Net": "3.0.1"
-        }
-      },
       "Microsoft.ApplicationInsights": {
         "type": "Transitive",
         "resolved": "2.23.0",
         "contentHash": "nWArUZTdU7iqZLycLKWe0TDms48KKGE6pONH2terYNa8REXiqixrMOkf1sk5DHGMaUTqONU2YkS4SAXBhLStgw=="
-      },
-      "Microsoft.AspNetCore.TestHost": {
-        "type": "Transitive",
-        "resolved": "10.0.0",
-        "contentHash": "Q3ia+k+wYM3Iv/Qq5IETOdpz/R0xizs3WNAXz699vEQx5TMVAfG715fBSq9Thzopvx8dYZkxQ/mumTn6AJ/vGQ=="
       },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Transitive",
         "resolved": "6.0.0",
         "contentHash": "UcSjPsst+DfAdJGVDsu346FX0ci0ah+lw3WRtn18NUwEqRt70HaOQ7lI72vy3+1LxtqI3T5GWwV39rQSrCzAeg=="
       },
-      "Microsoft.Extensions.DependencyModel": {
+      "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Transitive",
         "resolved": "10.0.0",
-        "contentHash": "RFYJR7APio/BiqdQunRq6DB+nDB6nc2qhHr77mlvZ0q0BT8PubMXN7XicmfzCbrDE/dzhBnUKBRXLTcqUiZDGg=="
+        "contentHash": "L3AdmZ1WOK4XXT5YFPEwyt0ep6l8lGIPs7F5OOBZc77Zqeo01Of7XXICy47628sdVl0v/owxYJTe86DTgFwKCA=="
+      },
+      "Microsoft.Extensions.Logging.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "FU/IfjDfwaMuKr414SSQNTIti/69bHEMb+QKrskRb26oVqpx3lNFXMjs/RC9ZUuhBhcwDM2BwOgoMw+PZ+beqQ==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
+        }
       },
       "Microsoft.Testing.Extensions.Telemetry": {
         "type": "Transitive",
@@ -203,20 +172,6 @@
           "xunit.v3.runner.common": "[3.2.2]"
         }
       },
-      "flexagent.api": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.AssessmentConfiguration": "[1.0.0, )",
-          "FlexAgent.AssessmentConfiguration.Infrastructure": "[1.0.0, )",
-          "FlexAgent.Contracts": "[1.0.0, )",
-          "FlexAgent.IdentityAccess": "[1.0.0, )",
-          "FlexAgent.Sessions": "[1.0.0, )",
-          "FlexAgent.Sessions.Infrastructure": "[1.0.0, )",
-          "FlexAgent.Submissions": "[1.0.0, )",
-          "FlexAgent.Submissions.Infrastructure": "[1.0.0, )",
-          "FlexAgent.SyntheticBrowser": "[1.0.0, )"
-        }
-      },
       "flexagent.assessmentconfiguration": {
         "type": "Project",
         "dependencies": {
@@ -224,29 +179,7 @@
           "FlexAgent.IdentityAccess": "[1.0.0, )"
         }
       },
-      "flexagent.assessmentconfiguration.infrastructure": {
-        "type": "Project",
-        "dependencies": {
-          "Dapper": "[2.1.79, )",
-          "FlexAgent.AssessmentConfiguration": "[1.0.0, )",
-          "FlexAgent.Configuration": "[1.0.0, )",
-          "FlexAgent.IdentityAccess": "[1.0.0, )",
-          "FlexAgent.Postgres": "[1.0.0, )",
-          "Npgsql": "[10.0.3, )"
-        }
-      },
       "flexagent.canonicaljson": {
-        "type": "Project"
-      },
-      "flexagent.configuration": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.CanonicalJson": "[1.0.0, )",
-          "FlexAgent.IdentityAccess": "[1.0.0, )",
-          "FlexAgent.Postgres": "[1.0.0, )"
-        }
-      },
-      "flexagent.contracts": {
         "type": "Project"
       },
       "flexagent.identityaccess": {
@@ -260,21 +193,6 @@
         "dependencies": {
           "Dapper": "[2.1.79, )",
           "Npgsql": "[10.0.3, )"
-        }
-      },
-      "flexagent.sessions": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.CanonicalJson": "[1.0.0, )",
-          "JsonSchema.Net": "[9.4.0, )"
-        }
-      },
-      "flexagent.sessions.infrastructure": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.IdentityAccess": "[1.0.0, )",
-          "FlexAgent.Postgres": "[1.0.0, )",
-          "FlexAgent.Sessions": "[1.0.0, )"
         }
       },
       "flexagent.submissions": {
@@ -297,12 +215,6 @@
           "Npgsql": "[10.0.3, )"
         }
       },
-      "flexagent.syntheticbrowser": {
-        "type": "Project",
-        "dependencies": {
-          "FlexAgent.Contracts": "[1.0.0, )"
-        }
-      },
       "AWSSDK.S3": {
         "type": "CentralTransitive",
         "requested": "[4.0.102.3, )",
@@ -318,20 +230,14 @@
         "resolved": "2.1.79",
         "contentHash": "8YijbzgTfmqmQOnVNorYM6K++pxqnW3nJ4aC1sRHzxUA2CcuoJ9gsTem3kgBnPRMc38zZHl4Esb6hAezXIEEuw=="
       },
-      "JsonSchema.Net": {
-        "type": "CentralTransitive",
-        "requested": "[9.4.0, )",
-        "resolved": "9.4.0",
-        "contentHash": "muE4nPuzbD9x5XA1mkXJNqX4mhz47oF3EY8qFLY1pyUY7lhXFKq65t/dSKIHeNSLBV17zwZuq24MD1em90rMNg==",
-        "dependencies": {
-          "JsonPointer.Net": "7.0.2"
-        }
-      },
       "Npgsql": {
         "type": "CentralTransitive",
         "requested": "[10.0.3, )",
         "resolved": "10.0.3",
-        "contentHash": "7nb5YzXuvWWJxB0J8DiyL3we+X4FOctZrt0fIBnucOIaIevFEEwGQVZKtiu9olXdlNAK1eNgqSral6r/jlhI4w=="
+        "contentHash": "7nb5YzXuvWWJxB0J8DiyL3we+X4FOctZrt0fIBnucOIaIevFEEwGQVZKtiu9olXdlNAK1eNgqSral6r/jlhI4w==",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.0"
+        }
       },
       "SSH.NET": {
         "type": "CentralTransitive",
@@ -339,7 +245,8 @@
         "resolved": "2026.0.0",
         "contentHash": "Yu9dirPq8l3oaat0+OQ7K0nUf5MmYltpia5UGqsApTG4zTPvBC1cxbNnC3NERij26dUST0A3Ef1QdHSn5ArbWQ==",
         "dependencies": {
-          "BouncyCastle.Cryptography": "2.7.0"
+          "BouncyCastle.Cryptography": "2.7.0",
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.3"
         }
       }
     }

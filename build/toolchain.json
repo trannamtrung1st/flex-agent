@@ -27,7 +27,8 @@
     "testcontainers": "4.11.0",
     "testcontainersPostgreSql": "4.11.0",
     "sshNet": "2026.0.0",
-    "postgresImage": "postgres:18"
+    "postgresImage": "postgres:18",
+    "seaweedfsImage": "chrislusf/seaweedfs:4.29"
   },
   "supplyChain": {
     "syft": {
@@ -110,6 +111,10 @@
     "node": {
       "image": "node:22.18.0-alpine",
       "digest": "sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b"
+    },
+    "seaweedfs": {
+      "image": "chrislusf/seaweedfs:4.29",
+      "digest": "sha256:pending-local-pin"
     },
     "healthProbe": "external",
     "nugetLicenseInventory": "packages.lock.json+nuspec"

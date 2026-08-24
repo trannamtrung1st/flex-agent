@@ -135,3 +135,34 @@ export interface MyWorkTimingV2 {
   effective?: TimingEffectiveWindowV2 | null;
   participant_consequence_code: AccommodationConsequenceCodeV2;
 }
+
+export interface MyWorkSubmissionProjection {
+  enrollment_id: string;
+  enrollment_status: string;
+  intake_available: boolean;
+  unavailable_reason?: string | null;
+  active_intake?: {
+    intake_id: string;
+    submission_id: string;
+    status: string;
+    revision: number;
+    created_at_utc: string;
+    updated_at_utc: string;
+    complete_receipt_at_utc?: string | null;
+    items: Array<{
+      item_id: string;
+      category: string;
+      filename?: string | null;
+      byte_count: number;
+      receipt_state?: string | null;
+    }>;
+    permitted_actions: string[];
+  } | null;
+  version_history: Array<{
+    version_id: string;
+    version_number: number;
+    accepted_at_utc: string;
+    item_count: number;
+  }>;
+  permitted_actions: string[];
+}

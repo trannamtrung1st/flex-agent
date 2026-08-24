@@ -13,11 +13,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Npgsql" />
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="FlexAgent.Artifact.Integration.Tests" />
     <InternalsVisibleTo Include="FlexAgent.Postgres.Integration.Tests" />
     <InternalsVisibleTo Include="FlexAgent.Architecture.Tests" />
     <InternalsVisibleTo Include="FlexAgent.Runtime.Tests" />

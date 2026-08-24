@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>FlexAgent.Artifact.Integration.Tests</RootNamespace>
+    <AssemblyName>FlexAgent.Artifact.Integration.Tests</AssemblyName>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Fixtures/seaweedfs-s3.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Testcontainers" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Modules\Submissions\FlexAgent.Submissions.Infrastructure\FlexAgent.Submissions.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Submissions\FlexAgent.Submissions\FlexAgent.Submissions.csproj" />
+  </ItemGroup>
+
+</Project>

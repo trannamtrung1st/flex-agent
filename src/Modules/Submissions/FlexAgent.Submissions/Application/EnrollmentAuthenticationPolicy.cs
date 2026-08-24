@@ -43,12 +43,19 @@ public static class EnrollmentAuthenticationPolicy
             or AssessmentConfiguration.Domain.AssessmentAuthorizationActions.ReadBaselineProvenance;
 
     public static bool IsParticipantOnlyGrant(string action) =>
-        action is EnrollmentAuthorizationActions.Discover or EnrollmentAuthorizationActions.Receive;
+        action is EnrollmentAuthorizationActions.Discover
+            or EnrollmentAuthorizationActions.Receive
+            or SubmissionAuthorizationActions.ReadSubmission
+            or SubmissionAuthorizationActions.BeginIntake
+            or SubmissionAuthorizationActions.CompleteIntakeItem
+            or SubmissionAuthorizationActions.CancelIntake
+            or SubmissionAuthorizationActions.FinalizeIntake
+            or SubmissionAuthorizationActions.PreviewItem
+            or SubmissionAuthorizationActions.DownloadItem;
 
     public static string? Evaluate(EnrollmentActorContext actor, string action)
     {
-        if (string.Equals(action, EnrollmentAuthorizationActions.Discover, StringComparison.Ordinal)
-            || string.Equals(action, EnrollmentAuthorizationActions.Receive, StringComparison.Ordinal))
+        if (IsParticipantOnlyGrant(action))
         {
             return null;
         }

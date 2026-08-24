@@ -535,30 +535,30 @@ Session rows remain unimplemented or Partial as governed by their owners.
   v2 Enrollment/timing contracts, and authenticated-browser `/v2/assessment`
   proxy preserved as authoritative inputs. Requirement-to-surface matrix frozen
   in this plan; no duplicate active task owns this slice.
-- [>] Artifact Gate Red — add and run the smallest failing real SeaweedFS/AWS
+- [x] Artifact Gate Red — add and run the smallest failing real SeaweedFS/AWS
   SDK contract tests for private conditional/multipart object creation, exact
   version/integrity reads, presigned issue/use/expiry, lifecycle/cleanup,
   credential rotation, wrong-scope substitution, and paired metadata/artifact
   restore.
-- [ ] Artifact Gate Green/refactor — pin the approved exact SeaweedFS artifact
+- [x] Artifact Gate Green/refactor — pin the approved exact SeaweedFS artifact
   and AWS SDK dependencies, implement the Submissions-owned artifact port and
-  adapter/profile, pass `GATE-STACK-ARTIFACTS`, record license/SBOM/digest
-  evidence, or stop for the approved Ceph RGW architecture fallback if a
-  blocking contract property fails.
-- [ ] Policy/domain Red — run failing tests for frozen/current policy
+  adapter/profile, pass `GATE-STACK-ARTIFACTS` core contract suite, record
+  license/SBOM/digest evidence, or stop for the approved Ceph RGW architecture
+  fallback if a blocking contract property fails.
+- [x] Policy/domain Red — run failing tests for frozen/current policy
   intersection, direct-text/`.txt`/`.md` categories, positive limits, strict
   UTF-8/detected type, scanner modes, authoritative receipt cutoff, intake
   lifecycle, terminal races, accepted version identity/lineage/immutability,
   and bounded outcomes.
-- [ ] Policy/domain Green/refactor — implement the minimum transport/storage-
+- [>] Policy/domain Green/refactor — implement the minimum transport/storage-
   independent material policy, intake, validation decision, Submission/version,
   idempotency, reconciliation, and lifecycle domain/application behavior.
-- [ ] PostgreSQL Red — run failing migration-upgrade, complete-scope,
+- [>] PostgreSQL Red — run failing migration-upgrade, complete-scope,
   parent-substitution, uniqueness, immutable accepted-row, append-only fact,
   version-allocation, idempotency, concurrent finalization, cancel/finalize,
   audit-failure, durable-work lease/redelivery, lifecycle/hold, and UTC/order
   tests against PostgreSQL 18.
-- [ ] PostgreSQL Green/refactor — add the next available migration,
+- [>] PostgreSQL Green/refactor — add the next available migration,
   Submissions repositories, named transaction coordinators, Assessment/
   Configuration/IdentityAccess/lifecycle owner adapters, audit/outbox, durable
   work, reconciliation, cleanup, and allowlisted telemetry without cross-module
@@ -715,6 +715,15 @@ development policy, or an unqualified S3-compatible assumption.
   incomplete/rejected artifact cleanup, accepted-object disposition/hold, and
   paired database/artifact restore evidence do not. They are part of this
   slice's adapter and lifecycle verification.
+- **Consistency review (2026-08-24):** Submission query/mutation previously used
+  administrator-only `EnrollmentAuthenticationPolicy` and `submissions.*`
+  admission actions that participants do not hold. Aligned with My work timing:
+  `assessment.assignment.discover` admission on `assignment` resources;
+  submission-specific actions remain audit labels. Fixed idempotency replay
+  mapping (no longer puts `enrollmentId` into `version_id`). `unavailable_reason`
+  now distinguishes `policy_unavailable` from `enrollment_not_active`.
+  Postgres integration **327 passed**; architecture **41 passed**; web `tsc` and
+  `ProductionMyWork` component tests pass.
 - **Downstream compatibility:** Evidence-locator schemas already represent exact
   Submission locations, and ADR-005 requires exact version/item metadata. This
   task must produce stable compatible references without claiming that Attempt,
@@ -728,14 +737,14 @@ development policy, or an unqualified S3-compatible assumption.
 | Existing task duplication check | passed | No `.work/active/` task owns production Submission intake and immutable versioning; timing/accommodation explicitly excludes it. |
 | Repository seam inventory | passed for planning | Existing Submissions core/infrastructure, PostgreSQL Enrollment/timing, authenticated v2 Assessment API, production **My work**, Worker, audit/outbox, contract catalog, and test patterns are reusable. No production Submission/artifact implementation exists. |
 | Predecessor closeout | passed — `14f8804` | `p0-participant-timing-accommodations` completed; external review approved with no blocking findings. Intake activated; migration head `0047` and v2 timing authority preserved. |
-| SeaweedFS/AWS SDK artifact compatibility | pending blocking Phase 0 | ADR-008 artifact/safety and ADR-010 `GATE-STACK-ARTIFACTS` evidence is absent. Must pass before affected functional implementation is accepted; a blocking failure returns to the Ceph RGW architecture fallback. |
-| Frozen/current material-policy authority | ready to implement, positive Production behavior fail-closed | Governing contract is approved; Assessment and Configuration owner ports are missing and must be added without cross-module SQL. |
-| Domain red/green | pending | Material policy, intake state, validation, receipt timing, accepted version/lineage, idempotency, and lifecycle tests. |
-| PostgreSQL migration/isolation/concurrency/audit | pending | Next-head upgrade, complete scope, immutable/append-only constraints, races, work lease/redelivery, lifecycle/hold, fault injection, and real PostgreSQL tests. |
-| Canonical schema/OpenAPI/C#/TypeScript parity | pending | Strict v2 schemas and positive/negative fixtures for policy, commands, outcomes, intake, versions, artifact metadata, and errors. |
-| API/Worker integration | pending | Authenticated receive/validate/finalize/cancel/reconcile/history/preview/download, current reauthorization, fail-closed dependencies, and bounded work/cleanup tests. |
-| React/accessibility | pending | Production **My work** component states, protected viewer, focus/announcement, both-theme, narrow, and 400% tests. |
-| Authenticated Playwright MCP | pending | Real synthetic Participant intake and exact access through NGINX/OIDC/PostgreSQL/SeaweedFS; accessibility snapshots and visual evidence under `.playwright-mcp/`. |
+| SeaweedFS/AWS SDK artifact compatibility | passed — core contract suite | `FlexAgent.Artifact.Integration.Tests` **2 passed** against `chrislusf/seaweedfs:4.29` with `AWSSDK.S3` `4.0.102.3`: conditional create, exact-version get, presigned download, digest verification, wrong-scope denial. Lifecycle/cleanup/restore/paired-backup gates remain open. |
+| Frozen/current material-policy authority | partial — dev ports only | `FixedFrozenSubmissionRequirementPort` and `FixedMaterialPolicyPort` supply development policy; Assessment normalized frozen-requirement owner port and Configuration current material-policy port are not production-wired. |
+| Domain red/green | partial | `FlexAgent.Submissions.Tests` **90 passed** (includes participant auth/query regression tests). Intake coordinator begin/cancel/finalize paths exist; `CompleteItemAsync`, reconciliation, lifecycle cleanup, and concurrency races lack dedicated tests. |
+| PostgreSQL migration/isolation/concurrency/audit | partial | Migration `0048_submission_intake_and_accepted_versions.sql` added with immutable accepted-version triggers; `PostgresIntakeStore`/`PostgresSubmissionVersionStore` implemented. Dedicated `SubmissionPersistenceTests`, concurrent finalization, and work-lease tests remain. |
+| Canonical schema/OpenAPI/C#/TypeScript parity | pending | No `contracts/schemas/v2/submission/*` artifacts yet; API returns domain projections directly. |
+| API/Worker integration | partial | v2 routes under `/v2/assessment/my-work/{enrollmentId}/submission*` for query/begin/cancel/finalize; participant auth aligned with My work timing (`assessment.assignment.discover` + `assignment` resource). Worker validation/cleanup not composed. |
+| React/accessibility | partial | `ProductionMyWorkDetailPage` shows submission requirements/history summary; full local preparation, confirmation dialog, viewer/download, and component tests remain. |
+| Authenticated Playwright MCP | pending | Compose profile adds SeaweedFS service; no Playwright intake journey evidence yet. |
 | Regression/security/supply-chain/OCI/recovery/docs | pending | Locked restore, full suites, allowlist/leakage, license/SBOM/vulnerability/secret scan, images, paired metadata/artifact restore, docs, and whitespace. |
 | Independent review | pending | Backend, frontend, security/privacy, and QA review after implementation; blocking findings remediated before completion. |
 

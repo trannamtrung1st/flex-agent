@@ -58,6 +58,7 @@ public static class EnrollmentEndpointExtensions
             services.AddSingleton<InMemoryAccommodationStore>();
             services.AddSingleton<IAccommodationStore>(static provider => provider.GetRequiredService<InMemoryAccommodationStore>());
             services.AddSingleton<IEnrollmentUnitOfWork, InMemoryEnrollmentUnitOfWork>();
+            services.AddSubmissionIntake(configuration, environment);
             return services;
         }
 
@@ -85,6 +86,7 @@ public static class EnrollmentEndpointExtensions
         });
         services.AddSingleton<IEnrollmentSharedAdmissionPort, PostgresEnrollmentSharedAdmissionPort>();
         services.AddSingleton<IHostedService, EnrollmentSharedAdmissionStartupGuard>();
+        services.AddSubmissionIntake(configuration, environment);
         return services;
     }
 
@@ -107,6 +109,7 @@ public static class EnrollmentEndpointExtensions
         group.MapGet("/my-work", ListMyWork);
         group.MapGet("/my-work/{enrollmentId:guid}", GetMyWork);
         endpoints.MapEnrollmentTimingEndpoints();
+        endpoints.MapSubmissionEndpoints();
         return endpoints;
     }
 
