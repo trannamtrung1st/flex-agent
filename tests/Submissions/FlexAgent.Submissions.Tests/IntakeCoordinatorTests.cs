@@ -1,3 +1,4 @@
+using System.Text;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.Submissions.Application;
 using FlexAgent.Submissions.Domain;
@@ -15,6 +16,29 @@ public sealed class IntakeCoordinatorTests
     private static readonly Guid EnrollmentA = Guid.Parse("dddddddd-dddd-4ddd-8ddd-ddddddddddda");
     private static readonly Guid EnrollmentB = Guid.Parse("dddddddd-dddd-4ddd-8ddd-dddddddddddb");
     private static readonly string Digest = new('a', 64);
+
+    [Fact]
+    public async Task Finalize_does_not_scan_another_enrollment_intake()
+    {
+        var scanner = new RecordingArtifactSafetyScanner();
+        var harness = CreateHarness(scanner);
+        var began = await harness.Coordinator.BeginAsync(
+            BeginCommand(EnrollmentB, ParticipantB, "begin-scan-b"),
+            TestContext.Current.CancellationToken);
+        Assert.True(began.Succeeded, began.OutcomeCode);
+        var completed = await harness.Coordinator.CompleteItemAsync(
+            CompleteCommand(EnrollmentB, ParticipantB, began.IntakeId!.Value, began.Revision!.Value, "Owned by B.", "item-b"),
+            TestContext.Current.CancellationToken);
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+
+        var denied = await harness.Coordinator.FinalizeAsync(
+            FinalizeCommand(EnrollmentA, ParticipantA, began.IntakeId.Value, completed.Revision!.Value, "finalize-a-on-b"),
+            TestContext.Current.CancellationToken);
+
+        Assert.False(denied.Succeeded);
+        Assert.Equal(SubmissionFailureCodes.NotFound, denied.OutcomeCode);
+        Assert.Equal(0, scanner.ScanCount);
+    }
 
     [Fact]
     public async Task Cancel_from_another_enrollment_returns_not_found()
@@ -92,6 +116,77 @@ public sealed class IntakeCoordinatorTests
         Assert.Equal(firstCycle.VersionId, secondVersion.PredecessorVersionId);
     }
 
+    [Fact]
+    public async Task Complete_item_receives_direct_text_and_sets_received()
+    {
+        var harness = CreateHarness();
+        var began = await harness.Coordinator.BeginAsync(BeginCommand(EnrollmentA, ParticipantA, "begin-complete"), TestContext.Current.CancellationToken);
+        Assert.True(began.Succeeded, began.OutcomeCode);
+
+        var completed = await harness.Coordinator.CompleteItemAsync(
+            CompleteCommand(EnrollmentA, ParticipantA, began.IntakeId!.Value, began.Revision!.Value, "Direct text answer.", "complete-1"),
+            TestContext.Current.CancellationToken);
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+        Assert.Equal(IntakeStates.Received, completed.Status);
+
+        var intake = await harness.Intakes.FindIntakeAsync(OrganizationId, EnrollmentA, began.IntakeId.Value, null, CancellationToken.None);
+        Assert.NotNull(intake);
+        Assert.Single(intake.Items);
+        Assert.Equal(MaterialCategories.DirectText, intake.Items[0].Category);
+        Assert.NotNull(intake.CompleteReceiptAtUtc);
+        Assert.NotNull(intake.Items[0].ArtifactObjectKey);
+    }
+
+    [Fact]
+    public async Task Complete_item_rejects_invalid_utf8()
+    {
+        var harness = CreateHarness();
+        var began = await harness.Coordinator.BeginAsync(BeginCommand(EnrollmentA, ParticipantA, "begin-utf8"), TestContext.Current.CancellationToken);
+        var content = new byte[] { 0xFF, 0xFE, 0xFD };
+        var digest = MaterialContentValidator.Sha256Hex(content);
+        var denied = await harness.Coordinator.CompleteItemAsync(
+            new CompleteIntakeItemCommand(
+                ParticipantContext(ParticipantA),
+                EnrollmentA,
+                began.IntakeId!.Value,
+                Guid.Empty,
+                MaterialCategories.DirectText,
+                null,
+                "text/plain",
+                content,
+                digest,
+                began.Revision!.Value,
+                "complete-utf8",
+                SubmissionCommandDigest.Compute(
+                    IntakeOperationKinds.CompleteItem,
+                    OrganizationId.ToString("D"),
+                    EnrollmentA.ToString("D"),
+                    began.IntakeId.Value.ToString("D"),
+                    began.Revision.Value.ToString(),
+                    digest)),
+            TestContext.Current.CancellationToken);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(SubmissionFailureCodes.InvalidEncoding, denied.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Complete_item_idempotency_replay_returns_same_intake()
+    {
+        var harness = CreateHarness();
+        var began = await harness.Coordinator.BeginAsync(BeginCommand(EnrollmentA, ParticipantA, "begin-replay-item"), TestContext.Current.CancellationToken);
+        var first = await harness.Coordinator.CompleteItemAsync(
+            CompleteCommand(EnrollmentA, ParticipantA, began.IntakeId!.Value, began.Revision!.Value, "Direct text answer.", "complete-replay"),
+            TestContext.Current.CancellationToken);
+        Assert.True(first.Succeeded, first.OutcomeCode);
+
+        var replay = await harness.Coordinator.CompleteItemAsync(
+            CompleteCommand(EnrollmentA, ParticipantA, began.IntakeId.Value, began.Revision.Value, "Direct text answer.", "complete-replay"),
+            TestContext.Current.CancellationToken);
+        Assert.True(replay.Succeeded, replay.OutcomeCode);
+        Assert.Equal(first.IntakeId, replay.IntakeId);
+        Assert.Equal(first.Revision, replay.Revision);
+    }
+
     private static async Task<IntakeMutationOutcome> FinalizeIntakeAsync(
         IntakeHarness harness,
         Guid enrollmentId,
@@ -144,7 +239,7 @@ public sealed class IntakeCoordinatorTests
             "text/plain",
             12,
             new string('b', 64),
-            "org/key/object",
+            ArtifactObjectKey.Create(OrganizationId, Guid.CreateVersion7()).Value,
             "version-1",
             Now);
         await harness.UnitOfWork.ExecuteAsync(
@@ -168,7 +263,7 @@ public sealed class IntakeCoordinatorTests
             CancellationToken.None);
     }
 
-    private static IntakeHarness CreateHarness()
+    private static IntakeHarness CreateHarness(IArtifactSafetyScanner? scanner = null)
     {
         var binding = Binding();
         var enrollments = new InMemoryEnrollmentStore();
@@ -201,10 +296,25 @@ public sealed class IntakeCoordinatorTests
             audit,
             unitOfWork,
             sessions,
-            new DisabledArtifactSafetyScanner(),
+            scanner ?? new DisabledArtifactSafetyScanner(),
             timing,
+            new InMemoryArtifactStore(),
             new FixedEnrollmentClock(Now));
         return new IntakeHarness(coordinator, intakes, versions, unitOfWork);
+    }
+
+    private sealed class RecordingArtifactSafetyScanner : IArtifactSafetyScanner
+    {
+        public int ScanCount;
+
+        public Task<ArtifactScanResult> ScanAsync(ArtifactScanRequest request, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref ScanCount);
+            return Task.FromResult(new ArtifactScanResult(
+                true,
+                ArtifactScanOutcome.Clean,
+                ArtifactOutcomeCodes.ScanDisabled));
+        }
     }
 
     private static Enrollment CreateEnrollment(Guid enrollmentId, Guid participantId, ActivatedCohortBinding binding) =>
@@ -251,6 +361,37 @@ public sealed class IntakeCoordinatorTests
                 enrollmentId.ToString("D"),
                 intakeId.ToString("D"),
                 revision.ToString()));
+
+    private static CompleteIntakeItemCommand CompleteCommand(
+        Guid enrollmentId,
+        Guid participantId,
+        Guid intakeId,
+        long revision,
+        string text,
+        string key)
+    {
+        var content = Encoding.UTF8.GetBytes(text);
+        var digest = MaterialContentValidator.Sha256Hex(content);
+        return new CompleteIntakeItemCommand(
+            ParticipantContext(participantId),
+            enrollmentId,
+            intakeId,
+            Guid.Empty,
+            MaterialCategories.DirectText,
+            null,
+            "text/plain",
+            content,
+            digest,
+            revision,
+            key,
+            SubmissionCommandDigest.Compute(
+                IntakeOperationKinds.CompleteItem,
+                OrganizationId.ToString("D"),
+                enrollmentId.ToString("D"),
+                intakeId.ToString("D"),
+                revision.ToString(),
+                digest));
+    }
 
     private static FinalizeIntakeCommand FinalizeCommand(
         Guid enrollmentId,

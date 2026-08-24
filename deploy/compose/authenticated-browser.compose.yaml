@@ -108,6 +108,10 @@ services:
       ConnectionStrings__Identity: Host=postgres;Port=5432;Username=flexagent;Password=flexagent_test_password;Database=flexagent
       ConnectionStrings__Sessions: Host=postgres;Port=5432;Username=flexagent;Password=flexagent_test_password;Database=flexagent
       SyntheticBrowser__Enabled: "false"
+      ArtifactStorage__ServiceUrl: http://seaweedfs:8333
+      ArtifactStorage__BucketName: flex-agent-artifacts
+      ArtifactStorage__AccessKeyId: access_key
+      ArtifactStorage__SecretAccessKey: secret_key
       HumanAuthentication__Enabled: true
       HumanAuthentication__Issuer: http://localhost:18080/realms/flex-agent
       HumanAuthentication__ClientId: flex-agent-api
@@ -132,6 +136,8 @@ services:
         condition: service_completed_successfully
       keycloak:
         condition: service_started
+      seaweedfs:
+        condition: service_healthy
 
   spa:
     build:

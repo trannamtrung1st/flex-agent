@@ -59,6 +59,26 @@ const representativeMappings = [
     schemaComponent: "MyWorkTimingV2",
     schemaPath: "schemas/v2/enrollment/my-work-timing.v2.schema.json",
   },
+  {
+    schemaComponent: "BeginIntakeCommandV2",
+    schemaPath: "schemas/v2/submission/begin-intake-command.v2.schema.json",
+  },
+  {
+    schemaComponent: "CompleteIntakeItemCommandV2",
+    schemaPath: "schemas/v2/submission/complete-intake-item-command.v2.schema.json",
+  },
+  {
+    schemaComponent: "IntakeRevisionCommandV2",
+    schemaPath: "schemas/v2/submission/intake-revision-command.v2.schema.json",
+  },
+  {
+    schemaComponent: "IntakeMutationOutcomeV2",
+    schemaPath: "schemas/v2/submission/intake-mutation-outcome.v2.schema.json",
+  },
+  {
+    schemaComponent: "MyWorkSubmissionV2",
+    schemaPath: "schemas/v2/submission/my-work-submission.v2.schema.json",
+  },
 ];
 
 const commandVariantMappings = [

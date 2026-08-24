@@ -98,6 +98,42 @@ public sealed class IdentityEnrollmentCandidatePort(IHumanDisplayProfileDirector
         directory.FindDisplayLabelAsync(organizationId, actorId, cancellationToken);
 }
 
+public sealed class AssessmentFrozenSubmissionRequirementPort(IActivatedCohortBindingReader reader)
+    : IFrozenSubmissionRequirementPort
+{
+    public async Task<NormalizedMaterialPolicy?> ResolveFrozenAsync(
+        Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
+        Guid taskSourceId,
+        Guid taskVersionId,
+        string taskContentDigest,
+        IEnrollmentTransaction? transaction,
+        CancellationToken cancellationToken = default)
+    {
+        var snapshot = await reader.GetActivatedAsync(
+            organizationId,
+            activityId,
+            cohortId,
+            transaction?.CommitHandle,
+            cancellationToken);
+        if (snapshot is null || snapshot.VerificationDegraded)
+        {
+            return null;
+        }
+
+        if (snapshot.TaskSourceId != taskSourceId
+            || snapshot.TaskVersionId != taskVersionId
+            || !string.Equals(snapshot.TaskContentDigest, taskContentDigest, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return DevelopmentMaterialPolicy.FrozenRequirement(
+            new PolicySourceRef(taskSourceId, taskVersionId, taskContentDigest));
+    }
+}
+
 public sealed class IdentityEnrollmentSessionPort(IApplicationSessionCommitPort sessions) : IEnrollmentSessionPort
 {
     public Task<bool> RevalidateLiveAsync(

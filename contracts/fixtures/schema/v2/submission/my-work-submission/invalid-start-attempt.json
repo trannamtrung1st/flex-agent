@@ -1,0 +1,8 @@
+{
+  "schema_version": "v2",
+  "enrollment_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  "enrollment_status": "active",
+  "intake_available": true,
+  "version_history": [],
+  "permitted_actions": ["start_attempt"]
+}

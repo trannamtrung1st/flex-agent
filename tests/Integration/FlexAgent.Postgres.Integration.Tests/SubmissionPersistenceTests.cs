@@ -338,6 +338,57 @@ public sealed class SubmissionPersistenceTests(PostgresIntegrationFixture fixtur
         Assert.Equal(first.VersionId, predecessor);
     }
 
+    [Fact]
+    public async Task Concurrent_finalize_accepts_exactly_one_version()
+    {
+        var harness = await SubmissionIntakeTestSeed.CreateAsync(Fixture, CancellationToken);
+        var began = await harness.IntakeCoordinator.BeginAsync(harness.BeginCommand("begin-race"), CancellationToken);
+        Assert.True(began.Succeeded, began.OutcomeCode);
+        var completed = await harness.IntakeCoordinator.CompleteItemAsync(
+            harness.CompleteCommand(began.IntakeId!.Value, began.Revision!.Value, "Direct text answer.", "complete-race"),
+            CancellationToken);
+        Assert.True(completed.Succeeded, completed.OutcomeCode);
+
+        var first = FinalizeCommand(harness, completed.IntakeId!.Value, completed.Revision!.Value, "finalize-race-a");
+        var second = FinalizeCommand(harness, completed.IntakeId.Value, completed.Revision.Value, "finalize-race-b");
+        var results = await Task.WhenAll(
+            harness.IntakeCoordinator.FinalizeAsync(first, CancellationToken),
+            harness.IntakeCoordinator.FinalizeAsync(second, CancellationToken));
+
+        Assert.Equal(1, results.Count(result => result.Succeeded));
+        Assert.Contains(results, result => !result.Succeeded
+            && result.OutcomeCode is SubmissionFailureCodes.StaleRevision
+                or SubmissionFailureCodes.AlreadyAccepted
+                or SubmissionFailureCodes.CancellationRace
+                or SubmissionFailureCodes.IdempotencyConflict);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var versionCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*) FROM submissions_accepted_versions
+            WHERE organization_id = @OrganizationId AND enrollment_id = @EnrollmentId
+            """,
+            new { harness.OrganizationId, harness.EnrollmentId });
+        Assert.Equal(1, versionCount);
+    }
+
+    private static FinalizeIntakeCommand FinalizeCommand(
+        SubmissionIntakeTestSeed.SubmissionIntakeHarness harness,
+        Guid intakeId,
+        long revision,
+        string key) =>
+        new(
+            harness.ParticipantActor,
+            harness.EnrollmentId,
+            intakeId,
+            revision,
+            key,
+            SubmissionCommandDigest.Compute(
+                IntakeOperationKinds.Finalize,
+                harness.OrganizationId.ToString("D"),
+                harness.EnrollmentId.ToString("D"),
+                intakeId.ToString("D"),
+                revision.ToString()));
+
     private async Task<IntakeMutationOutcome> FinalizeCurrentIntakeAsync(
         SubmissionIntakeTestSeed.SubmissionIntakeHarness harness,
         string beginKey,
@@ -348,18 +399,7 @@ public sealed class SubmissionPersistenceTests(PostgresIntegrationFixture fixtur
         await SeedReceivedItemAsync(harness, began.IntakeId!.Value, began.Revision!.Value);
 
         var finalize = await harness.IntakeCoordinator.FinalizeAsync(
-            new FinalizeIntakeCommand(
-                harness.ParticipantActor,
-                harness.EnrollmentId,
-                began.IntakeId.Value,
-                began.Revision.Value + 1,
-                finalizeKey,
-                SubmissionCommandDigest.Compute(
-                    IntakeOperationKinds.Finalize,
-                    harness.OrganizationId.ToString("D"),
-                    harness.EnrollmentId.ToString("D"),
-                    began.IntakeId.Value.ToString("D"),
-                    (began.Revision.Value + 1).ToString())),
+            FinalizeCommand(harness, began.IntakeId.Value, began.Revision.Value + 1, finalizeKey),
             CancellationToken);
         Assert.True(finalize.Succeeded, finalize.OutcomeCode);
         return finalize;
@@ -388,7 +428,7 @@ public sealed class SubmissionPersistenceTests(PostgresIntegrationFixture fixtur
             "text/plain",
             12,
             new string('b', 64),
-            "org/key/object",
+            ArtifactObjectKey.Create(harness.OrganizationId, Guid.CreateVersion7()).Value,
             "version-1",
             DateTimeOffset.Parse("2026-08-24T12:00:00Z"));
         await unitOfWork.ExecuteAsync(

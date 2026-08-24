@@ -566,10 +566,10 @@ public static class EnrollmentEndpointExtensions
         permitted_actions = assignment.PermittedActions,
     };
 
-    internal static async Task<T?> TryReadCommandAsync<T>(HttpContext context)
+    internal static async Task<T?> TryReadCommandAsync<T>(HttpContext context, int maxBodyBytes)
         where T : class
     {
-        if (context.Request.ContentLength is > EnrollmentHttpLimits.MaximumBodyBytes)
+        if (context.Request.ContentLength is long length && length > maxBodyBytes)
         {
             return null;
         }
@@ -583,6 +583,10 @@ public static class EnrollmentEndpointExtensions
             return null;
         }
     }
+
+    internal static Task<T?> TryReadCommandAsync<T>(HttpContext context)
+        where T : class =>
+        TryReadCommandAsync<T>(context, EnrollmentHttpLimits.MaximumBodyBytes);
 
     private static HmacEnrollmentCursorSigner CreateCursorSigner(
         IServiceProvider provider,
@@ -655,6 +659,7 @@ public static class EnrollmentEndpointExtensions
 internal static class EnrollmentHttpLimits
 {
     public const int MaximumBodyBytes = 4096;
+    public const int MaximumSubmissionItemBodyBytes = 12_582_912;
     public const long MaximumExpectedRevision = 2_147_483_647;
 
     public static bool IsValidAccommodationRevision(long expectedRevision) =>

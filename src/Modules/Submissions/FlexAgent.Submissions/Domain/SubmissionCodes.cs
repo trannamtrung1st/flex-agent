@@ -51,3 +51,37 @@ public static class IntakeOperationKinds
     public const string Cancel = "intake_cancel";
     public const string Finalize = "intake_finalize";
 }
+
+public static class SubmissionPermittedActions
+{
+    public const string BeginIntake = "begin_intake";
+    public const string CompleteItem = "complete_item";
+    public const string CancelIntake = "cancel_intake";
+    public const string FinalizeIntake = "finalize_intake";
+    public const string PreviewItem = "preview_item";
+    public const string DownloadItem = "download_item";
+    public const string ReturnToMyWork = "return_to_my_work";
+}
+
+public static class SubmissionLifecycleClocks
+{
+    public static readonly TimeSpan IncompleteRetention = TimeSpan.FromHours(24);
+    public static readonly TimeSpan RejectedByteRetention = TimeSpan.FromDays(7);
+    public static readonly TimeSpan ValidationTimeout = TimeSpan.FromMinutes(2);
+    public static readonly TimeSpan WorkLease = TimeSpan.FromMinutes(2);
+}
+
+public static class SubmissionWorkKinds
+{
+    public const string CleanupIncomplete = "cleanup_incomplete";
+    public const string CleanupRejected = "cleanup_rejected";
+    public const string CleanupOrphan = "cleanup_orphan";
+}
+
+public static class SubmissionWorkStates
+{
+    public const string Pending = "pending";
+    public const string Leased = "leased";
+    public const string Completed = "completed";
+    public const string Failed = "failed";
+}

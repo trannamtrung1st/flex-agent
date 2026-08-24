@@ -18,6 +18,7 @@ public sealed class IntakeCoordinator(
     IEnrollmentSessionPort sessions,
     IArtifactSafetyScanner scanner,
     IEnrollmentTimingQueryService timing,
+    IArtifactStore artifacts,
     IEnrollmentClock? clock = null,
     IEnrollmentTelemetry? telemetry = null) : IIntakeCoordinator
 {
@@ -84,7 +85,7 @@ public sealed class IntakeCoordinator(
             cancellationToken);
     }
 
-    public Task<IntakeMutationOutcome> FinalizeAsync(
+    public async Task<IntakeMutationOutcome> FinalizeAsync(
         FinalizeIntakeCommand command,
         CancellationToken cancellationToken = default)
     {
@@ -94,7 +95,22 @@ public sealed class IntakeCoordinator(
             command.EnrollmentId.ToString("D"),
             command.IntakeId.ToString("D"),
             command.ExpectedRevision.ToString());
-        return ExecuteAsync(
+        var scans = new Dictionary<(Guid ItemId, string ArtifactVersionId), ArtifactScanResult>();
+        var enrollment = await enrollments.FindAsync(
+            command.Actor.Organization.OrganizationId,
+            command.EnrollmentId,
+            null,
+            cancellationToken);
+        if (enrollment is not null && enrollment.ParticipantActorId == command.Actor.Actor.ActorId)
+        {
+            scans = await ScanIntakeItemsOutsideTransactionAsync(
+                command.Actor.Organization.OrganizationId,
+                command.EnrollmentId,
+                command.IntakeId,
+                cancellationToken);
+        }
+
+        return await ExecuteAsync(
             command.Actor,
             SubmissionAuthorizationActions.FinalizeIntake,
             IntakeOperationKinds.Finalize,
@@ -151,16 +167,16 @@ public sealed class IntakeCoordinator(
                         return Fail(SubmissionFailureCodes.UploadIncomplete);
                     }
 
-                    var scanResult = await scanner.ScanAsync(
-                            new ArtifactScanRequest(
-                                enrollment.OrganizationId,
-                                new StoredArtifactReference(
-                                    new ArtifactObjectKey(item.ArtifactObjectKey),
-                                    new ArtifactVersionId(item.ArtifactVersionId),
-                                    ArtifactDigest.FromHex(item.ContentDigest),
-                                    item.ByteCount),
-                                item.Category),
-                            cancellationToken);
+                    if (effectivePolicy.ScannerMode == MaterialScannerMode.DisabledByApprovedPolicy)
+                    {
+                        continue;
+                    }
+
+                    if (!scans.TryGetValue((item.ItemId, item.ArtifactVersionId), out var scanResult))
+                    {
+                        return Fail(SubmissionFailureCodes.ScannerRequiredUnavailable);
+                    }
+
                     var scan = MaterialContentValidator.EvaluateScanner(
                         effectivePolicy.ScannerMode,
                         scanResult.Succeeded
@@ -290,10 +306,206 @@ public sealed class IntakeCoordinator(
             cancellationToken);
     }
 
-    public Task<IntakeMutationOutcome> CompleteItemAsync(
+    public async Task<IntakeMutationOutcome> CompleteItemAsync(
         CompleteIntakeItemCommand command,
-        CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException("CompleteItemAsync is implemented in Postgres-backed intake item receipt path.");
+        CancellationToken cancellationToken = default)
+    {
+        var actualDigest = MaterialContentValidator.Sha256Hex(command.Content);
+        if (!string.Equals(actualDigest, command.ContentDigest, StringComparison.Ordinal))
+        {
+            return Fail(SubmissionFailureCodes.ValidationRejected);
+        }
+
+        var digest = SubmissionCommandDigest.Compute(
+            IntakeOperationKinds.CompleteItem,
+            command.Actor.Organization.OrganizationId.ToString("D"),
+            command.EnrollmentId.ToString("D"),
+            command.IntakeId.ToString("D"),
+            command.ExpectedRevision.ToString(),
+            actualDigest);
+
+        StoredArtifactReference? stored = null;
+        var itemId = command.ItemId == Guid.Empty ? Guid.CreateVersion7() : command.ItemId;
+        var put = await artifacts.PutAsync(
+            new ArtifactPutRequest(
+                command.Actor.Organization.OrganizationId,
+                ArtifactObjectKey.Create(command.Actor.Organization.OrganizationId, itemId),
+                command.Content,
+                ContentTypeFor(command.Category, command.DeclaredMimeType),
+                ConditionalCreate: true),
+            cancellationToken);
+        if (!put.Succeeded || put.Reference is null)
+        {
+            if (put.OutcomeCode == ArtifactOutcomeCodes.AlreadyExists)
+            {
+                // Equivalent retry after a persisted item: ExecuteAsync will replay.
+            }
+            else
+            {
+                return Fail(put.OutcomeCode == ArtifactOutcomeCodes.ScopeMismatch
+                    ? SubmissionFailureCodes.Unauthorized
+                    : SubmissionFailureCodes.StorageUnavailable);
+            }
+        }
+        else
+        {
+            stored = put.Reference;
+        }
+
+        return await ExecuteAsync(
+            command.Actor,
+            SubmissionAuthorizationActions.CompleteIntakeItem,
+            IntakeOperationKinds.CompleteItem,
+            command.EnrollmentId,
+            command.IdempotencyKey,
+            command.TrustedCommandDigest,
+            digest,
+            async (transaction, enrollment, binding, effectivePolicy) =>
+            {
+                var intake = await intakes.FindIntakeAsync(
+                    enrollment.OrganizationId,
+                    command.EnrollmentId,
+                    command.IntakeId,
+                    transaction,
+                    cancellationToken);
+                if (intake is null || !IntakeBelongsToEnrollment(intake, enrollment))
+                {
+                    return Fail(SubmissionFailureCodes.NotFound);
+                }
+
+                if (intake.Revision != command.ExpectedRevision)
+                {
+                    return Fail(SubmissionFailureCodes.StaleRevision);
+                }
+
+                if (IntakeStateMachine.IsTerminal(intake.Status)
+                    || intake.Status is IntakeStates.Validating or IntakeStates.Cancelling or IntakeStates.Reconciling)
+                {
+                    return Fail(SubmissionFailureCodes.CancellationRace);
+                }
+
+                if (!string.Equals(intake.PolicyDigest, effectivePolicy.EffectiveDigest, StringComparison.Ordinal))
+                {
+                    return Fail(SubmissionFailureCodes.PolicyStale);
+                }
+
+                var validation = ValidateItem(command, effectivePolicy);
+                if (!validation.Succeeded)
+                {
+                    return Fail(validation.OutcomeCode);
+                }
+
+                var category = validation.DetectedCategory ?? command.Category;
+                var currentItems = intake.Items.ToList();
+                if (category == MaterialCategories.DirectText)
+                {
+                    currentItems.RemoveAll(item => item.Category == MaterialCategories.DirectText);
+                }
+
+                var attachmentCount = currentItems.Count(item => item.Category != MaterialCategories.DirectText);
+                if (category != MaterialCategories.DirectText && attachmentCount >= effectivePolicy.MaxAttachmentCount)
+                {
+                    return Fail(SubmissionFailureCodes.TooManyItems);
+                }
+
+                var nextByteCount = currentItems.Sum(item => item.ByteCount) + command.Content.LongLength;
+                if (category != MaterialCategories.DirectText
+                    && nextByteCount > effectivePolicy.MaxAttachmentAggregateBytes)
+                {
+                    return Fail(SubmissionFailureCodes.AggregateOversized);
+                }
+
+                if (stored is null)
+                {
+                    return Fail(SubmissionFailureCodes.StorageUnavailable);
+                }
+
+                var item = new IntakeItem(
+                    itemId,
+                    category,
+                    command.Filename,
+                    command.DeclaredMimeType,
+                    command.Content.LongLength,
+                    actualDigest,
+                    stored.ObjectKey.Value,
+                    stored.VersionId.Value,
+                    _clock.UtcNow);
+                currentItems.Add(item);
+
+                var received = intake with
+                {
+                    Status = IntakeStates.Received,
+                    Revision = intake.Revision + 1,
+                    UpdatedAtUtc = _clock.UtcNow,
+                    CompleteReceiptAtUtc = _clock.UtcNow,
+                    Items = currentItems,
+                };
+                await intakes.UpdateIntakeAsync(
+                    received,
+                    command.Actor.Actor.ActorId,
+                    transaction,
+                    cancellationToken);
+                return Success(received, command.Actor.GrantedActions);
+            },
+            cancellationToken);
+    }
+
+    private static MaterialValidationResult ValidateItem(CompleteIntakeItemCommand command, NormalizedMaterialPolicy policy)
+    {
+        if (command.Category == MaterialCategories.DirectText)
+        {
+            return MaterialContentValidator.ValidateDirectText(command.Content, policy);
+        }
+
+        return MaterialContentValidator.ValidateAttachment(
+            command.Content,
+            command.Filename,
+            command.DeclaredMimeType,
+            policy);
+    }
+
+    private static string ContentTypeFor(string category, string? declaredMime) =>
+        category switch
+        {
+            MaterialCategories.MarkdownAttachment => "text/markdown",
+            _ => string.IsNullOrWhiteSpace(declaredMime) ? "text/plain" : declaredMime,
+        };
+
+    private async Task<Dictionary<(Guid ItemId, string ArtifactVersionId), ArtifactScanResult>> ScanIntakeItemsOutsideTransactionAsync(
+        Guid organizationId,
+        Guid enrollmentId,
+        Guid intakeId,
+        CancellationToken cancellationToken)
+    {
+        var scans = new Dictionary<(Guid, string), ArtifactScanResult>();
+        var intake = await intakes.FindIntakeAsync(organizationId, enrollmentId, intakeId, null, cancellationToken);
+        if (intake is null)
+        {
+            return scans;
+        }
+
+        foreach (var item in intake.Items)
+        {
+            if (item.ArtifactObjectKey is null || item.ArtifactVersionId is null)
+            {
+                continue;
+            }
+
+            var scanResult = await scanner.ScanAsync(
+                new ArtifactScanRequest(
+                    organizationId,
+                    new StoredArtifactReference(
+                        new ArtifactObjectKey(item.ArtifactObjectKey),
+                        new ArtifactVersionId(item.ArtifactVersionId),
+                        ArtifactDigest.FromHex(item.ContentDigest),
+                        item.ByteCount),
+                    item.Category),
+                cancellationToken);
+            scans[(item.ItemId, item.ArtifactVersionId)] = scanResult;
+        }
+
+        return scans;
+    }
 
     private async Task<IntakeMutationOutcome> ExecuteAsync(
         EnrollmentActorContext actor,
@@ -406,6 +618,8 @@ public sealed class IntakeCoordinator(
 
                 var frozen = await frozenRequirements.ResolveFrozenAsync(
                     actor.Organization.OrganizationId,
+                    enrollment.ActivityId,
+                    enrollment.CohortId,
                     binding.TaskSourceId,
                     binding.TaskVersionId,
                     binding.TaskContentDigest,

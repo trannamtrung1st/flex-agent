@@ -10,6 +10,7 @@ public sealed class SubmissionQueryService(
     IFrozenSubmissionRequirementPort frozenRequirements,
     IMaterialPolicyPort materialPolicies,
     IActivatedCohortPort cohorts,
+    IArtifactStore? artifacts = null,
     IEnrollmentClock? clock = null) : ISubmissionQueryService
 {
     private readonly IEnrollmentClock _clock = clock ?? new SystemEnrollmentClock();
@@ -104,9 +105,15 @@ public sealed class SubmissionQueryService(
                             item.ByteCount,
                             item.ReceivedAtUtc is null ? "pending" : "received")).ToArray(),
                         requirements,
-                        actor.GrantedActions),
+                        SubmissionLifecycle.PermittedActions(
+                            intakeAvailable,
+                            activeIntake.Status,
+                            history.Count > 0)),
                 history,
-                actor.GrantedActions),
+                SubmissionLifecycle.PermittedActions(
+                    intakeAvailable,
+                    activeIntake?.Status,
+                    history.Count > 0)),
             null);
     }
 
@@ -153,9 +160,51 @@ public sealed class SubmissionQueryService(
                     item.Category,
                     item.Filename,
                     item.ByteCount,
-                    actor.GrantedActions.Contains(SubmissionAuthorizationActions.PreviewItem),
-                    actor.GrantedActions.Contains(SubmissionAuthorizationActions.DownloadItem))).ToArray(),
-                actor.GrantedActions),
+                    true,
+                    true)).ToArray(),
+                SubmissionLifecycle.PermittedActions(false, IntakeStates.Accepted, true)),
+            null);
+    }
+
+    public async Task<QueryResult<ProtectedItemContent>> GetAcceptedItemPreviewAsync(
+        EnrollmentActorContext actor,
+        Guid enrollmentId,
+        Guid versionId,
+        Guid itemId,
+        CancellationToken cancellationToken = default)
+    {
+        var versionResult = await GetAcceptedVersionAsync(actor, enrollmentId, versionId, cancellationToken);
+        if (!versionResult.Found || versionResult.Value is null)
+        {
+            return new QueryResult<ProtectedItemContent>(false, null, versionResult.OutcomeCode);
+        }
+
+        var version = await versions.FindVersionAsync(actor.Organization.OrganizationId, versionId, null, cancellationToken);
+        var item = version?.Items.FirstOrDefault(candidate => candidate.ItemId == itemId);
+        if (version is null || item is null || artifacts is null)
+        {
+            return new QueryResult<ProtectedItemContent>(false, null, SubmissionFailureCodes.NotFound);
+        }
+
+        var gotten = await artifacts.GetExactVersionAsync(
+            new ArtifactGetRequest(
+                actor.Organization.OrganizationId,
+                new StoredArtifactReference(
+                    new ArtifactObjectKey(item.ArtifactObjectKey),
+                    new ArtifactVersionId(item.ArtifactVersionId),
+                    ArtifactDigest.FromHex(item.ContentDigest),
+                    item.ByteCount)),
+            cancellationToken);
+        if (!gotten.Succeeded)
+        {
+            return new QueryResult<ProtectedItemContent>(false, null, SubmissionFailureCodes.NotFound);
+        }
+
+        var text = System.Text.Encoding.UTF8.GetString(gotten.Content.Span);
+        var contentType = item.Category == MaterialCategories.MarkdownAttachment ? "text/markdown" : "text/plain";
+        return new QueryResult<ProtectedItemContent>(
+            true,
+            new ProtectedItemContent(versionId, itemId, item.Category, item.Filename, contentType, text),
             null);
     }
 
@@ -171,6 +220,8 @@ public sealed class SubmissionQueryService(
 
         var frozen = await frozenRequirements.ResolveFrozenAsync(
             organizationId,
+            binding.ActivityId,
+            binding.CohortId,
             binding.TaskSourceId,
             binding.TaskVersionId,
             binding.TaskContentDigest,

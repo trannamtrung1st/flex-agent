@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v2/submission/my-work-submission.v2.schema.json",
+  "title": "My work submission projection v2",
+  "description": "Participant-visible Submission requirements, active intake, and immutable accepted-version history for one Assignment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "enrollment_id",
+    "enrollment_status",
+    "intake_available",
+    "version_history",
+    "permitted_actions"
+  ],
+  "properties": {
+    "schema_version": { "const": "v2" },
+    "enrollment_id": {
+      "type": "string",
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "enrollment_status": {
+      "type": "string",
+      "enum": ["active", "suspended"]
+    },
+    "intake_available": { "type": "boolean" },
+    "unavailable_reason": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._]{0,127}$"
+    },
+    "requirements": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "max_attachment_count",
+        "max_attachment_aggregate_bytes",
+        "max_direct_text_bytes",
+        "categories",
+        "scanner_mode"
+      ],
+      "properties": {
+        "contract_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "max_attachment_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "max_attachment_aggregate_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 26214400
+        },
+        "max_direct_text_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1048576
+        },
+        "scanner_mode": {
+          "type": "string",
+          "enum": ["disabled_by_approved_policy", "required"]
+        },
+        "categories": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["category", "available", "max_bytes"],
+            "properties": {
+              "category": {
+                "type": "string",
+                "enum": ["direct_text", "text_plain_attachment", "text_markdown_attachment"]
+              },
+              "available": { "type": "boolean" },
+              "max_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10485760
+              }
+            }
+          }
+        }
+      }
+    },
+    "active_intake": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "intake_id",
+        "submission_id",
+        "status",
+        "revision",
+        "created_at_utc",
+        "updated_at_utc",
+        "items",
+        "permitted_actions"
+      ],
+      "properties": {
+        "intake_id": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "submission_id": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["receiving", "received", "validating", "cancelling", "cancelled", "rejected", "failed", "reconciling", "accepted"]
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "created_at_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "updated_at_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "complete_receipt_at_utc": {
+          "oneOf": [
+            {
+              "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+            },
+            { "type": "null" }
+          ]
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 11,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["item_id", "category", "byte_count"],
+            "properties": {
+              "item_id": {
+                "type": "string",
+                "format": "uuid",
+                "minLength": 36,
+                "maxLength": 36,
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "category": {
+                "type": "string",
+                "enum": ["direct_text", "text_plain_attachment", "text_markdown_attachment"]
+              },
+              "filename": {
+                "type": ["string", "null"],
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "byte_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10485760
+              },
+              "receipt_state": {
+                "type": ["string", "null"],
+                "enum": ["pending", "received", null]
+              }
+            }
+          }
+        },
+        "permitted_actions": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "begin_intake",
+              "complete_item",
+              "cancel_intake",
+              "finalize_intake",
+              "preview_item",
+              "download_item",
+              "return_to_my_work"
+            ]
+          }
+        }
+      }
+    },
+    "version_history": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version_id", "version_number", "accepted_at_utc", "item_count"],
+        "properties": {
+          "version_id": {
+            "type": "string",
+            "format": "uuid",
+            "minLength": 36,
+            "maxLength": 36,
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "version_number": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "accepted_at_utc": {
+            "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+          },
+          "item_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 11
+          }
+        }
+      }
+    },
+    "permitted_actions": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "begin_intake",
+          "complete_item",
+          "cancel_intake",
+          "finalize_intake",
+          "preview_item",
+          "download_item",
+          "return_to_my_work"
+        ]
+      }
+    }
+  }
+}

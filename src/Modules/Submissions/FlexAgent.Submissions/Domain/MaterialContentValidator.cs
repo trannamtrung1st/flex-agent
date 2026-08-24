@@ -1,9 +1,16 @@
+using System.Security.Cryptography;
 using System.Text;
 
 namespace FlexAgent.Submissions.Domain;
 
 public static class MaterialContentValidator
 {
+    public static string Sha256Hex(ReadOnlySpan<byte> content)
+    {
+        var hash = SHA256.HashData(content);
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
     public static MaterialValidationResult ValidateUtf8(ReadOnlySpan<byte> content)
     {
         if (!System.Text.Unicode.Utf8.IsValid(content))

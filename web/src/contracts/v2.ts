@@ -1,5 +1,120 @@
 export type SchemaVersionV2 = 'v2';
 
+export type SubmissionMaterialCategoryV2 =
+  | 'direct_text'
+  | 'text_plain_attachment'
+  | 'text_markdown_attachment';
+
+export type IntakeStatusV2 =
+  | 'receiving'
+  | 'received'
+  | 'validating'
+  | 'cancelling'
+  | 'cancelled'
+  | 'rejected'
+  | 'failed'
+  | 'reconciling'
+  | 'accepted';
+
+export type SubmissionPermittedActionV2 =
+  | 'begin_intake'
+  | 'complete_item'
+  | 'cancel_intake'
+  | 'finalize_intake'
+  | 'preview_item'
+  | 'download_item'
+  | 'return_to_my_work';
+
+export interface BeginIntakeCommandV2 {
+  schema_version: SchemaVersionV2;
+  idempotency_key: string;
+}
+
+export interface CompleteIntakeItemCommandV2 {
+  schema_version: SchemaVersionV2;
+  category: SubmissionMaterialCategoryV2;
+  filename?: string | null;
+  declared_mime_type?: string | null;
+  content: string;
+  expected_revision: number;
+  idempotency_key: string;
+}
+
+export interface IntakeRevisionCommandV2 {
+  schema_version: SchemaVersionV2;
+  expected_revision: number;
+  idempotency_key: string;
+}
+
+export interface IntakeMutationOutcomeV2 {
+  schema_version: SchemaVersionV2;
+  succeeded: boolean;
+  outcome_code: string;
+  intake_id?: string | null;
+  submission_id?: string | null;
+  status?: IntakeStatusV2 | null;
+  revision?: number | null;
+  version_id?: string | null;
+  version_number?: number | null;
+  permitted_actions: SubmissionPermittedActionV2[];
+}
+
+export interface MaterialRequirementsV2 {
+  contract_version: string;
+  max_attachment_count: number;
+  max_attachment_aggregate_bytes: number;
+  max_direct_text_bytes: number;
+  scanner_mode: 'disabled_by_approved_policy' | 'required';
+  categories: Array<{
+    category: SubmissionMaterialCategoryV2;
+    available: boolean;
+    max_bytes: number;
+  }>;
+}
+
+export interface MyWorkSubmissionV2 {
+  schema_version: SchemaVersionV2;
+  enrollment_id: string;
+  enrollment_status: string;
+  intake_available: boolean;
+  unavailable_reason?: string | null;
+  requirements?: MaterialRequirementsV2 | null;
+  active_intake?: {
+    intake_id: string;
+    submission_id: string;
+    status: IntakeStatusV2;
+    revision: number;
+    created_at_utc: string;
+    updated_at_utc: string;
+    complete_receipt_at_utc?: string | null;
+    items: Array<{
+      item_id: string;
+      category: string;
+      filename?: string | null;
+      byte_count: number;
+      receipt_state?: string | null;
+    }>;
+    permitted_actions: SubmissionPermittedActionV2[];
+  } | null;
+  version_history: Array<{
+    version_id: string;
+    version_number: number;
+    accepted_at_utc: string;
+    item_count: number;
+  }>;
+  permitted_actions: SubmissionPermittedActionV2[];
+}
+
+export interface ProtectedItemPreviewV2 {
+  schema_version: SchemaVersionV2;
+  version_id: string;
+  item_id: string;
+  category: string;
+  filename?: string | null;
+  content_type: string;
+  content: string;
+}
+
 export type AccommodationDimensionV2 =
   | 'submission_deadline_utc'
   | 'attempt_start_not_before_utc'
@@ -134,35 +249,4 @@ export interface MyWorkTimingV2 {
   };
   effective?: TimingEffectiveWindowV2 | null;
   participant_consequence_code: AccommodationConsequenceCodeV2;
-}
-
-export interface MyWorkSubmissionProjection {
-  enrollment_id: string;
-  enrollment_status: string;
-  intake_available: boolean;
-  unavailable_reason?: string | null;
-  active_intake?: {
-    intake_id: string;
-    submission_id: string;
-    status: string;
-    revision: number;
-    created_at_utc: string;
-    updated_at_utc: string;
-    complete_receipt_at_utc?: string | null;
-    items: Array<{
-      item_id: string;
-      category: string;
-      filename?: string | null;
-      byte_count: number;
-      receipt_state?: string | null;
-    }>;
-    permitted_actions: string[];
-  } | null;
-  version_history: Array<{
-    version_id: string;
-    version_number: number;
-    accepted_at_utc: string;
-    item_count: number;
-  }>;
-  permitted_actions: string[];
 }

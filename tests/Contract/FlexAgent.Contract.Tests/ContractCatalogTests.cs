@@ -17,7 +17,7 @@ public sealed class ContractCatalogTests
     public void Catalog_declares_draft_2020_12_and_complete_representative_set()
     {
         Assert.Equal("https://json-schema.org/draft/2020-12/schema", _catalog.SchemaDialect);
-        Assert.Equal(26, _catalog.RepresentativeSchemas.Count);
+        Assert.Equal(31, _catalog.RepresentativeSchemas.Count);
         Assert.Equal(5, _catalog.DigestSchemas.Count);
         Assert.All(_catalog.RepresentativeSchemas, entry =>
             Assert.StartsWith(_catalog.IdNamespace, entry.SchemaId, StringComparison.Ordinal));
@@ -28,7 +28,7 @@ public sealed class ContractCatalogTests
     {
         ContractSchemaRegistry.AssertReferenceClosure(ContractsRoot, _catalog);
         var schemas = ContractSchemaRegistry.BuildCatalogSchemas(ContractsRoot, _catalog, AllowedKeywords);
-        Assert.Equal(32, schemas.Count);
+        Assert.Equal(37, schemas.Count);
     }
 
     [Theory]
@@ -71,6 +71,12 @@ public sealed class ContractCatalogTests
         Assert.Contains("RevokeAccommodationCommandV2", content, StringComparison.Ordinal);
         Assert.Contains("EnrollmentTimingV2", content, StringComparison.Ordinal);
         Assert.Contains("MyWorkTimingV2", content, StringComparison.Ordinal);
+        Assert.Contains("BeginIntakeCommandV2", content, StringComparison.Ordinal);
+        Assert.Contains("CompleteIntakeItemCommandV2", content, StringComparison.Ordinal);
+        Assert.Contains("IntakeRevisionCommandV2", content, StringComparison.Ordinal);
+        Assert.Contains("IntakeMutationOutcomeV2", content, StringComparison.Ordinal);
+        Assert.Contains("MyWorkSubmissionV2", content, StringComparison.Ordinal);
+        Assert.Contains("/v2/assessment/my-work/{enrollmentId}/submission", content, StringComparison.Ordinal);
         Assert.Contains("/v2/assessment/activities/{activityId}/cohorts/{cohortId}/enrollments/{enrollmentId}/accommodations/{accommodationId}/decide", content, StringComparison.Ordinal);
         Assert.Contains("/v2/assessment/activities/{activityId}/cohorts/{cohortId}/enrollments/{enrollmentId}/accommodations/{accommodationId}/revoke", content, StringComparison.Ordinal);
     }
@@ -88,6 +94,11 @@ public sealed class ContractCatalogTests
             ["AccommodationMutationOutcomeV2"] = "../schemas/v2/enrollment/accommodation-mutation-outcome.v2.schema.json",
             ["EnrollmentTimingV2"] = "../schemas/v2/enrollment/enrollment-timing.v2.schema.json",
             ["MyWorkTimingV2"] = "../schemas/v2/enrollment/my-work-timing.v2.schema.json",
+            ["BeginIntakeCommandV2"] = "../schemas/v2/submission/begin-intake-command.v2.schema.json",
+            ["CompleteIntakeItemCommandV2"] = "../schemas/v2/submission/complete-intake-item-command.v2.schema.json",
+            ["IntakeRevisionCommandV2"] = "../schemas/v2/submission/intake-revision-command.v2.schema.json",
+            ["IntakeMutationOutcomeV2"] = "../schemas/v2/submission/intake-mutation-outcome.v2.schema.json",
+            ["MyWorkSubmissionV2"] = "../schemas/v2/submission/my-work-submission.v2.schema.json",
         };
         foreach (var (component, relativeSchema) in required)
         {

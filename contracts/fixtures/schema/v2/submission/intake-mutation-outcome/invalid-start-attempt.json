@@ -1,0 +1,6 @@
+{
+  "schema_version": "v2",
+  "succeeded": true,
+  "outcome_code": "accepted",
+  "permitted_actions": ["start_attempt"]
+}

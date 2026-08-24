@@ -118,6 +118,46 @@ public sealed class IntakeStateMachineTests
     }
 }
 
+public sealed class SubmissionLifecycleTests
+{
+    [Fact]
+    public void Incomplete_cleanup_requires_retention_elapsed()
+    {
+        var now = DateTimeOffset.Parse("2026-08-25T12:00:00Z");
+        var scope = new SubmissionParentScope(
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            new string('a', 64));
+        var recent = new SubmissionIntakeRecord(
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            scope,
+            IntakeStates.Receiving,
+            1,
+            new string('b', 64),
+            scope.TaskSourceId,
+            scope.TaskVersionId,
+            scope.TaskContentDigest,
+            scope.TaskSourceId,
+            scope.TaskVersionId,
+            scope.TaskContentDigest,
+            now.AddHours(-1),
+            now.AddHours(-1),
+            null,
+            []);
+        var stale = recent with { CreatedAtUtc = now.AddHours(-25) };
+
+        Assert.False(SubmissionLifecycle.IncompleteEligibleForCleanup(recent, now));
+        Assert.True(SubmissionLifecycle.IncompleteEligibleForCleanup(stale, now));
+    }
+}
+
 public sealed class SubmissionApplicationTests
 {
     private static readonly Guid OrganizationId = Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc");

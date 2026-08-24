@@ -6,6 +6,8 @@ public interface IFrozenSubmissionRequirementPort
 {
     Task<NormalizedMaterialPolicy?> ResolveFrozenAsync(
         Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
         Guid taskSourceId,
         Guid taskVersionId,
         string taskContentDigest,
@@ -37,7 +39,7 @@ public sealed record CompleteIntakeItemCommand(
     string Category,
     string? Filename,
     string? DeclaredMimeType,
-    long ExpectedByteCount,
+    byte[] Content,
     string ContentDigest,
     long ExpectedRevision,
     string IdempotencyKey,
@@ -141,7 +143,22 @@ public interface ISubmissionQueryService
         Guid enrollmentId,
         Guid versionId,
         CancellationToken cancellationToken = default);
+
+    Task<QueryResult<ProtectedItemContent>> GetAcceptedItemPreviewAsync(
+        EnrollmentActorContext actor,
+        Guid enrollmentId,
+        Guid versionId,
+        Guid itemId,
+        CancellationToken cancellationToken = default);
 }
+
+public sealed record ProtectedItemContent(
+    Guid VersionId,
+    Guid ItemId,
+    string Category,
+    string? Filename,
+    string ContentType,
+    string Text);
 
 public sealed record QueryResult<T>(bool Found, T? Value, string? OutcomeCode);
 
@@ -170,6 +187,11 @@ public interface IIntakeStore
         SubmissionIntakeRecord intake,
         Guid actorId,
         IEnrollmentTransaction transaction,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SubmissionIntakeRecord>> ListIncompleteCreatedBeforeAsync(
+        DateTimeOffset cutoffUtc,
+        int limit,
         CancellationToken cancellationToken = default);
 }
 
@@ -215,4 +237,33 @@ public interface IExactAcceptedVersionReader
         Guid versionId,
         object commitTransaction,
         CancellationToken cancellationToken = default);
+}
+
+public sealed record SubmissionWorkItem(
+    Guid OrganizationId,
+    Guid WorkId,
+    string WorkKind,
+    Guid? EnrollmentId,
+    Guid? IntakeId,
+    Guid? VersionId,
+    string Status,
+    int AttemptCount,
+    DateTimeOffset AvailableAtUtc,
+    DateTimeOffset? LeaseUntilUtc,
+    string? ArtifactObjectKey);
+
+public interface ISubmissionWorkStore
+{
+    Task EnqueueAsync(SubmissionWorkItem work, IEnrollmentTransaction transaction, CancellationToken cancellationToken = default);
+
+    Task<SubmissionWorkItem?> ClaimNextAsync(DateTimeOffset nowUtc, TimeSpan lease, CancellationToken cancellationToken = default);
+
+    Task CompleteAsync(Guid organizationId, Guid workId, CancellationToken cancellationToken = default);
+
+    Task FailAsync(Guid organizationId, Guid workId, DateTimeOffset retryAtUtc, CancellationToken cancellationToken = default);
+}
+
+public interface ISubmissionCleanupProcessor
+{
+    Task<string> TryProcessNextAsync(CancellationToken cancellationToken = default);
 }

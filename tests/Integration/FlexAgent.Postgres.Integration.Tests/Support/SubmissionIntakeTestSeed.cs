@@ -309,6 +309,7 @@ internal static class SubmissionIntakeTestSeed
             sessions,
             new DisabledArtifactSafetyScanner(),
             new OpenSubmissionTimingPort(),
+            new InMemoryArtifactStore(),
             new FixedEnrollmentClock(DateTimeOffset.Parse("2026-08-24T12:00:00Z")));
 
         return new SubmissionIntakeHarness(
@@ -360,6 +361,31 @@ internal static class SubmissionIntakeTestSeed
                     IntakeOperationKinds.Begin,
                     OrganizationId.ToString("D"),
                     EnrollmentId.ToString("D")));
+
+        public CompleteIntakeItemCommand CompleteCommand(Guid intakeId, long revision, string text, string key)
+        {
+            var content = System.Text.Encoding.UTF8.GetBytes(text);
+            var digest = MaterialContentValidator.Sha256Hex(content);
+            return new CompleteIntakeItemCommand(
+                ParticipantActor,
+                EnrollmentId,
+                intakeId,
+                Guid.Empty,
+                MaterialCategories.DirectText,
+                null,
+                "text/plain",
+                content,
+                digest,
+                revision,
+                key,
+                SubmissionCommandDigest.Compute(
+                    IntakeOperationKinds.CompleteItem,
+                    OrganizationId.ToString("D"),
+                    EnrollmentId.ToString("D"),
+                    intakeId.ToString("D"),
+                    revision.ToString(),
+                    digest));
+        }
     }
 
     private sealed class OpenSubmissionTimingPort : IEnrollmentTimingQueryService

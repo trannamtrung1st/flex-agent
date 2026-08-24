@@ -5,6 +5,7 @@ using FlexAgent.Contracts.Enrollment;
 using FlexAgent.Contracts.Evidence;
 using FlexAgent.Contracts.Manifest;
 using FlexAgent.Contracts.Session;
+using FlexAgent.Contracts.Submission;
 using FlexAgent.Contracts.Transport;
 using FlexAgent.Contract.Tests.Harness;
 
@@ -82,6 +83,11 @@ public sealed class ContractMappingParityTests
         Assert.Contains("AccommodationMutationOutcomeV2", exported);
         Assert.Contains("EnrollmentTimingV2", exported);
         Assert.Contains("MyWorkTimingV2", exported);
+        Assert.Contains("BeginIntakeCommandV2", exported);
+        Assert.Contains("CompleteIntakeItemCommandV2", exported);
+        Assert.Contains("IntakeRevisionCommandV2", exported);
+        Assert.Contains("IntakeMutationOutcomeV2", exported);
+        Assert.Contains("MyWorkSubmissionV2", exported);
         Assert.DoesNotContain(exported, name => name.Contains("Authorization", StringComparison.Ordinal));
         Assert.DoesNotContain(exported, name => name.Contains("Secret", StringComparison.Ordinal));
     }
@@ -423,6 +429,63 @@ public sealed class ContractMappingParityTests
                     "UTC",
                     "deadline_replacement"),
                 "deadline_replacement"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/submission/begin-intake-command.v2.schema.json",
+            new BeginIntakeCommandV2("v2", "intake-begin-synthetic-0001"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/submission/complete-intake-item-command.v2.schema.json",
+            new CompleteIntakeItemCommandV2(
+                "v2",
+                "direct_text",
+                null,
+                null,
+                "Direct text answer.",
+                1,
+                "intake-complete-synthetic-0001"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/submission/intake-revision-command.v2.schema.json",
+            new IntakeRevisionCommandV2("v2", 1, "intake-finalize-synthetic-0001"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/submission/intake-mutation-outcome.v2.schema.json",
+            new IntakeMutationOutcomeV2(
+                "v2",
+                true,
+                "accepted",
+                Guid.Parse("11111111-1111-4111-8111-111111111111"),
+                Guid.Parse("22222222-2222-4222-8222-222222222222"),
+                "accepted",
+                2,
+                Guid.Parse("33333333-3333-4333-8333-333333333333"),
+                1,
+                ["preview_item", "download_item", "return_to_my_work"]));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/submission/my-work-submission.v2.schema.json",
+            new MyWorkSubmissionV2(
+                "v2",
+                Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+                "active",
+                true,
+                null,
+                new MaterialRequirementsV2(
+                    "submissions.material_policy.v1",
+                    10,
+                    26214400,
+                    1048576,
+                    "disabled_by_approved_policy",
+                    [new MaterialCategoryLimitV2("direct_text", true, 1048576)]),
+                null,
+                [],
+                ["begin_intake", "return_to_my_work"]));
     }
 
     private void ValidateDto(IReadOnlyDictionary<string, Json.Schema.JsonSchema> schemas, string schemaId, object dto)

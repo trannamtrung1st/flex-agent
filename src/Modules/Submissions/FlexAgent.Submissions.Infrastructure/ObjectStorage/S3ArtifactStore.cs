@@ -37,9 +37,20 @@ public sealed class S3ArtifactStore : IArtifactStore, IAsyncDisposable
             AuthenticationRegion = "us-east-1",
             UseHttp = options.ServiceUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase),
         };
-        _client = new AmazonS3Client(
+        _client =             new AmazonS3Client(
             new BasicAWSCredentials(options.AccessKeyId, options.SecretAccessKey),
             config);
+    }
+
+    public async Task EnsureBucketAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _client.PutBucketAsync(new PutBucketRequest { BucketName = _bucket }, cancellationToken);
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.Conflict)
+        {
+        }
     }
 
     public async Task<ArtifactPutResult> PutAsync(ArtifactPutRequest request, CancellationToken cancellationToken = default)

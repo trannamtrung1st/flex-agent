@@ -34,6 +34,8 @@ public sealed class FixedFrozenSubmissionRequirementPort : IFrozenSubmissionRequ
 
     public Task<NormalizedMaterialPolicy?> ResolveFrozenAsync(
         Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
         Guid taskSourceId,
         Guid taskVersionId,
         string taskContentDigest,
@@ -71,6 +73,8 @@ public sealed class UnavailableFrozenSubmissionRequirementPort : IFrozenSubmissi
 {
     public Task<NormalizedMaterialPolicy?> ResolveFrozenAsync(
         Guid organizationId,
+        Guid activityId,
+        Guid cohortId,
         Guid taskSourceId,
         Guid taskVersionId,
         string taskContentDigest,

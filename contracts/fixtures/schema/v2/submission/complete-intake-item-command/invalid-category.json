@@ -1,0 +1,7 @@
+{
+  "schema_version": "v2",
+  "category": "application_pdf",
+  "content": "Direct text answer.",
+  "expected_revision": 1,
+  "idempotency_key": "intake-complete-synthetic-0002"
+}

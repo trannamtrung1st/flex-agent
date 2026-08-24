@@ -1,0 +1,90 @@
+using FlexAgent.Submissions.Domain;
+
+namespace FlexAgent.Submissions.Application;
+
+public sealed class SubmissionCleanupProcessor(
+    ISubmissionWorkStore work,
+    IIntakeStore intakes,
+    IArtifactStore artifacts,
+    IEnrollmentClock? clock = null) : ISubmissionCleanupProcessor
+{
+    private readonly IEnrollmentClock _clock = clock ?? new SystemEnrollmentClock();
+
+    public async Task<string> TryProcessNextAsync(CancellationToken cancellationToken = default)
+    {
+        await EnqueueEligibleIncompleteAsync(cancellationToken);
+        var claimed = await work.ClaimNextAsync(_clock.UtcNow, SubmissionLifecycleClocks.WorkLease, cancellationToken);
+        if (claimed is null)
+        {
+            return "idle";
+        }
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(claimed.ArtifactObjectKey))
+            {
+                await artifacts.DeleteAsync(
+                    claimed.OrganizationId,
+                    new StoredArtifactReference(
+                        new ArtifactObjectKey(claimed.ArtifactObjectKey),
+                        new ArtifactVersionId(string.Empty),
+                        ArtifactDigest.FromHex(new string('0', 64)),
+                        0),
+                    cancellationToken);
+            }
+
+            await work.CompleteAsync(claimed.OrganizationId, claimed.WorkId, cancellationToken);
+            return "completed";
+        }
+        catch
+        {
+            await work.FailAsync(
+                claimed.OrganizationId,
+                claimed.WorkId,
+                _clock.UtcNow.Add(SubmissionLifecycleClocks.WorkLease),
+                cancellationToken);
+            return "failed";
+        }
+    }
+
+    private async Task EnqueueEligibleIncompleteAsync(CancellationToken cancellationToken)
+    {
+        var cutoff = _clock.UtcNow - SubmissionLifecycleClocks.IncompleteRetention;
+        var stale = await intakes.ListIncompleteCreatedBeforeAsync(cutoff, 20, cancellationToken);
+        foreach (var intake in stale)
+        {
+            foreach (var item in intake.Items)
+            {
+                if (string.IsNullOrWhiteSpace(item.ArtifactObjectKey))
+                {
+                    continue;
+                }
+
+                await work.EnqueueAsync(
+                    new SubmissionWorkItem(
+                        intake.Scope.OrganizationId,
+                        Guid.CreateVersion7(),
+                        SubmissionWorkKinds.CleanupIncomplete,
+                        intake.Scope.EnrollmentId,
+                        intake.IntakeId,
+                        null,
+                        SubmissionWorkStates.Pending,
+                        0,
+                        _clock.UtcNow,
+                        null,
+                        item.ArtifactObjectKey),
+                    new CleanupEnqueueTransaction(),
+                    cancellationToken);
+            }
+        }
+    }
+
+    private sealed class CleanupEnqueueTransaction : IEnrollmentTransaction
+    {
+        public bool AuditAccepted { get; set; } = true;
+
+        public bool OutboxAccepted { get; set; } = true;
+
+        public object CommitHandle { get; } = new();
+    }
+}

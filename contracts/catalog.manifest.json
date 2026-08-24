@@ -134,6 +134,31 @@
       "category": "my_work_timing",
       "schema_id": "https://flex-agent.local/contracts/schemas/v2/enrollment/my-work-timing.v2.schema.json",
       "fixture_dir": "fixtures/schema/v2/enrollment/my-work-timing"
+    },
+    {
+      "category": "begin_intake_command",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/begin-intake-command.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/submission/begin-intake-command"
+    },
+    {
+      "category": "complete_intake_item_command",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/complete-intake-item-command.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/submission/complete-intake-item-command"
+    },
+    {
+      "category": "intake_revision_command",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/intake-revision-command.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/submission/intake-revision-command"
+    },
+    {
+      "category": "intake_mutation_outcome",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/intake-mutation-outcome.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/submission/intake-mutation-outcome"
+    },
+    {
+      "category": "my_work_submission",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/my-work-submission.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/submission/my-work-submission"
     }
   ],
   "digest_schemas": [

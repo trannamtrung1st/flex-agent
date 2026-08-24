@@ -140,6 +140,102 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MyWorkTimingV2'
+  /v2/assessment/my-work/{enrollmentId}/submission:
+    get:
+      operationId: getMyWorkSubmission
+      responses:
+        '200':
+          description: Participant submission requirements, intake, and accepted versions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyWorkSubmissionV2'
+  /v2/assessment/my-work/{enrollmentId}/submission/intake:
+    post:
+      operationId: beginSubmissionIntake
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BeginIntakeCommandV2'
+      responses:
+        '200':
+          description: Intake opened or current active intake returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntakeMutationOutcomeV2'
+  /v2/assessment/my-work/{enrollmentId}/submission/intake/{intakeId}/items:
+    post:
+      operationId: completeSubmissionIntakeItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteIntakeItemCommandV2'
+      responses:
+        '200':
+          description: Item receipt recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntakeMutationOutcomeV2'
+  /v2/assessment/my-work/{enrollmentId}/submission/intake/{intakeId}/cancel:
+    post:
+      operationId: cancelSubmissionIntake
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntakeRevisionCommandV2'
+      responses:
+        '200':
+          description: Intake cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntakeMutationOutcomeV2'
+  /v2/assessment/my-work/{enrollmentId}/submission/intake/{intakeId}/finalize:
+    post:
+      operationId: finalizeSubmissionIntake
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntakeRevisionCommandV2'
+      responses:
+        '200':
+          description: Immutable accepted version committed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntakeMutationOutcomeV2'
+  /v2/assessment/my-work/{enrollmentId}/submission/versions/{versionId}:
+    get:
+      operationId: getAcceptedSubmissionVersion
+      responses:
+        '200':
+          description: Exact accepted version metadata
+  /v2/assessment/my-work/{enrollmentId}/submission/versions/{versionId}/items/{itemId}/preview:
+    get:
+      operationId: getAcceptedSubmissionItemPreview
+      responses:
+        '200':
+          description: Inert exact item preview after use-time authorization
+  /v2/assessment/my-work/{enrollmentId}/submission/versions/{versionId}/items/{itemId}/download:
+    get:
+      operationId: downloadAcceptedSubmissionItem
+      responses:
+        '200':
+          description: Exact item bytes after use-time authorization
+          content:
+            text/plain:
+              schema:
+                type: string
   /session/commands:
     post:
       operationId: submitSessionCommand
@@ -281,6 +377,16 @@ components:
       $ref: '../schemas/v2/enrollment/enrollment-timing.v2.schema.json'
     MyWorkTimingV2:
       $ref: '../schemas/v2/enrollment/my-work-timing.v2.schema.json'
+    BeginIntakeCommandV2:
+      $ref: '../schemas/v2/submission/begin-intake-command.v2.schema.json'
+    CompleteIntakeItemCommandV2:
+      $ref: '../schemas/v2/submission/complete-intake-item-command.v2.schema.json'
+    IntakeRevisionCommandV2:
+      $ref: '../schemas/v2/submission/intake-revision-command.v2.schema.json'
+    IntakeMutationOutcomeV2:
+      $ref: '../schemas/v2/submission/intake-mutation-outcome.v2.schema.json'
+    MyWorkSubmissionV2:
+      $ref: '../schemas/v2/submission/my-work-submission.v2.schema.json'
     Int64WireStringNineteenDigit:
       type: string
       minLength: 19

@@ -142,6 +142,72 @@ public sealed class PostgresIntakeStore(PostgresConnectionAccessor connections) 
         {
             throw new InvalidOperationException(SubmissionFailureCodes.StaleRevision);
         }
+
+        await postgres.Scope.Connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                DELETE FROM submissions_intake_items
+                WHERE organization_id = @OrganizationId AND intake_id = @IntakeId
+                """,
+                new { intake.Scope.OrganizationId, intake.IntakeId },
+                postgres.Scope.Transaction,
+                cancellationToken: cancellationToken));
+
+        foreach (var item in intake.Items)
+        {
+            await postgres.Scope.Connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO submissions_intake_items (
+                        organization_id, intake_id, item_id, category, filename, declared_mime_type,
+                        byte_count, content_digest, artifact_object_key, artifact_version_id, received_at)
+                    VALUES (
+                        @OrganizationId, @IntakeId, @ItemId, @Category, @Filename, @DeclaredMimeType,
+                        @ByteCount, @ContentDigest, @ArtifactObjectKey, @ArtifactVersionId, @ReceivedAtUtc);
+                    """,
+                    new
+                    {
+                        intake.Scope.OrganizationId,
+                        intake.IntakeId,
+                        item.ItemId,
+                        item.Category,
+                        item.Filename,
+                        item.DeclaredMimeType,
+                        item.ByteCount,
+                        item.ContentDigest,
+                        item.ArtifactObjectKey,
+                        item.ArtifactVersionId,
+                        item.ReceivedAtUtc,
+                    },
+                    postgres.Scope.Transaction,
+                    cancellationToken: cancellationToken));
+        }
+    }
+
+    public async Task<IReadOnlyList<SubmissionIntakeRecord>> ListIncompleteCreatedBeforeAsync(
+        DateTimeOffset cutoffUtc,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        var rows = await connection.QueryAsync<IntakeRow>(
+            new CommandDefinition(
+                $"""
+                {SelectIntakeSql}
+                WHERE status IN ('receiving', 'received', 'validating', 'cancelling', 'reconciling')
+                  AND created_at <= @CutoffUtc
+                ORDER BY created_at
+                LIMIT @Limit
+                """,
+                new { CutoffUtc = cutoffUtc, Limit = limit },
+                cancellationToken: cancellationToken));
+        var results = new List<SubmissionIntakeRecord>();
+        foreach (var row in rows)
+        {
+            results.Add(await HydrateAsync(connection, null, row, cancellationToken));
+        }
+
+        return results;
     }
 
     private static async Task<SubmissionIntakeRecord> HydrateAsync(
@@ -575,4 +641,163 @@ public sealed class PostgresSubmissionVersionStore(PostgresConnectionAccessor co
         string ContentDigest,
         string ArtifactObjectKey,
         string ArtifactVersionId);
+}
+
+public sealed class PostgresExactAcceptedVersionReader(PostgresSubmissionVersionStore versions) : IExactAcceptedVersionReader
+{
+    public async Task<AcceptedSubmissionVersion?> GetExactAsync(
+        SubmissionParentScope scope,
+        Guid versionId,
+        object commitTransaction,
+        CancellationToken cancellationToken = default)
+    {
+        var version = await versions.FindVersionAsync(scope.OrganizationId, versionId, null, cancellationToken);
+        if (version is null
+            || version.Scope.EnrollmentId != scope.EnrollmentId
+            || version.Scope.ParticipantActorId != scope.ParticipantActorId
+            || version.Scope.ActivityId != scope.ActivityId
+            || version.Scope.CohortId != scope.CohortId
+            || version.Scope.TaskSourceId != scope.TaskSourceId)
+        {
+            return null;
+        }
+
+        return version;
+    }
+}
+
+public sealed class PostgresSubmissionWorkStore(PostgresConnectionAccessor connections) : ISubmissionWorkStore
+{
+    public async Task EnqueueAsync(SubmissionWorkItem work, IEnrollmentTransaction transaction, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            INSERT INTO submissions_durable_work (
+                organization_id, work_id, work_kind, enrollment_id, intake_id, version_id,
+                status, attempt_count, available_at, lease_until, artifact_object_key, created_at)
+            VALUES (
+                @OrganizationId, @WorkId, @WorkKind, @EnrollmentId, @IntakeId, @VersionId,
+                @Status, @AttemptCount, @AvailableAtUtc, @LeaseUntilUtc, @ArtifactObjectKey, CLOCK_TIMESTAMP())
+            ON CONFLICT DO NOTHING
+            """;
+        var parameters = new
+        {
+            work.OrganizationId,
+            work.WorkId,
+            work.WorkKind,
+            work.EnrollmentId,
+            work.IntakeId,
+            work.VersionId,
+            work.Status,
+            work.AttemptCount,
+            work.AvailableAtUtc,
+            work.LeaseUntilUtc,
+            work.ArtifactObjectKey,
+        };
+
+        if (transaction is PostgresEnrollmentTransaction postgres)
+        {
+            await postgres.Scope.Connection.ExecuteAsync(
+                new CommandDefinition(sql, parameters, postgres.Scope.Transaction, cancellationToken: cancellationToken));
+            return;
+        }
+
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
+    }
+
+    public async Task<SubmissionWorkItem?> ClaimNextAsync(DateTimeOffset nowUtc, TimeSpan lease, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var claimed = await connection.QuerySingleOrDefaultAsync<WorkRow>(
+            new CommandDefinition(
+                """
+                SELECT organization_id AS OrganizationId, work_id AS WorkId, work_kind AS WorkKind,
+                       enrollment_id AS EnrollmentId, intake_id AS IntakeId, version_id AS VersionId,
+                       status AS Status, attempt_count AS AttemptCount, available_at AS AvailableAtUtc,
+                       lease_until AS LeaseUntilUtc, artifact_object_key AS ArtifactObjectKey
+                FROM submissions_durable_work
+                WHERE status = 'pending' AND available_at <= @NowUtc
+                   OR (status = 'leased' AND lease_until IS NOT NULL AND lease_until < @NowUtc)
+                ORDER BY created_at
+                FOR UPDATE SKIP LOCKED
+                LIMIT 1
+                """,
+                new { NowUtc = nowUtc },
+                transaction,
+                cancellationToken: cancellationToken));
+        if (claimed is null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return null;
+        }
+
+        var leaseUntil = nowUtc.Add(lease);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE submissions_durable_work
+                SET status = 'leased',
+                    attempt_count = attempt_count + 1,
+                    lease_until = @LeaseUntil
+                WHERE organization_id = @OrganizationId AND work_id = @WorkId
+                """,
+                new { claimed.OrganizationId, claimed.WorkId, LeaseUntil = leaseUntil },
+                transaction,
+                cancellationToken: cancellationToken));
+        await transaction.CommitAsync(cancellationToken);
+        return new SubmissionWorkItem(
+            claimed.OrganizationId,
+            claimed.WorkId,
+            claimed.WorkKind,
+            claimed.EnrollmentId,
+            claimed.IntakeId,
+            claimed.VersionId,
+            SubmissionWorkStates.Leased,
+            claimed.AttemptCount + 1,
+            claimed.AvailableAtUtc,
+            leaseUntil,
+            claimed.ArtifactObjectKey);
+    }
+
+    public async Task CompleteAsync(Guid organizationId, Guid workId, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE submissions_durable_work
+                SET status = 'completed', lease_until = NULL
+                WHERE organization_id = @OrganizationId AND work_id = @WorkId
+                """,
+                new { OrganizationId = organizationId, WorkId = workId },
+                cancellationToken: cancellationToken));
+    }
+
+    public async Task FailAsync(Guid organizationId, Guid workId, DateTimeOffset retryAtUtc, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE submissions_durable_work
+                SET status = 'pending', available_at = @RetryAtUtc, lease_until = NULL
+                WHERE organization_id = @OrganizationId AND work_id = @WorkId
+                """,
+                new { OrganizationId = organizationId, WorkId = workId, RetryAtUtc = retryAtUtc },
+                cancellationToken: cancellationToken));
+    }
+
+    private sealed record WorkRow(
+        Guid OrganizationId,
+        Guid WorkId,
+        string WorkKind,
+        Guid? EnrollmentId,
+        Guid? IntakeId,
+        Guid? VersionId,
+        string Status,
+        int AttemptCount,
+        DateTimeOffset AvailableAtUtc,
+        DateTimeOffset? LeaseUntilUtc,
+        string? ArtifactObjectKey);
 }

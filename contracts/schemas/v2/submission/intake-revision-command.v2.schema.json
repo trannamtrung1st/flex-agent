@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v2/submission/intake-revision-command.v2.schema.json",
+  "title": "Intake revision command v2",
+  "description": "Participant cancel or finalize command bound to an expected intake revision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "expected_revision", "idempotency_key"],
+  "properties": {
+    "schema_version": { "const": "v2" },
+    "expected_revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    }
+  }
+}
