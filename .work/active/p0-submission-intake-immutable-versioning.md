@@ -608,24 +608,12 @@ Session rows remain unimplemented or Partial as governed by their owners.
 
 # Current state
 
-Confirm/commit pass on 2026-08-25 found `SubmissionPersistenceTests` failing in
-`FindActiveIntakeAsync` with PostgreSQL `42601` near `=`. The command text was
-`FROM submissions_intakesWHERE` — C# raw-string indent stripping removed the
-space before `WHERE`. Lookups now interpolate `SelectIntakeSql` so `WHERE`
-stays on its own line. The parent-FK test now substitutes `submission_id`
-while keeping enrollment keys valid so `fk_submissions_intakes_submission_parent`
-is the constraint that fires.
-
-Persistence tests **3 passed**; submission units **96 passed**; full Postgres
-suite **330 passed / 1 failed** (`KeycloakBackChannelLogoutTests` 403, known
-flake, unrelated). Intake SQL concat fix landed at `28506f3`.
-
-Second confirm pass (2026-08-25): intake lookups still interpolate
-`SelectIntakeSql` with `WHERE` on the next line. Remaining `SelectSql + """`
-concats in enrollment/accommodation keep leftover indent, so they do not glue
-the table name to `WHERE`. Re-ran `SubmissionPersistenceTests` **3 passed**,
-`FlexAgent.Submissions.Tests` **96 passed**, architecture **41 passed**,
-SeaweedFS artifact **6 passed**. Working tree was otherwise clean on `main`.
+External review of `c60a280` closed S3 organization isolation and predecessor
+lineage. The remaining P1 — Task identity omitted from the complete
+Submission parent tuple — is remediated with additive migration `0050` and
+raw-SQL regressions. The overall Submission slice remains in progress
+(concurrent finalize, contracts, production UI, Playwright, lifecycle). No UI
+surface changed in this remediation.
 
 Planning/readiness audit completed on 2026-08-24. Approved product,
 requirements, UI/UX, operational, and architecture sources contain no open
@@ -762,6 +750,17 @@ development policy, or an unqualified S3-compatible assumption.
   writes `predecessor_version_id` for version N>1. `SubmissionPersistenceTests`
   added for parent substitution rejection, stable submission reuse, and lineage
   persistence. Full Postgres integration **330 passed** after `0049`.
+- **Parent-scope Task binding (`0050`):** Review of `c60a280` found `0049`
+  unique/FKs omitted `task_source_id`, `task_version_id`, and
+  `task_content_digest`. Additive `0050` extends Enrollment unique
+  `uq_submissions_enrollments_complete_binding`, replaces
+  `submissions_submissions` enrollment FK with a full binding parent FK,
+  expands intake enrollment parent to the same tuple, and rebuilds
+  `uq_submissions_submissions_complete_scope` plus intake/accepted-version
+  parent FKs through Task identity. Red: 9 persistence cases failed because
+  substituted Task columns inserted. Green: those 9 plus the existing 3
+  persistence cases and `Upgrade_from_0049_*` pass. Full Postgres **340
+  passed / 1 failed** (`KeycloakBackChannelLogoutTests` 403, known flake).
 - **Downstream compatibility:** Evidence-locator schemas already represent exact
   Submission locations, and ADR-005 requires exact version/item metadata. This
   task must produce stable compatible references without claiming that Attempt,
@@ -778,13 +777,13 @@ development policy, or an unqualified S3-compatible assumption.
 | SeaweedFS/AWS SDK artifact compatibility | passed — scope isolation enforced | `FlexAgent.Artifact.Integration.Tests` **6 passed** against `chrislusf/seaweedfs:4.29`: conditional create, exact-version get, presigned download, digest verification, and negative get/put/delete/upload-presign/download-presign scope checks (`scope_mismatch`). Lifecycle/cleanup/restore gates remain open. |
 | Frozen/current material-policy authority | partial — fail closed in production | In-memory/dev uses `Fixed*` ports; PostgreSQL registers `UnavailableFrozenSubmissionRequirementPort`, `UnavailableMaterialPolicyPort`, and `UnavailableArtifactSafetyScanner` so positive intake returns `policy_unavailable` until Assessment/Configuration owner ports are wired. |
 | Domain red/green | partial | `FlexAgent.Submissions.Tests` **96 passed** on 2026-08-25 confirm pass (includes `IntakeCoordinatorTests` for cross-enrollment deny, stable submission reuse, finalize idempotency replay, stale revision, predecessor lineage). `CompleteItemAsync`, reconciliation, lifecycle cleanup, and Postgres concurrent-finalize race tests remain open. |
-| PostgreSQL migration/isolation/concurrency/audit | partial | Migrations `0048`/`0049` with immutable accepted-version triggers, complete parent-scope FKs, predecessor lineage CHECK/FK; `PostgresIntakeStore`/`PostgresSubmissionVersionStore` implemented. Intake `SELECT` keeps a newline before `WHERE` (`28506f3`). `SubmissionPersistenceTests` **3 passed** on 2026-08-25 confirm pass (parent substitution, stable submission reuse, predecessor). Concurrent finalization work-lease tests remain. |
+| PostgreSQL migration/isolation/concurrency/audit | partial | Migrations `0048`/`0049`/`0050`. `0050` adds Task binding to the complete Enrollment/Submission parent tuple and child FKs. `SubmissionPersistenceTests` **12 passed** on 2026-08-25 (submission-id substitution, Task-field substitution on intake/accepted version/submission, stable reuse, predecessor). `Upgrade_from_0049_extends_submission_parent_scope_with_task_binding` passed. Full Postgres **340 passed / 1 failed** (Keycloak 403 flake). Concurrent finalization work-lease tests remain. |
 | Canonical schema/OpenAPI/C#/TypeScript parity | pending | No `contracts/schemas/v2/submission/*` artifacts yet; API returns domain projections directly. |
 | API/Worker integration | partial | v2 routes under `/v2/assessment/my-work/{enrollmentId}/submission*` for query/begin/cancel/finalize; participant auth aligned with My work timing (`assessment.assignment.discover` + `assignment` resource). Worker validation/cleanup not composed. |
 | React/accessibility | partial | `ProductionMyWorkDetailPage` shows submission requirements/history summary; full local preparation, confirmation dialog, viewer/download, and component tests remain. |
 | Authenticated Playwright MCP | pending | Compose profile adds SeaweedFS service; no Playwright intake journey evidence yet. |
 | Regression/security/supply-chain/OCI/recovery/docs | pending | Locked restore, full suites, allowlist/leakage, license/SBOM/vulnerability/secret scan, images, paired metadata/artifact restore, docs, and whitespace. |
-| Independent review | partial | Original six `7dac50c` blockers remediated at `28c22f3`; follow-up artifact isolation, parent-scope FKs, and lineage populated at `0049` with Postgres/unit evidence. Concurrent finalize race and full security/QA pass remain open. |
+| Independent review | partial | Original six `7dac50c` blockers remediated at `28c22f3`; S3 isolation and lineage closed at `c60a280`. P1 missing Task fields in the parent-scope tuple remediates with `0050` and raw-SQL regressions. Concurrent finalize race and full security/QA pass remain open. |
 
 # Planned verification command set
 

@@ -96,6 +96,175 @@ public sealed class SubmissionPersistenceTests(PostgresIntegrationFixture fixtur
         Assert.Contains("fk_submissions_intakes_submission_parent", exception.ConstraintName, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("task_source_id")]
+    [InlineData("task_version_id")]
+    [InlineData("task_content_digest")]
+    public async Task Raw_insert_rejects_substituted_task_binding_on_intake(string substitutedColumn)
+    {
+        var harness = await SubmissionIntakeTestSeed.CreateAsync(Fixture, CancellationToken);
+        var began = await harness.IntakeCoordinator.BeginAsync(harness.BeginCommand("begin-task"), CancellationToken);
+        Assert.True(began.Succeeded, began.OutcomeCode);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var exception = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
+            """
+            INSERT INTO submissions_intakes (
+                organization_id, intake_id, submission_id, activity_id, cohort_id, baseline_id,
+                enrollment_id, participant_actor_id, task_source_id, task_version_id,
+                task_content_digest, status, revision, policy_digest,
+                frozen_requirement_source_id, frozen_requirement_version_id, frozen_requirement_digest,
+                organization_policy_source_id, organization_policy_version_id, organization_policy_digest,
+                created_at, updated_at, complete_receipt_at)
+            SELECT
+                organization_id,
+                @NewIntakeId,
+                submission_id,
+                activity_id,
+                cohort_id,
+                baseline_id,
+                enrollment_id,
+                participant_actor_id,
+                CASE WHEN @SubstitutedColumn = 'task_source_id' THEN @WrongTaskSourceId ELSE task_source_id END,
+                CASE WHEN @SubstitutedColumn = 'task_version_id' THEN @WrongTaskVersionId ELSE task_version_id END,
+                CASE WHEN @SubstitutedColumn = 'task_content_digest' THEN @WrongTaskContentDigest ELSE task_content_digest END,
+                'cancelled',
+                revision,
+                policy_digest,
+                frozen_requirement_source_id,
+                frozen_requirement_version_id,
+                frozen_requirement_digest,
+                organization_policy_source_id,
+                organization_policy_version_id,
+                organization_policy_digest,
+                created_at,
+                updated_at,
+                complete_receipt_at
+            FROM submissions_intakes
+            WHERE organization_id = @OrganizationId AND intake_id = @IntakeId
+            """,
+            new
+            {
+                harness.OrganizationId,
+                IntakeId = began.IntakeId,
+                NewIntakeId = Guid.CreateVersion7(),
+                SubstitutedColumn = substitutedColumn,
+                WrongTaskSourceId = Guid.CreateVersion7(),
+                WrongTaskVersionId = Guid.CreateVersion7(),
+                WrongTaskContentDigest = new string('c', 64),
+            }));
+
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, exception.SqlState);
+        Assert.True(
+            exception.ConstraintName is
+                "fk_submissions_intakes_submission_parent" or
+                "fk_submissions_intakes_enrollment_parent",
+            exception.ConstraintName);
+    }
+
+    [Theory]
+    [InlineData("task_source_id")]
+    [InlineData("task_version_id")]
+    [InlineData("task_content_digest")]
+    public async Task Raw_insert_rejects_substituted_task_binding_on_accepted_version(string substitutedColumn)
+    {
+        var harness = await SubmissionIntakeTestSeed.CreateAsync(Fixture, CancellationToken);
+        var accepted = await FinalizeCurrentIntakeAsync(harness, "begin-task-version", "finalize-task-version");
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var exception = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
+            """
+            INSERT INTO submissions_accepted_versions (
+                organization_id, submission_id, version_id, version_number,
+                activity_id, cohort_id, baseline_id, enrollment_id, participant_actor_id,
+                task_source_id, task_version_id, task_content_digest, policy_digest,
+                predecessor_version_id, accepted_at, accepted_by_actor_id)
+            SELECT
+                organization_id,
+                submission_id,
+                @NewVersionId,
+                2,
+                activity_id,
+                cohort_id,
+                baseline_id,
+                enrollment_id,
+                participant_actor_id,
+                CASE WHEN @SubstitutedColumn = 'task_source_id' THEN @WrongTaskSourceId ELSE task_source_id END,
+                CASE WHEN @SubstitutedColumn = 'task_version_id' THEN @WrongTaskVersionId ELSE task_version_id END,
+                CASE WHEN @SubstitutedColumn = 'task_content_digest' THEN @WrongTaskContentDigest ELSE task_content_digest END,
+                policy_digest,
+                version_id,
+                accepted_at,
+                accepted_by_actor_id
+            FROM submissions_accepted_versions
+            WHERE organization_id = @OrganizationId AND version_id = @VersionId
+            """,
+            new
+            {
+                harness.OrganizationId,
+                VersionId = accepted.VersionId,
+                NewVersionId = Guid.CreateVersion7(),
+                SubstitutedColumn = substitutedColumn,
+                WrongTaskSourceId = Guid.CreateVersion7(),
+                WrongTaskVersionId = Guid.CreateVersion7(),
+                WrongTaskContentDigest = new string('c', 64),
+            }));
+
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, exception.SqlState);
+        Assert.Contains(
+            "fk_submissions_accepted_versions_submission_parent",
+            exception.ConstraintName,
+            StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("task_source_id")]
+    [InlineData("task_version_id")]
+    [InlineData("task_content_digest")]
+    public async Task Raw_insert_rejects_substituted_task_binding_on_submission(string substitutedColumn)
+    {
+        var harness = await SubmissionIntakeTestSeed.CreateAsync(Fixture, CancellationToken);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var exception = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
+            """
+            INSERT INTO submissions_submissions (
+                organization_id, submission_id, activity_id, cohort_id, baseline_id,
+                enrollment_id, participant_actor_id, task_source_id, task_version_id,
+                task_content_digest, created_at)
+            SELECT
+                organization_id,
+                @SubmissionId,
+                activity_id,
+                cohort_id,
+                baseline_id,
+                enrollment_id,
+                participant_actor_id,
+                CASE WHEN @SubstitutedColumn = 'task_source_id' THEN @WrongTaskSourceId ELSE task_source_id END,
+                CASE WHEN @SubstitutedColumn = 'task_version_id' THEN @WrongTaskVersionId ELSE task_version_id END,
+                CASE WHEN @SubstitutedColumn = 'task_content_digest' THEN @WrongTaskContentDigest ELSE task_content_digest END,
+                CLOCK_TIMESTAMP()
+            FROM submissions_enrollments
+            WHERE organization_id = @OrganizationId AND enrollment_id = @EnrollmentId
+            """,
+            new
+            {
+                harness.OrganizationId,
+                harness.EnrollmentId,
+                SubmissionId = Guid.CreateVersion7(),
+                SubstitutedColumn = substitutedColumn,
+                WrongTaskSourceId = Guid.CreateVersion7(),
+                WrongTaskVersionId = Guid.CreateVersion7(),
+                WrongTaskContentDigest = new string('c', 64),
+            }));
+
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, exception.SqlState);
+        Assert.Contains(
+            "fk_submissions_submissions_enrollment_parent",
+            exception.ConstraintName,
+            StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Begin_after_cancel_reuses_stable_submission_row()
     {
