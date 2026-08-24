@@ -429,6 +429,9 @@ public sealed class MigrationUpgradeTests
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
         var actorId = Guid.CreateVersion7();
+        // 12-aligned start at second 12 of the minute: old budget ends at 24,
+        // start+20 is 32, aligned 20s bucket ends at 40. Seconds 33-36 sit in
+        // that gap. Wall-clock wait is a known test-quality tradeoff.
         await WaitUntilEpochSecondInRangeAsync(connection, 33, 36, cancellationToken);
         await connection.ExecuteAsync(
             """
@@ -2446,6 +2449,8 @@ public sealed class MigrationUpgradeTests
         Assert.Equal("sessions.openai.v1", row.AdapterContractVersion);
     }
 
+    // Polls live PostgreSQL clock_timestamp(); callers may wait almost one
+    // minute to enter a short second-of-minute slot.
     private static async Task WaitUntilEpochSecondInRangeAsync(
         NpgsqlConnection connection,
         int inclusiveStart,

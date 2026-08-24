@@ -55,13 +55,13 @@ whose window was legitimately lengthened.
 
 # Current state
 
-`0045` backfills `expires_at` and refuses freeze using the aligned end of the
-deployed-policy bucket that contains the last instant of a mismatched
-counter (`ceil(old_end / deployed_window) * deployed_window` in epoch
-seconds). A 12-second row starting at second 36 stays unsafe until second 60,
-not 56. Recovery remains wait-only. After that aligned overlap ends, the
-deployed window (including a valid 20-second `0044` policy) is frozen in
-place.
+External review **approved** `a02d780f9` (full
+`a02d780f91875897d1ec44e038593bbcbb1cc89f`). Freeze-in-place, expiry-indexed
+cleanup, fail-closed mixed historical windows, and the aligned overlap
+horizon for arbitrary valid window sizes are accepted. Recovery remains
+wait-only. The approval is conditional on prior `0045` hashes existing only
+in disposable review databases; a persistent apply of an earlier `0045` would
+need `0046`.
 
 # Decisions
 
@@ -90,9 +90,13 @@ place.
 - Representative latency still does not populate tens of thousands of live
   counters. The cleanup test uses 80 live rows plus one expired row and
   asserts the expiry index exists.
-- GitHub CI was not re-run from this agent.
+- GitHub CI was not independently visible on `a02d780f9` (no attached
+  combined status checks or workflow runs at review time).
 - Whether `0044`/`0045` was applied outside disposable databases is unknown;
   this change edits `0045` in place under the pre-release assumption.
+- Non-blocking: `Upgrade_from_0044_refuses_12s_counters_until_the_aligned_20s_bucket_ends`
+  still polls PostgreSQL wall-clock time into a four-second slot. A
+  deterministic fixture would be a later test-quality improvement.
 
 # Verification
 
@@ -103,6 +107,18 @@ place.
 | Mutated 0044 upgrade | passed | `Upgrade_from_mutated_0044_keeps_aligned_exhausted_counters_controlling_acquisition`, `Upgrade_from_0044_refuses_live_old_window_counters_then_freezes_after_natural_expiry`, `Upgrade_from_0044_refuses_old_window_counters_until_the_frozen_policy_window_ends`, `Upgrade_from_0044_backfills_12s_counter_expiry_to_the_aligned_20s_bucket_end`, and `Upgrade_from_0044_refuses_12s_counters_until_the_aligned_20s_bucket_ends` — 5 passed |
 | HTTP 429/503 | passed | included in the 21 runtime Enrollment tests |
 | Docs | passed | ADR/spec notes updated; `python3 scripts/check_docs.py` passed |
+
+# External review
+
+- `a02d780f9` (`a02d780f91875897d1ec44e038593bbcbb1cc89f`, 2026-08-24):
+  **approved**, subject to the assumption that no earlier `0045` hash was
+  applied to a persistent database. No remaining correctness blockers. The
+  aligned-bucket horizon (`ceil(old_end / deployed_window) * deployed_window`)
+  is used for both `expires_at` backfill and freeze refusal, including the
+  non-divisible `12 → 20` case (start 36, old end 48, safe until 60).
+  Non-blocking: the live `12s` refusal test may wait up to about one minute
+  on wall-clock synchronization. GitHub had no status checks or workflow runs
+  for this SHA at review time.
 
 # Blockers
 
@@ -115,4 +131,5 @@ None.
 - [x] Applicable integration/regression checks pass
 - [x] Governing specifications were rechecked
 - [x] Remaining gaps or unverified behavior are recorded
-- [x] Task state is safe and complete for external review
+- [x] External review approval is recorded
+- [x] Task state is retained after external review
