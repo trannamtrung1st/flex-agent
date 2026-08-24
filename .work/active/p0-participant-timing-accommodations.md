@@ -518,6 +518,11 @@ the owning authority rather than introduce a code-level exception.
   `policy_available`. New invalid v1 fixture rejects leaked accommodation
   actions. Confirmed: Submissions 76, Contract catalog/mapping 103, Enrollment
   SPA eslint + 2 vitest; then commit/push.
+- **Fifth review pass (2026-08-24):** revoke mutation outcomes no longer advertise
+  request/approve/reject. `Success` takes actual `accommodationPolicyAvailable`;
+  grant/decide pass `true` after policy validation; revoke passes `false`
+  because it does not resolve current policy. Confirmed: Submissions 77;
+  then commit/push.
 
 # Verification
 
@@ -530,7 +535,7 @@ the owning authority rather than introduce a code-level exception.
 | Accommodation-policy readiness | passed | `REQ-SUBM-51`–`REQ-SUBM-54`, `AC-SUBM-34`–`AC-SUBM-36`, and `PROP-10`–`PROP-13` define frozen/current validation, dimensions, normalized replacement, reasons, and approval separation. Production positive behavior remains fail closed until exact policy configuration exists. |
 | Lifecycle-policy readiness | passed | Operational defaults v0.4 `REQ-OPS-30`/`AC-OPS-7` and `PROP-14` define retention, audit, idempotency, hold, and business expiry. |
 | Contract compatibility | passed | `REQ-SUBM-56`, `AC-SUBM-39`, `PROP-15`, and `AR-DEC-27` preserve strict v1 while adding parallel strict v2 and migrating the SPA. |
-| Domain red/green | passed for focused coordinators after fourth review pass | Accommodation/timing/enrollment domain classes → 76 passed (v1 action split, `permitted_*` gated on `policy_available`, expiry wire format). PostgreSQL microsecond round-trip test added but not executed here (Docker unavailable). |
+| Domain red/green | passed for focused coordinators after fifth review pass | Accommodation/timing/enrollment domain classes → 77 passed (revoke outcome omits policy-dependent actions when policy was not revalidated). PostgreSQL microsecond round-trip test added but not executed here (Docker unavailable). |
 | PostgreSQL migration/isolation/concurrency/fault tests | pending | Include populated-`0043` upgrade and real PostgreSQL negatives. |
 | Schema/OpenAPI/C#/TypeScript parity | partial | Contract catalog 101 passed including `invalid-accommodation-action`; mapping parity rejects leaked v1 accommodation actions. OpenAPI/TS suite not re-run this pass. |
 | API authorization/HTTP negatives | partial | CSRF grant rejection before session authentication passed. Broader grant/decide/revoke HTTP coverage still pending. |

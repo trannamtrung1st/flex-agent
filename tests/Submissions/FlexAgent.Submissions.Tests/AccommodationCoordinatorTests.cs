@@ -192,6 +192,38 @@ public sealed class AccommodationCoordinatorTests
         Assert.Equal(AccommodationFailureCodes.PolicyUnavailable, deniedDigest.OutcomeCode);
     }
 
+    [Fact]
+    public async Task Revoke_while_policy_is_unavailable_omits_policy_dependent_actions()
+    {
+        var harness = await AssignedHarnessAsync();
+        var granted = await harness.Accommodations.GrantAsync(
+            GrantCommand(harness.EnrollmentId, 1, "grant-then-revoke", Format(Now.AddDays(22)), fairness: false),
+            TestContext.Current.CancellationToken);
+        Assert.True(granted.Succeeded, granted.OutcomeCode);
+        Assert.Contains(EnrollmentClientActions.RequestAccommodation, granted.PermittedActions);
+
+        var baseline = TimingMapper.BaselineFrom(Binding());
+        var unavailable = DevelopmentAccommodationPolicy.Create(OrganizationId, baseline, "development") with
+        {
+            EnvironmentEligible = false,
+        };
+        harness.Policies.Policy = unavailable;
+        var deniedGrant = await harness.Accommodations.GrantAsync(
+            GrantCommand(harness.EnrollmentId, 1, "grant-while-unavailable", Format(Now.AddDays(23)), fairness: false),
+            TestContext.Current.CancellationToken);
+        Assert.False(deniedGrant.Succeeded);
+        Assert.Equal(AccommodationFailureCodes.PolicyUnavailable, deniedGrant.OutcomeCode);
+
+        var revoked = await harness.Accommodations.RevokeAsync(
+            RevokeCommand(harness.EnrollmentId, granted.AccommodationId!.Value, granted.Revision!.Value, "revoke-unavailable"),
+            TestContext.Current.CancellationToken);
+        Assert.True(revoked.Succeeded, revoked.OutcomeCode);
+        Assert.Contains(EnrollmentClientActions.RevokeAccommodation, revoked.PermittedActions);
+        Assert.DoesNotContain(EnrollmentClientActions.RequestAccommodation, revoked.PermittedActions);
+        Assert.DoesNotContain(EnrollmentClientActions.ApproveException, revoked.PermittedActions);
+        Assert.DoesNotContain(EnrollmentClientActions.RejectException, revoked.PermittedActions);
+    }
+
     private async Task<TimingHarness> AssignedHarnessAsync()
     {
         var store = new InMemoryEnrollmentStore();
@@ -314,6 +346,32 @@ public sealed class AccommodationCoordinatorTests
                 null,
                 null,
                 approve,
+                revision));
+
+    private static RevokeAccommodationCommand RevokeCommand(
+        Guid enrollmentId,
+        Guid accommodationId,
+        long revision,
+        string key) =>
+        new(
+            Administrator(),
+            ActivityId,
+            CohortId,
+            enrollmentId,
+            accommodationId,
+            revision,
+            key,
+            AccommodationCommandDigest.Compute(
+                AccommodationOperationKinds.Revoke,
+                OrganizationId,
+                ActivityId,
+                CohortId,
+                enrollmentId,
+                accommodationId,
+                null,
+                null,
+                null,
+                false,
                 revision));
 
     private static EnrollmentActorContext Administrator() =>

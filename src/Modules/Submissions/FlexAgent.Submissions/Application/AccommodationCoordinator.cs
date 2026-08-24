@@ -102,7 +102,7 @@ public sealed class AccommodationCoordinator(
                     command.Actor.Actor.ActorId,
                     transaction,
                     cancellationToken);
-                return Success(created.Value, created.OutcomeCode, command.Actor.GrantedActions, enrollment);
+                return Success(created.Value, created.OutcomeCode, command.Actor.GrantedActions, enrollment, accommodationPolicyAvailable: true);
             },
             cancellationToken);
 
@@ -188,7 +188,7 @@ public sealed class AccommodationCoordinator(
                     command.Actor.Actor.ActorId,
                     transaction,
                     cancellationToken);
-                return Success(decided.Value, decided.OutcomeCode, command.Actor.GrantedActions, enrollment);
+                return Success(decided.Value, decided.OutcomeCode, command.Actor.GrantedActions, enrollment, accommodationPolicyAvailable: true);
             },
             cancellationToken);
 
@@ -245,7 +245,7 @@ public sealed class AccommodationCoordinator(
                     command.Actor.Actor.ActorId,
                     transaction,
                     cancellationToken);
-                return Success(revoked.Value, revoked.OutcomeCode, command.Actor.GrantedActions, enrollment);
+                return Success(revoked.Value, revoked.OutcomeCode, command.Actor.GrantedActions, enrollment, accommodationPolicyAvailable: false);
             },
             cancellationToken);
 
@@ -453,7 +453,8 @@ public sealed class AccommodationCoordinator(
         Accommodation accommodation,
         string outcomeCode,
         IReadOnlyList<string> granted,
-        Enrollment enrollment) =>
+        Enrollment enrollment,
+        bool accommodationPolicyAvailable) =>
         new(
             true,
             outcomeCode,
@@ -464,7 +465,7 @@ public sealed class AccommodationCoordinator(
             EnrollmentProjection.TimingAdministratorActions(
                 enrollment.Status,
                 granted.ToHashSet(StringComparer.Ordinal),
-                accommodationPolicyAvailable: true));
+                accommodationPolicyAvailable));
 
     private static AccommodationMutationOutcome Fail(string outcomeCode) =>
         new(false, outcomeCode, null, null, null, null, []);
