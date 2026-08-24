@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using DotNet.Testcontainers.Builders;
 using FlexAgent.Submissions.Application;
-using FlexAgent.Submissions.Infrastructure.Artifacts;
+using FlexAgent.Submissions.Infrastructure.ObjectStorage;
 
 namespace FlexAgent.Artifact.Integration.Tests;
 

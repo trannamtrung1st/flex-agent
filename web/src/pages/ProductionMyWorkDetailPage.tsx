@@ -124,7 +124,7 @@ export function ProductionMyWorkDetailPage() {
                       <li key={version.version_id}>
                         Version {version.version_number}
                         {accepted.conversionAvailable
-                          ? ` accepted ${accepted.localDisplay} (${accepted.zoneLabel})`
+                          ? ` accepted ${accepted.localDisplay ?? accepted.exactUtc} (${accepted.zoneLabel})`
                           : ` accepted ${accepted.exactUtc}`}
                         {" — "}
                         {version.item_count} item{version.item_count === 1 ? "" : "s"}
