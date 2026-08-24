@@ -550,7 +550,7 @@ the owning authority rather than introduce a code-level exception.
 | React/accessibility | partial | Focused vitest for enrollment detail (including revoke revision), My work timing, timezone formatter, and enrollment client: 8 passed. Playwright MCP still pending. |
 | Authenticated Playwright MCP | pending | Real synthetic journeys; accessibility snapshots and desktop/narrow/400%/themes/focus/error screenshots. |
 | Regression/performance/security/supply-chain/OCI/docs | pending | Record commands, counts, skips, environment, timings, and residuals. |
-| Independent review | pending | Backend, frontend, security/privacy, and QA review required. |
+| Independent review | partial — remediation commits approved | `03561b2` remediation approved with no blocking findings (2026-08-24). Full backend/frontend/security/privacy/QA closeout review still required for the broader slice. |
 
 # Planned verification command set
 
