@@ -133,6 +133,5 @@ export interface MyWorkTimingV2 {
     permitted_actions: string[];
   };
   effective?: TimingEffectiveWindowV2 | null;
-  current_accommodations: CurrentAccommodationEffectV2[];
   participant_consequence_code: AccommodationConsequenceCodeV2;
 }

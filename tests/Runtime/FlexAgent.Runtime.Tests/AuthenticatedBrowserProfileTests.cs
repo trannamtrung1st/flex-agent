@@ -47,6 +47,7 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("proxy_pass http://spa:8080", nginx);
         Assert.Contains("location /auth/", nginx);
         Assert.Contains("location /v1/assessment", nginx);
+        Assert.Contains("location /v2/assessment", nginx);
         Assert.Contains("location /sessions/", nginx);
         Assert.Contains("proxy_pass http://api:8080", nginx);
         Assert.Contains("location /realms/flex-agent", nginx);

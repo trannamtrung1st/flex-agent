@@ -422,12 +422,6 @@ public sealed class ContractMappingParityTests
                     true,
                     "UTC",
                     "deadline_replacement"),
-                [
-                    new CurrentAccommodationEffectV2(
-                        Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
-                        "submission_deadline_utc",
-                        "deadline_replacement"),
-                ],
                 "deadline_replacement"));
     }
 

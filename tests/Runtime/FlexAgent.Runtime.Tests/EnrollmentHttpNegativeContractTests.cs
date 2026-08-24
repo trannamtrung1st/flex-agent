@@ -107,6 +107,52 @@ public sealed class EnrollmentHttpNegativeContractTests
     }
 
     [Fact]
+    public async Task Accommodation_decide_without_approve_is_invalid()
+    {
+        await using var context = await LoginAsync();
+        var url = $"/v2/assessment/activities/{Guid.CreateVersion7()}/cohorts/{Guid.CreateVersion7()}/enrollments/{Guid.CreateVersion7()}/accommodations/{Guid.CreateVersion7()}/decide";
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(
+                """{"schema_version":"v2","expected_revision":1,"idempotency_key":"acc-decide-1"}""",
+                Encoding.UTF8,
+                "application/json"),
+        };
+        request.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        request.Headers.TryAddWithoutValidation(HumanAuthenticationHostOptions.AntiforgeryHeaderName, context.CsrfToken);
+        using var response = await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(EnrollmentFailureCodes.InvalidField, body, StringComparison.Ordinal);
+        Assert.DoesNotContain("accommodation.rejected", body, StringComparison.Ordinal);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
+    public async Task Accommodation_decide_with_over_maximum_revision_is_invalid()
+    {
+        await using var context = await LoginAsync();
+        var url = $"/v2/assessment/activities/{Guid.CreateVersion7()}/cohorts/{Guid.CreateVersion7()}/enrollments/{Guid.CreateVersion7()}/accommodations/{Guid.CreateVersion7()}/decide";
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(
+                """{"schema_version":"v2","approve":true,"expected_revision":2147483648,"idempotency_key":"acc-decide-2"}""",
+                Encoding.UTF8,
+                "application/json"),
+        };
+        request.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        request.Headers.TryAddWithoutValidation(HumanAuthenticationHostOptions.AntiforgeryHeaderName, context.CsrfToken);
+        using var response = await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(EnrollmentFailureCodes.InvalidField, body, StringComparison.Ordinal);
+        Assert.DoesNotContain("accommodation.rejected", body, StringComparison.Ordinal);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
     public async Task Accommodation_decide_without_antiforgery_is_rejected_before_session_authentication()
     {
         await using var factory = CreateFactory();

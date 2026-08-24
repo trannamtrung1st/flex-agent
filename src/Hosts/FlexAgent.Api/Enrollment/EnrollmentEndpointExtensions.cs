@@ -652,6 +652,10 @@ public static class EnrollmentEndpointExtensions
 internal static class EnrollmentHttpLimits
 {
     public const int MaximumBodyBytes = 4096;
+    public const long MaximumExpectedRevision = 2_147_483_647;
+
+    public static bool IsValidAccommodationRevision(long expectedRevision) =>
+        expectedRevision is >= 1 and <= MaximumExpectedRevision;
 
     public static readonly JsonSerializerOptions SerializerOptions = new()
     {

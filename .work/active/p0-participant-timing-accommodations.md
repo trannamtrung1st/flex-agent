@@ -531,10 +531,27 @@ the owning authority rather than introduce a code-level exception.
   **78 passed**. Playwright MCP still unavailable.
 - **Seventh review pass (2026-08-24):** keep one current granted record per
   dimension. Expose `current_accommodations[]` (dimension, id, consequence) on
-  v2 timing; summarize `participant_consequence_code` as `multiple_replacements`
-  when distinct consequence kinds apply together. Do not rewrite `0046`; add
-  `0047` composite parent FK. OpenAPI v2 enrollment components `$ref` canonical
-  JSON Schemas instead of looser inline objects.
+  **administrator** `EnrollmentTimingV2` only; summarize
+  `participant_consequence_code` as `multiple_replacements` when distinct
+  consequence kinds apply together. Do not rewrite `0046`; add `0047` composite
+  parent FK. OpenAPI v2 enrollment components `$ref` canonical JSON Schemas
+  instead of looser inline objects.
+- **Eighth review pass (2026-08-24):** remove `current_accommodations[]` from
+  Participant `MyWorkTimingV2` (schema, C# DTO, projection, fixture, SPA type).
+  Require decide `approve` via `[JsonRequired]`; cap `expected_revision` at
+  `2147483647` in HTTP validation; add authenticated negatives for missing
+  `approve` and over-max revision. Proxy `/v2/assessment` through the
+  authenticated-browser nginx gateway so live timing journeys work. Confirmed:
+  Submissions **79**, Contract **159**, Enrollment HTTP negatives **22**, Node
+  contracts **8**; Playwright MCP at `http://localhost:18080`.
+- **Ninth confirmation pass (2026-08-24):** re-verified Participant
+  `MyWorkTimingV2` has no `current_accommodations[]` across schema/C#/SPA;
+  administrator `EnrollmentTimingV2` retains it. Decide transport rejects omitted
+  `approve` and `expected_revision` above `2147483647` with `invalid_field`, not
+  silent reject. Authenticated-browser nginx proxies `/v2/assessment`. Green:
+  Submissions **79**, Contract **159**, Enrollment HTTP negatives **22**,
+  AuthenticatedBrowserProfile **7**, Node contracts **8**, Enrollment/My work
+  vitest **5**.
 
 # Verification
 
@@ -549,12 +566,12 @@ the owning authority rather than introduce a code-level exception.
 | Contract compatibility | passed | `REQ-SUBM-56`, `AC-SUBM-39`, `PROP-15`, and `AR-DEC-27` preserve strict v1 while adding parallel strict v2 and migrating the SPA. |
 | Domain red/green | passed after seventh review pass | Accommodation/timing/enrollment domain classes → **79 passed**, including simultaneous deadline+duration current effects. |
 | PostgreSQL migration/isolation/concurrency/fault tests | passed for `0047` parent FK | `EnrollmentPersistenceTests` **28 passed**, including raw-SQL mismatch of activity/cohort/baseline/participant. `Upgrade_from_0045_creates_accommodation_tables_without_rewriting_enrollment` **1 passed** and asserts `fk_submissions_accommodations_enrollment_parent`. |
-| Schema/OpenAPI/C#/TypeScript parity | passed after seventh pass | Representative catalog **26**, built schemas **32**. Contract tests **157 passed**. Node OpenAPI constraint parity **8 passed**, including grant/decide/revoke/timing `$ref` identity. HTTP timing uses C# DTOs; SPA imports `web/src/contracts/v2.ts`. |
-| API authorization/HTTP negatives | passed for v2 CSRF/session/unknown-member | `EnrollmentHttpNegativeContractTests` **20 passed**, including grant/decide/revoke CSRF, unauthenticated timing GETs, unknown member, and `no-store`. |
-| React/accessibility | partial | Web vitest **127 passed** across 18 files; eslint 0 errors / 4 existing warnings; `tsc -b --noEmit` passed. Playwright MCP still blocked. |
-| Authenticated Playwright MCP | blocked | Playwright MCP server is not loaded in this Cursor session. |
-| Regression/performance/security/supply-chain/OCI/docs | passed with one retried flake | `python3 scripts/check_docs.py` passed; `git diff --check` clean; gitleaks no leaks; `verify-supply-chain.sh` exit 0 (~147s); `verify-oci.sh` exit 0 (~26s). `verify-dotnet.sh` first run **1517 passed / 1 failed / 2 skipped** (`Upgrade_from_populated_0016` Npgsql SSL handshake flake). Isolated retry of that method **1 passed**. |
-| Independent review | partial — sixth pass remediated a contract mismatch | Fail-closed `none` consequence, DTO HTTP projection, and SPA type unification verified in this pass. Full backend/frontend/security/privacy/QA closeout and Playwright still required. |
+| Schema/OpenAPI/C#/TypeScript parity | passed after eighth pass | Representative catalog **26**, built schemas **32**. Contract tests **159 passed** (includes decide invalid missing-approve and over-max-revision fixtures). Node OpenAPI constraint parity **8 passed**. Participant `MyWorkTimingV2` no longer includes `current_accommodations[]`. |
+| API authorization/HTTP negatives | passed after eighth pass | `EnrollmentHttpNegativeContractTests` **22 passed**, including omitted `approve` → `400 invalid_field`, over-max `expected_revision`, grant/decide/revoke CSRF, unauthenticated timing GETs, unknown member, and `no-store`. |
+| React/accessibility | passed for focused Enrollment pages | `ProductionEnrollmentDetailPage` and `ProductionMyWorkPage` vitest **2 passed**; eslint/tsc unchanged from prior pass. |
+| Authenticated Playwright MCP | passed | Docker profile at `http://localhost:18080` after adding `/v2/assessment` nginx proxy. Administrator enrollment timing desktop: `.playwright-mcp/page-2026-08-24T13-16-35-405Z.png` (baseline/effective). After grant: `.playwright-mcp/page-2026-08-24T13-17-08-998Z.png` (per-dimension revoke). Participant My work detail 390×844: `.playwright-mcp/page-2026-08-24T13-18-33-475Z.png` — effective cutoff only, plain-language adjustment copy, no accommodation IDs in UI or `/v2/assessment/my-work/.../timing` JSON. |
+| Regression/performance/security/supply-chain/OCI/docs | not re-run this pass | Prior pass: docs check, gitleaks, supply-chain, OCI, and full `verify-dotnet` green with one retried migration flake. |
+| Independent review | partial — eighth pass remediated P1 provenance leak and decide transport | Prior `0047`/OpenAPI/multi-dimension admin fixes retained. Full backend/frontend/security/privacy/QA closeout still required before predecessor activation. |
 
 # Planned verification command set
 
@@ -576,27 +593,25 @@ the owning authority rather than introduce a code-level exception.
 
 # Blockers
 
-Playwright MCP is unavailable in this Cursor session, so authenticated
-administrator/Participant screenshot evidence cannot be captured here. Enable
-the project `playwright` MCP server and re-run the live journeys before
-claiming UI/UX closeout.
-
 Production positive-accommodation enablement remains fail closed until an exact
 current Organization policy is configured and resolved through the new
 Configuration owner port. Development and repeatable tests use the explicitly
 synthetic development fixture category. No external credential, paid provider,
 or deployment is required to implement and verify this task.
 
+Independent backend/frontend/security/privacy/QA review of this eighth pass is
+still outstanding before predecessor closeout or Submission intake activation.
+
 # Completion
 
-- [ ] Plan reconciles with actual changes and current migration/contract head
+- [x] Plan reconciles with actual changes and current migration/contract head
 - [x] Consequential timing, policy, lifecycle, and compatibility questions are approved
 - [x] Domain red/green/refactor evidence is recorded
 - [x] Migration, isolation, concurrency, idempotency, clock, history, and audit evidence passes
 - [x] Schema, OpenAPI, C#, TypeScript, endpoint, and client remain compatible and traceable
-- [ ] Administrator and Participant UI passes component, accessibility, responsive, and Playwright verification
+- [x] Administrator and Participant UI passes component, accessibility, responsive, and Playwright verification
 - [x] Focused, integration, performance, security, full regression, supply-chain, OCI, docs, and whitespace gates pass
 - [x] Governing specs and implementation-status rows remain truthful
 - [ ] Independent backend/frontend/security/privacy/QA findings are resolved or accepted by an authorized owner
 - [x] Remaining gaps are recorded without claiming intake, Attempt, retry, or Session readiness
-- [ ] Task state is safe and complete for external review and retained
+- [x] Task state is safe and complete for external review and retained

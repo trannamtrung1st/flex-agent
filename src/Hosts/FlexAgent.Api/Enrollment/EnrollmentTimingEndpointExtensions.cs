@@ -71,7 +71,7 @@ public static class EnrollmentTimingEndpointExtensions
             if (body is null
                 || !string.Equals(body.SchemaVersion, "v2", StringComparison.Ordinal)
                 || EnrollmentIdempotencyKey.Validate(body.IdempotencyKey) is not null
-                || body.ExpectedRevision < 1
+                || !EnrollmentHttpLimits.IsValidAccommodationRevision(body.ExpectedRevision)
                 || string.IsNullOrWhiteSpace(body.Dimension)
                 || string.IsNullOrWhiteSpace(body.RequestedValue)
                 || string.IsNullOrWhiteSpace(body.ReasonCategory))
@@ -123,7 +123,7 @@ public static class EnrollmentTimingEndpointExtensions
             if (body is null
                 || !string.Equals(body.SchemaVersion, "v2", StringComparison.Ordinal)
                 || EnrollmentIdempotencyKey.Validate(body.IdempotencyKey) is not null
-                || body.ExpectedRevision < 1)
+                || !EnrollmentHttpLimits.IsValidAccommodationRevision(body.ExpectedRevision))
             {
                 return null;
             }
@@ -168,7 +168,7 @@ public static class EnrollmentTimingEndpointExtensions
             if (body is null
                 || !string.Equals(body.SchemaVersion, "v2", StringComparison.Ordinal)
                 || EnrollmentIdempotencyKey.Validate(body.IdempotencyKey) is not null
-                || body.ExpectedRevision < 1)
+                || !EnrollmentHttpLimits.IsValidAccommodationRevision(body.ExpectedRevision))
             {
                 return null;
             }
@@ -275,7 +275,6 @@ public static class EnrollmentTimingEndpointExtensions
                 detail.Assignment.SummaryAvailable,
                 detail.Assignment.PermittedActions),
             detail.Timing is null ? null : ProjectEffective(detail.Timing),
-            detail.Timing is null ? [] : ProjectCurrent(detail.Timing),
             detail.ParticipantConsequenceCode);
 
     private static TimingBaselineV2 ProjectBaseline(BaselineTiming baseline) =>

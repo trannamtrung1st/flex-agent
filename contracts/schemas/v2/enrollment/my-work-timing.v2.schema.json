@@ -8,7 +8,6 @@
   "required": [
     "schema_version",
     "assignment",
-    "current_accommodations",
     "participant_consequence_code"
   ],
   "properties": {
@@ -141,38 +140,6 @@
         "participant_consequence_code": {
           "type": "string",
           "enum": ["none", "deadline_replacement", "attempt_start_replacement", "duration_replacement", "multiple_replacements"]
-        }
-      }
-    },
-    "current_accommodations": {
-      "type": "array",
-      "maxItems": 4,
-      "uniqueItems": true,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["accommodation_id", "dimension", "consequence_code"],
-        "properties": {
-          "accommodation_id": {
-            "type": "string",
-            "format": "uuid",
-            "minLength": 36,
-            "maxLength": 36,
-            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-          },
-          "dimension": {
-            "type": "string",
-            "enum": [
-              "submission_deadline_utc",
-              "attempt_start_not_before_utc",
-              "attempt_start_before_utc",
-              "per_attempt_duration_seconds"
-            ]
-          },
-          "consequence_code": {
-            "type": "string",
-            "enum": ["deadline_replacement", "attempt_start_replacement", "duration_replacement"]
-          }
         }
       }
     },

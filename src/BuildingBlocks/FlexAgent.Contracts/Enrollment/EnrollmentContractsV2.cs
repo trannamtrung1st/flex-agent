@@ -9,14 +9,14 @@ public sealed record GrantAccommodationCommandV2(
     string RequestedValue,
     string ReasonCategory,
     DateTimeOffset? ExpiresAtUtc,
-    bool FairnessException,
+    [property: JsonRequired] bool FairnessException,
     long ExpectedRevision,
     string IdempotencyKey);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record DecideAccommodationCommandV2(
     string SchemaVersion,
-    bool Approve,
+    [property: JsonRequired] bool Approve,
     long ExpectedRevision,
     string IdempotencyKey);
 
@@ -108,5 +108,4 @@ public sealed record MyWorkTimingV2(
     string SchemaVersion,
     MyWorkTimingAssignmentV2 Assignment,
     TimingEffectiveWindowV2? Effective,
-    IReadOnlyList<CurrentAccommodationEffectV2> CurrentAccommodations,
     string ParticipantConsequenceCode);

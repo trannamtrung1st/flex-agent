@@ -25,12 +25,5 @@
     "time_zone_id": "UTC",
     "participant_consequence_code": "deadline_replacement"
   },
-  "current_accommodations": [
-    {
-      "accommodation_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-      "dimension": "submission_deadline_utc",
-      "consequence_code": "deadline_replacement"
-    }
-  ],
   "participant_consequence_code": "deadline_replacement"
 }
