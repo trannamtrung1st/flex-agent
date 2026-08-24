@@ -52,7 +52,11 @@ public sealed class IntakeCoordinator(
                     return Success(existing, command.Actor.GrantedActions);
                 }
 
-                var submissionId = Guid.NewGuid();
+                var submissionId = await versions.FindSubmissionIdByEnrollmentAsync(
+                    enrollment.OrganizationId,
+                    enrollment.EnrollmentId,
+                    transaction,
+                    cancellationToken) ?? Guid.NewGuid();
                 var intakeId = Guid.NewGuid();
                 var now = _clock.UtcNow;
                 var scope = ScopeFrom(enrollment, binding);
@@ -102,10 +106,11 @@ public sealed class IntakeCoordinator(
             {
                 var intake = await intakes.FindIntakeAsync(
                     enrollment.OrganizationId,
+                    command.EnrollmentId,
                     command.IntakeId,
                     transaction,
                     cancellationToken);
-                if (intake is null)
+                if (intake is null || !IntakeBelongsToEnrollment(intake, enrollment))
                 {
                     return Fail(SubmissionFailureCodes.NotFound);
                 }
@@ -250,10 +255,11 @@ public sealed class IntakeCoordinator(
             {
                 var intake = await intakes.FindIntakeAsync(
                     enrollment.OrganizationId,
+                    command.EnrollmentId,
                     command.IntakeId,
                     transaction,
                     cancellationToken);
-                if (intake is null)
+                if (intake is null || !IntakeBelongsToEnrollment(intake, enrollment))
                 {
                     return Fail(SubmissionFailureCodes.NotFound);
                 }
@@ -362,6 +368,7 @@ public sealed class IntakeCoordinator(
                     var replayed = await ReplayStoredOperationAsync(
                         existing,
                         operationKind,
+                        enrollmentId,
                         actor,
                         transaction,
                         cancellationToken);
@@ -441,7 +448,7 @@ public sealed class IntakeCoordinator(
                         idempotencyKey,
                         expectedDigest,
                         committed.OutcomeCode,
-                        committed.IntakeId ?? committed.VersionId,
+                        ResolveOperationResourceId(operationKind, committed),
                         _clock.UtcNow,
                         _clock.UtcNow.Add(EnrollmentIdempotencyKey.Retention)),
                     transaction,
@@ -467,6 +474,11 @@ public sealed class IntakeCoordinator(
             _telemetry.RecordMutation(operationKind, outcome.Succeeded ? "success" : "failure", Stopwatch.GetElapsedTime(started));
             return outcome;
         }
+        catch (InvalidOperationException ex) when (string.Equals(ex.Message, SubmissionFailureCodes.StaleRevision, StringComparison.Ordinal))
+        {
+            _telemetry.RecordMutation(operationKind, "failure", Stopwatch.GetElapsedTime(started));
+            return Fail(SubmissionFailureCodes.StaleRevision);
+        }
         catch
         {
             _telemetry.RecordMutation(operationKind, "failure", Stopwatch.GetElapsedTime(started));
@@ -477,6 +489,7 @@ public sealed class IntakeCoordinator(
     private async Task<IntakeMutationOutcome?> ReplayStoredOperationAsync(
         EnrollmentOperation existing,
         string operationKind,
+        Guid enrollmentId,
         EnrollmentActorContext actor,
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken)
@@ -488,32 +501,52 @@ public sealed class IntakeCoordinator(
 
         if (operationKind == IntakeOperationKinds.Finalize && IsSuccessfulIntakeOutcome(existing.OutcomeCode))
         {
+            var version = await versions.FindVersionAsync(
+                actor.Organization.OrganizationId,
+                relatedId,
+                transaction,
+                cancellationToken);
+            if (version is null || version.Scope.EnrollmentId != enrollmentId)
+            {
+                return ReplayFromStoredOutcome(existing, actor.GrantedActions);
+            }
+
             return new IntakeMutationOutcome(
                 true,
                 existing.OutcomeCode,
                 null,
-                null,
+                version.SubmissionId,
                 IntakeStates.Accepted,
                 null,
-                relatedId,
-                null,
+                version.VersionId,
+                version.VersionNumber,
                 actor.GrantedActions);
         }
 
-        var intake = await intakes.FindIntakeAsync(
+        var replayIntake = await intakes.FindIntakeAsync(
             actor.Organization.OrganizationId,
+            enrollmentId,
             relatedId,
             transaction,
             cancellationToken);
-        if (intake is not null)
+        if (replayIntake is not null)
         {
             return IsSuccessfulIntakeOutcome(existing.OutcomeCode)
-                ? Success(intake, actor.GrantedActions)
+                ? Success(replayIntake, actor.GrantedActions)
                 : Fail(existing.OutcomeCode);
         }
 
         return ReplayFromStoredOutcome(existing, actor.GrantedActions);
     }
+
+    private static Guid? ResolveOperationResourceId(string operationKind, IntakeMutationOutcome committed) =>
+        operationKind == IntakeOperationKinds.Finalize
+            ? committed.VersionId ?? committed.IntakeId
+            : committed.IntakeId ?? committed.VersionId;
+
+    private static bool IntakeBelongsToEnrollment(SubmissionIntakeRecord intake, Enrollment enrollment) =>
+        intake.Scope.EnrollmentId == enrollment.EnrollmentId
+        && intake.Scope.ParticipantActorId == enrollment.ParticipantActorId;
 
     private static IntakeMutationOutcome ReplayFromStoredOutcome(
         EnrollmentOperation existing,
@@ -530,7 +563,8 @@ public sealed class IntakeCoordinator(
             actions);
 
     private static bool IsSuccessfulIntakeOutcome(string outcomeCode) =>
-        outcomeCode is IntakeStates.Receiving
+        outcomeCode is "accepted"
+            or IntakeStates.Receiving
             or IntakeStates.Received
             or IntakeStates.Validating
             or IntakeStates.Cancelling

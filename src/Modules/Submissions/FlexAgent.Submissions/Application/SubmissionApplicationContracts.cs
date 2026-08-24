@@ -149,6 +149,7 @@ public interface IIntakeStore
 {
     Task<SubmissionIntakeRecord?> FindIntakeAsync(
         Guid organizationId,
+        Guid enrollmentId,
         Guid intakeId,
         IEnrollmentTransaction? transaction,
         CancellationToken cancellationToken = default);

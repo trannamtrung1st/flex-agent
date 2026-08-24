@@ -9,20 +9,23 @@ public static class SubmissionEndpointExtensions
 {
     public static IServiceCollection AddSubmissionIntake(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
-        services.AddSingleton<IFrozenSubmissionRequirementPort, FixedFrozenSubmissionRequirementPort>();
-        services.AddSingleton<IMaterialPolicyPort, FixedMaterialPolicyPort>();
-        services.AddSingleton<IArtifactSafetyScanner, DisabledArtifactSafetyScanner>();
         services.AddSingleton<IIntakeCoordinator, IntakeCoordinator>();
         services.AddSingleton<ISubmissionQueryService, SubmissionQueryService>();
 
         var connectionString = HumanAuthenticationPersistencePolicy.ResolveConnectionString(configuration);
         if (string.IsNullOrWhiteSpace(connectionString))
         {
+            services.AddSingleton<IFrozenSubmissionRequirementPort, FixedFrozenSubmissionRequirementPort>();
+            services.AddSingleton<IMaterialPolicyPort, FixedMaterialPolicyPort>();
+            services.AddSingleton<IArtifactSafetyScanner, DisabledArtifactSafetyScanner>();
             services.AddSingleton<IIntakeStore, InMemoryIntakeStore>();
             services.AddSingleton<ISubmissionVersionStore, InMemorySubmissionVersionStore>();
             return services;
         }
 
+        services.AddSingleton<IFrozenSubmissionRequirementPort, UnavailableFrozenSubmissionRequirementPort>();
+        services.AddSingleton<IMaterialPolicyPort, UnavailableMaterialPolicyPort>();
+        services.AddSingleton<IArtifactSafetyScanner, UnavailableArtifactSafetyScanner>();
         services.AddSingleton<IIntakeStore, PostgresIntakeStore>();
         services.AddSingleton<ISubmissionVersionStore, PostgresSubmissionVersionStore>();
         return services;

@@ -66,3 +66,35 @@ public sealed class DisabledArtifactSafetyScanner : IArtifactSafetyScanner
             ArtifactScanOutcome.Clean,
             ArtifactOutcomeCodes.ScanDisabled));
 }
+
+public sealed class UnavailableFrozenSubmissionRequirementPort : IFrozenSubmissionRequirementPort
+{
+    public Task<NormalizedMaterialPolicy?> ResolveFrozenAsync(
+        Guid organizationId,
+        Guid taskSourceId,
+        Guid taskVersionId,
+        string taskContentDigest,
+        IEnrollmentTransaction? transaction,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<NormalizedMaterialPolicy?>(null);
+}
+
+public sealed class UnavailableMaterialPolicyPort : IMaterialPolicyPort
+{
+    public Task<NormalizedMaterialPolicy?> ResolveCurrentAsync(
+        Guid organizationId,
+        PolicySourceRef frozenOrganizationPolicyRef,
+        DateTimeOffset nowUtc,
+        IEnrollmentTransaction? transaction,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<NormalizedMaterialPolicy?>(null);
+}
+
+public sealed class UnavailableArtifactSafetyScanner : IArtifactSafetyScanner
+{
+    public Task<ArtifactScanResult> ScanAsync(ArtifactScanRequest request, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new ArtifactScanResult(
+            false,
+            ArtifactScanOutcome.Unavailable,
+            ArtifactOutcomeCodes.ScanUnavailable));
+}

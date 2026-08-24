@@ -10,16 +10,23 @@ public sealed class PostgresIntakeStore(PostgresConnectionAccessor connections) 
 {
     public async Task<SubmissionIntakeRecord?> FindIntakeAsync(
         Guid organizationId,
+        Guid enrollmentId,
         Guid intakeId,
         IEnrollmentTransaction? transaction,
         CancellationToken cancellationToken = default)
     {
+        const string where = """
+             WHERE organization_id = @OrganizationId
+               AND enrollment_id = @EnrollmentId
+               AND intake_id = @IntakeId
+             """;
+
         if (transaction is PostgresEnrollmentTransaction postgres)
         {
             var row = await postgres.Scope.Connection.QuerySingleOrDefaultAsync<IntakeRow>(
                 new CommandDefinition(
-                    SelectIntakeSql + " WHERE organization_id = @OrganizationId AND intake_id = @IntakeId",
-                    new { OrganizationId = organizationId, IntakeId = intakeId },
+                    SelectIntakeSql + where,
+                    new { OrganizationId = organizationId, EnrollmentId = enrollmentId, IntakeId = intakeId },
                     postgres.Scope.Transaction,
                     cancellationToken: cancellationToken));
             return row is null ? null : await HydrateAsync(postgres.Scope.Connection, postgres.Scope.Transaction, row, cancellationToken);
@@ -28,8 +35,8 @@ public sealed class PostgresIntakeStore(PostgresConnectionAccessor connections) 
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
         var outside = await connection.QuerySingleOrDefaultAsync<IntakeRow>(
             new CommandDefinition(
-                SelectIntakeSql + " WHERE organization_id = @OrganizationId AND intake_id = @IntakeId",
-                new { OrganizationId = organizationId, IntakeId = intakeId },
+                SelectIntakeSql + where,
+                new { OrganizationId = organizationId, EnrollmentId = enrollmentId, IntakeId = intakeId },
                 cancellationToken: cancellationToken));
         return outside is null ? null : await HydrateAsync(connection, null, outside, cancellationToken);
     }
@@ -86,7 +93,7 @@ public sealed class PostgresIntakeStore(PostgresConnectionAccessor connections) 
                     @OrganizationId, @SubmissionId, @ActivityId, @CohortId, @BaselineId,
                     @EnrollmentId, @ParticipantActorId, @TaskSourceId, @TaskVersionId,
                     @TaskContentDigest, @CreatedAtUtc)
-                ON CONFLICT (organization_id, submission_id) DO NOTHING;
+                ON CONFLICT (organization_id, enrollment_id) DO NOTHING;
                 INSERT INTO submissions_intakes (
                     organization_id, intake_id, submission_id, activity_id, cohort_id, baseline_id,
                     enrollment_id, participant_actor_id, task_source_id, task_version_id,
@@ -438,13 +445,24 @@ public sealed class PostgresSubmissionVersionStore(PostgresConnectionAccessor co
         CancellationToken cancellationToken = default)
     {
         var postgres = (PostgresEnrollmentTransaction)transaction;
+        await postgres.Scope.Connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                SELECT submission_id
+                FROM submissions_submissions
+                WHERE organization_id = @OrganizationId AND submission_id = @SubmissionId
+                FOR UPDATE
+                """,
+                new { OrganizationId = organizationId, SubmissionId = submissionId },
+                postgres.Scope.Transaction,
+                cancellationToken: cancellationToken));
+
         return await postgres.Scope.Connection.ExecuteScalarAsync<int>(
             new CommandDefinition(
                 """
                 SELECT COALESCE(MAX(version_number), 0) + 1
                 FROM submissions_accepted_versions
                 WHERE organization_id = @OrganizationId AND submission_id = @SubmissionId
-                FOR UPDATE
                 """,
                 new { OrganizationId = organizationId, SubmissionId = submissionId },
                 postgres.Scope.Transaction,

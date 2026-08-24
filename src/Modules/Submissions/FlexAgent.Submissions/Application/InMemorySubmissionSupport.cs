@@ -14,10 +14,14 @@ public sealed class InMemoryIntakeStore : IIntakeStore
 
     public Task<SubmissionIntakeRecord?> FindIntakeAsync(
         Guid organizationId,
+        Guid enrollmentId,
         Guid intakeId,
         IEnrollmentTransaction? transaction,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(_intakes.TryGetValue((organizationId, intakeId), out var intake) ? intake : null);
+        Task.FromResult(_intakes.TryGetValue((organizationId, intakeId), out var intake)
+            && intake.Scope.EnrollmentId == enrollmentId
+            ? intake
+            : null);
 
     public Task<SubmissionIntakeRecord?> FindActiveIntakeAsync(
         Guid organizationId,
