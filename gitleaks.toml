@@ -12,7 +12,7 @@ id = "generic-api-key"
 description = "Documented synthetic idempotency_key values in JSON schema fixtures."
 condition = "AND"
 paths = ['''(?i)contracts/fixtures/''']
-regexes = ['''(?i)^(idem-synthetic|enr-assign-synthetic|enr-suspend-synthetic)-\d{4}$''']
+regexes = ['''(?i)^(idem-synthetic|enr-assign-synthetic|enr-suspend-synthetic|acc-grant-synthetic|acc-decide-synthetic|acc-revoke-synthetic)-\d{4}$''']
 
 [[rules.allowlists]]
 description = "Synthetic Keycloak JDBC URLs in local/CI compose profiles."
