@@ -2,7 +2,7 @@
 id: p0-submission-intake-immutable-versioning
 status: in-progress
 created: 2026-08-24
-updated: 2026-08-24
+updated: 2026-08-25
 predecessors:
   - p0-assessment-setup-cohort-activation
   - p0-enrollment-assignment-discovery
@@ -608,6 +608,18 @@ Session rows remain unimplemented or Partial as governed by their owners.
 
 # Current state
 
+Confirm/commit pass on 2026-08-25 found `SubmissionPersistenceTests` failing in
+`FindActiveIntakeAsync` with PostgreSQL `42601` near `=`. The command text was
+`FROM submissions_intakesWHERE` — C# raw-string indent stripping removed the
+space before `WHERE`. Lookups now interpolate `SelectIntakeSql` so `WHERE`
+stays on its own line. The parent-FK test now substitutes `submission_id`
+while keeping enrollment keys valid so `fk_submissions_intakes_submission_parent`
+is the constraint that fires.
+
+Persistence tests **3 passed**; submission units **96 passed**; full Postgres
+suite **330 passed / 1 failed** (`KeycloakBackChannelLogoutTests` 403, known
+flake, unrelated). Ready to commit the intake SQL concat fix.
+
 Planning/readiness audit completed on 2026-08-24. Approved product,
 requirements, UI/UX, operational, and architecture sources contain no open
 question blocking this bounded slice. The current production implementation has
@@ -759,7 +771,7 @@ development policy, or an unqualified S3-compatible assumption.
 | SeaweedFS/AWS SDK artifact compatibility | passed — scope isolation enforced | `FlexAgent.Artifact.Integration.Tests` **6 passed** against `chrislusf/seaweedfs:4.29`: conditional create, exact-version get, presigned download, digest verification, and negative get/put/delete/upload-presign/download-presign scope checks (`scope_mismatch`). Lifecycle/cleanup/restore gates remain open. |
 | Frozen/current material-policy authority | partial — fail closed in production | In-memory/dev uses `Fixed*` ports; PostgreSQL registers `UnavailableFrozenSubmissionRequirementPort`, `UnavailableMaterialPolicyPort`, and `UnavailableArtifactSafetyScanner` so positive intake returns `policy_unavailable` until Assessment/Configuration owner ports are wired. |
 | Domain red/green | partial | `FlexAgent.Submissions.Tests` **96 passed** (includes `IntakeCoordinatorTests` for cross-enrollment deny, stable submission reuse, finalize idempotency replay, stale revision, predecessor lineage). `CompleteItemAsync`, reconciliation, lifecycle cleanup, and Postgres concurrent-finalize race tests remain open. |
-| PostgreSQL migration/isolation/concurrency/audit | partial | Migrations `0048`/`0049` with immutable accepted-version triggers, complete parent-scope FKs, predecessor lineage CHECK/FK; `PostgresIntakeStore`/`PostgresSubmissionVersionStore` implemented. `SubmissionPersistenceTests` covers parent substitution rejection, stable submission reuse, and predecessor persistence. Concurrent finalization work-lease tests remain. |
+| PostgreSQL migration/isolation/concurrency/audit | partial | Migrations `0048`/`0049` with immutable accepted-version triggers, complete parent-scope FKs, predecessor lineage CHECK/FK; `PostgresIntakeStore`/`PostgresSubmissionVersionStore` implemented. Intake `SELECT` now keeps a newline before `WHERE` (raw-string concat no longer emits `intakesWHERE`). `SubmissionPersistenceTests` **3 passed** (parent substitution, stable submission reuse, predecessor). Concurrent finalization work-lease tests remain. |
 | Canonical schema/OpenAPI/C#/TypeScript parity | pending | No `contracts/schemas/v2/submission/*` artifacts yet; API returns domain projections directly. |
 | API/Worker integration | partial | v2 routes under `/v2/assessment/my-work/{enrollmentId}/submission*` for query/begin/cancel/finalize; participant auth aligned with My work timing (`assessment.assignment.discover` + `assignment` resource). Worker validation/cleanup not composed. |
 | React/accessibility | partial | `ProductionMyWorkDetailPage` shows submission requirements/history summary; full local preparation, confirmation dialog, viewer/download, and component tests remain. |

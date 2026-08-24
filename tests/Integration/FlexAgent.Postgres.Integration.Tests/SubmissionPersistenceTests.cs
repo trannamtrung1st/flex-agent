@@ -25,8 +25,29 @@ public sealed class SubmissionPersistenceTests(PostgresIntegrationFixture fixtur
             harness.AssignCommand("assign-second", secondParticipant),
             CancellationToken);
         Assert.True(secondAssigned.Succeeded, secondAssigned.OutcomeCode);
-
         await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var otherSubmissionId = Guid.CreateVersion7();
+        var insertedParent = await connection.ExecuteAsync(
+            """
+            INSERT INTO submissions_submissions (
+                organization_id, submission_id, activity_id, cohort_id, baseline_id,
+                enrollment_id, participant_actor_id, task_source_id, task_version_id,
+                task_content_digest, created_at)
+            SELECT
+                organization_id, @OtherSubmissionId, activity_id, cohort_id, baseline_id,
+                enrollment_id, participant_actor_id, task_source_id, task_version_id,
+                task_content_digest, CLOCK_TIMESTAMP()
+            FROM submissions_enrollments
+            WHERE organization_id = @OrganizationId AND enrollment_id = @OtherEnrollmentId
+            """,
+            new
+            {
+                harness.OrganizationId,
+                OtherSubmissionId = otherSubmissionId,
+                OtherEnrollmentId = secondAssigned.EnrollmentId,
+            });
+        Assert.Equal(1, insertedParent);
+
         var exception = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
             """
             INSERT INTO submissions_intakes (
@@ -39,16 +60,16 @@ public sealed class SubmissionPersistenceTests(PostgresIntegrationFixture fixtur
             SELECT
                 organization_id,
                 @NewIntakeId,
-                submission_id,
+                @OtherSubmissionId,
                 activity_id,
                 cohort_id,
                 baseline_id,
-                @OtherEnrollmentId,
+                enrollment_id,
                 participant_actor_id,
                 task_source_id,
                 task_version_id,
                 task_content_digest,
-                status,
+                'cancelled',
                 revision,
                 policy_digest,
                 frozen_requirement_source_id,
@@ -68,7 +89,7 @@ public sealed class SubmissionPersistenceTests(PostgresIntegrationFixture fixtur
                 harness.OrganizationId,
                 IntakeId = began.IntakeId,
                 NewIntakeId = Guid.CreateVersion7(),
-                OtherEnrollmentId = secondAssigned.EnrollmentId,
+                OtherSubmissionId = otherSubmissionId,
             }));
 
         Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, exception.SqlState);

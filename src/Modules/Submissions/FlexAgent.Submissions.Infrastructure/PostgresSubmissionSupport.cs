@@ -15,17 +15,18 @@ public sealed class PostgresIntakeStore(PostgresConnectionAccessor connections) 
         IEnrollmentTransaction? transaction,
         CancellationToken cancellationToken = default)
     {
-        const string where = """
-             WHERE organization_id = @OrganizationId
-               AND enrollment_id = @EnrollmentId
-               AND intake_id = @IntakeId
-             """;
+        const string sql = $"""
+            {SelectIntakeSql}
+            WHERE organization_id = @OrganizationId
+              AND enrollment_id = @EnrollmentId
+              AND intake_id = @IntakeId
+            """;
 
         if (transaction is PostgresEnrollmentTransaction postgres)
         {
             var row = await postgres.Scope.Connection.QuerySingleOrDefaultAsync<IntakeRow>(
                 new CommandDefinition(
-                    SelectIntakeSql + where,
+                    sql,
                     new { OrganizationId = organizationId, EnrollmentId = enrollmentId, IntakeId = intakeId },
                     postgres.Scope.Transaction,
                     cancellationToken: cancellationToken));
@@ -35,7 +36,7 @@ public sealed class PostgresIntakeStore(PostgresConnectionAccessor connections) 
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
         var outside = await connection.QuerySingleOrDefaultAsync<IntakeRow>(
             new CommandDefinition(
-                SelectIntakeSql + where,
+                sql,
                 new { OrganizationId = organizationId, EnrollmentId = enrollmentId, IntakeId = intakeId },
                 cancellationToken: cancellationToken));
         return outside is null ? null : await HydrateAsync(connection, null, outside, cancellationToken);
@@ -47,13 +48,14 @@ public sealed class PostgresIntakeStore(PostgresConnectionAccessor connections) 
         IEnrollmentTransaction? transaction,
         CancellationToken cancellationToken = default)
     {
-        const string sql = SelectIntakeSql + """
-             WHERE organization_id = @OrganizationId
-               AND enrollment_id = @EnrollmentId
-               AND status IN ('receiving', 'received', 'validating', 'cancelling', 'reconciling')
-             ORDER BY created_at DESC
-             LIMIT 1
-             """;
+        const string sql = $"""
+            {SelectIntakeSql}
+            WHERE organization_id = @OrganizationId
+              AND enrollment_id = @EnrollmentId
+              AND status IN ('receiving', 'received', 'validating', 'cancelling', 'reconciling')
+            ORDER BY created_at DESC
+            LIMIT 1
+            """;
 
         if (transaction is PostgresEnrollmentTransaction postgres)
         {
