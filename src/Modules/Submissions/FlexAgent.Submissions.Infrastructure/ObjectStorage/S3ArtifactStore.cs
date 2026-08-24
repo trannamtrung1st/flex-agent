@@ -44,6 +44,11 @@ public sealed class S3ArtifactStore : IArtifactStore, IAsyncDisposable
 
     public async Task<ArtifactPutResult> PutAsync(ArtifactPutRequest request, CancellationToken cancellationToken = default)
     {
+        if (!ArtifactScopeGuard.Validate(request.OrganizationId, request.ObjectKey, out var scopeOutcome))
+        {
+            return new ArtifactPutResult(false, null, scopeOutcome);
+        }
+
         try
         {
             var put = new PutObjectRequest
@@ -82,6 +87,11 @@ public sealed class S3ArtifactStore : IArtifactStore, IAsyncDisposable
 
     public async Task<ArtifactGetResult> GetExactVersionAsync(ArtifactGetRequest request, CancellationToken cancellationToken = default)
     {
+        if (!ArtifactScopeGuard.Validate(request.OrganizationId, request.Reference.ObjectKey, out var scopeOutcome))
+        {
+            return new ArtifactGetResult(false, ReadOnlyMemory<byte>.Empty, scopeOutcome);
+        }
+
         try
         {
             var get = new GetObjectRequest
@@ -129,6 +139,11 @@ public sealed class S3ArtifactStore : IArtifactStore, IAsyncDisposable
         StoredArtifactReference reference,
         CancellationToken cancellationToken = default)
     {
+        if (!ArtifactScopeGuard.Validate(organizationId, reference.ObjectKey, out _))
+        {
+            return false;
+        }
+
         try
         {
             await _client.DeleteObjectAsync(new DeleteObjectRequest
@@ -152,6 +167,11 @@ public sealed class S3ArtifactStore : IArtifactStore, IAsyncDisposable
         HttpVerb verb,
         CancellationToken cancellationToken)
     {
+        if (!ArtifactScopeGuard.Validate(request.OrganizationId, request.ObjectKey, out var scopeOutcome))
+        {
+            return new ArtifactPresignResult(false, null, null, scopeOutcome);
+        }
+
         try
         {
             var presign = new GetPreSignedUrlRequest
@@ -195,4 +215,19 @@ public sealed class S3ArtifactStore : IArtifactStore, IAsyncDisposable
 
     private static ArtifactDigest ComputeDigest(ReadOnlySpan<byte> content) =>
         ArtifactDigest.FromHex(Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant());
+}
+
+internal static class ArtifactScopeGuard
+{
+    internal static bool Validate(Guid organizationId, ArtifactObjectKey objectKey, out string outcomeCode)
+    {
+        if (!objectKey.BelongsToOrganization(organizationId))
+        {
+            outcomeCode = ArtifactOutcomeCodes.ScopeMismatch;
+            return false;
+        }
+
+        outcomeCode = string.Empty;
+        return true;
+    }
 }

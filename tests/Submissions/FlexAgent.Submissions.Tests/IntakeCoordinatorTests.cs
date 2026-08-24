@@ -70,6 +70,47 @@ public sealed class IntakeCoordinatorTests
     }
 
     [Fact]
+    public async Task Second_finalize_sets_predecessor_version_lineage()
+    {
+        var harness = CreateHarness();
+        var firstCycle = await FinalizeIntakeAsync(harness, EnrollmentA, ParticipantA, "begin-v1", "finalize-v1");
+        var cancelled = await harness.Coordinator.CancelAsync(
+            CancelCommand(EnrollmentA, ParticipantA, firstCycle.IntakeId!.Value, firstCycle.Revision!.Value, "cancel-v1"),
+            TestContext.Current.CancellationToken);
+        Assert.True(cancelled.Succeeded, cancelled.OutcomeCode);
+
+        var secondCycle = await FinalizeIntakeAsync(harness, EnrollmentA, ParticipantA, "begin-v2", "finalize-v2");
+        Assert.NotEqual(firstCycle.VersionId, secondCycle.VersionId);
+        Assert.Equal(2, secondCycle.VersionNumber);
+
+        var secondVersion = await harness.Versions.FindVersionAsync(
+            OrganizationId,
+            secondCycle.VersionId!.Value,
+            null,
+            CancellationToken.None);
+        Assert.NotNull(secondVersion);
+        Assert.Equal(firstCycle.VersionId, secondVersion.PredecessorVersionId);
+    }
+
+    private static async Task<IntakeMutationOutcome> FinalizeIntakeAsync(
+        IntakeHarness harness,
+        Guid enrollmentId,
+        Guid participantId,
+        string beginKey,
+        string finalizeKey)
+    {
+        var began = await harness.Coordinator.BeginAsync(BeginCommand(enrollmentId, participantId, beginKey), TestContext.Current.CancellationToken);
+        Assert.True(began.Succeeded, began.OutcomeCode);
+        await SeedReceivedItemAsync(harness, enrollmentId, began.IntakeId!.Value, began.Revision!.Value);
+
+        var finalize = await harness.Coordinator.FinalizeAsync(
+            FinalizeCommand(enrollmentId, participantId, began.IntakeId.Value, began.Revision.Value + 1, finalizeKey),
+            TestContext.Current.CancellationToken);
+        Assert.True(finalize.Succeeded, finalize.OutcomeCode);
+        return finalize;
+    }
+
+    [Fact]
     public async Task Cancel_with_stale_revision_returns_bounded_outcome()
     {
         var harness = CreateHarness();

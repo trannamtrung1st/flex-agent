@@ -735,6 +735,14 @@ development policy, or an unqualified S3-compatible assumption.
   `IntakeCoordinatorTests` (cross-enrollment deny, stable submission reuse,
   finalize replay, stale revision). `FlexAgent.Submissions.Tests` **94 passed**
   on 2026-08-24 after remediation; build Release **0 warnings**.
+- **Artifact gate follow-up:** `S3ArtifactStore` now validates
+  `ArtifactObjectKey` organization scope on put/get/delete/upload-presign/
+  download-presign (`scope_mismatch`). SeaweedFS contract suite expanded to six
+  negative isolation tests (**6 passed**). Migration `0049` adds complete
+  Submission parent-scope FKs and predecessor lineage constraints; finalize
+  writes `predecessor_version_id` for version N>1. `SubmissionPersistenceTests`
+  added for parent substitution rejection, stable submission reuse, and lineage
+  persistence. Full Postgres integration **330 passed** after `0049`.
 - **Downstream compatibility:** Evidence-locator schemas already represent exact
   Submission locations, and ADR-005 requires exact version/item metadata. This
   task must produce stable compatible references without claiming that Attempt,
@@ -748,16 +756,16 @@ development policy, or an unqualified S3-compatible assumption.
 | Existing task duplication check | passed | No `.work/active/` task owns production Submission intake and immutable versioning; timing/accommodation explicitly excludes it. |
 | Repository seam inventory | passed for planning | Existing Submissions core/infrastructure, PostgreSQL Enrollment/timing, authenticated v2 Assessment API, production **My work**, Worker, audit/outbox, contract catalog, and test patterns are reusable. No production Submission/artifact implementation exists. |
 | Predecessor closeout | passed — `14f8804` | `p0-participant-timing-accommodations` completed; external review approved with no blocking findings. Intake activated; migration head `0047` and v2 timing authority preserved. |
-| SeaweedFS/AWS SDK artifact compatibility | passed — core contract suite | `FlexAgent.Artifact.Integration.Tests` **2 passed** against `chrislusf/seaweedfs:4.29` with `AWSSDK.S3` `4.0.102.3`: conditional create, exact-version get, presigned download, digest verification, wrong-scope denial. Lifecycle/cleanup/restore/paired-backup gates remain open. |
+| SeaweedFS/AWS SDK artifact compatibility | passed — scope isolation enforced | `FlexAgent.Artifact.Integration.Tests` **6 passed** against `chrislusf/seaweedfs:4.29`: conditional create, exact-version get, presigned download, digest verification, and negative get/put/delete/upload-presign/download-presign scope checks (`scope_mismatch`). Lifecycle/cleanup/restore gates remain open. |
 | Frozen/current material-policy authority | partial — fail closed in production | In-memory/dev uses `Fixed*` ports; PostgreSQL registers `UnavailableFrozenSubmissionRequirementPort`, `UnavailableMaterialPolicyPort`, and `UnavailableArtifactSafetyScanner` so positive intake returns `policy_unavailable` until Assessment/Configuration owner ports are wired. |
-| Domain red/green | partial | `FlexAgent.Submissions.Tests` **94 passed** (includes `IntakeCoordinatorTests` for cross-enrollment deny, stable submission reuse, finalize idempotency replay, stale revision). `CompleteItemAsync`, reconciliation, lifecycle cleanup, and Postgres concurrent-finalize tests remain open. |
-| PostgreSQL migration/isolation/concurrency/audit | partial | Migration `0048_submission_intake_and_accepted_versions.sql` added with immutable accepted-version triggers; `PostgresIntakeStore`/`PostgresSubmissionVersionStore` implemented. Dedicated `SubmissionPersistenceTests`, concurrent finalization, and work-lease tests remain. |
+| Domain red/green | partial | `FlexAgent.Submissions.Tests` **96 passed** (includes `IntakeCoordinatorTests` for cross-enrollment deny, stable submission reuse, finalize idempotency replay, stale revision, predecessor lineage). `CompleteItemAsync`, reconciliation, lifecycle cleanup, and Postgres concurrent-finalize race tests remain open. |
+| PostgreSQL migration/isolation/concurrency/audit | partial | Migrations `0048`/`0049` with immutable accepted-version triggers, complete parent-scope FKs, predecessor lineage CHECK/FK; `PostgresIntakeStore`/`PostgresSubmissionVersionStore` implemented. `SubmissionPersistenceTests` covers parent substitution rejection, stable submission reuse, and predecessor persistence. Concurrent finalization work-lease tests remain. |
 | Canonical schema/OpenAPI/C#/TypeScript parity | pending | No `contracts/schemas/v2/submission/*` artifacts yet; API returns domain projections directly. |
 | API/Worker integration | partial | v2 routes under `/v2/assessment/my-work/{enrollmentId}/submission*` for query/begin/cancel/finalize; participant auth aligned with My work timing (`assessment.assignment.discover` + `assignment` resource). Worker validation/cleanup not composed. |
 | React/accessibility | partial | `ProductionMyWorkDetailPage` shows submission requirements/history summary; full local preparation, confirmation dialog, viewer/download, and component tests remain. |
 | Authenticated Playwright MCP | pending | Compose profile adds SeaweedFS service; no Playwright intake journey evidence yet. |
 | Regression/security/supply-chain/OCI/recovery/docs | pending | Locked restore, full suites, allowlist/leakage, license/SBOM/vulnerability/secret scan, images, paired metadata/artifact restore, docs, and whitespace. |
-| Independent review | partial | External security review on `7dac50c` raised six blockers; remediated at `28c22f3` with unit regression evidence. Full backend/frontend/security/QA pass and Postgres harness tests for cross-enrollment, begin→terminal→begin, and concurrent finalize remain open. |
+| Independent review | partial | Original six `7dac50c` blockers remediated at `28c22f3`; follow-up artifact isolation, parent-scope FKs, and lineage populated at `0049` with Postgres/unit evidence. Concurrent finalize race and full security/QA pass remain open. |
 
 # Planned verification command set
 

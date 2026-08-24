@@ -173,6 +173,8 @@ public interface IIntakeStore
         CancellationToken cancellationToken = default);
 }
 
+public sealed record SubmissionVersionAllocation(int VersionNumber, Guid? PredecessorVersionId);
+
 public interface ISubmissionVersionStore
 {
     Task<Guid?> FindSubmissionIdByEnrollmentAsync(
@@ -193,7 +195,7 @@ public interface ISubmissionVersionStore
         IEnrollmentTransaction? transaction,
         CancellationToken cancellationToken = default);
 
-    Task<int> AllocateVersionNumberAsync(
+    Task<SubmissionVersionAllocation> AllocateNextVersionAsync(
         Guid organizationId,
         Guid submissionId,
         IEnrollmentTransaction transaction,

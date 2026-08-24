@@ -4,8 +4,35 @@ using FlexAgent.Submissions.Domain;
 
 public sealed record ArtifactObjectKey(string Value)
 {
+    private const string Prefix = "org/";
+
     public static ArtifactObjectKey Create(Guid organizationId, Guid artifactId) =>
-        new($"org/{organizationId:D}/{artifactId:D}");
+        new($"{Prefix}{organizationId:D}/{artifactId:D}");
+
+    public Guid? ScopedOrganizationId
+    {
+        get
+        {
+            if (!Value.StartsWith(Prefix, StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            var remainder = Value[Prefix.Length..];
+            var separator = remainder.IndexOf('/');
+            if (separator <= 0)
+            {
+                return null;
+            }
+
+            return Guid.TryParse(remainder[..separator], out var organizationId)
+                ? organizationId
+                : null;
+        }
+    }
+
+    public bool BelongsToOrganization(Guid organizationId) =>
+        ScopedOrganizationId == organizationId;
 }
 
 public sealed record ArtifactVersionId(string Value);
@@ -116,6 +143,7 @@ public static class ArtifactOutcomeCodes
     public const string NotFound = "not_found";
     public const string VersionMismatch = "version_mismatch";
     public const string DigestMismatch = "digest_mismatch";
+    public const string ScopeMismatch = "scope_mismatch";
     public const string StorageUnavailable = "storage_unavailable";
     public const string Presigned = "presigned";
     public const string ScanClean = "scan_clean";

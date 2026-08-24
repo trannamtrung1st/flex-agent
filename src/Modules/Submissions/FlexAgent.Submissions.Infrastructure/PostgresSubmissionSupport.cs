@@ -438,7 +438,7 @@ public sealed class PostgresSubmissionVersionStore(PostgresConnectionAccessor co
                 item.ArtifactVersionId)).ToArray());
     }
 
-    public async Task<int> AllocateVersionNumberAsync(
+    public async Task<SubmissionVersionAllocation> AllocateNextVersionAsync(
         Guid organizationId,
         Guid submissionId,
         IEnrollmentTransaction transaction,
@@ -457,16 +457,21 @@ public sealed class PostgresSubmissionVersionStore(PostgresConnectionAccessor co
                 postgres.Scope.Transaction,
                 cancellationToken: cancellationToken));
 
-        return await postgres.Scope.Connection.ExecuteScalarAsync<int>(
+        var latest = await postgres.Scope.Connection.QuerySingleOrDefaultAsync<LatestVersionRow>(
             new CommandDefinition(
                 """
-                SELECT COALESCE(MAX(version_number), 0) + 1
+                SELECT version_id AS VersionId, version_number AS VersionNumber
                 FROM submissions_accepted_versions
                 WHERE organization_id = @OrganizationId AND submission_id = @SubmissionId
+                ORDER BY version_number DESC
+                LIMIT 1
                 """,
                 new { OrganizationId = organizationId, SubmissionId = submissionId },
                 postgres.Scope.Transaction,
                 cancellationToken: cancellationToken));
+
+        var nextNumber = (latest?.VersionNumber ?? 0) + 1;
+        return new SubmissionVersionAllocation(nextNumber, latest?.VersionId);
     }
 
     public async Task InsertAcceptedVersionAsync(
@@ -540,6 +545,8 @@ public sealed class PostgresSubmissionVersionStore(PostgresConnectionAccessor co
                     cancellationToken: cancellationToken));
         }
     }
+
+    private sealed record LatestVersionRow(Guid VersionId, int VersionNumber);
 
     private sealed record VersionRow(
         Guid OrganizationId,

@@ -60,7 +60,7 @@ public sealed class SeaweedFsArtifactContractTests(ArtifactIntegrationFixture fi
   }
 
   [Fact]
-  public async Task Wrong_scope_object_substitution_is_not_readable()
+  public async Task Get_rejects_wrong_organization_scope_without_reading_object()
   {
     var cancellationToken = TestContext.Current.CancellationToken;
     var organizationId = Guid.NewGuid();
@@ -75,15 +75,94 @@ public sealed class SeaweedFsArtifactContractTests(ArtifactIntegrationFixture fi
       "text/plain"), cancellationToken);
     Assert.True(put.Succeeded, put.OutcomeCode);
 
-    var wrongDigest = put.Reference! with
-    {
-      Digest = ArtifactDigest.FromHex(new string('0', 64)),
-    };
     var get = await fixture.Store.GetExactVersionAsync(new ArtifactGetRequest(
       otherOrganizationId,
-      wrongDigest), cancellationToken);
+      put.Reference!), cancellationToken);
     Assert.False(get.Succeeded);
-    Assert.Equal(ArtifactOutcomeCodes.DigestMismatch, get.OutcomeCode);
+    Assert.Equal(ArtifactOutcomeCodes.ScopeMismatch, get.OutcomeCode);
+  }
+
+  [Fact]
+  public async Task Put_rejects_object_key_scoped_to_another_organization()
+  {
+    var cancellationToken = TestContext.Current.CancellationToken;
+    var organizationId = Guid.NewGuid();
+    var otherOrganizationId = Guid.NewGuid();
+    var key = ArtifactObjectKey.Create(otherOrganizationId, Guid.NewGuid());
+    var content = Encoding.UTF8.GetBytes("put scope isolation");
+
+    var put = await fixture.Store.PutAsync(new ArtifactPutRequest(
+      organizationId,
+      key,
+      content,
+      "text/plain"), cancellationToken);
+    Assert.False(put.Succeeded);
+    Assert.Equal(ArtifactOutcomeCodes.ScopeMismatch, put.OutcomeCode);
+  }
+
+  [Fact]
+  public async Task Delete_rejects_wrong_organization_scope()
+  {
+    var cancellationToken = TestContext.Current.CancellationToken;
+    var organizationId = Guid.NewGuid();
+    var otherOrganizationId = Guid.NewGuid();
+    var key = ArtifactObjectKey.Create(organizationId, Guid.NewGuid());
+    var content = Encoding.UTF8.GetBytes("delete scope isolation");
+
+    var put = await fixture.Store.PutAsync(new ArtifactPutRequest(
+      organizationId,
+      key,
+      content,
+      "text/plain"), cancellationToken);
+    Assert.True(put.Succeeded, put.OutcomeCode);
+
+    var deleted = await fixture.Store.DeleteAsync(otherOrganizationId, put.Reference!, cancellationToken);
+    Assert.False(deleted);
+  }
+
+  [Fact]
+  public async Task Upload_presign_rejects_wrong_organization_scope()
+  {
+    var cancellationToken = TestContext.Current.CancellationToken;
+    var organizationId = Guid.NewGuid();
+    var otherOrganizationId = Guid.NewGuid();
+    var key = ArtifactObjectKey.Create(organizationId, Guid.NewGuid());
+
+    var presign = await fixture.Store.IssueUploadCapabilityAsync(new ArtifactPresignRequest(
+      otherOrganizationId,
+      Guid.NewGuid(),
+      "upload",
+      key,
+      TimeSpan.FromMinutes(1),
+      ContentType: "text/plain"), cancellationToken);
+    Assert.False(presign.Succeeded);
+    Assert.Equal(ArtifactOutcomeCodes.ScopeMismatch, presign.OutcomeCode);
+  }
+
+  [Fact]
+  public async Task Download_presign_rejects_wrong_organization_scope()
+  {
+    var cancellationToken = TestContext.Current.CancellationToken;
+    var organizationId = Guid.NewGuid();
+    var otherOrganizationId = Guid.NewGuid();
+    var key = ArtifactObjectKey.Create(organizationId, Guid.NewGuid());
+    var content = Encoding.UTF8.GetBytes("download presign scope isolation");
+
+    var put = await fixture.Store.PutAsync(new ArtifactPutRequest(
+      organizationId,
+      key,
+      content,
+      "text/plain"), cancellationToken);
+    Assert.True(put.Succeeded, put.OutcomeCode);
+
+    var presign = await fixture.Store.IssueDownloadCapabilityAsync(new ArtifactPresignRequest(
+      otherOrganizationId,
+      Guid.NewGuid(),
+      "download",
+      key,
+      TimeSpan.FromMinutes(1)), cancellationToken);
+    Assert.False(presign.Succeeded);
+    Assert.Equal(ArtifactOutcomeCodes.ScopeMismatch, presign.OutcomeCode);
   }
 
   private static string ComputeDigest(byte[] content) =>

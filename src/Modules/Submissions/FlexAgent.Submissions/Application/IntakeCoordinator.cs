@@ -176,7 +176,7 @@ public sealed class IntakeCoordinator(
                     }
                 }
 
-                var versionNumber = await versions.AllocateVersionNumberAsync(
+                var allocation = await versions.AllocateNextVersionAsync(
                     enrollment.OrganizationId,
                     intake.SubmissionId,
                     transaction,
@@ -194,10 +194,10 @@ public sealed class IntakeCoordinator(
                 var accepted = new AcceptedSubmissionVersion(
                     intake.SubmissionId,
                     versionId,
-                    versionNumber,
+                    allocation.VersionNumber,
                     intake.Scope,
                     intake.PolicyDigest,
-                    null,
+                    allocation.PredecessorVersionId,
                     _clock.UtcNow,
                     acceptedItems);
 
@@ -227,7 +227,7 @@ public sealed class IntakeCoordinator(
                     IntakeStates.Accepted,
                     acceptedIntake.Revision,
                     versionId,
-                    versionNumber,
+                    allocation.VersionNumber,
                     command.Actor.GrantedActions);
             },
             cancellationToken);

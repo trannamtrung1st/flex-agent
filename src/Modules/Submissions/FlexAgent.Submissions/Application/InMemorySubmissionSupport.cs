@@ -98,18 +98,20 @@ public sealed class InMemorySubmissionVersionStore : ISubmissionVersionStore
         CancellationToken cancellationToken = default) =>
         Task.FromResult(_versions.TryGetValue((organizationId, versionId), out var version) ? version : null);
 
-    public Task<int> AllocateVersionNumberAsync(
+    public Task<SubmissionVersionAllocation> AllocateNextVersionAsync(
         Guid organizationId,
         Guid submissionId,
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken = default)
     {
-        var next = _versions.Values
+        var latest = _versions.Values
             .Where(version => version.Scope.OrganizationId == organizationId && version.SubmissionId == submissionId)
-            .Select(version => version.VersionNumber)
-            .DefaultIfEmpty(0)
-            .Max() + 1;
-        return Task.FromResult(next);
+            .OrderByDescending(version => version.VersionNumber)
+            .FirstOrDefault();
+        var nextNumber = (latest?.VersionNumber ?? 0) + 1;
+        return Task.FromResult(new SubmissionVersionAllocation(
+            nextNumber,
+            latest?.VersionId));
     }
 
     public Task InsertAcceptedVersionAsync(
