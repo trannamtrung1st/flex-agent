@@ -127,7 +127,8 @@ public static class EnrollmentTimingEndpointExtensions
                 body.RequestedValue,
                 body.ReasonCategory,
                 body.FairnessException,
-                body.ExpectedRevision);
+                body.ExpectedRevision,
+                body.ExpiresAtUtc);
             return await coordinator.GrantAsync(
                 new GrantAccommodationCommand(
                     actor,

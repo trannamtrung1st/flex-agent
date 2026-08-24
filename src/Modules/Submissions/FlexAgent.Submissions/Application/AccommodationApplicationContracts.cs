@@ -120,11 +120,14 @@ public interface IAccommodationStore
 
     Task InsertAsync(
         Accommodation accommodation,
+        Guid actorId,
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken);
 
     Task UpdateAsync(
         Accommodation accommodation,
+        string? priorStatus,
+        Guid actorId,
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken);
 }

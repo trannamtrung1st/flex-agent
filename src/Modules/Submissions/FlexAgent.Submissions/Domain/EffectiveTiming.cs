@@ -8,7 +8,8 @@ public sealed record BaselineTiming(
     int AttemptLimit,
     int? PerAttemptDurationSeconds,
     AccommodationPolicyIdentity FrozenPolicy,
-    bool VerificationDegraded);
+    bool VerificationDegraded,
+    NormalizedAccommodationPolicy? FrozenPolicySnapshot = null);
 
 public sealed record EffectiveTiming(
     BaselineTiming Baseline,
@@ -34,9 +35,12 @@ public static class EffectiveTimingEvaluator
         DateTimeOffset nowUtc)
     {
         nowUtc = nowUtc.ToUniversalTime();
+        var effectivePolicy = AccommodationPolicyNormalizer.EffectiveBounds(
+            baseline.FrozenPolicySnapshot,
+            currentPolicy);
         var authoritative = enrollmentStatus == EnrollmentStates.Active
             && !baseline.VerificationDegraded
-            && currentPolicy is { EnvironmentEligible: true };
+            && effectivePolicy is { EnvironmentEligible: true };
         var submissionEnd = baseline.DeadlineUtc;
         var attemptStart = baseline.StartsAtUtc;
         var attemptEnd = baseline.EndsAtUtc;
@@ -46,7 +50,7 @@ public static class EffectiveTimingEvaluator
 
         if (authoritative)
         {
-            foreach (var record in CurrentEffects(records, currentPolicy!, nowUtc))
+            foreach (var record in CurrentEffects(records, effectivePolicy!, nowUtc))
             {
                 switch (record.Dimension)
                 {

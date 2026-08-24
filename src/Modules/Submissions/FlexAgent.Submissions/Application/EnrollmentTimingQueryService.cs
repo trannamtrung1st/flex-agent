@@ -34,18 +34,24 @@ public sealed class InMemoryAccommodationStore : IAccommodationStore
 
     public Task InsertAsync(
         Accommodation accommodation,
+        Guid actorId,
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken)
     {
+        _ = actorId;
         _items.Add(accommodation);
         return Task.CompletedTask;
     }
 
     public Task UpdateAsync(
         Accommodation accommodation,
+        string? priorStatus,
+        Guid actorId,
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken)
     {
+        _ = priorStatus;
+        _ = actorId;
         var index = _items.FindIndex(item =>
             item.Parent.OrganizationId == accommodation.Parent.OrganizationId
             && item.AccommodationId == accommodation.AccommodationId);
@@ -91,6 +97,15 @@ public sealed class EnrollmentTimingQueryService(
             return EnrollmentDecision<EnrollmentTimingDetail>.Fail(EnrollmentFailureCodes.Denied);
         }
 
+        var includeAccommodationMetadata =
+            EnrollmentAuthenticationPolicy.Evaluate(actor, EnrollmentAuthorizationActions.ReadAccommodation) is null
+            && (await authorization.AuthorizeAdmissionAsync(
+                actor,
+                EnrollmentAuthorizationActions.ReadAccommodation,
+                enrollmentId,
+                EnrollmentResourceTypes.Enrollment,
+                cancellationToken)).IsPermitted;
+
         var enrollment = await enrollments.FindAsync(
             actor.Organization.OrganizationId,
             enrollmentId,
@@ -101,7 +116,23 @@ public sealed class EnrollmentTimingQueryService(
             return EnrollmentDecision<EnrollmentTimingDetail>.Fail(EnrollmentFailureCodes.Denied);
         }
 
-        var composed = await ComposeAsync(actor, enrollment, includePolicy: true, cancellationToken);
+        var composed = await ComposeAsync(actor, enrollment, includeAccommodationMetadata, cancellationToken);
+        if (!includeAccommodationMetadata)
+        {
+            composed = composed with
+            {
+                History = [],
+                PermittedAccommodationDimensions = [],
+                PermittedReasonCategories = [],
+                PolicyAvailable = false,
+                Timing = composed.Timing with
+                {
+                    CurrentAccommodationId = null,
+                    ParticipantConsequenceCode = AccommodationConsequenceCodes.None,
+                },
+            };
+        }
+
         return EnrollmentDecision<EnrollmentTimingDetail>.Ok(composed, "enrollment.ok");
     }
 
@@ -195,16 +226,17 @@ public sealed class EnrollmentTimingQueryService(
         var policy = binding is null
             ? null
             : await policies.ResolveCurrentAsync(enrollment.OrganizationId, baseline, _clock.UtcNow, null, cancellationToken);
+        var effectivePolicy = AccommodationPolicyNormalizer.EffectiveBounds(baseline.FrozenPolicySnapshot, policy);
         var timing = EffectiveTimingEvaluator.Evaluate(
             baseline,
             enrollment.Status,
             policy,
             history,
             _clock.UtcNow);
-        var dimensions = includePolicy && policy is not null
-            ? policy.Dimensions.Where(pair => pair.Value.Enabled).Select(pair => pair.Key).ToArray()
+        var dimensions = includePolicy && effectivePolicy is not null
+            ? effectivePolicy.Dimensions.Where(pair => pair.Value.Enabled).Select(pair => pair.Key).ToArray()
             : [];
-        var reasons = includePolicy && policy is not null ? policy.ReasonCategories : [];
+        var reasons = includePolicy && effectivePolicy is not null ? effectivePolicy.ReasonCategories : [];
         var label = enrollment.ParticipantActorId.ToString("D");
         return new EnrollmentTimingDetail(
             new EnrollmentSummary(

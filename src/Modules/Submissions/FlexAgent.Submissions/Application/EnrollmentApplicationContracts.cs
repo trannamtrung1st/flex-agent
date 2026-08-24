@@ -108,7 +108,8 @@ public sealed record ActivatedCohortBinding(
     int? PerAttemptDurationSeconds = null,
     Guid FrozenPolicySourceId = default,
     Guid FrozenPolicyVersionId = default,
-    string FrozenPolicyDigest = "");
+    string FrozenPolicyDigest = "",
+    NormalizedAccommodationPolicy? FrozenAccommodationPolicy = null);
 
 public interface IEnrollmentCoordinator
 {

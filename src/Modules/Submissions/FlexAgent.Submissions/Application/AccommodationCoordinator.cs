@@ -43,7 +43,8 @@ public sealed class AccommodationCoordinator(
                 command.RequestedValue,
                 command.ReasonCategory,
                 command.FairnessException,
-                command.ExpectedRevision),
+                command.ExpectedRevision,
+                command.ExpiresAtUtc),
             async (transaction, binding, enrollment) =>
             {
                 if (enrollment.Revision != command.ExpectedRevision)
@@ -58,7 +59,10 @@ public sealed class AccommodationCoordinator(
                     _clock.UtcNow,
                     transaction,
                     cancellationToken);
-                if (policy is null || !policy.EnvironmentEligible)
+                var effectivePolicy = AccommodationPolicyNormalizer.EffectiveBounds(
+                    baseline.FrozenPolicySnapshot,
+                    policy);
+                if (effectivePolicy is null || !effectivePolicy.EnvironmentEligible)
                 {
                     return Fail(AccommodationFailureCodes.PolicyUnavailable);
                 }
@@ -68,7 +72,7 @@ public sealed class AccommodationCoordinator(
                     command.Dimension,
                     command.RequestedValue,
                     baseline.FrozenPolicy,
-                    policy,
+                    effectivePolicy,
                     command.ReasonCategory,
                     _clock.UtcNow,
                     command.ExpiresAtUtc,
@@ -82,10 +86,19 @@ public sealed class AccommodationCoordinator(
 
                 if (created.Value.Status == AccommodationStates.Granted)
                 {
-                    await SupersedeCurrentAsync(enrollment, created.Value, transaction, cancellationToken);
+                    await SupersedeCurrentAsync(
+                        enrollment,
+                        created.Value,
+                        command.Actor.Actor.ActorId,
+                        transaction,
+                        cancellationToken);
                 }
 
-                await accommodations.InsertAsync(created.Value, transaction, cancellationToken);
+                await accommodations.InsertAsync(
+                    created.Value,
+                    command.Actor.Actor.ActorId,
+                    transaction,
+                    cancellationToken);
                 return Success(created.Value, created.OutcomeCode, command.Actor.GrantedActions, enrollment);
             },
             cancellationToken);
@@ -133,7 +146,10 @@ public sealed class AccommodationCoordinator(
                     _clock.UtcNow,
                     transaction,
                     cancellationToken);
-                if (policy is null)
+                var effectivePolicy = AccommodationPolicyNormalizer.EffectiveBounds(
+                    baseline.FrozenPolicySnapshot,
+                    policy);
+                if (effectivePolicy is null)
                 {
                     return Fail(AccommodationFailureCodes.PolicyUnavailable);
                 }
@@ -142,7 +158,7 @@ public sealed class AccommodationCoordinator(
                     command.Actor.Actor.ActorId,
                     command.Approve,
                     baseline.FrozenPolicy,
-                    policy,
+                    effectivePolicy,
                     command.ExpectedRevision,
                     _clock.UtcNow);
                 if (!decided.Succeeded || decided.Value is null)
@@ -152,10 +168,20 @@ public sealed class AccommodationCoordinator(
 
                 if (decided.Value.Status == AccommodationStates.Granted)
                 {
-                    await SupersedeCurrentAsync(enrollment, decided.Value, transaction, cancellationToken);
+                    await SupersedeCurrentAsync(
+                        enrollment,
+                        decided.Value,
+                        command.Actor.Actor.ActorId,
+                        transaction,
+                        cancellationToken);
                 }
 
-                await accommodations.UpdateAsync(decided.Value, transaction, cancellationToken);
+                await accommodations.UpdateAsync(
+                    decided.Value,
+                    current.Status,
+                    command.Actor.Actor.ActorId,
+                    transaction,
+                    cancellationToken);
                 return Success(decided.Value, decided.OutcomeCode, command.Actor.GrantedActions, enrollment);
             },
             cancellationToken);
@@ -201,10 +227,19 @@ public sealed class AccommodationCoordinator(
                     return Fail(EnrollmentFailureCodes.StaleRevision);
                 }
 
-                _ = binding;
                 var revoked = current.Revoke(command.Actor.Actor.ActorId, _clock.UtcNow);
-                await accommodations.UpdateAsync(revoked, transaction, cancellationToken);
-                return Success(revoked, AccommodationOutcomes.Revoked, command.Actor.GrantedActions, enrollment);
+                if (!revoked.Succeeded || revoked.Value is null)
+                {
+                    return Fail(revoked.OutcomeCode);
+                }
+
+                await accommodations.UpdateAsync(
+                    revoked.Value,
+                    current.Status,
+                    command.Actor.Actor.ActorId,
+                    transaction,
+                    cancellationToken);
+                return Success(revoked.Value, revoked.OutcomeCode, command.Actor.GrantedActions, enrollment);
             },
             cancellationToken);
 
@@ -385,6 +420,7 @@ public sealed class AccommodationCoordinator(
     private async Task SupersedeCurrentAsync(
         Enrollment enrollment,
         Accommodation incoming,
+        Guid actorId,
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken)
     {
@@ -400,6 +436,8 @@ public sealed class AccommodationCoordinator(
         {
             await accommodations.UpdateAsync(
                 record.Supersede(incoming.AccommodationId, _clock.UtcNow),
+                record.Status,
+                actorId,
                 transaction,
                 cancellationToken);
         }
@@ -443,7 +481,8 @@ public static class TimingMapper
                 string.IsNullOrWhiteSpace(binding.FrozenPolicyDigest)
                     ? new string('b', 64)
                     : binding.FrozenPolicyDigest),
-            binding.VerificationDegraded);
+            binding.VerificationDegraded,
+            binding.FrozenAccommodationPolicy);
 
     public static AccommodationParentBinding ParentFrom(Enrollment enrollment) =>
         new(

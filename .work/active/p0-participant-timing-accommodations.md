@@ -402,22 +402,25 @@ intake/version criteria remain unimplemented.
 
 # Current state
 
-Consistency review 2026-08-24. Additive migration `0046` is drafted.
-Domain/application timing and accommodation coordinators are implemented and
-21 focused Submissions tests pass (`AccommodationCoordinatorTests`,
-`AccommodationDomainTests`, `EffectiveTimingTests`), including idempotent
-grant replay of the original accommodation id. Production remains fail
-closed without an exact current Organization policy; development uses the
-synthetic policy fixture.
+Review remediations 2026-08-24 (blockers from 7e33fbf). GET
+`/v2/assessment/enrollments/{id}/timing` still uses `assessment.enrollment.read`
+for baseline/effective windows, then a second `accommodation.read` check; denied
+accommodation readers receive windows without history, dimensions, or current
+accommodation id. Idempotency digest now binds canonical UTC `expires_at`.
+`AccommodationPolicyNormalizer.Intersect` derives request/approve/effect bounds
+from frozen snapshot ∩ current Organization policy (synthetic development
+fallback when no snapshot is stored). `Decide` rejects expired pending approvals;
+`Revoke` only transitions `granted` and does not overwrite `approver_actor_id`.
+PostgreSQL facts persist `prior_status` and the transition `actor_id`, including
+supersede facts attributed to the actor performing the replacement. Focused
+domain/application tests: 27 passing.
 
-Fixes from this review: persist accommodation id on enrollment-operation
-replay; map stale revision and unique-grant races to conflict outcomes;
-revoke from the SPA using the accommodation revision. Parallel
-`/v2/assessment` timing/accommodation HTTP routes, C# v2 command DTOs, SPA
-Enrollment/**My work** timing UI, timezone formatter, and administrator seed
-grants are in tree. Remaining closeout: PostgreSQL isolation/concurrency/audit
-suites against `0046`, canonical catalog/OpenAPI fixtures, broader HTTP/React
-state coverage, Playwright MCP evidence, independent reviews, and spec
+Production remains fail-closed without an exact current Organization policy and
+without a persisted frozen snapshot from Assessment/Configuration. Development
+uses the synthetic policy fixture. Remaining closeout: PostgreSQL
+isolation/concurrency/audit suites against `0046`, persist frozen bounds on
+activation, canonical catalog/OpenAPI fixtures, broader HTTP/React state
+coverage, Playwright MCP evidence, independent reviews, and spec
 traceability.
 
 The Assessment port supplies verified baseline start, end, deadline, and
@@ -523,7 +526,7 @@ the owning authority rather than introduce a code-level exception.
 | Accommodation-policy readiness | passed | `REQ-SUBM-51`–`REQ-SUBM-54`, `AC-SUBM-34`–`AC-SUBM-36`, and `PROP-10`–`PROP-13` define frozen/current validation, dimensions, normalized replacement, reasons, and approval separation. Production positive behavior remains fail closed until exact policy configuration exists. |
 | Lifecycle-policy readiness | passed | Operational defaults v0.4 `REQ-OPS-30`/`AC-OPS-7` and `PROP-14` define retention, audit, idempotency, hold, and business expiry. |
 | Contract compatibility | passed | `REQ-SUBM-56`, `AC-SUBM-39`, `PROP-15`, and `AR-DEC-27` preserve strict v1 while adding parallel strict v2 and migrating the SPA. |
-| Domain red/green | passed for focused coordinators | `dotnet test --project tests/Submissions/FlexAgent.Submissions.Tests/FlexAgent.Submissions.Tests.csproj -c Release -- --filter-class FlexAgent.Submissions.Tests.AccommodationCoordinatorTests --filter-class FlexAgent.Submissions.Tests.AccommodationDomainTests --filter-class FlexAgent.Submissions.Tests.EffectiveTimingTests` → 21 passed. |
+| Domain red/green | passed for focused coordinators after review remediations | Same three filter classes → 27 passed (authorization split, expiry digest, frozen∩current bounds, expired-approval/revoke transitions). Enrollment domain 43 passed. |
 | PostgreSQL migration/isolation/concurrency/fault tests | pending | Include populated-`0043` upgrade and real PostgreSQL negatives. |
 | Schema/OpenAPI/C#/TypeScript parity | pending | Run catalog, fixture, mapping, and runtime-boundary suites. |
 | API authorization/HTTP negatives | partial | CSRF grant rejection before session authentication passed. Broader grant/decide/revoke HTTP coverage still pending. |

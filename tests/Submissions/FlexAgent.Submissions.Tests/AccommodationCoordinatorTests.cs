@@ -70,6 +70,74 @@ public sealed class AccommodationCoordinatorTests
         Assert.Equal(AccommodationStates.Granted, approved.Status);
     }
 
+    [Fact]
+    public async Task Enrollment_read_without_accommodation_read_omits_accommodation_history()
+    {
+        var harness = await AssignedHarnessAsync();
+        var requested = Now.AddDays(22);
+        var granted = await harness.Accommodations.GrantAsync(
+            GrantCommand(harness.EnrollmentId, 1, "grant-history", Format(requested), fairness: false),
+            TestContext.Current.CancellationToken);
+        Assert.True(granted.Succeeded, granted.OutcomeCode);
+
+        harness.Authorization.DeniedActions.Add(EnrollmentAuthorizationActions.ReadAccommodation);
+        var detail = await harness.Timing.GetEnrollmentTimingAsync(
+            Administrator(),
+            ActivityId,
+            CohortId,
+            harness.EnrollmentId,
+            TestContext.Current.CancellationToken);
+        Assert.True(detail.Succeeded);
+        Assert.Empty(detail.Value!.History);
+        Assert.Null(detail.Value.Timing.CurrentAccommodationId);
+        Assert.Equal(requested, detail.Value.Timing.EffectiveSubmissionExclusiveEndUtc);
+    }
+
+    [Fact]
+    public async Task Same_idempotency_key_with_a_different_expiry_conflicts()
+    {
+        var harness = await AssignedHarnessAsync();
+        var requested = Now.AddDays(22);
+        var first = await harness.Accommodations.GrantAsync(
+            GrantCommand(harness.EnrollmentId, 1, "grant-expiry", Format(requested), fairness: false, Now.AddDays(5)),
+            TestContext.Current.CancellationToken);
+        Assert.True(first.Succeeded, first.OutcomeCode);
+
+        var second = await harness.Accommodations.GrantAsync(
+            GrantCommand(harness.EnrollmentId, 1, "grant-expiry", Format(requested), fairness: false, Now.AddDays(10)),
+            TestContext.Current.CancellationToken);
+        Assert.False(second.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.IdempotencyConflict, second.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Current_policy_widening_cannot_exceed_frozen_baseline_bounds()
+    {
+        var harness = await AssignedHarnessAsync();
+        var baseline = TimingMapper.BaselineFrom(harness.Cohorts.Binding!);
+        var frozen = DevelopmentAccommodationPolicy.Create(OrganizationId, baseline, "development");
+        var tightDeadline = AccommodationPolicyNormalizer.FormatInstant(Now.AddDays(22));
+        harness.Cohorts.Binding = Binding() with
+        {
+            FrozenAccommodationPolicy = frozen with
+            {
+                Dimensions = new Dictionary<string, AccommodationDimensionBounds>(frozen.Dimensions, StringComparer.Ordinal)
+                {
+                    [AccommodationDimensions.SubmissionDeadlineUtc] = frozen.Dimensions[AccommodationDimensions.SubmissionDeadlineUtc] with
+                    {
+                        RoutineMax = tightDeadline,
+                        HardMax = tightDeadline,
+                    },
+                },
+            },
+        };
+        var denied = await harness.Accommodations.GrantAsync(
+            GrantCommand(harness.EnrollmentId, 1, "grant-wide", Format(Now.AddDays(30)), fairness: false),
+            TestContext.Current.CancellationToken);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(AccommodationFailureCodes.OutsideBounds, denied.OutcomeCode);
+    }
+
     private async Task<TimingHarness> AssignedHarnessAsync()
     {
         var store = new InMemoryEnrollmentStore();
@@ -129,7 +197,7 @@ public sealed class AccommodationCoordinatorTests
             accommodations,
             policies,
             new FixedEnrollmentClock(Now));
-        return new TimingHarness(assigned.EnrollmentId!.Value, accommodationCoordinator, timing);
+        return new TimingHarness(assigned.EnrollmentId!.Value, accommodationCoordinator, timing, authorization, policies, cohorts);
     }
 
     private static GrantAccommodationCommand GrantCommand(
@@ -137,7 +205,8 @@ public sealed class AccommodationCoordinatorTests
         long revision,
         string key,
         string value,
-        bool fairness) =>
+        bool fairness,
+        DateTimeOffset? expiresAtUtc = null) =>
         new(
             Administrator(),
             ActivityId,
@@ -146,7 +215,7 @@ public sealed class AccommodationCoordinatorTests
             AccommodationDimensions.SubmissionDeadlineUtc,
             value,
             AccommodationReasonCategories.DevelopmentSynthetic,
-            null,
+            expiresAtUtc,
             fairness,
             revision,
             key,
@@ -161,7 +230,8 @@ public sealed class AccommodationCoordinatorTests
                 value,
                 AccommodationReasonCategories.DevelopmentSynthetic,
                 fairness,
-                revision));
+                revision,
+                expiresAtUtc));
 
     private static DecideAccommodationCommand DecideCommand(
         Guid enrollmentId,
@@ -248,5 +318,8 @@ public sealed class AccommodationCoordinatorTests
     private sealed record TimingHarness(
         Guid EnrollmentId,
         IAccommodationCoordinator Accommodations,
-        IEnrollmentTimingQueryService Timing);
+        IEnrollmentTimingQueryService Timing,
+        AllowEnrollmentAuthorizationPort Authorization,
+        FixedAccommodationPolicyPort Policies,
+        FixedActivatedCohortPort Cohorts);
 }

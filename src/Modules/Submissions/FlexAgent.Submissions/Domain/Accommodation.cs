@@ -56,6 +56,11 @@ public sealed record Accommodation(
             return EnrollmentDecision<Accommodation>.Fail(AccommodationFailureCodes.InvalidValue);
         }
 
+        if (expiresAtUtc is { } expiry && expiry.ToUniversalTime() <= nowUtc.ToUniversalTime())
+        {
+            return EnrollmentDecision<Accommodation>.Fail(AccommodationFailureCodes.InvalidValue);
+        }
+
         var inRoutine = Inside(normalized, bounds.RoutineMin, bounds.RoutineMax, bounds.ValueKind);
         var inHard = Inside(normalized, bounds.HardMin, bounds.HardMax, bounds.ValueKind);
         if (!inHard)
@@ -172,6 +177,11 @@ public sealed record Accommodation(
             return EnrollmentDecision<Accommodation>.Fail(AccommodationFailureCodes.UnsupportedDimension);
         }
 
+        if (approve && IsExpiredAt(nowUtc))
+        {
+            return EnrollmentDecision<Accommodation>.Fail(AccommodationFailureCodes.InvalidValue);
+        }
+
         if (approve && !Inside(NormalizedValue, bounds.HardMin, bounds.HardMax, bounds.ValueKind))
         {
             return EnrollmentDecision<Accommodation>.Fail(AccommodationFailureCodes.OutsideBounds);
@@ -191,14 +201,23 @@ public sealed record Accommodation(
             outcome);
     }
 
-    public Accommodation Revoke(Guid actorId, DateTimeOffset nowUtc) =>
-        this with
+    public EnrollmentDecision<Accommodation> Revoke(Guid actorId, DateTimeOffset nowUtc)
+    {
+        _ = actorId;
+        if (Status != AccommodationStates.Granted)
         {
-            Status = AccommodationStates.Revoked,
-            Revision = Revision + 1,
-            RevokedAtUtc = nowUtc,
-            ApproverActorId = ApproverActorId ?? actorId,
-        };
+            return EnrollmentDecision<Accommodation>.Fail(AccommodationFailureCodes.Denied);
+        }
+
+        return EnrollmentDecision<Accommodation>.Ok(
+            this with
+            {
+                Status = AccommodationStates.Revoked,
+                Revision = Revision + 1,
+                RevokedAtUtc = nowUtc,
+            },
+            AccommodationOutcomes.Revoked);
+    }
 
     public Accommodation Supersede(Guid successorId, DateTimeOffset nowUtc) =>
         this with

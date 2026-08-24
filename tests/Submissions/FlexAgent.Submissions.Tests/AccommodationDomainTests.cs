@@ -210,12 +210,14 @@ public sealed class AccommodationDomainTests
             Guid.CreateVersion7(),
             1).Value!;
         var revoked = granted.Revoke(Guid.CreateVersion7(), Start.AddHours(3));
-        Assert.Equal(AccommodationStates.Revoked, revoked.Status);
-        Assert.Equal("5400", revoked.NormalizedValue);
-        Assert.Equal(AccommodationLifecyclePolicy.HistoryRetentionPolicyId, revoked.LifecyclePolicyId);
-        Assert.Equal(AccommodationLifecyclePolicy.HistoryRetentionVersion, revoked.LifecyclePolicyVersion);
-        Assert.NotEqual(EnrollmentLifecyclePolicy.RestrictedPreservationPolicyId, revoked.LifecyclePolicyId);
-        Assert.Equal(Start.AddDays(2), revoked.ExpiresAtUtc);
+        Assert.True(revoked.Succeeded);
+        Assert.Equal(AccommodationStates.Revoked, revoked.Value!.Status);
+        Assert.Equal("5400", revoked.Value.NormalizedValue);
+        Assert.Equal(AccommodationLifecyclePolicy.HistoryRetentionPolicyId, revoked.Value.LifecyclePolicyId);
+        Assert.Equal(AccommodationLifecyclePolicy.HistoryRetentionVersion, revoked.Value.LifecyclePolicyVersion);
+        Assert.NotEqual(EnrollmentLifecyclePolicy.RestrictedPreservationPolicyId, revoked.Value.LifecyclePolicyId);
+        Assert.Equal(Start.AddDays(2), revoked.Value.ExpiresAtUtc);
+        Assert.Null(revoked.Value.ApproverActorId);
     }
 
     [Fact]
@@ -265,6 +267,131 @@ public sealed class AccommodationDomainTests
             1);
         Assert.True(created.Succeeded);
         Assert.Equal(AccommodationStates.Granted, created.Value!.Status);
+    }
+
+    [Fact]
+    public void Frozen_and_current_policy_intersection_rejects_a_later_widened_current_bound()
+    {
+        var frozen = AccommodationDomainTestsSupport.CurrentPolicy(Deadline.AddDays(2), Ends.AddDays(7), 7200);
+        var current = AccommodationDomainTestsSupport.CurrentPolicy(Deadline.AddDays(14), Ends.AddDays(7), 7200);
+        var effective = AccommodationPolicyNormalizer.EffectiveBounds(frozen, current)!;
+        Assert.Equal(
+            Format(Deadline.AddDays(2)),
+            effective.Dimensions[AccommodationDimensions.SubmissionDeadlineUtc].RoutineMax);
+
+        Assert.Equal(
+            AccommodationFailureCodes.OutsideBounds,
+            Accommodation.Request(
+                AccommodationDomainTestsSupport.Parent(),
+                AccommodationDimensions.SubmissionDeadlineUtc,
+                Format(Deadline.AddDays(10)),
+                AccommodationDomainTestsSupport.Frozen(),
+                effective,
+                AccommodationReasonCategories.DevelopmentSynthetic,
+                Start,
+                null,
+                Guid.CreateVersion7(),
+                1).OutcomeCode);
+    }
+
+    [Fact]
+    public void Digest_binds_canonical_expiry_so_offset_equivalents_match_and_different_instants_conflict()
+    {
+        var first = DateTimeOffset.Parse("2026-09-25T17:00:00+00:00");
+        var offsetEquivalent = new DateTimeOffset(2026, 9, 25, 13, 0, 0, TimeSpan.FromHours(-4));
+        var later = DateTimeOffset.Parse("2026-10-10T17:00:00Z");
+        var left = AccommodationCommandDigest.Compute(
+            AccommodationOperationKinds.Grant,
+            Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+            Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"),
+            Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2"),
+            Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb0"),
+            null,
+            AccommodationDimensions.SubmissionDeadlineUtc,
+            Format(Deadline.AddDays(1)),
+            AccommodationReasonCategories.DevelopmentSynthetic,
+            false,
+            1,
+            first);
+        var right = AccommodationCommandDigest.Compute(
+            AccommodationOperationKinds.Grant,
+            Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+            Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"),
+            Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2"),
+            Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb0"),
+            null,
+            AccommodationDimensions.SubmissionDeadlineUtc,
+            Format(Deadline.AddDays(1)),
+            AccommodationReasonCategories.DevelopmentSynthetic,
+            false,
+            1,
+            offsetEquivalent);
+        var other = AccommodationCommandDigest.Compute(
+            AccommodationOperationKinds.Grant,
+            Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+            Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"),
+            Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2"),
+            Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb0"),
+            null,
+            AccommodationDimensions.SubmissionDeadlineUtc,
+            Format(Deadline.AddDays(1)),
+            AccommodationReasonCategories.DevelopmentSynthetic,
+            false,
+            1,
+            later);
+        Assert.Equal(left, right);
+        Assert.NotEqual(left, other);
+    }
+
+    [Fact]
+    public void Approval_of_an_expired_pending_request_is_rejected_and_revoke_requires_granted()
+    {
+        var pending = Accommodation.Request(
+            AccommodationDomainTestsSupport.Parent(),
+            AccommodationDimensions.SubmissionDeadlineUtc,
+            Format(Deadline.AddDays(10)),
+            AccommodationDomainTestsSupport.Frozen(),
+            AccommodationDomainTestsSupport.CurrentPolicy(Deadline.AddDays(2), Ends.AddDays(14), 7200),
+            AccommodationReasonCategories.DevelopmentSynthetic,
+            Start,
+            Start.AddMinutes(5),
+            Guid.CreateVersion7(),
+            1,
+            fairnessException: true).Value!;
+
+        Assert.Equal(
+            AccommodationFailureCodes.InvalidValue,
+            pending.Decide(
+                Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb9"),
+                approve: true,
+                AccommodationDomainTestsSupport.Frozen(),
+                AccommodationDomainTestsSupport.CurrentPolicy(Deadline.AddDays(2), Ends.AddDays(14), 7200),
+                pending.Revision,
+                Start.AddMinutes(6)).OutcomeCode);
+
+        Assert.Equal(
+            AccommodationFailureCodes.Denied,
+            pending.Revoke(Guid.CreateVersion7(), Start.AddMinutes(1)).OutcomeCode);
+
+        var granted = Accommodation.CreateGranted(
+            AccommodationDomainTestsSupport.Parent(),
+            AccommodationDimensions.SubmissionDeadlineUtc,
+            Format(Deadline.AddDays(1)),
+            AccommodationDomainTestsSupport.Frozen(),
+            AccommodationDomainTestsSupport.Frozen(),
+            AccommodationReasonCategories.DevelopmentSynthetic,
+            Start,
+            null,
+            Guid.CreateVersion7(),
+            1).Value!;
+        var revoked = granted.Revoke(Guid.CreateVersion7(), Start.AddHours(1));
+        Assert.True(revoked.Succeeded);
+        Assert.Equal(
+            AccommodationFailureCodes.Denied,
+            revoked.Value!.Revoke(Guid.CreateVersion7(), Start.AddHours(2)).OutcomeCode);
+        Assert.Equal(
+            AccommodationFailureCodes.Denied,
+            granted.Supersede(Guid.CreateVersion7(), Start.AddHours(1)).Revoke(Guid.CreateVersion7(), Start.AddHours(2)).OutcomeCode);
     }
 
     private static string Format(DateTimeOffset value) => AccommodationDomainTestsSupport.FormatUtc(value);

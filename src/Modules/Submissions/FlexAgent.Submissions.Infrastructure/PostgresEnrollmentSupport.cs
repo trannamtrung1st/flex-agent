@@ -613,6 +613,7 @@ public sealed class PostgresAccommodationStore(PostgresConnectionAccessor connec
 
     public async Task InsertAsync(
         Accommodation accommodation,
+        Guid actorId,
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken)
     {
@@ -645,11 +646,13 @@ public sealed class PostgresAccommodationStore(PostgresConnectionAccessor connec
         {
             throw new EnrollmentLiveUniquenessException();
         }
-        await InsertFactAsync(accommodation, null, postgres, cancellationToken);
+        await InsertFactAsync(accommodation, null, actorId, postgres, cancellationToken);
     }
 
     public async Task UpdateAsync(
         Accommodation accommodation,
+        string? priorStatus,
+        Guid actorId,
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken)
     {
@@ -681,12 +684,13 @@ public sealed class PostgresAccommodationStore(PostgresConnectionAccessor connec
             throw new EnrollmentStaleRevisionException();
         }
 
-        await InsertFactAsync(accommodation, null, postgres, cancellationToken);
+        await InsertFactAsync(accommodation, priorStatus, actorId, postgres, cancellationToken);
     }
 
     private static async Task InsertFactAsync(
         Accommodation accommodation,
         string? priorStatus,
+        Guid actorId,
         PostgresEnrollmentTransaction postgres,
         CancellationToken cancellationToken) =>
         await postgres.Scope.Connection.ExecuteAsync(
@@ -708,7 +712,7 @@ public sealed class PostgresAccommodationStore(PostgresConnectionAccessor connec
                     PriorStatus = priorStatus,
                     NewStatus = accommodation.Status,
                     ReasonCategory = accommodation.ReasonCategory,
-                    ActorId = accommodation.ApproverActorId ?? accommodation.RequesterActorId,
+                    ActorId = actorId,
                     OccurredAtUtc = accommodation.RevokedAtUtc ?? accommodation.DecidedAtUtc ?? accommodation.CreatedAtUtc,
                 },
                 postgres.Scope.Transaction,

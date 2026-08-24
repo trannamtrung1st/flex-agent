@@ -152,6 +152,145 @@ public static class AccommodationPolicyNormalizer
             FormatInstant(originInstant.AddDays(allowance.HardMaxOffset)));
     }
 
+    public static NormalizedAccommodationPolicy? Intersect(
+        NormalizedAccommodationPolicy frozen,
+        NormalizedAccommodationPolicy current)
+    {
+        if (frozen.OrganizationId != current.OrganizationId)
+        {
+            return null;
+        }
+
+        var dimensions = new Dictionary<string, AccommodationDimensionBounds>(StringComparer.Ordinal);
+        foreach (var dimension in AccommodationDimensions.All)
+        {
+            if (!frozen.Dimensions.TryGetValue(dimension, out var left)
+                || !current.Dimensions.TryGetValue(dimension, out var right)
+                || !string.Equals(left.ValueKind, right.ValueKind, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!TryIntersectBounds(left, right, out var intersected))
+            {
+                continue;
+            }
+
+            dimensions[dimension] = intersected;
+        }
+
+        var reasons = frozen.ReasonCategories
+            .Intersect(current.ReasonCategories, StringComparer.Ordinal)
+            .ToArray();
+        var fairnessRuleId = frozen.FairnessExceptionRuleId is not null && current.FairnessExceptionRuleId is not null
+            ? current.FairnessExceptionRuleId
+            : null;
+
+        return FromAbsoluteRanges(
+            current.OrganizationId,
+            current.Identity,
+            current.EffectiveFromUtc,
+            current.EffectiveUntilUtc,
+            current.Environment,
+            frozen.EnvironmentEligible && current.EnvironmentEligible,
+            dimensions,
+            reasons,
+            fairnessRuleId,
+            frozen.RequiresExpiry || current.RequiresExpiry,
+            frozen.SyntheticDevelopmentOnly || current.SyntheticDevelopmentOnly);
+    }
+
+    public static NormalizedAccommodationPolicy? EffectiveBounds(
+        NormalizedAccommodationPolicy? frozenSnapshot,
+        NormalizedAccommodationPolicy? current)
+    {
+        if (current is null)
+        {
+            return null;
+        }
+
+        var frozen = frozenSnapshot ?? (current.SyntheticDevelopmentOnly ? current : null);
+        return frozen is null ? null : Intersect(frozen, current);
+    }
+
+    private static bool TryIntersectBounds(
+        AccommodationDimensionBounds left,
+        AccommodationDimensionBounds right,
+        out AccommodationDimensionBounds intersected)
+    {
+        intersected = left;
+        if (left.ValueKind == AccommodationValueKinds.PositiveSeconds
+            && TryParseDuration(left.RoutineMin, out var leftRoutineMin)
+            && TryParseDuration(left.RoutineMax, out var leftRoutineMax)
+            && TryParseDuration(left.HardMin, out var leftHardMin)
+            && TryParseDuration(left.HardMax, out var leftHardMax)
+            && TryParseDuration(right.RoutineMin, out var rightRoutineMin)
+            && TryParseDuration(right.RoutineMax, out var rightRoutineMax)
+            && TryParseDuration(right.HardMin, out var rightHardMin)
+            && TryParseDuration(right.HardMax, out var rightHardMax))
+        {
+            var hardMin = Math.Max(leftHardMin, rightHardMin);
+            var hardMax = Math.Min(leftHardMax, rightHardMax);
+            if (hardMin > hardMax)
+            {
+                return false;
+            }
+
+            var routineMin = Math.Max(leftRoutineMin, rightRoutineMin);
+            var routineMax = Math.Min(leftRoutineMax, rightRoutineMax);
+            if (routineMin > routineMax)
+            {
+                routineMin = hardMin;
+                routineMax = hardMin;
+            }
+
+            intersected = new AccommodationDimensionBounds(
+                left.Enabled && right.Enabled,
+                left.ValueKind,
+                Duration(routineMin),
+                Duration(routineMax),
+                Duration(hardMin),
+                Duration(hardMax));
+            return true;
+        }
+
+        if (TryParseInstant(left.RoutineMin, out var leftRoutineMinAt)
+            && TryParseInstant(left.RoutineMax, out var leftRoutineMaxAt)
+            && TryParseInstant(left.HardMin, out var leftHardMinAt)
+            && TryParseInstant(left.HardMax, out var leftHardMaxAt)
+            && TryParseInstant(right.RoutineMin, out var rightRoutineMinAt)
+            && TryParseInstant(right.RoutineMax, out var rightRoutineMaxAt)
+            && TryParseInstant(right.HardMin, out var rightHardMinAt)
+            && TryParseInstant(right.HardMax, out var rightHardMaxAt))
+        {
+            var hardMin = leftHardMinAt > rightHardMinAt ? leftHardMinAt : rightHardMinAt;
+            var hardMax = leftHardMaxAt < rightHardMaxAt ? leftHardMaxAt : rightHardMaxAt;
+            if (hardMin > hardMax)
+            {
+                return false;
+            }
+
+            var routineMin = leftRoutineMinAt > rightRoutineMinAt ? leftRoutineMinAt : rightRoutineMinAt;
+            var routineMax = leftRoutineMaxAt < rightRoutineMaxAt ? leftRoutineMaxAt : rightRoutineMaxAt;
+            if (routineMin > routineMax)
+            {
+                routineMin = hardMin;
+                routineMax = hardMin;
+            }
+
+            intersected = new AccommodationDimensionBounds(
+                left.Enabled && right.Enabled,
+                left.ValueKind,
+                FormatInstant(routineMin),
+                FormatInstant(routineMax),
+                FormatInstant(hardMin),
+                FormatInstant(hardMax));
+            return true;
+        }
+
+        return false;
+    }
+
     private static string Duration(int seconds) =>
         Math.Max(1, seconds).ToString(CultureInfo.InvariantCulture);
 }

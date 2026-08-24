@@ -348,6 +348,8 @@ public sealed class AllowEnrollmentAuthorizationPort : IEnrollmentAuthorizationP
 {
     public bool Permit { get; set; } = true;
 
+    public HashSet<string> DeniedActions { get; } = new(StringComparer.Ordinal);
+
     public string? LastResourceType { get; private set; }
 
     public Task<AuthorizationDecision> AuthorizeAdmissionAsync(
@@ -358,7 +360,7 @@ public sealed class AllowEnrollmentAuthorizationPort : IEnrollmentAuthorizationP
         CancellationToken cancellationToken = default)
     {
         LastResourceType = resourceType;
-        return Task.FromResult(Decision());
+        return Task.FromResult(Decision(action));
     }
 
     public Task<AuthorizationDecision> ReauthorizeAsync(
@@ -370,11 +372,11 @@ public sealed class AllowEnrollmentAuthorizationPort : IEnrollmentAuthorizationP
         CancellationToken cancellationToken = default)
     {
         LastResourceType = resourceType;
-        return Task.FromResult(Decision());
+        return Task.FromResult(Decision(action));
     }
 
-    private AuthorizationDecision Decision() =>
-        Permit
+    private AuthorizationDecision Decision(string action) =>
+        Permit && !DeniedActions.Contains(action)
             ? AuthorizationDecision.Permit(1)
             : new AuthorizationDecision(
                 false,

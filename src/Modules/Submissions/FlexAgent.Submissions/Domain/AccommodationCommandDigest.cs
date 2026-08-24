@@ -16,7 +16,8 @@ public static class AccommodationCommandDigest
         string? requestedValue,
         string? reasonCategory,
         bool fairnessException,
-        long? expectedRevision)
+        long? expectedRevision,
+        DateTimeOffset? expiresAtUtc = null)
     {
         var payload = string.Join(
             '\n',
@@ -30,7 +31,10 @@ public static class AccommodationCommandDigest
             requestedValue ?? string.Empty,
             reasonCategory ?? string.Empty,
             fairnessException ? "1" : "0",
-            expectedRevision?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
+            expectedRevision?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+            expiresAtUtc is { } expiry
+                ? AccommodationPolicyNormalizer.FormatInstant(expiry)
+                : string.Empty);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
     }
 }
