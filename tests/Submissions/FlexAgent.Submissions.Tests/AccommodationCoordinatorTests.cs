@@ -160,6 +160,19 @@ public sealed class AccommodationCoordinatorTests
         Assert.False(deniedVersion.Succeeded);
         Assert.Equal(AccommodationFailureCodes.PolicyUnavailable, deniedVersion.OutcomeCode);
 
+        var timing = await harness.Timing.GetEnrollmentTimingAsync(
+            Administrator(),
+            ActivityId,
+            CohortId,
+            harness.EnrollmentId,
+            TestContext.Current.CancellationToken);
+        Assert.True(timing.Succeeded);
+        Assert.False(timing.Value!.PolicyAvailable);
+        Assert.DoesNotContain(EnrollmentClientActions.RequestAccommodation, timing.Value.Summary.PermittedActions);
+        Assert.DoesNotContain(EnrollmentClientActions.ApproveException, timing.Value.Summary.PermittedActions);
+        Assert.DoesNotContain(EnrollmentClientActions.RejectException, timing.Value.Summary.PermittedActions);
+        Assert.Contains(EnrollmentClientActions.RevokeAccommodation, timing.Value.Summary.PermittedActions);
+
         harness.Cohorts.Binding = Binding() with
         {
             FrozenPolicySourceId = snapshot.Identity.PolicyId,

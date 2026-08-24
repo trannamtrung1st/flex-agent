@@ -402,18 +402,18 @@ intake/version criteria remain unimplemented.
 
 # Current state
 
-Review remediations 2026-08-24 (second pass after 68f69ac). Empty frozen∩current
-routine ranges stay empty (`RoutineMin > RoutineMax`) so a hard-only value
-requires the fairness-exception path instead of auto-grant. `TimingMapper`
-and `EffectiveBounds` bind the frozen snapshot identity (source, version,
-digest, organization) to `FrozenPolicy`; mismatches degrade the baseline and
-fail closed. Grant expiry is persisted as UTC and digested with 7-digit
-fractional-second canonical form so sub-second retries conflict. Focused
-domain/application tests: 30 passing.
+Review remediations 2026-08-24 (third pass after 57ffafa). Timing projection
+sets `policy_available` from effective (identity-bound) policy and omits
+request/approve/reject client actions when that policy is unavailable; revoke
+remains advertiseable. Expiry is truncated to UTC microseconds before digest
+and store so .NET ticks match PostgreSQL `timestamptz`. The identity-unchecked
+two-argument `EffectiveBounds` overload was removed. Focused domain/application
+tests: 73 combined Submissions classes green; PostgreSQL microsecond round-trip
+test added on `EnrollmentPersistenceTests` (not run here — Docker unavailable).
 
 Production remains fail-closed without an exact current Organization policy and
 without a persisted frozen snapshot from Assessment/Configuration. Development
-uses the synthetic policy fixture. Remaining closeout: PostgreSQL
+uses the synthetic policy fixture. Remaining closeout: broader PostgreSQL
 isolation/concurrency/audit suites against `0046`, persist frozen bounds on
 activation, canonical catalog/OpenAPI fixtures, broader HTTP/React state
 coverage, Playwright MCP evidence, independent reviews, and spec
@@ -522,7 +522,7 @@ the owning authority rather than introduce a code-level exception.
 | Accommodation-policy readiness | passed | `REQ-SUBM-51`–`REQ-SUBM-54`, `AC-SUBM-34`–`AC-SUBM-36`, and `PROP-10`–`PROP-13` define frozen/current validation, dimensions, normalized replacement, reasons, and approval separation. Production positive behavior remains fail closed until exact policy configuration exists. |
 | Lifecycle-policy readiness | passed | Operational defaults v0.4 `REQ-OPS-30`/`AC-OPS-7` and `PROP-14` define retention, audit, idempotency, hold, and business expiry. |
 | Contract compatibility | passed | `REQ-SUBM-56`, `AC-SUBM-39`, `PROP-15`, and `AR-DEC-27` preserve strict v1 while adding parallel strict v2 and migrating the SPA. |
-| Domain red/green | passed for focused coordinators after second review pass | Same three filter classes → 30 passed (empty routine intersection, frozen snapshot identity bind, sub-second expiry digest). Enrollment domain 43 passed. |
+| Domain red/green | passed for focused coordinators after third review pass | Accommodation/timing/enrollment domain classes → 73 passed (`policy_available`/permitted-action filter, UTC-microsecond expiry, removed unchecked `EffectiveBounds`). PostgreSQL microsecond round-trip test added but not executed here (Docker unavailable). |
 | PostgreSQL migration/isolation/concurrency/fault tests | pending | Include populated-`0043` upgrade and real PostgreSQL negatives. |
 | Schema/OpenAPI/C#/TypeScript parity | pending | Run catalog, fixture, mapping, and runtime-boundary suites. |
 | API authorization/HTTP negatives | partial | CSRF grant rejection before session authentication passed. Broader grant/decide/revoke HTTP coverage still pending. |

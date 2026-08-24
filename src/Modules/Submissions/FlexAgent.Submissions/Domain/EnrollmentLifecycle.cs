@@ -72,7 +72,10 @@ public static class EnrollmentProjection
     public static bool IsLive(string status) =>
         status is EnrollmentStates.Active or EnrollmentStates.Suspended;
 
-    public static IReadOnlyList<string> AdministratorActions(string status, IReadOnlySet<string> granted)
+    public static IReadOnlyList<string> AdministratorActions(
+        string status,
+        IReadOnlySet<string> granted,
+        bool accommodationPolicyAvailable = true)
     {
         var actions = new List<string>();
         if (!IsLive(status))
@@ -103,7 +106,8 @@ public static class EnrollmentProjection
         }
 
         if (status == EnrollmentStates.Active
-            && granted.Contains(EnrollmentAuthorizationActions.GrantAccommodation))
+            && granted.Contains(EnrollmentAuthorizationActions.GrantAccommodation)
+            && accommodationPolicyAvailable)
         {
             actions.Add(EnrollmentClientActions.RequestAccommodation);
         }
@@ -114,7 +118,8 @@ public static class EnrollmentProjection
             actions.Add(EnrollmentClientActions.RevokeAccommodation);
         }
 
-        if (granted.Contains(EnrollmentAuthorizationActions.DecideAccommodation))
+        if (granted.Contains(EnrollmentAuthorizationActions.DecideAccommodation)
+            && accommodationPolicyAvailable)
         {
             actions.Add(EnrollmentClientActions.ApproveException);
             actions.Add(EnrollmentClientActions.RejectException);

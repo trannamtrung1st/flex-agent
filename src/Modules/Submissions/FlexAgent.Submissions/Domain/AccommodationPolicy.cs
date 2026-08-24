@@ -116,11 +116,18 @@ public static class AccommodationPolicyNormalizer
         return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out seconds) && seconds > 0;
     }
 
+    public static DateTimeOffset CanonicalizeExpiry(DateTimeOffset value)
+    {
+        var utc = value.ToUniversalTime();
+        var truncated = utc.UtcTicks - (utc.UtcTicks % TimeSpan.TicksPerMicrosecond);
+        return new DateTimeOffset(truncated, TimeSpan.Zero);
+    }
+
     public static string FormatInstant(DateTimeOffset value) =>
         value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
 
     public static string FormatCanonicalInstant(DateTimeOffset value) =>
-        value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'", CultureInfo.InvariantCulture);
+        CanonicalizeExpiry(value).ToString("yyyy-MM-dd'T'HH:mm:ss.ffffff'Z'", CultureInfo.InvariantCulture);
 
     private static AccommodationDimensionBounds Normalize(
         string dimension,
@@ -201,19 +208,6 @@ public static class AccommodationPolicyNormalizer
             fairnessRuleId,
             frozen.RequiresExpiry || current.RequiresExpiry,
             frozen.SyntheticDevelopmentOnly || current.SyntheticDevelopmentOnly);
-    }
-
-    public static NormalizedAccommodationPolicy? EffectiveBounds(
-        NormalizedAccommodationPolicy? frozenSnapshot,
-        NormalizedAccommodationPolicy? current)
-    {
-        if (current is null)
-        {
-            return null;
-        }
-
-        var frozen = frozenSnapshot ?? (current.SyntheticDevelopmentOnly ? current : null);
-        return frozen is null ? null : Intersect(frozen, current);
     }
 
     public static NormalizedAccommodationPolicy? EffectiveBounds(

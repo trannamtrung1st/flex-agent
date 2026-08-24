@@ -58,7 +58,7 @@ public sealed record Accommodation(
 
         if (expiresAtUtc is { } expiry)
         {
-            expiresAtUtc = expiry.ToUniversalTime();
+            expiresAtUtc = AccommodationPolicyNormalizer.CanonicalizeExpiry(expiry);
             if (expiresAtUtc.Value <= nowUtc.ToUniversalTime())
             {
                 return EnrollmentDecision<Accommodation>.Fail(AccommodationFailureCodes.InvalidValue);

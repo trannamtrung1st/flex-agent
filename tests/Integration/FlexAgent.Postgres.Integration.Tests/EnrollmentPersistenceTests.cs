@@ -54,6 +54,21 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
     }
 
     [Fact]
+    public async Task Accommodation_expiry_round_trips_postgres_microseconds()
+    {
+        var seventhDigit = DateTimeOffset.Parse("2026-09-25T17:00:00.0000001Z");
+        var canonical = AccommodationPolicyNormalizer.CanonicalizeExpiry(seventhDigit);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var stored = await connection.ExecuteScalarAsync<DateTimeOffset>(
+            "SELECT @Value::timestamptz",
+            new { Value = canonical });
+        Assert.Equal(canonical, stored.ToUniversalTime());
+        Assert.Equal(
+            AccommodationPolicyNormalizer.FormatCanonicalInstant(seventhDigit),
+            AccommodationPolicyNormalizer.FormatCanonicalInstant(stored));
+    }
+
+    [Fact]
     public async Task Terminal_assignment_can_create_a_new_enrollment_identity()
     {
         var harness = await SeedActivatedAsync();

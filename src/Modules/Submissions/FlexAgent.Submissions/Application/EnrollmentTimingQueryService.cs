@@ -242,6 +242,7 @@ public sealed class EnrollmentTimingQueryService(
             ? effectivePolicy.Dimensions.Where(pair => pair.Value.Enabled).Select(pair => pair.Key).ToArray()
             : [];
         var reasons = includePolicy && effectivePolicy is not null ? effectivePolicy.ReasonCategories : [];
+        var policyAvailable = effectivePolicy is { EnvironmentEligible: true };
         var label = enrollment.ParticipantActorId.ToString("D");
         return new EnrollmentTimingDetail(
             new EnrollmentSummary(
@@ -255,12 +256,13 @@ public sealed class EnrollmentTimingQueryService(
                 enrollment.VisibilityForParticipant(),
                 EnrollmentProjection.AdministratorActions(
                     enrollment.Status,
-                    actor.GrantedActions.ToHashSet(StringComparer.Ordinal))),
+                    actor.GrantedActions.ToHashSet(StringComparer.Ordinal),
+                    policyAvailable)),
             baseline,
             timing,
             history,
             dimensions,
             reasons,
-            policy is { EnvironmentEligible: true });
+            policyAvailable);
     }
 }

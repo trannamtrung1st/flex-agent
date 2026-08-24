@@ -275,7 +275,7 @@ public sealed class AccommodationDomainTests
     {
         var frozen = AccommodationDomainTestsSupport.CurrentPolicy(Deadline.AddDays(2), Ends.AddDays(7), 7200);
         var current = AccommodationDomainTestsSupport.CurrentPolicy(Deadline.AddDays(14), Ends.AddDays(7), 7200);
-        var effective = AccommodationPolicyNormalizer.EffectiveBounds(frozen, current)!;
+        var effective = AccommodationPolicyNormalizer.EffectiveBounds(frozen.Identity, frozen, current)!;
         Assert.Equal(
             Format(Deadline.AddDays(2)),
             effective.Dimensions[AccommodationDimensions.SubmissionDeadlineUtc].RoutineMax);
@@ -372,6 +372,48 @@ public sealed class AccommodationDomainTests
                 false,
                 1,
                 fractionalLater));
+
+        var seventhDigitEarlier = DateTimeOffset.Parse("2026-09-25T17:00:00.0000001Z");
+        var seventhDigitLater = DateTimeOffset.Parse("2026-09-25T17:00:00.0000002Z");
+        Assert.Equal(
+            AccommodationCommandDigest.Compute(
+                AccommodationOperationKinds.Grant,
+                Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+                Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"),
+                Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2"),
+                Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb0"),
+                null,
+                AccommodationDimensions.SubmissionDeadlineUtc,
+                Format(Deadline.AddDays(1)),
+                AccommodationReasonCategories.DevelopmentSynthetic,
+                false,
+                1,
+                seventhDigitEarlier),
+            AccommodationCommandDigest.Compute(
+                AccommodationOperationKinds.Grant,
+                Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+                Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"),
+                Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2"),
+                Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb0"),
+                null,
+                AccommodationDimensions.SubmissionDeadlineUtc,
+                Format(Deadline.AddDays(1)),
+                AccommodationReasonCategories.DevelopmentSynthetic,
+                false,
+                1,
+                seventhDigitLater));
+        var stored = Accommodation.Request(
+            AccommodationDomainTestsSupport.Parent(),
+            AccommodationDimensions.SubmissionDeadlineUtc,
+            Format(Deadline.AddDays(1)),
+            AccommodationDomainTestsSupport.Frozen(),
+            AccommodationDomainTestsSupport.CurrentPolicy(Deadline.AddDays(14), Ends.AddDays(7), 7200),
+            AccommodationReasonCategories.DevelopmentSynthetic,
+            Start,
+            seventhDigitEarlier,
+            Guid.CreateVersion7(),
+            1).Value!;
+        Assert.Equal(AccommodationPolicyNormalizer.CanonicalizeExpiry(seventhDigitEarlier), stored.ExpiresAtUtc);
     }
 
     [Fact]
