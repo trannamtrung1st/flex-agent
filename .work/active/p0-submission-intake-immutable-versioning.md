@@ -7,7 +7,7 @@ predecessors:
   - p0-assessment-setup-cohort-activation
   - p0-enrollment-assignment-discovery
   - p0-participant-timing-accommodations
-activation_gate: predecessor-closeout-and-artifact-qualification
+activation_gate: predecessor-closeout
 ---
 
 # Goal
@@ -49,6 +49,9 @@ consume.
   `AC-SUBM-21`–`AC-SUBM-28`, `AC-SUBM-30`, and approved `PROP-2`–`PROP-7`.
   `REQ-SUBM-31`–`REQ-SUBM-32` and `AC-SUBM-16` govern the successor exact
   binding and are consumed only as compatibility requirements in this task.
+  Existing shared-admission behavior under `REQ-SUBM-57`–`REQ-SUBM-58`,
+  `AC-SUBM-40`–`AC-SUBM-41`, and `PROP-8` is also a compatibility requirement
+  for every new authenticated **My work** read.
 - `docs/requirements/features/auth-resource-isolation.md` — current
   actor/action/resource authorization, nested-resource isolation,
   non-disclosure, short-lived protected artifact access, audit durability,
@@ -258,6 +261,7 @@ consume.
 | Receipt, validation, cancellation, failure, rejection, uncertainty, and acceptance remain distinct; only complete server receipt before cutoff may proceed (`REQ-SUBM-25`–`REQ-SUBM-29`, `AC-SUBM-13`–`AC-SUBM-14`, UI contract) | Intake aggregate/state machine, authoritative receipt facts, durable validation work, cancel/reconcile coordinators, bounded outcomes, Participant projections | Transfer loss/resume-or-restart, cutoff race, cancel during upload/validation, worker timeout/crash/redelivery, validation after pre-cutoff receipt, dependency outage, late/stale result, uncertain final response; no progress/validation false acceptance |
 | One accepted immutable version appends ordered lineage; duplicate/concurrent finalization cannot create a partial or second version (`REQ-SUBM-27`–`REQ-SUBM-30`, `REQ-SUBM-33`, `AC-SUBM-13`, `AC-SUBM-15`, `AC-SUBM-17`) | Submission/version domain, PostgreSQL constraints/triggers, idempotency outcomes, finalization coordinator, history query | First/later version numbering, exact stable IDs, immutable update/delete rejection, prior version unchanged, equivalent retry, mismatched key, concurrent finalization, cancellation/finalization race, audit/outbox failure, promoted-object/database failure reconciliation |
 | Every list/detail/item/preview/download path is exactly scoped and non-disclosing; temporary artifact access is short-lived and is never authority (`REQ-SUBM-34`, `REQ-SUBM-42`, `REQ-AUTH-12`–`REQ-AUTH-14`, `AC-SUBM-19`, `AC-SUBM-21`, `REQ-OPS-8`) | Scoped history/query service, protected viewer, capability issuer/redemption adapter, audit boundary, no-store HTTP mapping | Guessed IDs, forged parents, cursor/count leakage, object key/version substitution, capability actor/action/artifact mismatch, replay/expiry/revocation, cached preview loss, exact use-time authorization, required-audit outage |
+| Every new authenticated **My work** read preserves the existing deployment-wide shared-admission boundary without bypass or duplicate permit consumption (`REQ-SUBM-57`–`REQ-SUBM-58`, `AC-SUBM-40`–`AC-SUBM-41`, `PROP-8`) | Existing Enrollment shared-admission adapter and route boundary, Submission history/detail/status/preview metadata queries, strict HTTP outcomes | Exactly one trusted `(Organization, actor, read)` permit before protected query work; aggregate two-replica exhaustion; independent actor/Organization/surface budgets; accurate positive `Retry-After`; `429` versus fail-closed `503`; no local fallback, protected query start, double consumption, or partition leakage |
 | Lifecycle and cleanup preserve accepted lineage while minimizing incomplete/rejected payloads and indirect copies (`REQ-SUBM-29`–`REQ-SUBM-30`, `REQ-SUBM-39`, `REQ-OPS-6`–`REQ-OPS-7`, `REQ-OPS-18`–`REQ-OPS-23`) | Versioned lifecycle resolver, durable cleanup work, object-store deletion adapter, PostgreSQL eligibility/hold query, append-only disposition facts | 24-hour incomplete, seven-day rejected bytes, 365-day accepted version from Activity closure, 90-day idempotency, 730-day audit, legal hold, dependency order, orphan cleanup, restoration and lawful-unavailability provenance; no raw payload in diagnostics |
 | Participant UI keeps local work separate from server authority and covers accessible recovery, immutable history, and protected-content loss (`AC-SUBM-13`–`AC-SUBM-15`, `AC-SUBM-18`–`AC-SUBM-19`, `AC-SUBM-21`, `AC-SUBM-23`, `AC-SUBM-28`, UI spec) | Production **My work** API/client/page, local preparation state, progress/status, confirmation dialog, error summary, version history, inert viewer, protected loading/unavailable states | Component tests plus authenticated real interactions for empty/editing/local error/receiving/validating/cancelling/cancelled/rejected/failed/reconciling/accepted/later-version/permission-loss states; keyboard, focus, announcements, reduced motion, both themes, desktop/narrow, 400% reflow screenshots |
 | Submission material never creates policy, capability, learning, external retrieval, or operational-data leakage (`REQ-SUBM-35`, `REQ-SUBM-38`–`REQ-SUBM-40`, `REQ-SUBM-48`, `AC-SUBM-26`) | Inert validators/viewer, disabled consumer ports, telemetry allowlist, safe errors/logs, architecture/composition tests | Prompt/control imitation, embedded link, HTML/script/active Markdown, memory/calibration/tool/repository attempts, log/metric/trace/error/browser artifact leakage, disabled capability composition, supply-chain and secret scans |
@@ -431,6 +435,11 @@ Session rows remain unimplemented or Partial as governed by their owners.
   authenticated `/v2/assessment` Participant **My work** boundary. Preserve
   strict v1 Enrollment and existing v2 timing semantics; do not add unknown
   fields to a closed v1 schema or reinterpret the synthetic browser contract.
+- Preserve the existing PostgreSQL-backed shared-admission boundary for every
+  new authenticated **My work** read. Acquire exactly one trusted read permit
+  after application-session resolution and before protected query work; reuse
+  the approved `429`/`Retry-After` and fail-closed `503` outcomes without a
+  replica-local fallback or a second permit at a nested Submission handler.
 - Keep intake admission, upload-capability issue/receipt, cancel, validation
   retry when permitted, finalization, reconciliation, history/detail, preview,
   and download distinct. A GET result or client-visible action never grants a
@@ -561,8 +570,8 @@ Session rows remain unimplemented or Partial as governed by their owners.
 - [ ] Contract/HTTP Red — run failing canonical schema/fixture/catalog,
   OpenAPI, C#/TypeScript parity, strict serialization, positive/negative HTTP,
   CSRF, no-store, body/query/path/multipart limit, safe-error, capability,
-  cancellation, finalization, reconciliation, preview/download, and leakage
-  tests.
+  cancellation, finalization, reconciliation, preview/download, shared-read-
+  admission bypass/double-consumption/`429`/`503`, and leakage tests.
 - [ ] Contract/HTTP Green/refactor — implement thin authenticated v2 routes and
   strict coordinated projections without changing v1 Enrollment or synthetic
   browser meaning.
@@ -665,18 +674,18 @@ development policy, or an unqualified S3-compatible assumption.
 
 # Findings / deviations
 
-- **Predecessor worktree:** the closing
-  `p0-participant-timing-accommodations` task has active user-owned changes
-  across its task record, v2 Enrollment schemas/fixtures/OpenAPI/C# and
-  TypeScript projections, contract tests, PostgreSQL migration tests, and HTTP
-  negative tests. This planning task does not edit, stage, revert, or claim
-  any of them and must reconcile against their final committed state before
+- **Predecessor closeout:** the timing/accommodation implementation and its v2
+  Enrollment schemas/fixtures/OpenAPI/C#/TypeScript projections are committed,
+  and the worktree is clean at this review. Its task record remains
+  `in-progress`, with plan reconciliation, authenticated Playwright evidence,
+  independent review resolution, and final external-review readiness still
+  unchecked. This task must reconcile against that final closeout state before
   activation.
 - **Artifact readiness gap:** `GATE-STACK-ARTIFACTS` has no executable repository
   evidence. No SeaweedFS service/profile, AWS SDK package, artifact-store port,
   safety-scanner port, or focused artifact integration project exists. This is
-  an explicit architecture activation gate, not an implementation detail to
-  defer.
+  an explicit functional-implementation gate inside this task, not an
+  implementation detail to defer.
 - **Frozen requirement gap:** the current activated-Cohort binding carries Task
   source identity/digest and summary values but not the normalized frozen
   category/limit/scanner/preview/lifecycle contract required for authoritative
@@ -710,7 +719,7 @@ development policy, or an unqualified S3-compatible assumption.
 | Governing product/requirements/UI/architecture sources reconciled | passed for planning | Approved sources agree on direct text plus UTF-8 `.txt`/`.md`, private quarantine, policy/scanner fail-closed behavior, immutable accepted versions, exact access, lifecycle, and downstream exact binding. No governing open question remains. |
 | Existing task duplication check | passed | No `.work/active/` task owns production Submission intake and immutable versioning; timing/accommodation explicitly excludes it. |
 | Repository seam inventory | passed for planning | Existing Submissions core/infrastructure, PostgreSQL Enrollment/timing, authenticated v2 Assessment API, production **My work**, Worker, audit/outbox, contract catalog, and test patterns are reusable. No production Submission/artifact implementation exists. |
-| Predecessor closeout | pending activation gate | `p0-participant-timing-accommodations` remains the closing task and has an existing user worktree edit. Activate only after its truthful completion/traceability reconciliation. |
+| Predecessor closeout | pending activation gate | `p0-participant-timing-accommodations` remains `in-progress` although its implementation changes are committed and the worktree is clean. Activate only after plan reconciliation, authenticated Playwright evidence, independent review resolution, and truthful final closeout. |
 | SeaweedFS/AWS SDK artifact compatibility | pending blocking Phase 0 | ADR-008 artifact/safety and ADR-010 `GATE-STACK-ARTIFACTS` evidence is absent. Must pass before affected functional implementation is accepted; a blocking failure returns to the Ceph RGW architecture fallback. |
 | Frozen/current material-policy authority | ready to implement, positive Production behavior fail-closed | Governing contract is approved; Assessment and Configuration owner ports are missing and must be added without cross-module SQL. |
 | Domain red/green | pending | Material policy, intake state, validation, receipt timing, accepted version/lineage, idempotency, and lifecycle tests. |
@@ -756,14 +765,16 @@ development policy, or an unqualified S3-compatible assumption.
 No unresolved product, requirements, UI/UX, lifecycle-policy, or architecture
 decision blocks planning.
 
-Implementation activation has two explicit gates:
+Task activation has one explicit gate:
 
 1. Close and reconcile `p0-participant-timing-accommodations`; do not run two
    overlapping Submissions migrations/contracts/UI rewrites as active slices.
-2. Execute Phase 0 and pass the real SeaweedFS/artifact-safety compatibility
-   gate. If a blocking immutability, version-identity, lifecycle, capability, or
-   restore property fails, stop and obtain the Architecture owner's ADR-008
-   fallback decision before functional intake code.
+
+After activation, Phase 0 is a blocking gate before functional intake code:
+execute and pass the real SeaweedFS/artifact-safety compatibility suite. If a
+blocking immutability, version-identity, lifecycle, capability, or restore
+property fails, stop and obtain the Architecture owner's ADR-008 fallback
+decision before continuing.
 
 Docker/object-store availability is required for artifact and PostgreSQL
 evidence but is not a product decision. No external credential, paid provider,
