@@ -253,7 +253,7 @@ public static class EnrollmentTimingEndpointExtensions
                 detail.Summary.PermittedActions),
             ProjectBaseline(detail.Baseline),
             ProjectEffective(detail.Timing),
-            detail.Timing.CurrentAccommodationId,
+            ProjectCurrent(detail.Timing),
             detail.PolicyAvailable,
             detail.PermittedAccommodationDimensions,
             detail.PermittedReasonCategories,
@@ -275,6 +275,7 @@ public static class EnrollmentTimingEndpointExtensions
                 detail.Assignment.SummaryAvailable,
                 detail.Assignment.PermittedActions),
             detail.Timing is null ? null : ProjectEffective(detail.Timing),
+            detail.Timing is null ? [] : ProjectCurrent(detail.Timing),
             detail.ParticipantConsequenceCode);
 
     private static TimingBaselineV2 ProjectBaseline(BaselineTiming baseline) =>
@@ -285,6 +286,14 @@ public static class EnrollmentTimingEndpointExtensions
             baseline.TimeZoneId,
             baseline.AttemptLimit,
             baseline.PerAttemptDurationSeconds);
+
+    private static IReadOnlyList<CurrentAccommodationEffectV2> ProjectCurrent(EffectiveTiming timing) =>
+        timing.CurrentAccommodations
+            .Select(item => new CurrentAccommodationEffectV2(
+                item.AccommodationId,
+                item.Dimension,
+                item.ConsequenceCode))
+            .ToArray();
 
     private static TimingEffectiveWindowV2 ProjectEffective(EffectiveTiming timing) =>
         new(

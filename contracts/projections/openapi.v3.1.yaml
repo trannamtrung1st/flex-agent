@@ -86,6 +86,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SafeErrorResponseV1'
+  /v2/assessment/activities/{activityId}/cohorts/{cohortId}/enrollments/{enrollmentId}/accommodations/{accommodationId}/decide:
+    post:
+      operationId: decideAccommodation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecideAccommodationCommandV2'
+      responses:
+        '200':
+          description: Fairness exception approved or rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccommodationMutationOutcomeV2'
+        '409':
+          description: Safe conflict response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeErrorResponseV1'
+  /v2/assessment/activities/{activityId}/cohorts/{cohortId}/enrollments/{enrollmentId}/accommodations/{accommodationId}/revoke:
+    post:
+      operationId: revokeAccommodation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeAccommodationCommandV2'
+      responses:
+        '200':
+          description: Current accommodation revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccommodationMutationOutcomeV2'
+        '409':
+          description: Safe conflict response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeErrorResponseV1'
   /v2/assessment/my-work/{enrollmentId}/timing:
     get:
       operationId: getMyWorkTiming
@@ -226,119 +270,17 @@ components:
             type: string
             enum: [open_assignment, return_to_my_work]
     GrantAccommodationCommandV2:
-      type: object
-      additionalProperties: false
-      required:
-        - schema_version
-        - dimension
-        - requested_value
-        - reason_category
-        - fairness_exception
-        - expected_revision
-        - idempotency_key
-      properties:
-        schema_version:
-          type: string
-          const: v2
-        dimension:
-          type: string
-          enum:
-            - submission_deadline_utc
-            - attempt_start_not_before_utc
-            - attempt_start_before_utc
-            - per_attempt_duration_seconds
-        requested_value:
-          type: string
-        reason_category:
-          type: string
-        expires_at_utc:
-          type: [string, 'null']
-        fairness_exception:
-          type: boolean
-        expected_revision:
-          type: integer
-          minimum: 1
-        idempotency_key:
-          type: string
+      $ref: '../schemas/v2/enrollment/grant-accommodation-command.v2.schema.json'
+    DecideAccommodationCommandV2:
+      $ref: '../schemas/v2/enrollment/decide-accommodation-command.v2.schema.json'
+    RevokeAccommodationCommandV2:
+      $ref: '../schemas/v2/enrollment/revoke-accommodation-command.v2.schema.json'
     AccommodationMutationOutcomeV2:
-      type: object
-      additionalProperties: false
-      required: [schema_version, succeeded, outcome_code, permitted_actions]
-      properties:
-        schema_version:
-          type: string
-          const: v2
-        succeeded:
-          type: boolean
-        outcome_code:
-          type: string
-        accommodation_id:
-          type: [string, 'null']
-          format: uuid
-        enrollment_id:
-          type: [string, 'null']
-          format: uuid
-        status:
-          type: [string, 'null']
-        revision:
-          type: [integer, 'null']
-        permitted_actions:
-          type: array
-          items:
-            type: string
+      $ref: '../schemas/v2/enrollment/accommodation-mutation-outcome.v2.schema.json'
     EnrollmentTimingV2:
-      type: object
-      additionalProperties: false
-      required:
-        - schema_version
-        - enrollment
-        - baseline
-        - effective
-        - policy_available
-        - permitted_dimensions
-        - permitted_reason_categories
-        - history
-      properties:
-        schema_version:
-          type: string
-          const: v2
-        enrollment:
-          type: object
-        baseline:
-          type: object
-        effective:
-          type: object
-        current_accommodation_id:
-          type: [string, 'null']
-          format: uuid
-        policy_available:
-          type: boolean
-        permitted_dimensions:
-          type: array
-          items:
-            type: string
-        permitted_reason_categories:
-          type: array
-          items:
-            type: string
-        history:
-          type: array
-          items:
-            type: object
+      $ref: '../schemas/v2/enrollment/enrollment-timing.v2.schema.json'
     MyWorkTimingV2:
-      type: object
-      additionalProperties: false
-      required: [schema_version, assignment, participant_consequence_code]
-      properties:
-        schema_version:
-          type: string
-          const: v2
-        assignment:
-          $ref: '#/components/schemas/MyWorkAssignmentV1'
-        effective:
-          type: [object, 'null']
-        participant_consequence_code:
-          type: string
+      $ref: '../schemas/v2/enrollment/my-work-timing.v2.schema.json'
     Int64WireStringNineteenDigit:
       type: string
       minLength: 19

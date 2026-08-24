@@ -401,8 +401,9 @@ Session rows remain unimplemented or Partial as governed by their owners.
 
 ## Persistence
 
-- Recheck migration head immediately before Red. Planning-time head is `0046`;
-  use the next available additive migration rather than assuming `0047`.
+- Recheck migration head immediately before Red. Planning-time head is `0047`
+  after the timing/accommodation complete-parent closeout; use the next
+  available additive migration rather than assuming `0047`.
 - Persist logical Submission identity (one current MVP Task requirement per
   Enrollment without using that uniqueness as future product scope), intake and
   revision, intake items, received artifact facts, append-only validation
@@ -607,7 +608,7 @@ Session rows remain unimplemented or Partial as governed by their owners.
 Planning/readiness audit completed on 2026-08-24. Approved product,
 requirements, UI/UX, operational, and architecture sources contain no open
 question blocking this bounded slice. The current production implementation has
-Enrollment/timing/accommodation foundations through migration `0046` and a
+Enrollment/timing/accommodation foundations through migration `0047` and a
 production **My work** detail that intentionally states Submission intake and
 Attempt start are unavailable. The synthetic browser path contains a
 development-only `submission.submit_text` behavior; it is not production
@@ -694,7 +695,7 @@ development policy, or an unqualified S3-compatible assumption.
 - **Current policy gap:** Configuration has no exact current material-policy
   selection port. Add a versioned read and transaction-aware revalidation seam;
   fail closed for positive Production intake until configured.
-- **Migration/contracts gap:** planning-time migration head is `0046`; canonical
+- **Migration/contracts gap:** planning-time migration head is `0047`; canonical
   contracts include Enrollment and Evidence locators but no Submission intake,
   version, artifact-metadata, or material-policy schemas. Recheck heads before
   Red and add only additive, strict versioned artifacts.

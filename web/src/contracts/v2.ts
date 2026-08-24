@@ -24,7 +24,14 @@ export type AccommodationConsequenceCodeV2 =
   | 'none'
   | 'deadline_replacement'
   | 'attempt_start_replacement'
-  | 'duration_replacement';
+  | 'duration_replacement'
+  | 'multiple_replacements';
+
+export interface CurrentAccommodationEffectV2 {
+  accommodation_id: string;
+  dimension: AccommodationDimensionV2;
+  consequence_code: Exclude<AccommodationConsequenceCodeV2, 'none' | 'multiple_replacements'>;
+}
 
 export interface GrantAccommodationCommandV2 {
   schema_version: SchemaVersionV2;
@@ -92,7 +99,7 @@ export interface EnrollmentTimingV2 {
     per_attempt_duration_seconds?: number | null;
   };
   effective: TimingEffectiveWindowV2;
-  current_accommodation_id?: string | null;
+  current_accommodations: CurrentAccommodationEffectV2[];
   policy_available: boolean;
   permitted_dimensions: AccommodationDimensionV2[];
   permitted_reason_categories: string[];
@@ -126,5 +133,6 @@ export interface MyWorkTimingV2 {
     permitted_actions: string[];
   };
   effective?: TimingEffectiveWindowV2 | null;
+  current_accommodations: CurrentAccommodationEffectV2[];
   participant_consequence_code: AccommodationConsequenceCodeV2;
 }

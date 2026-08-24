@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v2/enrollment/revoke-accommodation-command.v2.schema.json",
+  "title": "Revoke accommodation command v2",
+  "description": "Administrator command that revokes one currently effective Enrollment accommodation without changing the Cohort baseline.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "expected_revision",
+    "idempotency_key"
+  ],
+  "properties": {
+    "schema_version": { "const": "v2" },
+    "expected_revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    }
+  }
+}

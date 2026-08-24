@@ -95,7 +95,7 @@ export function ProductionEnrollmentDetailPage() {
   const zone = timing.effective.time_zone_id || timing.baseline.time_zone_id;
   const actions = new Set(timing.enrollment.permitted_actions);
   const pendingItem = timing.history.find((item) => item.status === "pending_approval");
-  const currentAccommodationId = timing.current_accommodation_id;
+  const currentAccommodations = timing.current_accommodations;
 
   return (
     <div>
@@ -209,8 +209,8 @@ export function ProductionEnrollmentDetailPage() {
         </section>
       ) : null}
 
-      {currentAccommodationId && actions.has("revoke_accommodation") ? (
-        <p>
+      {actions.has("revoke_accommodation") ? currentAccommodations.map((current) => (
+        <p key={current.accommodation_id}>
           <button
             type="button"
             disabled={pending}
@@ -220,8 +220,8 @@ export function ProductionEnrollmentDetailPage() {
                 activityId,
                 cohortId,
                 enrollmentId,
-                currentAccommodationId,
-                timing.history.find((item) => item.accommodation_id === currentAccommodationId)?.revision ?? timing.enrollment.revision,
+                current.accommodation_id,
+                timing.history.find((item) => item.accommodation_id === current.accommodation_id)?.revision ?? timing.enrollment.revision,
                 createEnrollmentIdempotencyKey(),
               )
                 .then((outcome) => {
@@ -236,10 +236,10 @@ export function ProductionEnrollmentDetailPage() {
                 });
             }}
           >
-            Revoke current accommodation
+            Revoke {current.dimension} accommodation
           </button>
         </p>
-      ) : null}
+      )) : null}
 
       <section className="page-section">
         <h2>Accommodation history</h2>

@@ -77,6 +77,8 @@ public sealed class ContractMappingParityTests
         Assert.Contains("EnrollmentMutationOutcomeV1", exported);
         Assert.Contains("MyWorkAssignmentV1", exported);
         Assert.Contains("GrantAccommodationCommandV2", exported);
+        Assert.Contains("DecideAccommodationCommandV2", exported);
+        Assert.Contains("RevokeAccommodationCommandV2", exported);
         Assert.Contains("AccommodationMutationOutcomeV2", exported);
         Assert.Contains("EnrollmentTimingV2", exported);
         Assert.Contains("MyWorkTimingV2", exported);
@@ -312,6 +314,23 @@ public sealed class ContractMappingParityTests
 
         ValidateDto(
             schemas,
+            "https://flex-agent.local/contracts/schemas/v2/enrollment/decide-accommodation-command.v2.schema.json",
+            new DecideAccommodationCommandV2(
+                "v2",
+                true,
+                1,
+                "acc-decide-synthetic-0001"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/enrollment/revoke-accommodation-command.v2.schema.json",
+            new RevokeAccommodationCommandV2(
+                "v2",
+                1,
+                "acc-revoke-synthetic-0001"));
+
+        ValidateDto(
+            schemas,
             "https://flex-agent.local/contracts/schemas/v2/enrollment/accommodation-mutation-outcome.v2.schema.json",
             new AccommodationMutationOutcomeV2(
                 "v2",
@@ -352,7 +371,12 @@ public sealed class ContractMappingParityTests
                     true,
                     "UTC",
                     "deadline_replacement"),
-                Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+                [
+                    new CurrentAccommodationEffectV2(
+                        Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+                        "submission_deadline_utc",
+                        "deadline_replacement"),
+                ],
                 true,
                 ["submission_deadline_utc"],
                 ["development.synthetic.timing"],
@@ -398,6 +422,12 @@ public sealed class ContractMappingParityTests
                     true,
                     "UTC",
                     "deadline_replacement"),
+                [
+                    new CurrentAccommodationEffectV2(
+                        Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+                        "submission_deadline_utc",
+                        "deadline_replacement"),
+                ],
                 "deadline_replacement"));
     }
 

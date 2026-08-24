@@ -30,7 +30,8 @@ public sealed class EffectiveTimingTests
         Assert.Equal(Ends, timing.EffectiveAttemptStartExclusiveEndUtc);
         Assert.Equal(3600, timing.EffectivePerAttemptDurationSeconds);
         Assert.Equal("America/New_York", timing.TimeZoneId);
-        Assert.Null(timing.CurrentAccommodationId);
+        Assert.Empty(timing.CurrentAccommodations);
+        Assert.Equal(AccommodationConsequenceCodes.None, timing.ParticipantConsequenceCode);
         Assert.True(timing.IsAuthoritativeEligibility);
     }
 
@@ -59,7 +60,9 @@ public sealed class EffectiveTimingTests
         Assert.Equal(TimingEligibilityStates.Open, timing.EligibilityState);
         Assert.Equal(Ends, timing.EffectiveAttemptStartExclusiveEndUtc);
         Assert.Equal(7200, timing.EffectivePerAttemptDurationSeconds);
-        Assert.Equal(longer.AccommodationId, timing.CurrentAccommodationId);
+        Assert.Equal(
+            longer.AccommodationId,
+            Assert.Single(timing.CurrentAccommodations).AccommodationId);
         Assert.Equal(AccommodationConsequenceCodes.DurationReplacement, timing.ParticipantConsequenceCode);
     }
 
@@ -89,7 +92,7 @@ public sealed class EffectiveTimingTests
         Assert.Equal(TimingEligibilityStates.Open, timing.EligibilityState);
         Assert.Equal(extended, timing.EffectiveSubmissionExclusiveEndUtc);
         Assert.Equal(Deadline, timing.Baseline.DeadlineUtc);
-        Assert.Equal(granted.AccommodationId, timing.CurrentAccommodationId);
+        Assert.Equal(granted.AccommodationId, Assert.Single(timing.CurrentAccommodations).AccommodationId);
     }
 
     [Fact]
@@ -116,7 +119,7 @@ public sealed class EffectiveTimingTests
 
         Assert.Equal(TimingEligibilityStates.SubmissionClosed, timing.EligibilityState);
         Assert.Equal(Deadline, timing.EffectiveSubmissionExclusiveEndUtc);
-        Assert.Null(timing.CurrentAccommodationId);
+        Assert.Empty(timing.CurrentAccommodations);
         Assert.Equal(AccommodationStates.Granted, granted.Status);
         Assert.Equal(Format(Deadline.AddDays(10)), granted.NormalizedValue);
     }
@@ -145,7 +148,7 @@ public sealed class EffectiveTimingTests
             expires);
 
         Assert.Equal(TimingEligibilityStates.SubmissionClosed, timing.EligibilityState);
-        Assert.Null(timing.CurrentAccommodationId);
+        Assert.Empty(timing.CurrentAccommodations);
         Assert.Equal(AccommodationStates.Granted, granted.Status);
         Assert.True(granted.IsExpiredAt(expires));
     }
@@ -203,8 +206,60 @@ public sealed class EffectiveTimingTests
             Deadline.AddHours(1));
 
         Assert.Equal(Deadline, timing.EffectiveSubmissionExclusiveEndUtc);
-        Assert.Null(timing.CurrentAccommodationId);
+        Assert.Empty(timing.CurrentAccommodations);
         Assert.Equal(AccommodationStates.PendingApproval, pending.Status);
+    }
+
+    [Fact]
+    public void Simultaneous_deadline_and_duration_effects_are_both_current()
+    {
+        var extended = Deadline.AddDays(2);
+        var deadline = Accommodation.CreateGranted(
+            Parent(),
+            AccommodationDimensions.SubmissionDeadlineUtc,
+            Format(extended),
+            Frozen(),
+            Frozen(),
+            AccommodationReasonCategories.DevelopmentSynthetic,
+            Start,
+            null,
+            Guid.CreateVersion7(),
+            1).Value!;
+        var duration = Accommodation.CreateGranted(
+            Parent(),
+            AccommodationDimensions.PerAttemptDurationSeconds,
+            "7200",
+            Frozen(),
+            Frozen(),
+            AccommodationReasonCategories.DevelopmentSynthetic,
+            Start.AddMinutes(1),
+            null,
+            Guid.CreateVersion7(),
+            1).Value!;
+
+        var timing = EffectiveTimingEvaluator.Evaluate(
+            Baseline(),
+            EnrollmentStates.Active,
+            Current(Deadline.AddDays(14), Ends.AddDays(7), 7200),
+            [deadline, duration],
+            Deadline.AddHours(-1));
+
+        Assert.Equal(TimingEligibilityStates.Open, timing.EligibilityState);
+        Assert.Equal(extended, timing.EffectiveSubmissionExclusiveEndUtc);
+        Assert.Equal(7200, timing.EffectivePerAttemptDurationSeconds);
+        Assert.Equal(Ends, timing.EffectiveAttemptStartExclusiveEndUtc);
+        Assert.Equal(2, timing.CurrentAccommodations.Count);
+        Assert.Contains(
+            timing.CurrentAccommodations,
+            item => item.AccommodationId == deadline.AccommodationId
+                && item.Dimension == AccommodationDimensions.SubmissionDeadlineUtc
+                && item.ConsequenceCode == AccommodationConsequenceCodes.DeadlineReplacement);
+        Assert.Contains(
+            timing.CurrentAccommodations,
+            item => item.AccommodationId == duration.AccommodationId
+                && item.Dimension == AccommodationDimensions.PerAttemptDurationSeconds
+                && item.ConsequenceCode == AccommodationConsequenceCodes.DurationReplacement);
+        Assert.Equal(AccommodationConsequenceCodes.MultipleReplacements, timing.ParticipantConsequenceCode);
     }
 
     private static BaselineTiming Baseline() =>

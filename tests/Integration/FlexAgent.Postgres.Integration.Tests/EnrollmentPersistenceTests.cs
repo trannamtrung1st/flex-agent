@@ -908,6 +908,58 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
         Assert.Contains("append-only", factDelete.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Raw_insert_rejects_each_substituted_enrollment_parent_field()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-acc-parent"), CancellationToken);
+        var accommodations = CreateAccommodationCoordinator(harness);
+        var granted = await accommodations.GrantAsync(
+            GrantCommand(harness, assigned.EnrollmentId!.Value, "grant-parent", "2026-10-07T17:00:00Z"),
+            CancellationToken);
+        Assert.True(granted.Succeeded, granted.OutcomeCode);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        foreach (var field in new[] { "activity_id", "cohort_id", "baseline_id", "participant_actor_id" })
+        {
+            var thrown = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
+                $"""
+                INSERT INTO submissions_accommodations (
+                    organization_id, accommodation_id, activity_id, cohort_id, baseline_id, enrollment_id,
+                    participant_actor_id, dimension, normalized_value, frozen_policy_id, frozen_policy_version_id,
+                    frozen_policy_digest, decision_policy_id, decision_policy_version_id, decision_policy_digest,
+                    reason_category, status, revision, requester_actor_id, created_at, fairness_exception,
+                    lifecycle_policy_id, lifecycle_policy_version)
+                SELECT
+                    organization_id,
+                    @NewId,
+                    CASE WHEN @Field = 'activity_id' THEN @Other ELSE activity_id END,
+                    CASE WHEN @Field = 'cohort_id' THEN @Other ELSE cohort_id END,
+                    CASE WHEN @Field = 'baseline_id' THEN @Other ELSE baseline_id END,
+                    enrollment_id,
+                    CASE WHEN @Field = 'participant_actor_id' THEN @Other ELSE participant_actor_id END,
+                    'per_attempt_duration_seconds',
+                    '7200',
+                    frozen_policy_id, frozen_policy_version_id, frozen_policy_digest,
+                    decision_policy_id, decision_policy_version_id, decision_policy_digest,
+                    reason_category, status, revision, requester_actor_id, created_at, fairness_exception,
+                    lifecycle_policy_id, lifecycle_policy_version
+                FROM submissions_accommodations
+                WHERE organization_id = @OrganizationId AND accommodation_id = @AccommodationId
+                """,
+                new
+                {
+                    harness.OrganizationId,
+                    AccommodationId = granted.AccommodationId,
+                    NewId = Guid.CreateVersion7(),
+                    Field = field,
+                    Other = Guid.CreateVersion7(),
+                }));
+            Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, thrown.SqlState);
+            Assert.Contains("fk_submissions_accommodations_enrollment_parent", thrown.ConstraintName, StringComparison.Ordinal);
+        }
+    }
+
     private AccommodationCoordinator CreateAccommodationCoordinator(
         EnrollmentHarness harness,
         IAuditEventWriter? auditWriter = null)

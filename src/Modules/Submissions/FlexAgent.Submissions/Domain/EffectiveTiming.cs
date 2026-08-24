@@ -11,6 +11,11 @@ public sealed record BaselineTiming(
     bool VerificationDegraded,
     NormalizedAccommodationPolicy? FrozenPolicySnapshot = null);
 
+public sealed record AppliedAccommodationEffect(
+    Guid AccommodationId,
+    string Dimension,
+    string ConsequenceCode);
+
 public sealed record EffectiveTiming(
     BaselineTiming Baseline,
     DateTimeOffset EffectiveSubmissionStartUtc,
@@ -21,7 +26,7 @@ public sealed record EffectiveTiming(
     DateTimeOffset EvaluatedAtUtc,
     string EligibilityState,
     bool IsAuthoritativeEligibility,
-    Guid? CurrentAccommodationId,
+    IReadOnlyList<AppliedAccommodationEffect> CurrentAccommodations,
     string ParticipantConsequenceCode,
     string TimeZoneId);
 
@@ -48,8 +53,7 @@ public static class EffectiveTimingEvaluator
         var attemptStart = baseline.StartsAtUtc;
         var attemptEnd = baseline.EndsAtUtc;
         var duration = baseline.PerAttemptDurationSeconds;
-        Guid? appliedId = null;
-        var consequence = AccommodationConsequenceCodes.None;
+        var applied = new List<AppliedAccommodationEffect>();
 
         if (authoritative)
         {
@@ -60,30 +64,40 @@ public static class EffectiveTimingEvaluator
                     case AccommodationDimensions.SubmissionDeadlineUtc
                         when AccommodationPolicyNormalizer.TryParseInstant(record.NormalizedValue, out var deadline):
                         submissionEnd = deadline;
-                        appliedId = record.AccommodationId;
-                        consequence = AccommodationConsequenceCodes.DeadlineReplacement;
+                        applied.Add(new AppliedAccommodationEffect(
+                            record.AccommodationId,
+                            record.Dimension,
+                            AccommodationConsequenceCodes.DeadlineReplacement));
                         break;
                     case AccommodationDimensions.AttemptStartNotBeforeUtc
                         when AccommodationPolicyNormalizer.TryParseInstant(record.NormalizedValue, out var notBefore):
                         attemptStart = notBefore;
-                        appliedId = record.AccommodationId;
-                        consequence = AccommodationConsequenceCodes.AttemptStartReplacement;
+                        applied.Add(new AppliedAccommodationEffect(
+                            record.AccommodationId,
+                            record.Dimension,
+                            AccommodationConsequenceCodes.AttemptStartReplacement));
                         break;
                     case AccommodationDimensions.AttemptStartBeforeUtc
                         when AccommodationPolicyNormalizer.TryParseInstant(record.NormalizedValue, out var before):
                         attemptEnd = before;
-                        appliedId = record.AccommodationId;
-                        consequence = AccommodationConsequenceCodes.AttemptStartReplacement;
+                        applied.Add(new AppliedAccommodationEffect(
+                            record.AccommodationId,
+                            record.Dimension,
+                            AccommodationConsequenceCodes.AttemptStartReplacement));
                         break;
                     case AccommodationDimensions.PerAttemptDurationSeconds
                         when AccommodationPolicyNormalizer.TryParseDuration(record.NormalizedValue, out var seconds):
                         duration = seconds;
-                        appliedId = record.AccommodationId;
-                        consequence = AccommodationConsequenceCodes.DurationReplacement;
+                        applied.Add(new AppliedAccommodationEffect(
+                            record.AccommodationId,
+                            record.Dimension,
+                            AccommodationConsequenceCodes.DurationReplacement));
                         break;
                 }
             }
         }
+
+        var consequence = SummarizeConsequences(applied);
 
         var state = !authoritative
             ? TimingEligibilityStates.Unavailable
@@ -105,9 +119,25 @@ public static class EffectiveTimingEvaluator
             nowUtc,
             state,
             authoritative,
-            appliedId,
+            applied,
             consequence,
             baseline.TimeZoneId);
+    }
+
+    internal static string SummarizeConsequences(IReadOnlyList<AppliedAccommodationEffect> applied)
+    {
+        if (applied.Count == 0)
+        {
+            return AccommodationConsequenceCodes.None;
+        }
+
+        var kinds = applied
+            .Select(item => item.ConsequenceCode)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return kinds.Length == 1
+            ? kinds[0]
+            : AccommodationConsequenceCodes.MultipleReplacements;
     }
 
     private static IEnumerable<Accommodation> CurrentEffects(

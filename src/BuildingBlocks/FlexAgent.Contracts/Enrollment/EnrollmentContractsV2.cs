@@ -63,6 +63,11 @@ public sealed record TimingEffectiveWindowV2(
     string TimeZoneId,
     string ParticipantConsequenceCode);
 
+public sealed record CurrentAccommodationEffectV2(
+    Guid AccommodationId,
+    string Dimension,
+    string ConsequenceCode);
+
 public sealed record AccommodationHistoryItemV2(
     Guid AccommodationId,
     string Dimension,
@@ -80,7 +85,7 @@ public sealed record EnrollmentTimingV2(
     EnrollmentTimingEnrollmentV2 Enrollment,
     TimingBaselineV2 Baseline,
     TimingEffectiveWindowV2 Effective,
-    Guid? CurrentAccommodationId,
+    IReadOnlyList<CurrentAccommodationEffectV2> CurrentAccommodations,
     bool PolicyAvailable,
     IReadOnlyList<string> PermittedDimensions,
     IReadOnlyList<string> PermittedReasonCategories,
@@ -103,4 +108,5 @@ public sealed record MyWorkTimingV2(
     string SchemaVersion,
     MyWorkTimingAssignmentV2 Assignment,
     TimingEffectiveWindowV2? Effective,
+    IReadOnlyList<CurrentAccommodationEffectV2> CurrentAccommodations,
     string ParticipantConsequenceCode);

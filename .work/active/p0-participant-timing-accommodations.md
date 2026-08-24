@@ -396,25 +396,20 @@ intake/version criteria remain unimplemented.
   `.playwright-mcp/`.
 - [x] Run proportionate full regression, docs, whitespace, secret,
   supply-chain, and OCI gates and record exact evidence.
+- [x] Remediate closeout review: additive complete-parent FK (`0047`),
+  decide/revoke canonical+OpenAPI structural parity, and dimension-keyed
+  current timing effects. Do not activate the intake successor.
 - [ ] Run independent backend, frontend, security/privacy, and QA review;
   remediate blocking findings, reconcile changes/specs, and update truthful
   traceability rows.
 
 # Current state
 
-CI Implementation `dotnet` failed on
-https://github.com/trannamtrung1st/flex-agent/actions/runs/32706933851
-(`03561b2`, Verify .NET workspace). Committed PostgreSQL upgrade tests still
-expected migration head `0045` while `0046_enrollment_accommodations.sql` is
-applied, so exact `grate_migrations` lists fail on GitHub Testcontainers.
-Local test updates add `0046` to those lists, a `0045`→`0046` upgrade case,
-and accommodation persistence coverage. Grate + `EnrollmentPersistenceTests`
-**29 passed**. `MigrationUpgradeTests` **39 passed**. Re-review 2026-08-24:
-full-head upgrade lists include `0046`; catalog is **24/30**; Contract **152**,
-architecture **41**, Enrollment HTTP negatives **20**, Node contracts **8**.
-Untracked v2 schema/fixture/TS files must ship with the catalog change.
-Decide/revoke remain HTTP/C#/TS-only. Changes remain uncommitted until
-requested.
+Closeout review of `5898024…` (before activating intake `d0c3912…`) found
+three contract/persistence gaps. Remediation is implemented locally: additive
+`0047` complete Enrollment parent FK with raw-SQL negatives; canonical
+decide/revoke schemas plus OpenAPI `$ref` identity; `current_accommodations[]`
+with `multiple_replacements` summary. Intake remains planned and gated.
 
 Production remains fail-closed without an exact current Organization policy
 and without a persisted frozen snapshot from Assessment/Configuration.
@@ -422,9 +417,9 @@ Development uses the synthetic policy fixture.
 
 The Assessment port supplies verified baseline start, end, deadline, timezone,
 attempt limit, duration, and frozen policy identity when present.
-Accommodation records, coordinators, additive `0046` persistence, v2 HTTP,
-and SPA timing UI exist. **My work** shows exact effective cutoff and does not
-expose intake or Attempt start.
+Accommodation records, coordinators, additive `0046` persistence plus `0047`
+complete parent identity, v2 HTTP, and SPA timing UI exist. **My work** shows
+exact effective cutoff and does not expose intake or Attempt start.
 
 # Decisions
 
@@ -534,6 +529,12 @@ the owning authority rather than introduce a code-level exception.
   imports `web/src/contracts/v2.ts` instead of a looser duplicate. Catalog
   counts remain 24 representative / 30 built schemas. Confirmed: Submissions
   **78 passed**. Playwright MCP still unavailable.
+- **Seventh review pass (2026-08-24):** keep one current granted record per
+  dimension. Expose `current_accommodations[]` (dimension, id, consequence) on
+  v2 timing; summarize `participant_consequence_code` as `multiple_replacements`
+  when distinct consequence kinds apply together. Do not rewrite `0046`; add
+  `0047` composite parent FK. OpenAPI v2 enrollment components `$ref` canonical
+  JSON Schemas instead of looser inline objects.
 
 # Verification
 
@@ -546,9 +547,9 @@ the owning authority rather than introduce a code-level exception.
 | Accommodation-policy readiness | passed | `REQ-SUBM-51`–`REQ-SUBM-54`, `AC-SUBM-34`–`AC-SUBM-36`, and `PROP-10`–`PROP-13` define frozen/current validation, dimensions, normalized replacement, reasons, and approval separation. Production positive behavior remains fail closed until exact policy configuration exists. |
 | Lifecycle-policy readiness | passed | Operational defaults v0.4 `REQ-OPS-30`/`AC-OPS-7` and `PROP-14` define retention, audit, idempotency, hold, and business expiry. |
 | Contract compatibility | passed | `REQ-SUBM-56`, `AC-SUBM-39`, `PROP-15`, and `AR-DEC-27` preserve strict v1 while adding parallel strict v2 and migrating the SPA. |
-| Domain red/green | passed after sixth review pass | Accommodation/timing/enrollment domain classes → **78 passed**, including fail-closed My work `none` consequence. |
-| PostgreSQL migration/isolation/concurrency/fault tests | passed for CI `0046` head | `EnrollmentPersistenceTests` **27 passed**. `MigrationUpgradeTests` previously **39 passed** after treating `0046_enrollment_accommodations.sql` as current head. This mismatch caused GitHub Implementation run 32706933851 `dotnet` failure. |
-| Schema/OpenAPI/C#/TypeScript parity | passed after catalog count check | Representative catalog **24**, built schemas **30**. Contract tests **152 passed**. HTTP timing uses C# DTOs; SPA imports `web/src/contracts/v2.ts`. |
+| Domain red/green | passed after seventh review pass | Accommodation/timing/enrollment domain classes → **79 passed**, including simultaneous deadline+duration current effects. |
+| PostgreSQL migration/isolation/concurrency/fault tests | passed for `0047` parent FK | `EnrollmentPersistenceTests` **28 passed**, including raw-SQL mismatch of activity/cohort/baseline/participant. `Upgrade_from_0045_creates_accommodation_tables_without_rewriting_enrollment` **1 passed** and asserts `fk_submissions_accommodations_enrollment_parent`. |
+| Schema/OpenAPI/C#/TypeScript parity | passed after seventh pass | Representative catalog **26**, built schemas **32**. Contract tests **157 passed**. Node OpenAPI constraint parity **8 passed**, including grant/decide/revoke/timing `$ref` identity. HTTP timing uses C# DTOs; SPA imports `web/src/contracts/v2.ts`. |
 | API authorization/HTTP negatives | passed for v2 CSRF/session/unknown-member | `EnrollmentHttpNegativeContractTests` **20 passed**, including grant/decide/revoke CSRF, unauthenticated timing GETs, unknown member, and `no-store`. |
 | React/accessibility | partial | Web vitest **127 passed** across 18 files; eslint 0 errors / 4 existing warnings; `tsc -b --noEmit` passed. Playwright MCP still blocked. |
 | Authenticated Playwright MCP | blocked | Playwright MCP server is not loaded in this Cursor session. |

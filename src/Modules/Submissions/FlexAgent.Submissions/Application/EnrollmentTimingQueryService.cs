@@ -127,7 +127,7 @@ public sealed class EnrollmentTimingQueryService(
                 PolicyAvailable = false,
                 Timing = composed.Timing with
                 {
-                    CurrentAccommodationId = null,
+                    CurrentAccommodations = [],
                     ParticipantConsequenceCode = AccommodationConsequenceCodes.None,
                 },
             };

@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
@@ -33,6 +34,30 @@ const representativeMappings = [
   {
     schemaComponent: "SseSessionEventV1",
     schemaPath: "schemas/v1/transport/sse-event.v1.schema.json",
+  },
+  {
+    schemaComponent: "GrantAccommodationCommandV2",
+    schemaPath: "schemas/v2/enrollment/grant-accommodation-command.v2.schema.json",
+  },
+  {
+    schemaComponent: "DecideAccommodationCommandV2",
+    schemaPath: "schemas/v2/enrollment/decide-accommodation-command.v2.schema.json",
+  },
+  {
+    schemaComponent: "RevokeAccommodationCommandV2",
+    schemaPath: "schemas/v2/enrollment/revoke-accommodation-command.v2.schema.json",
+  },
+  {
+    schemaComponent: "AccommodationMutationOutcomeV2",
+    schemaPath: "schemas/v2/enrollment/accommodation-mutation-outcome.v2.schema.json",
+  },
+  {
+    schemaComponent: "EnrollmentTimingV2",
+    schemaPath: "schemas/v2/enrollment/enrollment-timing.v2.schema.json",
+  },
+  {
+    schemaComponent: "MyWorkTimingV2",
+    schemaPath: "schemas/v2/enrollment/my-work-timing.v2.schema.json",
   },
 ];
 
@@ -114,6 +139,11 @@ function resolveRef(ref, context, owner) {
     return schema;
   }
 
+  if (ref.startsWith("../schemas/")) {
+    const filePath = path.resolve(contractsRoot, "projections", ref);
+    return JSON.parse(readFileSync(filePath, "utf8"));
+  }
+
   throw new Error(`Unsupported $ref: ${ref}`);
 }
 
@@ -137,6 +167,8 @@ function normalizeNode(schema, context, owner = context.jsonSchema, seen = new S
       ? context.primitives
       : ref.startsWith("#/components/schemas/")
         ? context.openApiComponents
+        : ref.startsWith("../schemas/")
+          ? resolved
         : ref.startsWith("#/$defs/")
           ? owner
           : owner;

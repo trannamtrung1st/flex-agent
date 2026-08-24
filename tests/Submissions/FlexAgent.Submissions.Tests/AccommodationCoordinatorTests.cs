@@ -36,7 +36,7 @@ public sealed class AccommodationCoordinatorTests
         Assert.True(detail.Succeeded);
         Assert.Equal(requested, detail.Value!.Timing.EffectiveSubmissionExclusiveEndUtc);
         Assert.Equal(Now.AddDays(20), detail.Value.Timing.Baseline.DeadlineUtc);
-        Assert.Equal(granted.AccommodationId, detail.Value!.Timing.CurrentAccommodationId);
+        Assert.Equal(granted.AccommodationId, Assert.Single(detail.Value!.Timing.CurrentAccommodations).AccommodationId);
 
         var replayed = await harness.Accommodations.GrantAsync(
             GrantCommand(enrollmentId, 1, "grant-1", Format(requested), fairness: false),
@@ -89,7 +89,7 @@ public sealed class AccommodationCoordinatorTests
             TestContext.Current.CancellationToken);
         Assert.True(detail.Succeeded);
         Assert.Empty(detail.Value!.History);
-        Assert.Null(detail.Value.Timing.CurrentAccommodationId);
+        Assert.Empty(detail.Value.Timing.CurrentAccommodations);
         Assert.Equal(requested, detail.Value.Timing.EffectiveSubmissionExclusiveEndUtc);
     }
 

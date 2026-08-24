@@ -72,6 +72,7 @@ public static class AccommodationConsequenceCodes
     public const string DeadlineReplacement = "deadline_replacement";
     public const string AttemptStartReplacement = "attempt_start_replacement";
     public const string DurationReplacement = "duration_replacement";
+    public const string MultipleReplacements = "multiple_replacements";
 }
 
 public static class AccommodationLifecyclePolicy

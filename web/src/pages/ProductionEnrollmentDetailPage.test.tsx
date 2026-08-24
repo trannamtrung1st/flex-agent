@@ -61,7 +61,11 @@ describe("ProductionEnrollmentDetailPage", () => {
               time_zone_id: "America/New_York",
               participant_consequence_code: "deadline_replacement",
             },
-            current_accommodation_id: "acc-1",
+            current_accommodations: [{
+              accommodation_id: "acc-1",
+              dimension: "submission_deadline_utc",
+              consequence_code: "deadline_replacement",
+            }],
             policy_available: true,
             permitted_dimensions: ["submission_deadline_utc"],
             permitted_reason_categories: ["development.synthetic.timing"],
@@ -191,7 +195,11 @@ describe("ProductionEnrollmentDetailPage", () => {
               time_zone_id: "America/New_York",
               participant_consequence_code: "deadline_replacement",
             },
-            current_accommodation_id: "acc-1",
+            current_accommodations: [{
+              accommodation_id: "acc-1",
+              dimension: "submission_deadline_utc",
+              consequence_code: "deadline_replacement",
+            }],
             policy_available: true,
             permitted_dimensions: ["submission_deadline_utc"],
             permitted_reason_categories: ["development.synthetic.timing"],
@@ -248,7 +256,7 @@ describe("ProductionEnrollmentDetailPage", () => {
       </ProductionApiProvider>,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Revoke current accommodation" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Revoke submission_deadline_utc accommodation" }));
 
     const revokeCall = fetchMock.mock.calls.find(([input]) => {
       if (typeof input === "string") {

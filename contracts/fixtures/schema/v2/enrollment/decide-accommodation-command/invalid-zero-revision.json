@@ -1,0 +1,6 @@
+{
+  "schema_version": "v2",
+  "approve": true,
+  "expected_revision": 0,
+  "idempotency_key": "acc-decide-synthetic-0002"
+}

@@ -111,6 +111,16 @@
       "fixture_dir": "fixtures/schema/v2/enrollment/grant-accommodation-command"
     },
     {
+      "category": "decide_accommodation_command",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/enrollment/decide-accommodation-command.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/enrollment/decide-accommodation-command"
+    },
+    {
+      "category": "revoke_accommodation_command",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/enrollment/revoke-accommodation-command.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/enrollment/revoke-accommodation-command"
+    },
+    {
       "category": "accommodation_mutation_outcome",
       "schema_id": "https://flex-agent.local/contracts/schemas/v2/enrollment/accommodation-mutation-outcome.v2.schema.json",
       "fixture_dir": "fixtures/schema/v2/enrollment/accommodation-mutation-outcome"
