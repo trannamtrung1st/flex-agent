@@ -2,7 +2,7 @@
 id: p0-participant-timing-accommodations
 status: completed
 created: 2026-08-23
-updated: 2026-08-24
+updated: 2026-08-24T21:00:00+07:00
 predecessors:
   - p0-assessment-setup-cohort-activation
   - p0-enrollment-assignment-discovery
@@ -584,7 +584,7 @@ the owning authority rather than introduce a code-level exception.
 | API authorization/HTTP negatives | passed after eighth pass | `EnrollmentHttpNegativeContractTests` **22 passed**, including omitted `approve` → `400 invalid_field`, over-max `expected_revision`, grant/decide/revoke CSRF, unauthenticated timing GETs, unknown member, and `no-store`. |
 | React/accessibility | passed for focused Enrollment pages | `ProductionEnrollmentDetailPage` and `ProductionMyWorkPage` vitest **2 passed**; eslint/tsc unchanged from prior pass. |
 | Authenticated Playwright MCP | passed | Docker profile at `http://localhost:18080` after adding `/v2/assessment` nginx proxy. Administrator enrollment timing desktop: `.playwright-mcp/page-2026-08-24T13-16-35-405Z.png` (baseline/effective). After grant: `.playwright-mcp/page-2026-08-24T13-17-08-998Z.png` (per-dimension revoke). Participant My work detail 390×844: `.playwright-mcp/page-2026-08-24T13-18-33-475Z.png` — effective cutoff only, plain-language adjustment copy, no accommodation IDs in UI or `/v2/assessment/my-work/.../timing` JSON. |
-| Regression/performance/security/supply-chain/OCI/docs | passed after `67ac540` CI fix | `gitleaks detect` no leaks after accommodation fixture allowlist. Contract **159**, HTTP negatives **22**, Node **8** reconfirmed this pass. Full `verify-supply-chain`/`verify-dotnet`/OCI not re-run locally; GitHub run **32732247658** on `14f8804` failed only at Secret scan (remediated in `67ac540`). |
+| Regression/performance/security/supply-chain/OCI/docs | partial — Gitleaks remediation verified; full supply-chain corroboration pending | `gitleaks detect` no leaks after accommodation fixture allowlist. Contract **159**, HTTP negatives **22**, Node **8** reconfirmed this pass. Full `verify-supply-chain`/`verify-dotnet`/OCI not re-run locally; GitHub run **32732247658** on `14f8804` failed only at Secret scan (remediated in `67ac540`). Await green GitHub corroboration on `67ac540` or later. |
 | Independent review | passed — external review `14f8804` | No blocking findings on Participant provenance, decide transport, revision bounds, or v2 gateway proxy. Prior `0047`/OpenAPI/admin multi-dimension fixes intact. |
 
 # Planned verification command set
@@ -620,7 +620,8 @@ use the explicitly synthetic development fixture category.
 - [x] Migration, isolation, concurrency, idempotency, clock, history, and audit evidence passes
 - [x] Schema, OpenAPI, C#, TypeScript, endpoint, and client remain compatible and traceable
 - [x] Administrator and Participant UI passes component, accessibility, responsive, and Playwright verification
-- [x] Focused, integration, performance, security, full regression, supply-chain, OCI, docs, and whitespace gates pass
+- [ ] Full supply-chain and OCI gates pass (Gitleaks remediation verified locally; full gate corroboration pending on `67ac540` or later)
+- [x] Focused, integration, performance, security, full regression, docs, and whitespace gates pass
 - [x] Governing specs and implementation-status rows remain truthful
 - [x] Independent backend/frontend/security/privacy/QA findings are resolved or accepted by an authorized owner
 - [x] Remaining gaps are recorded without claiming intake, Attempt, retry, or Session readiness
