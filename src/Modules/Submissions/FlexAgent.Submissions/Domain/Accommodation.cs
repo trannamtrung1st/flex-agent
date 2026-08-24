@@ -56,9 +56,13 @@ public sealed record Accommodation(
             return EnrollmentDecision<Accommodation>.Fail(AccommodationFailureCodes.InvalidValue);
         }
 
-        if (expiresAtUtc is { } expiry && expiry.ToUniversalTime() <= nowUtc.ToUniversalTime())
+        if (expiresAtUtc is { } expiry)
         {
-            return EnrollmentDecision<Accommodation>.Fail(AccommodationFailureCodes.InvalidValue);
+            expiresAtUtc = expiry.ToUniversalTime();
+            if (expiresAtUtc.Value <= nowUtc.ToUniversalTime())
+            {
+                return EnrollmentDecision<Accommodation>.Fail(AccommodationFailureCodes.InvalidValue);
+            }
         }
 
         var inRoutine = Inside(normalized, bounds.RoutineMin, bounds.RoutineMax, bounds.ValueKind);

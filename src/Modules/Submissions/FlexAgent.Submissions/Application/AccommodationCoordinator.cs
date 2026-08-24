@@ -59,9 +59,12 @@ public sealed class AccommodationCoordinator(
                     _clock.UtcNow,
                     transaction,
                     cancellationToken);
-                var effectivePolicy = AccommodationPolicyNormalizer.EffectiveBounds(
-                    baseline.FrozenPolicySnapshot,
-                    policy);
+                var effectivePolicy = baseline.VerificationDegraded
+                    ? null
+                    : AccommodationPolicyNormalizer.EffectiveBounds(
+                        baseline.FrozenPolicy,
+                        baseline.FrozenPolicySnapshot,
+                        policy);
                 if (effectivePolicy is null || !effectivePolicy.EnvironmentEligible)
                 {
                     return Fail(AccommodationFailureCodes.PolicyUnavailable);
@@ -146,9 +149,12 @@ public sealed class AccommodationCoordinator(
                     _clock.UtcNow,
                     transaction,
                     cancellationToken);
-                var effectivePolicy = AccommodationPolicyNormalizer.EffectiveBounds(
-                    baseline.FrozenPolicySnapshot,
-                    policy);
+                var effectivePolicy = baseline.VerificationDegraded
+                    ? null
+                    : AccommodationPolicyNormalizer.EffectiveBounds(
+                        baseline.FrozenPolicy,
+                        baseline.FrozenPolicySnapshot,
+                        policy);
                 if (effectivePolicy is null)
                 {
                     return Fail(AccommodationFailureCodes.PolicyUnavailable);
@@ -463,26 +469,32 @@ public sealed class AccommodationCoordinator(
 
 public static class TimingMapper
 {
-    public static BaselineTiming BaselineFrom(ActivatedCohortBinding binding) =>
-        new(
+    public static BaselineTiming BaselineFrom(ActivatedCohortBinding binding)
+    {
+        var identity = new AccommodationPolicyIdentity(
+            binding.FrozenPolicySourceId == Guid.Empty
+                ? Guid.Parse("22222222-2222-2222-2222-222222222201")
+                : binding.FrozenPolicySourceId,
+            binding.FrozenPolicyVersionId == Guid.Empty
+                ? Guid.Parse("33333333-3333-3333-3333-333333333301")
+                : binding.FrozenPolicyVersionId,
+            string.IsNullOrWhiteSpace(binding.FrozenPolicyDigest)
+                ? new string('b', 64)
+                : binding.FrozenPolicyDigest);
+        var snapshot = binding.FrozenAccommodationPolicy;
+        var snapshotInvalid = snapshot is not null
+            && (snapshot.Identity != identity || snapshot.OrganizationId != binding.OrganizationId);
+        return new BaselineTiming(
             binding.StartsAtUtc,
             binding.EndsAtUtc,
             binding.DeadlineUtc,
             binding.TimeZoneId,
             binding.AttemptLimit,
             binding.PerAttemptDurationSeconds,
-            new AccommodationPolicyIdentity(
-                binding.FrozenPolicySourceId == Guid.Empty
-                    ? Guid.Parse("22222222-2222-2222-2222-222222222201")
-                    : binding.FrozenPolicySourceId,
-                binding.FrozenPolicyVersionId == Guid.Empty
-                    ? Guid.Parse("33333333-3333-3333-3333-333333333301")
-                    : binding.FrozenPolicyVersionId,
-                string.IsNullOrWhiteSpace(binding.FrozenPolicyDigest)
-                    ? new string('b', 64)
-                    : binding.FrozenPolicyDigest),
-            binding.VerificationDegraded,
-            binding.FrozenAccommodationPolicy);
+            identity,
+            binding.VerificationDegraded || snapshotInvalid,
+            snapshotInvalid ? null : snapshot);
+    }
 
     public static AccommodationParentBinding ParentFrom(Enrollment enrollment) =>
         new(

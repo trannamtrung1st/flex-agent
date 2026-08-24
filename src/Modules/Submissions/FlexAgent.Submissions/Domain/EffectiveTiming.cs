@@ -35,9 +35,12 @@ public static class EffectiveTimingEvaluator
         DateTimeOffset nowUtc)
     {
         nowUtc = nowUtc.ToUniversalTime();
-        var effectivePolicy = AccommodationPolicyNormalizer.EffectiveBounds(
-            baseline.FrozenPolicySnapshot,
-            currentPolicy);
+        var effectivePolicy = baseline.VerificationDegraded
+            ? null
+            : AccommodationPolicyNormalizer.EffectiveBounds(
+                baseline.FrozenPolicy,
+                baseline.FrozenPolicySnapshot,
+                currentPolicy);
         var authoritative = enrollmentStatus == EnrollmentStates.Active
             && !baseline.VerificationDegraded
             && effectivePolicy is { EnvironmentEligible: true };

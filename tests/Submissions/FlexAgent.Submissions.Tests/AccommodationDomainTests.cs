@@ -1,3 +1,4 @@
+using System.Globalization;
 using FlexAgent.Submissions.Domain;
 
 namespace FlexAgent.Submissions.Tests;
@@ -341,6 +342,154 @@ public sealed class AccommodationDomainTests
             later);
         Assert.Equal(left, right);
         Assert.NotEqual(left, other);
+
+        var fractionalEarlier = DateTimeOffset.Parse("2026-09-25T17:00:00.1000000Z");
+        var fractionalLater = DateTimeOffset.Parse("2026-09-25T17:00:00.9000000Z");
+        Assert.NotEqual(
+            AccommodationCommandDigest.Compute(
+                AccommodationOperationKinds.Grant,
+                Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+                Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"),
+                Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2"),
+                Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb0"),
+                null,
+                AccommodationDimensions.SubmissionDeadlineUtc,
+                Format(Deadline.AddDays(1)),
+                AccommodationReasonCategories.DevelopmentSynthetic,
+                false,
+                1,
+                fractionalEarlier),
+            AccommodationCommandDigest.Compute(
+                AccommodationOperationKinds.Grant,
+                Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+                Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"),
+                Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2"),
+                Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb0"),
+                null,
+                AccommodationDimensions.SubmissionDeadlineUtc,
+                Format(Deadline.AddDays(1)),
+                AccommodationReasonCategories.DevelopmentSynthetic,
+                false,
+                1,
+                fractionalLater));
+    }
+
+    [Fact]
+    public void Disjoint_routine_ranges_do_not_auto_grant_a_hard_bound_value()
+    {
+        var frozen = WithDurationBounds(
+            AccommodationDomainTestsSupport.CurrentPolicy(Deadline.AddDays(2), Ends.AddDays(7), 7200),
+            100,
+            200,
+            50,
+            500);
+        var current = WithDurationBounds(
+            AccommodationDomainTestsSupport.CurrentPolicy(Deadline.AddDays(2), Ends.AddDays(7), 7200),
+            300,
+            400,
+            50,
+            500);
+        var effective = AccommodationPolicyNormalizer.EffectiveBounds(
+            frozen.Identity,
+            frozen,
+            current)!;
+        var duration = effective.Dimensions[AccommodationDimensions.PerAttemptDurationSeconds];
+        Assert.True(int.Parse(duration.RoutineMin, CultureInfo.InvariantCulture)
+            > int.Parse(duration.RoutineMax, CultureInfo.InvariantCulture));
+
+        Assert.Equal(
+            AccommodationFailureCodes.OutsideBounds,
+            Accommodation.Request(
+                AccommodationDomainTestsSupport.Parent(),
+                AccommodationDimensions.PerAttemptDurationSeconds,
+                "50",
+                AccommodationDomainTestsSupport.Frozen(),
+                effective,
+                AccommodationReasonCategories.DevelopmentSynthetic,
+                Start,
+                null,
+                Guid.CreateVersion7(),
+                1).OutcomeCode);
+
+        var pending = Accommodation.Request(
+            AccommodationDomainTestsSupport.Parent(),
+            AccommodationDimensions.PerAttemptDurationSeconds,
+            "50",
+            AccommodationDomainTestsSupport.Frozen(),
+            effective,
+            AccommodationReasonCategories.DevelopmentSynthetic,
+            Start,
+            null,
+            Guid.CreateVersion7(),
+            1,
+            fairnessException: true);
+        Assert.True(pending.Succeeded);
+        Assert.Equal(AccommodationStates.PendingApproval, pending.Value!.Status);
+
+        var frozenInstant = WithDeadlineBounds(
+            AccommodationDomainTestsSupport.CurrentPolicy(Deadline.AddDays(2), Ends.AddDays(7), 7200),
+            Deadline.AddDays(1),
+            Deadline.AddDays(2),
+            Start,
+            Deadline.AddDays(30));
+        var currentInstant = WithDeadlineBounds(
+            AccommodationDomainTestsSupport.CurrentPolicy(Deadline.AddDays(14), Ends.AddDays(7), 7200),
+            Deadline.AddDays(10),
+            Deadline.AddDays(14),
+            Start,
+            Deadline.AddDays(30));
+        var effectiveInstant = AccommodationPolicyNormalizer.EffectiveBounds(
+            frozenInstant.Identity,
+            frozenInstant,
+            currentInstant)!;
+        var deadline = effectiveInstant.Dimensions[AccommodationDimensions.SubmissionDeadlineUtc];
+        Assert.True(DateTimeOffset.Parse(deadline.RoutineMin) > DateTimeOffset.Parse(deadline.RoutineMax));
+        Assert.Equal(
+            AccommodationFailureCodes.OutsideBounds,
+            Accommodation.Request(
+                AccommodationDomainTestsSupport.Parent(),
+                AccommodationDimensions.SubmissionDeadlineUtc,
+                Format(Deadline),
+                AccommodationDomainTestsSupport.Frozen(),
+                effectiveInstant,
+                AccommodationReasonCategories.DevelopmentSynthetic,
+                Start,
+                null,
+                Guid.CreateVersion7(),
+                1).OutcomeCode);
+        var pendingInstant = Accommodation.Request(
+            AccommodationDomainTestsSupport.Parent(),
+            AccommodationDimensions.SubmissionDeadlineUtc,
+            Format(Deadline),
+            AccommodationDomainTestsSupport.Frozen(),
+            effectiveInstant,
+            AccommodationReasonCategories.DevelopmentSynthetic,
+            Start,
+            null,
+            Guid.CreateVersion7(),
+            1,
+            fairnessException: true);
+        Assert.True(pendingInstant.Succeeded);
+        Assert.Equal(AccommodationStates.PendingApproval, pendingInstant.Value!.Status);
+    }
+
+    [Fact]
+    public void Effective_bounds_fail_closed_when_snapshot_identity_does_not_match_frozen_policy()
+    {
+        var snapshot = AccommodationDomainTestsSupport.CurrentPolicy(Deadline.AddDays(2), Ends.AddDays(7), 7200);
+        var current = AccommodationDomainTestsSupport.CurrentPolicy(Deadline.AddDays(14), Ends.AddDays(7), 7200);
+        var wrongVersion = snapshot with
+        {
+            Identity = snapshot.Identity with { VersionId = Guid.Parse("99999999-9999-4999-8999-999999999901") },
+        };
+        var wrongDigest = snapshot with
+        {
+            Identity = snapshot.Identity with { Digest = new string('c', 64) },
+        };
+
+        Assert.Null(AccommodationPolicyNormalizer.EffectiveBounds(snapshot.Identity, wrongVersion, current));
+        Assert.Null(AccommodationPolicyNormalizer.EffectiveBounds(snapshot.Identity, wrongDigest, current));
+        Assert.NotNull(AccommodationPolicyNormalizer.EffectiveBounds(snapshot.Identity, snapshot, current));
     }
 
     [Fact]
@@ -395,4 +544,40 @@ public sealed class AccommodationDomainTests
     }
 
     private static string Format(DateTimeOffset value) => AccommodationDomainTestsSupport.FormatUtc(value);
+
+    private static NormalizedAccommodationPolicy WithDurationBounds(
+        NormalizedAccommodationPolicy policy,
+        int routineMin,
+        int routineMax,
+        int hardMin,
+        int hardMax)
+    {
+        var dimensions = new Dictionary<string, AccommodationDimensionBounds>(policy.Dimensions, StringComparer.Ordinal)
+        {
+            [AccommodationDimensions.PerAttemptDurationSeconds] = AccommodationDomainTestsSupport.DurationBounds(
+                routineMin,
+                routineMax,
+                hardMin,
+                hardMax),
+        };
+        return policy with { Dimensions = dimensions };
+    }
+
+    private static NormalizedAccommodationPolicy WithDeadlineBounds(
+        NormalizedAccommodationPolicy policy,
+        DateTimeOffset routineMin,
+        DateTimeOffset routineMax,
+        DateTimeOffset hardMin,
+        DateTimeOffset hardMax)
+    {
+        var dimensions = new Dictionary<string, AccommodationDimensionBounds>(policy.Dimensions, StringComparer.Ordinal)
+        {
+            [AccommodationDimensions.SubmissionDeadlineUtc] = AccommodationDomainTestsSupport.InstantBounds(
+                routineMin,
+                routineMax,
+                hardMin,
+                hardMax),
+        };
+        return policy with { Dimensions = dimensions };
+    }
 }

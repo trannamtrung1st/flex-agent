@@ -119,6 +119,9 @@ public static class AccommodationPolicyNormalizer
     public static string FormatInstant(DateTimeOffset value) =>
         value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
 
+    public static string FormatCanonicalInstant(DateTimeOffset value) =>
+        value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'", CultureInfo.InvariantCulture);
+
     private static AccommodationDimensionBounds Normalize(
         string dimension,
         RelativeAccommodationAllowance allowance,
@@ -213,6 +216,35 @@ public static class AccommodationPolicyNormalizer
         return frozen is null ? null : Intersect(frozen, current);
     }
 
+    public static NormalizedAccommodationPolicy? EffectiveBounds(
+        AccommodationPolicyIdentity frozenIdentity,
+        NormalizedAccommodationPolicy? frozenSnapshot,
+        NormalizedAccommodationPolicy? current)
+    {
+        if (current is null)
+        {
+            return null;
+        }
+
+        if (frozenSnapshot is not null)
+        {
+            if (frozenSnapshot.Identity != frozenIdentity
+                || frozenSnapshot.OrganizationId != current.OrganizationId)
+            {
+                return null;
+            }
+
+            return Intersect(frozenSnapshot, current);
+        }
+
+        if (!current.SyntheticDevelopmentOnly || current.Identity != frozenIdentity)
+        {
+            return null;
+        }
+
+        return Intersect(current, current);
+    }
+
     private static bool TryIntersectBounds(
         AccommodationDimensionBounds left,
         AccommodationDimensionBounds right,
@@ -238,11 +270,6 @@ public static class AccommodationPolicyNormalizer
 
             var routineMin = Math.Max(leftRoutineMin, rightRoutineMin);
             var routineMax = Math.Min(leftRoutineMax, rightRoutineMax);
-            if (routineMin > routineMax)
-            {
-                routineMin = hardMin;
-                routineMax = hardMin;
-            }
 
             intersected = new AccommodationDimensionBounds(
                 left.Enabled && right.Enabled,
@@ -272,11 +299,6 @@ public static class AccommodationPolicyNormalizer
 
             var routineMin = leftRoutineMinAt > rightRoutineMinAt ? leftRoutineMinAt : rightRoutineMinAt;
             var routineMax = leftRoutineMaxAt < rightRoutineMaxAt ? leftRoutineMaxAt : rightRoutineMaxAt;
-            if (routineMin > routineMax)
-            {
-                routineMin = hardMin;
-                routineMax = hardMin;
-            }
 
             intersected = new AccommodationDimensionBounds(
                 left.Enabled && right.Enabled,

@@ -138,6 +138,45 @@ public sealed class AccommodationCoordinatorTests
         Assert.Equal(AccommodationFailureCodes.OutsideBounds, denied.OutcomeCode);
     }
 
+    [Fact]
+    public async Task Frozen_snapshot_with_wrong_version_or_digest_fails_closed()
+    {
+        var harness = await AssignedHarnessAsync();
+        var matchedBaseline = TimingMapper.BaselineFrom(Binding());
+        var snapshot = DevelopmentAccommodationPolicy.Create(OrganizationId, matchedBaseline, "development");
+        harness.Cohorts.Binding = Binding() with
+        {
+            FrozenPolicySourceId = snapshot.Identity.PolicyId,
+            FrozenPolicyVersionId = Guid.Parse("99999999-9999-4999-8999-999999999901"),
+            FrozenPolicyDigest = snapshot.Identity.Digest,
+            FrozenAccommodationPolicy = snapshot,
+        };
+        var wrongVersion = TimingMapper.BaselineFrom(harness.Cohorts.Binding);
+        Assert.True(wrongVersion.VerificationDegraded);
+        Assert.Null(wrongVersion.FrozenPolicySnapshot);
+        var deniedVersion = await harness.Accommodations.GrantAsync(
+            GrantCommand(harness.EnrollmentId, 1, "grant-id-version", Format(Now.AddDays(22)), fairness: false),
+            TestContext.Current.CancellationToken);
+        Assert.False(deniedVersion.Succeeded);
+        Assert.Equal(AccommodationFailureCodes.PolicyUnavailable, deniedVersion.OutcomeCode);
+
+        harness.Cohorts.Binding = Binding() with
+        {
+            FrozenPolicySourceId = snapshot.Identity.PolicyId,
+            FrozenPolicyVersionId = snapshot.Identity.VersionId,
+            FrozenPolicyDigest = new string('c', 64),
+            FrozenAccommodationPolicy = snapshot,
+        };
+        var wrongDigest = TimingMapper.BaselineFrom(harness.Cohorts.Binding);
+        Assert.True(wrongDigest.VerificationDegraded);
+        Assert.Null(wrongDigest.FrozenPolicySnapshot);
+        var deniedDigest = await harness.Accommodations.GrantAsync(
+            GrantCommand(harness.EnrollmentId, 1, "grant-id-digest", Format(Now.AddDays(22)), fairness: false),
+            TestContext.Current.CancellationToken);
+        Assert.False(deniedDigest.Succeeded);
+        Assert.Equal(AccommodationFailureCodes.PolicyUnavailable, deniedDigest.OutcomeCode);
+    }
+
     private async Task<TimingHarness> AssignedHarnessAsync()
     {
         var store = new InMemoryEnrollmentStore();

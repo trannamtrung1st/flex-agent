@@ -33,7 +33,7 @@ public static class AccommodationCommandDigest
             fairnessException ? "1" : "0",
             expectedRevision?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
             expiresAtUtc is { } expiry
-                ? AccommodationPolicyNormalizer.FormatInstant(expiry)
+                ? AccommodationPolicyNormalizer.FormatCanonicalInstant(expiry)
                 : string.Empty);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
     }

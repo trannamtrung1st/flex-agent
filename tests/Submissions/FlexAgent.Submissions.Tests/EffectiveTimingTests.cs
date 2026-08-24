@@ -278,6 +278,16 @@ internal static class AccommodationDomainTestsSupport
     public static string FormatUtc(DateTimeOffset value) =>
         value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
 
+    public static AccommodationDimensionBounds InstantBounds(
+        DateTimeOffset routineMin,
+        DateTimeOffset routineMax,
+        DateTimeOffset hardMin,
+        DateTimeOffset hardMax) =>
+        Instant(routineMin, routineMax, hardMin, hardMax);
+
+    public static AccommodationDimensionBounds DurationBounds(int routineMin, int routineMax, int hardMin, int hardMax) =>
+        Duration(routineMin, routineMax, hardMin, hardMax);
+
     private static AccommodationDimensionBounds Instant(
         DateTimeOffset routineMin,
         DateTimeOffset routineMax,

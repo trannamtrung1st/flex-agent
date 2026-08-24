@@ -226,7 +226,12 @@ public sealed class EnrollmentTimingQueryService(
         var policy = binding is null
             ? null
             : await policies.ResolveCurrentAsync(enrollment.OrganizationId, baseline, _clock.UtcNow, null, cancellationToken);
-        var effectivePolicy = AccommodationPolicyNormalizer.EffectiveBounds(baseline.FrozenPolicySnapshot, policy);
+        var effectivePolicy = baseline.VerificationDegraded
+            ? null
+            : AccommodationPolicyNormalizer.EffectiveBounds(
+                baseline.FrozenPolicy,
+                baseline.FrozenPolicySnapshot,
+                policy);
         var timing = EffectiveTimingEvaluator.Evaluate(
             baseline,
             enrollment.Status,
