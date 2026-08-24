@@ -1,7 +1,21 @@
 import type { EnrollmentMutationOutcomeV1, MyWorkAssignmentV1 } from "../contracts/v1";
+import type {
+  AccommodationMutationOutcomeV2,
+  EnrollmentTimingV2,
+  GrantAccommodationCommandV2,
+  MyWorkTimingV2,
+} from "../contracts/v2";
 import { ProductionApiError } from "./production-api";
 
 export type { EnrollmentMutationOutcomeV1, MyWorkAssignmentV1 };
+export type {
+  AccommodationMutationOutcomeV2,
+  EnrollmentTimingV2,
+  GrantAccommodationCommandV2,
+  MyWorkTimingV2,
+};
+
+export type AccommodationMutationV2 = AccommodationMutationOutcomeV2;
 
 export interface EnrollmentCandidateV1 {
   actor_id: string;
@@ -56,73 +70,6 @@ export interface MyWorkPageV1 {
 }
 
 export type EnrollmentMutationV1 = EnrollmentMutationOutcomeV1;
-
-export interface TimingWindowV2 {
-  submission_starts_at_utc: string | null;
-  submission_exclusive_end_utc: string | null;
-  attempt_start_utc: string | null;
-  attempt_start_exclusive_end_utc: string | null;
-  per_attempt_duration_seconds: number | null;
-  evaluated_at_utc: string | null;
-  eligibility_state: string;
-  is_authoritative: boolean;
-  time_zone_id: string;
-  participant_consequence_code: string;
-}
-
-export interface EnrollmentTimingV2 {
-  schema_version: string;
-  enrollment: {
-    enrollment_id: string;
-    status: string;
-    revision: number;
-    visibility: string;
-    permitted_actions: string[];
-  };
-  baseline: {
-    starts_at_utc: string | null;
-    ends_at_utc: string | null;
-    deadline_utc: string | null;
-    time_zone_id: string;
-    attempt_limit: number;
-    per_attempt_duration_seconds: number | null;
-  };
-  effective: TimingWindowV2;
-  current_accommodation_id: string | null;
-  policy_available: boolean;
-  permitted_dimensions: string[];
-  permitted_reason_categories: string[];
-  history: Array<{
-    accommodation_id: string;
-    dimension: string;
-    status: string;
-    normalized_value: string;
-    reason_category: string;
-    fairness_exception: boolean;
-    revision: number;
-    created_at_utc: string | null;
-    decided_at_utc: string | null;
-    expires_at_utc: string | null;
-  }>;
-}
-
-export interface MyWorkTimingV2 {
-  schema_version: string;
-  assignment: AssignmentSummaryV1;
-  effective: TimingWindowV2 | null;
-  participant_consequence_code: string | null;
-}
-
-export interface AccommodationMutationV2 {
-  schema_version: string;
-  succeeded: boolean;
-  outcome_code: string;
-  accommodation_id?: string | null;
-  enrollment_id?: string | null;
-  status?: string | null;
-  revision?: number | null;
-  permitted_actions: string[];
-}
 
 export function createEnrollmentIdempotencyKey(): string {
   return `enr-${crypto.randomUUID()}`;
@@ -209,15 +156,7 @@ export function createProductionEnrollmentClient(fetchJson: <T>(path: string, in
       activityId: string,
       cohortId: string,
       enrollmentId: string,
-      body: {
-        dimension: string;
-        requested_value: string;
-        reason_category: string;
-        expires_at_utc: string | null;
-        fairness_exception: boolean;
-        expected_revision: number;
-        idempotency_key: string;
-      },
+      body: Omit<GrantAccommodationCommandV2, "schema_version">,
     ) {
       return readAccommodationMutation(
         fetchJson,

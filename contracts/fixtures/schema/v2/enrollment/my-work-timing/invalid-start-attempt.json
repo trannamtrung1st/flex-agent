@@ -1,0 +1,11 @@
+{
+  "schema_version": "v2",
+  "assignment": {
+    "enrollment_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "status": "active",
+    "visibility": "current",
+    "summary_available": true,
+    "permitted_actions": ["open_assignment", "start_attempt"]
+  },
+  "participant_consequence_code": "none"
+}

@@ -635,6 +635,360 @@ public sealed class EnrollmentPersistenceTests(PostgresIntegrationFixture fixtur
         Assert.Contains("append-only", thrown.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Grant_persists_without_mutating_the_baseline_and_replays_the_same_key()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-acc-1"), CancellationToken);
+        Assert.True(assigned.Succeeded, assigned.OutcomeCode);
+        var accommodations = CreateAccommodationCoordinator(harness);
+        var requested = "2026-10-07T17:00:00Z";
+        var granted = await accommodations.GrantAsync(
+            GrantCommand(harness, assigned.EnrollmentId!.Value, "grant-1", requested),
+            CancellationToken);
+        Assert.True(granted.Succeeded, granted.OutcomeCode);
+        Assert.Equal(AccommodationStates.Granted, granted.Status);
+
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var digest = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT content_digest
+            FROM assessment_activation_baselines
+            WHERE organization_id = @OrganizationId AND activity_id = @ActivityId
+            """,
+            new { harness.OrganizationId, harness.ActivityId });
+        Assert.Equal(harness.BaselineDigest, digest);
+        var stored = await connection.QuerySingleAsync<(string Status, string Dimension, string Value)>(
+            """
+            SELECT status, dimension, normalized_value
+            FROM submissions_accommodations
+            WHERE organization_id = @OrganizationId AND accommodation_id = @AccommodationId
+            """,
+            new { harness.OrganizationId, AccommodationId = granted.AccommodationId });
+        Assert.Equal(AccommodationStates.Granted, stored.Status);
+        Assert.Equal(AccommodationDimensions.SubmissionDeadlineUtc, stored.Dimension);
+        Assert.Equal(requested, stored.Value);
+        Assert.Equal(1, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM submissions_accommodation_facts
+            WHERE organization_id = @OrganizationId AND accommodation_id = @AccommodationId
+            """,
+            new { harness.OrganizationId, AccommodationId = granted.AccommodationId }));
+        Assert.Equal(1, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND action = @Action
+              AND resource_id = @EnrollmentId
+            """,
+            new
+            {
+                harness.OrganizationId,
+                Action = EnrollmentAuthorizationActions.GrantAccommodation,
+                EnrollmentId = assigned.EnrollmentId,
+            }));
+
+        var replayed = await accommodations.GrantAsync(
+            GrantCommand(harness, assigned.EnrollmentId.Value, "grant-1", requested),
+            CancellationToken);
+        Assert.True(replayed.Succeeded, replayed.OutcomeCode);
+        Assert.Equal(granted.AccommodationId, replayed.AccommodationId);
+        Assert.Equal(1, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM submissions_accommodations
+            WHERE organization_id = @OrganizationId AND enrollment_id = @EnrollmentId
+            """,
+            new { harness.OrganizationId, EnrollmentId = assigned.EnrollmentId }));
+    }
+
+    [Fact]
+    public async Task Mismatched_idempotency_payload_conflicts_without_a_second_row()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-acc-idemp"), CancellationToken);
+        var accommodations = CreateAccommodationCoordinator(harness);
+        var first = await accommodations.GrantAsync(
+            GrantCommand(
+                harness,
+                assigned.EnrollmentId!.Value,
+                "grant-expiry",
+                "2026-10-07T17:00:00Z",
+                expiresAtUtc: DateTimeOffset.Parse("2026-09-10T00:00:00Z")),
+            CancellationToken);
+        Assert.True(first.Succeeded, first.OutcomeCode);
+        var second = await accommodations.GrantAsync(
+            GrantCommand(
+                harness,
+                assigned.EnrollmentId.Value,
+                "grant-expiry",
+                "2026-10-07T17:00:00Z",
+                expiresAtUtc: DateTimeOffset.Parse("2026-09-20T00:00:00Z")),
+            CancellationToken);
+        Assert.False(second.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.IdempotencyConflict, second.OutcomeCode);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        Assert.Equal(1, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM submissions_accommodations
+            WHERE organization_id = @OrganizationId AND enrollment_id = @EnrollmentId
+            """,
+            new { harness.OrganizationId, EnrollmentId = assigned.EnrollmentId }));
+    }
+
+    [Fact]
+    public async Task Concurrent_grants_for_one_dimension_leave_a_single_current_effect()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-acc-race"), CancellationToken);
+        var firstCoordinator = CreateAccommodationCoordinator(harness);
+        var secondCoordinator = CreateAccommodationCoordinator(harness);
+        var first = firstCoordinator.GrantAsync(
+            GrantCommand(harness, assigned.EnrollmentId!.Value, "grant-a", "2026-10-07T17:00:00Z"),
+            CancellationToken);
+        var second = secondCoordinator.GrantAsync(
+            GrantCommand(harness, assigned.EnrollmentId.Value, "grant-b", "2026-10-08T17:00:00Z"),
+            CancellationToken);
+        var results = await Task.WhenAll(first, second);
+        Assert.Contains(results, result => result.Succeeded);
+        Assert.DoesNotContain(results, result => result.OutcomeCode.Contains("500", StringComparison.Ordinal));
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        Assert.Equal(1, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM submissions_accommodations
+            WHERE organization_id = @OrganizationId
+              AND enrollment_id = @EnrollmentId
+              AND status = 'granted'
+            """,
+            new { harness.OrganizationId, EnrollmentId = assigned.EnrollmentId }));
+    }
+
+    [Fact]
+    public async Task Wrong_organization_cannot_read_or_mutate_an_accommodation()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-acc-iso"), CancellationToken);
+        var accommodations = CreateAccommodationCoordinator(harness);
+        var granted = await accommodations.GrantAsync(
+            GrantCommand(harness, assigned.EnrollmentId!.Value, "grant-iso", "2026-10-07T17:00:00Z"),
+            CancellationToken);
+        Assert.True(granted.Succeeded, granted.OutcomeCode);
+        var store = new PostgresAccommodationStore(Fixture.Services.ConnectionAccessor);
+        Assert.Null(await store.FindAsync(
+            Guid.CreateVersion7(),
+            granted.AccommodationId!.Value,
+            null,
+            CancellationToken));
+        Assert.Empty(await store.ListForEnrollmentAsync(
+            Guid.CreateVersion7(),
+            assigned.EnrollmentId.Value,
+            null,
+            CancellationToken));
+
+        var foreign = await accommodations.GrantAsync(
+            GrantCommand(
+                harness,
+                assigned.EnrollmentId.Value,
+                "grant-wrong-parent",
+                "2026-10-07T17:00:00Z",
+                activityId: Guid.CreateVersion7()),
+            CancellationToken);
+        Assert.False(foreign.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Unavailable, foreign.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Session_revocation_fails_an_uncommitted_grant()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-acc-session"), CancellationToken);
+        var accommodations = CreateAccommodationCoordinator(harness);
+        await using var revokeConnection = new NpgsqlConnection(Fixture.ConnectionString);
+        await revokeConnection.OpenAsync(CancellationToken);
+        await using var revokeTransaction = await revokeConnection.BeginTransactionAsync(CancellationToken);
+        await revokeConnection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE application_sessions
+                SET revoked_at = CLOCK_TIMESTAMP(), terminal_reason = 'test.revoke'
+                WHERE application_session_id = @ApplicationSessionId
+                """,
+                new { harness.ApplicationSessionId },
+                revokeTransaction,
+                cancellationToken: CancellationToken));
+
+        var grantTask = accommodations.GrantAsync(
+            GrantCommand(harness, assigned.EnrollmentId!.Value, "grant-session", "2026-10-07T17:00:00Z"),
+            CancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(200), CancellationToken);
+        Assert.False(grantTask.IsCompleted);
+        await revokeTransaction.CommitAsync(CancellationToken);
+        var granted = await grantTask.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken);
+        Assert.False(granted.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.Denied, granted.OutcomeCode);
+    }
+
+    [Fact]
+    public async Task Audit_failure_rolls_back_the_accommodation_and_leaves_no_audit()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-acc-audit"), CancellationToken);
+        var accommodations = CreateAccommodationCoordinator(harness, new FaultingAuditEventWriter());
+        var granted = await accommodations.GrantAsync(
+            GrantCommand(harness, assigned.EnrollmentId!.Value, "grant-audit", "2026-10-07T17:00:00Z"),
+            CancellationToken);
+        Assert.False(granted.Succeeded);
+        Assert.Equal(EnrollmentFailureCodes.AuditUnavailable, granted.OutcomeCode);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        Assert.Equal(0, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM submissions_accommodations
+            WHERE organization_id = @OrganizationId AND enrollment_id = @EnrollmentId
+            """,
+            new { harness.OrganizationId, EnrollmentId = assigned.EnrollmentId }));
+        Assert.Equal(0, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)::int
+            FROM audit_events
+            WHERE organization_id = @OrganizationId
+              AND action = @Action
+              AND resource_id = @EnrollmentId
+            """,
+            new
+            {
+                harness.OrganizationId,
+                Action = EnrollmentAuthorizationActions.GrantAccommodation,
+                EnrollmentId = assigned.EnrollmentId,
+            }));
+    }
+
+    [Fact]
+    public async Task Accommodation_identity_is_immutable_and_facts_are_append_only()
+    {
+        var harness = await SeedActivatedAsync();
+        var assigned = await harness.Coordinator.AssignAsync(harness.AssignCommand("assign-acc-immut"), CancellationToken);
+        var accommodations = CreateAccommodationCoordinator(harness);
+        var granted = await accommodations.GrantAsync(
+            GrantCommand(harness, assigned.EnrollmentId!.Value, "grant-immut", "2026-10-07T17:00:00Z"),
+            CancellationToken);
+        Assert.True(granted.Succeeded, granted.OutcomeCode);
+        await using var connection = await Fixture.Services.ConnectionAccessor.OpenConnectionAsync(CancellationToken);
+        var identity = await Assert.ThrowsAnyAsync<Exception>(() => connection.ExecuteAsync(
+            """
+            UPDATE submissions_accommodations
+            SET activity_id = @Other
+            WHERE organization_id = @OrganizationId AND accommodation_id = @AccommodationId
+            """,
+            new
+            {
+                harness.OrganizationId,
+                AccommodationId = granted.AccommodationId,
+                Other = Guid.CreateVersion7(),
+            }));
+        Assert.Contains("immutable", identity.Message, StringComparison.OrdinalIgnoreCase);
+        var factUpdate = await Assert.ThrowsAnyAsync<Exception>(() => connection.ExecuteAsync(
+            """
+            UPDATE submissions_accommodation_facts
+            SET new_status = 'revoked'
+            WHERE organization_id = @OrganizationId AND accommodation_id = @AccommodationId
+            """,
+            new { harness.OrganizationId, AccommodationId = granted.AccommodationId }));
+        Assert.Contains("append-only", factUpdate.Message, StringComparison.OrdinalIgnoreCase);
+        var factDelete = await Assert.ThrowsAnyAsync<Exception>(() => connection.ExecuteAsync(
+            """
+            DELETE FROM submissions_accommodation_facts
+            WHERE organization_id = @OrganizationId AND accommodation_id = @AccommodationId
+            """,
+            new { harness.OrganizationId, AccommodationId = granted.AccommodationId }));
+        Assert.Contains("append-only", factDelete.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private AccommodationCoordinator CreateAccommodationCoordinator(
+        EnrollmentHarness harness,
+        IAuditEventWriter? auditWriter = null)
+    {
+        var connections = Fixture.Services.ConnectionAccessor;
+        var kernel = new PostgresAuthorizationKernel(connections);
+        var store = new PostgresAssessmentDraftStore(connections, new PostgresAuditEventWriter());
+        var catalog = new PostgresAssessmentSourceCatalog(connections);
+        var baselines = new PostgresAssessmentBaselineStore(
+            connections,
+            new PostgresAuditEventWriter(),
+            new PostgresOutboxItemWriter());
+        var sessions = new IdentityEnrollmentSessionPort(new PostgresApplicationSessionStore(connections));
+        return new AccommodationCoordinator(
+            new KernelEnrollmentAuthorizationPort(kernel, kernel),
+            new AssessmentActivatedCohortPort(
+                new PostgresActivatedCohortBindingReader(
+                    connections,
+                    store,
+                    catalog,
+                    catalog,
+                    baselines,
+                    new ActivationBaselineDigester())),
+            new PostgresEnrollmentStore(connections),
+            new PostgresAccommodationStore(connections),
+            new PostgresEnrollmentOperationStore(),
+            new PostgresEnrollmentAuditPort(auditWriter ?? new PostgresAuditEventWriter(), new PostgresOutboxItemWriter()),
+            new PostgresEnrollmentUnitOfWork(connections, sessions),
+            sessions,
+            new FixedAccommodationPolicyPort());
+    }
+
+    private static GrantAccommodationCommand GrantCommand(
+        EnrollmentHarness harness,
+        Guid enrollmentId,
+        string key,
+        string value,
+        DateTimeOffset? expiresAtUtc = null,
+        Guid? activityId = null)
+    {
+        var activity = activityId ?? harness.ActivityId;
+        return new(
+            harness.Actor,
+            activity,
+            harness.CohortId,
+            enrollmentId,
+            AccommodationDimensions.SubmissionDeadlineUtc,
+            value,
+            AccommodationReasonCategories.DevelopmentSynthetic,
+            expiresAtUtc,
+            false,
+            1,
+            key,
+            AccommodationCommandDigest.Compute(
+                AccommodationOperationKinds.Grant,
+                harness.OrganizationId,
+                activity,
+                harness.CohortId,
+                enrollmentId,
+                null,
+                AccommodationDimensions.SubmissionDeadlineUtc,
+                value,
+                AccommodationReasonCategories.DevelopmentSynthetic,
+                false,
+                1,
+                expiresAtUtc));
+    }
+
+    private sealed class FaultingAuditEventWriter : IAuditEventWriter
+    {
+        public Task InsertAsync(
+            AuditEventWriteModel auditEvent,
+            NpgsqlTransaction transaction,
+            CancellationToken cancellationToken = default)
+        {
+            _ = auditEvent;
+            _ = transaction;
+            throw new InvalidOperationException("Injected audit failure.");
+        }
+    }
+
     private async Task<Guid> CloneActivatedCohortAsync(EnrollmentHarness harness)
     {
         var otherCohortId = Guid.CreateVersion7();

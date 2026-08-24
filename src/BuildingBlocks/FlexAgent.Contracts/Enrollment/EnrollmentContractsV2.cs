@@ -35,3 +35,72 @@ public sealed record AccommodationMutationOutcomeV2(
     string? Status,
     long? Revision,
     IReadOnlyList<string> PermittedActions);
+
+public sealed record EnrollmentTimingEnrollmentV2(
+    Guid EnrollmentId,
+    string Status,
+    long Revision,
+    string Visibility,
+    IReadOnlyList<string> PermittedActions);
+
+public sealed record TimingBaselineV2(
+    string StartsAtUtc,
+    string EndsAtUtc,
+    string DeadlineUtc,
+    string TimeZoneId,
+    int AttemptLimit,
+    int? PerAttemptDurationSeconds);
+
+public sealed record TimingEffectiveWindowV2(
+    string SubmissionStartsAtUtc,
+    string SubmissionExclusiveEndUtc,
+    string AttemptStartUtc,
+    string AttemptStartExclusiveEndUtc,
+    int? PerAttemptDurationSeconds,
+    string EvaluatedAtUtc,
+    string EligibilityState,
+    bool IsAuthoritative,
+    string TimeZoneId,
+    string ParticipantConsequenceCode);
+
+public sealed record AccommodationHistoryItemV2(
+    Guid AccommodationId,
+    string Dimension,
+    string Status,
+    string NormalizedValue,
+    string ReasonCategory,
+    bool FairnessException,
+    long Revision,
+    string CreatedAtUtc,
+    string? DecidedAtUtc,
+    string? ExpiresAtUtc);
+
+public sealed record EnrollmentTimingV2(
+    string SchemaVersion,
+    EnrollmentTimingEnrollmentV2 Enrollment,
+    TimingBaselineV2 Baseline,
+    TimingEffectiveWindowV2 Effective,
+    Guid? CurrentAccommodationId,
+    bool PolicyAvailable,
+    IReadOnlyList<string> PermittedDimensions,
+    IReadOnlyList<string> PermittedReasonCategories,
+    IReadOnlyList<AccommodationHistoryItemV2> History);
+
+public sealed record MyWorkTimingAssignmentV2(
+    Guid EnrollmentId,
+    string Status,
+    string Visibility,
+    string? ActivityTitle,
+    string? TaskTitle,
+    string? TimeZoneId,
+    string? StartsAtUtc,
+    string? EndsAtUtc,
+    string? DeadlineUtc,
+    bool SummaryAvailable,
+    IReadOnlyList<string> PermittedActions);
+
+public sealed record MyWorkTimingV2(
+    string SchemaVersion,
+    MyWorkTimingAssignmentV2 Assignment,
+    TimingEffectiveWindowV2? Effective,
+    string ParticipantConsequenceCode);

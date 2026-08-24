@@ -1,0 +1,29 @@
+{
+  "schema_version": "v2",
+  "assignment": {
+    "enrollment_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "status": "active",
+    "visibility": "current",
+    "activity_title": "Campaign",
+    "task_title": "Task 1",
+    "time_zone_id": "UTC",
+    "starts_at_utc": "2026-09-01T00:00:00Z",
+    "ends_at_utc": "2026-09-30T23:59:00Z",
+    "deadline_utc": "2026-09-30T17:00:00Z",
+    "summary_available": true,
+    "permitted_actions": ["open_assignment"]
+  },
+  "effective": {
+    "submission_starts_at_utc": "2026-09-01T00:00:00Z",
+    "submission_exclusive_end_utc": "2026-10-07T17:00:00Z",
+    "attempt_start_utc": "2026-09-01T00:00:00Z",
+    "attempt_start_exclusive_end_utc": "2026-09-30T23:59:00Z",
+    "per_attempt_duration_seconds": 3600,
+    "evaluated_at_utc": "2026-08-24T08:00:00Z",
+    "eligibility_state": "too_early",
+    "is_authoritative": true,
+    "time_zone_id": "UTC",
+    "participant_consequence_code": "deadline_replacement"
+  },
+  "participant_consequence_code": "deadline_replacement"
+}

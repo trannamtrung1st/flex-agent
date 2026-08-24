@@ -192,7 +192,9 @@ public sealed class EnrollmentTimingQueryService(
             new AssignmentTimingSummary(
                 assignment,
                 detail.Timing,
-                detail.Timing.IsAuthoritativeEligibility ? detail.Timing.ParticipantConsequenceCode : null),
+                detail.Timing.IsAuthoritativeEligibility
+                    ? detail.Timing.ParticipantConsequenceCode
+                    : AccommodationConsequenceCodes.None),
             "enrollment.ok");
     }
 

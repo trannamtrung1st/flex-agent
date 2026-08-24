@@ -9,6 +9,7 @@ import {
   type EnrollmentDetailV1,
   type EnrollmentTimingV2,
 } from "../api/production-enrollment";
+import type { AccommodationDimensionV2 } from "../contracts/v2";
 import { Dialog } from "../components/ui/Dialog";
 import { ProtectedLoading } from "../components/ui/ProtectedLoading";
 import { StatusPanel } from "../components/ui/StatusPanel";
@@ -43,7 +44,7 @@ export function ProductionEnrollmentDetailPage() {
   const [timing, setTiming] = useState<EnrollmentTimingV2 | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [dimension, setDimension] = useState("submission_deadline_utc");
+  const [dimension, setDimension] = useState<AccommodationDimensionV2>("submission_deadline_utc");
   const [requestedValue, setRequestedValue] = useState("");
   const [reasonCategory, setReasonCategory] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
@@ -124,7 +125,12 @@ export function ProductionEnrollmentDetailPage() {
           <h2>Request accommodation</h2>
           <label>
             Dimension
-            <select value={dimension} onChange={(event) => { setDimension(event.target.value); }}>
+            <select
+              value={dimension}
+              onChange={(event) => {
+                setDimension(event.target.value as AccommodationDimensionV2);
+              }}
+            >
               {timing.permitted_dimensions.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}

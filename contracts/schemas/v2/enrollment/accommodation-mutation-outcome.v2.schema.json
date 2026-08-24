@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v2/enrollment/accommodation-mutation-outcome.v2.schema.json",
+  "title": "Accommodation mutation outcome v2",
+  "description": "Server-derived accommodation grant, decision, or revocation outcome. v1 Enrollment mutation outcomes remain lifecycle-only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "succeeded",
+    "outcome_code",
+    "permitted_actions"
+  ],
+  "properties": {
+    "schema_version": { "const": "v2" },
+    "succeeded": {
+      "type": "boolean"
+    },
+    "outcome_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._]{0,127}$"
+    },
+    "accommodation_id": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "enrollment_id": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "status": {
+      "type": ["string", "null"],
+      "enum": ["pending_approval", "granted", "rejected", "revoked", "superseded", null]
+    },
+    "revision": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "permitted_actions": {
+      "type": "array",
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "assign_participants",
+          "suspend_enrollment",
+          "restore_enrollment",
+          "close_enrollment",
+          "revoke_enrollment",
+          "open_assignment",
+          "return_to_my_work",
+          "request_accommodation",
+          "revoke_accommodation",
+          "approve_fairness_exception",
+          "reject_fairness_exception"
+        ]
+      }
+    }
+  }
+}

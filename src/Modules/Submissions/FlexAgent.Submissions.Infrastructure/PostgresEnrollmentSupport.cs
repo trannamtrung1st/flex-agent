@@ -676,7 +676,7 @@ public sealed class PostgresAccommodationStore(PostgresConnectionAccessor connec
                   AND accommodation_id = @AccommodationId
                   AND revision = @ExpectedRevision
                 """,
-                ToRow(accommodation) with { ExpectedRevision = accommodation.Revision - 1 },
+                ToUpdateRow(accommodation),
                 postgres.Scope.Transaction,
                 cancellationToken: cancellationToken));
         if (updated != 1)
@@ -747,8 +747,70 @@ public sealed class PostgresAccommodationStore(PostgresConnectionAccessor connec
             accommodation.SupersededByAccommodationId,
             accommodation.FairnessException,
             accommodation.LifecyclePolicyId,
+            accommodation.LifecyclePolicyVersion);
+
+    private static AccommodationUpdateRow ToUpdateRow(Accommodation accommodation) =>
+        new(
+            accommodation.Parent.OrganizationId,
+            accommodation.AccommodationId,
+            accommodation.Parent.ActivityId,
+            accommodation.Parent.CohortId,
+            accommodation.Parent.BaselineId,
+            accommodation.Parent.EnrollmentId,
+            accommodation.Parent.ParticipantActorId,
+            accommodation.Dimension,
+            accommodation.NormalizedValue,
+            accommodation.FrozenPolicy.PolicyId,
+            accommodation.FrozenPolicy.VersionId,
+            accommodation.FrozenPolicy.Digest,
+            accommodation.DecisionPolicy.PolicyId,
+            accommodation.DecisionPolicy.VersionId,
+            accommodation.DecisionPolicy.Digest,
+            accommodation.ReasonCategory,
+            accommodation.Status,
+            accommodation.Revision,
+            accommodation.RequesterActorId,
+            accommodation.ApproverActorId,
+            accommodation.CreatedAtUtc,
+            accommodation.DecidedAtUtc,
+            accommodation.ExpiresAtUtc,
+            accommodation.RevokedAtUtc,
+            accommodation.SupersededByAccommodationId,
+            accommodation.FairnessException,
+            accommodation.LifecyclePolicyId,
             accommodation.LifecyclePolicyVersion,
-            0);
+            accommodation.Revision - 1);
+
+    private sealed record AccommodationUpdateRow(
+        Guid OrganizationId,
+        Guid AccommodationId,
+        Guid ActivityId,
+        Guid CohortId,
+        Guid BaselineId,
+        Guid EnrollmentId,
+        Guid ParticipantActorId,
+        string Dimension,
+        string NormalizedValue,
+        Guid FrozenPolicyId,
+        Guid FrozenPolicyVersionId,
+        string FrozenPolicyDigest,
+        Guid DecisionPolicyId,
+        Guid DecisionPolicyVersionId,
+        string DecisionPolicyDigest,
+        string ReasonCategory,
+        string Status,
+        long Revision,
+        Guid RequesterActorId,
+        Guid? ApproverActorId,
+        DateTimeOffset CreatedAtUtc,
+        DateTimeOffset? DecidedAtUtc,
+        DateTimeOffset? ExpiresAtUtc,
+        DateTimeOffset? RevokedAtUtc,
+        Guid? SupersededByAccommodationId,
+        bool FairnessException,
+        Guid LifecyclePolicyId,
+        int LifecyclePolicyVersion,
+        long ExpectedRevision);
 
     private sealed record AccommodationRow(
         Guid OrganizationId,
@@ -778,8 +840,7 @@ public sealed class PostgresAccommodationStore(PostgresConnectionAccessor connec
         Guid? SupersededByAccommodationId,
         bool FairnessException,
         Guid LifecyclePolicyId,
-        int LifecyclePolicyVersion,
-        long ExpectedRevision = 0)
+        int LifecyclePolicyVersion)
     {
         public Accommodation ToAccommodation() =>
             new(

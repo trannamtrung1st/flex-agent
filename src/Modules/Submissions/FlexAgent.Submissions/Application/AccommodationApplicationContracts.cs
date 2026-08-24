@@ -62,7 +62,7 @@ public sealed record EnrollmentTimingDetail(
 public sealed record AssignmentTimingSummary(
     AssignmentSummary Assignment,
     EffectiveTiming? Timing,
-    string? ParticipantConsequenceCode);
+    string ParticipantConsequenceCode);
 
 public interface IAccommodationCoordinator
 {

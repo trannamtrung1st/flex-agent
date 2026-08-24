@@ -40,25 +40,7 @@ public static class EnrollmentTimingEndpointExtensions
         }
 
         var result = await queries.GetEnrollmentTimingAsync(actor, activityId, cohortId, enrollmentId, context.RequestAborted);
-        await EnrollmentEndpointExtensions.WriteQuery(context, result, detail => new
-        {
-            schema_version = "v2",
-            enrollment = new
-            {
-                enrollment_id = detail.Summary.EnrollmentId,
-                status = detail.Summary.Status,
-                revision = detail.Summary.Revision,
-                visibility = detail.Summary.Visibility,
-                permitted_actions = detail.Summary.PermittedActions,
-            },
-            baseline = ProjectBaseline(detail.Baseline),
-            effective = ProjectEffective(detail.Timing),
-            current_accommodation_id = detail.Timing.CurrentAccommodationId,
-            policy_available = detail.PolicyAvailable,
-            permitted_dimensions = detail.PermittedAccommodationDimensions,
-            permitted_reason_categories = detail.PermittedReasonCategories,
-            history = detail.History.Select(ProjectHistory),
-        });
+        await EnrollmentEndpointExtensions.WriteQuery(context, result, ProjectEnrollmentTiming);
     }
 
     private static async Task GetMyWorkTiming(
@@ -73,26 +55,7 @@ public static class EnrollmentTimingEndpointExtensions
         }
 
         var result = await queries.GetMyWorkTimingAsync(actor, enrollmentId, context.RequestAborted);
-        await EnrollmentEndpointExtensions.WriteQuery(context, result, detail => new
-        {
-            schema_version = "v2",
-            assignment = new
-            {
-                enrollment_id = detail.Assignment.EnrollmentId,
-                status = detail.Assignment.Status,
-                visibility = detail.Assignment.Visibility,
-                activity_title = detail.Assignment.ActivityTitle,
-                task_title = detail.Assignment.TaskTitle,
-                time_zone_id = detail.Assignment.TimeZoneId,
-                starts_at_utc = EnrollmentEndpointExtensions.FormatUtc(detail.Assignment.StartsAtUtc),
-                ends_at_utc = EnrollmentEndpointExtensions.FormatUtc(detail.Assignment.EndsAtUtc),
-                deadline_utc = EnrollmentEndpointExtensions.FormatUtc(detail.Assignment.DeadlineUtc),
-                summary_available = detail.Assignment.SummaryAvailable,
-                permitted_actions = detail.Assignment.PermittedActions,
-            },
-            effective = detail.Timing is null ? null : ProjectEffective(detail.Timing),
-            participant_consequence_code = detail.ParticipantConsequenceCode,
-        });
+        await EnrollmentEndpointExtensions.WriteQuery(context, result, ProjectMyWorkTiming);
     }
 
     private static Task GrantAccommodation(
@@ -279,43 +242,79 @@ public static class EnrollmentTimingEndpointExtensions
             outcome.PermittedActions));
     }
 
-    private static object ProjectBaseline(BaselineTiming baseline) => new
-    {
-        starts_at_utc = EnrollmentEndpointExtensions.FormatUtc(baseline.StartsAtUtc),
-        ends_at_utc = EnrollmentEndpointExtensions.FormatUtc(baseline.EndsAtUtc),
-        deadline_utc = EnrollmentEndpointExtensions.FormatUtc(baseline.DeadlineUtc),
-        time_zone_id = baseline.TimeZoneId,
-        attempt_limit = baseline.AttemptLimit,
-        per_attempt_duration_seconds = baseline.PerAttemptDurationSeconds,
-    };
+    private static EnrollmentTimingV2 ProjectEnrollmentTiming(EnrollmentTimingDetail detail) =>
+        new(
+            "v2",
+            new EnrollmentTimingEnrollmentV2(
+                detail.Summary.EnrollmentId,
+                detail.Summary.Status,
+                detail.Summary.Revision,
+                detail.Summary.Visibility,
+                detail.Summary.PermittedActions),
+            ProjectBaseline(detail.Baseline),
+            ProjectEffective(detail.Timing),
+            detail.Timing.CurrentAccommodationId,
+            detail.PolicyAvailable,
+            detail.PermittedAccommodationDimensions,
+            detail.PermittedReasonCategories,
+            detail.History.Select(ProjectHistory).ToArray());
 
-    private static object ProjectEffective(EffectiveTiming timing) => new
-    {
-        submission_starts_at_utc = EnrollmentEndpointExtensions.FormatUtc(timing.EffectiveSubmissionStartUtc),
-        submission_exclusive_end_utc = EnrollmentEndpointExtensions.FormatUtc(timing.EffectiveSubmissionExclusiveEndUtc),
-        attempt_start_utc = EnrollmentEndpointExtensions.FormatUtc(timing.EffectiveAttemptStartUtc),
-        attempt_start_exclusive_end_utc = EnrollmentEndpointExtensions.FormatUtc(timing.EffectiveAttemptStartExclusiveEndUtc),
-        per_attempt_duration_seconds = timing.EffectivePerAttemptDurationSeconds,
-        evaluated_at_utc = EnrollmentEndpointExtensions.FormatUtc(timing.EvaluatedAtUtc),
-        eligibility_state = timing.EligibilityState,
-        is_authoritative = timing.IsAuthoritativeEligibility,
-        time_zone_id = timing.TimeZoneId,
-        participant_consequence_code = timing.ParticipantConsequenceCode,
-    };
+    private static MyWorkTimingV2 ProjectMyWorkTiming(AssignmentTimingSummary detail) =>
+        new(
+            "v2",
+            new MyWorkTimingAssignmentV2(
+                detail.Assignment.EnrollmentId,
+                detail.Assignment.Status,
+                detail.Assignment.Visibility,
+                detail.Assignment.ActivityTitle,
+                detail.Assignment.TaskTitle,
+                detail.Assignment.TimeZoneId,
+                EnrollmentEndpointExtensions.FormatUtc(detail.Assignment.StartsAtUtc),
+                EnrollmentEndpointExtensions.FormatUtc(detail.Assignment.EndsAtUtc),
+                EnrollmentEndpointExtensions.FormatUtc(detail.Assignment.DeadlineUtc),
+                detail.Assignment.SummaryAvailable,
+                detail.Assignment.PermittedActions),
+            detail.Timing is null ? null : ProjectEffective(detail.Timing),
+            detail.ParticipantConsequenceCode);
 
-    private static object ProjectHistory(Accommodation item) => new
-    {
-        accommodation_id = item.AccommodationId,
-        dimension = item.Dimension,
-        status = item.Status,
-        normalized_value = item.NormalizedValue,
-        reason_category = item.ReasonCategory,
-        fairness_exception = item.FairnessException,
-        revision = item.Revision,
-        created_at_utc = EnrollmentEndpointExtensions.FormatUtc(item.CreatedAtUtc),
-        decided_at_utc = EnrollmentEndpointExtensions.FormatUtc(item.DecidedAtUtc),
-        expires_at_utc = item.ExpiresAtUtc is null
-            ? null
-            : AccommodationPolicyNormalizer.FormatCanonicalInstant(item.ExpiresAtUtc.Value),
-    };
+    private static TimingBaselineV2 ProjectBaseline(BaselineTiming baseline) =>
+        new(
+            RequiredUtc(baseline.StartsAtUtc),
+            RequiredUtc(baseline.EndsAtUtc),
+            RequiredUtc(baseline.DeadlineUtc),
+            baseline.TimeZoneId,
+            baseline.AttemptLimit,
+            baseline.PerAttemptDurationSeconds);
+
+    private static TimingEffectiveWindowV2 ProjectEffective(EffectiveTiming timing) =>
+        new(
+            RequiredUtc(timing.EffectiveSubmissionStartUtc),
+            RequiredUtc(timing.EffectiveSubmissionExclusiveEndUtc),
+            RequiredUtc(timing.EffectiveAttemptStartUtc),
+            RequiredUtc(timing.EffectiveAttemptStartExclusiveEndUtc),
+            timing.EffectivePerAttemptDurationSeconds,
+            RequiredUtc(timing.EvaluatedAtUtc),
+            timing.EligibilityState,
+            timing.IsAuthoritativeEligibility,
+            timing.TimeZoneId,
+            timing.ParticipantConsequenceCode);
+
+    private static AccommodationHistoryItemV2 ProjectHistory(Accommodation item) =>
+        new(
+            item.AccommodationId,
+            item.Dimension,
+            item.Status,
+            item.NormalizedValue,
+            item.ReasonCategory,
+            item.FairnessException,
+            item.Revision,
+            RequiredUtc(item.CreatedAtUtc),
+            EnrollmentEndpointExtensions.FormatUtc(item.DecidedAtUtc),
+            item.ExpiresAtUtc is null
+                ? null
+                : AccommodationPolicyNormalizer.FormatCanonicalInstant(item.ExpiresAtUtc.Value));
+
+    private static string RequiredUtc(DateTimeOffset value) =>
+        EnrollmentEndpointExtensions.FormatUtc(value)
+        ?? throw new InvalidOperationException("Timing projection requires a UTC instant.");
 }

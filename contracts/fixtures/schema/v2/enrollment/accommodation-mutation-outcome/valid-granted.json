@@ -1,0 +1,10 @@
+{
+  "schema_version": "v2",
+  "succeeded": true,
+  "outcome_code": "accommodation.granted",
+  "accommodation_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  "enrollment_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  "status": "granted",
+  "revision": 1,
+  "permitted_actions": ["request_accommodation", "revoke_accommodation"]
+}

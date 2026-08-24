@@ -54,6 +54,48 @@ paths:
                     type: [string, 'null']
                   has_more:
                     type: boolean
+  /v2/assessment/activities/{activityId}/cohorts/{cohortId}/enrollments/{enrollmentId}/timing:
+    get:
+      operationId: getEnrollmentTiming
+      responses:
+        '200':
+          description: Administrator Enrollment baseline and effective timing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentTimingV2'
+  /v2/assessment/activities/{activityId}/cohorts/{cohortId}/enrollments/{enrollmentId}/accommodations:
+    post:
+      operationId: grantAccommodation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrantAccommodationCommandV2'
+      responses:
+        '200':
+          description: Accommodation granted or pending approval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccommodationMutationOutcomeV2'
+        '409':
+          description: Safe conflict response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeErrorResponseV1'
+  /v2/assessment/my-work/{enrollmentId}/timing:
+    get:
+      operationId: getMyWorkTiming
+      responses:
+        '200':
+          description: Participant effective timing for one Assignment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyWorkTimingV2'
   /session/commands:
     post:
       operationId: submitSessionCommand
@@ -183,6 +225,120 @@ components:
           items:
             type: string
             enum: [open_assignment, return_to_my_work]
+    GrantAccommodationCommandV2:
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - dimension
+        - requested_value
+        - reason_category
+        - fairness_exception
+        - expected_revision
+        - idempotency_key
+      properties:
+        schema_version:
+          type: string
+          const: v2
+        dimension:
+          type: string
+          enum:
+            - submission_deadline_utc
+            - attempt_start_not_before_utc
+            - attempt_start_before_utc
+            - per_attempt_duration_seconds
+        requested_value:
+          type: string
+        reason_category:
+          type: string
+        expires_at_utc:
+          type: [string, 'null']
+        fairness_exception:
+          type: boolean
+        expected_revision:
+          type: integer
+          minimum: 1
+        idempotency_key:
+          type: string
+    AccommodationMutationOutcomeV2:
+      type: object
+      additionalProperties: false
+      required: [schema_version, succeeded, outcome_code, permitted_actions]
+      properties:
+        schema_version:
+          type: string
+          const: v2
+        succeeded:
+          type: boolean
+        outcome_code:
+          type: string
+        accommodation_id:
+          type: [string, 'null']
+          format: uuid
+        enrollment_id:
+          type: [string, 'null']
+          format: uuid
+        status:
+          type: [string, 'null']
+        revision:
+          type: [integer, 'null']
+        permitted_actions:
+          type: array
+          items:
+            type: string
+    EnrollmentTimingV2:
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - enrollment
+        - baseline
+        - effective
+        - policy_available
+        - permitted_dimensions
+        - permitted_reason_categories
+        - history
+      properties:
+        schema_version:
+          type: string
+          const: v2
+        enrollment:
+          type: object
+        baseline:
+          type: object
+        effective:
+          type: object
+        current_accommodation_id:
+          type: [string, 'null']
+          format: uuid
+        policy_available:
+          type: boolean
+        permitted_dimensions:
+          type: array
+          items:
+            type: string
+        permitted_reason_categories:
+          type: array
+          items:
+            type: string
+        history:
+          type: array
+          items:
+            type: object
+    MyWorkTimingV2:
+      type: object
+      additionalProperties: false
+      required: [schema_version, assignment, participant_consequence_code]
+      properties:
+        schema_version:
+          type: string
+          const: v2
+        assignment:
+          $ref: '#/components/schemas/MyWorkAssignmentV1'
+        effective:
+          type: [object, 'null']
+        participant_consequence_code:
+          type: string
     Int64WireStringNineteenDigit:
       type: string
       minLength: 19

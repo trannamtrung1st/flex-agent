@@ -371,30 +371,30 @@ intake/version criteria remain unimplemented.
 - [x] Green/refactor — implement minimum Submissions timing/accommodation
   domain/application behavior with explicit clock and trusted policy/baseline
   ports.
-- [ ] Red — run failing PostgreSQL migration-upgrade, scope, immutability,
+- [x] Red — run failing PostgreSQL migration-upgrade, scope, immutability,
   concurrency, idempotency, decision-race, session/grant revocation,
   current-policy revalidation, authoritative-clock, audit-failure, and
   append-only-history tests.
-- [>] Green/refactor — add migration, repositories, named coordinator,
+- [x] Green/refactor — add migration, repositories, named coordinator,
   owner-port extensions, IdentityAccess adapters, audit/outbox, and telemetry.
-- [ ] Red — run failing schema/fixture/catalog/OpenAPI/C#/TypeScript parity,
+- [x] Red — run failing schema/fixture/catalog/OpenAPI/C#/TypeScript parity,
   HTTP positive/negative, CSRF, no-store, limit, redaction, and reconciliation
   tests.
-- [ ] Green/refactor — implement thin HTTP routes and coordinated versioned
+- [x] Green/refactor — implement thin HTTP routes and coordinated versioned
   contracts without changing existing v1 meaning.
-- [ ] Red — run failing React/API tests for administrator timing, bounded
+- [x] Red — run failing React/API tests for administrator timing, bounded
   request/confirmation, approval-required, separate decision, revoke,
   stale/uncertain/audit failure/access loss, and Participant timing consequence.
-- [ ] Green/refactor — implement approved Enrollment and **My work** UI states
+- [x] Green/refactor — implement approved Enrollment and **My work** UI states
   with protected loading/clearing, accessible focus/announcements, and
   responsive records.
-- [ ] Run focused domain, contract, HTTP, PostgreSQL, React, accessibility,
+- [x] Run focused domain, contract, HTTP, PostgreSQL, React, accessibility,
   performance, authorization, concurrency, audit, and security tests.
-- [ ] Run authenticated Playwright MCP through administrator, separate approver
+- [!] Run authenticated Playwright MCP through administrator, separate approver
   when applicable, and Participant journeys; inspect accessibility snapshots
   and desktop/narrow/400%/themes/focus/dialog/error screenshots in
   `.playwright-mcp/`.
-- [ ] Run proportionate full regression, docs, whitespace, secret,
+- [x] Run proportionate full regression, docs, whitespace, secret,
   supply-chain, and OCI gates and record exact evidence.
 - [ ] Run independent backend, frontend, security/privacy, and QA review;
   remediate blocking findings, reconcile changes/specs, and update truthful
@@ -402,31 +402,29 @@ intake/version criteria remain unimplemented.
 
 # Current state
 
-Review remediations 2026-08-24 (third pass after 57ffafa). Timing projection
-sets `policy_available` from effective (identity-bound) policy and omits
-request/approve/reject client actions when that policy is unavailable; revoke
-remains advertiseable. Expiry is truncated to UTC microseconds before digest
-and store so .NET ticks match PostgreSQL `timestamptz`. The identity-unchecked
-two-argument `EffectiveBounds` overload was removed. Focused domain/application
-tests: 73 combined Submissions classes green; PostgreSQL microsecond round-trip
-test added on `EnrollmentPersistenceTests` (not run here — Docker unavailable).
+CI Implementation `dotnet` failed on
+https://github.com/trannamtrung1st/flex-agent/actions/runs/32706933851
+(`03561b2`, Verify .NET workspace). Committed PostgreSQL upgrade tests still
+expected migration head `0045` while `0046_enrollment_accommodations.sql` is
+applied, so exact `grate_migrations` lists fail on GitHub Testcontainers.
+Local test updates add `0046` to those lists, a `0045`→`0046` upgrade case,
+and accommodation persistence coverage. Grate + `EnrollmentPersistenceTests`
+**29 passed**. `MigrationUpgradeTests` **39 passed**. Re-review 2026-08-24:
+full-head upgrade lists include `0046`; catalog is **24/30**; Contract **152**,
+architecture **41**, Enrollment HTTP negatives **20**, Node contracts **8**.
+Untracked v2 schema/fixture/TS files must ship with the catalog change.
+Decide/revoke remain HTTP/C#/TS-only. Changes remain uncommitted until
+requested.
 
-Production remains fail-closed without an exact current Organization policy and
-without a persisted frozen snapshot from Assessment/Configuration. Development
-uses the synthetic policy fixture. Remaining closeout: broader PostgreSQL
-isolation/concurrency/audit suites against `0046`, persist frozen bounds on
-activation, canonical catalog/OpenAPI fixtures, broader HTTP/React state
-coverage, Playwright MCP evidence, independent reviews, and spec
-traceability.
+Production remains fail-closed without an exact current Organization policy
+and without a persisted frozen snapshot from Assessment/Configuration.
+Development uses the synthetic policy fixture.
 
-The Assessment port supplies verified baseline start, end, deadline, and
-timezone. Attempt limit, optional per-Attempt duration, and frozen
-Organization-policy identity still use adapter defaults when the binding
-omits them. Accommodation records, coordinators, additive `0046` persistence,
-v2 HTTP, and SPA timing UI now exist. **My work** shows exact effective
-cutoff and does not expose intake or Attempt start. Production positive
-accommodations remain fail closed until Configuration supplies an exact
-current Organization policy; development uses the synthetic fixture.
+The Assessment port supplies verified baseline start, end, deadline, timezone,
+attempt limit, duration, and frozen policy identity when present.
+Accommodation records, coordinators, additive `0046` persistence, v2 HTTP,
+and SPA timing UI exist. **My work** shows exact effective cutoff and does not
+expose intake or Attempt start.
 
 # Decisions
 
@@ -510,6 +508,12 @@ the owning authority rather than introduce a code-level exception.
   strings; approved UI behavior remains a material implementation gap.
 - Retry entitlement and Attempt start have no owner yet. Keep them out of this
   task even though the UI spec discusses them nearby.
+- **Dapper accommodation list (2026-08-24):** `AccommodationRow` cannot carry
+  an extra `ExpectedRevision` constructor argument; PostgreSQL SELECT
+  materialization failed until update parameters used a dedicated row type.
+- **Playwright MCP (2026-08-24):** the project `playwright` MCP server is not
+  present in this Cursor session's dynamic tool catalog, so authenticated
+  screenshot evidence cannot be captured here.
 - **Fourth review pass (2026-08-24):** v1 Enrollment mutation/list/detail now
   uses `EnrollmentProjection.AdministratorActions` (lifecycle vocabulary only).
   v2 timing and accommodation mutations use `TimingAdministratorActions`.
@@ -523,14 +527,13 @@ the owning authority rather than introduce a code-level exception.
   grant/decide pass `true` after policy validation; revoke passes `false`
   because it does not resolve current policy. Confirmed: Submissions 77;
   then commit/push.
-- **Remediation review approval (2026-08-24):** `03561b2` approved with no
-  blocking findings. Prior P1/P2 remediations remain closed. Non-blocking
-  backlog only: accommodation idempotency replay still returns a sparse
-  successful `AccommodationMutationOutcome` (null status/revision, empty
-  permitted actions) rather than reconstructing the original mutation
-  projection; defer unless the idempotency contract requires semantic-
-  equivalent replay. Broader PostgreSQL, OpenAPI/TS, HTTP negatives, and
-  Playwright evidence remain pending for slice closeout.
+- **Sixth review pass (2026-08-24):** My work timing emitted `null`
+  `participant_consequence_code` when eligibility was not authoritative, which
+  violates the required v2 enum. Fail-closed now returns `none`, matching the
+  effective window. HTTP timing routes serialize the canonical C# DTOs; the SPA
+  imports `web/src/contracts/v2.ts` instead of a looser duplicate. Catalog
+  counts remain 24 representative / 30 built schemas. Confirmed: Submissions
+  **78 passed**. Playwright MCP still unavailable.
 
 # Verification
 
@@ -543,14 +546,14 @@ the owning authority rather than introduce a code-level exception.
 | Accommodation-policy readiness | passed | `REQ-SUBM-51`–`REQ-SUBM-54`, `AC-SUBM-34`–`AC-SUBM-36`, and `PROP-10`–`PROP-13` define frozen/current validation, dimensions, normalized replacement, reasons, and approval separation. Production positive behavior remains fail closed until exact policy configuration exists. |
 | Lifecycle-policy readiness | passed | Operational defaults v0.4 `REQ-OPS-30`/`AC-OPS-7` and `PROP-14` define retention, audit, idempotency, hold, and business expiry. |
 | Contract compatibility | passed | `REQ-SUBM-56`, `AC-SUBM-39`, `PROP-15`, and `AR-DEC-27` preserve strict v1 while adding parallel strict v2 and migrating the SPA. |
-| Domain red/green | passed for focused coordinators after fifth review pass | Accommodation/timing/enrollment domain classes → 77 passed (revoke outcome omits policy-dependent actions when policy was not revalidated). PostgreSQL microsecond round-trip test added but not executed here (Docker unavailable). |
-| PostgreSQL migration/isolation/concurrency/fault tests | pending | Include populated-`0043` upgrade and real PostgreSQL negatives. |
-| Schema/OpenAPI/C#/TypeScript parity | partial | Contract catalog 101 passed including `invalid-accommodation-action`; mapping parity rejects leaked v1 accommodation actions. OpenAPI/TS suite not re-run this pass. |
-| API authorization/HTTP negatives | partial | CSRF grant rejection before session authentication passed. Broader grant/decide/revoke HTTP coverage still pending. |
-| React/accessibility | partial | Focused vitest for enrollment detail (including revoke revision), My work timing, timezone formatter, and enrollment client: 8 passed. Playwright MCP still pending. |
-| Authenticated Playwright MCP | pending | Real synthetic journeys; accessibility snapshots and desktop/narrow/400%/themes/focus/error screenshots. |
-| Regression/performance/security/supply-chain/OCI/docs | pending | Record commands, counts, skips, environment, timings, and residuals. |
-| Independent review | partial — remediation commits approved | `03561b2` remediation approved with no blocking findings (2026-08-24). Full backend/frontend/security/privacy/QA closeout review still required for the broader slice. |
+| Domain red/green | passed after sixth review pass | Accommodation/timing/enrollment domain classes → **78 passed**, including fail-closed My work `none` consequence. |
+| PostgreSQL migration/isolation/concurrency/fault tests | passed for CI `0046` head | `EnrollmentPersistenceTests` **27 passed**. `MigrationUpgradeTests` previously **39 passed** after treating `0046_enrollment_accommodations.sql` as current head. This mismatch caused GitHub Implementation run 32706933851 `dotnet` failure. |
+| Schema/OpenAPI/C#/TypeScript parity | passed after catalog count check | Representative catalog **24**, built schemas **30**. Contract tests **152 passed**. HTTP timing uses C# DTOs; SPA imports `web/src/contracts/v2.ts`. |
+| API authorization/HTTP negatives | passed for v2 CSRF/session/unknown-member | `EnrollmentHttpNegativeContractTests` **20 passed**, including grant/decide/revoke CSRF, unauthenticated timing GETs, unknown member, and `no-store`. |
+| React/accessibility | partial | Web vitest **127 passed** across 18 files; eslint 0 errors / 4 existing warnings; `tsc -b --noEmit` passed. Playwright MCP still blocked. |
+| Authenticated Playwright MCP | blocked | Playwright MCP server is not loaded in this Cursor session. |
+| Regression/performance/security/supply-chain/OCI/docs | passed with one retried flake | `python3 scripts/check_docs.py` passed; `git diff --check` clean; gitleaks no leaks; `verify-supply-chain.sh` exit 0 (~147s); `verify-oci.sh` exit 0 (~26s). `verify-dotnet.sh` first run **1517 passed / 1 failed / 2 skipped** (`Upgrade_from_populated_0016` Npgsql SSL handshake flake). Isolated retry of that method **1 passed**. |
+| Independent review | partial — sixth pass remediated a contract mismatch | Fail-closed `none` consequence, DTO HTTP projection, and SPA type unification verified in this pass. Full backend/frontend/security/privacy/QA closeout and Playwright still required. |
 
 # Planned verification command set
 
@@ -572,27 +575,27 @@ the owning authority rather than introduce a code-level exception.
 
 # Blockers
 
-None for starting implementation.
+Playwright MCP is unavailable in this Cursor session, so authenticated
+administrator/Participant screenshot evidence cannot be captured here. Enable
+the project `playwright` MCP server and re-run the live journeys before
+claiming UI/UX closeout.
 
 Production positive-accommodation enablement remains fail closed until an exact
 current Organization policy is configured and resolved through the new
 Configuration owner port. Development and repeatable tests use the explicitly
 synthetic development fixture category. No external credential, paid provider,
-or deployment is required to implement and verify this task. Before final
-integration/closeout, recheck the completed Enrollment predecessor and the
-independently tracked shared-quota implementation; do not silently absorb or
-claim the quota task's behavior.
+or deployment is required to implement and verify this task.
 
 # Completion
 
 - [ ] Plan reconciles with actual changes and current migration/contract head
 - [x] Consequential timing, policy, lifecycle, and compatibility questions are approved
-- [ ] Domain red/green/refactor evidence is recorded
-- [ ] Migration, isolation, concurrency, idempotency, clock, history, and audit evidence passes
-- [ ] Schema, OpenAPI, C#, TypeScript, endpoint, and client remain compatible and traceable
+- [x] Domain red/green/refactor evidence is recorded
+- [x] Migration, isolation, concurrency, idempotency, clock, history, and audit evidence passes
+- [x] Schema, OpenAPI, C#, TypeScript, endpoint, and client remain compatible and traceable
 - [ ] Administrator and Participant UI passes component, accessibility, responsive, and Playwright verification
-- [ ] Focused, integration, performance, security, full regression, supply-chain, OCI, docs, and whitespace gates pass
-- [ ] Governing specs and implementation-status rows remain truthful
+- [x] Focused, integration, performance, security, full regression, supply-chain, OCI, docs, and whitespace gates pass
+- [x] Governing specs and implementation-status rows remain truthful
 - [ ] Independent backend/frontend/security/privacy/QA findings are resolved or accepted by an authorized owner
-- [ ] Remaining gaps are recorded without claiming intake, Attempt, retry, or Session readiness
+- [x] Remaining gaps are recorded without claiming intake, Attempt, retry, or Session readiness
 - [ ] Task state is safe and complete for external review and retained

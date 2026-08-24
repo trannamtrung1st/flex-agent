@@ -17,7 +17,7 @@ public sealed class ContractCatalogTests
     public void Catalog_declares_draft_2020_12_and_complete_representative_set()
     {
         Assert.Equal("https://json-schema.org/draft/2020-12/schema", _catalog.SchemaDialect);
-        Assert.Equal(20, _catalog.RepresentativeSchemas.Count);
+        Assert.Equal(24, _catalog.RepresentativeSchemas.Count);
         Assert.Equal(5, _catalog.DigestSchemas.Count);
         Assert.All(_catalog.RepresentativeSchemas, entry =>
             Assert.StartsWith(_catalog.IdNamespace, entry.SchemaId, StringComparison.Ordinal));
@@ -28,7 +28,7 @@ public sealed class ContractCatalogTests
     {
         ContractSchemaRegistry.AssertReferenceClosure(ContractsRoot, _catalog);
         var schemas = ContractSchemaRegistry.BuildCatalogSchemas(ContractsRoot, _catalog, AllowedKeywords);
-        Assert.Equal(26, schemas.Count);
+        Assert.Equal(30, schemas.Count);
     }
 
     [Theory]
@@ -66,6 +66,9 @@ public sealed class ContractCatalogTests
         Assert.Contains("PositiveInt64WireString", content, StringComparison.Ordinal);
         Assert.Contains("EnrollmentAssignCommandV1", content, StringComparison.Ordinal);
         Assert.Contains("MyWorkAssignmentV1", content, StringComparison.Ordinal);
+        Assert.Contains("GrantAccommodationCommandV2", content, StringComparison.Ordinal);
+        Assert.Contains("EnrollmentTimingV2", content, StringComparison.Ordinal);
+        Assert.Contains("MyWorkTimingV2", content, StringComparison.Ordinal);
     }
 
     public static TheoryData<string, string> ValidFixtureCases => DiscoverFixtures("valid-");

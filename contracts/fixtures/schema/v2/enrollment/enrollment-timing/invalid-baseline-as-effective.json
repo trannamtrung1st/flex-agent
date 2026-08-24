@@ -1,0 +1,31 @@
+{
+  "schema_version": "v2",
+  "enrollment": {
+    "enrollment_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "status": "active",
+    "revision": 1,
+    "visibility": "current",
+    "permitted_actions": []
+  },
+  "baseline": {
+    "starts_at_utc": "2026-09-01T00:00:00Z",
+    "ends_at_utc": "2026-09-30T23:59:00Z",
+    "deadline_utc": "2026-09-30T17:00:00Z",
+    "time_zone_id": "UTC",
+    "attempt_limit": 2
+  },
+  "effective": {
+    "starts_at_utc": "2026-09-01T00:00:00Z",
+    "ends_at_utc": "2026-09-30T23:59:00Z",
+    "deadline_utc": "2026-10-07T17:00:00Z",
+    "evaluated_at_utc": "2026-08-24T08:00:00Z",
+    "eligibility_state": "open",
+    "is_authoritative": true,
+    "time_zone_id": "UTC",
+    "participant_consequence_code": "none"
+  },
+  "policy_available": true,
+  "permitted_dimensions": [],
+  "permitted_reason_categories": [],
+  "history": []
+}

@@ -1,0 +1,268 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v2/enrollment/enrollment-timing.v2.schema.json",
+  "title": "Enrollment timing projection v2",
+  "description": "Administrator Enrollment timing projection that keeps immutable baseline fields distinct from effective windows and current accommodation history.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "enrollment",
+    "baseline",
+    "effective",
+    "policy_available",
+    "permitted_dimensions",
+    "permitted_reason_categories",
+    "history"
+  ],
+  "properties": {
+    "schema_version": { "const": "v2" },
+    "enrollment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enrollment_id", "status", "revision", "visibility", "permitted_actions"],
+      "properties": {
+        "enrollment_id": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "suspended", "closed", "revoked"]
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["current", "restricted", "unavailable"]
+        },
+        "permitted_actions": {
+          "type": "array",
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "assign_participants",
+              "suspend_enrollment",
+              "restore_enrollment",
+              "close_enrollment",
+              "revoke_enrollment",
+              "open_assignment",
+              "return_to_my_work",
+              "request_accommodation",
+              "revoke_accommodation",
+              "approve_fairness_exception",
+              "reject_fairness_exception"
+            ]
+          }
+        }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "starts_at_utc",
+        "ends_at_utc",
+        "deadline_utc",
+        "time_zone_id",
+        "attempt_limit"
+      ],
+      "properties": {
+        "starts_at_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "ends_at_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "deadline_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "time_zone_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "attempt_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "per_attempt_duration_seconds": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        }
+      }
+    },
+    "effective": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "submission_starts_at_utc",
+        "submission_exclusive_end_utc",
+        "attempt_start_utc",
+        "attempt_start_exclusive_end_utc",
+        "evaluated_at_utc",
+        "eligibility_state",
+        "is_authoritative",
+        "time_zone_id",
+        "participant_consequence_code"
+      ],
+      "properties": {
+        "submission_starts_at_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "submission_exclusive_end_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "attempt_start_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "attempt_start_exclusive_end_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "per_attempt_duration_seconds": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "evaluated_at_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "eligibility_state": {
+          "type": "string",
+          "enum": ["too_early", "open", "submission_closed", "attempt_start_closed", "unavailable"]
+        },
+        "is_authoritative": {
+          "type": "boolean"
+        },
+        "time_zone_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "participant_consequence_code": {
+          "type": "string",
+          "enum": ["none", "deadline_replacement", "attempt_start_replacement", "duration_replacement"]
+        }
+      }
+    },
+    "current_accommodation_id": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "policy_available": {
+      "type": "boolean"
+    },
+    "permitted_dimensions": {
+      "type": "array",
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "submission_deadline_utc",
+          "attempt_start_not_before_utc",
+          "attempt_start_before_utc",
+          "per_attempt_duration_seconds"
+        ]
+      }
+    },
+    "permitted_reason_categories": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "history": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "accommodation_id",
+          "dimension",
+          "status",
+          "normalized_value",
+          "reason_category",
+          "fairness_exception",
+          "revision",
+          "created_at_utc"
+        ],
+        "properties": {
+          "accommodation_id": {
+            "type": "string",
+            "format": "uuid",
+            "minLength": 36,
+            "maxLength": 36,
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "dimension": {
+            "type": "string",
+            "enum": [
+              "submission_deadline_utc",
+              "attempt_start_not_before_utc",
+              "attempt_start_before_utc",
+              "per_attempt_duration_seconds"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending_approval", "granted", "rejected", "revoked", "superseded"]
+          },
+          "normalized_value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "reason_category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "fairness_exception": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "created_at_utc": {
+            "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+          },
+          "decided_at_utc": {
+            "oneOf": [
+              {
+                "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+              },
+              { "type": "null" }
+            ]
+          },
+          "expires_at_utc": {
+            "oneOf": [
+              {
+                "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+              },
+              { "type": "null" }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

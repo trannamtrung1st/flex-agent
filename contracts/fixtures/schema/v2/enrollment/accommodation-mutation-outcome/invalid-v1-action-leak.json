@@ -1,0 +1,6 @@
+{
+  "schema_version": "v1",
+  "succeeded": true,
+  "outcome_code": "accommodation.granted",
+  "permitted_actions": ["request_accommodation"]
+}

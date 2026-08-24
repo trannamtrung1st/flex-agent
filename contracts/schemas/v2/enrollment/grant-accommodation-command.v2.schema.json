@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v2/enrollment/grant-accommodation-command.v2.schema.json",
+  "title": "Grant accommodation command v2",
+  "description": "Administrator command that requests or grants one policy-bounded Enrollment accommodation without changing the Cohort baseline.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "dimension",
+    "requested_value",
+    "reason_category",
+    "fairness_exception",
+    "expected_revision",
+    "idempotency_key"
+  ],
+  "properties": {
+    "schema_version": { "const": "v2" },
+    "dimension": {
+      "type": "string",
+      "enum": [
+        "submission_deadline_utc",
+        "attempt_start_not_before_utc",
+        "attempt_start_before_utc",
+        "per_attempt_duration_seconds"
+      ]
+    },
+    "requested_value": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "reason_category": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._]{0,127}$"
+    },
+    "expires_at_utc": {
+      "oneOf": [
+        {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        { "type": "null" }
+      ]
+    },
+    "fairness_exception": {
+      "type": "boolean"
+    },
+    "expected_revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    }
+  }
+}

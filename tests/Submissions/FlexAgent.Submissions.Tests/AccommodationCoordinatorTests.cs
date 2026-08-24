@@ -94,6 +94,40 @@ public sealed class AccommodationCoordinatorTests
     }
 
     [Fact]
+    public async Task My_work_timing_uses_none_consequence_when_eligibility_is_not_authoritative()
+    {
+        var harness = await AssignedHarnessAsync();
+        var requested = Now.AddDays(22);
+        var granted = await harness.Accommodations.GrantAsync(
+            GrantCommand(harness.EnrollmentId, 1, "grant-my-work", Format(requested), fairness: false),
+            TestContext.Current.CancellationToken);
+        Assert.True(granted.Succeeded, granted.OutcomeCode);
+
+        var participant = Participant();
+        var accommodated = await harness.Timing.GetMyWorkTimingAsync(
+            participant,
+            harness.EnrollmentId,
+            TestContext.Current.CancellationToken);
+        Assert.True(accommodated.Succeeded);
+        Assert.Equal(AccommodationConsequenceCodes.DeadlineReplacement, accommodated.Value!.ParticipantConsequenceCode);
+        Assert.Equal(AccommodationConsequenceCodes.DeadlineReplacement, accommodated.Value.Timing!.ParticipantConsequenceCode);
+
+        var baseline = TimingMapper.BaselineFrom(Binding());
+        harness.Policies.Policy = DevelopmentAccommodationPolicy.Create(OrganizationId, baseline, "development") with
+        {
+            EnvironmentEligible = false,
+        };
+        var closed = await harness.Timing.GetMyWorkTimingAsync(
+            participant,
+            harness.EnrollmentId,
+            TestContext.Current.CancellationToken);
+        Assert.True(closed.Succeeded);
+        Assert.False(closed.Value!.Timing!.IsAuthoritativeEligibility);
+        Assert.Equal(AccommodationConsequenceCodes.None, closed.Value.ParticipantConsequenceCode);
+        Assert.Equal(AccommodationConsequenceCodes.None, closed.Value.Timing.ParticipantConsequenceCode);
+    }
+
+    [Fact]
     public async Task Same_idempotency_key_with_a_different_expiry_conflicts()
     {
         var harness = await AssignedHarnessAsync();
@@ -373,6 +407,11 @@ public sealed class AccommodationCoordinatorTests
                 null,
                 false,
                 revision));
+
+    private static EnrollmentActorContext Participant() =>
+        Actor(ParticipantId, "organization.member", [
+            EnrollmentAuthorizationActions.Discover,
+        ]);
 
     private static EnrollmentActorContext Administrator() =>
         Actor(AdministratorId, AuthenticationStrengthEvaluator.AdministratorRelationship, [

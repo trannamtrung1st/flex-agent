@@ -1,0 +1,48 @@
+{
+  "schema_version": "v2",
+  "enrollment": {
+    "enrollment_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "status": "active",
+    "revision": 1,
+    "visibility": "current",
+    "permitted_actions": ["request_accommodation", "revoke_accommodation"]
+  },
+  "baseline": {
+    "starts_at_utc": "2026-09-01T00:00:00Z",
+    "ends_at_utc": "2026-09-30T23:59:00Z",
+    "deadline_utc": "2026-09-30T17:00:00Z",
+    "time_zone_id": "UTC",
+    "attempt_limit": 2,
+    "per_attempt_duration_seconds": 3600
+  },
+  "effective": {
+    "submission_starts_at_utc": "2026-09-01T00:00:00Z",
+    "submission_exclusive_end_utc": "2026-10-07T17:00:00Z",
+    "attempt_start_utc": "2026-09-01T00:00:00Z",
+    "attempt_start_exclusive_end_utc": "2026-09-30T23:59:00Z",
+    "per_attempt_duration_seconds": 3600,
+    "evaluated_at_utc": "2026-08-24T08:00:00Z",
+    "eligibility_state": "too_early",
+    "is_authoritative": true,
+    "time_zone_id": "UTC",
+    "participant_consequence_code": "deadline_replacement"
+  },
+  "current_accommodation_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  "policy_available": true,
+  "permitted_dimensions": ["submission_deadline_utc"],
+  "permitted_reason_categories": ["development.synthetic.timing"],
+  "history": [
+    {
+      "accommodation_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      "dimension": "submission_deadline_utc",
+      "status": "granted",
+      "normalized_value": "2026-10-07T17:00:00Z",
+      "reason_category": "development.synthetic.timing",
+      "fairness_exception": false,
+      "revision": 1,
+      "created_at_utc": "2026-08-22T06:00:00Z",
+      "decided_at_utc": "2026-08-22T06:00:00Z",
+      "expires_at_utc": null
+    }
+  ]
+}

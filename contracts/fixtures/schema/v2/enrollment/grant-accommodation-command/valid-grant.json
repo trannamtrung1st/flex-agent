@@ -1,0 +1,9 @@
+{
+  "schema_version": "v2",
+  "dimension": "submission_deadline_utc",
+  "requested_value": "2026-10-07T17:00:00Z",
+  "reason_category": "development.synthetic.timing",
+  "fairness_exception": false,
+  "expected_revision": 1,
+  "idempotency_key": "acc-grant-synthetic-0001"
+}

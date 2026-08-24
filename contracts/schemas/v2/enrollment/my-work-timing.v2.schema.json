@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v2/enrollment/my-work-timing.v2.schema.json",
+  "title": "My work timing projection v2",
+  "description": "Participant-visible effective timing for one Assignment. Strict v1 My work assignment projections remain baseline-only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "assignment",
+    "participant_consequence_code"
+  ],
+  "properties": {
+    "schema_version": { "const": "v2" },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enrollment_id",
+        "status",
+        "visibility",
+        "summary_available",
+        "permitted_actions"
+      ],
+      "properties": {
+        "enrollment_id": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "suspended"]
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["current", "restricted"]
+        },
+        "activity_title": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "task_title": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "time_zone_id": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "starts_at_utc": {
+          "oneOf": [
+            {
+              "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+            },
+            { "type": "null" }
+          ]
+        },
+        "ends_at_utc": {
+          "oneOf": [
+            {
+              "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+            },
+            { "type": "null" }
+          ]
+        },
+        "deadline_utc": {
+          "oneOf": [
+            {
+              "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+            },
+            { "type": "null" }
+          ]
+        },
+        "summary_available": {
+          "type": "boolean"
+        },
+        "permitted_actions": {
+          "type": "array",
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["open_assignment", "return_to_my_work"]
+          }
+        }
+      }
+    },
+    "effective": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "submission_starts_at_utc",
+        "submission_exclusive_end_utc",
+        "attempt_start_utc",
+        "attempt_start_exclusive_end_utc",
+        "evaluated_at_utc",
+        "eligibility_state",
+        "is_authoritative",
+        "time_zone_id",
+        "participant_consequence_code"
+      ],
+      "properties": {
+        "submission_starts_at_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "submission_exclusive_end_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "attempt_start_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "attempt_start_exclusive_end_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "per_attempt_duration_seconds": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "evaluated_at_utc": {
+          "$ref": "https://flex-agent.local/contracts/schemas/v1/common/primitives.v1.schema.json#/$defs/utc_timestamp"
+        },
+        "eligibility_state": {
+          "type": "string",
+          "enum": ["too_early", "open", "submission_closed", "attempt_start_closed", "unavailable"]
+        },
+        "is_authoritative": {
+          "type": "boolean"
+        },
+        "time_zone_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "participant_consequence_code": {
+          "type": "string",
+          "enum": ["none", "deadline_replacement", "attempt_start_replacement", "duration_replacement"]
+        }
+      }
+    },
+    "participant_consequence_code": {
+      "type": "string",
+      "enum": ["none", "deadline_replacement", "attempt_start_replacement", "duration_replacement"]
+    }
+  }
+}

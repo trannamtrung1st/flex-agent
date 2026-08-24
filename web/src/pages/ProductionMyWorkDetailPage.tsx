@@ -87,7 +87,7 @@ export function ProductionMyWorkDetailPage() {
           {timing.effective && !timing.effective.is_authoritative ? (
             <p>This timing is descriptive only and does not grant attempt authority.</p>
           ) : null}
-          {timing.participant_consequence_code && timing.participant_consequence_code !== "none" ? (
+          {timing.participant_consequence_code !== "none" ? (
             <p>An approved timing adjustment applies to this assignment.</p>
           ) : null}
         </section>

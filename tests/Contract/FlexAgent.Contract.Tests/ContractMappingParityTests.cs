@@ -76,6 +76,10 @@ public sealed class ContractMappingParityTests
         Assert.Contains("EnrollmentLifecycleCommandV1", exported);
         Assert.Contains("EnrollmentMutationOutcomeV1", exported);
         Assert.Contains("MyWorkAssignmentV1", exported);
+        Assert.Contains("GrantAccommodationCommandV2", exported);
+        Assert.Contains("AccommodationMutationOutcomeV2", exported);
+        Assert.Contains("EnrollmentTimingV2", exported);
+        Assert.Contains("MyWorkTimingV2", exported);
         Assert.DoesNotContain(exported, name => name.Contains("Authorization", StringComparison.Ordinal));
         Assert.DoesNotContain(exported, name => name.Contains("Secret", StringComparison.Ordinal));
     }
@@ -292,6 +296,109 @@ public sealed class ContractMappingParityTests
                 "2026-09-30T17:00:00Z",
                 true,
                 ["open_assignment"]));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/enrollment/grant-accommodation-command.v2.schema.json",
+            new GrantAccommodationCommandV2(
+                "v2",
+                "submission_deadline_utc",
+                "2026-10-07T17:00:00Z",
+                "development.synthetic.timing",
+                null,
+                false,
+                1,
+                "acc-grant-synthetic-0001"));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/enrollment/accommodation-mutation-outcome.v2.schema.json",
+            new AccommodationMutationOutcomeV2(
+                "v2",
+                true,
+                "accommodation.granted",
+                Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+                Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+                "granted",
+                1,
+                ["request_accommodation", "revoke_accommodation"]));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/enrollment/enrollment-timing.v2.schema.json",
+            new EnrollmentTimingV2(
+                "v2",
+                new EnrollmentTimingEnrollmentV2(
+                    Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+                    "active",
+                    1,
+                    "current",
+                    ["request_accommodation", "revoke_accommodation"]),
+                new TimingBaselineV2(
+                    "2026-09-01T00:00:00Z",
+                    "2026-09-30T23:59:00Z",
+                    "2026-09-30T17:00:00Z",
+                    "UTC",
+                    2,
+                    3600),
+                new TimingEffectiveWindowV2(
+                    "2026-09-01T00:00:00Z",
+                    "2026-10-07T17:00:00Z",
+                    "2026-09-01T00:00:00Z",
+                    "2026-09-30T23:59:00Z",
+                    3600,
+                    "2026-08-24T08:00:00Z",
+                    "too_early",
+                    true,
+                    "UTC",
+                    "deadline_replacement"),
+                Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+                true,
+                ["submission_deadline_utc"],
+                ["development.synthetic.timing"],
+                [
+                    new AccommodationHistoryItemV2(
+                        Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+                        "submission_deadline_utc",
+                        "granted",
+                        "2026-10-07T17:00:00Z",
+                        "development.synthetic.timing",
+                        false,
+                        1,
+                        "2026-08-22T06:00:00Z",
+                        "2026-08-22T06:00:00Z",
+                        null),
+                ]));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/enrollment/my-work-timing.v2.schema.json",
+            new MyWorkTimingV2(
+                "v2",
+                new MyWorkTimingAssignmentV2(
+                    Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+                    "active",
+                    "current",
+                    "Campaign",
+                    "Task 1",
+                    "UTC",
+                    "2026-09-01T00:00:00Z",
+                    "2026-09-30T23:59:00Z",
+                    "2026-09-30T17:00:00Z",
+                    true,
+                    ["open_assignment"]),
+                new TimingEffectiveWindowV2(
+                    "2026-09-01T00:00:00Z",
+                    "2026-10-07T17:00:00Z",
+                    "2026-09-01T00:00:00Z",
+                    "2026-09-30T23:59:00Z",
+                    3600,
+                    "2026-08-24T08:00:00Z",
+                    "too_early",
+                    true,
+                    "UTC",
+                    "deadline_replacement"),
+                "deadline_replacement"));
     }
 
     private void ValidateDto(IReadOnlyDictionary<string, Json.Schema.JsonSchema> schemas, string schemaId, object dto)

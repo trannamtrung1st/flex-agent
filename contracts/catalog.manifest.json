@@ -104,6 +104,26 @@
       "category": "my_work_assignment",
       "schema_id": "https://flex-agent.local/contracts/schemas/v1/enrollment/my-work-assignment.v1.schema.json",
       "fixture_dir": "fixtures/schema/v1/enrollment/my-work-assignment"
+    },
+    {
+      "category": "grant_accommodation_command",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/enrollment/grant-accommodation-command.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/enrollment/grant-accommodation-command"
+    },
+    {
+      "category": "accommodation_mutation_outcome",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/enrollment/accommodation-mutation-outcome.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/enrollment/accommodation-mutation-outcome"
+    },
+    {
+      "category": "enrollment_timing",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/enrollment/enrollment-timing.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/enrollment/enrollment-timing"
+    },
+    {
+      "category": "my_work_timing",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/enrollment/my-work-timing.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/enrollment/my-work-timing"
     }
   ],
   "digest_schemas": [

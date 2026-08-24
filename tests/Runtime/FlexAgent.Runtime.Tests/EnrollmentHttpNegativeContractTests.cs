@@ -52,6 +52,89 @@ public sealed class EnrollmentHttpNegativeContractTests
     }
 
     [Fact]
+    public async Task Enrollment_timing_without_a_session_is_unauthorized_and_not_cached()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var url = $"/v2/assessment/activities/{Guid.CreateVersion7()}/cohorts/{Guid.CreateVersion7()}/enrollments/{Guid.CreateVersion7()}/timing";
+        using var response = await client.GetAsync(url, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Contains(HumanAuthenticationReasonCodes.MissingSession, body, StringComparison.Ordinal);
+        Assert.DoesNotContain("submission_exclusive_end_utc", body, StringComparison.Ordinal);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
+    public async Task My_work_timing_without_a_session_is_unauthorized_and_not_cached()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var response = await client.GetAsync(
+            $"/v2/assessment/my-work/{Guid.CreateVersion7()}/timing",
+            TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Contains(HumanAuthenticationReasonCodes.MissingSession, body, StringComparison.Ordinal);
+        Assert.DoesNotContain("participant_consequence_code", body, StringComparison.Ordinal);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
+    public async Task Accommodation_grant_with_an_unknown_member_is_invalid()
+    {
+        await using var context = await LoginAsync();
+        var url = $"/v2/assessment/activities/{Guid.CreateVersion7()}/cohorts/{Guid.CreateVersion7()}/enrollments/{Guid.CreateVersion7()}/accommodations";
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(
+                """{"schema_version":"v2","dimension":"submission_deadline_utc","requested_value":"2026-10-07T17:00:00Z","reason_category":"development.synthetic.timing","fairness_exception":false,"expected_revision":1,"idempotency_key":"acc-1","policy_bound":true}""",
+                Encoding.UTF8,
+                "application/json"),
+        };
+        request.Headers.TryAddWithoutValidation("Cookie", context.SessionCookie);
+        request.Headers.TryAddWithoutValidation(HumanAuthenticationHostOptions.AntiforgeryHeaderName, context.CsrfToken);
+        using var response = await context.Client.SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(EnrollmentFailureCodes.InvalidField, body, StringComparison.Ordinal);
+        AssertNoAssignment(body);
+        Assert.DoesNotContain("accommodation.granted", body, StringComparison.Ordinal);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
+    public async Task Accommodation_decide_without_antiforgery_is_rejected_before_session_authentication()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var url = $"/v2/assessment/activities/{Guid.CreateVersion7()}/cohorts/{Guid.CreateVersion7()}/enrollments/{Guid.CreateVersion7()}/accommodations/{Guid.CreateVersion7()}/decide";
+        using var response = await client.PostAsync(url, AssignContent(), TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("csrf.invalid", body, StringComparison.Ordinal);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
+    public async Task Accommodation_revoke_without_antiforgery_is_rejected_before_session_authentication()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var url = $"/v2/assessment/activities/{Guid.CreateVersion7()}/cohorts/{Guid.CreateVersion7()}/enrollments/{Guid.CreateVersion7()}/accommodations/{Guid.CreateVersion7()}/revoke";
+        using var response = await client.PostAsync(url, AssignContent(), TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("csrf.invalid", body, StringComparison.Ordinal);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
     public async Task My_work_without_a_session_is_unauthorized_and_not_cached()
     {
         await using var factory = CreateFactory();
