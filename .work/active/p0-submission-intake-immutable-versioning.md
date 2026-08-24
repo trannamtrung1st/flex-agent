@@ -1,13 +1,14 @@
 ---
 id: p0-submission-intake-immutable-versioning
-status: planned
+status: in-progress
 created: 2026-08-24
 updated: 2026-08-24
 predecessors:
   - p0-assessment-setup-cohort-activation
   - p0-enrollment-assignment-discovery
   - p0-participant-timing-accommodations
-activation_gate: predecessor-closeout
+activation_gate: artifact-gate
+predecessor_closeout_commit: 14f8804
 ---
 
 # Goal
@@ -90,9 +91,10 @@ consume.
 - Predecessor task records
   `.work/active/p0-assessment-setup-cohort-activation.md`,
   `.work/active/p0-enrollment-assignment-discovery.md`, and
-  `.work/active/p0-participant-timing-accommodations.md`. The timing task must
-  close before this task is activated; this plan does not absorb its remaining
-  verification or traceability work.
+  `.work/active/p0-participant-timing-accommodations.md` (completed at
+  `14f8804`). Timing/accommodation authority, migration `0047`, v2
+  Enrollment/**My work** projections, and authenticated-browser v2 routing are
+  authoritative inputs for this slice.
 
 # Scope
 
@@ -528,11 +530,12 @@ Session rows remain unimplemented or Partial as governed by their owners.
 
 # Plan
 
-- [ ] Activation readiness — confirm the timing/accommodation predecessor is
-  completed, preserve its final migration/contract/API/UI facts, recheck Git and
-  dependency state, freeze the requirement-to-surface/test matrix, and verify
-  that no existing task already owns this slice.
-- [ ] Artifact Gate Red — add and run the smallest failing real SeaweedFS/AWS
+- [x] Activation readiness — `p0-participant-timing-accommodations` completed at
+  `14f8804` with no blocking external-review findings; migration head `0047`,
+  v2 Enrollment/timing contracts, and authenticated-browser `/v2/assessment`
+  proxy preserved as authoritative inputs. Requirement-to-surface matrix frozen
+  in this plan; no duplicate active task owns this slice.
+- [>] Artifact Gate Red — add and run the smallest failing real SeaweedFS/AWS
   SDK contract tests for private conditional/multipart object creation, exact
   version/integrity reads, presigned issue/use/expiry, lifecycle/cleanup,
   credential rotation, wrong-scope substitution, and paired metadata/artifact
@@ -675,13 +678,12 @@ development policy, or an unqualified S3-compatible assumption.
 
 # Findings / deviations
 
-- **Predecessor closeout:** the timing/accommodation implementation and its v2
-  Enrollment schemas/fixtures/OpenAPI/C#/TypeScript projections are committed,
-  and the worktree is clean at this review. Its task record remains
-  `in-progress`, with plan reconciliation, authenticated Playwright evidence,
-  independent review resolution, and final external-review readiness still
-  unchecked. This task must reconcile against that final closeout state before
-  activation.
+- **Predecessor closeout:** `p0-participant-timing-accommodations` is
+  `completed` at `14f8804`. External review found no blocking findings on
+  Participant provenance, decide transport, revision bounds, or v2 gateway
+  proxy. Migration `0047`, OpenAPI canonical refs, and administrator multi-dimension
+  `current_accommodations[]` remain intact. This task is activated; Phase 0
+  artifact-gate work is the next blocking step.
 - **Artifact readiness gap:** `GATE-STACK-ARTIFACTS` has no executable repository
   evidence. No SeaweedFS service/profile, AWS SDK package, artifact-store port,
   safety-scanner port, or focused artifact integration project exists. This is
@@ -720,7 +722,7 @@ development policy, or an unqualified S3-compatible assumption.
 | Governing product/requirements/UI/architecture sources reconciled | passed for planning | Approved sources agree on direct text plus UTF-8 `.txt`/`.md`, private quarantine, policy/scanner fail-closed behavior, immutable accepted versions, exact access, lifecycle, and downstream exact binding. No governing open question remains. |
 | Existing task duplication check | passed | No `.work/active/` task owns production Submission intake and immutable versioning; timing/accommodation explicitly excludes it. |
 | Repository seam inventory | passed for planning | Existing Submissions core/infrastructure, PostgreSQL Enrollment/timing, authenticated v2 Assessment API, production **My work**, Worker, audit/outbox, contract catalog, and test patterns are reusable. No production Submission/artifact implementation exists. |
-| Predecessor closeout | pending activation gate | `p0-participant-timing-accommodations` remains `in-progress` although its implementation changes are committed and the worktree is clean. Activate only after plan reconciliation, authenticated Playwright evidence, independent review resolution, and truthful final closeout. |
+| Predecessor closeout | passed — `14f8804` | `p0-participant-timing-accommodations` completed; external review approved with no blocking findings. Intake activated; migration head `0047` and v2 timing authority preserved. |
 | SeaweedFS/AWS SDK artifact compatibility | pending blocking Phase 0 | ADR-008 artifact/safety and ADR-010 `GATE-STACK-ARTIFACTS` evidence is absent. Must pass before affected functional implementation is accepted; a blocking failure returns to the Ceph RGW architecture fallback. |
 | Frozen/current material-policy authority | ready to implement, positive Production behavior fail-closed | Governing contract is approved; Assessment and Configuration owner ports are missing and must be added without cross-module SQL. |
 | Domain red/green | pending | Material policy, intake state, validation, receipt timing, accepted version/lineage, idempotency, and lifecycle tests. |
@@ -764,18 +766,17 @@ development policy, or an unqualified S3-compatible assumption.
 # Blockers
 
 No unresolved product, requirements, UI/UX, lifecycle-policy, or architecture
-decision blocks planning.
+decision blocks planning. The timing/accommodation predecessor gate is closed at
+`14f8804`.
 
-Task activation has one explicit gate:
-
-1. Close and reconcile `p0-participant-timing-accommodations`; do not run two
-   overlapping Submissions migrations/contracts/UI rewrites as active slices.
-
-After activation, Phase 0 is a blocking gate before functional intake code:
-execute and pass the real SeaweedFS/artifact-safety compatibility suite. If a
-blocking immutability, version-identity, lifecycle, capability, or restore
+The blocking gate for functional intake work is Phase 0 — execute and pass the
+real SeaweedFS/artifact-safety compatibility suite (`GATE-STACK-ARTIFACTS`). If
+a blocking immutability, version-identity, lifecycle, capability, or restore
 property fails, stop and obtain the Architecture owner's ADR-008 fallback
 decision before continuing.
+
+Do not run overlapping Submissions migrations/contracts/UI rewrites against
+another active slice.
 
 Docker/object-store availability is required for artifact and PostgreSQL
 evidence but is not a product decision. No external credential, paid provider,
@@ -785,7 +786,7 @@ synthetic non-sensitive content.
 
 # Completion
 
-- [ ] Predecessor task is completed and this plan is reconciled with its final migration, contract, API, UI, and traceability state
+- [x] Predecessor task is completed and this plan is reconciled with its final migration, contract, API, UI, and traceability state
 - [ ] Exact SeaweedFS/AWS SDK profile passes ADR-008/ADR-010 artifact, safety, supply-chain, and paired-restore gates or an approved fallback supersedes it
 - [ ] Frozen/current material-policy owner ports and fail-closed Production composition are verified
 - [ ] Domain Red/Green/Refactor evidence covers intake, validation, timing, immutable versions, lineage, idempotency, races, reconciliation, and lifecycle

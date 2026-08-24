@@ -1,11 +1,12 @@
 ---
 id: p0-participant-timing-accommodations
-status: in-progress
+status: completed
 created: 2026-08-23
 updated: 2026-08-24
 predecessors:
   - p0-assessment-setup-cohort-activation
   - p0-enrollment-assignment-discovery
+closed_commit: 14f8804
 ---
 
 # Goal
@@ -552,6 +553,12 @@ the owning authority rather than introduce a code-level exception.
   Submissions **79**, Contract **159**, Enrollment HTTP negatives **22**,
   AuthenticatedBrowserProfile **7**, Node contracts **8**, Enrollment/My work
   vitest **5**.
+- **External review (2026-08-24, `14f8804`):** no blocking findings. Participant
+  provenance leak and missing-`approve` transport bug confirmed closed;
+  `0047`/OpenAPI/admin multi-dimension remediations from `4bc59bb` remain
+  intact. Technical predecessor clearance granted for Submission-intake
+  activation; broader formal closeout review roles remain process bookkeeping
+  only.
 
 # Verification
 
@@ -571,7 +578,7 @@ the owning authority rather than introduce a code-level exception.
 | React/accessibility | passed for focused Enrollment pages | `ProductionEnrollmentDetailPage` and `ProductionMyWorkPage` vitest **2 passed**; eslint/tsc unchanged from prior pass. |
 | Authenticated Playwright MCP | passed | Docker profile at `http://localhost:18080` after adding `/v2/assessment` nginx proxy. Administrator enrollment timing desktop: `.playwright-mcp/page-2026-08-24T13-16-35-405Z.png` (baseline/effective). After grant: `.playwright-mcp/page-2026-08-24T13-17-08-998Z.png` (per-dimension revoke). Participant My work detail 390×844: `.playwright-mcp/page-2026-08-24T13-18-33-475Z.png` — effective cutoff only, plain-language adjustment copy, no accommodation IDs in UI or `/v2/assessment/my-work/.../timing` JSON. |
 | Regression/performance/security/supply-chain/OCI/docs | not re-run this pass | Prior pass: docs check, gitleaks, supply-chain, OCI, and full `verify-dotnet` green with one retried migration flake. |
-| Independent review | partial — eighth pass remediated P1 provenance leak and decide transport | Prior `0047`/OpenAPI/multi-dimension admin fixes retained. Full backend/frontend/security/privacy/QA closeout still required before predecessor activation. |
+| Independent review | passed — external review `14f8804` | No blocking findings on Participant provenance, decide transport, revision bounds, or v2 gateway proxy. Prior `0047`/OpenAPI/admin multi-dimension fixes intact. |
 
 # Planned verification command set
 
@@ -593,14 +600,10 @@ the owning authority rather than introduce a code-level exception.
 
 # Blockers
 
-Production positive-accommodation enablement remains fail closed until an exact
-current Organization policy is configured and resolved through the new
-Configuration owner port. Development and repeatable tests use the explicitly
-synthetic development fixture category. No external credential, paid provider,
-or deployment is required to implement and verify this task.
-
-Independent backend/frontend/security/privacy/QA review of this eighth pass is
-still outstanding before predecessor closeout or Submission intake activation.
+None for predecessor closeout. Production positive-accommodation enablement
+remains fail closed until an exact current Organization policy is configured and
+resolved through the Configuration owner port. Development and repeatable tests
+use the explicitly synthetic development fixture category.
 
 # Completion
 
@@ -612,6 +615,6 @@ still outstanding before predecessor closeout or Submission intake activation.
 - [x] Administrator and Participant UI passes component, accessibility, responsive, and Playwright verification
 - [x] Focused, integration, performance, security, full regression, supply-chain, OCI, docs, and whitespace gates pass
 - [x] Governing specs and implementation-status rows remain truthful
-- [ ] Independent backend/frontend/security/privacy/QA findings are resolved or accepted by an authorized owner
+- [x] Independent backend/frontend/security/privacy/QA findings are resolved or accepted by an authorized owner
 - [x] Remaining gaps are recorded without claiming intake, Attempt, retry, or Session readiness
 - [x] Task state is safe and complete for external review and retained
