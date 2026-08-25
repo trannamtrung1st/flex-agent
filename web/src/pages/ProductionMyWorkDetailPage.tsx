@@ -58,7 +58,10 @@ export function ProductionMyWorkDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const submitGenerationRef = useRef(0);
-  const knownAcceptedVersionIdsRef = useRef<ReadonlySet<string>>(new Set());
+  const acceptedVersionBaselineRef = useRef<{ trusted: boolean; ids: ReadonlySet<string> }>({
+    trusted: false,
+    ids: new Set(),
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -165,12 +168,52 @@ export function ProductionMyWorkDetailPage() {
     setIntakeStatus(next.active_intake?.status ?? null);
   }
 
+  async function captureAcceptedVersionBaseline() {
+    try {
+      const next = await submissionClient.getMyWorkSubmission(enrollmentId);
+      setSubmission((current) => {
+        if (current == null) {
+          return next;
+        }
+
+        return {
+          ...next,
+          active_intake: current.active_intake ?? next.active_intake,
+        };
+      });
+      acceptedVersionBaselineRef.current = {
+        trusted: true,
+        ids: new Set(next.version_history.map((item) => item.version_id)),
+      };
+    } catch {
+      acceptedVersionBaselineRef.current = { trusted: false, ids: new Set() };
+    }
+  }
+
+  function statusAfterUncertainCancel(next: MyWorkSubmissionV2): "accepted" | "cancelled" | "unknown" | string {
+    if (next.active_intake) {
+      return next.active_intake.status;
+    }
+
+    const baseline = acceptedVersionBaselineRef.current;
+    if (!baseline.trusted) {
+      return "unknown";
+    }
+
+    if (next.version_history.some((item) => !baseline.ids.has(item.version_id))) {
+      return "accepted";
+    }
+
+    return "cancelled";
+  }
+
   async function submitVersion() {
     const generation = ++submitGenerationRef.current;
     setPending(true);
     setConfirmOpen(false);
     setErrors([]);
     setIntakeStatus("receiving");
+    acceptedVersionBaselineRef.current = { trusted: false, ids: new Set() };
     try {
       const began = await submissionClient.beginIntake(enrollmentId, createSubmissionIdempotencyKey());
       if (generation !== submitGenerationRef.current) {
@@ -184,6 +227,10 @@ export function ProductionMyWorkDetailPage() {
       const intakeId = began.intake_id;
       rememberActiveIntake(intakeId, revision, began.status ?? "receiving", began.submission_id);
       setIntakeStatus(began.status ?? "receiving");
+      await captureAcceptedVersionBaseline();
+      if (generation !== submitGenerationRef.current) {
+        return;
+      }
       if (directText.trim().length > 0) {
         const completed = await submissionClient.completeItem(enrollmentId, intakeId, {
           schema_version: "v2",
@@ -296,9 +343,6 @@ export function ProductionMyWorkDetailPage() {
     setCancelling(true);
     setErrors([]);
     setIntakeStatus("cancelling");
-    knownAcceptedVersionIdsRef.current = new Set(
-      submission?.version_history.map((item) => item.version_id) ?? [],
-    );
     try {
       const cancelled = await submissionClient.cancelIntake(enrollmentId, active.intake_id, {
         schema_version: "v2",
@@ -326,14 +370,20 @@ export function ProductionMyWorkDetailPage() {
       try {
         const next = await submissionClient.getMyWorkSubmission(enrollmentId);
         setSubmission(next);
-        setReconcileMode(null);
-        setErrors([]);
-        if (next.active_intake) {
-          setIntakeStatus(next.active_intake.status);
-        } else if (next.version_history.some((item) => !knownAcceptedVersionIdsRef.current.has(item.version_id))) {
-          setIntakeStatus("accepted");
+        const nextStatus = statusAfterUncertainCancel(next);
+        if (nextStatus === "unknown") {
+          setReconcileMode("after-cancel-uncertain");
+          setIntakeStatus("reconciling");
+          setErrors([
+            "The assignment was refreshed, but this intake's result could not be confirmed. Wait and try again before submitting another version.",
+          ]);
+          requestAnimationFrame(() => {
+            document.getElementById("submission-error-summary")?.focus();
+          });
         } else {
-          setIntakeStatus("cancelled");
+          setReconcileMode(null);
+          setErrors([]);
+          setIntakeStatus(nextStatus);
         }
       } catch {
         setReconcileMode("after-cancel-uncertain");
@@ -374,16 +424,25 @@ export function ProductionMyWorkDetailPage() {
       } else if (reconcileMode === "after-cancel-success") {
         setIntakeStatus("cancelled");
       } else if (reconcileMode === "after-cancel-uncertain") {
-        if (next.version_history.some((item) => !knownAcceptedVersionIdsRef.current.has(item.version_id))) {
+        const nextStatus = statusAfterUncertainCancel(next);
+        if (nextStatus === "unknown") {
+          setIntakeStatus("reconciling");
+          setErrors([
+            "The assignment was refreshed, but this intake's result could not be confirmed. Wait and try again before submitting another version.",
+          ]);
+          requestAnimationFrame(() => {
+            document.getElementById("submission-error-summary")?.focus();
+          });
+          return;
+        }
+        if (nextStatus === "accepted") {
           setDirectText("");
           setFiles([]);
           setPreview(null);
           setPreviewItems([]);
           setPreviewItem(null);
-          setIntakeStatus("accepted");
-        } else {
-          setIntakeStatus("cancelled");
         }
+        setIntakeStatus(nextStatus);
       } else if (next.version_history.length > 0) {
         setIntakeStatus("accepted");
       } else {
