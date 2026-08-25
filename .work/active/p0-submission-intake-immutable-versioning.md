@@ -5,6 +5,8 @@ created: 2026-08-24
 updated: 2026-08-25
 review_chain_closeout_commit: b67a922
 cleanup_remediation_closeout_commit: 479c851
+cancel_reconcile_closeout_commit: 5ff70d0
+cancel_reconcile_ci_commit: 1af0c25
 predecessors:
   - p0-assessment-setup-cohort-activation
   - p0-enrollment-assignment-discovery
@@ -671,54 +673,42 @@ Session rows remain unimplemented or Partial as governed by their owners.
   historical timing-task verification note that quoted a fixture key.
 - [x] Unblock supply-chain Secret scan on `d0f03dc`: allowlist synthetic
   fixture-key quotes under `.work/active/` for shallow CI checkouts.
-- [ ] Independent review of the `e96290c` P2 remediations.
-- [ ] Re-run independent backend, frontend, security/privacy, and QA review for
-  remaining planned slice work after this continuation; reconcile actual
-  changes with this plan and the governing sources, update truthful
-  implementation-status rows, and retain the completed task record.
+- [x] Independent review of the cancel/reconcile remediations — closed at
+  `5ff70d0` with green Implementation run **379** on `1af0c25`. Stop the
+  I1/I2/I3 micro-review loop.
+- [>] Independent backend, frontend, security/privacy, and QA closeout review
+  of remaining planned slice work; reconcile actual changes with this plan
+  and the governing sources, update truthful implementation-status rows, and
+  retain the completed task record.
 
 # Current state
 
-The slice remains **in progress**. Independent review of `e96290c` found one
-P2: cancel-vs-finalize reconciliation proved I1 accepted but skipped local
-cleanup when My work already had a later I2, so I1's text/files could be
-submitted again after I2 ended.
+The slice remains **in progress**. Cancel/reconcile independent review is
+**approved** at code-review closeout `5ff70d0`, with CI corroboration at head
+`1af0c25`.
 
-Remediation: `applyReconciledStatusToProjection` clears accepted local material
-whenever the reconciled intake is accepted, before adopting a different current
-intake.
+Implementation **push** run **379** on `main` at `1af0c25` passed all five jobs
+(changes, dotnet, web, OCI, supply-chain). Prior “no workflow runs” notes
+referred only to **PR-triggered** checks; this push run is the CI evidence.
 
-Red: I1 accepted + I2 receiving left the textarea filled. Green: My work tests
-**19 passed**; web typecheck passed. Playwright was not re-run; this hop is a
-mocked two-tab race.
+The three commits after `5ff70d0` are accepted as narrow CI remediations:
+`956f6bb` (string cancel-body parse for lint), `d0f03dc` (historical gitleaks
+fingerprint), `1af0c25` (`.work/active/` synthetic-key quotes, four-digit
+families only). Web lint **0 errors**, typecheck and production build passed,
+Vitest **19 files / 146 tests** including **19** My work detail tests.
 
-Independent review of this remediations is next. Residual slice gaps are
-unchanged (lifecycle policy, Worker cleanup, Activity closure, paired restore,
-live validating Playwright, 400% reflow).
+Do not continue the cancellation I1/I2/I3 micro-review loop. Next is the
+**broad submission-slice closeout review** against this work item and the
+recorded residual gaps.
 
-Authenticated Playwright on rebuilt SPA at `http://localhost:18080` (synthetic
-participant, Timing Accommodation QA): receiving with **Cancel intake**,
-cancelled recovery without a Version 4, Version 3 inert preview, and sign-out
-from an open preview. One delayed item POST after cancel returned HTTP 409
-(expected race). Live validating was not captured because finalize is short.
-
-Proportionate verification 2026-08-25: Submissions **113**, architecture **41**,
-contracts **173**, SubmissionPersistence **14**, HTTP negatives **9**, My work
-vitest **8**, web typecheck, `check_docs`, `git diff --check`. Gitleaks on git
-history still reports one predecessor-task finding in
-`p0-participant-timing-accommodations.md`; Submission fixture/HTTP keys are
-allowlisted. Full solution/OCI/SBOM/locked restore and paired DB+artifact
-restore were not re-run.
-
-Still open: independently resolved versioned lifecycle policy; Worker-hosted
-cleanup; Configuration-backed Production/Staging org material policy;
-Assessment Activity-closure persistence; paired restore product; live
+Residual gaps remain: independently resolved versioned lifecycle policy;
+Worker-hosted cleanup; Configuration-backed Production/Staging org material
+policy; Assessment Activity-closure persistence; paired restore product; live
 validating Playwright; WCAG 400% reflow; in-page permission-loss (sign-out
-navigates to Sign in required); independent backend/frontend/security/QA
-review of this continuation.
+navigates to Sign in required).
 
-Next: independent review of the `e96290c` P2 remediations. Do not mark the
-task completed until those reviews and recorded residual gaps are accepted.
+Do not mark the task completed until that closeout review and residual gaps
+are accepted.
 
 - **Red:** catalog counts expected 31/37 representative/closure schemas;
   version-detail HTTP had no catalogued DTO; cleanup tests did not cover
@@ -818,8 +808,9 @@ recorded residual gaps are accepted.
 - **CI remediation (`67ac540`):** Implementation run **32732247658** on
   `14f8804` failed supply-chain Secret scan on accommodation fixture
   `idempotency_key` values (`acc-revoke-synthetic-0001`). Narrow gitleaks
-  allowlist extended; local `gitleaks detect` reports no leaks. Await green
-  GitHub corroboration on `67ac540` or later.
+  allowlist extended; later `.work/active/` quotes of the same four-digit
+  families are allowlisted at `1af0c25`. Implementation push run **379** on
+  `1af0c25` passed Secret scan.
 - **Artifact readiness gap (closed for core gate):** SeaweedFS/AWS SDK artifact
   port, pinned profile, and six negative scope-isolation contract tests exist.
   Lifecycle/cleanup/restore and paired database/artifact restore evidence remain
@@ -900,6 +891,12 @@ recorded residual gaps are accepted.
   SHA. Remaining open items are planned slice work (concurrent finalize,
   contracts, production UI, Playwright, lifecycle), not unresolved review
   findings.
+- **Independent review approval (`5ff70d0` / `1af0c25`):** Cancel/reconcile
+  micro-review is closed. Code-review closeout is `5ff70d0` (no remaining
+  blocking P2). Three follow-up commits are accepted CI remediations
+  (`956f6bb`, `d0f03dc`, `1af0c25`). Implementation push run **379** at
+  `1af0c25` passed changes, dotnet, web, OCI, and supply-chain. Next is the
+  broad submission-slice closeout review, not another I1/I2/I3 race.
 - **Review of `e96290c` (P2, remediating):** Proved-accepted cleanup runs in
   the shared projection helper before a later active intake is adopted.
 - **Review of `1c16281` (P2, remediating):** After-accept refresh clears
@@ -986,7 +983,8 @@ recorded residual gaps are accepted.
 | API/Worker integration | partial | v2 routes: query, exact-intake GET, begin, complete-item, cancel, finalize, version detail, item preview, item download. Artifact store: SeaweedFS when `ArtifactStorage` is configured. Cleanup loop is API-hosted, not Worker-hosted. Finalize scanner calls are outside the DB transaction. |
 | React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog (closes on start), cancel during receiving/validating, cancel-conflict refresh, uncertain cancel from the exact intake GET, later receiving I2 shown as current after I1 cancelled (previous-intake notice), overlapping Refresh assignment generations discard a stale I2 after I3, after-accept refresh clears accepted local material even when I2 is receiving, cancel-vs-finalize with I2 also clears accepted local material, Submit disabled while an in-progress active intake exists, later-version cancel recovery as cancelled beside older history, hide Cancel while reconciling, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **19 passed**. Live validating Playwright remains. |
 | Authenticated Playwright MCP | partial — rebuilt SPA 2026-08-25 | Receiving with **Cancel intake**: `.playwright-mcp/page-2026-08-25T05-49-57-764Z.png`. Cancelled without Version 4: `...T05-51-19-390Z.png`. Version 3 inert preview: `...T05-52-17-009Z.png`. Sign-out from preview: `...T05-52-54-390Z.png`. Delayed item POST after cancel was HTTP 409. Live validating not captured. |
-| Regression/security/supply-chain/OCI/recovery/docs | partial | Submissions **114**, HTTP negatives **10**. Gitleaks: Submission keys allowlisted; one historical predecessor-task finding remains. Locked restore, SBOM, OCI, paired restore not re-run. |
+| Regression/security/supply-chain/OCI/recovery/docs | passed for Implementation run **379** | Push run on `1af0c25`: changes, dotnet, web, OCI, and supply-chain passed, including Secret scan, SBOM, `pnpm audit`, NuGet vuln scan, and OCI-image SBOM. Locked restore and paired DB+artifact restore remain residual slice work. |
+| Independent review — cancel/reconcile remediations | passed — external review `5ff70d0`; CI `1af0c25` | No remaining blocking findings. I1/I2/I3 micro-review loop stopped. Web Vitest **19 files / 146 tests** including **19** My work detail tests. Next: broad slice closeout against residual gaps. |
 | Independent review — security/correctness remediation chain | passed — external review `b67a922` | No blocking findings. All issues raised from `7dac50c` through follow-up reviews resolved at `b67a922`, including S3 scope isolation, predecessor lineage, partial parent scope (`0049`), and Task-binding parent tuple (`0050`). `SubmissionPersistenceTests` **12 passed**; full PostgreSQL **340 passed / 1 failed** (Keycloak 403 flake). GitHub commit statuses not independently visible. Separate full-slice backend/frontend/QA review remains for unconsumed planned work. |
 | Independent review — accepted-payload cleanup remediations | passed — external review `479c851` | No blocking findings. `c84e960` P1 closed by `0056a`/`0060` around unchanged `0057`. Persistence + scan CAS **15 passed**; historical duplicate path covered by embedded runner and Grate tool. Full PostgreSQL suite still not re-run (recorded partial). GitHub commit statuses not independently visible. |
 
