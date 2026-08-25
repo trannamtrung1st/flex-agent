@@ -3,7 +3,7 @@ using FlexAgent.Submissions.Application;
 
 namespace FlexAgent.Api;
 
-public static class EnrollmentLifecycleRequestValidator
+internal static class EnrollmentLifecycleRequestValidator
 {
     public static bool IsValid(EnrollmentLifecycleCommandV1? body) =>
         body is not null

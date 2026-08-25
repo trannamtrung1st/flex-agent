@@ -3,7 +3,7 @@ using FlexAgent.Submissions.Application;
 
 namespace FlexAgent.Api;
 
-public static class RevokeAccommodationRequestValidator
+internal static class RevokeAccommodationRequestValidator
 {
     public static bool IsValid(RevokeAccommodationCommandV2? body) =>
         body is not null

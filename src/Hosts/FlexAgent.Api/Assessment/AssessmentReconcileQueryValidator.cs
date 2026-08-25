@@ -2,7 +2,7 @@ using FlexAgent.AssessmentConfiguration.Application;
 
 namespace FlexAgent.Api;
 
-public static class AssessmentReconcileQueryValidator
+internal static class AssessmentReconcileQueryValidator
 {
     public static bool IsValid(string? idempotencyKey) =>
         !string.IsNullOrWhiteSpace(idempotencyKey)

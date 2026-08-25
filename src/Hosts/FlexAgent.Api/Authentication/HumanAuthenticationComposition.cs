@@ -158,8 +158,6 @@ internal static class HumanAuthenticationComposition
         {
             AllowAutoRedirect = false,
         });
-        services.AddOptions<SessionEventTestIdentityOptions>()
-            .Bind(configuration.GetSection(SessionEventTestIdentityOptions.SectionName));
         services.AddSingleton<ISessionEventIdentityAdapter>(sp =>
         {
             var coordinator = sp.GetRequiredService<IHumanAuthenticationCoordinator>();

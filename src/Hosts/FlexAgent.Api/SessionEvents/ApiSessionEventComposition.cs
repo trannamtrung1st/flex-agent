@@ -188,10 +188,6 @@ internal static class ApiSessionEventComposition
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(environment);
 
-        services.AddOptions<SessionEventSubscriptionOptions>()
-            .Bind(configuration.GetSection(SessionEventSubscriptionOptions.SectionName));
-        services.AddOptions<SessionEventTestIdentityOptions>()
-            .Bind(configuration.GetSection(SessionEventTestIdentityOptions.SectionName));
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<SessionEventSubscriptionOptions>>().Value);
 
         var connectionString = configuration.GetConnectionString("Sessions");

@@ -3,7 +3,7 @@ using FlexAgent.Submissions.Application;
 
 namespace FlexAgent.Api;
 
-public static class IntakeRevisionRequestValidator
+internal static class IntakeRevisionRequestValidator
 {
     public static bool IsValid(IntakeRevisionCommandV2? body) =>
         body is not null

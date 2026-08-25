@@ -16,6 +16,7 @@ builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy("API process is running."), tags: ["live", "ready"]);
 
 builder.Services.AddSyntheticBrowser(builder.Configuration);
+builder.Services.AddSessionEventOptions(builder.Configuration);
 builder.Services.AddProductionSessionEvents(builder.Configuration, builder.Environment);
 builder.Services.AddHumanAuthentication(builder.Configuration, builder.Environment);
 builder.Services.AddAssessmentConfiguration(builder.Configuration, builder.Environment);

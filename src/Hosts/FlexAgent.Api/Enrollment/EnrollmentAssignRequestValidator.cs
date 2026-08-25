@@ -3,7 +3,7 @@ using FlexAgent.Submissions.Application;
 
 namespace FlexAgent.Api;
 
-public static class EnrollmentAssignRequestValidator
+internal static class EnrollmentAssignRequestValidator
 {
     public static bool IsValid(EnrollmentAssignCommandV1? body) =>
         body is not null
