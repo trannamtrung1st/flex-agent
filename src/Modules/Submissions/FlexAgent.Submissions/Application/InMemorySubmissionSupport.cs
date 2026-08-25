@@ -422,3 +422,17 @@ public sealed class InMemoryProtectedArtifactCapabilityStore : IProtectedArtifac
         return Task.CompletedTask;
     }
 }
+
+public sealed class InMemoryAcceptedCleanupScanStore : IAcceptedCleanupScanStore
+{
+    private AcceptedArtifactCleanupCursor? _cursor;
+
+    public Task<AcceptedArtifactCleanupCursor?> GetAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(_cursor);
+
+    public Task SetAsync(AcceptedArtifactCleanupCursor? cursor, CancellationToken cancellationToken = default)
+    {
+        _cursor = cursor;
+        return Task.CompletedTask;
+    }
+}

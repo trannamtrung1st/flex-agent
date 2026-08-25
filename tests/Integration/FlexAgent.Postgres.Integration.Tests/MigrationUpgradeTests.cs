@@ -70,6 +70,7 @@ public sealed class MigrationUpgradeTests
     private const string Current0052ScriptName = "0052_submission_lifecycle_holds_and_dispositions.sql";
     private const string Current0053ScriptName = "0053_submission_accepted_payload_cleanup.sql";
     private const string Current0054ScriptName = "0054_submission_cleanup_exact_artifact_version.sql";
+    private const string Current0055ScriptName = "0055_submission_cleanup_version_backfill_and_scan.sql";
 
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
@@ -146,7 +147,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -521,6 +523,88 @@ public sealed class MigrationUpgradeTests
                 WHERE table_name = 'submissions_durable_work'
                   AND column_name = 'artifact_version_id');
             """));
+    }
+
+    [Fact]
+    public async Task Upgrade_from_0053_pending_cleanup_backfills_exact_artifact_version()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            cancellationToken,
+            inclusiveMaxScriptName: Current0053ScriptName);
+
+        var organizationId = Guid.CreateVersion7();
+        var intakeId = Guid.CreateVersion7();
+        var workId = Guid.CreateVersion7();
+        var itemId = Guid.CreateVersion7();
+        var objectKey = $"org/{organizationId:D}/{itemId:D}";
+        const string exactVersion = "seaweed-version-legacy-0053";
+
+        await using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync(cancellationToken);
+            await connection.ExecuteAsync(
+                """
+                SET session_replication_role = replica;
+                INSERT INTO submissions_intake_items (
+                    organization_id, intake_id, item_id, category, filename, declared_mime_type,
+                    byte_count, content_digest, artifact_object_key, artifact_version_id, received_at)
+                VALUES (
+                    @OrganizationId, @IntakeId, @ItemId, 'direct_text', NULL, 'text/plain',
+                    12, @Digest, @ArtifactObjectKey, @ArtifactVersionId, CLOCK_TIMESTAMP());
+                INSERT INTO submissions_durable_work (
+                    organization_id, work_id, work_kind, enrollment_id, intake_id, version_id,
+                    status, attempt_count, available_at, lease_until, artifact_object_key, created_at)
+                VALUES (
+                    @OrganizationId, @WorkId, 'cleanup_incomplete', @EnrollmentId, @IntakeId, NULL,
+                    'pending', 0, CLOCK_TIMESTAMP(), NULL, @ArtifactObjectKey, CLOCK_TIMESTAMP());
+                SET session_replication_role = DEFAULT;
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    IntakeId = intakeId,
+                    ItemId = itemId,
+                    WorkId = workId,
+                    EnrollmentId = Guid.CreateVersion7(),
+                    Digest = new string('a', 64),
+                    ArtifactObjectKey = objectKey,
+                    ArtifactVersionId = exactVersion,
+                });
+        }
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            cancellationToken,
+            inclusiveMaxScriptName: Current0055ScriptName);
+
+        await using var after = new NpgsqlConnection(connectionString);
+        await after.OpenAsync(cancellationToken);
+        var backfilled = await after.QuerySingleAsync<(string ArtifactVersionId, string Status)>(
+            """
+            SELECT artifact_version_id, status
+            FROM submissions_durable_work
+            WHERE organization_id = @OrganizationId AND work_id = @WorkId
+            """,
+            new { OrganizationId = organizationId, WorkId = workId });
+        Assert.Equal(exactVersion, backfilled.ArtifactVersionId);
+        Assert.Equal("pending", backfilled.Status);
+        Assert.True(await after.ExecuteScalarAsync<bool>(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = 'chk_submissions_durable_work_exact_artifact_version');
+            """));
+        Assert.Equal("submissions_accepted_cleanup_scan", await after.ExecuteScalarAsync<string>(
+            "SELECT to_regclass('public.submissions_accepted_cleanup_scan')::text;"));
     }
 
     [Fact]
@@ -959,7 +1043,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -1035,7 +1120,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -1111,7 +1197,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -1187,7 +1274,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -1263,7 +1351,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -1339,7 +1428,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -1415,7 +1505,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -1556,7 +1647,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -1632,7 +1724,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -1708,7 +1801,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -1922,7 +2016,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -2003,7 +2098,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -2089,7 +2185,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -2186,7 +2283,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -2303,7 +2401,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -2391,7 +2490,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
     }
 
     [Fact]
@@ -2847,7 +2947,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -2950,7 +3051,8 @@ public sealed class MigrationUpgradeTests
             Current0051ScriptName,
             Current0052ScriptName,
             Current0053ScriptName,
-            Current0054ScriptName);
+            Current0054ScriptName,
+            Current0055ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }

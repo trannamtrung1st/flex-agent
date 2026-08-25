@@ -1089,3 +1089,61 @@ public sealed class PostgresProtectedArtifactCapabilityStore(PostgresConnectionA
     }
 }
 
+public sealed class PostgresAcceptedCleanupScanStore(PostgresConnectionAccessor connections) : IAcceptedCleanupScanStore
+{
+    public async Task<AcceptedArtifactCleanupCursor?> GetAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        var row = await connection.QuerySingleOrDefaultAsync<ScanRow>(
+            new CommandDefinition(
+                """
+                SELECT after_accepted_at AS AfterAcceptedAtUtc, after_version_id AS AfterVersionId,
+                       after_item_id AS AfterItemId
+                FROM submissions_accepted_cleanup_scan
+                WHERE singleton_key = 1
+                """,
+                cancellationToken: cancellationToken));
+        if (row?.AfterAcceptedAtUtc is not DateTime acceptedAt
+            || row.AfterVersionId is not Guid versionId
+            || row.AfterItemId is not Guid itemId)
+        {
+            return null;
+        }
+
+        return new AcceptedArtifactCleanupCursor(
+            new DateTimeOffset(
+                acceptedAt.Kind == DateTimeKind.Unspecified
+                    ? DateTime.SpecifyKind(acceptedAt, DateTimeKind.Utc)
+                    : acceptedAt.ToUniversalTime()),
+            versionId,
+            itemId);
+    }
+
+    public async Task SetAsync(AcceptedArtifactCleanupCursor? cursor, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE submissions_accepted_cleanup_scan
+                SET after_accepted_at = @AfterAcceptedAt,
+                    after_version_id = @AfterVersionId,
+                    after_item_id = @AfterItemId,
+                    updated_at = CLOCK_TIMESTAMP()
+                WHERE singleton_key = 1
+                """,
+                new
+                {
+                    AfterAcceptedAt = cursor?.AcceptedAtUtc,
+                    AfterVersionId = cursor?.VersionId,
+                    AfterItemId = cursor?.ItemId,
+                },
+                cancellationToken: cancellationToken));
+    }
+
+    private sealed record ScanRow(
+        DateTime? AfterAcceptedAtUtc,
+        Guid? AfterVersionId,
+        Guid? AfterItemId);
+}
+

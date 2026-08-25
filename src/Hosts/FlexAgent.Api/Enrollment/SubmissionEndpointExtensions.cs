@@ -50,6 +50,7 @@ public static class SubmissionEndpointExtensions
             services.AddSingleton<IProtectedArtifactCapabilityStore, InMemoryProtectedArtifactCapabilityStore>();
             services.AddSingleton<IActivityClosurePort, UnavailableActivityClosurePort>();
             services.AddSingleton<IAcceptedPayloadLifecyclePolicyPort, ApprovedDefaultAcceptedPayloadLifecyclePolicyPort>();
+            services.AddSingleton<IAcceptedCleanupScanStore, InMemoryAcceptedCleanupScanStore>();
             return services;
         }
 
@@ -57,6 +58,7 @@ public static class SubmissionEndpointExtensions
         services.AddSingleton<IMaterialPolicyPort, EnvironmentMaterialPolicyPort>();
         services.AddSingleton<IActivityClosurePort, UnavailableActivityClosurePort>();
         services.AddSingleton<IAcceptedPayloadLifecyclePolicyPort, ApprovedDefaultAcceptedPayloadLifecyclePolicyPort>();
+        services.AddSingleton<IAcceptedCleanupScanStore, PostgresAcceptedCleanupScanStore>();
         if (environment.IsProduction() || environment.IsEnvironment("Staging"))
         {
             services.AddSingleton<IArtifactSafetyScanner, UnavailableArtifactSafetyScanner>();

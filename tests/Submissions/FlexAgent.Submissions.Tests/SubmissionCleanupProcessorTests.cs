@@ -400,7 +400,133 @@ public sealed class SubmissionCleanupProcessorTests
             new StubActivityClosurePort(activityId, now.AddDays(-366)));
         for (var i = 0; i < 8; i++)
         {
-            if (await processor.TryProcessNextAsync(TestContext.Current.CancellationToken) == "idle")
+            await processor.TryProcessNextAsync(TestContext.Current.CancellationToken);
+        }
+
+        var eligibleGone = await artifacts.GetExactVersionAsync(
+            new ArtifactGetRequest(organizationId, eligiblePut.Reference!),
+            TestContext.Current.CancellationToken);
+        Assert.False(eligibleGone.Succeeded);
+        Assert.Contains(
+            dispositions.Records,
+            record => record.ArtifactObjectKey == eligiblePut.Reference!.ObjectKey.Value);
+    }
+
+    [Fact]
+    public async Task Cleanup_fails_closed_when_claimed_work_has_no_exact_artifact_version()
+    {
+        var organizationId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+        var now = DateTimeOffset.Parse("2026-08-25T12:00:00Z");
+        var clock = new FixedEnrollmentClock(now);
+        var inner = new InMemoryArtifactStore();
+        var artifacts = new RecordingArtifactStore(inner);
+        var intakes = new InMemoryIntakeStore();
+        var versions = new InMemorySubmissionVersionStore();
+        var holds = new InMemoryLifecycleHoldStore();
+        var dispositions = new InMemoryArtifactDispositionStore();
+        var work = new InMemorySubmissionWorkStore();
+        var itemId = Guid.CreateVersion7();
+        var put = await inner.PutAsync(
+            new ArtifactPutRequest(organizationId, ArtifactObjectKey.Create(organizationId, itemId), "legacy"u8.ToArray(), "text/plain"),
+            TestContext.Current.CancellationToken);
+
+        await work.EnqueueAsync(
+            new SubmissionWorkItem(
+                organizationId,
+                Guid.CreateVersion7(),
+                SubmissionWorkKinds.CleanupIncomplete,
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                null,
+                SubmissionWorkStates.Pending,
+                0,
+                now,
+                null,
+                put.Reference!.ObjectKey.Value,
+                null),
+            new InMemoryEnrollmentTransaction(),
+            TestContext.Current.CancellationToken);
+
+        var processor = new SubmissionCleanupProcessor(work, intakes, artifacts, versions, holds, dispositions, clock);
+        var outcome = await processor.TryProcessNextAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("failed", outcome);
+        Assert.Empty(artifacts.Deleted);
+        Assert.Empty(dispositions.Records);
+        var stillPresent = await inner.GetExactVersionAsync(
+            new ArtifactGetRequest(organizationId, put.Reference),
+            TestContext.Current.CancellationToken);
+        Assert.True(stillPresent.Succeeded);
+    }
+
+    [Fact]
+    public async Task Accepted_cleanup_advances_persisted_scan_cursor_past_a_page_of_held_artifacts()
+    {
+        var organizationId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+        var now = DateTimeOffset.Parse("2026-08-25T12:00:00Z");
+        var clock = new FixedEnrollmentClock(now);
+        var artifacts = new InMemoryArtifactStore();
+        var intakes = new InMemoryIntakeStore();
+        var versions = new InMemorySubmissionVersionStore();
+        var holds = new InMemoryLifecycleHoldStore();
+        var dispositions = new InMemoryArtifactDispositionStore();
+        var work = new InMemorySubmissionWorkStore();
+        var scan = new InMemoryAcceptedCleanupScanStore();
+        var transaction = new InMemoryEnrollmentTransaction();
+        var activityId = Guid.CreateVersion7();
+        var scope = ClosedScope(organizationId, activityId);
+
+        for (var i = 0; i < 20; i++)
+        {
+            var itemId = Guid.CreateVersion7();
+            var put = await artifacts.PutAsync(
+                new ArtifactPutRequest(organizationId, ArtifactObjectKey.Create(organizationId, itemId), "held"u8.ToArray(), "text/plain"),
+                TestContext.Current.CancellationToken);
+            await InsertAcceptedAsync(
+                versions,
+                transaction,
+                scope with { EnrollmentId = Guid.CreateVersion7() },
+                itemId,
+                put.Reference!,
+                now.AddMinutes(i));
+            await holds.InsertHoldAsync(
+                organizationId,
+                Guid.CreateVersion7(),
+                put.Reference!.ObjectKey.Value,
+                TestContext.Current.CancellationToken);
+        }
+
+        var eligibleItemId = Guid.CreateVersion7();
+        var eligiblePut = await artifacts.PutAsync(
+            new ArtifactPutRequest(organizationId, ArtifactObjectKey.Create(organizationId, eligibleItemId), "eligible"u8.ToArray(), "text/plain"),
+            TestContext.Current.CancellationToken);
+        await InsertAcceptedAsync(
+            versions,
+            transaction,
+            scope with { EnrollmentId = Guid.CreateVersion7() },
+            eligibleItemId,
+            eligiblePut.Reference!,
+            now.AddMinutes(20));
+
+        var processor = new SubmissionCleanupProcessor(
+            work,
+            intakes,
+            artifacts,
+            versions,
+            holds,
+            dispositions,
+            clock,
+            new StubActivityClosurePort(activityId, now.AddDays(-366)),
+            acceptedScan: scan);
+
+        Assert.Equal("idle", await processor.TryProcessNextAsync(TestContext.Current.CancellationToken));
+        Assert.NotNull(await scan.GetAsync(TestContext.Current.CancellationToken));
+
+        string outcome = "idle";
+        for (var i = 0; i < 6; i++)
+        {
+            outcome = await processor.TryProcessNextAsync(TestContext.Current.CancellationToken);
+            if (outcome == "idle")
             {
                 break;
             }

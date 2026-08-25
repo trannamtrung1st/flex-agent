@@ -616,6 +616,10 @@ Session rows remain unimplemented or Partial as governed by their owners.
   artifact version into cleanup work; keyset-paginate past ineligible rows;
   keep independently resolved versioned lifecycle policy an explicit partial
   gap (approved 365-day OPS default only).
+- [x] Remediate `f0974fb` review: backfill exact artifact versions on already-
+  queued cleanup work, fail closed when a version is absent, and persist a
+  rotating accepted-cleanup scan cursor so held/open pages cannot starve later
+  eligible artifacts.
 - [>] Re-run independent backend, frontend, security/privacy, and QA review for
   remaining planned slice work after this remediation; reconcile actual
   changes with this plan and the governing sources, update truthful
@@ -623,23 +627,21 @@ Session rows remain unimplemented or Partial as governed by their owners.
 
 # Current state
 
-The slice remains **in progress**. Independent review of `7e7ffd8` requested
-changes on accepted-payload cleanup. Remediation of those blockers is in this
-working tree:
+The slice remains **in progress**. Independent review of `f0974fb` requested
+two remaining cleanup fixes; they are in this working tree:
 
-- Cleanup records a disposition and completes durable work only when
-  `IArtifactStore.DeleteAsync` returns `true`; otherwise the work fails for retry.
-- Accepted cleanup candidates and work items carry `artifact_version_id`; delete
-  targets that exact stored version (`0054`).
-- Candidate listing uses stable `(accepted_at, version_id, item_id)` keyset
-  pagination and skips already-disposed or pending accepted-cleanup rows.
-- Retention still comes from `ApprovedDefaultAcceptedPayloadLifecyclePolicyPort`
-  (`IndependentlyResolvedFromOwner=false`, 365-day OPS default). Versioned
-  Organization/Configuration lifecycle-policy resolution remains an explicit
-  partial gap, not a closed eligibility claim.
+- Additive `0055` backfills `artifact_version_id` on pending/leased cleanup work
+  from intake and accepted-version items, removes unbackfillable artifact jobs,
+  and requires a non-empty exact version on pending/leased artifact work.
+  `0054` is unchanged so already-applied checksums stay valid.
+- The processor fails closed (no delete, no disposition) when claimed cleanup
+  work has an object key but no exact version.
+- Accepted-candidate enqueue persists a rotating scan cursor and inspects one
+  bounded page per cycle, wrapping at the end, so held/open rows cannot
+  permanently hide later eligible artifacts.
 
-Contract/preview/My Work work from `7e7ffd8` is otherwise retained. No UI
-behavior changed in this remediation; Playwright was not re-run.
+Retention still uses `ApprovedDefaultAcceptedPayloadLifecyclePolicyPort`
+(`IndependentlyResolvedFromOwner=false`). No UI behavior changed.
 
 Previous continuation:
 
@@ -661,17 +663,15 @@ Previous continuation:
   `zoom: 4` captured; sticky chrome dominates the viewport. 360px captured.
   Synthetic participant only.
 
-Observed tests (2026-08-25 `7e7ffd8` cleanup remediation):
+Observed tests (2026-08-25 `f0974fb` follow-up):
 
-- `FlexAgent.Submissions.Tests` **109 passed** (includes delete-false, exact
-  artifact version, and 20-disposed-then-eligible starvation cases)
+- `FlexAgent.Submissions.Tests` **111 passed** (delete-false, exact version,
+  missing-version fail-closed, 20-disposed page, 20-held persisted scan cursor)
 - `FlexAgent.Architecture.Tests` **41 passed**
 - `SubmissionPersistenceTests` **14 passed**
-- `Upgrade_from_0052_allows_accepted_payload_cleanup_work_kind` **passed**
 - `Upgrade_from_0053_adds_durable_work_artifact_version_id` **passed**
+- `Upgrade_from_0053_pending_cleanup_backfills_exact_artifact_version` **passed**
 - `Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry` **passed**
-- `FlexAgent.Artifact.Integration.Tests` **9 passed** including exact-version
-  delete then GET-fail
 
 Still open: independently resolved versioned accepted-payload lifecycle policy
 (Organization narrowing); Worker-hosted cleanup; Configuration-backed
@@ -757,7 +757,8 @@ recorded residual gaps are accepted.
   material-policy source. Development/Testing use environment-eligible OPS
   defaults; Production/Staging remain fail-closed.
 - **Migration/contracts gap (closed for canonical contracts):** persistence head
-  is `0054` with exact cleanup artifact version plus `0048`–`0053` intake/
+  is `0055` with exact-version backfill and accepted-cleanup scan cursor plus
+  `0048`–`0054` intake/
   version/hold/capability tables; v2 Submission command/outcome/My work/
   version-detail/preview schemas are catalogued. Recheck heads before further
   additive migrations.
@@ -765,7 +766,7 @@ recorded residual gaps are accepted.
   `MyWorkPage` remain synthetic. Production `ProductionMyWorkDetailPage` now
   includes local preparation, Submit version, cancel, preview, and download;
   do not treat the synthetic browser contract as production evidence.
-- **Lifecycle implementation gap (narrowed 2026-08-25, correctness remediations after `7e7ffd8`):** incomplete/rejected cleanup and disposition facts exist (API-hosted). Accepted-object cleanup now requires successful exact-version `DeleteAsync` before disposition, carries `artifact_version_id` on durable work (`0054`), and keyset-paginates candidates. Eligibility still uses the approved 365-day OPS default through `IAcceptedPayloadLifecyclePolicyPort` with `IndependentlyResolvedFromOwner=false`; it does **not** yet consume an independently resolved Organization/Configuration versioned lifecycle policy. Assessment still has no Activity-closure timestamp, so Production enqueue remains idle for that class. Worker-hosted cleanup and paired database/artifact restore evidence remain open.
+- **Lifecycle implementation gap (narrowed 2026-08-25, `f0974fb` follow-up):** incomplete/rejected cleanup and disposition facts exist (API-hosted). Accepted-object cleanup requires successful exact-version `DeleteAsync` before disposition, fails closed when the exact version is absent, backfills already-queued `0053` work in `0055`, and persists a rotating scan cursor (`submissions_accepted_cleanup_scan`). Eligibility still uses the approved 365-day OPS default through `IAcceptedPayloadLifecyclePolicyPort` with `IndependentlyResolvedFromOwner=false`. Assessment still has no Activity-closure timestamp, so Production enqueue remains idle for that class. Worker-hosted cleanup and paired database/artifact restore evidence remain open.
 - **Consistency continuation (2026-08-25):** catalogued v2 version-detail and
   preview schemas; HTTP no longer serializes the application DTO; **My work**
   offers **Refresh assignment** after reconciling-after-accept; multi-item
@@ -854,8 +855,8 @@ recorded residual gaps are accepted.
 | Predecessor closeout | passed — `14f8804` | `p0-participant-timing-accommodations` completed; external review approved with no blocking findings. Intake activated; migration head `0047` and v2 timing authority preserved. |
 | SeaweedFS/AWS SDK artifact compatibility | passed — scope isolation plus exact-version delete | `FlexAgent.Artifact.Integration.Tests` **9 passed** against `chrislusf/seaweedfs:4.29`: conditional create, exact-version get, exact-version delete then GET-fail, presigned download, digest verification, and negative get/put/delete/upload-presign/download-presign scope checks (`scope_mismatch`). Paired restore as a joint backup product remains open. |
 | Frozen/current material-policy authority | partial | Assessment verifies activated Task identity (`OwnerMaterialPolicyPortTests` **5 passed**). Testing/Development org policy is environment-eligible OPS defaults. Production/Staging org policy still returns `null` (`policy_unavailable`) until Configuration stores a current material-policy version. |
-| Domain red/green | passed for intake receipt plus cleanup correctness | `FlexAgent.Submissions.Tests` **109 passed** on 2026-08-25, including CompleteItem receipt, invalid UTF-8, item replay, incomplete-cleanup eligibility, Activity-closure accepted-payload eligibility, delete-false without disposition, exact artifact-version delete, 20-disposed-then-eligible candidate scan, scanner work outside the write transaction, and no scan of another enrollment's intake. |
-| PostgreSQL migration/isolation/concurrency/audit | partial | Migrations `0048`/`0049`/`0050`/`0051`/`0052`/`0053`/`0054`. `SubmissionPersistenceTests` **14 passed**. `Upgrade_from_0052_*` and `Upgrade_from_0053_adds_durable_work_artifact_version_id` passed. Full Postgres suite and paired-restore not re-run in this continuation. |
+| Domain red/green | passed for intake receipt plus cleanup correctness | `FlexAgent.Submissions.Tests` **111 passed** on 2026-08-25, including CompleteItem receipt, invalid UTF-8, item replay, incomplete-cleanup eligibility, Activity-closure accepted-payload eligibility, delete-false without disposition, exact artifact-version delete, missing-version fail-closed, 20-disposed then eligible, 20-held persisted scan cursor, scanner work outside the write transaction, and no scan of another enrollment's intake. |
+| PostgreSQL migration/isolation/concurrency/audit | partial | Migrations `0048`–`0055`. `SubmissionPersistenceTests` **14 passed**. `Upgrade_from_0053_adds_durable_work_artifact_version_id` and `Upgrade_from_0053_pending_cleanup_backfills_exact_artifact_version` passed. Full Postgres suite and paired-restore not re-run in this continuation. |
 | Canonical schema/OpenAPI/C#/TypeScript parity | passed for added v2 Submission contracts | Catalog **33** representative schemas; `FlexAgent.Contract.Tests` **173 passed**; OpenAPI `$ref` for My work, version detail, and preview. Node OpenAPI parity **8 passed**. |
 | HTTP CSRF/admission/isolation | passed for added negatives | `SubmissionHttpNegativeContractTests` **9 passed**: begin/cancel/finalize CSRF, unauthenticated submission/version-detail/preview/download `no-store`, unauthenticated skip of shared admission, exhausted shared admission without protected query. |
 | API/Worker integration | partial | v2 routes: query, begin, complete-item, cancel, finalize, version detail, item preview, item download. Artifact store: SeaweedFS when `ArtifactStorage` is configured. Cleanup loop is API-hosted, not Worker-hosted. Finalize scanner calls are outside the DB transaction. |

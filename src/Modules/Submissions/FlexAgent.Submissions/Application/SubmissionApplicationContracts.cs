@@ -251,6 +251,13 @@ public sealed record AcceptedArtifactCleanupCursor(
     Guid VersionId,
     Guid ItemId);
 
+public interface IAcceptedCleanupScanStore
+{
+    Task<AcceptedArtifactCleanupCursor?> GetAsync(CancellationToken cancellationToken = default);
+
+    Task SetAsync(AcceptedArtifactCleanupCursor? cursor, CancellationToken cancellationToken = default);
+}
+
 public sealed record AcceptedArtifactCleanupCandidate(
     Guid OrganizationId,
     Guid ActivityId,
