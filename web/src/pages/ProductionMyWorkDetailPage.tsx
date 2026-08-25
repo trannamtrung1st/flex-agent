@@ -122,7 +122,8 @@ export function ProductionMyWorkDetailPage() {
   const blockedIntake = intakeStatus === "reconciling" || intakeStatus === "cancelling";
   const reconciling = intakeStatus === "reconciling";
   const canCancel = Boolean(
-    submission?.active_intake
+    !reconciling
+    && submission?.active_intake
     && ["receiving", "received", "validating"].includes(submission.active_intake.status),
   );
 
@@ -364,10 +365,12 @@ export function ProductionMyWorkDetailPage() {
         setPreviewItems([]);
         setPreviewItem(null);
         setIntakeStatus("accepted");
-      } else if (next.version_history.length > 0 && reconcileMode !== "after-cancel") {
+      } else if (reconcileMode === "after-cancel") {
+        setIntakeStatus("cancelled");
+      } else if (next.version_history.length > 0) {
         setIntakeStatus("accepted");
       } else {
-        setIntakeStatus(next.version_history.length > 0 ? "accepted" : "cancelled");
+        setIntakeStatus("cancelled");
       }
       setReconcileMode(null);
     } catch {
