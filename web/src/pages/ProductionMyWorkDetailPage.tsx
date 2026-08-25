@@ -55,10 +55,12 @@ export function ProductionMyWorkDetailPage() {
     "after-accept" | "after-cancel-success" | "after-cancel-uncertain" | null
   >(null);
   const [previousIntakeNotice, setPreviousIntakeNotice] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const submitGenerationRef = useRef(0);
+  const refreshGenerationRef = useRef(0);
   const reconcilingIntakeIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -172,9 +174,12 @@ export function ProductionMyWorkDetailPage() {
     setIntakeStatus(next.active_intake?.status ?? null);
   }
 
-  function applyReconciledStatusToProjection(next: MyWorkSubmissionV2, reconciledStatus: string) {
+  function applyReconciledStatusToProjection(
+    next: MyWorkSubmissionV2,
+    reconciledStatus: string,
+    reconciledId: string | null,
+  ) {
     const current = next.active_intake;
-    const reconciledId = reconcilingIntakeIdRef.current;
     reconcilingIntakeIdRef.current = null;
     setReconcileMode(null);
     if (current && current.intake_id !== reconciledId) {
@@ -196,15 +201,17 @@ export function ProductionMyWorkDetailPage() {
     setIntakeStatus(reconciledStatus);
   }
 
-  async function statusAfterUncertainCancel(next: MyWorkSubmissionV2): Promise<string> {
-    if (next.active_intake && next.active_intake.intake_id === reconcilingIntakeIdRef.current) {
+  async function statusAfterUncertainCancel(
+    next: MyWorkSubmissionV2,
+    reconciledId: string | null,
+  ): Promise<string> {
+    if (next.active_intake && next.active_intake.intake_id === reconciledId) {
       return next.active_intake.status;
     }
 
-    const intakeId = reconcilingIntakeIdRef.current;
-    if (intakeId) {
+    if (reconciledId) {
       try {
-        const outcome = await submissionClient.getIntake(enrollmentId, intakeId);
+        const outcome = await submissionClient.getIntake(enrollmentId, reconciledId);
         if (outcome.status) {
           return outcome.status;
         }
@@ -361,7 +368,7 @@ export function ProductionMyWorkDetailPage() {
       try {
         const next = await submissionClient.getMyWorkSubmission(enrollmentId);
         setSubmission(next);
-        applyReconciledStatusToProjection(next, cancelled.status ?? "cancelled");
+        applyReconciledStatusToProjection(next, cancelled.status ?? "cancelled", active.intake_id);
       } catch {
         setReconcileMode("after-cancel-success");
         setIntakeStatus("reconciling");
@@ -376,7 +383,7 @@ export function ProductionMyWorkDetailPage() {
       try {
         const next = await submissionClient.getMyWorkSubmission(enrollmentId);
         setSubmission(next);
-        const nextStatus = await statusAfterUncertainCancel(next);
+        const nextStatus = await statusAfterUncertainCancel(next, active.intake_id);
         if (nextStatus === "unknown") {
           setReconcileMode("after-cancel-uncertain");
           setIntakeStatus("reconciling");
@@ -388,7 +395,7 @@ export function ProductionMyWorkDetailPage() {
           });
         } else {
           setErrors([]);
-          applyReconciledStatusToProjection(next, nextStatus);
+          applyReconciledStatusToProjection(next, nextStatus, active.intake_id);
         }
       } catch {
         setReconcileMode("after-cancel-uncertain");
@@ -409,16 +416,23 @@ export function ProductionMyWorkDetailPage() {
   }
 
   async function retryRefresh() {
+    const generation = ++refreshGenerationRef.current;
+    const reconciledId = reconcilingIntakeIdRef.current;
+    const mode = reconcileMode;
+    setRefreshing(true);
     try {
       const next = await submissionClient.getMyWorkSubmission(enrollmentId);
+      if (generation !== refreshGenerationRef.current) {
+        return;
+      }
       setSubmission(next);
       setErrors([]);
       if (next.active_intake
-        && (reconcileMode !== "after-cancel-uncertain"
-          || next.active_intake.intake_id === reconcilingIntakeIdRef.current)) {
-        if (reconcileMode === "after-cancel-success"
-          && next.active_intake.intake_id !== reconcilingIntakeIdRef.current) {
-          applyReconciledStatusToProjection(next, "cancelled");
+        && (mode !== "after-cancel-uncertain"
+          || next.active_intake.intake_id === reconciledId)) {
+        if (mode === "after-cancel-success"
+          && next.active_intake.intake_id !== reconciledId) {
+          applyReconciledStatusToProjection(next, "cancelled", reconciledId);
           return;
         }
         setPreviousIntakeNotice(null);
@@ -428,7 +442,7 @@ export function ProductionMyWorkDetailPage() {
         return;
       }
 
-      if (reconcileMode === "after-accept") {
+      if (mode === "after-accept") {
         setDirectText("");
         setFiles([]);
         setPreview(null);
@@ -436,11 +450,14 @@ export function ProductionMyWorkDetailPage() {
         setPreviewItem(null);
         setPreviousIntakeNotice(null);
         setIntakeStatus("accepted");
-      } else if (reconcileMode === "after-cancel-success") {
-        applyReconciledStatusToProjection(next, "cancelled");
+      } else if (mode === "after-cancel-success") {
+        applyReconciledStatusToProjection(next, "cancelled", reconciledId);
         return;
-      } else if (reconcileMode === "after-cancel-uncertain") {
-        const nextStatus = await statusAfterUncertainCancel(next);
+      } else if (mode === "after-cancel-uncertain") {
+        const nextStatus = await statusAfterUncertainCancel(next, reconciledId);
+        if (generation !== refreshGenerationRef.current) {
+          return;
+        }
         if (nextStatus === "unknown") {
           setIntakeStatus("reconciling");
           setErrors([
@@ -451,7 +468,7 @@ export function ProductionMyWorkDetailPage() {
           });
           return;
         }
-        applyReconciledStatusToProjection(next, nextStatus);
+        applyReconciledStatusToProjection(next, nextStatus, reconciledId);
         return;
       } else if (next.version_history.length > 0) {
         setPreviousIntakeNotice(null);
@@ -462,16 +479,23 @@ export function ProductionMyWorkDetailPage() {
       }
       setReconcileMode(null);
     } catch {
+      if (generation !== refreshGenerationRef.current) {
+        return;
+      }
       setErrors([
-        reconcileMode === "after-cancel-success"
+        mode === "after-cancel-success"
           ? "This intake was cancelled, but the assignment view could not be refreshed. Wait and try again before submitting another version."
-          : reconcileMode === "after-cancel-uncertain"
+          : mode === "after-cancel-uncertain"
             ? "The assignment view could not be refreshed. Wait and try again to see the current intake state."
             : "The server accepted this version, but the assignment view could not be refreshed. Wait and try again before submitting another version.",
       ]);
       requestAnimationFrame(() => {
         document.getElementById("submission-error-summary")?.focus();
       });
+    } finally {
+      if (generation === refreshGenerationRef.current) {
+        setRefreshing(false);
+      }
     }
   }
 
@@ -634,7 +658,12 @@ export function ProductionMyWorkDetailPage() {
             {reconciling ? (
               <>
                 <p role="status">Reconciling this intake. Wait for the current state before submitting another version.</p>
-                <Button type="button" variant="secondary" onClick={() => { void retryRefresh(); }}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  aria-busy={refreshing}
+                  onClick={() => { void retryRefresh(); }}
+                >
                   Refresh assignment
                 </Button>
               </>

@@ -95,6 +95,20 @@ function intakeOutcome(status: string) {
   };
 }
 
+function laterActiveIntake(intakeId: string, status: string, revision = 1) {
+  return {
+    intake_id: intakeId,
+    submission_id: "22222222-2222-4222-8222-222222222222",
+    status,
+    revision,
+    created_at_utc: "2026-08-25T00:02:00Z",
+    updated_at_utc: "2026-08-25T00:02:00Z",
+    complete_receipt_at_utc: null,
+    items: [],
+    permitted_actions: ["cancel_intake", "return_to_my_work"],
+  };
+}
+
 function renderAssignment() {
   return render(
     <ProductionApiProvider>
@@ -901,17 +915,7 @@ describe("ProductionMyWorkDetailPage", () => {
       accepted_at_utc: "2026-08-25T00:00:00Z",
       item_count: 1,
     };
-    const laterIntake = {
-      intake_id: "66666666-6666-4666-8666-666666666666",
-      submission_id: "22222222-2222-4222-8222-222222222222",
-      status: "receiving",
-      revision: 1,
-      created_at_utc: "2026-08-25T00:02:00Z",
-      updated_at_utc: "2026-08-25T00:02:00Z",
-      complete_receipt_at_utc: null,
-      items: [],
-      permitted_actions: ["cancel_intake", "return_to_my_work"],
-    };
+    const laterIntake = laterActiveIntake("66666666-6666-4666-8666-666666666666", "receiving");
     vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       const shared = sessionShellOrTiming(url);
@@ -983,6 +987,130 @@ describe("ProductionMyWorkDetailPage", () => {
     expect(screen.queryByText(/Current intake state: cancelled/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel intake" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Submit version" })).toBeDisabled();
+  });
+
+  it("keeps a newer refresh's validating intake when an older refresh later returns received", async () => {
+    let releaseItems: (() => void) | undefined;
+    const itemsHeld = new Promise<void>((resolve) => {
+      releaseItems = resolve;
+    });
+    let releaseOlderExact: (() => void) | undefined;
+    const olderExactHeld = new Promise<void>((resolve) => {
+      releaseOlderExact = resolve;
+    });
+    let submissionGets = 0;
+    let exactGets = 0;
+    let cancelledIntakeId = "";
+    const versionOne = {
+      version_id: "44444444-4444-4444-8444-444444444444",
+      version_number: 1,
+      accepted_at_utc: "2026-08-25T00:00:00Z",
+      item_count: 1,
+    };
+    const intakeTwo = laterActiveIntake("66666666-6666-4666-8666-666666666666", "received", 2);
+    const intakeThree = laterActiveIntake("77777777-7777-4777-8777-777777777777", "validating", 3);
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const shared = sessionShellOrTiming(url);
+      if (shared) {
+        return shared;
+      }
+      if (url.includes("/cancel") && init?.method === "POST") {
+        const match = url.match(/\/intake\/([0-9a-f-]{36})\/cancel/i);
+        cancelledIntakeId = match?.[1] ?? "";
+        if (cancelledIntakeId === "11111111-1111-4111-8111-111111111111") {
+          return jsonResponse({ outcome_code: "stale_revision", succeeded: false }, 409);
+        }
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "cancelled",
+          status: "cancelled",
+          revision: 3,
+        });
+      }
+      if (url.includes("/submission/intake") && init?.method === "POST" && !url.includes("/items") && !url.includes("/finalize")) {
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "receiving",
+          intake_id: "11111111-1111-4111-8111-111111111111",
+          submission_id: "22222222-2222-4222-8222-222222222222",
+          status: "receiving",
+          revision: 1,
+        });
+      }
+      if (url.includes("/items") && init?.method === "POST") {
+        return itemsHeld.then(() => jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "received",
+          revision: 2,
+        }));
+      }
+      if (isExactIntakeGet(url, init)) {
+        exactGets += 1;
+        if (exactGets === 1) {
+          return olderExactHeld.then(() => jsonResponse(intakeOutcome("cancelled")));
+        }
+        return jsonResponse(intakeOutcome("cancelled"));
+      }
+      if (isMyWorkSubmissionGet(url, init)) {
+        submissionGets += 1;
+        if (submissionGets === 1) {
+          return jsonResponse(submissionProjection({
+            version_history: [versionOne],
+            permitted_actions: ["begin_intake", "preview_item", "return_to_my_work"],
+          }));
+        }
+        if (submissionGets === 2) {
+          return jsonResponse({}, 500);
+        }
+        if (submissionGets === 3) {
+          return jsonResponse(submissionProjection({
+            active_intake: intakeTwo,
+            version_history: [versionOne],
+            permitted_actions: ["cancel_intake", "return_to_my_work"],
+          }));
+        }
+        return jsonResponse(submissionProjection({
+          active_intake: intakeThree,
+          version_history: [versionOne],
+          permitted_actions: ["cancel_intake", "return_to_my_work"],
+        }));
+      }
+      return jsonResponse({}, 404);
+    }));
+
+    renderAssignment();
+    expect(await screen.findByText(/Version 1/)).toBeInTheDocument();
+    await confirmSubmitVersion();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Cancel intake" })).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel intake" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Reconciling this intake/)).toBeInTheDocument();
+    });
+    releaseItems?.();
+    const refresh = screen.getByRole("button", { name: "Refresh assignment" });
+    fireEvent.click(refresh);
+    await waitFor(() => {
+      expect(exactGets).toBe(1);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Refresh assignment" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Current intake state: validating/)).toBeInTheDocument();
+    });
+    releaseOlderExact?.();
+    await waitFor(() => {
+      expect(screen.getByText(/Current intake state: validating/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Current intake state: received/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel intake" }));
+    await waitFor(() => {
+      expect(cancelledIntakeId).toBe("77777777-7777-4777-8777-777777777777");
+    });
   });
 
   it("reconciles when cancel succeeds but the assignment view cannot be refreshed", async () => {

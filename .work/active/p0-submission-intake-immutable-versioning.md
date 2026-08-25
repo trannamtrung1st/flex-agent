@@ -659,7 +659,9 @@ Session rows remain unimplemented or Partial as governed by their owners.
   terminal status, not from a later version in history.
 - [x] Remediate `f967a12` P2: after reconciling I1, show I2's current
   status when a later intake is active; keep I1's result as separate copy.
-- [ ] Independent review of the `f967a12` P2 remediations.
+- [x] Remediate `953e42e` P2: discard overlapping Refresh assignment
+  responses so a stale I2 cannot overwrite a newer I3 current state.
+- [ ] Independent review of the `953e42e` P2 remediations.
 - [ ] Re-run independent backend, frontend, security/privacy, and QA review for
   remaining planned slice work after this continuation; reconcile actual
   changes with this plan and the governing sources, update truthful
@@ -667,19 +669,20 @@ Session rows remain unimplemented or Partial as governed by their owners.
 
 # Current state
 
-The slice remains **in progress**. Independent review of `f967a12` found one
-P2: reconciling cancelled I1 while another tab's I2 is receiving left
-**Current intake state: cancelled** while **Cancel intake** targeted I2.
+The slice remains **in progress**. Independent review of `953e42e` found one
+P2: overlapping **Refresh assignment** calls could apply a stale I2 projection
+after a newer I3 refresh had already finished, so current-state text and Cancel
+could describe different intakes.
 
-Remediation: after exact-intake status for the reconciled intake is known, if
-the My work projection has a different active intake, the page uses that
-intake's status as current state and shows the previous intake's terminal
-result separately. Submit stays disabled while an in-progress active intake
-exists. The unused begin-time accepted-version baseline GET was removed.
+Remediation: each refresh captures a generation and the reconciled intake ID.
+Status/apply helpers take that ID explicitly. Older generations discard all
+state writes after a newer refresh starts. Refresh stays clickable (with
+`aria-busy`) so a later click can supersede an in-flight one.
 
-Red: vitest showed current state cancelled with Cancel enabled after I2
-receiving refresh. Green: My work tests **16 passed**; web typecheck passed.
-Playwright was not re-run; this hop is a mocked multi-tab race.
+Red: two refreshes — older I2/`received` exact GET stalled, newer I3/`validating`
+finished, then older apply left current state `received`. Green: My work tests
+**17 passed**; web typecheck passed. Playwright was not re-run; this hop is a
+mocked request-ordering race.
 
 Independent review of this remediations is next. Residual slice gaps are
 unchanged (lifecycle policy, Worker cleanup, Activity closure, paired restore,
@@ -706,7 +709,7 @@ validating Playwright; WCAG 400% reflow; in-page permission-loss (sign-out
 navigates to Sign in required); independent backend/frontend/security/QA
 review of this continuation.
 
-Next: independent review of the `f967a12` P2 remediations. Do not mark the
+Next: independent review of the `953e42e` P2 remediations. Do not mark the
 task completed until those reviews and recorded residual gaps are accepted.
 
 - **Red:** catalog counts expected 31/37 representative/closure schemas;
@@ -889,6 +892,9 @@ recorded residual gaps are accepted.
   SHA. Remaining open items are planned slice work (concurrent finalize,
   contracts, production UI, Playwright, lifecycle), not unresolved review
   findings.
+- **Review of `953e42e` (P2, remediating):** Overlapping Refresh assignment
+  generations discard stale I2 applies after a newer I3 refresh finishes.
+  Reconciled intake ID is captured immutably for status/apply helpers.
 - **Review of `f967a12` (P2, remediating):** Current intake state follows the
   projection's active intake when it is not the intake being reconciled. I1's
   terminal result is a separate notice. Begin-baseline GET removed.
@@ -966,7 +972,7 @@ recorded residual gaps are accepted.
 | Canonical schema/OpenAPI/C#/TypeScript parity | passed for added v2 Submission contracts | Catalog **33** representative schemas; OpenAPI `getSubmissionIntake` reuses `IntakeMutationOutcomeV2`. Node `openapi-parity.test.mjs` **4 passed**. |
 | HTTP CSRF/admission/isolation | passed for added negatives | `SubmissionHttpNegativeContractTests` **10 passed**: begin/cancel/finalize CSRF, unauthenticated submission/intake/version-detail/preview/download `no-store`, unauthenticated skip of shared admission, exhausted shared admission without protected query. |
 | API/Worker integration | partial | v2 routes: query, exact-intake GET, begin, complete-item, cancel, finalize, version detail, item preview, item download. Artifact store: SeaweedFS when `ArtifactStorage` is configured. Cleanup loop is API-hosted, not Worker-hosted. Finalize scanner calls are outside the DB transaction. |
-| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog (closes on start), cancel during receiving/validating, cancel-conflict refresh, uncertain cancel from the exact intake GET, later receiving I2 shown as current after I1 cancelled (previous-intake notice), Submit disabled while an in-progress active intake exists, later-version cancel recovery as cancelled beside older history, hide Cancel while reconciling, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **16 passed**. Live validating Playwright remains. |
+| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog (closes on start), cancel during receiving/validating, cancel-conflict refresh, uncertain cancel from the exact intake GET, later receiving I2 shown as current after I1 cancelled (previous-intake notice), overlapping Refresh assignment generations discard a stale I2 after I3, Submit disabled while an in-progress active intake exists, later-version cancel recovery as cancelled beside older history, hide Cancel while reconciling, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **17 passed**. Live validating Playwright remains. |
 | Authenticated Playwright MCP | partial — rebuilt SPA 2026-08-25 | Receiving with **Cancel intake**: `.playwright-mcp/page-2026-08-25T05-49-57-764Z.png`. Cancelled without Version 4: `...T05-51-19-390Z.png`. Version 3 inert preview: `...T05-52-17-009Z.png`. Sign-out from preview: `...T05-52-54-390Z.png`. Delayed item POST after cancel was HTTP 409. Live validating not captured. |
 | Regression/security/supply-chain/OCI/recovery/docs | partial | Submissions **114**, HTTP negatives **10**. Gitleaks: Submission keys allowlisted; one historical predecessor-task finding remains. Locked restore, SBOM, OCI, paired restore not re-run. |
 | Independent review — security/correctness remediation chain | passed — external review `b67a922` | No blocking findings. All issues raised from `7dac50c` through follow-up reviews resolved at `b67a922`, including S3 scope isolation, predecessor lineage, partial parent scope (`0049`), and Task-binding parent tuple (`0050`). `SubmissionPersistenceTests` **12 passed**; full PostgreSQL **340 passed / 1 failed** (Keycloak 403 flake). GitHub commit statuses not independently visible. Separate full-slice backend/frontend/QA review remains for unconsumed planned work. |
