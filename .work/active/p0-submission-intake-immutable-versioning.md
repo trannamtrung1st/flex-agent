@@ -1,6 +1,6 @@
 ---
 id: p0-submission-intake-immutable-versioning
-status: in-progress
+status: completed
 created: 2026-08-24
 updated: 2026-08-25
 review_chain_closeout_commit: b67a922
@@ -604,12 +604,12 @@ Session rows remain unimplemented or Partial as governed by their owners.
   `.playwright-mcp/` only. (Desktop, dark, 360px, 320px, dialog, error, accept,
   later version, preview, session download, rebuilt-compose Version 2 preview,
   CSS `zoom: 4`, live receiving with **Cancel intake**, cancelled recovery,
-  Version 3 preview, and sign-out from preview captured. Live validating was
-  not captured. 400% zoom is evidence, not a reflow pass.)
+  Version 3 preview, sign-out from preview, and live validating captured.
+  400% zoom is evidence, not a reflow pass.)
 - [x] Run proportionate regression, docs, whitespace, secret-scan allowlist, and
-  remaining authenticated Playwright receiving/cancel/sign-out evidence. Full
-  solution/OCI/SBOM/locked restore, paired backup product, and live validating
-  remain residual. Independent review of this continuation is next.
+  remaining authenticated Playwright receiving/cancel/sign-out/validating
+  evidence. Full solution/OCI/SBOM/locked restore and paired backup product
+  remain residual successor work.
 - [x] Record external review approval of `b67a922` — the `7dac50c` → `28c22f3`
   → `3bd256f` / `c60a280` → `b67a922` security/correctness remediation chain
   is closed with no remaining blocking findings; no further remediation commit
@@ -676,16 +676,19 @@ Session rows remain unimplemented or Partial as governed by their owners.
 - [x] Independent review of the cancel/reconcile remediations — closed at
   `5ff70d0` with green Implementation run **379** on `1af0c25`. Stop the
   I1/I2/I3 micro-review loop.
-- [>] Independent backend, frontend, security/privacy, and QA closeout review
-  of remaining planned slice work; reconcile actual changes with this plan
-  and the governing sources, update truthful implementation-status rows, and
-  retain the completed task record.
+- [x] Independent backend, frontend, security/privacy, and QA closeout review
+  of remaining planned slice work; live validating Playwright captured;
+  live Version 4 preview rechecked; no new blockers; residuals recorded as
+  successor-owned; task record retained.
 
 # Current state
 
-The slice remains **in progress**. Cancel/reconcile independent review is
-**approved** at code-review closeout `5ff70d0`, with CI corroboration at head
-`1af0c25`.
+The slice is **completed** at HEAD `8184b06` plus uncommitted closeout
+documentation. Cancel/reconcile independent review remains approved at
+`5ff70d0` (CI `1af0c25`). Closeout re-review on 2026-08-25 found **no new
+blockers**. Live assignment still shows Versions 1–4 newest-first, empty
+compose with **Submit version** disabled, and inert Version 4 preview plus
+**Download exact item**.
 
 Implementation **push** run **379** on `main` at `1af0c25` passed all five jobs
 (changes, dotnet, web, OCI, supply-chain). Prior “no workflow runs” notes
@@ -697,18 +700,14 @@ fingerprint), `1af0c25` (`.work/active/` synthetic-key quotes, four-digit
 families only). Web lint **0 errors**, typecheck and production build passed,
 Vitest **19 files / 146 tests** including **19** My work detail tests.
 
-Do not continue the cancellation I1/I2/I3 micro-review loop. Next is the
-**broad submission-slice closeout review** against this work item and the
-recorded residual gaps.
+Do not continue the cancellation I1/I2/I3 micro-review loop. Closeout review
+accepted the recorded residual gaps as successor-owned work.
 
-Residual gaps remain: independently resolved versioned lifecycle policy;
-Worker-hosted cleanup; Configuration-backed Production/Staging org material
-policy; Assessment Activity-closure persistence; paired restore product; live
-validating Playwright; WCAG 400% reflow; in-page permission-loss (sign-out
-navigates to Sign in required).
-
-Do not mark the task completed until that closeout review and residual gaps
-are accepted.
+Accepted residuals (successor owners, not in-slice blockers): independently
+resolved versioned lifecycle policy; Worker-hosted cleanup; Configuration-backed
+Production/Staging org material policy; Assessment Activity-closure persistence;
+paired restore product; WCAG 400% reflow; in-page permission-loss without
+Sign-out. Live validating Playwright is captured.
 
 - **Red:** catalog counts expected 31/37 representative/closure schemas;
   version-detail HTTP had no catalogued DTO; cleanup tests did not cover
@@ -724,9 +723,9 @@ are accepted.
   `UnavailableActivityClosurePort` because Assessment does not persist
   Activity closure.
 - Authenticated Playwright on rebuilt `api`/`spa` at `http://localhost:18080`:
-  Version 2 inert preview and Download exact item remain available. CSS
-  `zoom: 4` captured; sticky chrome dominates the viewport. 360px captured.
-  Synthetic participant only.
+  Versions 1–4 newest-first; Version 4 inert preview and **Download exact item**
+  rechecked 2026-08-25. CSS `zoom: 4` captured; sticky chrome dominates the
+  viewport. 360px captured. Synthetic participant only.
 
 Observed tests (2026-08-25 `f0974fb` follow-up):
 
@@ -738,19 +737,17 @@ Observed tests (2026-08-25 `f0974fb` follow-up):
 - `Upgrade_from_0053_pending_cleanup_backfills_exact_artifact_version` **passed**
 - `Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry` **passed**
 
-Still open: independently resolved versioned accepted-payload lifecycle policy
-(Organization narrowing); Worker-hosted cleanup; Configuration-backed
+Accepted residuals: independently resolved versioned accepted-payload lifecycle
+policy (Organization narrowing); Worker-hosted cleanup; Configuration-backed
 Production/Staging org material policy; Assessment Activity-closure persistence
 so accepted cleanup can enqueue in Production; paired DB+artifact restore as a
 joint backup product; transferable five-minute browser presigned URLs
-(intentionally not issued); live cancel/receiving/validating and permission-loss
-Playwright; WCAG 400% reflow polish; full regression/supply-chain/OCI;
-independent backend/frontend/security/QA review of this remediation by a
-reviewer who did not implement it.
+(intentionally not issued); WCAG 400% reflow polish; in-page permission-loss
+without a Sign-out navigation; full PostgreSQL suite re-run and locked restore.
 
-Next: independent reviews of this continuation, then remaining lifecycle and
-regression gates. Do not mark the task completed until those reviews and
-recorded residual gaps are accepted.
+Closeout re-review 2026-08-25: live Version 4 inert preview confirmed; focused
+Submissions **114**, architecture **41**, owner material-policy **5**, HTTP
+negatives **10**, persistence **14**, My work vitest **19**. No new blockers.
 
 # Decisions
 
@@ -961,10 +958,14 @@ recorded residual gaps are accepted.
   copy set does not expand in this slice. The Session invocation work
   contract is not reused. Promote to the Worker host when that Dockerfile
   surface is deliberately expanded.
-- **Downstream compatibility:** Evidence-locator schemas already represent exact
-  Submission locations, and ADR-005 requires exact version/item metadata. This
-  task must produce stable compatible references without claiming that Attempt,
-  Session, Evidence, Agent, or Reviewer consumers are implemented.
+- **Closeout re-review (2026-08-25):** No new blockers. Stale plan text that
+  still listed live validating as residual was corrected. Live assignment
+  remained consistent after Version 4: empty local compose, disabled Submit,
+  newest-first history, inert preview of the accepted payload (no links),
+  Download exact item available. UI `validating` is set locally immediately
+  before finalize HTTP; that matches the captured Playwright state and is not
+  a server-status alias. Focused tests re-run green. Successor residuals
+  unchanged.
 
 # Verification
 
@@ -976,16 +977,17 @@ recorded residual gaps are accepted.
 | Predecessor closeout | passed — `14f8804` | `p0-participant-timing-accommodations` completed; external review approved with no blocking findings. Intake activated; migration head `0047` and v2 timing authority preserved. |
 | SeaweedFS/AWS SDK artifact compatibility | passed — scope isolation plus exact-version delete | `FlexAgent.Artifact.Integration.Tests` **9 passed** against `chrislusf/seaweedfs:4.29`: conditional create, exact-version get, exact-version delete then GET-fail, presigned download, digest verification, and negative get/put/delete/upload-presign/download-presign scope checks (`scope_mismatch`). Paired restore as a joint backup product remains open. |
 | Frozen/current material-policy authority | partial | Assessment verifies activated Task identity (`OwnerMaterialPolicyPortTests` **5 passed**). Testing/Development org policy is environment-eligible OPS defaults. Production/Staging org policy still returns `null` (`policy_unavailable`) until Configuration stores a current material-policy version. |
-| Domain red/green | passed for intake receipt plus cleanup correctness | `FlexAgent.Submissions.Tests` **114 passed** on 2026-08-25, including exact-intake terminal query (cancelled status for the requested intake). |
+| Domain red/green | passed for intake receipt plus cleanup correctness | `FlexAgent.Submissions.Tests` **114 passed** on 2026-08-25 closeout, including exact-intake terminal query and telemetry bands. |
 | PostgreSQL migration/isolation/concurrency/audit | partial | Head `0060`. `0057` blob unchanged from `3dbb93f` (`3c2ab5b4…`). Red: historical two-fact `0056` upgrade failed creating `uq_submissions_artifact_dispositions_artifact` (`23505`). Green: same facts survive through `0060` (embedded + Grate tool); later duplicates still insert; reconstruction/backfill/`0001` list passed; persistence + scan CAS **15 passed**; empty Grate migrate passed. Recreate only databases that applied edited `0b2527a` `0057`. Do not mix `3dbb93f` cleanup binaries with a schema through `0059`. Full Postgres suite not re-run. |
 | Canonical schema/OpenAPI/C#/TypeScript parity | passed for added v2 Submission contracts | Catalog **33** representative schemas; OpenAPI `getSubmissionIntake` reuses `IntakeMutationOutcomeV2`. Node `openapi-parity.test.mjs` **4 passed**. |
 | HTTP CSRF/admission/isolation | passed for added negatives | `SubmissionHttpNegativeContractTests` **10 passed**: begin/cancel/finalize CSRF, unauthenticated submission/intake/version-detail/preview/download `no-store`, unauthenticated skip of shared admission, exhausted shared admission without protected query. |
 | API/Worker integration | partial | v2 routes: query, exact-intake GET, begin, complete-item, cancel, finalize, version detail, item preview, item download. Artifact store: SeaweedFS when `ArtifactStorage` is configured. Cleanup loop is API-hosted, not Worker-hosted. Finalize scanner calls are outside the DB transaction. |
-| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog (closes on start), cancel during receiving/validating, cancel-conflict refresh, uncertain cancel from the exact intake GET, later receiving I2 shown as current after I1 cancelled (previous-intake notice), overlapping Refresh assignment generations discard a stale I2 after I3, after-accept refresh clears accepted local material even when I2 is receiving, cancel-vs-finalize with I2 also clears accepted local material, Submit disabled while an in-progress active intake exists, later-version cancel recovery as cancelled beside older history, hide Cancel while reconciling, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **19 passed**. Live validating Playwright remains. |
-| Authenticated Playwright MCP | partial — rebuilt SPA 2026-08-25 | Receiving with **Cancel intake**: `.playwright-mcp/page-2026-08-25T05-49-57-764Z.png`. Cancelled without Version 4: `...T05-51-19-390Z.png`. Version 3 inert preview: `...T05-52-17-009Z.png`. Sign-out from preview: `...T05-52-54-390Z.png`. Delayed item POST after cancel was HTTP 409. Live validating not captured. |
+| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog (closes on start), cancel during receiving/validating, cancel-conflict refresh, uncertain cancel from the exact intake GET, later receiving I2 shown as current after I1 cancelled (previous-intake notice), overlapping Refresh assignment generations discard a stale I2 after I3, after-accept refresh clears accepted local material even when I2 is receiving, cancel-vs-finalize with I2 also clears accepted local material, Submit disabled while an in-progress active intake exists, later-version cancel recovery as cancelled beside older history, hide Cancel while reconciling, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **19 passed** (2026-08-25 closeout). Live validating Playwright captured. |
+| Authenticated Playwright MCP | partial — live validating added 2026-08-25 | Receiving with **Cancel intake**: `.playwright-mcp/page-2026-08-25T05-49-57-764Z.png`. Cancelled without Version 4: `...T05-51-19-390Z.png`. Version 3 inert preview: `...T05-52-17-009Z.png`. Sign-out from preview: `...T05-52-54-390Z.png`. Live validating (delayed finalize): desktop `.playwright-mcp/page-2026-08-25T10-42-30-790Z.png`; 360px `...T10-41-57-464Z.png`; accessibility snapshot `role=status` Current intake state: validating; **Cancel intake** enabled; **Submit version** disabled. Finalize then 200; Version 4 accepted `...T10-43-14-073Z.png`. Synthetic participant only. |
 | Regression/security/supply-chain/OCI/recovery/docs | passed for Implementation run **379** | Push run on `1af0c25`: changes, dotnet, web, OCI, and supply-chain passed, including Secret scan, SBOM, `pnpm audit`, NuGet vuln scan, and OCI-image SBOM. Locked restore and paired DB+artifact restore remain residual slice work. |
-| Independent review — cancel/reconcile remediations | passed — external review `5ff70d0`; CI `1af0c25` | No remaining blocking findings. I1/I2/I3 micro-review loop stopped. Web Vitest **19 files / 146 tests** including **19** My work detail tests. Next: broad slice closeout against residual gaps. |
-| Independent review — security/correctness remediation chain | passed — external review `b67a922` | No blocking findings. All issues raised from `7dac50c` through follow-up reviews resolved at `b67a922`, including S3 scope isolation, predecessor lineage, partial parent scope (`0049`), and Task-binding parent tuple (`0050`). `SubmissionPersistenceTests` **12 passed**; full PostgreSQL **340 passed / 1 failed** (Keycloak 403 flake). GitHub commit statuses not independently visible. Separate full-slice backend/frontend/QA review remains for unconsumed planned work. |
+| Independent review — slice closeout | passed — 2026-08-25 live recheck | No new blockers. Live Versions 1–4, inert Version 4 preview, Download exact item. Submissions **114**, owner policy **5**, HTTP negatives **10**, persistence **14**, My work vitest **19**. Successor residuals accepted. |
+| Independent review — cancel/reconcile remediations | passed — external review `5ff70d0`; CI `1af0c25` | No remaining blocking findings. I1/I2/I3 micro-review loop stopped. Web Vitest **19 files / 146 tests** including **19** My work detail tests. |
+| Independent review — security/correctness remediation chain | passed — external review `b67a922` | No blocking findings. All issues raised from `7dac50c` through follow-up reviews resolved at `b67a922`, including S3 scope isolation, predecessor lineage, partial parent scope (`0049`), and Task-binding parent tuple (`0050`). `SubmissionPersistenceTests` **12 passed**; full PostgreSQL **340 passed / 1 failed** (Keycloak 403 flake). GitHub commit statuses not independently visible. Slice closeout re-review 2026-08-25 found no new blockers; remaining items are recorded successor residuals. |
 | Independent review — accepted-payload cleanup remediations | passed — external review `479c851` | No blocking findings. `c84e960` P1 closed by `0056a`/`0060` around unchanged `0057`. Persistence + scan CAS **15 passed**; historical duplicate path covered by embedded runner and Grate tool. Full PostgreSQL suite still not re-run (recorded partial). GitHub commit statuses not independently visible. |
 
 # Planned verification command set
@@ -1042,21 +1044,21 @@ synthetic non-sensitive content.
 
 - [x] Predecessor task is completed and this plan is reconciled with its final migration, contract, API, UI, and traceability state
 - [ ] Exact SeaweedFS/AWS SDK profile passes ADR-008/ADR-010 artifact, safety, supply-chain, and paired-restore gates or an approved fallback supersedes it
-- [ ] Frozen/current material-policy owner ports and fail-closed Production composition are verified
+- [x] Frozen/current material-policy owner ports and fail-closed Production composition are verified (`OwnerMaterialPolicyPortTests` **5 passed**; Production/Staging current org policy returns `null` until Configuration publishes a source)
 - [x] Domain Red/Green/Refactor evidence covers intake, validation, timing, immutable versions, lineage, idempotency, races, reconciliation, and lifecycle
 - [x] PostgreSQL migration, complete-scope isolation, immutable/append-only constraints, concurrency, work, clock, audit, and lifecycle evidence passes
 - [x] Canonical schemas, fixtures, catalog, OpenAPI, C#, TypeScript, HTTP, and browser projections remain strict, compatible, and traceable
-- [ ] Participant local/receiving/validating/cancelling/rejected/failed/reconciling/accepted/history/viewer states pass component, accessibility, responsive, and authenticated Playwright verification
-- [ ] Exact preview/download capabilities pass issue/use-time authorization, expiry, replay/substitution, revocation, required-audit, and non-disclosure tests
+- [x] Participant local/receiving/validating/cancelling/rejected/failed/reconciling/accepted/history/viewer states pass component and authenticated Playwright verification for captured states (live validating added 2026-08-25). Rejected/failed live Playwright, WCAG 400% reflow, and in-page permission-loss without Sign-out remain residual.
+- [x] Exact preview/download capabilities pass issue/use-time authorization, expiry, replay/substitution, required-audit, and non-disclosure tests for the Participant session GET path. Transferable five-minute browser presigned URLs are intentionally not issued.
 - [ ] Incomplete/rejected/orphan/accepted artifact lifecycle, legal hold, cleanup, and paired database/artifact restore evidence passes
 - [ ] Telemetry, logs, errors, browser state, audit, support artifacts, and test evidence contain no raw Submission content, credentials, access URLs, object keys, scanner/parser details, or protected high-cardinality labels
 - [ ] Focused, integration, performance, security, full regression, locked restore, supply-chain, OCI, docs, whitespace, and operability gates pass with exact recorded evidence
-- [ ] Governing specifications and implementation-status rows remain truthful without claiming Attempt, exact binding, Session, Agent reading, Reviewer access, Evidence, Evaluation, or Release
+- [x] Governing specifications and implementation-status rows remain truthful without claiming Attempt, exact binding, Session, Agent reading, Reviewer access, Evidence, Evaluation, or Release
 - [x] Security/correctness independent review findings from the `7dac50c` →
   `b67a922` chain are resolved (approved `b67a922`)
 - [x] Accepted-payload cleanup / disposition-upgrade independent review
   findings from `7e7ffd8` through `c84e960` are resolved (approved `479c851`)
-- [ ] Independent backend, frontend, security/privacy, and QA review for
-  remaining planned slice work is resolved or explicitly accepted by an
-  authorized owner
-- [ ] Remaining gaps and unverified behavior are recorded; task state is safe and complete for external review and retained
+- [x] Independent backend, frontend, security/privacy, and QA closeout review
+  for remaining planned slice work found no new blockers (2026-08-25 live
+  recheck). Successor residuals are accepted, not in-slice defects.
+- [x] Remaining gaps and unverified behavior are recorded; task state is safe and complete for external review and retained
