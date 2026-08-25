@@ -399,6 +399,13 @@ public sealed class InMemoryArtifactDispositionStore : IArtifactDispositionStore
         DateTimeOffset disposedAtUtc,
         CancellationToken cancellationToken = default)
     {
+        if (Records.Any(record =>
+            record.OrganizationId == organizationId
+            && record.ArtifactObjectKey == artifactObjectKey))
+        {
+            return Task.CompletedTask;
+        }
+
         Records.Add((organizationId, workKind, artifactObjectKey));
         return Task.CompletedTask;
     }

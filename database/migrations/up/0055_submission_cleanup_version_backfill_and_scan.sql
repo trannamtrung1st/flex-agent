@@ -1,5 +1,5 @@
 -- Additive backfill of exact artifact versions on already-queued cleanup work,
--- terminal failed provenance for unbackfillable artifact jobs, and a persisted
+-- fail-closed pending/leased artifact jobs without a version, and a persisted
 -- accepted-cleanup scan cursor. Do not edit 0001-0054.
 
 UPDATE submissions_durable_work AS work
@@ -25,13 +25,7 @@ WHERE work.organization_id = item.organization_id
   AND (work.artifact_version_id IS NULL OR btrim(work.artifact_version_id) = '')
   AND btrim(item.artifact_version_id) <> '';
 
-ALTER TABLE submissions_durable_work
-    ADD COLUMN failure_reason TEXT NULL;
-
-UPDATE submissions_durable_work
-SET status = 'failed',
-    lease_until = NULL,
-    failure_reason = 'exact_artifact_version_unavailable'
+DELETE FROM submissions_durable_work
 WHERE status IN ('pending', 'leased')
   AND artifact_object_key IS NOT NULL
   AND work_kind IN ('cleanup_incomplete', 'cleanup_rejected', 'cleanup_orphan', 'cleanup_accepted')

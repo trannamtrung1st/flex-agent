@@ -567,6 +567,80 @@ public sealed class SubmissionCleanupProcessorTests
         Assert.Equal(snapshot.Generation + 1, after.Generation);
     }
 
+    [Fact]
+    public async Task Accepted_cleanup_completes_duplicate_work_when_peer_already_disposed()
+    {
+        var organizationId = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+        var now = DateTimeOffset.Parse("2026-08-25T12:00:00Z");
+        var clock = new FixedEnrollmentClock(now);
+        var inner = new InMemoryArtifactStore();
+        var artifacts = new RecordingArtifactStore(inner);
+        var intakes = new InMemoryIntakeStore();
+        var versions = new InMemorySubmissionVersionStore();
+        var holds = new InMemoryLifecycleHoldStore();
+        var dispositions = new InMemoryArtifactDispositionStore();
+        var work = new InMemorySubmissionWorkStore();
+        var scan = new InMemoryAcceptedCleanupScanStore();
+        var transaction = new InMemoryEnrollmentTransaction();
+        var activityId = Guid.CreateVersion7();
+        var itemId = Guid.CreateVersion7();
+        var put = await inner.PutAsync(
+            new ArtifactPutRequest(organizationId, ArtifactObjectKey.Create(organizationId, itemId), "bytes"u8.ToArray(), "text/plain"),
+            TestContext.Current.CancellationToken);
+        await InsertAcceptedAsync(
+            versions,
+            transaction,
+            ClosedScope(organizationId, activityId),
+            itemId,
+            put.Reference!,
+            now.AddDays(-366));
+
+        var replicaBSawEnqueueCheck = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var replicaAFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var replicaBDispositions = new StaleEnqueueDispositionStore(
+            dispositions,
+            replicaBSawEnqueueCheck,
+            replicaAFinished);
+        var closures = new StubActivityClosurePort(activityId, now.AddDays(-366));
+        var replicaA = new SubmissionCleanupProcessor(
+            work,
+            intakes,
+            artifacts,
+            versions,
+            holds,
+            dispositions,
+            clock,
+            closures,
+            acceptedScan: scan);
+        var replicaB = new SubmissionCleanupProcessor(
+            work,
+            intakes,
+            artifacts,
+            versions,
+            holds,
+            replicaBDispositions,
+            clock,
+            closures,
+            acceptedScan: scan);
+
+        var replicaBTask = replicaB.TryProcessNextAsync(TestContext.Current.CancellationToken);
+        await replicaBSawEnqueueCheck.Task.WaitAsync(TestContext.Current.CancellationToken);
+        var replicaAOutcome = await replicaA.TryProcessNextAsync(TestContext.Current.CancellationToken);
+        replicaAFinished.SetResult();
+        var replicaBOutcome = await replicaBTask.WaitAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("completed", replicaAOutcome);
+        Assert.Equal("completed", replicaBOutcome);
+        Assert.Single(artifacts.Deleted);
+        Assert.Single(dispositions.Records);
+        Assert.DoesNotContain(work.Items, item => item.Status == SubmissionWorkStates.Pending);
+        Assert.Equal(2, work.Items.Count(item => item.Status == SubmissionWorkStates.Completed));
+        var gone = await inner.GetExactVersionAsync(
+            new ArtifactGetRequest(organizationId, put.Reference!),
+            TestContext.Current.CancellationToken);
+        Assert.False(gone.Succeeded);
+    }
+
     private static SubmissionParentScope ClosedScope(Guid organizationId, Guid activityId) =>
         new(
             organizationId,
@@ -655,6 +729,38 @@ public sealed class SubmissionCleanupProcessorTests
             Guid activityId,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(activityId == closedActivityId ? closedAtUtc : (DateTimeOffset?)null);
+    }
+
+    private sealed class StaleEnqueueDispositionStore(
+        IArtifactDispositionStore inner,
+        TaskCompletionSource enqueueCheckStarted,
+        TaskCompletionSource peerFinished) : IArtifactDispositionStore
+    {
+        private int _existsCalls;
+
+        public Task RecordAsync(
+            Guid organizationId,
+            Guid dispositionId,
+            string workKind,
+            string artifactObjectKey,
+            DateTimeOffset disposedAtUtc,
+            CancellationToken cancellationToken = default) =>
+            inner.RecordAsync(organizationId, dispositionId, workKind, artifactObjectKey, disposedAtUtc, cancellationToken);
+
+        public async Task<bool> ExistsAsync(
+            Guid organizationId,
+            string artifactObjectKey,
+            CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref _existsCalls) == 1)
+            {
+                enqueueCheckStarted.TrySetResult();
+                await peerFinished.Task.WaitAsync(cancellationToken);
+                return false;
+            }
+
+            return await inner.ExistsAsync(organizationId, artifactObjectKey, cancellationToken);
+        }
     }
 
     private sealed class RecordingArtifactStore(IArtifactStore inner) : IArtifactStore

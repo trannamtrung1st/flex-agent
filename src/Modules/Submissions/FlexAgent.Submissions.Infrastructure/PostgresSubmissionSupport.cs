@@ -1014,6 +1014,7 @@ public sealed class PostgresArtifactDispositionStore(PostgresConnectionAccessor 
                 INSERT INTO submissions_artifact_dispositions (
                     organization_id, disposition_id, work_kind, artifact_object_key, disposed_at)
                 VALUES (@OrganizationId, @DispositionId, @WorkKind, @ArtifactObjectKey, @DisposedAtUtc)
+                ON CONFLICT (organization_id, artifact_object_key) DO NOTHING
                 """,
                 new
                 {

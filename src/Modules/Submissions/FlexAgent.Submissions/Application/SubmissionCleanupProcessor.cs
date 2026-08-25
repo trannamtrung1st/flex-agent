@@ -77,6 +77,15 @@ public sealed class SubmissionCleanupProcessor(
                     return "failed";
                 }
 
+                if (await dispositions.ExistsAsync(
+                    claimed.OrganizationId,
+                    claimed.ArtifactObjectKey,
+                    cancellationToken))
+                {
+                    await work.CompleteAsync(claimed.OrganizationId, claimed.WorkId, cancellationToken);
+                    return "completed";
+                }
+
                 var deleted = await artifacts.DeleteAsync(
                     claimed.OrganizationId,
                     new StoredArtifactReference(
