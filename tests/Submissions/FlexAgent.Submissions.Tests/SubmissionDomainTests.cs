@@ -155,6 +155,81 @@ public sealed class SubmissionLifecycleTests
 
         Assert.False(SubmissionLifecycle.IncompleteEligibleForCleanup(recent, now));
         Assert.True(SubmissionLifecycle.IncompleteEligibleForCleanup(stale, now));
+
+        var rejectedRecent = stale with { Status = IntakeStates.Rejected, UpdatedAtUtc = now.AddDays(-1) };
+        var rejectedStale = stale with { Status = IntakeStates.Rejected, UpdatedAtUtc = now.AddDays(-8) };
+        Assert.False(SubmissionLifecycle.RejectedBytesEligibleForCleanup(rejectedRecent, now));
+        Assert.True(SubmissionLifecycle.RejectedBytesEligibleForCleanup(rejectedStale, now));
+        Assert.False(SubmissionLifecycle.MayDeleteArtifact(acceptedReferenceExists: true, legalHoldActive: false));
+        Assert.False(SubmissionLifecycle.MayDeleteArtifact(acceptedReferenceExists: false, legalHoldActive: true));
+        Assert.True(SubmissionLifecycle.MayDeleteArtifact(acceptedReferenceExists: false, legalHoldActive: false));
+    }
+
+    [Fact]
+    public void Protected_capability_rejects_expiry_replay_and_substitution()
+    {
+        var now = DateTimeOffset.Parse("2026-08-25T12:00:00Z");
+        var capability = new ProtectedArtifactCapability(
+            Guid.Parse("11111111-1111-4111-8111-111111111111"),
+            Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+            Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+            Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+            Guid.Parse("dddddddd-dddd-4ddd-8ddd-dddddddddddd"),
+            Guid.Parse("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"),
+            SubmissionPermittedActions.DownloadItem,
+            now.AddMinutes(5),
+            null);
+
+        Assert.Null(ProtectedArtifactCapabilityRules.Redeem(
+            capability,
+            capability.OrganizationId,
+            capability.ActorId,
+            capability.EnrollmentId,
+            capability.VersionId,
+            capability.ItemId,
+            SubmissionPermittedActions.DownloadItem,
+            now));
+        Assert.Equal(
+            SubmissionFailureCodes.CapabilityExpired,
+            ProtectedArtifactCapabilityRules.Redeem(
+                capability,
+                capability.OrganizationId,
+                capability.ActorId,
+                capability.EnrollmentId,
+                capability.VersionId,
+                capability.ItemId,
+                SubmissionPermittedActions.DownloadItem,
+                now.AddMinutes(5)));
+        Assert.Equal(
+            SubmissionFailureCodes.CapabilityMismatch,
+            ProtectedArtifactCapabilityRules.Redeem(
+                capability,
+                Guid.CreateVersion7(),
+                capability.ActorId,
+                capability.EnrollmentId,
+                capability.VersionId,
+                capability.ItemId,
+                SubmissionPermittedActions.DownloadItem,
+                now));
+        Assert.Equal(
+            SubmissionFailureCodes.CapabilityMismatch,
+            ProtectedArtifactCapabilityRules.Redeem(
+                capability with { RedeemedAtUtc = now },
+                capability.OrganizationId,
+                capability.ActorId,
+                capability.EnrollmentId,
+                capability.VersionId,
+                capability.ItemId,
+                SubmissionPermittedActions.DownloadItem,
+                now));
+    }
+
+    [Fact]
+    public void Telemetry_bands_exclude_raw_sizes_and_counts()
+    {
+        Assert.Equal("1kib_1mib", SubmissionTelemetryBands.ByteBand(2048));
+        Assert.Equal("6_10", SubmissionTelemetryBands.CountBand(10));
+        Assert.Equal("over_10", SubmissionTelemetryBands.CountBand(11));
     }
 }
 
@@ -262,6 +337,112 @@ public sealed class SubmissionApplicationTests
         Assert.True(result.Found);
         Assert.False(result.Value!.IntakeAvailable);
         Assert.Equal(SubmissionFailureCodes.PolicyUnavailable, result.Value.UnavailableReason);
+    }
+
+    [Fact]
+    public async Task Preview_writes_audit_before_disclosing_content_and_fails_closed_when_audit_unavailable()
+    {
+        var organizationId = OrganizationId;
+        var enrollmentId = EnrollmentId;
+        var versionId = Guid.Parse("33333333-3333-4333-8333-333333333333");
+        var itemId = Guid.Parse("44444444-4444-4444-8444-444444444444");
+        var content = "Synthetic preview text."u8.ToArray();
+        var artifacts = new InMemoryArtifactStore();
+        var put = await artifacts.PutAsync(
+            new ArtifactPutRequest(
+                organizationId,
+                ArtifactObjectKey.Create(organizationId, itemId),
+                content,
+                "text/plain"),
+            TestContext.Current.CancellationToken);
+        Assert.True(put.Succeeded);
+
+        var enrollments = new InMemoryEnrollmentStore();
+        var binding = Binding();
+        var enrollment = Enrollment.Create(
+            enrollmentId,
+            organizationId,
+            ActivityId,
+            CohortId,
+            binding.BaselineId,
+            binding.TaskSourceId,
+            binding.TaskVersionId,
+            binding.TaskContentDigest,
+            EnrollmentLifecyclePolicy.RestrictedPreservationPolicyId,
+            EnrollmentLifecyclePolicy.RestrictedPreservationVersion,
+            ParticipantId,
+            ParticipantId,
+            DateTimeOffset.UtcNow).Value!;
+        enrollments.Restore([enrollment], []);
+        var versions = new InMemorySubmissionVersionStore();
+        await versions.InsertAcceptedVersionAsync(
+            new AcceptedSubmissionVersion(
+                Guid.CreateVersion7(),
+                versionId,
+                1,
+                new SubmissionParentScope(
+                    organizationId,
+                    ActivityId,
+                    CohortId,
+                    binding.BaselineId,
+                    enrollmentId,
+                    ParticipantId,
+                    binding.TaskSourceId,
+                    binding.TaskVersionId,
+                    binding.TaskContentDigest),
+                Digest,
+                null,
+                DateTimeOffset.UtcNow,
+                [
+                    new AcceptedVersionItem(
+                        itemId,
+                        MaterialCategories.DirectText,
+                        null,
+                        content.Length,
+                        put.Reference!.Digest.Sha256Hex,
+                        put.Reference.ObjectKey.Value,
+                        put.Reference.VersionId.Value),
+                ]),
+            ParticipantId,
+            new InMemoryEnrollmentTransaction(),
+            TestContext.Current.CancellationToken);
+
+        var audit = new RecordingEnrollmentAuditPort();
+        var queries = new SubmissionQueryService(
+            new AllowEnrollmentAuthorizationPort(),
+            enrollments,
+            new InMemoryIntakeStore(),
+            versions,
+            new FixedFrozenSubmissionRequirementPort(),
+            new FixedMaterialPolicyPort(),
+            new FixedActivatedCohortPort { Binding = binding },
+            artifacts,
+            null,
+            audit,
+            null,
+            new InMemoryProtectedArtifactCapabilityStore());
+
+        var preview = await queries.GetAcceptedItemPreviewAsync(
+            Participant(),
+            enrollmentId,
+            versionId,
+            itemId,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(preview.Found);
+        Assert.Equal("Synthetic preview text.", preview.Value!.Text);
+        Assert.Equal(1, audit.RequiredWrites);
+
+        audit.FailRequired = true;
+        var denied = await queries.GetAcceptedItemPreviewAsync(
+            Participant(),
+            enrollmentId,
+            versionId,
+            itemId,
+            TestContext.Current.CancellationToken);
+        Assert.False(denied.Found);
+        Assert.Equal(SubmissionFailureCodes.AuditUnavailable, denied.OutcomeCode);
+        Assert.Null(denied.Value);
     }
 
     private static EnrollmentActorContext Participant() =>

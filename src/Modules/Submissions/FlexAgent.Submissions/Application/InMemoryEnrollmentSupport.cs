@@ -456,6 +456,8 @@ public sealed class RecordingEnrollmentAuditPort : IEnrollmentAuditPort
 
     public int AvailabilityWrites { get; private set; }
 
+    public bool FailRequired { get; set; }
+
     public Guid? LastResourceId { get; private set; }
 
     public string? LastResourceType { get; private set; }
@@ -483,6 +485,11 @@ public sealed class RecordingEnrollmentAuditPort : IEnrollmentAuditPort
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken)
     {
+        if (FailRequired)
+        {
+            throw new EnrollmentAuditUnavailableException();
+        }
+
         RequiredWrites++;
         LastResourceId = resourceId;
         LastResourceType = resourceType;

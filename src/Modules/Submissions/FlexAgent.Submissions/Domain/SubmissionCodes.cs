@@ -69,6 +69,8 @@ public static class SubmissionLifecycleClocks
     public static readonly TimeSpan RejectedByteRetention = TimeSpan.FromDays(7);
     public static readonly TimeSpan ValidationTimeout = TimeSpan.FromMinutes(2);
     public static readonly TimeSpan WorkLease = TimeSpan.FromMinutes(2);
+    public static readonly TimeSpan ProtectedCapabilityLifetime = TimeSpan.FromMinutes(5);
+    public static readonly TimeSpan AcceptedRetentionAfterActivityClosure = TimeSpan.FromDays(365);
 }
 
 public static class SubmissionWorkKinds

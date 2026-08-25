@@ -45,6 +45,9 @@ public static class SubmissionEndpointExtensions
             services.AddSingleton<IIntakeStore, InMemoryIntakeStore>();
             services.AddSingleton<ISubmissionVersionStore, InMemorySubmissionVersionStore>();
             services.AddSingleton<ISubmissionWorkStore, InMemorySubmissionWorkStore>();
+            services.AddSingleton<ISubmissionLifecycleHoldStore, InMemoryLifecycleHoldStore>();
+            services.AddSingleton<IArtifactDispositionStore, InMemoryArtifactDispositionStore>();
+            services.AddSingleton<IProtectedArtifactCapabilityStore, InMemoryProtectedArtifactCapabilityStore>();
             return services;
         }
 
@@ -61,6 +64,9 @@ public static class SubmissionEndpointExtensions
         services.AddSingleton<IIntakeStore, PostgresIntakeStore>();
         services.AddSingleton<ISubmissionVersionStore, PostgresSubmissionVersionStore>();
         services.AddSingleton<ISubmissionWorkStore, PostgresSubmissionWorkStore>();
+        services.AddSingleton<ISubmissionLifecycleHoldStore, PostgresLifecycleHoldStore>();
+        services.AddSingleton<IArtifactDispositionStore, PostgresArtifactDispositionStore>();
+        services.AddSingleton<IProtectedArtifactCapabilityStore, PostgresProtectedArtifactCapabilityStore>();
         services.AddHostedService<SubmissionCleanupHostedService>();
         return services;
     }
@@ -145,7 +151,10 @@ public static class SubmissionEndpointExtensions
         var result = await queries.GetAcceptedItemPreviewAsync(actor, enrollmentId, versionId, itemId, context.RequestAborted);
         if (!result.Found || result.Value is null)
         {
-            await EnrollmentEndpointExtensions.WriteError(context, StatusCodes.Status404NotFound, result.OutcomeCode ?? SubmissionFailureCodes.NotFound);
+            var status = string.Equals(result.OutcomeCode, SubmissionFailureCodes.AuditUnavailable, StringComparison.Ordinal)
+                ? StatusCodes.Status503ServiceUnavailable
+                : StatusCodes.Status404NotFound;
+            await EnrollmentEndpointExtensions.WriteError(context, status, result.OutcomeCode ?? SubmissionFailureCodes.NotFound);
             return;
         }
 
@@ -173,10 +182,19 @@ public static class SubmissionEndpointExtensions
             return;
         }
 
-        var result = await queries.GetAcceptedItemPreviewAsync(actor, enrollmentId, versionId, itemId, context.RequestAborted);
+        var result = await queries.GetAcceptedItemPreviewAsync(
+            actor,
+            enrollmentId,
+            versionId,
+            itemId,
+            context.RequestAborted,
+            SubmissionPermittedActions.DownloadItem);
         if (!result.Found || result.Value is null)
         {
-            await EnrollmentEndpointExtensions.WriteError(context, StatusCodes.Status404NotFound, result.OutcomeCode ?? SubmissionFailureCodes.NotFound);
+            var status = string.Equals(result.OutcomeCode, SubmissionFailureCodes.AuditUnavailable, StringComparison.Ordinal)
+                ? StatusCodes.Status503ServiceUnavailable
+                : StatusCodes.Status404NotFound;
+            await EnrollmentEndpointExtensions.WriteError(context, status, result.OutcomeCode ?? SubmissionFailureCodes.NotFound);
             return;
         }
 

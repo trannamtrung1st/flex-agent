@@ -686,6 +686,12 @@ public sealed class IntakeCoordinator(
             }, cancellationToken);
 
             _telemetry.RecordMutation(operationKind, outcome.Succeeded ? "success" : "failure", Stopwatch.GetElapsedTime(started));
+            _telemetry.RecordIntake(
+                operationKind,
+                outcome.Succeeded ? "success" : "failure",
+                SubmissionTelemetryBands.ByteBand(0),
+                SubmissionTelemetryBands.CountBand(outcome.Succeeded ? 1 : 0),
+                Stopwatch.GetElapsedTime(started));
             return outcome;
         }
         catch (InvalidOperationException ex) when (string.Equals(ex.Message, SubmissionFailureCodes.StaleRevision, StringComparison.Ordinal))

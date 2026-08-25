@@ -47,6 +47,7 @@ export function ProductionMyWorkDetailPage() {
   const [previewItem, setPreviewItem] = useState<{ versionId: string; itemId: string } | null>(null);
   const [previewUnavailable, setPreviewUnavailable] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [dropActive, setDropActive] = useState(false);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
@@ -113,6 +114,7 @@ export function ProductionMyWorkDetailPage() {
     ? "Add direct text or a UTF-8 .txt or .md file before submitting a version."
     : null;
   const blockedIntake = intakeStatus === "reconciling" || intakeStatus === "cancelling";
+  const reconciling = intakeStatus === "reconciling";
   const canCancel = Boolean(
     submission?.active_intake
     && ["receiving", "received", "validating"].includes(submission.active_intake.status),
@@ -181,10 +183,22 @@ export function ProductionMyWorkDetailPage() {
         throw new ProductionApiError(409, submissionFailureCopy(finalized.outcome_code), finalized.outcome_code);
       }
 
-      setDirectText("");
-      setFiles([]);
-      await refreshSubmission();
-      setIntakeStatus("accepted");
+      try {
+        await refreshSubmission();
+        setDirectText("");
+        setFiles([]);
+        setPreview(null);
+        setPreviewItem(null);
+        setIntakeStatus("accepted");
+      } catch {
+        setIntakeStatus("reconciling");
+        setErrors([
+          "The server accepted this version, but the assignment view could not be refreshed. Wait and try again before submitting another version.",
+        ]);
+        requestAnimationFrame(() => {
+          document.getElementById("submission-error-summary")?.focus();
+        });
+      }
     } catch (caught: unknown) {
       const message = caught instanceof ProductionApiError
         ? submissionFailureCopy(caught.outcomeCode)
@@ -284,8 +298,41 @@ export function ProductionMyWorkDetailPage() {
     }
   }
 
-  function onChooseFiles(event: ChangeEvent<HTMLInputElement>) {
-    const selected = Array.from(event.currentTarget.files ?? []);
+  async function downloadPreviewItem() {
+    if (!previewItem) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        submissionClient.downloadItemUrl(enrollmentId, previewItem.versionId, previewItem.itemId),
+        { credentials: "same-origin" },
+      );
+      if (!response.ok) {
+        setPreview(null);
+        setPreviewItem(null);
+        setPreviewUnavailable(true);
+        requestAnimationFrame(() => {
+          document.getElementById("preview-unavailable")?.focus();
+        });
+        return;
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = preview?.filename || "submission-item.txt";
+      link.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      setPreview(null);
+      setPreviewItem(null);
+      setPreviewUnavailable(true);
+    }
+  }
+
+  function addLocalFiles(selected: File[]) {
     Promise.all(selected.map(async (file) => ({
       id: crypto.randomUUID(),
       name: file.name,
@@ -295,7 +342,27 @@ export function ProductionMyWorkDetailPage() {
     }).catch(() => {
       setErrors(["A selected file could not be read as text."]);
     });
+  }
+
+  function onChooseFiles(event: ChangeEvent<HTMLInputElement>) {
+    addLocalFiles(Array.from(event.currentTarget.files ?? []));
     event.currentTarget.value = "";
+  }
+
+  function removeFile(fileId: string) {
+    setFiles((current) => {
+      const index = current.findIndex((item) => item.id === fileId);
+      const next = current.filter((item) => item.id !== fileId);
+      requestAnimationFrame(() => {
+        const focusId = next[index]?.id ?? next[index - 1]?.id;
+        if (focusId) {
+          document.getElementById(`remove-file-${focusId}`)?.focus();
+        } else {
+          fileInputRef.current?.focus();
+        }
+      });
+      return next;
+    });
   }
 
   return (
@@ -345,7 +412,9 @@ export function ProductionMyWorkDetailPage() {
               Limits: {submission.requirements?.max_direct_text_bytes ?? 1048576} bytes of direct text,
               {" "}{submission.requirements?.max_attachment_count ?? 10} attachments.
             </p>
-            {intakeStatus ? (
+            {reconciling ? (
+              <p role="status">Reconciling this intake. Wait for the current state before submitting another version.</p>
+            ) : intakeStatus ? (
               <p role="status">Current intake state: {intakeStatus}.</p>
             ) : (
               <p>No active intake. Prepare materials locally, then submit a version when ready.</p>
@@ -362,17 +431,34 @@ export function ProductionMyWorkDetailPage() {
                 disabled={pending}
               />
             </div>
-            <div className="form-field">
-              <label htmlFor="choose-files">Attachments</label>
-              <input
-                ref={fileInputRef}
-                id="choose-files"
-                type="file"
-                accept=".txt,.md,text/plain,text/markdown"
-                multiple
-                disabled={pending}
-                onChange={onChooseFiles}
-              />
+            <div
+              className={`file-drop${dropActive ? " is-active" : ""}`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDropActive(true);
+              }}
+              onDragLeave={() => {
+                setDropActive(false);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDropActive(false);
+                addLocalFiles(Array.from(event.dataTransfer.files));
+              }}
+            >
+              <div className="form-field">
+                <label htmlFor="choose-files">Attachments</label>
+                <input
+                  ref={fileInputRef}
+                  id="choose-files"
+                  type="file"
+                  accept=".txt,.md,text/plain,text/markdown"
+                  multiple
+                  disabled={pending}
+                  onChange={onChooseFiles}
+                />
+                <p className="hint">Optional: drop UTF-8 .txt or .md files here, or use Choose files.</p>
+              </div>
             </div>
             {files.length > 0 ? (
               <ul className="attachment-list">
@@ -380,12 +466,12 @@ export function ProductionMyWorkDetailPage() {
                   <li key={file.id} className="attachment-row">
                     <span>{file.name}</span>
                     <Button
+                      id={`remove-file-${file.id}`}
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        setFiles((current) => current.filter((item) => item.id !== file.id));
-                        fileInputRef.current?.focus();
+                        removeFile(file.id);
                       }}
                     >
                       Remove {file.name}
@@ -466,9 +552,9 @@ export function ProductionMyWorkDetailPage() {
             </SafeContent>
             {previewItem ? (
               <p>
-                <a href={submissionClient.downloadItemUrl(enrollmentId, previewItem.versionId, previewItem.itemId)}>
+                <Button type="button" variant="secondary" onClick={() => { void downloadPreviewItem(); }}>
                   Download exact item
-                </a>
+                </Button>
               </p>
             ) : null}
           </section>

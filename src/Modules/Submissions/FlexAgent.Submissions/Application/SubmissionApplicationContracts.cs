@@ -149,7 +149,8 @@ public interface ISubmissionQueryService
         Guid enrollmentId,
         Guid versionId,
         Guid itemId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        string accessKind = SubmissionPermittedActions.PreviewItem);
 }
 
 public sealed record ProtectedItemContent(
@@ -193,6 +194,11 @@ public interface IIntakeStore
         DateTimeOffset cutoffUtc,
         int limit,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SubmissionIntakeRecord>> ListRejectedUpdatedBeforeAsync(
+        DateTimeOffset cutoffUtc,
+        int limit,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record SubmissionVersionAllocation(int VersionNumber, Guid? PredecessorVersionId);
@@ -228,6 +234,11 @@ public interface ISubmissionVersionStore
         Guid actorId,
         IEnrollmentTransaction transaction,
         CancellationToken cancellationToken = default);
+
+    Task<bool> HasAcceptedArtifactKeyAsync(
+        Guid organizationId,
+        string artifactObjectKey,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IExactAcceptedVersionReader
@@ -261,6 +272,47 @@ public interface ISubmissionWorkStore
     Task CompleteAsync(Guid organizationId, Guid workId, CancellationToken cancellationToken = default);
 
     Task FailAsync(Guid organizationId, Guid workId, DateTimeOffset retryAtUtc, CancellationToken cancellationToken = default);
+}
+
+public interface ISubmissionLifecycleHoldStore
+{
+    Task<bool> IsHeldAsync(Guid organizationId, string artifactObjectKey, CancellationToken cancellationToken = default);
+
+    Task InsertHoldAsync(Guid organizationId, Guid holdId, string artifactObjectKey, CancellationToken cancellationToken = default);
+}
+
+public interface IArtifactDispositionStore
+{
+    Task RecordAsync(
+        Guid organizationId,
+        Guid dispositionId,
+        string workKind,
+        string artifactObjectKey,
+        DateTimeOffset disposedAtUtc,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> ExistsAsync(
+        Guid organizationId,
+        string artifactObjectKey,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IProtectedArtifactCapabilityStore
+{
+    Task<ProtectedArtifactCapability> IssueAsync(
+        ProtectedArtifactCapability capability,
+        CancellationToken cancellationToken = default);
+
+    Task<ProtectedArtifactCapability?> FindAsync(
+        Guid organizationId,
+        Guid capabilityId,
+        CancellationToken cancellationToken = default);
+
+    Task MarkRedeemedAsync(
+        Guid organizationId,
+        Guid capabilityId,
+        DateTimeOffset redeemedAtUtc,
+        CancellationToken cancellationToken = default);
 }
 
 public interface ISubmissionCleanupProcessor

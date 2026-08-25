@@ -6,6 +6,13 @@ public static class SubmissionLifecycle
         !IntakeStateMachine.IsTerminal(intake.Status)
         && nowUtc - intake.CreatedAtUtc >= SubmissionLifecycleClocks.IncompleteRetention;
 
+    public static bool RejectedBytesEligibleForCleanup(SubmissionIntakeRecord intake, DateTimeOffset nowUtc) =>
+        intake.Status is IntakeStates.Cancelled or IntakeStates.Rejected or IntakeStates.Failed
+        && nowUtc - intake.UpdatedAtUtc >= SubmissionLifecycleClocks.RejectedByteRetention;
+
+    public static bool MayDeleteArtifact(bool acceptedReferenceExists, bool legalHoldActive) =>
+        !acceptedReferenceExists && !legalHoldActive;
+
     public static IReadOnlyList<string> PermittedActions(
         bool intakeAvailable,
         string? intakeStatus,

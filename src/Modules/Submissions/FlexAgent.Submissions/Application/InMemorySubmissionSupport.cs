@@ -71,6 +71,20 @@ public sealed class InMemoryIntakeStore : IIntakeStore
             .ToArray();
         return Task.FromResult<IReadOnlyList<SubmissionIntakeRecord>>(items);
     }
+
+    public Task<IReadOnlyList<SubmissionIntakeRecord>> ListRejectedUpdatedBeforeAsync(
+        DateTimeOffset cutoffUtc,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        var items = _intakes.Values
+            .Where(intake => intake.Status is IntakeStates.Cancelled or IntakeStates.Rejected or IntakeStates.Failed
+                && intake.UpdatedAtUtc <= cutoffUtc)
+            .OrderBy(intake => intake.UpdatedAtUtc)
+            .Take(limit)
+            .ToArray();
+        return Task.FromResult<IReadOnlyList<SubmissionIntakeRecord>>(items);
+    }
 }
 
 public sealed class InMemorySubmissionVersionStore : ISubmissionVersionStore
@@ -137,6 +151,14 @@ public sealed class InMemorySubmissionVersionStore : ISubmissionVersionStore
         InMemorySubmissionIdentity.ByEnrollment[(version.Scope.OrganizationId, version.Scope.EnrollmentId)] = version.SubmissionId;
         return Task.CompletedTask;
     }
+
+    public Task<bool> HasAcceptedArtifactKeyAsync(
+        Guid organizationId,
+        string artifactObjectKey,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(_versions.Values.Any(version =>
+            version.Scope.OrganizationId == organizationId
+            && version.Items.Any(item => string.Equals(item.ArtifactObjectKey, artifactObjectKey, StringComparison.Ordinal))));
 }
 
 public sealed class InMemoryArtifactStore : IArtifactStore
@@ -210,6 +232,16 @@ public sealed class InMemorySubmissionWorkStore : ISubmissionWorkStore
 
     public Task EnqueueAsync(SubmissionWorkItem work, IEnrollmentTransaction transaction, CancellationToken cancellationToken = default)
     {
+        if (_items.Any(item =>
+            item.OrganizationId == work.OrganizationId
+            && item.WorkKind == work.WorkKind
+            && item.IntakeId == work.IntakeId
+            && item.ArtifactObjectKey == work.ArtifactObjectKey
+            && item.Status is SubmissionWorkStates.Pending or SubmissionWorkStates.Leased))
+        {
+            return Task.CompletedTask;
+        }
+
         _items.Add(work);
         return Task.CompletedTask;
     }
@@ -256,6 +288,78 @@ public sealed class InMemorySubmissionWorkStore : ISubmissionWorkStore
                 AvailableAtUtc = retryAtUtc,
                 LeaseUntilUtc = null,
             };
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class InMemoryLifecycleHoldStore : ISubmissionLifecycleHoldStore
+{
+    private readonly HashSet<(Guid OrganizationId, string ArtifactObjectKey)> _holds = [];
+
+    public Task<bool> IsHeldAsync(Guid organizationId, string artifactObjectKey, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_holds.Contains((organizationId, artifactObjectKey)));
+
+    public Task InsertHoldAsync(Guid organizationId, Guid holdId, string artifactObjectKey, CancellationToken cancellationToken = default)
+    {
+        _holds.Add((organizationId, artifactObjectKey));
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class InMemoryArtifactDispositionStore : IArtifactDispositionStore
+{
+    public List<(Guid OrganizationId, string WorkKind, string ArtifactObjectKey)> Records { get; } = [];
+
+    public Task RecordAsync(
+        Guid organizationId,
+        Guid dispositionId,
+        string workKind,
+        string artifactObjectKey,
+        DateTimeOffset disposedAtUtc,
+        CancellationToken cancellationToken = default)
+    {
+        Records.Add((organizationId, workKind, artifactObjectKey));
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> ExistsAsync(
+        Guid organizationId,
+        string artifactObjectKey,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(Records.Any(record =>
+            record.OrganizationId == organizationId
+            && record.ArtifactObjectKey == artifactObjectKey));
+}
+
+public sealed class InMemoryProtectedArtifactCapabilityStore : IProtectedArtifactCapabilityStore
+{
+    private readonly Dictionary<(Guid OrganizationId, Guid CapabilityId), ProtectedArtifactCapability> _capabilities = [];
+
+    public Task<ProtectedArtifactCapability> IssueAsync(
+        ProtectedArtifactCapability capability,
+        CancellationToken cancellationToken = default)
+    {
+        _capabilities[(capability.OrganizationId, capability.CapabilityId)] = capability;
+        return Task.FromResult(capability);
+    }
+
+    public Task<ProtectedArtifactCapability?> FindAsync(
+        Guid organizationId,
+        Guid capabilityId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(_capabilities.TryGetValue((organizationId, capabilityId), out var capability) ? capability : null);
+
+    public Task MarkRedeemedAsync(
+        Guid organizationId,
+        Guid capabilityId,
+        DateTimeOffset redeemedAtUtc,
+        CancellationToken cancellationToken = default)
+    {
+        if (_capabilities.TryGetValue((organizationId, capabilityId), out var capability))
+        {
+            _capabilities[(organizationId, capabilityId)] = capability with { RedeemedAtUtc = redeemedAtUtc };
         }
 
         return Task.CompletedTask;

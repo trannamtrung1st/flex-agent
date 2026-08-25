@@ -361,7 +361,8 @@ public sealed class SubmissionHttpNegativeContractTests
             Guid enrollmentId,
             Guid versionId,
             Guid itemId,
-            CancellationToken cancellationToken = default) =>
+            CancellationToken cancellationToken = default,
+            string accessKind = SubmissionPermittedActions.PreviewItem) =>
             throw new InvalidOperationException("Protected Submission query must not run.");
     }
 }

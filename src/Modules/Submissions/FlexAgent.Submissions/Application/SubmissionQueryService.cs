@@ -1,3 +1,4 @@
+using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.Submissions.Domain;
 
 namespace FlexAgent.Submissions.Application;
@@ -11,7 +12,10 @@ public sealed class SubmissionQueryService(
     IMaterialPolicyPort materialPolicies,
     IActivatedCohortPort cohorts,
     IArtifactStore? artifacts = null,
-    IEnrollmentClock? clock = null) : ISubmissionQueryService
+    IEnrollmentClock? clock = null,
+    IEnrollmentAuditPort? audit = null,
+    IEnrollmentUnitOfWork? unitOfWork = null,
+    IProtectedArtifactCapabilityStore? capabilities = null) : ISubmissionQueryService
 {
     private readonly IEnrollmentClock _clock = clock ?? new SystemEnrollmentClock();
 
@@ -171,7 +175,8 @@ public sealed class SubmissionQueryService(
         Guid enrollmentId,
         Guid versionId,
         Guid itemId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string accessKind = SubmissionPermittedActions.PreviewItem)
     {
         var versionResult = await GetAcceptedVersionAsync(actor, enrollmentId, versionId, cancellationToken);
         if (!versionResult.Found || versionResult.Value is null)
@@ -184,6 +189,102 @@ public sealed class SubmissionQueryService(
         if (version is null || item is null || artifacts is null)
         {
             return new QueryResult<ProtectedItemContent>(false, null, SubmissionFailureCodes.NotFound);
+        }
+
+        var now = _clock.UtcNow;
+        var capability = new ProtectedArtifactCapability(
+            Guid.CreateVersion7(),
+            actor.Organization.OrganizationId,
+            actor.Actor.ActorId,
+            enrollmentId,
+            versionId,
+            itemId,
+            accessKind,
+            now.Add(SubmissionLifecycleClocks.ProtectedCapabilityLifetime),
+            null);
+        if (capabilities is not null)
+        {
+            capability = await capabilities.IssueAsync(capability, cancellationToken);
+        }
+
+        var redeem = ProtectedArtifactCapabilityRules.Redeem(
+            capability,
+            actor.Organization.OrganizationId,
+            actor.Actor.ActorId,
+            enrollmentId,
+            versionId,
+            itemId,
+            accessKind,
+            now);
+        if (redeem is not null)
+        {
+            return new QueryResult<ProtectedItemContent>(false, null, redeem);
+        }
+
+        if (capabilities is not null)
+        {
+            await capabilities.MarkRedeemedAsync(capability.OrganizationId, capability.CapabilityId, now, cancellationToken);
+        }
+
+        if (audit is not null && unitOfWork is not null)
+        {
+            try
+            {
+                await unitOfWork.ExecuteAsync(
+                    actor,
+                    async transaction =>
+                    {
+                        await audit.WriteRequiredDurableAsync(
+                            actor,
+                            accessKind,
+                            itemId,
+                            EnrollmentResourceTypes.Assignment,
+                            AuthorizationOutcomes.Permit,
+                            null,
+                            null,
+                            transaction,
+                            cancellationToken);
+                        if (!transaction.AuditAccepted)
+                        {
+                            throw new EnrollmentAuditUnavailableException();
+                        }
+
+                        return true;
+                    },
+                    cancellationToken);
+            }
+            catch (EnrollmentAuditUnavailableException)
+            {
+                return new QueryResult<ProtectedItemContent>(false, null, SubmissionFailureCodes.AuditUnavailable);
+            }
+            catch (EnrollmentSessionExpiredException)
+            {
+                return new QueryResult<ProtectedItemContent>(false, null, SubmissionFailureCodes.Unauthorized);
+            }
+        }
+        else if (audit is not null)
+        {
+            try
+            {
+                await audit.WriteRequiredDurableAsync(
+                    actor,
+                    accessKind,
+                    itemId,
+                    EnrollmentResourceTypes.Assignment,
+                    AuthorizationOutcomes.Permit,
+                    null,
+                    null,
+                    new PreviewAuditTransaction(),
+                    cancellationToken);
+            }
+            catch (EnrollmentAuditUnavailableException)
+            {
+                return new QueryResult<ProtectedItemContent>(false, null, SubmissionFailureCodes.AuditUnavailable);
+            }
+        }
+        else
+        {
+            return new QueryResult<ProtectedItemContent>(false, null, SubmissionFailureCodes.AuditUnavailable);
         }
 
         var gotten = await artifacts.GetExactVersionAsync(
@@ -206,6 +307,15 @@ public sealed class SubmissionQueryService(
             true,
             new ProtectedItemContent(versionId, itemId, item.Category, item.Filename, contentType, text),
             null);
+    }
+
+    private sealed class PreviewAuditTransaction : IEnrollmentTransaction
+    {
+        public bool AuditAccepted { get; set; } = true;
+
+        public bool OutboxAccepted { get; set; } = true;
+
+        public object CommitHandle { get; } = new();
     }
 
     private async Task<NormalizedMaterialPolicy?> ResolvePolicyAsync(

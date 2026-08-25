@@ -92,7 +92,7 @@ services:
     volumes:
       - ./authenticated-browser/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8333/status"]
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8333/status"]
       interval: 5s
       timeout: 5s
       retries: 10

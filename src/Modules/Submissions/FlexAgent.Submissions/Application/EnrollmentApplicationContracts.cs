@@ -480,6 +480,8 @@ public interface IEnrollmentTelemetry
     void RecordMutation(string operationKind, string outcomeClass, TimeSpan duration);
 
     void RecordRequestLimit(string surface, string decision);
+
+    void RecordIntake(string operationKind, string outcomeClass, string byteBand, string countBand, TimeSpan duration);
 }
 
 public sealed class NullEnrollmentTelemetry : IEnrollmentTelemetry
@@ -491,6 +493,10 @@ public sealed class NullEnrollmentTelemetry : IEnrollmentTelemetry
     }
 
     public void RecordRequestLimit(string surface, string decision)
+    {
+    }
+
+    public void RecordIntake(string operationKind, string outcomeClass, string byteBand, string countBand, TimeSpan duration)
     {
     }
 }
@@ -513,5 +519,14 @@ public sealed class RecordingEnrollmentTelemetry : IEnrollmentTelemetry
         {
             [EnrollmentTelemetryLabels.Surface] = surface,
             [EnrollmentTelemetryLabels.Decision] = decision,
+        });
+
+    public void RecordIntake(string operationKind, string outcomeClass, string byteBand, string countBand, TimeSpan duration) =>
+        _points.Add(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [EnrollmentTelemetryLabels.Operation] = operationKind,
+            [EnrollmentTelemetryLabels.Outcome] = outcomeClass,
+            ["byte_band"] = byteBand,
+            ["count_band"] = countBand,
         });
 }

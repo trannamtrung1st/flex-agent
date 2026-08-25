@@ -210,6 +210,32 @@ public sealed class PostgresIntakeStore(PostgresConnectionAccessor connections) 
         return results;
     }
 
+    public async Task<IReadOnlyList<SubmissionIntakeRecord>> ListRejectedUpdatedBeforeAsync(
+        DateTimeOffset cutoffUtc,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        var rows = await connection.QueryAsync<IntakeRow>(
+            new CommandDefinition(
+                $"""
+                {SelectIntakeSql}
+                WHERE status IN ('cancelled', 'rejected', 'failed')
+                  AND updated_at <= @CutoffUtc
+                ORDER BY updated_at
+                LIMIT @Limit
+                """,
+                new { CutoffUtc = cutoffUtc, Limit = limit },
+                cancellationToken: cancellationToken));
+        var results = new List<SubmissionIntakeRecord>();
+        foreach (var row in rows)
+        {
+            results.Add(await HydrateAsync(connection, null, row, cancellationToken));
+        }
+
+        return results;
+    }
+
     private static async Task<SubmissionIntakeRecord> HydrateAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction? dbTransaction,
@@ -402,15 +428,15 @@ public sealed class PostgresSubmissionVersionStore(PostgresConnectionAccessor co
 
         if (transaction is PostgresEnrollmentTransaction postgres)
         {
-            var rows = await postgres.Scope.Connection.QueryAsync<AcceptedVersionSummary>(
+            var rows = await postgres.Scope.Connection.QueryAsync<VersionSummaryRow>(
                 new CommandDefinition(sql, new { OrganizationId = organizationId, SubmissionId = submissionId }, postgres.Scope.Transaction, cancellationToken: cancellationToken));
-            return rows.ToArray();
+            return MapVersionSummaries(rows);
         }
 
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-        var outside = await connection.QueryAsync<AcceptedVersionSummary>(
+        var outside = await connection.QueryAsync<VersionSummaryRow>(
             new CommandDefinition(sql, new { OrganizationId = organizationId, SubmissionId = submissionId }, cancellationToken: cancellationToken));
-        return outside.ToArray();
+        return MapVersionSummaries(outside);
     }
 
     public async Task<AcceptedSubmissionVersion?> FindVersionAsync(
@@ -495,7 +521,7 @@ public sealed class PostgresSubmissionVersionStore(PostgresConnectionAccessor co
                 row.TaskContentDigest),
             row.PolicyDigest,
             row.PredecessorVersionId,
-            row.AcceptedAtUtc,
+            ToUtcOffset(row.AcceptedAtUtc),
             items.Select(item => new AcceptedVersionItem(
                 item.ItemId,
                 item.Category,
@@ -614,7 +640,47 @@ public sealed class PostgresSubmissionVersionStore(PostgresConnectionAccessor co
         }
     }
 
+    public async Task<bool> HasAcceptedArtifactKeyAsync(
+        Guid organizationId,
+        string artifactObjectKey,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        var found = await connection.ExecuteScalarAsync<bool>(
+            new CommandDefinition(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM submissions_accepted_version_items
+                    WHERE organization_id = @OrganizationId AND artifact_object_key = @ArtifactObjectKey
+                )
+                """,
+                new { OrganizationId = organizationId, ArtifactObjectKey = artifactObjectKey },
+                cancellationToken: cancellationToken));
+        return found;
+    }
+
+    private static IReadOnlyList<AcceptedVersionSummary> MapVersionSummaries(IEnumerable<VersionSummaryRow> rows) =>
+        rows.Select(row => new AcceptedVersionSummary(
+            row.VersionId,
+            row.VersionNumber,
+            ToUtcOffset(row.AcceptedAtUtc),
+            checked((int)row.ItemCount))).ToArray();
+
+    private static DateTimeOffset ToUtcOffset(DateTime value) =>
+        new(value.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(value, DateTimeKind.Utc)
+            : value.ToUniversalTime());
+
     private sealed record LatestVersionRow(Guid VersionId, int VersionNumber);
+
+    private sealed class VersionSummaryRow
+    {
+        public Guid VersionId { get; init; }
+        public int VersionNumber { get; init; }
+        public DateTime AcceptedAtUtc { get; init; }
+        public long ItemCount { get; init; }
+    }
 
     private sealed record VersionRow(
         Guid OrganizationId,
@@ -631,7 +697,7 @@ public sealed class PostgresSubmissionVersionStore(PostgresConnectionAccessor co
         string TaskContentDigest,
         string PolicyDigest,
         Guid? PredecessorVersionId,
-        DateTimeOffset AcceptedAtUtc);
+        DateTime AcceptedAtUtc);
 
     private sealed record VersionItemRow(
         Guid ItemId,
@@ -801,3 +867,150 @@ public sealed class PostgresSubmissionWorkStore(PostgresConnectionAccessor conne
         DateTimeOffset? LeaseUntilUtc,
         string? ArtifactObjectKey);
 }
+
+public sealed class PostgresLifecycleHoldStore(PostgresConnectionAccessor connections) : ISubmissionLifecycleHoldStore
+{
+    public async Task<bool> IsHeldAsync(Guid organizationId, string artifactObjectKey, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        var found = await connection.ExecuteScalarAsync<bool>(
+            new CommandDefinition(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM submissions_lifecycle_holds
+                    WHERE organization_id = @OrganizationId
+                      AND artifact_object_key = @ArtifactObjectKey
+                      AND active
+                )
+                """,
+                new { OrganizationId = organizationId, ArtifactObjectKey = artifactObjectKey },
+                cancellationToken: cancellationToken));
+        return found;
+    }
+
+    public async Task InsertHoldAsync(Guid organizationId, Guid holdId, string artifactObjectKey, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO submissions_lifecycle_holds (
+                    organization_id, hold_id, artifact_object_key, reason_code, active, created_at)
+                VALUES (@OrganizationId, @HoldId, @ArtifactObjectKey, 'legal_hold', TRUE, CLOCK_TIMESTAMP())
+                """,
+                new { OrganizationId = organizationId, HoldId = holdId, ArtifactObjectKey = artifactObjectKey },
+                cancellationToken: cancellationToken));
+    }
+}
+
+public sealed class PostgresArtifactDispositionStore(PostgresConnectionAccessor connections) : IArtifactDispositionStore
+{
+    public async Task RecordAsync(
+        Guid organizationId,
+        Guid dispositionId,
+        string workKind,
+        string artifactObjectKey,
+        DateTimeOffset disposedAtUtc,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO submissions_artifact_dispositions (
+                    organization_id, disposition_id, work_kind, artifact_object_key, disposed_at)
+                VALUES (@OrganizationId, @DispositionId, @WorkKind, @ArtifactObjectKey, @DisposedAtUtc)
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    DispositionId = dispositionId,
+                    WorkKind = workKind,
+                    ArtifactObjectKey = artifactObjectKey,
+                    DisposedAtUtc = disposedAtUtc,
+                },
+                cancellationToken: cancellationToken));
+    }
+
+    public async Task<bool> ExistsAsync(
+        Guid organizationId,
+        string artifactObjectKey,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<bool>(
+            new CommandDefinition(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM submissions_artifact_dispositions
+                    WHERE organization_id = @OrganizationId AND artifact_object_key = @ArtifactObjectKey
+                )
+                """,
+                new { OrganizationId = organizationId, ArtifactObjectKey = artifactObjectKey },
+                cancellationToken: cancellationToken));
+    }
+}
+
+public sealed class PostgresProtectedArtifactCapabilityStore(PostgresConnectionAccessor connections)
+    : IProtectedArtifactCapabilityStore
+{
+    public async Task<ProtectedArtifactCapability> IssueAsync(
+        ProtectedArtifactCapability capability,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                INSERT INTO submissions_protected_capabilities (
+                    organization_id, capability_id, actor_id, enrollment_id, version_id, item_id,
+                    action, expires_at, redeemed_at)
+                VALUES (
+                    @OrganizationId, @CapabilityId, @ActorId, @EnrollmentId, @VersionId, @ItemId,
+                    @Action, @ExpiresAtUtc, @RedeemedAtUtc)
+                """,
+                capability,
+                cancellationToken: cancellationToken));
+        return capability;
+    }
+
+    public async Task<ProtectedArtifactCapability?> FindAsync(
+        Guid organizationId,
+        Guid capabilityId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        return await connection.QuerySingleOrDefaultAsync<ProtectedArtifactCapability>(
+            new CommandDefinition(
+                """
+                SELECT organization_id AS OrganizationId, capability_id AS CapabilityId, actor_id AS ActorId,
+                       enrollment_id AS EnrollmentId, version_id AS VersionId, item_id AS ItemId,
+                       action AS Action, expires_at AS ExpiresAtUtc, redeemed_at AS RedeemedAtUtc
+                FROM submissions_protected_capabilities
+                WHERE organization_id = @OrganizationId AND capability_id = @CapabilityId
+                """,
+                new { OrganizationId = organizationId, CapabilityId = capabilityId },
+                cancellationToken: cancellationToken));
+    }
+
+    public async Task MarkRedeemedAsync(
+        Guid organizationId,
+        Guid capabilityId,
+        DateTimeOffset redeemedAtUtc,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE submissions_protected_capabilities
+                SET redeemed_at = @RedeemedAtUtc
+                WHERE organization_id = @OrganizationId AND capability_id = @CapabilityId
+                """,
+                new { OrganizationId = organizationId, CapabilityId = capabilityId, RedeemedAtUtc = redeemedAtUtc },
+                cancellationToken: cancellationToken));
+    }
+}
+

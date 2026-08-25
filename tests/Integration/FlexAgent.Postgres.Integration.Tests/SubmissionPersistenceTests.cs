@@ -371,6 +371,41 @@ public sealed class SubmissionPersistenceTests(PostgresIntegrationFixture fixtur
         Assert.Equal(1, versionCount);
     }
 
+    [Fact]
+    public async Task List_and_find_versions_after_finalize_materialize_accepted_summaries()
+    {
+        var harness = await SubmissionIntakeTestSeed.CreateAsync(Fixture, CancellationToken);
+        var accepted = await FinalizeCurrentIntakeAsync(harness, "begin-list-versions", "finalize-list-versions");
+        var store = new PostgresSubmissionVersionStore(Fixture.Services.ConnectionAccessor);
+        var submissionId = await store.FindSubmissionIdByEnrollmentAsync(
+            harness.OrganizationId,
+            harness.EnrollmentId,
+            null,
+            CancellationToken);
+        Assert.NotNull(submissionId);
+
+        var listed = await store.ListVersionsAsync(
+            harness.OrganizationId,
+            submissionId.Value,
+            null,
+            CancellationToken);
+
+        var summary = Assert.Single(listed);
+        Assert.Equal(accepted.VersionId, summary.VersionId);
+        Assert.Equal(accepted.VersionNumber, summary.VersionNumber);
+        Assert.Equal(1, summary.ItemCount);
+
+        var detail = await store.FindVersionAsync(
+            harness.OrganizationId,
+            summary.VersionId,
+            null,
+            CancellationToken);
+        Assert.NotNull(detail);
+        Assert.Equal(summary.VersionId, detail.VersionId);
+        Assert.Equal(summary.VersionNumber, detail.VersionNumber);
+        Assert.Single(detail.Items);
+    }
+
     private static FinalizeIntakeCommand FinalizeCommand(
         SubmissionIntakeTestSeed.SubmissionIntakeHarness harness,
         Guid intakeId,

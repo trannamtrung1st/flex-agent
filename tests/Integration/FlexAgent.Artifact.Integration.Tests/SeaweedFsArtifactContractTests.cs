@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using DotNet.Testcontainers.Builders;
 using FlexAgent.Submissions.Application;
+using FlexAgent.Submissions.Domain;
 using FlexAgent.Submissions.Infrastructure.ObjectStorage;
 
 namespace FlexAgent.Artifact.Integration.Tests;
@@ -163,6 +164,77 @@ public sealed class SeaweedFsArtifactContractTests(ArtifactIntegrationFixture fi
       TimeSpan.FromMinutes(1)), cancellationToken);
     Assert.False(presign.Succeeded);
     Assert.Equal(ArtifactOutcomeCodes.ScopeMismatch, presign.OutcomeCode);
+  }
+
+  [Fact]
+  public async Task Delete_then_restore_same_digest_is_readable_and_incomplete_cleanup_removes_bytes()
+  {
+    var cancellationToken = TestContext.Current.CancellationToken;
+    var organizationId = Guid.NewGuid();
+    var artifactId = Guid.NewGuid();
+    var key = ArtifactObjectKey.Create(organizationId, artifactId);
+    var content = Encoding.UTF8.GetBytes("paired restore synthetic text");
+
+    var put = await fixture.Store.PutAsync(new ArtifactPutRequest(
+      organizationId,
+      key,
+      content,
+      "text/plain",
+      ConditionalCreate: true), cancellationToken);
+    Assert.True(put.Succeeded, put.OutcomeCode);
+    var digest = ComputeDigest(content);
+
+    Assert.True(await fixture.Store.DeleteAsync(organizationId, put.Reference!, cancellationToken));
+
+    var restored = await fixture.Store.PutAsync(new ArtifactPutRequest(
+      organizationId,
+      key,
+      content,
+      "text/plain",
+      ConditionalCreate: true), cancellationToken);
+    Assert.True(restored.Succeeded, restored.OutcomeCode);
+    Assert.Equal(digest, restored.Reference!.Digest.Sha256Hex);
+
+    var get = await fixture.Store.GetExactVersionAsync(new ArtifactGetRequest(
+      organizationId,
+      restored.Reference), cancellationToken);
+    Assert.True(get.Succeeded, get.OutcomeCode);
+    Assert.Equal(content, get.Content.ToArray());
+
+    Assert.True(await fixture.Store.DeleteAsync(organizationId, restored.Reference, cancellationToken));
+    var missing = await fixture.Store.GetExactVersionAsync(new ArtifactGetRequest(
+      organizationId,
+      restored.Reference), cancellationToken);
+    Assert.False(missing.Succeeded);
+  }
+
+  [Fact]
+  public async Task Download_presign_expires_within_configured_lifetime()
+  {
+    var cancellationToken = TestContext.Current.CancellationToken;
+    var organizationId = Guid.NewGuid();
+    var key = ArtifactObjectKey.Create(organizationId, Guid.NewGuid());
+    var content = Encoding.UTF8.GetBytes("presign expiry synthetic text");
+    var put = await fixture.Store.PutAsync(new ArtifactPutRequest(
+      organizationId,
+      key,
+      content,
+      "text/plain"), cancellationToken);
+    Assert.True(put.Succeeded, put.OutcomeCode);
+
+    var presign = await fixture.Store.IssueDownloadCapabilityAsync(new ArtifactPresignRequest(
+      organizationId,
+      Guid.NewGuid(),
+      "download",
+      key,
+      TimeSpan.FromSeconds(1)), cancellationToken);
+    Assert.True(presign.Succeeded, presign.OutcomeCode);
+    Assert.True(presign.ExpiresAtUtc <= DateTimeOffset.UtcNow.Add(SubmissionLifecycleClocks.ProtectedCapabilityLifetime));
+
+    await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+    using var http = new HttpClient();
+    using var response = await http.GetAsync(presign.PresignedUrl, cancellationToken);
+    Assert.NotEqual(HttpStatusCode.OK, response.StatusCode);
   }
 
   private static string ComputeDigest(byte[] content) =>

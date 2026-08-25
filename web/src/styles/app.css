@@ -158,6 +158,19 @@ body {
   font: inherit;
 }
 
+.file-drop {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border: 1px dashed var(--border-strong, var(--border-default));
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+}
+
+.file-drop.is-active {
+  border-color: var(--border-selected, var(--border-strong, var(--border-default)));
+  background: var(--surface-selected, var(--surface-inset));
+}
+
 .attachment-list {
   list-style: none;
   margin: 0 0 1rem;
