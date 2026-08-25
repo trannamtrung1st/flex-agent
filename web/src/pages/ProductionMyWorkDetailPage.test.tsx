@@ -779,6 +779,83 @@ describe("ProductionMyWorkDetailPage", () => {
     expect(screen.queryByText(/Current intake state: accepted/)).not.toBeInTheDocument();
   });
 
+  it("does not restore Cancel intake when a delayed begin-baseline GET arrives after cancel", async () => {
+    let releaseBaseline: (() => void) | undefined;
+    const baselineHeld = new Promise<void>((resolve) => {
+      releaseBaseline = resolve;
+    });
+    let submissionGets = 0;
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const shared = sessionShellOrTiming(url);
+      if (shared) {
+        return shared;
+      }
+      if (url.includes("/cancel") && init?.method === "POST") {
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "cancelled",
+          status: "cancelled",
+          revision: 1,
+        });
+      }
+      if (url.includes("/submission/intake") && init?.method === "POST" && !url.includes("/items") && !url.includes("/finalize")) {
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "receiving",
+          intake_id: "11111111-1111-4111-8111-111111111111",
+          submission_id: "22222222-2222-4222-8222-222222222222",
+          status: "receiving",
+          revision: 1,
+        });
+      }
+      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+        submissionGets += 1;
+        if (submissionGets === 1) {
+          return jsonResponse(submissionProjection());
+        }
+        if (submissionGets === 2) {
+          return baselineHeld.then(() => jsonResponse(submissionProjection({
+            active_intake: {
+              intake_id: "11111111-1111-4111-8111-111111111111",
+              submission_id: "22222222-2222-4222-8222-222222222222",
+              status: "receiving",
+              revision: 1,
+              created_at_utc: "2026-08-25T00:00:00Z",
+              updated_at_utc: "2026-08-25T00:00:00Z",
+              items: [],
+              permitted_actions: ["cancel_intake", "return_to_my_work"],
+            },
+            permitted_actions: ["cancel_intake", "return_to_my_work"],
+          })));
+        }
+        return jsonResponse(submissionProjection({
+          active_intake: null,
+          permitted_actions: ["begin_intake", "return_to_my_work"],
+        }));
+      }
+      return jsonResponse({}, 404);
+    }));
+
+    renderAssignment();
+    await confirmSubmitVersion();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Cancel intake" })).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel intake" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Current intake state: cancelled/)).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "Cancel intake" })).not.toBeInTheDocument();
+    releaseBaseline?.();
+    await waitFor(() => {
+      expect(screen.getByText(/Current intake state: cancelled/)).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "Cancel intake" })).not.toBeInTheDocument();
+  });
+
   it("reconciles when cancel succeeds but the assignment view cannot be refreshed", async () => {
     let releaseItems: (() => void) | undefined;
     const itemsHeld = new Promise<void>((resolve) => {

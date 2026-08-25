@@ -168,24 +168,22 @@ export function ProductionMyWorkDetailPage() {
     setIntakeStatus(next.active_intake?.status ?? null);
   }
 
-  async function captureAcceptedVersionBaseline() {
+  async function captureAcceptedVersionBaseline(generation: number) {
     try {
       const next = await submissionClient.getMyWorkSubmission(enrollmentId);
-      setSubmission((current) => {
-        if (current == null) {
-          return next;
-        }
+      if (generation !== submitGenerationRef.current) {
+        return;
+      }
 
-        return {
-          ...next,
-          active_intake: current.active_intake ?? next.active_intake,
-        };
-      });
       acceptedVersionBaselineRef.current = {
         trusted: true,
         ids: new Set(next.version_history.map((item) => item.version_id)),
       };
     } catch {
+      if (generation !== submitGenerationRef.current) {
+        return;
+      }
+
       acceptedVersionBaselineRef.current = { trusted: false, ids: new Set() };
     }
   }
@@ -227,7 +225,7 @@ export function ProductionMyWorkDetailPage() {
       const intakeId = began.intake_id;
       rememberActiveIntake(intakeId, revision, began.status ?? "receiving", began.submission_id);
       setIntakeStatus(began.status ?? "receiving");
-      await captureAcceptedVersionBaseline();
+      await captureAcceptedVersionBaseline(generation);
       if (generation !== submitGenerationRef.current) {
         return;
       }

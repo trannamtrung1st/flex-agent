@@ -653,7 +653,9 @@ Session rows remain unimplemented or Partial as governed by their owners.
   as cancelled after a transient projection failure.
 - [x] Remediate `d9f0fac` P2: do not treat a stale history delta as this
   intake's acceptance; snapshot accepted versions at the begin boundary.
-- [ ] Independent review of the `d9f0fac` P2 remediations.
+- [x] Remediate `b57c6c0` P2: begin-baseline GET must not revive a cancelled
+  local active intake; keep capture side-effect-free.
+- [ ] Independent review of the `b57c6c0` P2 remediations.
 - [ ] Re-run independent backend, frontend, security/privacy, and QA review for
   remaining planned slice work after this continuation; reconcile actual
   changes with this plan and the governing sources, update truthful
@@ -661,31 +663,21 @@ Session rows remain unimplemented or Partial as governed by their owners.
 
 # Current state
 
-The slice remains **in progress**. Independent review of `d9f0fac` requested
-one remaining P2: uncertain-cancel recovery treated any version ID absent from
-the page's current `version_history` as proof that **this** intake was
-accepted. That set came from possibly stale page state, so another tab's
-Version 2 accepted before this tab's begin looked like this intake succeeded.
+The slice remains **in progress**. Independent review of `b57c6c0` requested
+one remaining P2: `captureAcceptedVersionBaseline()` wrote the delayed begin
+GET into `submission`, using `current.active_intake ?? next.active_intake`.
+After a successful cancel cleared the local intake, the stale GET restored
+`receiving` and **Cancel intake** reappeared.
 
-Remediation (client-only MVP; accepted-version rows do not store originating
-`intake_id`): snapshot a trusted accepted-version baseline from the
-authoritative My work GET immediately after durable begin, without replacing
-the local active intake. Uncertain recovery reports `accepted` only when a
-version ID is new relative to that begin baseline; no new version and no
-active intake → `cancelled`; if the begin GET failed, stay reconciling rather
-than inferring from page-load history. Known cancel success is unchanged.
+Remediation: baseline capture is side-effect-free. It records trusted version
+IDs only when the submit generation is still current and never writes
+`active_intake`. Version history is not applied from this GET.
 
-Interim default: defer `source_intake_id` (or an intake-specific terminal
-read) until a contract/migration can persist intake-to-version correlation.
-Rationale: the accepted-version table has no intake column today; begin-time
-GET is the smallest durable-boundary baseline the reviewer allowed.
+Red: held begin GET, successful cancel to no active intake, then release of
+the receiving projection restored **Cancel intake**. Green: My work tests
+**15 passed**; web typecheck passed.
 
-Red: stale page with Version 1, begin-time history already containing Version
-2, cancel conflict, failed GET, refresh with V1+V2 reported `accepted`. Green:
-My work tests **14 passed**, including that other-tab case reporting
-`cancelled`. Web typecheck passed.
-
-Playwright was not re-run; this hop is a mocked multi-tab race.
+Playwright was not re-run; this hop is a mocked delayed GET.
 
 Independent review of this remediations is next. Residual slice gaps are
 unchanged (lifecycle policy, Worker cleanup, Activity closure, paired restore,
@@ -895,6 +887,9 @@ recorded residual gaps are accepted.
   SHA. Remaining open items are planned slice work (concurrent finalize,
   contracts, production UI, Playwright, lifecycle), not unresolved review
   findings.
+- **Review of `b57c6c0` (P2, remediating):** Begin-baseline GET no longer
+  writes `submission` or revives a cancelled `active_intake`. Capture is
+  generation-guarded and records version IDs only.
 - **Review of `d9f0fac` (P2, remediating):** Uncertain cancel no longer
   treats a stale page-load history delta as this intake's acceptance.
   Accepted-version baseline is taken at durable begin. Other-tab Version 2
@@ -963,7 +958,7 @@ recorded residual gaps are accepted.
 | Canonical schema/OpenAPI/C#/TypeScript parity | passed for added v2 Submission contracts | Catalog **33** representative schemas; `FlexAgent.Contract.Tests` **173 passed**; OpenAPI `$ref` for My work, version detail, and preview. Node OpenAPI parity **8 passed**. |
 | HTTP CSRF/admission/isolation | passed for added negatives | `SubmissionHttpNegativeContractTests` **9 passed**: begin/cancel/finalize CSRF, unauthenticated submission/version-detail/preview/download `no-store`, unauthenticated skip of shared admission, exhausted shared admission without protected query. |
 | API/Worker integration | partial | v2 routes: query, begin, complete-item, cancel, finalize, version detail, item preview, item download. Artifact store: SeaweedFS when `ArtifactStorage` is configured. Cleanup loop is API-hosted, not Worker-hosted. Finalize scanner calls are outside the DB transaction. |
-| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog (closes on start), cancel during receiving/validating, cancel-conflict refresh, known-cancel vs uncertain-cancel reconciliation with a begin-time accepted-version baseline (another tab's pre-existing version is not this intake's acceptance), later-version cancel recovery as cancelled beside older history, hide Cancel while reconciling, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **14 passed**. Live validating Playwright remains. |
+| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog (closes on start), cancel during receiving/validating, cancel-conflict refresh, known-cancel vs uncertain-cancel reconciliation with a begin-time accepted-version baseline that does not write or revive `active_intake`, later-version cancel recovery as cancelled beside older history, hide Cancel while reconciling, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **15 passed**. Live validating Playwright remains. |
 | Authenticated Playwright MCP | partial — rebuilt SPA 2026-08-25 | Receiving with **Cancel intake**: `.playwright-mcp/page-2026-08-25T05-49-57-764Z.png`. Cancelled without Version 4: `...T05-51-19-390Z.png`. Version 3 inert preview: `...T05-52-17-009Z.png`. Sign-out from preview: `...T05-52-54-390Z.png`. Delayed item POST after cancel was HTTP 409. Live validating not captured. |
 | Regression/security/supply-chain/OCI/recovery/docs | partial | `python3 scripts/check_docs.py` passed. `git diff --check` clean. Submissions **113**, architecture **41**, contracts **173**, persistence **14**, HTTP negatives **9**. Gitleaks: Submission keys allowlisted; one historical predecessor-task finding remains. Locked restore, SBOM, OCI, paired restore not re-run. |
 | Independent review — security/correctness remediation chain | passed — external review `b67a922` | No blocking findings. All issues raised from `7dac50c` through follow-up reviews resolved at `b67a922`, including S3 scope isolation, predecessor lineage, partial parent scope (`0049`), and Task-binding parent tuple (`0050`). `SubmissionPersistenceTests` **12 passed**; full PostgreSQL **340 passed / 1 failed** (Keycloak 403 flake). GitHub commit statuses not independently visible. Separate full-slice backend/frontend/QA review remains for unconsumed planned work. |
