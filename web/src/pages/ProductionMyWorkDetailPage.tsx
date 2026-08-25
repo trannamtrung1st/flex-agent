@@ -54,6 +54,7 @@ export function ProductionMyWorkDetailPage() {
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
+  const submitGenerationRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,6 +125,35 @@ export function ProductionMyWorkDetailPage() {
     && ["receiving", "received", "validating"].includes(submission.active_intake.status),
   );
 
+  function rememberActiveIntake(
+    intakeId: string,
+    revision: number,
+    status: string,
+    submissionId?: string | null,
+  ) {
+    setSubmission((current) => {
+      if (current == null) {
+        return current;
+      }
+
+      const previous = current.active_intake;
+      return {
+        ...current,
+        active_intake: {
+          intake_id: intakeId,
+          submission_id: submissionId ?? previous?.submission_id ?? "",
+          status: status as NonNullable<MyWorkSubmissionV2["active_intake"]>["status"],
+          revision,
+          created_at_utc: previous?.created_at_utc ?? new Date().toISOString(),
+          updated_at_utc: new Date().toISOString(),
+          complete_receipt_at_utc: previous?.complete_receipt_at_utc ?? null,
+          items: previous?.items ?? [],
+          permitted_actions: ["cancel_intake", "return_to_my_work"],
+        },
+      };
+    });
+  }
+
   async function refreshSubmission() {
     const next = await submissionClient.getMyWorkSubmission(enrollmentId);
     setSubmission(next);
@@ -131,17 +161,24 @@ export function ProductionMyWorkDetailPage() {
   }
 
   async function submitVersion() {
+    const generation = ++submitGenerationRef.current;
     setPending(true);
+    setConfirmOpen(false);
     setErrors([]);
     setIntakeStatus("receiving");
     try {
       const began = await submissionClient.beginIntake(enrollmentId, createSubmissionIdempotencyKey());
+      if (generation !== submitGenerationRef.current) {
+        return;
+      }
       if (!began.succeeded || !began.intake_id || began.revision == null) {
         throw new ProductionApiError(409, submissionFailureCopy(began.outcome_code), began.outcome_code);
       }
 
       let revision = began.revision;
       const intakeId = began.intake_id;
+      rememberActiveIntake(intakeId, revision, began.status ?? "receiving", began.submission_id);
+      setIntakeStatus(began.status ?? "receiving");
       if (directText.trim().length > 0) {
         const completed = await submissionClient.completeItem(enrollmentId, intakeId, {
           schema_version: "v2",
@@ -150,10 +187,14 @@ export function ProductionMyWorkDetailPage() {
           expected_revision: revision,
           idempotency_key: createSubmissionIdempotencyKey(),
         });
+        if (generation !== submitGenerationRef.current) {
+          return;
+        }
         if (!completed.succeeded || completed.revision == null) {
           throw new ProductionApiError(409, submissionFailureCopy(completed.outcome_code), completed.outcome_code);
         }
         revision = completed.revision;
+        rememberActiveIntake(intakeId, revision, completed.status ?? "received", began.submission_id);
         setIntakeStatus(completed.status ?? "received");
       }
 
@@ -170,19 +211,30 @@ export function ProductionMyWorkDetailPage() {
           expected_revision: revision,
           idempotency_key: createSubmissionIdempotencyKey(),
         });
+        if (generation !== submitGenerationRef.current) {
+          return;
+        }
         if (!completed.succeeded || completed.revision == null) {
           throw new ProductionApiError(409, submissionFailureCopy(completed.outcome_code), completed.outcome_code);
         }
         revision = completed.revision;
+        rememberActiveIntake(intakeId, revision, completed.status ?? "received", began.submission_id);
         setIntakeStatus(completed.status ?? "received");
       }
 
+      if (generation !== submitGenerationRef.current) {
+        return;
+      }
       setIntakeStatus("validating");
+      rememberActiveIntake(intakeId, revision, "validating", began.submission_id);
       const finalized = await submissionClient.finalizeIntake(enrollmentId, intakeId, {
         schema_version: "v2",
         expected_revision: revision,
         idempotency_key: createSubmissionIdempotencyKey(),
       });
+      if (generation !== submitGenerationRef.current) {
+        return;
+      }
       if (!finalized.succeeded) {
         throw new ProductionApiError(409, submissionFailureCopy(finalized.outcome_code), finalized.outcome_code);
       }
@@ -205,6 +257,9 @@ export function ProductionMyWorkDetailPage() {
         });
       }
     } catch (caught: unknown) {
+      if (generation !== submitGenerationRef.current) {
+        return;
+      }
       const message = caught instanceof ProductionApiError
         ? submissionFailureCopy(caught.outcomeCode)
         : "The submission could not be accepted. No earlier version was changed.";
@@ -218,8 +273,9 @@ export function ProductionMyWorkDetailPage() {
         document.getElementById("submission-error-summary")?.focus();
       });
     } finally {
-      setPending(false);
-      setConfirmOpen(false);
+      if (generation === submitGenerationRef.current) {
+        setPending(false);
+      }
     }
   }
 
@@ -229,8 +285,11 @@ export function ProductionMyWorkDetailPage() {
       return;
     }
 
+    submitGenerationRef.current += 1;
+    setPending(false);
     setCancelling(true);
     setErrors([]);
+    setIntakeStatus("cancelling");
     try {
       const cancelled = await submissionClient.cancelIntake(enrollmentId, active.intake_id, {
         schema_version: "v2",
@@ -520,7 +579,7 @@ export function ProductionMyWorkDetailPage() {
               <Button
                 type="button"
                 variant="secondary"
-                disabled={pending || cancelling}
+                disabled={cancelling}
                 onClick={() => {
                   void cancelActiveIntake();
                 }}

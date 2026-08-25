@@ -601,13 +601,13 @@ Session rows remain unimplemented or Partial as governed by their owners.
   focus/dialog/error/progress/permission-loss screenshots under
   `.playwright-mcp/` only. (Desktop, dark, 360px, 320px, dialog, error, accept,
   later version, preview, session download, rebuilt-compose Version 2 preview,
-  and CSS `zoom: 4` captured. Live cancel, live receiving/validating, and
-  permission-loss Playwright remain gaps. 400% zoom is evidence, not a reflow
-  pass.)
-- [ ] Run proportionate full regression, docs, whitespace, locked restore,
-  supply-chain/license/SBOM/vulnerability/secret, OCI, backup/export/restore,
-  and operability gates; record exact commands, counts, timings, skips, and
-  residual risks.
+  CSS `zoom: 4`, live receiving with **Cancel intake**, cancelled recovery,
+  Version 3 preview, and sign-out from preview captured. Live validating was
+  not captured. 400% zoom is evidence, not a reflow pass.)
+- [x] Run proportionate regression, docs, whitespace, secret-scan allowlist, and
+  remaining authenticated Playwright receiving/cancel/sign-out evidence. Full
+  solution/OCI/SBOM/locked restore, paired backup product, and live validating
+  remain residual. Independent review of this continuation is next.
 - [x] Record external review approval of `b67a922` — the `7dac50c` → `28c22f3`
   → `3bd256f` / `c60a280` → `b67a922` security/correctness remediation chain
   is closed with no remaining blocking findings; no further remediation commit
@@ -644,33 +644,42 @@ Session rows remain unimplemented or Partial as governed by their owners.
   `c84e960` is closed with no remaining blocking findings; no further
   remediation commit is requested from that chain.
 - [>] Re-run independent backend, frontend, security/privacy, and QA review for
-  remaining planned slice work after this remediation; reconcile actual
+  remaining planned slice work after this continuation; reconcile actual
   changes with this plan and the governing sources, update truthful
   implementation-status rows, and retain the completed task record.
 
 # Current state
 
-The slice remains **in progress**. Independent review of `479c851` approved
-the cleanup/disposition-upgrade remediation with **no blocking findings**. The
-`c84e960` P1 is closed: `0056a` parks extra historical disposition facts,
-immutable `0057` keeps its shipped checksum, `0058`/`0059` stay unedited, and
-`0060` restores parked facts. Runtime acquisition still uses the guard table,
-not uniqueness of audit facts.
+The slice remains **in progress**. Independent reviews of `b67a922` and
+`479c851` remain closed. This continuation closed the live receiving/cancel
+Participant gap: **Cancel intake** is offered after durable begin while
+receiving/validating, the confirm dialog closes so the page is not inert, and
+an in-flight submit generation is invalidated so finalize does not run after
+cancel.
 
-Operational caveat (not a review finding): keep schema migration a controlled
-cutover; do not serve `3dbb93f` cleanup binaries against a schema through
-`0059`, and do not leave replicas serving midway through `0056a`–`0060`.
-Databases that applied the edited `0b2527a` `0057` still need recreate for
-checksum mismatch.
+Authenticated Playwright on rebuilt SPA at `http://localhost:18080` (synthetic
+participant, Timing Accommodation QA): receiving with **Cancel intake**,
+cancelled recovery without a Version 4, Version 3 inert preview, and sign-out
+from an open preview. One delayed item POST after cancel returned HTTP 409
+(expected race). Live validating was not captured because finalize is short.
 
-Remaining work is other planned slice gaps (full PostgreSQL suite, Worker-
-hosted cleanup, Activity-closure clock, versioned lifecycle policy, Playwright
-gaps), not unresolved findings from this chain.
+Proportionate verification 2026-08-25: Submissions **113**, architecture **41**,
+contracts **173**, SubmissionPersistence **14**, HTTP negatives **9**, My work
+vitest **8**, web typecheck, `check_docs`, `git diff --check`. Gitleaks on git
+history still reports one predecessor-task finding in
+`p0-participant-timing-accommodations.md`; Submission fixture/HTTP keys are
+allowlisted. Full solution/OCI/SBOM/locked restore and paired DB+artifact
+restore were not re-run.
 
-Retention still uses `ApprovedDefaultAcceptedPayloadLifecyclePolicyPort`
-(`IndependentlyResolvedFromOwner=false`). No UI behavior changed.
+Still open: independently resolved versioned lifecycle policy; Worker-hosted
+cleanup; Configuration-backed Production/Staging org material policy;
+Assessment Activity-closure persistence; paired restore product; live
+validating Playwright; WCAG 400% reflow; in-page permission-loss (sign-out
+navigates to Sign in required); independent backend/frontend/security/QA
+review of this continuation.
 
-Previous continuation:
+Next: independent reviews of this continuation. Do not mark the task completed
+until those reviews and recorded residual gaps are accepted.
 
 - **Red:** catalog counts expected 31/37 representative/closure schemas;
   version-detail HTTP had no catalogued DTO; cleanup tests did not cover
@@ -852,6 +861,12 @@ recorded residual gaps are accepted.
   SHA. Remaining open items are planned slice work (concurrent finalize,
   contracts, production UI, Playwright, lifecycle), not unresolved review
   findings.
+- **Continuation 2026-08-25 (cancel during receiving):** Confirm dialog closed
+  on submit start so receiving is not inert. Local `active_intake` after begin
+  enables **Cancel intake** during receiving/validating. In-flight submit
+  generation is invalidated so delayed `completeItem` cannot finalize after
+  cancel. Red: vitest could not find **Cancel intake** during held item POST.
+  Green: 8 My work tests passed. Live cancel Playwright captured.
 - **Continuation 2026-08-25 (owner ports and recovery):** Assessment-owned
   frozen requirement now verifies the activated Task identity/digest rather
   than returning policy unconditionally. Organization material policy follows
@@ -897,9 +912,9 @@ recorded residual gaps are accepted.
 | Canonical schema/OpenAPI/C#/TypeScript parity | passed for added v2 Submission contracts | Catalog **33** representative schemas; `FlexAgent.Contract.Tests` **173 passed**; OpenAPI `$ref` for My work, version detail, and preview. Node OpenAPI parity **8 passed**. |
 | HTTP CSRF/admission/isolation | passed for added negatives | `SubmissionHttpNegativeContractTests` **9 passed**: begin/cancel/finalize CSRF, unauthenticated submission/version-detail/preview/download `no-store`, unauthenticated skip of shared admission, exhausted shared admission without protected query. |
 | API/Worker integration | partial | v2 routes: query, begin, complete-item, cancel, finalize, version detail, item preview, item download. Artifact store: SeaweedFS when `ArtifactStorage` is configured. Cleanup loop is API-hosted, not Worker-hosted. Finalize scanner calls are outside the DB transaction. |
-| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog, cancel, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **7 passed**. Live cancel and true WCAG 400% reflow remain. |
-| Authenticated Playwright MCP | partial — rebuilt compose 2026-08-25 | Re-review: Version 1/2 exact preview, `no-store` version-detail JSON, Download of Version 1 bytes, later-version dialog, Keep editing preserves local text, 360px, rebuilt list copy. Evidence includes `.playwright-mcp/page-2026-08-25T02-37-29-105Z.png` (V1 preview), `...T02-39-20-967Z.png` (new-version dialog), `...T02-40-18-236Z.png` (360px), `...T02-42-21-962Z.png` (list copy). Live cancel, receiving/validating, multi-item preview, and permission-loss not captured. |
-| Regression/security/supply-chain/OCI/recovery/docs | pending | Locked restore, full suites, allowlist/leakage, license/SBOM/vulnerability/secret scan, images, paired metadata/artifact restore, docs, and whitespace. |
+| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog (closes on start), cancel during receiving/validating, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **8 passed**. Live validating Playwright remains. |
+| Authenticated Playwright MCP | partial — rebuilt SPA 2026-08-25 | Receiving with **Cancel intake**: `.playwright-mcp/page-2026-08-25T05-49-57-764Z.png`. Cancelled without Version 4: `...T05-51-19-390Z.png`. Version 3 inert preview: `...T05-52-17-009Z.png`. Sign-out from preview: `...T05-52-54-390Z.png`. Delayed item POST after cancel was HTTP 409. Live validating not captured. |
+| Regression/security/supply-chain/OCI/recovery/docs | partial | `python3 scripts/check_docs.py` passed. `git diff --check` clean. Submissions **113**, architecture **41**, contracts **173**, persistence **14**, HTTP negatives **9**. Gitleaks: Submission keys allowlisted; one historical predecessor-task finding remains. Locked restore, SBOM, OCI, paired restore not re-run. |
 | Independent review — security/correctness remediation chain | passed — external review `b67a922` | No blocking findings. All issues raised from `7dac50c` through follow-up reviews resolved at `b67a922`, including S3 scope isolation, predecessor lineage, partial parent scope (`0049`), and Task-binding parent tuple (`0050`). `SubmissionPersistenceTests` **12 passed**; full PostgreSQL **340 passed / 1 failed** (Keycloak 403 flake). GitHub commit statuses not independently visible. Separate full-slice backend/frontend/QA review remains for unconsumed planned work. |
 | Independent review — accepted-payload cleanup remediations | passed — external review `479c851` | No blocking findings. `c84e960` P1 closed by `0056a`/`0060` around unchanged `0057`. Persistence + scan CAS **15 passed**; historical duplicate path covered by embedded runner and Grate tool. Full PostgreSQL suite still not re-run (recorded partial). GitHub commit statuses not independently visible. |
 

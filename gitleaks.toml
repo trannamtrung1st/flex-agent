@@ -12,7 +12,13 @@ id = "generic-api-key"
 description = "Documented synthetic idempotency_key values in JSON schema fixtures."
 condition = "AND"
 paths = ['''(?i)contracts/fixtures/''']
-regexes = ['''(?i)^(idem-synthetic|enr-assign-synthetic|enr-suspend-synthetic|acc-grant-synthetic|acc-decide-synthetic|acc-revoke-synthetic)-\d{4}$''']
+regexes = ['''(?i)^(idem-synthetic|enr-assign-synthetic|enr-suspend-synthetic|acc-grant-synthetic|acc-decide-synthetic|acc-revoke-synthetic|intake-begin-synthetic|intake-complete-synthetic|intake-finalize-synthetic)-\d{4}$''']
+
+[[rules.allowlists]]
+description = "Synthetic Submission HTTP negative-test idempotency keys."
+condition = "AND"
+paths = ['''(?i)tests/Runtime/FlexAgent.Runtime.Tests/SubmissionHttpNegativeContractTests.cs''']
+regexes = ['''(?i)^(sub-1|sub-cancel-1|sub-finalize-1|intake-http-synthetic-\d{4})$''']
 
 [[rules.allowlists]]
 description = "Synthetic Keycloak JDBC URLs in local/CI compose profiles."

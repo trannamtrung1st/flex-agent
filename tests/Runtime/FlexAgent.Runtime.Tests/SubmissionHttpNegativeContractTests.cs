@@ -29,7 +29,7 @@ public sealed class SubmissionHttpNegativeContractTests
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         using var response = await client.PostAsync(
             $"/v2/assessment/my-work/{Guid.CreateVersion7()}/submission/intake",
-            new StringContent("""{"schema_version":"v2","idempotency_key":"sub-1"}""", Encoding.UTF8, "application/json"),
+            new StringContent("""{"schema_version":"v2","idempotency_key":"intake-http-synthetic-0001"}""", Encoding.UTF8, "application/json"),
             TestContext.Current.CancellationToken);
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
@@ -47,7 +47,7 @@ public sealed class SubmissionHttpNegativeContractTests
         using var response = await client.PostAsync(
             $"/v2/assessment/my-work/{Guid.CreateVersion7()}/submission/intake/{Guid.CreateVersion7()}/cancel",
             new StringContent(
-                """{"schema_version":"v2","expected_revision":1,"idempotency_key":"sub-cancel-1"}""",
+                """{"schema_version":"v2","expected_revision":1,"idempotency_key":"intake-http-synthetic-0002"}""",
                 Encoding.UTF8,
                 "application/json"),
             TestContext.Current.CancellationToken);
@@ -67,7 +67,7 @@ public sealed class SubmissionHttpNegativeContractTests
         using var response = await client.PostAsync(
             $"/v2/assessment/my-work/{Guid.CreateVersion7()}/submission/intake/{Guid.CreateVersion7()}/finalize",
             new StringContent(
-                """{"schema_version":"v2","expected_revision":1,"idempotency_key":"sub-finalize-1"}""",
+                """{"schema_version":"v2","expected_revision":1,"idempotency_key":"intake-http-synthetic-0003"}""",
                 Encoding.UTF8,
                 "application/json"),
             TestContext.Current.CancellationToken);

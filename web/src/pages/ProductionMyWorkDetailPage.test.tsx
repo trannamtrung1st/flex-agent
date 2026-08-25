@@ -222,6 +222,142 @@ describe("ProductionMyWorkDetailPage", () => {
     });
   });
 
+  it("offers cancel during receiving and does not finalize after cancel", async () => {
+    let releaseItems: (() => void) | undefined;
+    const itemsHeld = new Promise<void>((resolve) => {
+      releaseItems = resolve;
+    });
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/auth/session")) {
+        return jsonResponse({ authenticated: true, csrf_token: "csrf" });
+      }
+      if (url.includes("/v1/assessment/shell")) {
+        return jsonResponse({
+          schema_version: "v1",
+          actor_id: "part",
+          organization_id: "org",
+          relationship: "",
+          navigation: [{ destination_id: "my-work", is_available: true }],
+          permitted_actions: ["assessment.assignment.discover"],
+        });
+      }
+      if (url.includes("/timing")) {
+        return jsonResponse({
+          schema_version: "v2",
+          assignment: {
+            enrollment_id: "enr-1",
+            status: "active",
+            visibility: "current",
+            activity_title: "Campaign",
+            task_title: "Task 1",
+            time_zone_id: "UTC",
+            deadline_utc: "2026-09-30T17:00:00Z",
+            summary_available: true,
+            permitted_actions: ["open_assignment"],
+          },
+          participant_consequence_code: "none",
+        });
+      }
+      if (url.includes("/cancel") && init?.method === "POST") {
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "cancelled",
+          status: "cancelled",
+          revision: 1,
+          permitted_actions: ["begin_intake", "return_to_my_work"],
+        });
+      }
+      if (url.includes("/submission/intake") && init?.method === "POST" && !url.includes("/items") && !url.includes("/finalize")) {
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "receiving",
+          intake_id: "11111111-1111-4111-8111-111111111111",
+          submission_id: "22222222-2222-4222-8222-222222222222",
+          status: "receiving",
+          revision: 1,
+          permitted_actions: ["complete_item", "cancel_intake", "return_to_my_work"],
+        });
+      }
+      if (url.includes("/items") && init?.method === "POST") {
+        return itemsHeld.then(() => jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "received",
+          intake_id: "11111111-1111-4111-8111-111111111111",
+          status: "received",
+          revision: 2,
+          permitted_actions: ["finalize_intake", "cancel_intake", "return_to_my_work"],
+        }));
+      }
+      if (url.includes("/finalize") && init?.method === "POST") {
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "accepted",
+          status: "accepted",
+          revision: 3,
+          version_id: "33333333-3333-4333-8333-333333333333",
+          version_number: 1,
+          permitted_actions: ["preview_item", "return_to_my_work"],
+        });
+      }
+      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+        return jsonResponse({
+          schema_version: "v2",
+          enrollment_id: "enr-1",
+          enrollment_status: "active",
+          intake_available: true,
+          requirements: {
+            contract_version: "submissions.material_policy.v1",
+            max_attachment_count: 10,
+            max_attachment_aggregate_bytes: 26214400,
+            max_direct_text_bytes: 1048576,
+            scanner_mode: "disabled_by_approved_policy",
+            categories: [{ category: "direct_text", available: true, max_bytes: 1048576 }],
+          },
+          active_intake: null,
+          version_history: [],
+          permitted_actions: ["begin_intake", "return_to_my_work"],
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <ProductionApiProvider>
+        <MemoryRouter initialEntries={["/my-work/enr-1"]}>
+          <Routes>
+            <Route path="/my-work/:enrollmentId" element={<ProductionMyWorkDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ProductionApiProvider>,
+    );
+
+    fireEvent.change(await screen.findByLabelText("Direct text"), { target: { value: "Direct text answer." } });
+    fireEvent.click(screen.getByRole("button", { name: "Submit version" }));
+    fireEvent.click((await screen.findAllByRole("button", { name: "Submit version" }))[1]);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Cancel intake" })).toBeEnabled();
+    });
+    expect(screen.getByText(/Current intake state: receiving/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel intake" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Current intake state: cancelling|cancelled/)).toBeInTheDocument();
+    });
+    releaseItems?.();
+    await waitFor(() => {
+      expect(screen.getByText(/Current intake state: cancelled/)).toBeInTheDocument();
+    });
+    expect(fetchMock.mock.calls.some(([request]) => {
+      const url = typeof request === "string" ? request : request instanceof URL ? request.href : request.url;
+      return url.includes("/finalize");
+    })).toBe(false);
+  });
+
   it("clears preview content and focuses the unavailable message on permission loss", async () => {
     let previewDenied = false;
     vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
