@@ -162,6 +162,7 @@ public sealed class InMemorySubmissionVersionStore : ISubmissionVersionStore
 
     public Task<IReadOnlyList<AcceptedArtifactCleanupCandidate>> ListAcceptedArtifactCandidatesAsync(
         int limit,
+        AcceptedArtifactCleanupCursor? after = null,
         CancellationToken cancellationToken = default)
     {
         var items = _versions.Values
@@ -170,10 +171,34 @@ public sealed class InMemorySubmissionVersionStore : ISubmissionVersionStore
                 version.Scope.ActivityId,
                 version.Scope.EnrollmentId,
                 version.VersionId,
-                item.ArtifactObjectKey)))
+                item.ItemId,
+                version.AcceptedAtUtc,
+                item.ArtifactObjectKey,
+                item.ArtifactVersionId)))
+            .OrderBy(candidate => candidate.AcceptedAtUtc)
+            .ThenBy(candidate => candidate.VersionId)
+            .ThenBy(candidate => candidate.ItemId)
+            .Where(candidate => after is null || IsAfter(candidate, after))
             .Take(limit)
             .ToArray();
         return Task.FromResult<IReadOnlyList<AcceptedArtifactCleanupCandidate>>(items);
+    }
+
+    private static bool IsAfter(AcceptedArtifactCleanupCandidate candidate, AcceptedArtifactCleanupCursor after)
+    {
+        var acceptedCompare = candidate.AcceptedAtUtc.CompareTo(after.AcceptedAtUtc);
+        if (acceptedCompare != 0)
+        {
+            return acceptedCompare > 0;
+        }
+
+        var versionCompare = candidate.VersionId.CompareTo(after.VersionId);
+        if (versionCompare != 0)
+        {
+            return versionCompare > 0;
+        }
+
+        return candidate.ItemId.CompareTo(after.ItemId) > 0;
     }
 }
 
@@ -237,8 +262,24 @@ public sealed class InMemoryArtifactStore : IArtifactStore
 
     public Task<bool> DeleteAsync(Guid organizationId, StoredArtifactReference reference, CancellationToken cancellationToken = default)
     {
-        var removed = _objects.Remove((organizationId, reference.ObjectKey.Value));
-        return Task.FromResult(removed);
+        if (!reference.ObjectKey.BelongsToOrganization(organizationId))
+        {
+            return Task.FromResult(false);
+        }
+
+        var key = (organizationId, reference.ObjectKey.Value);
+        if (!_objects.TryGetValue(key, out var stored))
+        {
+            return Task.FromResult(false);
+        }
+
+        if (!string.IsNullOrWhiteSpace(reference.VersionId.Value)
+            && stored.Reference.VersionId.Value != reference.VersionId.Value)
+        {
+            return Task.FromResult(false);
+        }
+
+        return Task.FromResult(_objects.Remove(key));
     }
 }
 

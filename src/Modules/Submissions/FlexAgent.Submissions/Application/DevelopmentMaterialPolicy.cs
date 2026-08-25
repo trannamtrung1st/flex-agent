@@ -111,3 +111,11 @@ public sealed class UnavailableActivityClosurePort : IActivityClosurePort
         CancellationToken cancellationToken = default) =>
         Task.FromResult<DateTimeOffset?>(null);
 }
+
+public sealed class ApprovedDefaultAcceptedPayloadLifecyclePolicyPort : IAcceptedPayloadLifecyclePolicyPort
+{
+    public Task<AcceptedPayloadLifecyclePolicy> ResolveAcceptedPayloadPolicyAsync(
+        Guid organizationId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(AcceptedPayloadLifecyclePolicy.ApprovedOperationalDefault);
+}

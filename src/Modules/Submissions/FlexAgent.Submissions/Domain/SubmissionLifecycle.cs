@@ -16,10 +16,12 @@ public static class SubmissionLifecycle
     public static bool AcceptedPayloadEligibleForCleanup(
         DateTimeOffset? activityClosedAtUtc,
         DateTimeOffset nowUtc,
-        bool legalHoldActive) =>
+        bool legalHoldActive,
+        TimeSpan retentionAfterActivityClosure) =>
         activityClosedAtUtc is DateTimeOffset closedAt
         && !legalHoldActive
-        && nowUtc - closedAt >= SubmissionLifecycleClocks.AcceptedRetentionAfterActivityClosure;
+        && retentionAfterActivityClosure > TimeSpan.Zero
+        && nowUtc - closedAt >= retentionAfterActivityClosure;
 
     public static bool MayDeleteAcceptedPayload(bool legalHoldActive) => !legalHoldActive;
 

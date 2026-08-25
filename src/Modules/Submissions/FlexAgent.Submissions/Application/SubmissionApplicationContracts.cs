@@ -242,15 +242,24 @@ public interface ISubmissionVersionStore
 
     Task<IReadOnlyList<AcceptedArtifactCleanupCandidate>> ListAcceptedArtifactCandidatesAsync(
         int limit,
+        AcceptedArtifactCleanupCursor? after = null,
         CancellationToken cancellationToken = default);
 }
+
+public sealed record AcceptedArtifactCleanupCursor(
+    DateTimeOffset AcceptedAtUtc,
+    Guid VersionId,
+    Guid ItemId);
 
 public sealed record AcceptedArtifactCleanupCandidate(
     Guid OrganizationId,
     Guid ActivityId,
     Guid EnrollmentId,
     Guid VersionId,
-    string ArtifactObjectKey);
+    Guid ItemId,
+    DateTimeOffset AcceptedAtUtc,
+    string ArtifactObjectKey,
+    string ArtifactVersionId);
 
 public interface IExactAcceptedVersionReader
 {
@@ -272,7 +281,8 @@ public sealed record SubmissionWorkItem(
     int AttemptCount,
     DateTimeOffset AvailableAtUtc,
     DateTimeOffset? LeaseUntilUtc,
-    string? ArtifactObjectKey);
+    string? ArtifactObjectKey,
+    string? ArtifactVersionId);
 
 public interface ISubmissionWorkStore
 {

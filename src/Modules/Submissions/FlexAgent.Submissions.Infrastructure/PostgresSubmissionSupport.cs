@@ -662,24 +662,71 @@ public sealed class PostgresSubmissionVersionStore(PostgresConnectionAccessor co
 
     public async Task<IReadOnlyList<AcceptedArtifactCleanupCandidate>> ListAcceptedArtifactCandidatesAsync(
         int limit,
+        AcceptedArtifactCleanupCursor? after = null,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-        var rows = await connection.QueryAsync<AcceptedArtifactCleanupCandidate>(
+        var rows = await connection.QueryAsync<CleanupCandidateRow>(
             new CommandDefinition(
                 """
                 SELECT v.organization_id AS OrganizationId, v.activity_id AS ActivityId,
                        v.enrollment_id AS EnrollmentId, v.version_id AS VersionId,
-                       i.artifact_object_key AS ArtifactObjectKey
+                       i.item_id AS ItemId, v.accepted_at AS AcceptedAtUtc,
+                       i.artifact_object_key AS ArtifactObjectKey,
+                       i.artifact_version_id AS ArtifactVersionId
                 FROM submissions_accepted_version_items i
                 INNER JOIN submissions_accepted_versions v
                     ON v.organization_id = i.organization_id AND v.version_id = i.version_id
-                ORDER BY v.accepted_at
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM submissions_artifact_dispositions d
+                    WHERE d.organization_id = i.organization_id
+                      AND d.artifact_object_key = i.artifact_object_key)
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM submissions_durable_work w
+                    WHERE w.organization_id = i.organization_id
+                      AND w.work_kind = 'cleanup_accepted'
+                      AND w.artifact_object_key = i.artifact_object_key
+                      AND w.status IN ('pending', 'leased'))
+                AND (
+                    @HasCursor = FALSE
+                    OR (v.accepted_at, v.version_id, i.item_id)
+                       > (@AfterAcceptedAt, @AfterVersionId, @AfterItemId)
+                )
+                ORDER BY v.accepted_at, v.version_id, i.item_id
                 LIMIT @Limit
                 """,
-                new { Limit = limit },
+                new
+                {
+                    Limit = limit,
+                    HasCursor = after is not null,
+                    AfterAcceptedAt = after?.AcceptedAtUtc,
+                    AfterVersionId = after?.VersionId,
+                    AfterItemId = after?.ItemId,
+                },
                 cancellationToken: cancellationToken));
-        return rows.ToArray();
+        return rows.Select(row => new AcceptedArtifactCleanupCandidate(
+            row.OrganizationId,
+            row.ActivityId,
+            row.EnrollmentId,
+            row.VersionId,
+            row.ItemId,
+            ToUtcOffset(row.AcceptedAtUtc),
+            row.ArtifactObjectKey,
+            row.ArtifactVersionId)).ToArray();
+    }
+
+    private sealed class CleanupCandidateRow
+    {
+        public Guid OrganizationId { get; init; }
+        public Guid ActivityId { get; init; }
+        public Guid EnrollmentId { get; init; }
+        public Guid VersionId { get; init; }
+        public Guid ItemId { get; init; }
+        public DateTime AcceptedAtUtc { get; init; }
+        public string ArtifactObjectKey { get; init; } = string.Empty;
+        public string ArtifactVersionId { get; init; } = string.Empty;
     }
 
     private static IReadOnlyList<AcceptedVersionSummary> MapVersionSummaries(IEnumerable<VersionSummaryRow> rows) =>
@@ -761,10 +808,12 @@ public sealed class PostgresSubmissionWorkStore(PostgresConnectionAccessor conne
         const string sql = """
             INSERT INTO submissions_durable_work (
                 organization_id, work_id, work_kind, enrollment_id, intake_id, version_id,
-                status, attempt_count, available_at, lease_until, artifact_object_key, created_at)
+                status, attempt_count, available_at, lease_until, artifact_object_key,
+                artifact_version_id, created_at)
             VALUES (
                 @OrganizationId, @WorkId, @WorkKind, @EnrollmentId, @IntakeId, @VersionId,
-                @Status, @AttemptCount, @AvailableAtUtc, @LeaseUntilUtc, @ArtifactObjectKey, CLOCK_TIMESTAMP())
+                @Status, @AttemptCount, @AvailableAtUtc, @LeaseUntilUtc, @ArtifactObjectKey,
+                @ArtifactVersionId, CLOCK_TIMESTAMP())
             ON CONFLICT DO NOTHING
             """;
         var parameters = new
@@ -780,6 +829,7 @@ public sealed class PostgresSubmissionWorkStore(PostgresConnectionAccessor conne
             work.AvailableAtUtc,
             work.LeaseUntilUtc,
             work.ArtifactObjectKey,
+            work.ArtifactVersionId,
         };
 
         if (transaction is PostgresEnrollmentTransaction postgres)
@@ -803,7 +853,8 @@ public sealed class PostgresSubmissionWorkStore(PostgresConnectionAccessor conne
                 SELECT organization_id AS OrganizationId, work_id AS WorkId, work_kind AS WorkKind,
                        enrollment_id AS EnrollmentId, intake_id AS IntakeId, version_id AS VersionId,
                        status AS Status, attempt_count AS AttemptCount, available_at AS AvailableAtUtc,
-                       lease_until AS LeaseUntilUtc, artifact_object_key AS ArtifactObjectKey
+                       lease_until AS LeaseUntilUtc, artifact_object_key AS ArtifactObjectKey,
+                       artifact_version_id AS ArtifactVersionId
                 FROM submissions_durable_work
                 WHERE status = 'pending' AND available_at <= @NowUtc
                    OR (status = 'leased' AND lease_until IS NOT NULL AND lease_until < @NowUtc)
@@ -845,7 +896,8 @@ public sealed class PostgresSubmissionWorkStore(PostgresConnectionAccessor conne
             claimed.AttemptCount + 1,
             claimed.AvailableAtUtc,
             leaseUntil,
-            claimed.ArtifactObjectKey);
+            claimed.ArtifactObjectKey,
+            claimed.ArtifactVersionId);
     }
 
     public async Task CompleteAsync(Guid organizationId, Guid workId, CancellationToken cancellationToken = default)
@@ -887,7 +939,8 @@ public sealed class PostgresSubmissionWorkStore(PostgresConnectionAccessor conne
         int AttemptCount,
         DateTimeOffset AvailableAtUtc,
         DateTimeOffset? LeaseUntilUtc,
-        string? ArtifactObjectKey);
+        string? ArtifactObjectKey,
+        string? ArtifactVersionId);
 }
 
 public sealed class PostgresLifecycleHoldStore(PostgresConnectionAccessor connections) : ISubmissionLifecycleHoldStore

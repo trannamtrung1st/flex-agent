@@ -199,6 +199,26 @@ public interface IActivityClosurePort
         CancellationToken cancellationToken = default);
 }
 
+public sealed record AcceptedPayloadLifecyclePolicy(
+    Guid PolicyId,
+    int PolicyVersion,
+    TimeSpan RetentionAfterActivityClosure,
+    bool IndependentlyResolvedFromOwner)
+{
+    public static AcceptedPayloadLifecyclePolicy ApprovedOperationalDefault { get; } = new(
+        SubmissionAcceptedPayloadLifecyclePolicy.ApprovedDefaultPolicyId,
+        SubmissionAcceptedPayloadLifecyclePolicy.ApprovedDefaultVersion,
+        SubmissionLifecycleClocks.AcceptedRetentionAfterActivityClosure,
+        IndependentlyResolvedFromOwner: false);
+}
+
+public interface IAcceptedPayloadLifecyclePolicyPort
+{
+    Task<AcceptedPayloadLifecyclePolicy> ResolveAcceptedPayloadPolicyAsync(
+        Guid organizationId,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IActivatedCohortPort
 {
     Task<ActivatedCohortBinding?> FindActivatedAsync(

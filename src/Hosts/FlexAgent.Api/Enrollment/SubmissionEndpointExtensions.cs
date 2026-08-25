@@ -49,12 +49,14 @@ public static class SubmissionEndpointExtensions
             services.AddSingleton<IArtifactDispositionStore, InMemoryArtifactDispositionStore>();
             services.AddSingleton<IProtectedArtifactCapabilityStore, InMemoryProtectedArtifactCapabilityStore>();
             services.AddSingleton<IActivityClosurePort, UnavailableActivityClosurePort>();
+            services.AddSingleton<IAcceptedPayloadLifecyclePolicyPort, ApprovedDefaultAcceptedPayloadLifecyclePolicyPort>();
             return services;
         }
 
         services.AddSingleton<IFrozenSubmissionRequirementPort, AssessmentFrozenSubmissionRequirementPort>();
         services.AddSingleton<IMaterialPolicyPort, EnvironmentMaterialPolicyPort>();
         services.AddSingleton<IActivityClosurePort, UnavailableActivityClosurePort>();
+        services.AddSingleton<IAcceptedPayloadLifecyclePolicyPort, ApprovedDefaultAcceptedPayloadLifecyclePolicyPort>();
         if (environment.IsProduction() || environment.IsEnvironment("Staging"))
         {
             services.AddSingleton<IArtifactSafetyScanner, UnavailableArtifactSafetyScanner>();

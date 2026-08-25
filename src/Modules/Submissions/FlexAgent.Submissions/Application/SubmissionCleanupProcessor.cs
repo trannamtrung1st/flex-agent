@@ -10,23 +10,29 @@ public sealed class SubmissionCleanupProcessor(
     ISubmissionLifecycleHoldStore holds,
     IArtifactDispositionStore dispositions,
     IEnrollmentClock? clock = null,
-    IActivityClosurePort? closures = null) : ISubmissionCleanupProcessor
+    IActivityClosurePort? closures = null,
+    IAcceptedPayloadLifecyclePolicyPort? acceptedPayloadPolicy = null) : ISubmissionCleanupProcessor
 {
+    private const int CandidatePageSize = 20;
+    private const int MaxAcceptedCandidatePages = 100;
+
     private readonly IEnrollmentClock _clock = clock ?? new SystemEnrollmentClock();
+    private readonly IAcceptedPayloadLifecyclePolicyPort _acceptedPayloadPolicy =
+        acceptedPayloadPolicy ?? new ApprovedDefaultAcceptedPayloadLifecyclePolicyPort();
 
     public async Task<string> TryProcessNextAsync(CancellationToken cancellationToken = default)
     {
         await EnqueueEligibleAsync(
             await intakes.ListIncompleteCreatedBeforeAsync(
                 _clock.UtcNow - SubmissionLifecycleClocks.IncompleteRetention,
-                20,
+                CandidatePageSize,
                 cancellationToken),
             SubmissionWorkKinds.CleanupIncomplete,
             cancellationToken);
         await EnqueueEligibleAsync(
             await intakes.ListRejectedUpdatedBeforeAsync(
                 _clock.UtcNow - SubmissionLifecycleClocks.RejectedByteRetention,
-                20,
+                CandidatePageSize,
                 cancellationToken),
             SubmissionWorkKinds.CleanupRejected,
             cancellationToken);
@@ -59,14 +65,24 @@ public sealed class SubmissionCleanupProcessor(
                     return "skipped";
                 }
 
-                await artifacts.DeleteAsync(
+                var deleted = await artifacts.DeleteAsync(
                     claimed.OrganizationId,
                     new StoredArtifactReference(
                         new ArtifactObjectKey(claimed.ArtifactObjectKey),
-                        new ArtifactVersionId(string.Empty),
+                        new ArtifactVersionId(claimed.ArtifactVersionId ?? string.Empty),
                         ArtifactDigest.FromHex(new string('0', 64)),
                         0),
                     cancellationToken);
+                if (!deleted)
+                {
+                    await work.FailAsync(
+                        claimed.OrganizationId,
+                        claimed.WorkId,
+                        _clock.UtcNow.Add(SubmissionLifecycleClocks.WorkLease),
+                        cancellationToken);
+                    return "failed";
+                }
+
                 await dispositions.RecordAsync(
                     claimed.OrganizationId,
                     Guid.CreateVersion7(),
@@ -97,39 +113,66 @@ public sealed class SubmissionCleanupProcessor(
             return;
         }
 
-        var candidates = await versions.ListAcceptedArtifactCandidatesAsync(20, cancellationToken);
-        foreach (var candidate in candidates)
+        AcceptedArtifactCleanupCursor? after = null;
+        for (var page = 0; page < MaxAcceptedCandidatePages; page++)
         {
-            var held = await holds.IsHeldAsync(candidate.OrganizationId, candidate.ArtifactObjectKey, cancellationToken);
-            var alreadyDisposed = await dispositions.ExistsAsync(
-                candidate.OrganizationId,
-                candidate.ArtifactObjectKey,
+            var candidates = await versions.ListAcceptedArtifactCandidatesAsync(
+                CandidatePageSize,
+                after,
                 cancellationToken);
-            var closedAt = await closures.FindClosedAtUtcAsync(
-                candidate.OrganizationId,
-                candidate.ActivityId,
-                cancellationToken);
-            if (alreadyDisposed
-                || !SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(closedAt, _clock.UtcNow, held))
+            if (candidates.Count == 0)
             {
-                continue;
+                return;
             }
 
-            await work.EnqueueAsync(
-                new SubmissionWorkItem(
+            foreach (var candidate in candidates)
+            {
+                var policy = await _acceptedPayloadPolicy.ResolveAcceptedPayloadPolicyAsync(
                     candidate.OrganizationId,
-                    Guid.CreateVersion7(),
-                    SubmissionWorkKinds.CleanupAccepted,
-                    candidate.EnrollmentId,
-                    null,
-                    candidate.VersionId,
-                    SubmissionWorkStates.Pending,
-                    0,
-                    _clock.UtcNow,
-                    null,
-                    candidate.ArtifactObjectKey),
-                new CleanupEnqueueTransaction(),
-                cancellationToken);
+                    cancellationToken);
+                var held = await holds.IsHeldAsync(candidate.OrganizationId, candidate.ArtifactObjectKey, cancellationToken);
+                var alreadyDisposed = await dispositions.ExistsAsync(
+                    candidate.OrganizationId,
+                    candidate.ArtifactObjectKey,
+                    cancellationToken);
+                var closedAt = await closures.FindClosedAtUtcAsync(
+                    candidate.OrganizationId,
+                    candidate.ActivityId,
+                    cancellationToken);
+                if (alreadyDisposed
+                    || !SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(
+                        closedAt,
+                        _clock.UtcNow,
+                        held,
+                        policy.RetentionAfterActivityClosure))
+                {
+                    continue;
+                }
+
+                await work.EnqueueAsync(
+                    new SubmissionWorkItem(
+                        candidate.OrganizationId,
+                        Guid.CreateVersion7(),
+                        SubmissionWorkKinds.CleanupAccepted,
+                        candidate.EnrollmentId,
+                        null,
+                        candidate.VersionId,
+                        SubmissionWorkStates.Pending,
+                        0,
+                        _clock.UtcNow,
+                        null,
+                        candidate.ArtifactObjectKey,
+                        candidate.ArtifactVersionId),
+                    new CleanupEnqueueTransaction(),
+                    cancellationToken);
+            }
+
+            var last = candidates[^1];
+            after = new AcceptedArtifactCleanupCursor(last.AcceptedAtUtc, last.VersionId, last.ItemId);
+            if (candidates.Count < CandidatePageSize)
+            {
+                return;
+            }
         }
     }
 
@@ -173,7 +216,8 @@ public sealed class SubmissionCleanupProcessor(
                         0,
                         _clock.UtcNow,
                         null,
-                        item.ArtifactObjectKey),
+                        item.ArtifactObjectKey,
+                        item.ArtifactVersionId),
                     new CleanupEnqueueTransaction(),
                     cancellationToken);
             }

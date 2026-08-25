@@ -209,6 +209,36 @@ public sealed class SeaweedFsArtifactContractTests(ArtifactIntegrationFixture fi
   }
 
   [Fact]
+  public async Task Exact_version_delete_makes_get_of_that_version_fail()
+  {
+    var cancellationToken = TestContext.Current.CancellationToken;
+    var organizationId = Guid.NewGuid();
+    var key = ArtifactObjectKey.Create(organizationId, Guid.NewGuid());
+    var content = Encoding.UTF8.GetBytes("immutable accepted version bytes");
+
+    var put = await fixture.Store.PutAsync(new ArtifactPutRequest(
+      organizationId,
+      key,
+      content,
+      "text/plain",
+      ConditionalCreate: true), cancellationToken);
+    Assert.True(put.Succeeded, put.OutcomeCode);
+    Assert.False(string.IsNullOrWhiteSpace(put.Reference!.VersionId.Value));
+
+    var beforeDelete = await fixture.Store.GetExactVersionAsync(new ArtifactGetRequest(
+      organizationId,
+      put.Reference), cancellationToken);
+    Assert.True(beforeDelete.Succeeded, beforeDelete.OutcomeCode);
+
+    Assert.True(await fixture.Store.DeleteAsync(organizationId, put.Reference, cancellationToken));
+
+    var afterDelete = await fixture.Store.GetExactVersionAsync(new ArtifactGetRequest(
+      organizationId,
+      put.Reference), cancellationToken);
+    Assert.False(afterDelete.Succeeded);
+  }
+
+  [Fact]
   public async Task Download_presign_expires_within_configured_lifetime()
   {
     var cancellationToken = TestContext.Current.CancellationToken;

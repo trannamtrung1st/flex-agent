@@ -73,6 +73,14 @@ public static class SubmissionLifecycleClocks
     public static readonly TimeSpan AcceptedRetentionAfterActivityClosure = TimeSpan.FromDays(365);
 }
 
+public static class SubmissionAcceptedPayloadLifecyclePolicy
+{
+    public static readonly Guid ApprovedDefaultPolicyId =
+        Guid.Parse("22222222-2222-4222-8222-222222222221");
+
+    public const int ApprovedDefaultVersion = 1;
+}
+
 public static class SubmissionWorkKinds
 {
     public const string CleanupIncomplete = "cleanup_incomplete";

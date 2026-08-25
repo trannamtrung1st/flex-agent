@@ -163,12 +163,42 @@ public sealed class SubmissionLifecycleTests
         Assert.False(SubmissionLifecycle.MayDeleteArtifact(acceptedReferenceExists: true, legalHoldActive: false));
         Assert.False(SubmissionLifecycle.MayDeleteArtifact(acceptedReferenceExists: false, legalHoldActive: true));
         Assert.True(SubmissionLifecycle.MayDeleteArtifact(acceptedReferenceExists: false, legalHoldActive: false));
-        Assert.False(SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(null, now, legalHoldActive: false));
-        Assert.False(SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(now.AddDays(-364), now, legalHoldActive: false));
-        Assert.False(SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(now.AddDays(-366), now, legalHoldActive: true));
-        Assert.True(SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(now.AddDays(-366), now, legalHoldActive: false));
+        Assert.False(SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(
+            null,
+            now,
+            legalHoldActive: false,
+            SubmissionLifecycleClocks.AcceptedRetentionAfterActivityClosure));
+        Assert.False(SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(
+            now.AddDays(-364),
+            now,
+            legalHoldActive: false,
+            SubmissionLifecycleClocks.AcceptedRetentionAfterActivityClosure));
+        Assert.False(SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(
+            now.AddDays(-366),
+            now,
+            legalHoldActive: true,
+            SubmissionLifecycleClocks.AcceptedRetentionAfterActivityClosure));
+        Assert.True(SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(
+            now.AddDays(-366),
+            now,
+            legalHoldActive: false,
+            SubmissionLifecycleClocks.AcceptedRetentionAfterActivityClosure));
+        Assert.True(SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(
+            now.AddDays(-91),
+            now,
+            legalHoldActive: false,
+            TimeSpan.FromDays(90)));
+        Assert.False(SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(
+            now.AddDays(-89),
+            now,
+            legalHoldActive: false,
+            TimeSpan.FromDays(90)));
         Assert.False(SubmissionLifecycle.MayDeleteAcceptedPayload(legalHoldActive: true));
         Assert.True(SubmissionLifecycle.MayDeleteAcceptedPayload(legalHoldActive: false));
+        Assert.False(AcceptedPayloadLifecyclePolicy.ApprovedOperationalDefault.IndependentlyResolvedFromOwner);
+        Assert.Equal(
+            SubmissionLifecycleClocks.AcceptedRetentionAfterActivityClosure,
+            AcceptedPayloadLifecyclePolicy.ApprovedOperationalDefault.RetentionAfterActivityClosure);
     }
 
     [Fact]
