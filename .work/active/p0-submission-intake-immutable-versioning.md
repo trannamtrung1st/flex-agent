@@ -648,37 +648,37 @@ Session rows remain unimplemented or Partial as governed by their owners.
   refresh failure as reconciling, with reverse-race vitest coverage.
 - [x] Remediate `6cb48bb` P2: known successful cancel recovers as cancelled
   even when older accepted versions exist; hide Cancel while reconciling.
-- [>] Re-run independent backend, frontend, security/privacy, and QA review for
+- [x] Remediate `607405c` P2: split known cancel success from uncertain
+  cancel-conflict reconciliation so a later accepted version is not reported
+  as cancelled after a transient projection failure.
+- [ ] Independent review of the `607405c` P2 remediations.
+- [ ] Re-run independent backend, frontend, security/privacy, and QA review for
   remaining planned slice work after this continuation; reconcile actual
   changes with this plan and the governing sources, update truthful
   implementation-status rows, and retain the completed task record.
 
 # Current state
 
-The slice remains **in progress**. Independent review of `6cb48bb` requested
-one remaining P2: a known successful cancel recovered as `accepted` whenever
-older versions existed, and **Cancel intake** stayed available during
-reconciling against a stale revision.
+The slice remains **in progress**. Independent review of `607405c` requested
+one remaining P2: `"after-cancel"` was used for both a known successful cancel
+and an uncertain cancel-conflict whose projection GET also failed. **Refresh
+assignment** then always mapped that mode to `cancelled`, so a later accepted
+Version 2 was reported as cancelled.
 
-Remediation: `after-cancel` refresh with no active intake sets `cancelled`
-regardless of `version_history`. Cancel is hidden while reconciling; only
-**Refresh assignment** is offered. Unknown cancel/finalize races remain a
-separate conflict-refresh path.
+Remediation: `after-cancel-success` vs `after-cancel-uncertain`. Pre-race
+accepted version IDs are captured at cancel start. Known success with no active
+intake stays cancelled even with older history. Uncertain refresh reports
+`accepted` only when a **new** version ID appears; active intake uses
+authoritative status; otherwise the UI does not infer acceptance from old
+history.
 
-Red: recovery with existing Version 1 still showed Cancel while reconciling.
-Green: My work tests **12 passed**, including later-version cancel then
-successful refresh showing cancelled and Version 1 only. Web typecheck passed.
+Red: finalize-wins → cancel `stale_revision` → first GET 500 → Refresh with
+Versions 1 and 2 still showed `cancelled`. Green: My work tests **13 passed**,
+including that hop plus later-version cancel recovery and hide-Cancel-while-
+reconciling. Web typecheck passed.
 
-Remediation: after a failed cancel, refresh authoritative **My work**
-submission state (received intake for a meaningful retry, or accepted history
-if finalize won). Successful cancel plus a failed projection refresh enters
-`reconciling` with **Refresh assignment** and cancel-specific copy, not a
-false “could not be cancelled” error. `retryRefresh` applies server state
-instead of always assuming accept.
-
-Red: three reverse-race vitest cases failed while stuck on cancelling. Green:
-My work tests **11 passed**, including cancel-wins, `completeItem` wins,
-`finalize` wins, and cancel-success/refresh-failure. Web typecheck passed.
+Playwright was not re-run for this hop; it requires a mocked cancel-conflict
+plus a transient GET failure that the live API does not expose.
 
 Independent review of this remediations is next. Residual slice gaps are
 unchanged (lifecycle policy, Worker cleanup, Activity closure, paired restore,
@@ -888,6 +888,10 @@ recorded residual gaps are accepted.
   SHA. Remaining open items are planned slice work (concurrent finalize,
   contracts, production UI, Playwright, lifecycle), not unresolved review
   findings.
+- **Review of `607405c` (P2, remediating):** Known cancel success and
+  cancel-conflict/uncertain GET failure are no longer the same
+  `after-cancel` mode. Refresh after an uncertain race reports `accepted`
+  when a new version ID appears.
 - **Review of `6cb48bb` (P2, remediating):** Known successful cancel plus
   later refresh no longer treats older `version_history` as this intake
   having been accepted. Cancel is hidden while reconciling.
@@ -946,7 +950,7 @@ recorded residual gaps are accepted.
 | Canonical schema/OpenAPI/C#/TypeScript parity | passed for added v2 Submission contracts | Catalog **33** representative schemas; `FlexAgent.Contract.Tests` **173 passed**; OpenAPI `$ref` for My work, version detail, and preview. Node OpenAPI parity **8 passed**. |
 | HTTP CSRF/admission/isolation | passed for added negatives | `SubmissionHttpNegativeContractTests` **9 passed**: begin/cancel/finalize CSRF, unauthenticated submission/version-detail/preview/download `no-store`, unauthenticated skip of shared admission, exhausted shared admission without protected query. |
 | API/Worker integration | partial | v2 routes: query, begin, complete-item, cancel, finalize, version detail, item preview, item download. Artifact store: SeaweedFS when `ArtifactStorage` is configured. Cleanup loop is API-hosted, not Worker-hosted. Finalize scanner calls are outside the DB transaction. |
-| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog (closes on start), cancel during receiving/validating, cancel-conflict refresh, cancel-success/refresh-failure reconciling without stale Cancel, later-version cancel recovery as cancelled beside older history, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **12 passed**. Live validating Playwright remains. |
+| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog (closes on start), cancel during receiving/validating, cancel-conflict refresh, known-cancel vs uncertain-cancel reconciliation (new accepted versions after a failed conflict GET are not reported as cancelled), later-version cancel recovery as cancelled beside older history, hide Cancel while reconciling, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **13 passed**. Live validating Playwright remains. |
 | Authenticated Playwright MCP | partial — rebuilt SPA 2026-08-25 | Receiving with **Cancel intake**: `.playwright-mcp/page-2026-08-25T05-49-57-764Z.png`. Cancelled without Version 4: `...T05-51-19-390Z.png`. Version 3 inert preview: `...T05-52-17-009Z.png`. Sign-out from preview: `...T05-52-54-390Z.png`. Delayed item POST after cancel was HTTP 409. Live validating not captured. |
 | Regression/security/supply-chain/OCI/recovery/docs | partial | `python3 scripts/check_docs.py` passed. `git diff --check` clean. Submissions **113**, architecture **41**, contracts **173**, persistence **14**, HTTP negatives **9**. Gitleaks: Submission keys allowlisted; one historical predecessor-task finding remains. Locked restore, SBOM, OCI, paired restore not re-run. |
 | Independent review — security/correctness remediation chain | passed — external review `b67a922` | No blocking findings. All issues raised from `7dac50c` through follow-up reviews resolved at `b67a922`, including S3 scope isolation, predecessor lineage, partial parent scope (`0049`), and Task-binding parent tuple (`0050`). `SubmissionPersistenceTests` **12 passed**; full PostgreSQL **340 passed / 1 failed** (Keycloak 403 flake). GitHub commit statuses not independently visible. Separate full-slice backend/frontend/QA review remains for unconsumed planned work. |

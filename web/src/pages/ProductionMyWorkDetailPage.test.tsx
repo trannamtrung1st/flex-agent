@@ -593,6 +593,93 @@ describe("ProductionMyWorkDetailPage", () => {
     releaseFinalize?.();
   });
 
+  it("reports accepted when finalize wins, cancel conflicts, and a later refresh shows the new version", async () => {
+    let releaseItems: (() => void) | undefined;
+    const itemsHeld = new Promise<void>((resolve) => {
+      releaseItems = resolve;
+    });
+    let submissionGets = 0;
+    const versionOne = {
+      version_id: "44444444-4444-4444-8444-444444444444",
+      version_number: 1,
+      accepted_at_utc: "2026-08-25T00:00:00Z",
+      item_count: 1,
+    };
+    const versionTwo = {
+      version_id: "33333333-3333-4333-8333-333333333333",
+      version_number: 2,
+      accepted_at_utc: "2026-08-25T00:01:00Z",
+      item_count: 1,
+    };
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const shared = sessionShellOrTiming(url);
+      if (shared) {
+        return shared;
+      }
+      if (url.includes("/cancel") && init?.method === "POST") {
+        return jsonResponse({ outcome_code: "stale_revision", succeeded: false }, 409);
+      }
+      if (url.includes("/submission/intake") && init?.method === "POST" && !url.includes("/items") && !url.includes("/finalize")) {
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "receiving",
+          intake_id: "11111111-1111-4111-8111-111111111111",
+          submission_id: "22222222-2222-4222-8222-222222222222",
+          status: "receiving",
+          revision: 1,
+        });
+      }
+      if (url.includes("/items") && init?.method === "POST") {
+        return itemsHeld.then(() => jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "received",
+          revision: 2,
+        }));
+      }
+      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+        submissionGets += 1;
+        if (submissionGets === 1) {
+          return jsonResponse(submissionProjection({
+            version_history: [versionOne],
+            permitted_actions: ["begin_intake", "preview_item", "return_to_my_work"],
+          }));
+        }
+        if (submissionGets === 2) {
+          return jsonResponse({}, 500);
+        }
+        return jsonResponse(submissionProjection({
+          active_intake: null,
+          version_history: [versionTwo, versionOne],
+          permitted_actions: ["begin_intake", "preview_item", "return_to_my_work"],
+        }));
+      }
+      return jsonResponse({}, 404);
+    }));
+
+    renderAssignment();
+    expect(await screen.findByText(/Version 1/)).toBeInTheDocument();
+    await confirmSubmitVersion();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Cancel intake" })).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel intake" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Reconciling this intake/)).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "Cancel intake" })).not.toBeInTheDocument();
+    releaseItems?.();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh assignment" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Current intake state: accepted/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Version 2/)).toBeInTheDocument();
+    expect(screen.getByText(/Version 1/)).toBeInTheDocument();
+    expect(screen.queryByText(/Current intake state: cancelled/)).not.toBeInTheDocument();
+  });
+
   it("reconciles when cancel succeeds but the assignment view cannot be refreshed", async () => {
     let releaseItems: (() => void) | undefined;
     const itemsHeld = new Promise<void>((resolve) => {
