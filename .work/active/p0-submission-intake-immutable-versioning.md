@@ -655,7 +655,9 @@ Session rows remain unimplemented or Partial as governed by their owners.
   intake's acceptance; snapshot accepted versions at the begin boundary.
 - [x] Remediate `b57c6c0` P2: begin-baseline GET must not revive a cancelled
   local active intake; keep capture side-effect-free.
-- [ ] Independent review of the `b57c6c0` P2 remediations.
+- [x] Remediate `a1499c5` P2: resolve uncertain cancel from this intake's
+  terminal status, not from a later version in history.
+- [ ] Independent review of the `a1499c5` P2 remediations.
 - [ ] Re-run independent backend, frontend, security/privacy, and QA review for
   remaining planned slice work after this continuation; reconcile actual
   changes with this plan and the governing sources, update truthful
@@ -663,21 +665,24 @@ Session rows remain unimplemented or Partial as governed by their owners.
 
 # Current state
 
-The slice remains **in progress**. Independent review of `b57c6c0` requested
-one remaining P2: `captureAcceptedVersionBaseline()` wrote the delayed begin
-GET into `submission`, using `current.active_intake ?? next.active_intake`.
-After a successful cancel cleared the local intake, the stale GET restored
-`receiving` and **Cancel intake** reappeared.
+The slice remains **in progress**. Independent review of `a1499c5` requested
+one remaining P2: uncertain cancel treated any version accepted after the
+begin-time snapshot as **this** intake succeeding. Another tab can cancel I1,
+then begin and accept I2 as Version 2; Tab A's refresh then reported accepted.
 
-Remediation: baseline capture is side-effect-free. It records trusted version
-IDs only when the submit generation is still current and never writes
-`active_intake`. Version history is not applied from this GET.
+Remediation: participant GET
+`/v2/assessment/my-work/{enrollmentId}/submission/intake/{intakeId}` returns
+the exact intake's terminal status (reuses `IntakeMutationOutcomeV2`). Uncertain
+cancel refresh uses that status, not history delta. Isolation is
+organization + enrollment + intake id after assignment admission.
 
-Red: held begin GET, successful cancel to no active intake, then release of
-the receiving projection restored **Cancel intake**. Green: My work tests
-**15 passed**; web typecheck passed.
+Red: I1 uncertain cancel then I2's Version 2 on refresh reported accepted.
+Green: My work tests **16 passed** (I1 cancelled despite Version 2);
+Submissions domain intake query **1 passed**; HTTP negatives **10 passed**
+including unauthenticated intake GET `no-store`; OpenAPI parity **4 passed**;
+web typecheck passed.
 
-Playwright was not re-run; this hop is a mocked delayed GET.
+Playwright was not re-run; this hop is a mocked multi-tab race.
 
 Independent review of this remediations is next. Residual slice gaps are
 unchanged (lifecycle policy, Worker cleanup, Activity closure, paired restore,
@@ -887,6 +892,9 @@ recorded residual gaps are accepted.
   SHA. Remaining open items are planned slice work (concurrent finalize,
   contracts, production UI, Playwright, lifecycle), not unresolved review
   findings.
+- **Review of `a1499c5` (P2, remediating):** Uncertain cancel uses an
+  exact-intake GET for I1's terminal status. A later I2 accepted version is
+  not reported as I1 accepted.
 - **Review of `b57c6c0` (P2, remediating):** Begin-baseline GET no longer
   writes `submission` or revives a cancelled `active_intake`. Capture is
   generation-guarded and records version IDs only.
@@ -953,14 +961,14 @@ recorded residual gaps are accepted.
 | Predecessor closeout | passed — `14f8804` | `p0-participant-timing-accommodations` completed; external review approved with no blocking findings. Intake activated; migration head `0047` and v2 timing authority preserved. |
 | SeaweedFS/AWS SDK artifact compatibility | passed — scope isolation plus exact-version delete | `FlexAgent.Artifact.Integration.Tests` **9 passed** against `chrislusf/seaweedfs:4.29`: conditional create, exact-version get, exact-version delete then GET-fail, presigned download, digest verification, and negative get/put/delete/upload-presign/download-presign scope checks (`scope_mismatch`). Paired restore as a joint backup product remains open. |
 | Frozen/current material-policy authority | partial | Assessment verifies activated Task identity (`OwnerMaterialPolicyPortTests` **5 passed**). Testing/Development org policy is environment-eligible OPS defaults. Production/Staging org policy still returns `null` (`policy_unavailable`) until Configuration stores a current material-policy version. |
-| Domain red/green | passed for intake receipt plus cleanup correctness | `FlexAgent.Submissions.Tests` **113 passed** on 2026-08-25, including missing-version terminal `failed`, 20-held persisted scan cursor, scan CAS, and two-replica accepted-cleanup duplicate no-op after peer disposition (red: duplicate returned `failed`; green: both `completed`, one delete, one disposition). |
+| Domain red/green | passed for intake receipt plus cleanup correctness | `FlexAgent.Submissions.Tests` **114 passed** on 2026-08-25, including exact-intake terminal query (cancelled status for the requested intake). |
 | PostgreSQL migration/isolation/concurrency/audit | partial | Head `0060`. `0057` blob unchanged from `3dbb93f` (`3c2ab5b4…`). Red: historical two-fact `0056` upgrade failed creating `uq_submissions_artifact_dispositions_artifact` (`23505`). Green: same facts survive through `0060` (embedded + Grate tool); later duplicates still insert; reconstruction/backfill/`0001` list passed; persistence + scan CAS **15 passed**; empty Grate migrate passed. Recreate only databases that applied edited `0b2527a` `0057`. Do not mix `3dbb93f` cleanup binaries with a schema through `0059`. Full Postgres suite not re-run. |
-| Canonical schema/OpenAPI/C#/TypeScript parity | passed for added v2 Submission contracts | Catalog **33** representative schemas; `FlexAgent.Contract.Tests` **173 passed**; OpenAPI `$ref` for My work, version detail, and preview. Node OpenAPI parity **8 passed**. |
-| HTTP CSRF/admission/isolation | passed for added negatives | `SubmissionHttpNegativeContractTests` **9 passed**: begin/cancel/finalize CSRF, unauthenticated submission/version-detail/preview/download `no-store`, unauthenticated skip of shared admission, exhausted shared admission without protected query. |
-| API/Worker integration | partial | v2 routes: query, begin, complete-item, cancel, finalize, version detail, item preview, item download. Artifact store: SeaweedFS when `ArtifactStorage` is configured. Cleanup loop is API-hosted, not Worker-hosted. Finalize scanner calls are outside the DB transaction. |
-| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog (closes on start), cancel during receiving/validating, cancel-conflict refresh, known-cancel vs uncertain-cancel reconciliation with a begin-time accepted-version baseline that does not write or revive `active_intake`, later-version cancel recovery as cancelled beside older history, hide Cancel while reconciling, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **15 passed**. Live validating Playwright remains. |
+| Canonical schema/OpenAPI/C#/TypeScript parity | passed for added v2 Submission contracts | Catalog **33** representative schemas; OpenAPI `getSubmissionIntake` reuses `IntakeMutationOutcomeV2`. Node `openapi-parity.test.mjs` **4 passed**. |
+| HTTP CSRF/admission/isolation | passed for added negatives | `SubmissionHttpNegativeContractTests` **10 passed**: begin/cancel/finalize CSRF, unauthenticated submission/intake/version-detail/preview/download `no-store`, unauthenticated skip of shared admission, exhausted shared admission without protected query. |
+| API/Worker integration | partial | v2 routes: query, exact-intake GET, begin, complete-item, cancel, finalize, version detail, item preview, item download. Artifact store: SeaweedFS when `ArtifactStorage` is configured. Cleanup loop is API-hosted, not Worker-hosted. Finalize scanner calls are outside the DB transaction. |
+| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog (closes on start), cancel during receiving/validating, cancel-conflict refresh, uncertain cancel resolved from the exact intake GET (a later intake's version is not this intake's acceptance), begin-time baseline capture that does not write `active_intake`, later-version cancel recovery as cancelled beside older history, hide Cancel while reconciling, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **16 passed**. Live validating Playwright remains. |
 | Authenticated Playwright MCP | partial — rebuilt SPA 2026-08-25 | Receiving with **Cancel intake**: `.playwright-mcp/page-2026-08-25T05-49-57-764Z.png`. Cancelled without Version 4: `...T05-51-19-390Z.png`. Version 3 inert preview: `...T05-52-17-009Z.png`. Sign-out from preview: `...T05-52-54-390Z.png`. Delayed item POST after cancel was HTTP 409. Live validating not captured. |
-| Regression/security/supply-chain/OCI/recovery/docs | partial | `python3 scripts/check_docs.py` passed. `git diff --check` clean. Submissions **113**, architecture **41**, contracts **173**, persistence **14**, HTTP negatives **9**. Gitleaks: Submission keys allowlisted; one historical predecessor-task finding remains. Locked restore, SBOM, OCI, paired restore not re-run. |
+| Regression/security/supply-chain/OCI/recovery/docs | partial | Submissions **114**, HTTP negatives **10**. Gitleaks: Submission keys allowlisted; one historical predecessor-task finding remains. Locked restore, SBOM, OCI, paired restore not re-run. |
 | Independent review — security/correctness remediation chain | passed — external review `b67a922` | No blocking findings. All issues raised from `7dac50c` through follow-up reviews resolved at `b67a922`, including S3 scope isolation, predecessor lineage, partial parent scope (`0049`), and Task-binding parent tuple (`0050`). `SubmissionPersistenceTests` **12 passed**; full PostgreSQL **340 passed / 1 failed** (Keycloak 403 flake). GitHub commit statuses not independently visible. Separate full-slice backend/frontend/QA review remains for unconsumed planned work. |
 | Independent review — accepted-payload cleanup remediations | passed — external review `479c851` | No blocking findings. `c84e960` P1 closed by `0056a`/`0060` around unchanged `0057`. Persistence + scan CAS **15 passed**; historical duplicate path covered by embedded runner and Grate tool. Full PostgreSQL suite still not re-run (recorded partial). GitHub commit statuses not independently visible. |
 

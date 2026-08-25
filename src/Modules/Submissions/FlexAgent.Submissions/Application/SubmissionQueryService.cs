@@ -170,6 +170,63 @@ public sealed class SubmissionQueryService(
             null);
     }
 
+    public async Task<QueryResult<IntakeMutationOutcome>> GetIntakeAsync(
+        EnrollmentActorContext actor,
+        Guid enrollmentId,
+        Guid intakeId,
+        CancellationToken cancellationToken = default)
+    {
+        if (EnrollmentAuthenticationPolicy.Evaluate(actor, EnrollmentAuthorizationActions.Discover) is not null)
+        {
+            return new QueryResult<IntakeMutationOutcome>(false, null, SubmissionFailureCodes.Unauthorized);
+        }
+
+        var admission = await authorization.AuthorizeAdmissionAsync(
+            actor,
+            EnrollmentAuthorizationActions.Discover,
+            enrollmentId,
+            EnrollmentResourceTypes.Assignment,
+            cancellationToken);
+        if (!admission.IsPermitted)
+        {
+            return new QueryResult<IntakeMutationOutcome>(false, null, SubmissionFailureCodes.Unauthorized);
+        }
+
+        var enrollment = await enrollments.FindAsync(actor.Organization.OrganizationId, enrollmentId, null, cancellationToken);
+        if (enrollment is null || enrollment.ParticipantActorId != actor.Actor.ActorId)
+        {
+            return new QueryResult<IntakeMutationOutcome>(false, null, SubmissionFailureCodes.NotFound);
+        }
+
+        var intake = await intakes.FindIntakeAsync(
+            actor.Organization.OrganizationId,
+            enrollmentId,
+            intakeId,
+            null,
+            cancellationToken);
+        if (intake is null)
+        {
+            return new QueryResult<IntakeMutationOutcome>(false, null, SubmissionFailureCodes.NotFound);
+        }
+
+        return new QueryResult<IntakeMutationOutcome>(
+            true,
+            new IntakeMutationOutcome(
+                true,
+                intake.Status,
+                intake.IntakeId,
+                intake.SubmissionId,
+                intake.Status,
+                intake.Revision,
+                null,
+                null,
+                SubmissionLifecycle.PermittedActions(
+                    string.Equals(enrollment.Status, EnrollmentStates.Active, StringComparison.Ordinal),
+                    intake.Status,
+                    string.Equals(intake.Status, IntakeStates.Accepted, StringComparison.Ordinal))),
+            null);
+    }
+
     public async Task<QueryResult<ProtectedItemContent>> GetAcceptedItemPreviewAsync(
         EnrollmentActorContext actor,
         Guid enrollmentId,

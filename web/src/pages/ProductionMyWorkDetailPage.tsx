@@ -62,6 +62,7 @@ export function ProductionMyWorkDetailPage() {
     trusted: false,
     ids: new Set(),
   });
+  const reconcilingIntakeIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -188,21 +189,24 @@ export function ProductionMyWorkDetailPage() {
     }
   }
 
-  function statusAfterUncertainCancel(next: MyWorkSubmissionV2): "accepted" | "cancelled" | "unknown" | string {
-    if (next.active_intake) {
+  async function statusAfterUncertainCancel(next: MyWorkSubmissionV2): Promise<string> {
+    if (next.active_intake && next.active_intake.intake_id === reconcilingIntakeIdRef.current) {
       return next.active_intake.status;
     }
 
-    const baseline = acceptedVersionBaselineRef.current;
-    if (!baseline.trusted) {
-      return "unknown";
+    const intakeId = reconcilingIntakeIdRef.current;
+    if (intakeId) {
+      try {
+        const outcome = await submissionClient.getIntake(enrollmentId, intakeId);
+        if (outcome.status) {
+          return outcome.status;
+        }
+      } catch {
+        return "unknown";
+      }
     }
 
-    if (next.version_history.some((item) => !baseline.ids.has(item.version_id))) {
-      return "accepted";
-    }
-
-    return "cancelled";
+    return "unknown";
   }
 
   async function submitVersion() {
@@ -341,6 +345,7 @@ export function ProductionMyWorkDetailPage() {
     setCancelling(true);
     setErrors([]);
     setIntakeStatus("cancelling");
+    reconcilingIntakeIdRef.current = active.intake_id;
     try {
       const cancelled = await submissionClient.cancelIntake(enrollmentId, active.intake_id, {
         schema_version: "v2",
@@ -368,7 +373,7 @@ export function ProductionMyWorkDetailPage() {
       try {
         const next = await submissionClient.getMyWorkSubmission(enrollmentId);
         setSubmission(next);
-        const nextStatus = statusAfterUncertainCancel(next);
+        const nextStatus = await statusAfterUncertainCancel(next);
         if (nextStatus === "unknown") {
           setReconcileMode("after-cancel-uncertain");
           setIntakeStatus("reconciling");
@@ -406,7 +411,9 @@ export function ProductionMyWorkDetailPage() {
       const next = await submissionClient.getMyWorkSubmission(enrollmentId);
       setSubmission(next);
       setErrors([]);
-      if (next.active_intake) {
+      if (next.active_intake
+        && (reconcileMode !== "after-cancel-uncertain"
+          || next.active_intake.intake_id === reconcilingIntakeIdRef.current)) {
         setIntakeStatus(next.active_intake.status);
         setReconcileMode(null);
         return;
@@ -422,7 +429,7 @@ export function ProductionMyWorkDetailPage() {
       } else if (reconcileMode === "after-cancel-success") {
         setIntakeStatus("cancelled");
       } else if (reconcileMode === "after-cancel-uncertain") {
-        const nextStatus = statusAfterUncertainCancel(next);
+        const nextStatus = await statusAfterUncertainCancel(next);
         if (nextStatus === "unknown") {
           setIntakeStatus("reconciling");
           setErrors([

@@ -376,6 +376,79 @@ public sealed class SubmissionApplicationTests
     }
 
     [Fact]
+    public async Task Intake_query_returns_terminal_cancelled_status_for_the_requested_intake()
+    {
+        var enrollments = new InMemoryEnrollmentStore();
+        var intakes = new InMemoryIntakeStore();
+        var binding = Binding();
+        var enrollment = Enrollment.Create(
+            EnrollmentId,
+            OrganizationId,
+            ActivityId,
+            CohortId,
+            binding.BaselineId,
+            binding.TaskSourceId,
+            binding.TaskVersionId,
+            binding.TaskContentDigest,
+            EnrollmentLifecyclePolicy.RestrictedPreservationPolicyId,
+            EnrollmentLifecyclePolicy.RestrictedPreservationVersion,
+            ParticipantId,
+            ParticipantId,
+            DateTimeOffset.UtcNow).Value!;
+        enrollments.Restore([enrollment], []);
+        var intakeId = Guid.Parse("11111111-1111-4111-8111-111111111111");
+        var scope = new SubmissionParentScope(
+            OrganizationId,
+            ActivityId,
+            CohortId,
+            binding.BaselineId,
+            EnrollmentId,
+            ParticipantId,
+            binding.TaskSourceId,
+            binding.TaskVersionId,
+            binding.TaskContentDigest);
+        await intakes.InsertIntakeAsync(
+            new SubmissionIntakeRecord(
+                intakeId,
+                Guid.Parse("22222222-2222-4222-8222-222222222222"),
+                scope,
+                IntakeStates.Cancelled,
+                2,
+                Digest,
+                binding.TaskSourceId,
+                binding.TaskVersionId,
+                binding.TaskContentDigest,
+                binding.TaskSourceId,
+                binding.TaskVersionId,
+                binding.TaskContentDigest,
+                DateTimeOffset.UtcNow,
+                DateTimeOffset.UtcNow,
+                null,
+                []),
+            ParticipantId,
+            null!,
+            TestContext.Current.CancellationToken);
+        var queries = new SubmissionQueryService(
+            new AllowEnrollmentAuthorizationPort(),
+            enrollments,
+            intakes,
+            new InMemorySubmissionVersionStore(),
+            new FixedFrozenSubmissionRequirementPort(),
+            new FixedMaterialPolicyPort(),
+            new FixedActivatedCohortPort { Binding = binding });
+
+        var result = await queries.GetIntakeAsync(
+            Participant(),
+            EnrollmentId,
+            intakeId,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.Found);
+        Assert.Equal(IntakeStates.Cancelled, result.Value!.Status);
+        Assert.Equal(intakeId, result.Value.IntakeId);
+    }
+
+    [Fact]
     public async Task Preview_writes_audit_before_disclosing_content_and_fails_closed_when_audit_unavailable()
     {
         var organizationId = OrganizationId;

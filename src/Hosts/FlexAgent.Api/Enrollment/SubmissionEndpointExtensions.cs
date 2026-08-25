@@ -86,6 +86,7 @@ public static class SubmissionEndpointExtensions
 
         var group = endpoints.MapGroup("/v2/assessment");
         group.MapGet("/my-work/{enrollmentId:guid}/submission", GetMyWorkSubmission);
+        group.MapGet("/my-work/{enrollmentId:guid}/submission/intake/{intakeId:guid}", GetIntake);
         group.MapGet("/my-work/{enrollmentId:guid}/submission/versions/{versionId:guid}", GetAcceptedVersion);
         group.MapGet("/my-work/{enrollmentId:guid}/submission/versions/{versionId:guid}/items/{itemId:guid}/preview", GetItemPreview);
         group.MapGet("/my-work/{enrollmentId:guid}/submission/versions/{versionId:guid}/items/{itemId:guid}/download", GetItemDownload);
@@ -116,6 +117,29 @@ public static class SubmissionEndpointExtensions
 
         context.Response.Headers.CacheControl = "no-store";
         await Results.Json(MapMyWork(result.Value)).ExecuteAsync(context);
+    }
+
+    private static async Task GetIntake(
+        HttpContext context,
+        Guid enrollmentId,
+        Guid intakeId,
+        ISubmissionQueryService queries)
+    {
+        var actor = await EnrollmentEndpointExtensions.AcceptAuthenticatedAsync(context, EnrollmentRequestSurfaces.Read);
+        if (actor is null)
+        {
+            return;
+        }
+
+        var result = await queries.GetIntakeAsync(actor, enrollmentId, intakeId, context.RequestAborted);
+        if (!result.Found || result.Value is null)
+        {
+            await EnrollmentEndpointExtensions.WriteError(context, StatusCodes.Status404NotFound, result.OutcomeCode ?? SubmissionFailureCodes.NotFound);
+            return;
+        }
+
+        context.Response.Headers.CacheControl = "no-store";
+        await Results.Json(MapOutcome(result.Value)).ExecuteAsync(context);
     }
 
     private static async Task GetAcceptedVersion(

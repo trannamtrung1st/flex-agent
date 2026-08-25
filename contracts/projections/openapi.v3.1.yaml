@@ -150,6 +150,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MyWorkSubmissionV2'
+  /v2/assessment/my-work/{enrollmentId}/submission/intake/{intakeId}:
+    get:
+      operationId: getSubmissionIntake
+      responses:
+        '200':
+          description: Authoritative status for one intake, including terminal cancelled or accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntakeMutationOutcomeV2'
   /v2/assessment/my-work/{enrollmentId}/submission/intake:
     post:
       operationId: beginSubmissionIntake

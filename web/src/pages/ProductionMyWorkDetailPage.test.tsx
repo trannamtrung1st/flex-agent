@@ -70,6 +70,31 @@ function submissionProjection(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function isMyWorkSubmissionGet(url: string, init?: RequestInit) {
+  return (!init?.method || init.method === "GET")
+    && url.includes("/submission")
+    && !url.includes("/intake/")
+    && !url.includes("/versions/");
+}
+
+function isExactIntakeGet(url: string, init?: RequestInit) {
+  return (!init?.method || init.method === "GET")
+    && /\/submission\/intake\/[0-9a-f-]{36}$/i.test(url);
+}
+
+function intakeOutcome(status: string) {
+  return {
+    schema_version: "v2",
+    succeeded: true,
+    outcome_code: status,
+    intake_id: "11111111-1111-4111-8111-111111111111",
+    submission_id: "22222222-2222-4222-8222-222222222222",
+    status,
+    revision: 2,
+    permitted_actions: ["begin_intake", "return_to_my_work"],
+  };
+}
+
 function renderAssignment() {
   return render(
     <ProductionApiProvider>
@@ -161,7 +186,7 @@ describe("ProductionMyWorkDetailPage", () => {
           permitted_actions: ["preview_item", "return_to_my_work"],
         });
       }
-      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+      if (isMyWorkSubmissionGet(url, init)) {
         return jsonResponse({
           schema_version: "v2",
           enrollment_id: "enr-1",
@@ -251,7 +276,7 @@ describe("ProductionMyWorkDetailPage", () => {
           permitted_actions: ["begin_intake", "return_to_my_work"],
         });
       }
-      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+      if (isMyWorkSubmissionGet(url, init)) {
         return jsonResponse({
           schema_version: "v2",
           enrollment_id: "enr-1",
@@ -381,7 +406,7 @@ describe("ProductionMyWorkDetailPage", () => {
           permitted_actions: ["preview_item", "return_to_my_work"],
         });
       }
-      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+      if (isMyWorkSubmissionGet(url, init)) {
         return jsonResponse({
           schema_version: "v2",
           enrollment_id: "enr-1",
@@ -474,7 +499,7 @@ describe("ProductionMyWorkDetailPage", () => {
           revision: 2,
         }));
       }
-      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+      if (isMyWorkSubmissionGet(url, init)) {
         submissionGets += 1;
         if (submissionGets === 1) {
           return jsonResponse(submissionProjection());
@@ -559,7 +584,10 @@ describe("ProductionMyWorkDetailPage", () => {
           version_number: 1,
         }));
       }
-      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+      if (isExactIntakeGet(url, init)) {
+        return jsonResponse(intakeOutcome("accepted"));
+      }
+      if (isMyWorkSubmissionGet(url, init)) {
         submissionGets += 1;
         if (submissionGets <= 2) {
           return jsonResponse(submissionProjection());
@@ -639,7 +667,10 @@ describe("ProductionMyWorkDetailPage", () => {
           revision: 2,
         }));
       }
-      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+      if (isExactIntakeGet(url, init)) {
+        return jsonResponse(intakeOutcome("accepted"));
+      }
+      if (isMyWorkSubmissionGet(url, init)) {
         submissionGets += 1;
         if (submissionGets === 1) {
           return jsonResponse(submissionProjection({
@@ -732,7 +763,10 @@ describe("ProductionMyWorkDetailPage", () => {
           revision: 2,
         }));
       }
-      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+      if (isExactIntakeGet(url, init)) {
+        return jsonResponse(intakeOutcome("cancelled"));
+      }
+      if (isMyWorkSubmissionGet(url, init)) {
         submissionGets += 1;
         if (submissionGets === 1) {
           return jsonResponse(submissionProjection({
@@ -779,6 +813,100 @@ describe("ProductionMyWorkDetailPage", () => {
     expect(screen.queryByText(/Current intake state: accepted/)).not.toBeInTheDocument();
   });
 
+  it("does not report this intake accepted when another intake is accepted after an uncertain cancel", async () => {
+    let releaseItems: (() => void) | undefined;
+    const itemsHeld = new Promise<void>((resolve) => {
+      releaseItems = resolve;
+    });
+    let submissionGets = 0;
+    const versionOne = {
+      version_id: "44444444-4444-4444-8444-444444444444",
+      version_number: 1,
+      accepted_at_utc: "2026-08-25T00:00:00Z",
+      item_count: 1,
+    };
+    const versionTwo = {
+      version_id: "55555555-5555-4555-8555-555555555555",
+      version_number: 2,
+      accepted_at_utc: "2026-08-25T00:02:00Z",
+      item_count: 1,
+    };
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const shared = sessionShellOrTiming(url);
+      if (shared) {
+        return shared;
+      }
+      if (url.includes("/cancel") && init?.method === "POST") {
+        return jsonResponse({ outcome_code: "stale_revision", succeeded: false }, 409);
+      }
+      if (url.includes("/submission/intake") && init?.method === "POST" && !url.includes("/items") && !url.includes("/finalize")) {
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "receiving",
+          intake_id: "11111111-1111-4111-8111-111111111111",
+          submission_id: "22222222-2222-4222-8222-222222222222",
+          status: "receiving",
+          revision: 1,
+        });
+      }
+      if (url.includes("/items") && init?.method === "POST") {
+        return itemsHeld.then(() => jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "received",
+          revision: 2,
+        }));
+      }
+      if (isExactIntakeGet(url, init)) {
+        return jsonResponse(intakeOutcome("cancelled"));
+      }
+      if (isMyWorkSubmissionGet(url, init)) {
+        submissionGets += 1;
+        if (submissionGets === 1) {
+          return jsonResponse(submissionProjection({
+            version_history: [versionOne],
+            permitted_actions: ["begin_intake", "preview_item", "return_to_my_work"],
+          }));
+        }
+        if (submissionGets === 2) {
+          return jsonResponse(submissionProjection({
+            version_history: [versionOne],
+            permitted_actions: ["begin_intake", "preview_item", "return_to_my_work"],
+          }));
+        }
+        if (submissionGets === 3) {
+          return jsonResponse({}, 500);
+        }
+        return jsonResponse(submissionProjection({
+          active_intake: null,
+          version_history: [versionTwo, versionOne],
+          permitted_actions: ["begin_intake", "preview_item", "return_to_my_work"],
+        }));
+      }
+      return jsonResponse({}, 404);
+    }));
+
+    renderAssignment();
+    expect(await screen.findByText(/Version 1/)).toBeInTheDocument();
+    await confirmSubmitVersion();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Cancel intake" })).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel intake" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Reconciling this intake/)).toBeInTheDocument();
+    });
+    releaseItems?.();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh assignment" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Current intake state: cancelled/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Version 2/)).toBeInTheDocument();
+    expect(screen.queryByText(/Current intake state: accepted/)).not.toBeInTheDocument();
+  });
+
   it("does not restore Cancel intake when a delayed begin-baseline GET arrives after cancel", async () => {
     let releaseBaseline: (() => void) | undefined;
     const baselineHeld = new Promise<void>((resolve) => {
@@ -811,7 +939,7 @@ describe("ProductionMyWorkDetailPage", () => {
           revision: 1,
         });
       }
-      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+      if (isMyWorkSubmissionGet(url, init)) {
         submissionGets += 1;
         if (submissionGets === 1) {
           return jsonResponse(submissionProjection());
@@ -896,7 +1024,7 @@ describe("ProductionMyWorkDetailPage", () => {
           revision: 2,
         }));
       }
-      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+      if (isMyWorkSubmissionGet(url, init)) {
         submissionGets += 1;
         if (submissionGets > 1) {
           return jsonResponse({}, 500);
@@ -968,7 +1096,7 @@ describe("ProductionMyWorkDetailPage", () => {
           revision: 2,
         }));
       }
-      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+      if (isMyWorkSubmissionGet(url, init)) {
         submissionGets += 1;
         if (submissionGets === 3) {
           return jsonResponse({}, 500);
@@ -1059,7 +1187,7 @@ describe("ProductionMyWorkDetailPage", () => {
           permitted_actions: ["preview_item", "return_to_my_work"],
         });
       }
-      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+      if (isMyWorkSubmissionGet(url, init)) {
         return jsonResponse({
           schema_version: "v2",
           enrollment_id: "enr-1",
@@ -1166,7 +1294,7 @@ describe("ProductionMyWorkDetailPage", () => {
           permitted_actions: ["return_to_my_work"],
         }, 409);
       }
-      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+      if (isMyWorkSubmissionGet(url, init)) {
         submissionGets += 1;
         return jsonResponse({
           schema_version: "v2",
@@ -1360,7 +1488,7 @@ describe("ProductionMyWorkDetailPage", () => {
           permitted_actions: ["preview_item", "return_to_my_work"],
         });
       }
-      if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
+      if (isMyWorkSubmissionGet(url, init)) {
         submissionGets += 1;
         if (submissionGets > 1) {
           return jsonResponse({}, 500);

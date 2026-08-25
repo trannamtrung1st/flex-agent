@@ -144,6 +144,12 @@ public interface ISubmissionQueryService
         Guid versionId,
         CancellationToken cancellationToken = default);
 
+    Task<QueryResult<IntakeMutationOutcome>> GetIntakeAsync(
+        EnrollmentActorContext actor,
+        Guid enrollmentId,
+        Guid intakeId,
+        CancellationToken cancellationToken = default);
+
     Task<QueryResult<ProtectedItemContent>> GetAcceptedItemPreviewAsync(
         EnrollmentActorContext actor,
         Guid enrollmentId,

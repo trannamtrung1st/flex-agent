@@ -18,6 +18,11 @@ export function createProductionSubmissionClient(fetchJson: <T>(path: string, in
     getMyWorkSubmission(enrollmentId: string) {
       return fetchJson<MyWorkSubmissionV2>(`/v2/assessment/my-work/${enrollmentId}/submission`);
     },
+    getIntake(enrollmentId: string, intakeId: string) {
+      return fetchJson<IntakeMutationOutcomeV2>(
+        `/v2/assessment/my-work/${enrollmentId}/submission/intake/${intakeId}`,
+      );
+    },
     getAcceptedVersion(enrollmentId: string, versionId: string) {
       return fetchJson<AcceptedVersionDetailV2>(
         `/v2/assessment/my-work/${enrollmentId}/submission/versions/${versionId}`,
