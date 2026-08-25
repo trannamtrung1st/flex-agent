@@ -488,7 +488,10 @@ describe("ProductionMyWorkDetailPage", () => {
         return shared;
       }
       if (url.includes("/cancel") && init?.method === "POST") {
-        const body = JSON.parse(String(init.body)) as { expected_revision: number };
+        if (typeof init.body !== "string") {
+          throw new Error("Expected JSON string cancel body.");
+        }
+        const body = JSON.parse(init.body) as { expected_revision: number };
         cancelRevisions.push(body.expected_revision);
         return jsonResponse({ outcome_code: "stale_revision", succeeded: false }, 409);
       }

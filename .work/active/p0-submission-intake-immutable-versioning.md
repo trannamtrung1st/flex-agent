@@ -665,6 +665,8 @@ Session rows remain unimplemented or Partial as governed by their owners.
   material even when a later intake is already active.
 - [x] Remediate `e96290c` P2: prove-accepted cleanup in
   `applyReconciledStatusToProjection` before adopting a later active intake.
+- [x] Unblock web CI lint on `5ff70d0`: parse cancel bodies as JSON strings
+  instead of `String(init.body)`.
 - [ ] Independent review of the `e96290c` P2 remediations.
 - [ ] Re-run independent backend, frontend, security/privacy, and QA review for
   remaining planned slice work after this continuation; reconcile actual
