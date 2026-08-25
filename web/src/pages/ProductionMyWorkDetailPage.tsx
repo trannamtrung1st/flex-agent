@@ -168,6 +168,14 @@ export function ProductionMyWorkDetailPage() {
     });
   }
 
+  function clearAcceptedLocalMaterial() {
+    setDirectText("");
+    setFiles([]);
+    setPreview(null);
+    setPreviewItems([]);
+    setPreviewItem(null);
+  }
+
   async function refreshSubmission() {
     const next = await submissionClient.getMyWorkSubmission(enrollmentId);
     setSubmission(next);
@@ -192,11 +200,7 @@ export function ProductionMyWorkDetailPage() {
 
     setPreviousIntakeNotice(null);
     if (reconciledStatus === "accepted") {
-      setDirectText("");
-      setFiles([]);
-      setPreview(null);
-      setPreviewItems([]);
-      setPreviewItem(null);
+      clearAcceptedLocalMaterial();
     }
     setIntakeStatus(reconciledStatus);
   }
@@ -305,11 +309,7 @@ export function ProductionMyWorkDetailPage() {
 
       try {
         await refreshSubmission();
-        setDirectText("");
-        setFiles([]);
-        setPreview(null);
-        setPreviewItems([]);
-        setPreviewItem(null);
+        clearAcceptedLocalMaterial();
         setIntakeStatus("accepted");
       } catch {
         setIntakeStatus("reconciling");
@@ -427,6 +427,9 @@ export function ProductionMyWorkDetailPage() {
       }
       setSubmission(next);
       setErrors([]);
+      if (mode === "after-accept") {
+        clearAcceptedLocalMaterial();
+      }
       if (next.active_intake
         && (mode !== "after-cancel-uncertain"
           || next.active_intake.intake_id === reconciledId)) {
@@ -443,11 +446,6 @@ export function ProductionMyWorkDetailPage() {
       }
 
       if (mode === "after-accept") {
-        setDirectText("");
-        setFiles([]);
-        setPreview(null);
-        setPreviewItems([]);
-        setPreviewItem(null);
         setPreviousIntakeNotice(null);
         setIntakeStatus("accepted");
       } else if (mode === "after-cancel-success") {

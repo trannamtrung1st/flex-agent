@@ -1662,6 +1662,83 @@ describe("ProductionMyWorkDetailPage", () => {
     expect(screen.getByLabelText("Direct text")).toHaveValue("Direct text answer.");
   });
 
+  it("clears accepted local material when refresh after accept finds a later receiving intake", async () => {
+    let submissionGets = 0;
+    const versionOne = {
+      version_id: "33333333-3333-4333-8333-333333333333",
+      version_number: 1,
+      accepted_at_utc: "2026-08-25T00:00:00Z",
+      item_count: 1,
+    };
+    const laterIntake = laterActiveIntake("66666666-6666-4666-8666-666666666666", "receiving");
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const shared = sessionShellOrTiming(url);
+      if (shared) {
+        return shared;
+      }
+      if (url.includes("/submission/intake") && init?.method === "POST" && !url.includes("/items") && !url.includes("/finalize")) {
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "receiving",
+          intake_id: "11111111-1111-4111-8111-111111111111",
+          submission_id: "22222222-2222-4222-8222-222222222222",
+          status: "receiving",
+          revision: 1,
+        });
+      }
+      if (url.includes("/items") && init?.method === "POST") {
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "received",
+          intake_id: "11111111-1111-4111-8111-111111111111",
+          status: "received",
+          revision: 2,
+        });
+      }
+      if (url.includes("/finalize") && init?.method === "POST") {
+        return jsonResponse({
+          schema_version: "v2",
+          succeeded: true,
+          outcome_code: "accepted",
+          status: "accepted",
+          revision: 3,
+          version_id: versionOne.version_id,
+          version_number: 1,
+        });
+      }
+      if (isMyWorkSubmissionGet(url, init)) {
+        submissionGets += 1;
+        if (submissionGets === 1) {
+          return jsonResponse(submissionProjection());
+        }
+        if (submissionGets === 2) {
+          return jsonResponse({}, 500);
+        }
+        return jsonResponse(submissionProjection({
+          active_intake: laterIntake,
+          version_history: [versionOne],
+          permitted_actions: ["cancel_intake", "preview_item", "return_to_my_work"],
+        }));
+      }
+      return jsonResponse({}, 404);
+    }));
+
+    renderAssignment();
+    await confirmSubmitVersion();
+    expect(await screen.findByText(/Reconciling this intake/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Direct text")).toHaveValue("Direct text answer.");
+    fireEvent.click(screen.getByRole("button", { name: "Refresh assignment" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Current intake state: receiving/)).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Direct text")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Submit version" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel intake" })).toBeEnabled();
+  });
+
   it("previews a selected item when a version contains more than one item", async () => {
     vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
