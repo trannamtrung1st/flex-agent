@@ -54,14 +54,11 @@ export function ProductionMyWorkDetailPage() {
   const [reconcileMode, setReconcileMode] = useState<
     "after-accept" | "after-cancel-success" | "after-cancel-uncertain" | null
   >(null);
+  const [previousIntakeNotice, setPreviousIntakeNotice] = useState<string | null>(null);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const submitGenerationRef = useRef(0);
-  const acceptedVersionBaselineRef = useRef<{ trusted: boolean; ids: ReadonlySet<string> }>({
-    trusted: false,
-    ids: new Set(),
-  });
   const reconcilingIntakeIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -126,7 +123,13 @@ export function ProductionMyWorkDetailPage() {
   const localIssue = directText.trim().length === 0 && files.length === 0
     ? "Add direct text or a UTF-8 .txt or .md file before submitting a version."
     : null;
-  const blockedIntake = intakeStatus === "reconciling" || intakeStatus === "cancelling";
+  const activeInProgress = Boolean(
+    submission?.active_intake
+    && ["receiving", "received", "validating"].includes(submission.active_intake.status),
+  );
+  const blockedIntake = intakeStatus === "reconciling"
+    || intakeStatus === "cancelling"
+    || (activeInProgress && !pending);
   const reconciling = intakeStatus === "reconciling";
   const canCancel = Boolean(
     !reconciling
@@ -169,24 +172,28 @@ export function ProductionMyWorkDetailPage() {
     setIntakeStatus(next.active_intake?.status ?? null);
   }
 
-  async function captureAcceptedVersionBaseline(generation: number) {
-    try {
-      const next = await submissionClient.getMyWorkSubmission(enrollmentId);
-      if (generation !== submitGenerationRef.current) {
-        return;
-      }
-
-      acceptedVersionBaselineRef.current = {
-        trusted: true,
-        ids: new Set(next.version_history.map((item) => item.version_id)),
-      };
-    } catch {
-      if (generation !== submitGenerationRef.current) {
-        return;
-      }
-
-      acceptedVersionBaselineRef.current = { trusted: false, ids: new Set() };
+  function applyReconciledStatusToProjection(next: MyWorkSubmissionV2, reconciledStatus: string) {
+    const current = next.active_intake;
+    const reconciledId = reconcilingIntakeIdRef.current;
+    reconcilingIntakeIdRef.current = null;
+    setReconcileMode(null);
+    if (current && current.intake_id !== reconciledId) {
+      setIntakeStatus(current.status);
+      setPreviousIntakeNotice(
+        `The previous intake was ${reconciledStatus}. Current actions apply to the intake shown now.`,
+      );
+      return;
     }
+
+    setPreviousIntakeNotice(null);
+    if (reconciledStatus === "accepted") {
+      setDirectText("");
+      setFiles([]);
+      setPreview(null);
+      setPreviewItems([]);
+      setPreviewItem(null);
+    }
+    setIntakeStatus(reconciledStatus);
   }
 
   async function statusAfterUncertainCancel(next: MyWorkSubmissionV2): Promise<string> {
@@ -214,8 +221,8 @@ export function ProductionMyWorkDetailPage() {
     setPending(true);
     setConfirmOpen(false);
     setErrors([]);
+    setPreviousIntakeNotice(null);
     setIntakeStatus("receiving");
-    acceptedVersionBaselineRef.current = { trusted: false, ids: new Set() };
     try {
       const began = await submissionClient.beginIntake(enrollmentId, createSubmissionIdempotencyKey());
       if (generation !== submitGenerationRef.current) {
@@ -229,10 +236,6 @@ export function ProductionMyWorkDetailPage() {
       const intakeId = began.intake_id;
       rememberActiveIntake(intakeId, revision, began.status ?? "receiving", began.submission_id);
       setIntakeStatus(began.status ?? "receiving");
-      await captureAcceptedVersionBaseline(generation);
-      if (generation !== submitGenerationRef.current) {
-        return;
-      }
       if (directText.trim().length > 0) {
         const completed = await submissionClient.completeItem(enrollmentId, intakeId, {
           schema_version: "v2",
@@ -356,9 +359,9 @@ export function ProductionMyWorkDetailPage() {
         throw new ProductionApiError(409, submissionFailureCopy(cancelled.outcome_code), cancelled.outcome_code);
       }
       try {
-        await refreshSubmission();
-        setReconcileMode(null);
-        setIntakeStatus(cancelled.status ?? "cancelled");
+        const next = await submissionClient.getMyWorkSubmission(enrollmentId);
+        setSubmission(next);
+        applyReconciledStatusToProjection(next, cancelled.status ?? "cancelled");
       } catch {
         setReconcileMode("after-cancel-success");
         setIntakeStatus("reconciling");
@@ -384,9 +387,8 @@ export function ProductionMyWorkDetailPage() {
             document.getElementById("submission-error-summary")?.focus();
           });
         } else {
-          setReconcileMode(null);
           setErrors([]);
-          setIntakeStatus(nextStatus);
+          applyReconciledStatusToProjection(next, nextStatus);
         }
       } catch {
         setReconcileMode("after-cancel-uncertain");
@@ -414,8 +416,15 @@ export function ProductionMyWorkDetailPage() {
       if (next.active_intake
         && (reconcileMode !== "after-cancel-uncertain"
           || next.active_intake.intake_id === reconcilingIntakeIdRef.current)) {
+        if (reconcileMode === "after-cancel-success"
+          && next.active_intake.intake_id !== reconcilingIntakeIdRef.current) {
+          applyReconciledStatusToProjection(next, "cancelled");
+          return;
+        }
+        setPreviousIntakeNotice(null);
         setIntakeStatus(next.active_intake.status);
         setReconcileMode(null);
+        reconcilingIntakeIdRef.current = null;
         return;
       }
 
@@ -425,9 +434,11 @@ export function ProductionMyWorkDetailPage() {
         setPreview(null);
         setPreviewItems([]);
         setPreviewItem(null);
+        setPreviousIntakeNotice(null);
         setIntakeStatus("accepted");
       } else if (reconcileMode === "after-cancel-success") {
-        setIntakeStatus("cancelled");
+        applyReconciledStatusToProjection(next, "cancelled");
+        return;
       } else if (reconcileMode === "after-cancel-uncertain") {
         const nextStatus = await statusAfterUncertainCancel(next);
         if (nextStatus === "unknown") {
@@ -440,17 +451,13 @@ export function ProductionMyWorkDetailPage() {
           });
           return;
         }
-        if (nextStatus === "accepted") {
-          setDirectText("");
-          setFiles([]);
-          setPreview(null);
-          setPreviewItems([]);
-          setPreviewItem(null);
-        }
-        setIntakeStatus(nextStatus);
+        applyReconciledStatusToProjection(next, nextStatus);
+        return;
       } else if (next.version_history.length > 0) {
+        setPreviousIntakeNotice(null);
         setIntakeStatus("accepted");
       } else {
+        setPreviousIntakeNotice(null);
         setIntakeStatus("cancelled");
       }
       setReconcileMode(null);
@@ -632,7 +639,10 @@ export function ProductionMyWorkDetailPage() {
                 </Button>
               </>
             ) : intakeStatus ? (
-              <p role="status">Current intake state: {intakeStatus}.</p>
+              <>
+                <p role="status">Current intake state: {intakeStatus}.</p>
+                {previousIntakeNotice ? <p>{previousIntakeNotice}</p> : null}
+              </>
             ) : (
               <p>No active intake. Prepare materials locally, then submit a version when ready.</p>
             )}
