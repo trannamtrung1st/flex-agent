@@ -75,7 +75,7 @@ export function ProductionMyWorkPage() {
     <div>
       <header className="page-header">
         <h1>My work</h1>
-        <p>Current Assignments for the signed-in Participant. Submission intake and Attempt start are not available yet.</p>
+        <p>Current Assignments for the signed-in Participant. Open an assignment to prepare or submit a version. Attempt start is not available yet.</p>
       </header>
       {items.length === 0 ? (
         <p>You have no current assignments.</p>

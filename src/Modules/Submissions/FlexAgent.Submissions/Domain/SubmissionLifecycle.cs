@@ -13,6 +13,16 @@ public static class SubmissionLifecycle
     public static bool MayDeleteArtifact(bool acceptedReferenceExists, bool legalHoldActive) =>
         !acceptedReferenceExists && !legalHoldActive;
 
+    public static bool AcceptedPayloadEligibleForCleanup(
+        DateTimeOffset? activityClosedAtUtc,
+        DateTimeOffset nowUtc,
+        bool legalHoldActive) =>
+        activityClosedAtUtc is DateTimeOffset closedAt
+        && !legalHoldActive
+        && nowUtc - closedAt >= SubmissionLifecycleClocks.AcceptedRetentionAfterActivityClosure;
+
+    public static bool MayDeleteAcceptedPayload(bool legalHoldActive) => !legalHoldActive;
+
     public static IReadOnlyList<string> PermittedActions(
         bool intakeAvailable,
         string? intakeStatus,

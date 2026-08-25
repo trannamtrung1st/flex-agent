@@ -590,20 +590,19 @@ Session rows remain unimplemented or Partial as governed by their owners.
   using shared design-system primitives, protected-state clearing, safe
   same-actor recovery, inert content, accessible focus/announcements, and
   desktop/narrow/400-percent behavior.
-- [>] Run focused domain, artifact-adapter, PostgreSQL, contract, HTTP, Worker,
-  React, accessibility, authorization/isolation, concurrency, audit,
-  performance, lifecycle, recovery, security, and telemetry tests. 2026-08-25
-  continuation observed: Submissions **105**, architecture **41**,
-  `SubmissionPersistenceTests` **14**, HTTP negatives **8**, My work vitest **6**,
-  `check_docs` passed. Full Postgres/Runtime/Worker/performance/supply-chain
-  still pending.
+- [x] Close remaining consistency gaps: catalogued version-detail and preview
+  contracts, per-item preview when a version has multiple items, reconciling
+  retry, and accepted-payload cleanup eligibility after Activity closure.
+  Focused plus proportionate Postgres/HTTP/contract evidence re-run 2026-08-25.
 - [x] Run the authenticated production profile through real Participant intake
   and exact preview/download interactions with synthetic content; use
   Playwright MCP accessibility snapshots and desktop/narrow/400%/both-theme/
   focus/dialog/error/progress/permission-loss screenshots under
   `.playwright-mcp/` only. (Desktop, dark, 360px, 320px, dialog, error, accept,
-  later version, preview, and session download captured. True 400% zoom,
-  keyboard-only, live cancel, and live receiving/validating remain gaps.)
+  later version, preview, session download, rebuilt-compose Version 2 preview,
+  and CSS `zoom: 4` captured. Live cancel, live receiving/validating, and
+  permission-loss Playwright remain gaps. 400% zoom is evidence, not a reflow
+  pass.)
 - [ ] Run proportionate full regression, docs, whitespace, locked restore,
   supply-chain/license/SBOM/vulnerability/secret, OCI, backup/export/restore,
   and operability gates; record exact commands, counts, timings, skips, and
@@ -612,66 +611,66 @@ Session rows remain unimplemented or Partial as governed by their owners.
   → `3bd256f` / `c60a280` → `b67a922` security/correctness remediation chain
   is closed with no remaining blocking findings; no further remediation commit
   is requested from that chain.
-- [ ] Run independent backend, frontend, security/privacy, and QA review for
+- [>] Run independent backend, frontend, security/privacy, and QA review for
   remaining planned slice work; remediate any new blocking findings, reconcile
   actual changes with this plan and the governing sources, update truthful
   implementation-status rows, and retain the completed task record.
 
 # Current state
 
-The slice remains **in progress**. Continuation on 2026-08-25 closed the
-post-accept **My work** GET crash and completed authenticated Playwright of
-rebuilt compose images for the core Participant journey.
+The slice remains **in progress**. A 2026-08-25 re-review of live
+`http://localhost:18080` confirmed intake, immutable Version 1 vs Version 2
+preview/download, catalogued version-detail JSON (`no-store`), and later-version
+confirm copy. The My work **list** still claimed intake was unavailable; that
+intro copy now tells Participants to open an assignment to prepare or submit a
+version and still withholds Attempt start. SPA was rebuilt after the copy fix.
 
 This continuation:
 
-- **Red:** `List_and_find_versions_after_finalize_materialize_accepted_summaries`
-  failed because Dapper could not materialize `AcceptedVersionSummary`
-  (`DateTime` + `long` COUNT vs `DateTimeOffset` + `int`). Vitest
-  `reconciles after accept when the assignment view cannot be refreshed` failed
-  because a successful finalize followed by a failed GET claimed “could not be
-  accepted” and cleared local text.
-- **Green:** `PostgresSubmissionVersionStore` maps list/find rows through
-  Dapper-safe types. After successful finalize, refresh failure sets
-  reconciling copy and keeps local text; local fields clear only after a
-  successful refresh. Preview state is cleared after a successful refresh
-  (SPA image rebuilt before that last one-liner).
+- **Red:** catalog counts expected 31/37 representative/closure schemas;
+  version-detail HTTP had no catalogued DTO; cleanup tests did not cover
+  Activity-closure retention; vitest did not cover multi-item preview.
+- **Green:** `AcceptedVersionDetailV2` and `ProtectedItemPreviewV2` are
+  catalogued with OpenAPI `$ref`, C#, TypeScript, and fixtures. HTTP maps
+  version detail through the catalogued DTO. **My work** previews a selected
+  item when a version has multiple items and offers **Refresh assignment**
+  after reconciling-after-accept. Domain cleanup deletes accepted bytes only
+  when `IActivityClosurePort` returns a closure instant at least 365 days in
+  the past and no legal hold is active. Migration `0053` allows
+  `cleanup_accepted` work/disposition kinds. Production/Staging still use
+  `UnavailableActivityClosurePort` because Assessment does not persist
+  Activity closure.
 - Authenticated Playwright on rebuilt `api`/`spa` at `http://localhost:18080`:
-  empty prepare, Submit confirmation, accepted Version 1 after Dapper fix
-  (history visible), inert preview, session download to
-  `.playwright-mcp/submission-item.txt`, later Version 2, dark theme, 360px,
-  320px. Console had **0** errors after Version 2. Synthetic participant only.
-- Compose SeaweedFS healthcheck uses `http://127.0.0.1:8333/status`.
+  Version 2 inert preview and Download exact item remain available. CSS
+  `zoom: 4` captured; sticky chrome dominates the viewport. 360px captured.
+  Synthetic participant only.
 
-Observed tests:
+Observed tests (2026-08-25 this continuation):
 
-- `FlexAgent.Submissions.Tests` **105 passed**
+- `FlexAgent.Submissions.Tests` **106 passed**
 - `FlexAgent.Architecture.Tests` **41 passed**
+- `FlexAgent.Contract.Tests` **173 passed**
 - `SubmissionPersistenceTests` **14 passed**
-- `SubmissionHttpNegativeContractTests` **8 passed**
-- `ProductionMyWorkDetailPage` vitest **6 passed**
+- `Upgrade_from_0052_allows_accepted_payload_cleanup_work_kind` **passed**
+- `SubmissionHttpNegativeContractTests` **9 passed**
+- `ProductionMyWorkDetailPage` vitest **7 passed**
+- Node OpenAPI parity **8 passed**
+- `pnpm --filter @flex-agent/web typecheck` passed
 - `python3 scripts/check_docs.py` passed
+- `git diff --check` on changed paths passed
 
 Still open: Worker-hosted cleanup; Configuration-backed Production/Staging org
-material policy; accepted-object 365-day cleanup from Activity closure;
-paired DB+artifact restore and legal hold as a joint backup product;
-transferable five-minute browser presigned URLs (intentionally not issued);
-true 400% zoom, keyboard-only, live cancel/receiving/validating, and
-permission-loss Playwright; full regression/supply-chain/OCI; independent
-backend/frontend/security/QA reviews.
+material policy; Assessment Activity-closure persistence so accepted 365-day
+cleanup can enqueue in Production; paired DB+artifact restore as a joint
+backup product; transferable five-minute browser presigned URLs (intentionally
+not issued); live cancel/receiving/validating and permission-loss Playwright;
+WCAG 400% reflow polish; full regression/supply-chain/OCI; independent
+backend/frontend/security/QA review by a reviewer who did not implement this
+continuation.
 
 Next: independent reviews of this continuation, then remaining lifecycle and
 regression gates. Do not mark the task completed until those reviews and
 recorded residual gaps are accepted.
-
-Re-review 2026-08-25 (this session): focused suites still green (Submissions
-**105**, persistence **14**, HTTP negatives **8**, architecture **41**, My work
-vitest **6**). Live assignment reload shows Version 1 and Version 2, Preview
-version 2 returns the later exact text, API logs have no recent 500s. No
-blocker on the core working path. Remaining Medium/Low items: version-detail
-HTTP uses the application DTO rather than a catalogued v2 schema; preview
-opens the first item only; reconciling-after-accept has no explicit retry
-control; running SPA image predates the post-accept preview-clear one-liner.
 
 # Decisions
 
@@ -743,17 +742,26 @@ control; running SPA image predates the post-accept preview-clear one-liner.
   material-policy source. Development/Testing use environment-eligible OPS
   defaults; Production/Staging remain fail-closed.
 - **Migration/contracts gap (closed for canonical contracts):** persistence head
-  is `0052` with lifecycle hold/disposition/capability tables plus durable work
-  and complete-scope Task binding; v2 Submission command/outcome/My work
-  schemas are catalogued. Recheck heads before further additive migrations.
+  is `0053` with accepted-payload cleanup work kind plus `0048`–`0052` intake/
+  version/hold/capability tables; v2 Submission command/outcome/My work/
+  version-detail/preview schemas are catalogued. Recheck heads before further
+  additive migrations.
 - **Synthetic/production split:** `SyntheticBrowser` and the non-production
   `MyWorkPage` remain synthetic. Production `ProductionMyWorkDetailPage` now
   includes local preparation, Submit version, cancel, preview, and download;
   do not treat the synthetic browser contract as production evidence.
-- **Lifecycle implementation gap:** incomplete/rejected cleanup and disposition
-  facts exist (API-hosted). Accepted-object 365-day cleanup from Activity
-  closure, Worker-hosted cleanup, and paired database/artifact restore evidence
+- **Lifecycle implementation gap (narrowed 2026-08-25):** incomplete/rejected
+  cleanup and disposition facts exist (API-hosted). Accepted-object cleanup is
+  implemented as fail-closed eligibility after `IActivityClosurePort` plus 365
+  days and legal hold (`0053`, domain/processor tests). Assessment still has
+  no Activity-closure timestamp, so Production enqueue remains idle for that
+  class. Worker-hosted cleanup and paired database/artifact restore evidence
   remain open.
+- **Consistency continuation (2026-08-25):** catalogued v2 version-detail and
+  preview schemas; HTTP no longer serializes the application DTO; **My work**
+  offers **Refresh assignment** after reconciling-after-accept; multi-item
+  versions expose per-item preview when `item_count > 1`. Traceability rows in
+  `docs/requirements/features/submission-attempts.md` updated.
 - **Consistency review (2026-08-24):** Submission query/mutation previously used
   administrator-only `EnrollmentAuthenticationPolicy` and `submissions.*`
   admission actions that participants do not hold. Aligned with My work timing:
@@ -837,13 +845,13 @@ control; running SPA image predates the post-accept preview-clear one-liner.
 | Predecessor closeout | passed — `14f8804` | `p0-participant-timing-accommodations` completed; external review approved with no blocking findings. Intake activated; migration head `0047` and v2 timing authority preserved. |
 | SeaweedFS/AWS SDK artifact compatibility | passed — scope isolation enforced | `FlexAgent.Artifact.Integration.Tests` **6 passed** against `chrislusf/seaweedfs:4.29`: conditional create, exact-version get, presigned download, digest verification, and negative get/put/delete/upload-presign/download-presign scope checks (`scope_mismatch`). Lifecycle/cleanup/restore gates remain open. |
 | Frozen/current material-policy authority | partial | Assessment verifies activated Task identity (`OwnerMaterialPolicyPortTests` **5 passed**). Testing/Development org policy is environment-eligible OPS defaults. Production/Staging org policy still returns `null` (`policy_unavailable`) until Configuration stores a current material-policy version. |
-| Domain red/green | passed for intake receipt | `FlexAgent.Submissions.Tests` **105 passed** on 2026-08-25, including CompleteItem receipt, invalid UTF-8, item replay, incomplete-cleanup eligibility, scanner work outside the write transaction, and no scan of another enrollment's intake. |
-| PostgreSQL migration/isolation/concurrency/audit | partial | Migrations `0048`/`0049`/`0050`/`0051`/`0052`. `SubmissionPersistenceTests` **14 passed** including concurrent finalize and Dapper list/find after accept. Full Postgres suite and legal-hold/paired-restore not re-run in this continuation. |
-| Canonical schema/OpenAPI/C#/TypeScript parity | passed for added v2 Submission contracts | Catalog 31 representative schemas; `FlexAgent.Contract.Tests` **169 passed**; OpenAPI includes preview/download paths. Node OpenAPI parity **8 passed**. |
-| HTTP CSRF/admission/isolation | passed for added negatives | `SubmissionHttpNegativeContractTests` **8 passed**: begin/cancel/finalize CSRF, unauthenticated submission/preview/download `no-store`, unauthenticated skip of shared admission, exhausted shared admission without protected query. |
+| Domain red/green | passed for intake receipt | `FlexAgent.Submissions.Tests` **106 passed** on 2026-08-25, including CompleteItem receipt, invalid UTF-8, item replay, incomplete-cleanup eligibility, Activity-closure accepted-payload eligibility, scanner work outside the write transaction, and no scan of another enrollment's intake. |
+| PostgreSQL migration/isolation/concurrency/audit | partial | Migrations `0048`/`0049`/`0050`/`0051`/`0052`/`0053`. `SubmissionPersistenceTests` **14 passed**. `Upgrade_from_0052_allows_accepted_payload_cleanup_work_kind` passed. Full Postgres suite and paired-restore not re-run in this continuation. |
+| Canonical schema/OpenAPI/C#/TypeScript parity | passed for added v2 Submission contracts | Catalog **33** representative schemas; `FlexAgent.Contract.Tests` **173 passed**; OpenAPI `$ref` for My work, version detail, and preview. Node OpenAPI parity **8 passed**. |
+| HTTP CSRF/admission/isolation | passed for added negatives | `SubmissionHttpNegativeContractTests` **9 passed**: begin/cancel/finalize CSRF, unauthenticated submission/version-detail/preview/download `no-store`, unauthenticated skip of shared admission, exhausted shared admission without protected query. |
 | API/Worker integration | partial | v2 routes: query, begin, complete-item, cancel, finalize, version detail, item preview, item download. Artifact store: SeaweedFS when `ArtifactStorage` is configured. Cleanup loop is API-hosted, not Worker-hosted. Finalize scanner calls are outside the DB transaction. |
-| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog, cancel, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept, and refresh after failed submit. Focused vitest **6 passed**. Keyboard-only and true 400% zoom remain. |
-| Authenticated Playwright MCP | partial — rebuilt compose 2026-08-25 | Live `http://localhost:18080` synthetic participant. After Dapper fix, GET history, preview, session download, and later Version 2 succeeded. Evidence: `.playwright-mcp/page-2026-08-25T01-51-53-423Z.png` (prepare), `...T01-52-17-629Z.png` (dialog), `...T01-58-46-165Z.png` (history), `...T01-59-23-108Z.png` (preview), `...T02-00-20-716Z.png` (Version 2), `...T02-00-58-070Z.png` (dark), `...T02-01-20-910Z.png` (360), `...T02-01-49-858Z.png` (320). Full-page PNGs may repeat sticky chrome. True 400% zoom, keyboard-only, live cancel, receiving/validating, and permission-loss not captured. |
+| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog, cancel, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **7 passed**. Live cancel and true WCAG 400% reflow remain. |
+| Authenticated Playwright MCP | partial — rebuilt compose 2026-08-25 | Re-review: Version 1/2 exact preview, `no-store` version-detail JSON, Download of Version 1 bytes, later-version dialog, Keep editing preserves local text, 360px, rebuilt list copy. Evidence includes `.playwright-mcp/page-2026-08-25T02-37-29-105Z.png` (V1 preview), `...T02-39-20-967Z.png` (new-version dialog), `...T02-40-18-236Z.png` (360px), `...T02-42-21-962Z.png` (list copy). Live cancel, receiving/validating, multi-item preview, and permission-loss not captured. |
 | Regression/security/supply-chain/OCI/recovery/docs | pending | Locked restore, full suites, allowlist/leakage, license/SBOM/vulnerability/secret scan, images, paired metadata/artifact restore, docs, and whitespace. |
 | Independent review — security/correctness remediation chain | passed — external review `b67a922` | No blocking findings. All issues raised from `7dac50c` through follow-up reviews resolved at `b67a922`, including S3 scope isolation, predecessor lineage, partial parent scope (`0049`), and Task-binding parent tuple (`0050`). `SubmissionPersistenceTests` **12 passed**; full PostgreSQL **340 passed / 1 failed** (Keycloak 403 flake). GitHub commit statuses not independently visible. Separate full-slice backend/frontend/QA review remains for unconsumed planned work. |
 

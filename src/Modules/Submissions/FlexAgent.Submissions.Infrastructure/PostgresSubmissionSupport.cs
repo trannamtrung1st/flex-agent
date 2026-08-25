@@ -660,6 +660,28 @@ public sealed class PostgresSubmissionVersionStore(PostgresConnectionAccessor co
         return found;
     }
 
+    public async Task<IReadOnlyList<AcceptedArtifactCleanupCandidate>> ListAcceptedArtifactCandidatesAsync(
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        var rows = await connection.QueryAsync<AcceptedArtifactCleanupCandidate>(
+            new CommandDefinition(
+                """
+                SELECT v.organization_id AS OrganizationId, v.activity_id AS ActivityId,
+                       v.enrollment_id AS EnrollmentId, v.version_id AS VersionId,
+                       i.artifact_object_key AS ArtifactObjectKey
+                FROM submissions_accepted_version_items i
+                INNER JOIN submissions_accepted_versions v
+                    ON v.organization_id = i.organization_id AND v.version_id = i.version_id
+                ORDER BY v.accepted_at
+                LIMIT @Limit
+                """,
+                new { Limit = limit },
+                cancellationToken: cancellationToken));
+        return rows.ToArray();
+    }
+
     private static IReadOnlyList<AcceptedVersionSummary> MapVersionSummaries(IEnumerable<VersionSummaryRow> rows) =>
         rows.Select(row => new AcceptedVersionSummary(
             row.VersionId,

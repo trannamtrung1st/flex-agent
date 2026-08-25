@@ -105,6 +105,22 @@ export interface MyWorkSubmissionV2 {
   permitted_actions: SubmissionPermittedActionV2[];
 }
 
+export interface AcceptedVersionDetailV2 {
+  schema_version: SchemaVersionV2;
+  version_id: string;
+  version_number: number;
+  accepted_at_utc: string;
+  items: Array<{
+    item_id: string;
+    category: SubmissionMaterialCategoryV2;
+    filename?: string | null;
+    byte_count: number;
+    preview_authorized: boolean;
+    download_authorized: boolean;
+  }>;
+  permitted_actions: SubmissionPermittedActionV2[];
+}
+
 export interface ProtectedItemPreviewV2 {
   schema_version: SchemaVersionV2;
   version_id: string;

@@ -239,7 +239,18 @@ public interface ISubmissionVersionStore
         Guid organizationId,
         string artifactObjectKey,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<AcceptedArtifactCleanupCandidate>> ListAcceptedArtifactCandidatesAsync(
+        int limit,
+        CancellationToken cancellationToken = default);
 }
+
+public sealed record AcceptedArtifactCleanupCandidate(
+    Guid OrganizationId,
+    Guid ActivityId,
+    Guid EnrollmentId,
+    Guid VersionId,
+    string ArtifactObjectKey);
 
 public interface IExactAcceptedVersionReader
 {

@@ -159,6 +159,16 @@
       "category": "my_work_submission",
       "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/my-work-submission.v2.schema.json",
       "fixture_dir": "fixtures/schema/v2/submission/my-work-submission"
+    },
+    {
+      "category": "accepted_version_detail",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/accepted-version-detail.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/submission/accepted-version-detail"
+    },
+    {
+      "category": "protected_item_preview",
+      "schema_id": "https://flex-agent.local/contracts/schemas/v2/submission/protected-item-preview.v2.schema.json",
+      "fixture_dir": "fixtures/schema/v2/submission/protected-item-preview"
     }
   ],
   "digest_schemas": [

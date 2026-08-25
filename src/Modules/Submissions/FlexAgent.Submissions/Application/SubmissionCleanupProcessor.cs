@@ -9,7 +9,8 @@ public sealed class SubmissionCleanupProcessor(
     ISubmissionVersionStore versions,
     ISubmissionLifecycleHoldStore holds,
     IArtifactDispositionStore dispositions,
-    IEnrollmentClock? clock = null) : ISubmissionCleanupProcessor
+    IEnrollmentClock? clock = null,
+    IActivityClosurePort? closures = null) : ISubmissionCleanupProcessor
 {
     private readonly IEnrollmentClock _clock = clock ?? new SystemEnrollmentClock();
 
@@ -29,6 +30,7 @@ public sealed class SubmissionCleanupProcessor(
                 cancellationToken),
             SubmissionWorkKinds.CleanupRejected,
             cancellationToken);
+        await EnqueueAcceptedAsync(cancellationToken);
 
         var claimed = await work.ClaimNextAsync(_clock.UtcNow, SubmissionLifecycleClocks.WorkLease, cancellationToken);
         if (claimed is null)
@@ -40,15 +42,18 @@ public sealed class SubmissionCleanupProcessor(
         {
             if (!string.IsNullOrWhiteSpace(claimed.ArtifactObjectKey))
             {
-                var accepted = await versions.HasAcceptedArtifactKeyAsync(
-                    claimed.OrganizationId,
-                    claimed.ArtifactObjectKey,
-                    cancellationToken);
                 var held = await holds.IsHeldAsync(
                     claimed.OrganizationId,
                     claimed.ArtifactObjectKey,
                     cancellationToken);
-                if (!SubmissionLifecycle.MayDeleteArtifact(accepted, held))
+                var accepted = await versions.HasAcceptedArtifactKeyAsync(
+                    claimed.OrganizationId,
+                    claimed.ArtifactObjectKey,
+                    cancellationToken);
+                var mayDelete = claimed.WorkKind == SubmissionWorkKinds.CleanupAccepted
+                    ? SubmissionLifecycle.MayDeleteAcceptedPayload(held)
+                    : SubmissionLifecycle.MayDeleteArtifact(accepted, held);
+                if (!mayDelete)
                 {
                     await work.CompleteAsync(claimed.OrganizationId, claimed.WorkId, cancellationToken);
                     return "skipped";
@@ -82,6 +87,49 @@ public sealed class SubmissionCleanupProcessor(
                 _clock.UtcNow.Add(SubmissionLifecycleClocks.WorkLease),
                 cancellationToken);
             return "failed";
+        }
+    }
+
+    private async Task EnqueueAcceptedAsync(CancellationToken cancellationToken)
+    {
+        if (closures is null)
+        {
+            return;
+        }
+
+        var candidates = await versions.ListAcceptedArtifactCandidatesAsync(20, cancellationToken);
+        foreach (var candidate in candidates)
+        {
+            var held = await holds.IsHeldAsync(candidate.OrganizationId, candidate.ArtifactObjectKey, cancellationToken);
+            var alreadyDisposed = await dispositions.ExistsAsync(
+                candidate.OrganizationId,
+                candidate.ArtifactObjectKey,
+                cancellationToken);
+            var closedAt = await closures.FindClosedAtUtcAsync(
+                candidate.OrganizationId,
+                candidate.ActivityId,
+                cancellationToken);
+            if (alreadyDisposed
+                || !SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(closedAt, _clock.UtcNow, held))
+            {
+                continue;
+            }
+
+            await work.EnqueueAsync(
+                new SubmissionWorkItem(
+                    candidate.OrganizationId,
+                    Guid.CreateVersion7(),
+                    SubmissionWorkKinds.CleanupAccepted,
+                    candidate.EnrollmentId,
+                    null,
+                    candidate.VersionId,
+                    SubmissionWorkStates.Pending,
+                    0,
+                    _clock.UtcNow,
+                    null,
+                    candidate.ArtifactObjectKey),
+                new CleanupEnqueueTransaction(),
+                cancellationToken);
         }
     }
 

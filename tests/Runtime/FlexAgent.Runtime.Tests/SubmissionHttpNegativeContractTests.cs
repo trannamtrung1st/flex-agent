@@ -96,6 +96,22 @@ public sealed class SubmissionHttpNegativeContractTests
     }
 
     [Fact]
+    public async Task Accepted_version_detail_without_a_session_is_unauthorized_and_not_cached()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var response = await client.GetAsync(
+            $"/v2/assessment/my-work/{Guid.CreateVersion7()}/submission/versions/{Guid.CreateVersion7()}",
+            TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Contains(HumanAuthenticationReasonCodes.MissingSession, body, StringComparison.Ordinal);
+        Assert.DoesNotContain("version_number", body, StringComparison.Ordinal);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
     public async Task Item_preview_without_a_session_is_unauthorized_and_not_cached()
     {
         await using var factory = CreateFactory();

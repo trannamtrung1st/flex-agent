@@ -1,0 +1,25 @@
+{
+  "schema_version": "v2",
+  "version_id": "33333333-3333-4333-8333-333333333333",
+  "version_number": 2,
+  "accepted_at_utc": "2026-08-25T00:00:00Z",
+  "items": [
+    {
+      "item_id": "44444444-4444-4444-8444-444444444444",
+      "category": "direct_text",
+      "filename": null,
+      "byte_count": 21,
+      "preview_authorized": true,
+      "download_authorized": true
+    },
+    {
+      "item_id": "55555555-5555-4555-8555-555555555555",
+      "category": "text_plain_attachment",
+      "filename": "notes.txt",
+      "byte_count": 12,
+      "preview_authorized": true,
+      "download_authorized": true
+    }
+  ],
+  "permitted_actions": ["preview_item", "download_item", "return_to_my_work"]
+}

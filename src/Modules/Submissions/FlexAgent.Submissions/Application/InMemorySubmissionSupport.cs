@@ -159,6 +159,22 @@ public sealed class InMemorySubmissionVersionStore : ISubmissionVersionStore
         Task.FromResult(_versions.Values.Any(version =>
             version.Scope.OrganizationId == organizationId
             && version.Items.Any(item => string.Equals(item.ArtifactObjectKey, artifactObjectKey, StringComparison.Ordinal))));
+
+    public Task<IReadOnlyList<AcceptedArtifactCleanupCandidate>> ListAcceptedArtifactCandidatesAsync(
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        var items = _versions.Values
+            .SelectMany(version => version.Items.Select(item => new AcceptedArtifactCleanupCandidate(
+                version.Scope.OrganizationId,
+                version.Scope.ActivityId,
+                version.Scope.EnrollmentId,
+                version.VersionId,
+                item.ArtifactObjectKey)))
+            .Take(limit)
+            .ToArray();
+        return Task.FromResult<IReadOnlyList<AcceptedArtifactCleanupCandidate>>(items);
+    }
 }
 
 public sealed class InMemoryArtifactStore : IArtifactStore

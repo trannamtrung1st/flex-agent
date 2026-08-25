@@ -88,6 +88,8 @@ public sealed class ContractMappingParityTests
         Assert.Contains("IntakeRevisionCommandV2", exported);
         Assert.Contains("IntakeMutationOutcomeV2", exported);
         Assert.Contains("MyWorkSubmissionV2", exported);
+        Assert.Contains("AcceptedVersionDetailV2", exported);
+        Assert.Contains("ProtectedItemPreviewV2", exported);
         Assert.DoesNotContain(exported, name => name.Contains("Authorization", StringComparison.Ordinal));
         Assert.DoesNotContain(exported, name => name.Contains("Secret", StringComparison.Ordinal));
     }
@@ -486,6 +488,37 @@ public sealed class ContractMappingParityTests
                 null,
                 [],
                 ["begin_intake", "return_to_my_work"]));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/submission/accepted-version-detail.v2.schema.json",
+            new AcceptedVersionDetailV2(
+                "v2",
+                Guid.Parse("33333333-3333-4333-8333-333333333333"),
+                2,
+                "2026-08-25T00:00:00Z",
+                [
+                    new AcceptedVersionItemV2(
+                        Guid.Parse("44444444-4444-4444-8444-444444444444"),
+                        "direct_text",
+                        null,
+                        21,
+                        true,
+                        true),
+                ],
+                ["preview_item", "download_item", "return_to_my_work"]));
+
+        ValidateDto(
+            schemas,
+            "https://flex-agent.local/contracts/schemas/v2/submission/protected-item-preview.v2.schema.json",
+            new ProtectedItemPreviewV2(
+                "v2",
+                Guid.Parse("33333333-3333-4333-8333-333333333333"),
+                Guid.Parse("44444444-4444-4444-8444-444444444444"),
+                "direct_text",
+                null,
+                "text/plain",
+                "Synthetic preview text."));
     }
 
     private void ValidateDto(IReadOnlyDictionary<string, Json.Schema.JsonSchema> schemas, string schemaId, object dto)

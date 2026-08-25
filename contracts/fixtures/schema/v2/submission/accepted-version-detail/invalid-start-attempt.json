@@ -1,0 +1,8 @@
+{
+  "schema_version": "v2",
+  "version_id": "33333333-3333-4333-8333-333333333333",
+  "version_number": 1,
+  "accepted_at_utc": "2026-08-25T00:00:00Z",
+  "items": [],
+  "permitted_actions": ["start_attempt"]
+}

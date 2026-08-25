@@ -1,4 +1,5 @@
 import type {
+  AcceptedVersionDetailV2,
   CompleteIntakeItemCommandV2,
   IntakeMutationOutcomeV2,
   IntakeRevisionCommandV2,
@@ -6,7 +7,7 @@ import type {
   ProtectedItemPreviewV2,
 } from "../contracts/v2";
 
-export type { IntakeMutationOutcomeV2, MyWorkSubmissionV2, ProtectedItemPreviewV2 };
+export type { AcceptedVersionDetailV2, IntakeMutationOutcomeV2, MyWorkSubmissionV2, ProtectedItemPreviewV2 };
 
 export function createSubmissionIdempotencyKey(): string {
   return `sub-${crypto.randomUUID()}`;
@@ -16,6 +17,11 @@ export function createProductionSubmissionClient(fetchJson: <T>(path: string, in
   return {
     getMyWorkSubmission(enrollmentId: string) {
       return fetchJson<MyWorkSubmissionV2>(`/v2/assessment/my-work/${enrollmentId}/submission`);
+    },
+    getAcceptedVersion(enrollmentId: string, versionId: string) {
+      return fetchJson<AcceptedVersionDetailV2>(
+        `/v2/assessment/my-work/${enrollmentId}/submission/versions/${versionId}`,
+      );
     },
     getItemPreview(enrollmentId: string, versionId: string, itemId: string) {
       return fetchJson<ProtectedItemPreviewV2>(

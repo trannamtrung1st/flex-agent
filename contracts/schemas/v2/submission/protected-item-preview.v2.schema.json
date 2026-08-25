@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flex-agent.local/contracts/schemas/v2/submission/protected-item-preview.v2.schema.json",
+  "title": "Protected submission item preview v2",
+  "description": "Inert exact accepted-item text after use-time authorization.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "version_id",
+    "item_id",
+    "category",
+    "content_type",
+    "content"
+  ],
+  "properties": {
+    "schema_version": { "const": "v2" },
+    "version_id": {
+      "type": "string",
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "item_id": {
+      "type": "string",
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["direct_text", "text_plain_attachment", "text_markdown_attachment"]
+    },
+    "filename": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "content_type": {
+      "type": "string",
+      "enum": ["text/plain", "text/markdown"]
+    },
+    "content": {
+      "type": "string",
+      "maxLength": 10485760
+    }
+  }
+}

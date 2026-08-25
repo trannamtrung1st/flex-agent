@@ -102,3 +102,12 @@ public sealed class UnavailableArtifactSafetyScanner : IArtifactSafetyScanner
             ArtifactScanOutcome.Unavailable,
             ArtifactOutcomeCodes.ScanUnavailable));
 }
+
+public sealed class UnavailableActivityClosurePort : IActivityClosurePort
+{
+    public Task<DateTimeOffset?> FindClosedAtUtcAsync(
+        Guid organizationId,
+        Guid activityId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<DateTimeOffset?>(null);
+}

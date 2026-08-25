@@ -261,7 +261,21 @@ describe("ProductionMyWorkDetailPage", () => {
         return jsonResponse({ error: "not_found" }, 404);
       }
       if (url.includes("/versions/") && (!init?.method || init.method === "GET") && !url.includes("/preview")) {
-        return jsonResponse({ items: [{ item_id: "44444444-4444-4444-8444-444444444444" }] });
+        return jsonResponse({
+          schema_version: "v2",
+          version_id: "33333333-3333-4333-8333-333333333333",
+          version_number: 1,
+          accepted_at_utc: "2026-08-25T00:00:00Z",
+          items: [{
+            item_id: "44444444-4444-4444-8444-444444444444",
+            category: "direct_text",
+            filename: null,
+            byte_count: 21,
+            preview_authorized: true,
+            download_authorized: true,
+          }],
+          permitted_actions: ["preview_item", "return_to_my_work"],
+        });
       }
       if (url.includes("/submission") && (!init?.method || init.method === "GET")) {
         return jsonResponse({
@@ -604,7 +618,133 @@ describe("ProductionMyWorkDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Submit version" }));
     fireEvent.click((await screen.findAllByRole("button", { name: "Submit version" }))[1]);
     expect(await screen.findByText(/Reconciling this intake/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refresh assignment" })).toBeInTheDocument();
     expect(screen.queryByText(/could not be accepted/)).not.toBeInTheDocument();
     expect(screen.getByLabelText("Direct text")).toHaveValue("Direct text answer.");
+  });
+
+  it("previews a selected item when a version contains more than one item", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/auth/session")) {
+        return jsonResponse({ authenticated: true, csrf_token: "csrf" });
+      }
+      if (url.includes("/v1/assessment/shell")) {
+        return jsonResponse({
+          schema_version: "v1",
+          actor_id: "part",
+          organization_id: "org",
+          relationship: "",
+          navigation: [{ destination_id: "my-work", is_available: true }],
+          permitted_actions: ["assessment.assignment.discover"],
+        });
+      }
+      if (url.includes("/timing")) {
+        return jsonResponse({
+          schema_version: "v2",
+          assignment: {
+            enrollment_id: "enr-1",
+            status: "active",
+            visibility: "current",
+            activity_title: "Campaign",
+            task_title: "Task 1",
+            time_zone_id: "UTC",
+            deadline_utc: "2026-09-30T17:00:00Z",
+            summary_available: true,
+            permitted_actions: ["open_assignment"],
+          },
+          participant_consequence_code: "none",
+        });
+      }
+      if (url.includes("/preview") && url.includes("55555555-5555-4555-8555-555555555555")) {
+        return jsonResponse({
+          schema_version: "v2",
+          version_id: "33333333-3333-4333-8333-333333333333",
+          item_id: "55555555-5555-4555-8555-555555555555",
+          category: "text_plain_attachment",
+          filename: "notes.txt",
+          content_type: "text/plain",
+          content: "Attachment text.",
+        });
+      }
+      if (url.includes("/preview")) {
+        return jsonResponse({
+          schema_version: "v2",
+          version_id: "33333333-3333-4333-8333-333333333333",
+          item_id: "44444444-4444-4444-8444-444444444444",
+          category: "direct_text",
+          filename: null,
+          content_type: "text/plain",
+          content: "Direct text answer.",
+        });
+      }
+      if (url.includes("/versions/") && (!init?.method || init.method === "GET")) {
+        return jsonResponse({
+          schema_version: "v2",
+          version_id: "33333333-3333-4333-8333-333333333333",
+          version_number: 1,
+          accepted_at_utc: "2026-08-25T00:00:00Z",
+          items: [
+            {
+              item_id: "44444444-4444-4444-8444-444444444444",
+              category: "direct_text",
+              filename: null,
+              byte_count: 19,
+              preview_authorized: true,
+              download_authorized: true,
+            },
+            {
+              item_id: "55555555-5555-4555-8555-555555555555",
+              category: "text_plain_attachment",
+              filename: "notes.txt",
+              byte_count: 16,
+              preview_authorized: true,
+              download_authorized: true,
+            },
+          ],
+          permitted_actions: ["preview_item", "download_item", "return_to_my_work"],
+        });
+      }
+      if (url.includes("/submission")) {
+        return jsonResponse({
+          schema_version: "v2",
+          enrollment_id: "enr-1",
+          enrollment_status: "active",
+          intake_available: true,
+          requirements: {
+            contract_version: "submissions.material_policy.v1",
+            max_attachment_count: 10,
+            max_attachment_aggregate_bytes: 26214400,
+            max_direct_text_bytes: 1048576,
+            scanner_mode: "disabled_by_approved_policy",
+            categories: [{ category: "direct_text", available: true, max_bytes: 1048576 }],
+          },
+          active_intake: null,
+          version_history: [{
+            version_id: "33333333-3333-4333-8333-333333333333",
+            version_number: 1,
+            accepted_at_utc: "2026-08-25T00:00:00Z",
+            item_count: 2,
+          }],
+          permitted_actions: ["begin_intake", "preview_item", "download_item", "return_to_my_work"],
+        });
+      }
+      return jsonResponse({}, 404);
+    }));
+
+    render(
+      <ProductionApiProvider>
+        <MemoryRouter initialEntries={["/my-work/enr-1"]}>
+          <Routes>
+            <Route path="/my-work/:enrollmentId" element={<ProductionMyWorkDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ProductionApiProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Preview version 1" }));
+    expect(await screen.findByText("Direct text answer.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Preview notes.txt" }));
+    expect(await screen.findByText("Attachment text.")).toBeInTheDocument();
   });
 });

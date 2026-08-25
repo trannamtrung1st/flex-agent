@@ -60,6 +60,10 @@ describe("ProductionMyWorkPage", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "My work" })).toBeInTheDocument();
+    expect(screen.getByText(
+      "Current Assignments for the signed-in Participant. Open an assignment to prepare or submit a version. Attempt start is not available yet.",
+    )).toBeInTheDocument();
+    expect(screen.queryByText(/Submission intake and Attempt start are not available yet/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open assignment" })).toBeInTheDocument();
     expect(screen.queryByText("Start Attempt")).not.toBeInTheDocument();
   });

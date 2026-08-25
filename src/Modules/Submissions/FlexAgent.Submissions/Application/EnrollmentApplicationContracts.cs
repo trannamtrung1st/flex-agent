@@ -191,6 +191,14 @@ public interface IEnrollmentAuthorizationPort
         CancellationToken cancellationToken = default);
 }
 
+public interface IActivityClosurePort
+{
+    Task<DateTimeOffset?> FindClosedAtUtcAsync(
+        Guid organizationId,
+        Guid activityId,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IActivatedCohortPort
 {
     Task<ActivatedCohortBinding?> FindActivatedAsync(

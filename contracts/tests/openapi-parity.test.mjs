@@ -79,6 +79,14 @@ const representativeMappings = [
     schemaComponent: "MyWorkSubmissionV2",
     schemaPath: "schemas/v2/submission/my-work-submission.v2.schema.json",
   },
+  {
+    schemaComponent: "AcceptedVersionDetailV2",
+    schemaPath: "schemas/v2/submission/accepted-version-detail.v2.schema.json",
+  },
+  {
+    schemaComponent: "ProtectedItemPreviewV2",
+    schemaPath: "schemas/v2/submission/protected-item-preview.v2.schema.json",
+  },
 ];
 
 const commandVariantMappings = [

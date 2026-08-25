@@ -163,6 +163,12 @@ public sealed class SubmissionLifecycleTests
         Assert.False(SubmissionLifecycle.MayDeleteArtifact(acceptedReferenceExists: true, legalHoldActive: false));
         Assert.False(SubmissionLifecycle.MayDeleteArtifact(acceptedReferenceExists: false, legalHoldActive: true));
         Assert.True(SubmissionLifecycle.MayDeleteArtifact(acceptedReferenceExists: false, legalHoldActive: false));
+        Assert.False(SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(null, now, legalHoldActive: false));
+        Assert.False(SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(now.AddDays(-364), now, legalHoldActive: false));
+        Assert.False(SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(now.AddDays(-366), now, legalHoldActive: true));
+        Assert.True(SubmissionLifecycle.AcceptedPayloadEligibleForCleanup(now.AddDays(-366), now, legalHoldActive: false));
+        Assert.False(SubmissionLifecycle.MayDeleteAcceptedPayload(legalHoldActive: true));
+        Assert.True(SubmissionLifecycle.MayDeleteAcceptedPayload(legalHoldActive: false));
     }
 
     [Fact]

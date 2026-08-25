@@ -83,6 +83,22 @@ public sealed record MyWorkSubmissionV2(
     IReadOnlyList<AcceptedVersionSummaryV2> VersionHistory,
     IReadOnlyList<string> PermittedActions);
 
+public sealed record AcceptedVersionItemV2(
+    Guid ItemId,
+    string Category,
+    string? Filename,
+    long ByteCount,
+    bool PreviewAuthorized,
+    bool DownloadAuthorized);
+
+public sealed record AcceptedVersionDetailV2(
+    string SchemaVersion,
+    Guid VersionId,
+    int VersionNumber,
+    string AcceptedAtUtc,
+    IReadOnlyList<AcceptedVersionItemV2> Items,
+    IReadOnlyList<string> PermittedActions);
+
 public sealed record ProtectedItemPreviewV2(
     string SchemaVersion,
     Guid VersionId,

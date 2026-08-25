@@ -220,12 +220,20 @@ paths:
       responses:
         '200':
           description: Exact accepted version metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedVersionDetailV2'
   /v2/assessment/my-work/{enrollmentId}/submission/versions/{versionId}/items/{itemId}/preview:
     get:
       operationId: getAcceptedSubmissionItemPreview
       responses:
         '200':
           description: Inert exact item preview after use-time authorization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtectedItemPreviewV2'
   /v2/assessment/my-work/{enrollmentId}/submission/versions/{versionId}/items/{itemId}/download:
     get:
       operationId: downloadAcceptedSubmissionItem
@@ -387,6 +395,10 @@ components:
       $ref: '../schemas/v2/submission/intake-mutation-outcome.v2.schema.json'
     MyWorkSubmissionV2:
       $ref: '../schemas/v2/submission/my-work-submission.v2.schema.json'
+    AcceptedVersionDetailV2:
+      $ref: '../schemas/v2/submission/accepted-version-detail.v2.schema.json'
+    ProtectedItemPreviewV2:
+      $ref: '../schemas/v2/submission/protected-item-preview.v2.schema.json'
     Int64WireStringNineteenDigit:
       type: string
       minLength: 19

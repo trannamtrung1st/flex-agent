@@ -48,11 +48,13 @@ public static class SubmissionEndpointExtensions
             services.AddSingleton<ISubmissionLifecycleHoldStore, InMemoryLifecycleHoldStore>();
             services.AddSingleton<IArtifactDispositionStore, InMemoryArtifactDispositionStore>();
             services.AddSingleton<IProtectedArtifactCapabilityStore, InMemoryProtectedArtifactCapabilityStore>();
+            services.AddSingleton<IActivityClosurePort, UnavailableActivityClosurePort>();
             return services;
         }
 
         services.AddSingleton<IFrozenSubmissionRequirementPort, AssessmentFrozenSubmissionRequirementPort>();
         services.AddSingleton<IMaterialPolicyPort, EnvironmentMaterialPolicyPort>();
+        services.AddSingleton<IActivityClosurePort, UnavailableActivityClosurePort>();
         if (environment.IsProduction() || environment.IsEnvironment("Staging"))
         {
             services.AddSingleton<IArtifactSafetyScanner, UnavailableArtifactSafetyScanner>();
@@ -132,7 +134,7 @@ public static class SubmissionEndpointExtensions
         }
 
         context.Response.Headers.CacheControl = "no-store";
-        await Results.Json(result.Value).ExecuteAsync(context);
+        await Results.Json(MapAcceptedVersion(result.Value)).ExecuteAsync(context);
     }
 
     private static async Task GetItemPreview(
@@ -452,6 +454,21 @@ public static class SubmissionEndpointExtensions
                 item.ByteCount,
                 item.ReceiptState)).ToArray(),
             intake.PermittedActions);
+
+    private static AcceptedVersionDetailV2 MapAcceptedVersion(AcceptedVersionDetail detail) =>
+        new(
+            "v2",
+            detail.Summary.VersionId,
+            detail.Summary.VersionNumber,
+            EnrollmentEndpointExtensions.FormatUtc(detail.Summary.AcceptedAtUtc)!,
+            detail.Items.Select(item => new AcceptedVersionItemV2(
+                item.ItemId,
+                item.Category,
+                item.Filename,
+                item.ByteCount,
+                item.PreviewAuthorized,
+                item.DownloadAuthorized)).ToArray(),
+            detail.PermittedActions);
 }
 
 public sealed class ArtifactBucketInitializer(IArtifactStore store) : IHostedService

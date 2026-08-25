@@ -78,6 +78,7 @@ public static class SubmissionWorkKinds
     public const string CleanupIncomplete = "cleanup_incomplete";
     public const string CleanupRejected = "cleanup_rejected";
     public const string CleanupOrphan = "cleanup_orphan";
+    public const string CleanupAccepted = "cleanup_accepted";
 }
 
 public static class SubmissionWorkStates

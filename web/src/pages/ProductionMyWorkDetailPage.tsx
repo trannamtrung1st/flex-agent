@@ -12,6 +12,7 @@ import {
   createSubmissionIdempotencyKey,
   submissionFailureCopy,
   type MyWorkSubmissionV2,
+  type AcceptedVersionDetailV2,
   type ProtectedItemPreviewV2,
 } from "../api/production-submission";
 import { Button } from "../components/ui/Button";
@@ -44,7 +45,9 @@ export function ProductionMyWorkDetailPage() {
   const [intakeStatus, setIntakeStatus] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [preview, setPreview] = useState<ProtectedItemPreviewV2 | null>(null);
+  const [previewItems, setPreviewItems] = useState<AcceptedVersionDetailV2["items"]>([]);
   const [previewItem, setPreviewItem] = useState<{ versionId: string; itemId: string } | null>(null);
+  const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
   const [previewUnavailable, setPreviewUnavailable] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [dropActive, setDropActive] = useState(false);
@@ -81,6 +84,7 @@ export function ProductionMyWorkDetailPage() {
       setDirectText("");
       setFiles([]);
       setPreview(null);
+      setPreviewItems([]);
       setPreviewItem(null);
       setPreviewUnavailable(false);
     };
@@ -188,6 +192,7 @@ export function ProductionMyWorkDetailPage() {
         setDirectText("");
         setFiles([]);
         setPreview(null);
+        setPreviewItems([]);
         setPreviewItem(null);
         setIntakeStatus("accepted");
       } catch {
@@ -250,23 +255,35 @@ export function ProductionMyWorkDetailPage() {
     }
   }
 
-  async function openPreview(versionId: string) {
-    setPreview(null);
-    setPreviewItem(null);
-    setPreviewUnavailable(false);
-    const detail = submission?.version_history.find((version) => version.version_id === versionId);
-    if (!detail) {
-      setPreviewUnavailable(true);
+  async function retryRefresh() {
+    try {
+      await refreshSubmission();
+      setDirectText("");
+      setFiles([]);
+      setPreview(null);
+      setPreviewItems([]);
+      setPreviewItem(null);
+      setErrors([]);
+      setIntakeStatus("accepted");
+    } catch {
+      setErrors([
+        "The server accepted this version, but the assignment view could not be refreshed. Wait and try again before submitting another version.",
+      ]);
       requestAnimationFrame(() => {
-        document.getElementById("preview-unavailable")?.focus();
+        document.getElementById("submission-error-summary")?.focus();
       });
-      return;
     }
+  }
 
+  async function openPreview(versionId: string, itemId?: string) {
+    setPreviewUnavailable(false);
     try {
       const current = await submissionClient.getMyWorkSubmission(enrollmentId);
       const version = current.version_history.find((item) => item.version_id === versionId);
       if (!version) {
+        setPreview(null);
+        setPreviewItems([]);
+        setPreviewItem(null);
         setPreviewUnavailable(true);
         requestAnimationFrame(() => {
           document.getElementById("preview-unavailable")?.focus();
@@ -274,22 +291,24 @@ export function ProductionMyWorkDetailPage() {
         return;
       }
 
-      const previewResult = await fetchJson<{ items?: Array<{ item_id: string }> }>(
-        `/v2/assessment/my-work/${enrollmentId}/submission/versions/${versionId}`,
-      );
-      const itemId = previewResult.items?.[0]?.item_id;
-      if (!itemId) {
+      const detail = await submissionClient.getAcceptedVersion(enrollmentId, versionId);
+      setPreviewVersionId(versionId);
+      setPreviewItems(detail.items);
+      const selectedId = itemId ?? detail.items[0]?.item_id;
+      if (!selectedId) {
+        setPreview(null);
         setPreviewUnavailable(true);
         requestAnimationFrame(() => {
           document.getElementById("preview-unavailable")?.focus();
         });
         return;
       }
-      const content = await submissionClient.getItemPreview(enrollmentId, versionId, itemId);
+      const content = await submissionClient.getItemPreview(enrollmentId, versionId, selectedId);
       setPreview(content);
-      setPreviewItem({ versionId, itemId });
+      setPreviewItem({ versionId, itemId: selectedId });
     } catch {
       setPreview(null);
+      setPreviewItems([]);
       setPreviewItem(null);
       setPreviewUnavailable(true);
       requestAnimationFrame(() => {
@@ -413,7 +432,12 @@ export function ProductionMyWorkDetailPage() {
               {" "}{submission.requirements?.max_attachment_count ?? 10} attachments.
             </p>
             {reconciling ? (
-              <p role="status">Reconciling this intake. Wait for the current state before submitting another version.</p>
+              <>
+                <p role="status">Reconciling this intake. Wait for the current state before submitting another version.</p>
+                <Button type="button" variant="secondary" onClick={() => { void retryRefresh(); }}>
+                  Refresh assignment
+                </Button>
+              </>
             ) : intakeStatus ? (
               <p role="status">Current intake state: {intakeStatus}.</p>
             ) : (
@@ -547,6 +571,29 @@ export function ProductionMyWorkDetailPage() {
         {preview ? (
           <section className="page-section" aria-labelledby="preview-heading">
             <h3 id="preview-heading">Exact preview</h3>
+            {previewItems.length > 1 ? (
+              <ul className="attachment-list">
+                {previewItems.map((item) => (
+                  <li key={item.item_id} className="attachment-row">
+                    <span>{item.filename ?? item.category.replaceAll("_", " ")}</span>
+                    {item.preview_authorized ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          if (previewVersionId) {
+                            void openPreview(previewVersionId, item.item_id);
+                          }
+                        }}
+                      >
+                        Preview {item.filename ?? item.category.replaceAll("_", " ")}
+                      </Button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <SafeContent className="protected-preview">
               <pre>{preview.content}</pre>
             </SafeContent>
