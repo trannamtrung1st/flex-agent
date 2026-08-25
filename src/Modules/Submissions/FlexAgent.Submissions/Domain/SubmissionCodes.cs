@@ -87,6 +87,7 @@ public static class SubmissionWorkKinds
     public const string CleanupRejected = "cleanup_rejected";
     public const string CleanupOrphan = "cleanup_orphan";
     public const string CleanupAccepted = "cleanup_accepted";
+    public const string CleanupLegacyReconstruction = "cleanup_legacy_reconstruction";
 }
 
 public static class SubmissionWorkStates
@@ -100,4 +101,5 @@ public static class SubmissionWorkStates
 public static class SubmissionWorkFailureReasons
 {
     public const string ExactArtifactVersionUnavailable = "exact_artifact_version_unavailable";
+    public const string LegacyUnversionedReconstruction = "legacy_unversioned_reconstruction";
 }

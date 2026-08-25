@@ -389,6 +389,7 @@ public sealed class InMemoryLifecycleHoldStore : ISubmissionLifecycleHoldStore
 
 public sealed class InMemoryArtifactDispositionStore : IArtifactDispositionStore
 {
+    private readonly HashSet<(Guid OrganizationId, string ArtifactObjectKey)> _guards = [];
     public List<(Guid OrganizationId, string WorkKind, string ArtifactObjectKey)> Records { get; } = [];
 
     public Task RecordAsync(
@@ -399,9 +400,7 @@ public sealed class InMemoryArtifactDispositionStore : IArtifactDispositionStore
         DateTimeOffset disposedAtUtc,
         CancellationToken cancellationToken = default)
     {
-        if (Records.Any(record =>
-            record.OrganizationId == organizationId
-            && record.ArtifactObjectKey == artifactObjectKey))
+        if (!_guards.Add((organizationId, artifactObjectKey)))
         {
             return Task.CompletedTask;
         }
@@ -414,9 +413,11 @@ public sealed class InMemoryArtifactDispositionStore : IArtifactDispositionStore
         Guid organizationId,
         string artifactObjectKey,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(Records.Any(record =>
-            record.OrganizationId == organizationId
-            && record.ArtifactObjectKey == artifactObjectKey));
+        Task.FromResult(
+            _guards.Contains((organizationId, artifactObjectKey))
+            || Records.Any(record =>
+                record.OrganizationId == organizationId
+                && record.ArtifactObjectKey == artifactObjectKey));
 }
 
 public sealed class InMemoryProtectedArtifactCapabilityStore : IProtectedArtifactCapabilityStore

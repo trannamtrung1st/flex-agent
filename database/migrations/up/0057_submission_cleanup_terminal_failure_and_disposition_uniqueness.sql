@@ -1,6 +1,7 @@
 -- Additive repair after shipped 0055: keep unbackfillable cleanup as terminal
--- provenance, reconstruct that intent from remaining unversioned items when the
--- work row was deleted, and make artifact dispositions unique. Do not edit 0001-0056.
+-- provenance and reconstruct that intent from remaining unversioned items when
+-- the work row was deleted. Do not add a unique index on disposition facts;
+-- those rows are audit provenance. Do not edit 0001-0056.
 
 ALTER TABLE submissions_durable_work
     ADD COLUMN failure_reason TEXT NULL;
@@ -83,6 +84,3 @@ WHERE item.artifact_object_key IS NOT NULL
       WHERE disposed.organization_id = item.organization_id
         AND disposed.artifact_object_key = item.artifact_object_key)
 ORDER BY item.organization_id, item.artifact_object_key, item.item_id;
-
-CREATE UNIQUE INDEX uq_submissions_artifact_dispositions_artifact
-    ON submissions_artifact_dispositions (organization_id, artifact_object_key);

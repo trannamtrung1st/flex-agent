@@ -679,6 +679,11 @@ public sealed class PostgresSubmissionVersionStore(PostgresConnectionAccessor co
                     ON v.organization_id = i.organization_id AND v.version_id = i.version_id
                 WHERE NOT EXISTS (
                     SELECT 1
+                    FROM submissions_artifact_disposition_guards g
+                    WHERE g.organization_id = i.organization_id
+                      AND g.artifact_object_key = i.artifact_object_key)
+                AND NOT EXISTS (
+                    SELECT 1
                     FROM submissions_artifact_dispositions d
                     WHERE d.organization_id = i.organization_id
                       AND d.artifact_object_key = i.artifact_object_key)
@@ -1008,13 +1013,37 @@ public sealed class PostgresArtifactDispositionStore(PostgresConnectionAccessor 
         CancellationToken cancellationToken = default)
     {
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var acquired = await connection.ExecuteScalarAsync<string?>(
+            new CommandDefinition(
+                """
+                INSERT INTO submissions_artifact_disposition_guards (
+                    organization_id, artifact_object_key, first_disposition_id, acquired_at)
+                VALUES (@OrganizationId, @ArtifactObjectKey, @DispositionId, @DisposedAtUtc)
+                ON CONFLICT (organization_id, artifact_object_key) DO NOTHING
+                RETURNING artifact_object_key
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    ArtifactObjectKey = artifactObjectKey,
+                    DispositionId = dispositionId,
+                    DisposedAtUtc = disposedAtUtc,
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+        if (acquired is null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return;
+        }
+
         await connection.ExecuteAsync(
             new CommandDefinition(
                 """
                 INSERT INTO submissions_artifact_dispositions (
                     organization_id, disposition_id, work_kind, artifact_object_key, disposed_at)
                 VALUES (@OrganizationId, @DispositionId, @WorkKind, @ArtifactObjectKey, @DisposedAtUtc)
-                ON CONFLICT (organization_id, artifact_object_key) DO NOTHING
                 """,
                 new
                 {
@@ -1024,7 +1053,9 @@ public sealed class PostgresArtifactDispositionStore(PostgresConnectionAccessor 
                     ArtifactObjectKey = artifactObjectKey,
                     DisposedAtUtc = disposedAtUtc,
                 },
+                transaction,
                 cancellationToken: cancellationToken));
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task<bool> ExistsAsync(
@@ -1038,9 +1069,12 @@ public sealed class PostgresArtifactDispositionStore(PostgresConnectionAccessor 
                 """
                 SELECT EXISTS (
                     SELECT 1
+                    FROM submissions_artifact_disposition_guards
+                    WHERE organization_id = @OrganizationId AND artifact_object_key = @ArtifactObjectKey)
+                OR EXISTS (
+                    SELECT 1
                     FROM submissions_artifact_dispositions
-                    WHERE organization_id = @OrganizationId AND artifact_object_key = @ArtifactObjectKey
-                )
+                    WHERE organization_id = @OrganizationId AND artifact_object_key = @ArtifactObjectKey)
                 """,
                 new { OrganizationId = organizationId, ArtifactObjectKey = artifactObjectKey },
                 cancellationToken: cancellationToken));
