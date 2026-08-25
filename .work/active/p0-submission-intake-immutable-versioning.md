@@ -643,6 +643,9 @@ Session rows remain unimplemented or Partial as governed by their owners.
   cleanup / disposition-upgrade remediation chain from `7e7ffd8` through
   `c84e960` is closed with no remaining blocking findings; no further
   remediation commit is requested from that chain.
+- [x] Remediate `1150e21` P2: refresh authoritative intake after cancel
+  conflict (`completeItem`/`finalize` wins) and treat cancel-success plus
+  refresh failure as reconciling, with reverse-race vitest coverage.
 - [>] Re-run independent backend, frontend, security/privacy, and QA review for
   remaining planned slice work after this continuation; reconcile actual
   changes with this plan and the governing sources, update truthful
@@ -650,12 +653,24 @@ Session rows remain unimplemented or Partial as governed by their owners.
 
 # Current state
 
-The slice remains **in progress**. Independent reviews of `b67a922` and
-`479c851` remain closed. This continuation closed the live receiving/cancel
-Participant gap: **Cancel intake** is offered after durable begin while
-receiving/validating, the confirm dialog closes so the page is not inert, and
-an in-flight submit generation is invalidated so finalize does not run after
-cancel.
+The slice remains **in progress**. Independent review of `1150e21` requested
+changes (P2): cancel used a local revision and did not refresh after conflict,
+so the UI could stay on cancelling while an accepted version existed.
+
+Remediation: after a failed cancel, refresh authoritative **My work**
+submission state (received intake for a meaningful retry, or accepted history
+if finalize won). Successful cancel plus a failed projection refresh enters
+`reconciling` with **Refresh assignment** and cancel-specific copy, not a
+false “could not be cancelled” error. `retryRefresh` applies server state
+instead of always assuming accept.
+
+Red: three reverse-race vitest cases failed while stuck on cancelling. Green:
+My work tests **11 passed**, including cancel-wins, `completeItem` wins,
+`finalize` wins, and cancel-success/refresh-failure. Web typecheck passed.
+
+Independent review of this remediations is next. Residual slice gaps are
+unchanged (lifecycle policy, Worker cleanup, Activity closure, paired restore,
+live validating Playwright, 400% reflow).
 
 Authenticated Playwright on rebuilt SPA at `http://localhost:18080` (synthetic
 participant, Timing Accommodation QA): receiving with **Cancel intake**,
@@ -861,6 +876,10 @@ recorded residual gaps are accepted.
   SHA. Remaining open items are planned slice work (concurrent finalize,
   contracts, production UI, Playwright, lifecycle), not unresolved review
   findings.
+- **Review of `1150e21` (P2, remediating):** Cancel conflict could leave
+  cancelling while completeItem/finalize committed. Reverse-race tests plus
+  authoritative GET after cancel failure, and reconciling when cancel succeeds
+  but refresh fails. `c6d7f43` screenshot-only child has no logic impact.
 - **Continuation 2026-08-25 (cancel during receiving):** Confirm dialog closed
   on submit start so receiving is not inert. Local `active_intake` after begin
   enables **Cancel intake** during receiving/validating. In-flight submit
@@ -912,7 +931,7 @@ recorded residual gaps are accepted.
 | Canonical schema/OpenAPI/C#/TypeScript parity | passed for added v2 Submission contracts | Catalog **33** representative schemas; `FlexAgent.Contract.Tests` **173 passed**; OpenAPI `$ref` for My work, version detail, and preview. Node OpenAPI parity **8 passed**. |
 | HTTP CSRF/admission/isolation | passed for added negatives | `SubmissionHttpNegativeContractTests` **9 passed**: begin/cancel/finalize CSRF, unauthenticated submission/version-detail/preview/download `no-store`, unauthenticated skip of shared admission, exhausted shared admission without protected query. |
 | API/Worker integration | partial | v2 routes: query, begin, complete-item, cancel, finalize, version detail, item preview, item download. Artifact store: SeaweedFS when `ArtifactStorage` is configured. Cleanup loop is API-hosted, not Worker-hosted. Finalize scanner calls are outside the DB transaction. |
-| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog (closes on start), cancel during receiving/validating, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **8 passed**. Live validating Playwright remains. |
+| React/accessibility | partial | `ProductionMyWorkDetailPage` implements local preparation, Submit-version dialog (closes on start), cancel during receiving/validating, cancel-conflict refresh, cancel-success/refresh-failure reconciling, intake status, inert preview, download, version history, permission-loss focus, reconciling-after-accept with Refresh assignment, and per-item preview when a version has multiple items. Focused vitest **11 passed**. Live validating Playwright remains. |
 | Authenticated Playwright MCP | partial — rebuilt SPA 2026-08-25 | Receiving with **Cancel intake**: `.playwright-mcp/page-2026-08-25T05-49-57-764Z.png`. Cancelled without Version 4: `...T05-51-19-390Z.png`. Version 3 inert preview: `...T05-52-17-009Z.png`. Sign-out from preview: `...T05-52-54-390Z.png`. Delayed item POST after cancel was HTTP 409. Live validating not captured. |
 | Regression/security/supply-chain/OCI/recovery/docs | partial | `python3 scripts/check_docs.py` passed. `git diff --check` clean. Submissions **113**, architecture **41**, contracts **173**, persistence **14**, HTTP negatives **9**. Gitleaks: Submission keys allowlisted; one historical predecessor-task finding remains. Locked restore, SBOM, OCI, paired restore not re-run. |
 | Independent review — security/correctness remediation chain | passed — external review `b67a922` | No blocking findings. All issues raised from `7dac50c` through follow-up reviews resolved at `b67a922`, including S3 scope isolation, predecessor lineage, partial parent scope (`0049`), and Task-binding parent tuple (`0050`). `SubmissionPersistenceTests` **12 passed**; full PostgreSQL **340 passed / 1 failed** (Keycloak 403 flake). GitHub commit statuses not independently visible. Separate full-slice backend/frontend/QA review remains for unconsumed planned work. |

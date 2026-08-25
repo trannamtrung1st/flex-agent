@@ -51,6 +51,7 @@ export function ProductionMyWorkDetailPage() {
   const [previewUnavailable, setPreviewUnavailable] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [dropActive, setDropActive] = useState(false);
+  const [reconcileMode, setReconcileMode] = useState<"after-accept" | "after-cancel" | null>(null);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
@@ -249,6 +250,7 @@ export function ProductionMyWorkDetailPage() {
         setIntakeStatus("accepted");
       } catch {
         setIntakeStatus("reconciling");
+        setReconcileMode("after-accept");
         setErrors([
           "The server accepted this version, but the assignment view could not be refreshed. Wait and try again before submitting another version.",
         ]);
@@ -299,16 +301,46 @@ export function ProductionMyWorkDetailPage() {
       if (!cancelled.succeeded) {
         throw new ProductionApiError(409, submissionFailureCopy(cancelled.outcome_code), cancelled.outcome_code);
       }
-      await refreshSubmission();
-      setIntakeStatus(cancelled.status ?? "cancelled");
+      try {
+        await refreshSubmission();
+        setReconcileMode(null);
+        setIntakeStatus(cancelled.status ?? "cancelled");
+      } catch {
+        setReconcileMode("after-cancel");
+        setIntakeStatus("reconciling");
+        setErrors([
+          "This intake was cancelled, but the assignment view could not be refreshed. Wait and try again before submitting another version.",
+        ]);
+        requestAnimationFrame(() => {
+          document.getElementById("submission-error-summary")?.focus();
+        });
+      }
     } catch (caught: unknown) {
-      const message = caught instanceof ProductionApiError
-        ? submissionFailureCopy(caught.outcomeCode)
-        : "The intake could not be cancelled.";
-      setErrors([message]);
-      requestAnimationFrame(() => {
-        document.getElementById("submission-error-summary")?.focus();
-      });
+      try {
+        const next = await submissionClient.getMyWorkSubmission(enrollmentId);
+        setSubmission(next);
+        setReconcileMode(null);
+        setErrors([]);
+        if (next.active_intake) {
+          setIntakeStatus(next.active_intake.status);
+        } else if (next.version_history.length > 0) {
+          setIntakeStatus("accepted");
+        } else {
+          setIntakeStatus("cancelled");
+        }
+      } catch {
+        setReconcileMode("after-cancel");
+        setIntakeStatus("reconciling");
+        const message = caught instanceof ProductionApiError
+          ? submissionFailureCopy(caught.outcomeCode)
+          : "The intake could not be cancelled.";
+        setErrors([
+          `${message} Refresh the assignment to see the current intake state.`,
+        ]);
+        requestAnimationFrame(() => {
+          document.getElementById("submission-error-summary")?.focus();
+        });
+      }
     } finally {
       setCancelling(false);
     }
@@ -316,17 +348,33 @@ export function ProductionMyWorkDetailPage() {
 
   async function retryRefresh() {
     try {
-      await refreshSubmission();
-      setDirectText("");
-      setFiles([]);
-      setPreview(null);
-      setPreviewItems([]);
-      setPreviewItem(null);
+      const next = await submissionClient.getMyWorkSubmission(enrollmentId);
+      setSubmission(next);
       setErrors([]);
-      setIntakeStatus("accepted");
+      if (next.active_intake) {
+        setIntakeStatus(next.active_intake.status);
+        setReconcileMode(null);
+        return;
+      }
+
+      if (reconcileMode === "after-accept") {
+        setDirectText("");
+        setFiles([]);
+        setPreview(null);
+        setPreviewItems([]);
+        setPreviewItem(null);
+        setIntakeStatus("accepted");
+      } else if (next.version_history.length > 0 && reconcileMode !== "after-cancel") {
+        setIntakeStatus("accepted");
+      } else {
+        setIntakeStatus(next.version_history.length > 0 ? "accepted" : "cancelled");
+      }
+      setReconcileMode(null);
     } catch {
       setErrors([
-        "The server accepted this version, but the assignment view could not be refreshed. Wait and try again before submitting another version.",
+        reconcileMode === "after-cancel"
+          ? "This intake was cancelled, but the assignment view could not be refreshed. Wait and try again before submitting another version."
+          : "The server accepted this version, but the assignment view could not be refreshed. Wait and try again before submitting another version.",
       ]);
       requestAnimationFrame(() => {
         document.getElementById("submission-error-summary")?.focus();
