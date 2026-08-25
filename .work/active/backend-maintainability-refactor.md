@@ -39,6 +39,11 @@ Improve backend maintainability via typed options, endpoint decomposition, trans
 
 - Assessment mutations delegate to `EnrollmentEndpointExtensions.ValidateMutationAsync` (shared CSRF path)
 
+## Review follow-up (`0c09820`)
+
+- `SessionEventOptionsRegistration` — single owner for session-event options binding
+- Endpoint transport validators are `internal` (tests via `InternalsVisibleTo`)
+
 # Verification
 
 | Check | Status | Evidence |
@@ -47,6 +52,7 @@ Improve backend maintainability via typed options, endpoint decomposition, trans
 | Runtime tests | passed | 265/265 |
 | Architecture tests | passed | 41/41 |
 | Submissions unit tests | passed | 114/114 |
+| Final confirmation pass | passed | 2026-08-26, `main` @ `0c09820` |
 
 # Intentionally unchanged
 
