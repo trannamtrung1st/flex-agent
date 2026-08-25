@@ -187,6 +187,10 @@ export function ProductionMyWorkDetailPage() {
     reconciledStatus: string,
     reconciledId: string | null,
   ) {
+    if (reconciledStatus === "accepted") {
+      clearAcceptedLocalMaterial();
+    }
+
     const current = next.active_intake;
     reconcilingIntakeIdRef.current = null;
     setReconcileMode(null);
@@ -199,9 +203,6 @@ export function ProductionMyWorkDetailPage() {
     }
 
     setPreviousIntakeNotice(null);
-    if (reconciledStatus === "accepted") {
-      clearAcceptedLocalMaterial();
-    }
     setIntakeStatus(reconciledStatus);
   }
 
