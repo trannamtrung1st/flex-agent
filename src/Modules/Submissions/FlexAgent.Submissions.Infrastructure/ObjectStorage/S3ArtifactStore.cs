@@ -9,15 +9,15 @@ namespace FlexAgent.Submissions.Infrastructure.ObjectStorage;
 
 public sealed class S3ArtifactStoreOptions
 {
-    public required string ServiceUrl { get; init; }
+    public string ServiceUrl { get; set; } = string.Empty;
 
-    public required string BucketName { get; init; }
+    public string BucketName { get; set; } = string.Empty;
 
-    public required string AccessKeyId { get; init; }
+    public string AccessKeyId { get; set; } = string.Empty;
 
-    public required string SecretAccessKey { get; init; }
+    public string SecretAccessKey { get; set; } = string.Empty;
 
-    public bool ForcePathStyle { get; init; } = true;
+    public bool ForcePathStyle { get; set; } = true;
 }
 
 public sealed class S3ArtifactStore : IArtifactStore, IAsyncDisposable

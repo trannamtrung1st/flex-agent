@@ -32,6 +32,8 @@ public static class EnrollmentEndpointExtensions
             .Bind(configuration.GetSection("Enrollment:RequestLimits"))
             .Validate(EnrollmentRequestLimitOptions.MeetsFrozenCeiling, "Enrollment request limits may only be tightened below the frozen 60/20 per 10-second ceiling.")
             .ValidateOnStart();
+        services.AddOptions<EnrollmentCursorSigningOptions>()
+            .Bind(configuration.GetSection(EnrollmentCursorSigningOptions.SectionName));
         services.AddSingleton<IEnrollmentRequestLimiter, FixedWindowEnrollmentRequestLimiter>();
         services.AddSingleton<IEnrollmentTelemetry, LoggingEnrollmentTelemetry>();
         services.AddSingleton<IEnrollmentCoordinator, EnrollmentCoordinator>();
@@ -292,26 +294,24 @@ public static class EnrollmentEndpointExtensions
         }
 
         var body = await TryReadCommandAsync<EnrollmentAssignCommandV1>(context);
-        if (body is null
-            || !string.Equals(body.SchemaVersion, "v1", StringComparison.Ordinal)
-            || body.ParticipantActorId == Guid.Empty
-            || EnrollmentIdempotencyKey.Validate(body.IdempotencyKey) is not null)
+        if (!EnrollmentAssignRequestValidator.IsValid(body))
         {
             await WriteError(context, StatusCodes.Status400BadRequest, EnrollmentFailureCodes.InvalidField);
             return;
         }
 
+        var command = body!;
         var digest = EnrollmentCommandDigest.Compute(
             EnrollmentOperationKinds.Assign,
             actor.Organization.OrganizationId,
             activityId,
             cohortId,
             null,
-            body.ParticipantActorId,
+            command.ParticipantActorId,
             null,
             null);
         var outcome = await coordinator.AssignAsync(
-            new AssignEnrollmentCommand(actor, activityId, cohortId, body.ParticipantActorId, body.IdempotencyKey, digest),
+            new AssignEnrollmentCommand(actor, activityId, cohortId, command.ParticipantActorId, command.IdempotencyKey, digest),
             context.RequestAborted);
         await WriteMutation(context, outcome);
     }
@@ -337,16 +337,13 @@ public static class EnrollmentEndpointExtensions
         }
 
         var body = await TryReadCommandAsync<EnrollmentLifecycleCommandV1>(context);
-        if (body is null
-            || !string.Equals(body.SchemaVersion, "v1", StringComparison.Ordinal)
-            || EnrollmentIdempotencyKey.Validate(body.IdempotencyKey) is not null
-            || string.IsNullOrWhiteSpace(body.ReasonCode)
-            || body.ExpectedRevision < 1)
+        if (!EnrollmentLifecycleRequestValidator.IsValid(body))
         {
             await WriteError(context, StatusCodes.Status400BadRequest, EnrollmentFailureCodes.InvalidField);
             return;
         }
 
+        var command = body!;
         var digest = EnrollmentCommandDigest.Compute(
             operationKind,
             actor.Organization.OrganizationId,
@@ -354,8 +351,8 @@ public static class EnrollmentEndpointExtensions
             cohortId,
             enrollmentId,
             null,
-            body.ReasonCode,
-            body.ExpectedRevision);
+            command.ReasonCode,
+            command.ExpectedRevision);
         var outcome = await coordinator.MutateAsync(
             new EnrollmentLifecycleCommand(
                 actor,
@@ -363,9 +360,9 @@ public static class EnrollmentEndpointExtensions
                 cohortId,
                 enrollmentId,
                 operationKind,
-                body.ReasonCode,
-                body.ExpectedRevision,
-                body.IdempotencyKey,
+                command.ReasonCode,
+                command.ExpectedRevision,
+                command.IdempotencyKey,
                 digest),
             context.RequestAborted);
         await WriteMutation(context, outcome);
@@ -593,14 +590,13 @@ public static class EnrollmentEndpointExtensions
         IConfiguration configuration,
         IHostEnvironment environment)
     {
+        var signingOptions = provider.GetRequiredService<IOptions<EnrollmentCursorSigningOptions>>().Value;
         var secrets = provider.GetService<ISecretSource>();
-        var currentId = configuration["Enrollment:CursorSigning:CurrentKeyId"] ?? "current";
-        var previousId = configuration["Enrollment:CursorSigning:PreviousKeyId"];
         return new HmacEnrollmentCursorSigner(
-            ReadCursorKey(currentId, configuration, secrets, environment, required: true),
-            string.IsNullOrWhiteSpace(previousId)
+            ReadCursorKey(signingOptions.CurrentKeyId, configuration, secrets, environment, required: true),
+            string.IsNullOrWhiteSpace(signingOptions.PreviousKeyId)
                 ? null
-                : ReadCursorKey(previousId, configuration, secrets, environment, required: true));
+                : ReadCursorKey(signingOptions.PreviousKeyId, configuration, secrets, environment, required: true));
     }
 
     private static EnrollmentCursorSigningKey ReadCursorKey(

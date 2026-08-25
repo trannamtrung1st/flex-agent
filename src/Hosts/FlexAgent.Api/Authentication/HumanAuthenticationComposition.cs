@@ -22,8 +22,10 @@ internal static class HumanAuthenticationComposition
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(environment);
 
-        var options = BindOptions(configuration, environment);
-        services.AddSingleton(options);
+        services.AddOptions<HumanAuthenticationHostOptions>()
+            .Configure<IConfiguration, IHostEnvironment>(HumanAuthenticationHostOptionsBinding.Configure);
+        services.AddSingleton(sp => sp.GetRequiredService<IOptions<HumanAuthenticationHostOptions>>().Value);
+        var options = HumanAuthenticationHostOptionsBinding.CreateSnapshot(configuration, environment);
         services.AddSingleton(TimeProvider.System);
         services.AddAntiforgery(antiforgery =>
         {
@@ -51,7 +53,7 @@ internal static class HumanAuthenticationComposition
             });
         }
 
-        var secretDirectory = configuration["HumanAuthentication:SecretDirectory"];
+        var secretDirectory = options.SecretDirectory;
         services.AddSingleton<ISecretSource>(
             string.IsNullOrWhiteSpace(secretDirectory)
                 ? new MissingSecretSource()
@@ -156,49 +158,24 @@ internal static class HumanAuthenticationComposition
         {
             AllowAutoRedirect = false,
         });
+        services.AddOptions<SessionEventTestIdentityOptions>()
+            .Bind(configuration.GetSection(SessionEventTestIdentityOptions.SectionName));
         services.AddSingleton<ISessionEventIdentityAdapter>(sp =>
         {
             var coordinator = sp.GetRequiredService<IHumanAuthenticationCoordinator>();
             var application = new ApplicationSessionEventIdentityAdapter(coordinator);
-            if (SessionEventTestIdentity.IsEnabled(environment, configuration))
+            var hostOptions = sp.GetRequiredService<HumanAuthenticationHostOptions>();
+            var testIdentity = sp.GetRequiredService<IOptions<SessionEventTestIdentityOptions>>().Value;
+            if (SessionEventTestIdentity.IsEnabled(environment, testIdentity))
             {
                 return new CompositeSessionEventIdentityAdapter(
                     application,
-                    new DevelopmentHarnessSessionEventIdentityAdapter(configuration));
+                    new DevelopmentHarnessSessionEventIdentityAdapter(
+                        sp.GetRequiredService<IOptions<SessionEventTestIdentityOptions>>()));
             }
 
-            return options.Enabled ? application : DisabledSessionEventIdentityAdapter.Instance;
+            return hostOptions.Enabled ? application : DisabledSessionEventIdentityAdapter.Instance;
         });
-    }
-
-    public static HumanAuthenticationHostOptions BindOptions(IConfiguration configuration, IHostEnvironment environment)
-    {
-        var acceptedAcr = configuration.GetSection("HumanAuthentication:AcceptedAcr").Get<string[]>() ?? [];
-        var acceptedAmr = configuration.GetSection("HumanAuthentication:AcceptedAmr").Get<string[]>() ?? [];
-        var trustedProxies = configuration.GetSection("HumanAuthentication:TrustedProxies").Get<string[]>() ?? [];
-        var requireHttps = !(environment.IsDevelopment() || environment.IsEnvironment("Testing"));
-        var parsedSkew = TimeSpan.FromSeconds(int.TryParse(configuration["HumanAuthentication:ClockSkewSeconds"], out var skew) ? skew : 60);
-        var parsedIdle = TimeSpan.FromMinutes(int.TryParse(configuration["HumanAuthentication:InactivityMinutes"], out var idle) ? idle : 30);
-        var parsedAbsolute = TimeSpan.FromHours(int.TryParse(configuration["HumanAuthentication:AbsoluteLifetimeHours"], out var abs) ? abs : 12);
-        return new HumanAuthenticationHostOptions
-        {
-            Enabled = string.Equals(configuration["HumanAuthentication:Enabled"], "true", StringComparison.OrdinalIgnoreCase),
-            Issuer = configuration["HumanAuthentication:Issuer"] ?? string.Empty,
-            ClientId = configuration["HumanAuthentication:ClientId"] ?? string.Empty,
-            AuthorizationEndpoint = configuration["HumanAuthentication:AuthorizationEndpoint"] ?? string.Empty,
-            TokenEndpoint = configuration["HumanAuthentication:TokenEndpoint"] ?? string.Empty,
-            JwksUri = configuration["HumanAuthentication:JwksUri"] ?? string.Empty,
-            EndSessionEndpoint = configuration["HumanAuthentication:EndSessionEndpoint"],
-            RedirectUri = configuration["HumanAuthentication:RedirectUri"] ?? string.Empty,
-            LifecycleBridgeKey = configuration["HumanAuthentication:LifecycleBridgeKey"],
-            AcceptedAcr = acceptedAcr.ToHashSet(StringComparer.Ordinal),
-            AcceptedAmr = acceptedAmr.ToHashSet(StringComparer.Ordinal),
-            ClockSkew = OidcValidationProfile.MaximumClockSkew < parsedSkew ? OidcValidationProfile.MaximumClockSkew : parsedSkew,
-            Inactivity = ApplicationSessionPolicy.BoundInactivity(parsedIdle),
-            AbsoluteLifetime = ApplicationSessionPolicy.BoundAbsoluteLifetime(parsedAbsolute),
-            TrustedProxies = trustedProxies,
-            RequireHttpsEndpoints = requireHttps,
-        };
     }
 
     private static byte[] RequireOrFallbackSecret(IHostEnvironment environment, bool enabled, string name)

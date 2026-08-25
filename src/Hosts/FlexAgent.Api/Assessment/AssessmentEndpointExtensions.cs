@@ -5,89 +5,12 @@ using FlexAgent.AssessmentConfiguration.Infrastructure;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
 using FlexAgent.IdentityAccess.Infrastructure;
-using FlexAgent.Postgres;
-using FlexAgent.Postgres.Audit;
-using FlexAgent.Postgres.Outbox;
 using Microsoft.AspNetCore.Antiforgery;
 
 namespace FlexAgent.Api;
 
-public static class AssessmentEndpointExtensions
+public static partial class AssessmentEndpointExtensions
 {
-    public static IServiceCollection AddAssessmentConfiguration(
-        this IServiceCollection services,
-        IConfiguration configuration,
-        IHostEnvironment environment)
-    {
-        var connectionString = HumanAuthenticationPersistencePolicy.ResolveConnectionString(configuration);
-        var productionLocked = environment.IsProduction() || environment.IsEnvironment("Staging");
-        if (string.IsNullOrWhiteSpace(connectionString) && productionLocked)
-        {
-            return services;
-        }
-
-        services.AddSingleton<IActivationBaselineDigester, ActivationBaselineDigester>();
-        services.AddSingleton<IAssessmentCommandDigest, AssessmentCommandDigest>();
-        services.AddSingleton<IAssessmentDraftHandler, AssessmentDraftHandler>();
-        services.AddSingleton<IAssessmentClock, SystemAssessmentClock>();
-        services.AddSingleton<IAssessmentActivationCoordinator, AssessmentActivationCoordinator>();
-
-        if (!string.IsNullOrWhiteSpace(connectionString))
-        {
-            if (services.All(descriptor => descriptor.ServiceType != typeof(Npgsql.NpgsqlDataSource)))
-            {
-                services.AddSingleton(_ => Npgsql.NpgsqlDataSource.Create(connectionString));
-                services.AddSingleton<PostgresConnectionAccessor>();
-            }
-
-            if (services.All(descriptor => descriptor.ServiceType != typeof(IAuthorizationKernel)))
-            {
-                services.AddSingleton<IAuthorizationKernel, PostgresAuthorizationKernel>();
-            }
-
-            if (services.All(descriptor => descriptor.ServiceType != typeof(ICommitAuthorizationKernel)))
-            {
-                services.AddSingleton<ICommitAuthorizationKernel>(sp =>
-                    sp.GetService<IAuthorizationKernel>() as ICommitAuthorizationKernel
-                    ?? ActivatorUtilities.CreateInstance<PostgresAuthorizationKernel>(sp));
-            }
-
-            if (services.All(descriptor => descriptor.ServiceType != typeof(IAuditEventWriter)))
-            {
-                services.AddSingleton<IAuditEventWriter, PostgresAuditEventWriter>();
-            }
-
-            if (services.All(descriptor => descriptor.ServiceType != typeof(IOutboxItemWriter)))
-            {
-                services.AddSingleton<IOutboxItemWriter, PostgresOutboxItemWriter>();
-            }
-
-            services.AddSingleton<PostgresAssessmentSourceCatalog>();
-            services.AddSingleton<IAssessmentSourceCatalog>(sp => sp.GetRequiredService<PostgresAssessmentSourceCatalog>());
-            services.AddSingleton<IAssessmentSourceTransactionPort>(sp => sp.GetRequiredService<PostgresAssessmentSourceCatalog>());
-            services.AddSingleton<IAssessmentDevelopmentSourceSeeder, NoOpAssessmentDevelopmentSourceSeeder>();
-            services.AddSingleton<IAssessmentDraftStore, PostgresAssessmentDraftStore>();
-            services.AddSingleton<IAssessmentAuthorizationPort, KernelAssessmentAuthorizationPort>();
-            services.AddSingleton<IAssessmentRelationshipResolver, PostgresAssessmentRelationshipResolver>();
-            services.AddSingleton<IAssessmentActivationUnitOfWork, PostgresAssessmentUnitOfWork>();
-            services.AddSingleton<IAssessmentBaselineStore, PostgresAssessmentBaselineStore>();
-            services.AddSingleton<IAssessmentActivationAttemptStore, PostgresAssessmentAttemptStore>();
-            return services;
-        }
-
-        services.AddSingleton<IAssessmentDraftStore, InMemoryAssessmentDraftStore>();
-        services.AddSingleton<InMemoryAssessmentSourceCatalog>();
-        services.AddSingleton<IAssessmentSourceCatalog>(sp => sp.GetRequiredService<InMemoryAssessmentSourceCatalog>());
-        services.AddSingleton<IAssessmentSourceTransactionPort>(sp => sp.GetRequiredService<InMemoryAssessmentSourceCatalog>());
-        services.AddSingleton<IAssessmentDevelopmentSourceSeeder>(sp => sp.GetRequiredService<InMemoryAssessmentSourceCatalog>());
-        services.AddSingleton<IAssessmentAuthorizationPort>(_ => new InMemoryAssessmentAuthorizationPort(permit: false));
-        services.AddSingleton<IAssessmentRelationshipResolver, EmptyAssessmentRelationshipResolver>();
-        services.AddSingleton<IAssessmentActivationUnitOfWork, InMemoryAssessmentUnitOfWork>();
-        services.AddSingleton<IAssessmentBaselineStore, InMemoryAssessmentBaselineStore>();
-        services.AddSingleton<IAssessmentActivationAttemptStore, InMemoryAssessmentAttemptStore>();
-        return services;
-    }
-
     public static IEndpointRouteBuilder MapAssessmentEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var environment = endpoints.ServiceProvider.GetRequiredService<IHostEnvironment>();
@@ -248,7 +171,7 @@ public static class AssessmentEndpointExtensions
         IAssessmentDevelopmentSourceSeeder seeder,
         IHostEnvironment hostEnvironment)
     {
-        if (!await ValidateMutationAsync(context, antiforgery))
+        if (!await EnrollmentEndpointExtensions.ValidateMutationAsync(context, antiforgery))
         {
             return;
         }
@@ -480,7 +403,7 @@ public static class AssessmentEndpointExtensions
         IAssessmentDraftStore store,
         IHostEnvironment hostEnvironment)
     {
-        if (!await ValidateMutationAsync(context, antiforgery))
+        if (!await EnrollmentEndpointExtensions.ValidateMutationAsync(context, antiforgery))
         {
             return;
         }
@@ -531,7 +454,7 @@ public static class AssessmentEndpointExtensions
         IAssessmentDevelopmentSourceSeeder seeder,
         IHostEnvironment hostEnvironment)
     {
-        if (!await ValidateMutationAsync(context, antiforgery))
+        if (!await EnrollmentEndpointExtensions.ValidateMutationAsync(context, antiforgery))
         {
             return;
         }
@@ -581,7 +504,7 @@ public static class AssessmentEndpointExtensions
         IAssessmentDevelopmentSourceSeeder seeder,
         IHostEnvironment hostEnvironment)
     {
-        if (!await ValidateMutationAsync(context, antiforgery))
+        if (!await EnrollmentEndpointExtensions.ValidateMutationAsync(context, antiforgery))
         {
             return;
         }
@@ -596,7 +519,10 @@ public static class AssessmentEndpointExtensions
         var actor = resolved.Actor;
 
         var request = await context.Request.ReadFromJsonAsync<ActivateRequest>(context.RequestAborted);
-        if (request is null)
+        if (request is null
+            || !AssessmentActivateRequestValidator.IsValid(
+                request.ExpectedRevisionId,
+                request.ExpectedRevisionNumber))
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             return;
@@ -639,14 +565,7 @@ public static class AssessmentEndpointExtensions
 
         var actor = resolved.Actor;
         var idempotencyKey = context.Request.Query["idempotency_key"].ToString();
-        if (string.IsNullOrWhiteSpace(idempotencyKey))
-        {
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            await context.Response.WriteAsJsonAsync(new { error = AssessmentFailureCodes.InvalidField });
-            return;
-        }
-
-        if (AssessmentIdempotencyKey.Validate(idempotencyKey) is not null)
+        if (!AssessmentReconcileQueryValidator.IsValid(idempotencyKey))
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             await context.Response.WriteAsJsonAsync(new { error = AssessmentFailureCodes.InvalidField });
@@ -662,21 +581,6 @@ public static class AssessmentEndpointExtensions
                 ? StatusCodes.Status400BadRequest
                 : StatusCodes.Status404NotFound;
         await context.Response.WriteAsJsonAsync(outcome);
-    }
-
-    private static async Task<bool> ValidateMutationAsync(HttpContext context, IAntiforgery antiforgery)
-    {
-        try
-        {
-            await antiforgery.ValidateRequestAsync(context);
-            return true;
-        }
-        catch (AntiforgeryValidationException)
-        {
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            await context.Response.WriteAsJsonAsync(new { error = "csrf.invalid" });
-            return false;
-        }
     }
 
     private static Task<ResolvedAssessmentActor?> TryActorAsync(
@@ -850,13 +754,5 @@ public static class AssessmentEndpointExtensions
     private sealed record ResolvedAssessmentActor(
         AssessmentActorContext Actor,
         AssessmentActorAuthorization Authorization);
-}
-
-file sealed class NoOpAssessmentDevelopmentSourceSeeder : IAssessmentDevelopmentSourceSeeder
-{
-    public void EnsureOrganization(Guid organizationId)
-    {
-        _ = organizationId;
-    }
 }
 

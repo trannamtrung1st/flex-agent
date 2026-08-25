@@ -11,37 +11,39 @@ public sealed class HumanAuthenticationHostOptions
     public const string AntiforgeryHeaderName = "X-Flex-CSRF";
     public const string LifecycleKeyHeaderName = "X-Flex-Auth-Lifecycle-Key";
 
-    public bool Enabled { get; init; }
+    public bool Enabled { get; set; }
 
-    public string Issuer { get; init; } = string.Empty;
+    public string Issuer { get; set; } = string.Empty;
 
-    public string ClientId { get; init; } = string.Empty;
+    public string ClientId { get; set; } = string.Empty;
 
-    public string AuthorizationEndpoint { get; init; } = string.Empty;
+    public string AuthorizationEndpoint { get; set; } = string.Empty;
 
-    public string TokenEndpoint { get; init; } = string.Empty;
+    public string TokenEndpoint { get; set; } = string.Empty;
 
-    public string JwksUri { get; init; } = string.Empty;
+    public string JwksUri { get; set; } = string.Empty;
 
-    public string? EndSessionEndpoint { get; init; }
+    public string? EndSessionEndpoint { get; set; }
 
-    public string RedirectUri { get; init; } = string.Empty;
+    public string RedirectUri { get; set; } = string.Empty;
 
-    public string? LifecycleBridgeKey { get; init; }
+    public string? LifecycleBridgeKey { get; set; }
 
-    public IReadOnlySet<string> AcceptedAcr { get; init; } = new HashSet<string>(StringComparer.Ordinal);
+    public IReadOnlySet<string> AcceptedAcr { get; set; } = new HashSet<string>(StringComparer.Ordinal);
 
-    public IReadOnlySet<string> AcceptedAmr { get; init; } = new HashSet<string>(StringComparer.Ordinal);
+    public IReadOnlySet<string> AcceptedAmr { get; set; } = new HashSet<string>(StringComparer.Ordinal);
 
-    public TimeSpan ClockSkew { get; init; } = TimeSpan.FromSeconds(60);
+    public TimeSpan ClockSkew { get; set; } = TimeSpan.FromSeconds(60);
 
-    public TimeSpan Inactivity { get; init; } = ApplicationSessionPolicy.MaximumInactivity;
+    public TimeSpan Inactivity { get; set; } = ApplicationSessionPolicy.MaximumInactivity;
 
-    public TimeSpan AbsoluteLifetime { get; init; } = ApplicationSessionPolicy.MaximumAbsoluteLifetime;
+    public TimeSpan AbsoluteLifetime { get; set; } = ApplicationSessionPolicy.MaximumAbsoluteLifetime;
 
-    public IReadOnlyList<string> TrustedProxies { get; init; } = [];
+    public IReadOnlyList<string> TrustedProxies { get; set; } = [];
 
-    public bool RequireHttpsEndpoints { get; init; } = true;
+    public bool RequireHttpsEndpoints { get; set; } = true;
+
+    public string? SecretDirectory { get; set; }
 
     public bool IsComplete =>
         Enabled

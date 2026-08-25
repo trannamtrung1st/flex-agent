@@ -7,17 +7,20 @@ using FlexAgent.Sessions.Application;
 using FlexAgent.Sessions.Domain;
 using FlexAgent.Sessions.Infrastructure;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
 using Npgsql;
 
 namespace FlexAgent.Api;
 
 public sealed class SessionEventSubscriptionOptions
 {
-    public TimeSpan AuthorizationRevalidationInterval { get; init; } = TimeSpan.FromSeconds(60);
+    public const string SectionName = "SessionEvents:Subscription";
 
-    public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(1);
+    public TimeSpan AuthorizationRevalidationInterval { get; set; } = TimeSpan.FromSeconds(60);
 
-    public TimeSpan HeartbeatInterval { get; init; } = TimeSpan.FromSeconds(15);
+    public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(1);
+
+    public TimeSpan HeartbeatInterval { get; set; } = TimeSpan.FromSeconds(15);
 }
 
 public sealed record TrustedInteractiveActor(
@@ -81,7 +84,7 @@ public sealed class DisabledSessionEventIdentityAdapter : ISessionEventIdentityA
     }
 }
 
-public sealed class DevelopmentHarnessSessionEventIdentityAdapter(IConfiguration configuration)
+public sealed class DevelopmentHarnessSessionEventIdentityAdapter(IOptions<SessionEventTestIdentityOptions> options)
     : ISessionEventIdentityAdapter
 {
     public Task<TrustedRuntimeActor?> TryAuthenticateAsync(
@@ -91,10 +94,10 @@ public sealed class DevelopmentHarnessSessionEventIdentityAdapter(IConfiguration
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var expected = configuration["SessionEvents:TestIdentity:HarnessApiKey"];
+        var identity = options.Value;
         var presented = request.Headers[SessionEventEndpointExtensions.TestHarnessKeyHeaderName].FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(expected)
-            || !string.Equals(presented, expected, StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(identity.HarnessApiKey)
+            || !string.Equals(presented, identity.HarnessApiKey, StringComparison.Ordinal))
         {
             return Task.FromResult<TrustedRuntimeActor?>(null);
         }
@@ -161,20 +164,16 @@ public sealed class SessionsStoreReadinessCheck(NpgsqlDataSource dataSource) : I
 
 internal static class SessionEventTestIdentity
 {
-    public static bool IsEnabled(IHostEnvironment environment, IConfiguration configuration)
+    public static bool IsEnabled(IHostEnvironment environment, SessionEventTestIdentityOptions options)
     {
         ArgumentNullException.ThrowIfNull(environment);
-        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(options);
         if (!(environment.IsDevelopment() || environment.IsEnvironment("Testing")))
         {
             return false;
         }
 
-        return string.Equals(
-                   configuration["SessionEvents:TestIdentity:Enabled"],
-                   "true",
-                   StringComparison.OrdinalIgnoreCase)
-               && !string.IsNullOrWhiteSpace(configuration["SessionEvents:TestIdentity:HarnessApiKey"]);
+        return options.Enabled && !string.IsNullOrWhiteSpace(options.HarnessApiKey);
     }
 }
 
@@ -189,7 +188,11 @@ internal static class ApiSessionEventComposition
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(environment);
 
-        services.AddSingleton(new SessionEventSubscriptionOptions());
+        services.AddOptions<SessionEventSubscriptionOptions>()
+            .Bind(configuration.GetSection(SessionEventSubscriptionOptions.SectionName));
+        services.AddOptions<SessionEventTestIdentityOptions>()
+            .Bind(configuration.GetSection(SessionEventTestIdentityOptions.SectionName));
+        services.AddSingleton(sp => sp.GetRequiredService<IOptions<SessionEventSubscriptionOptions>>().Value);
 
         var connectionString = configuration.GetConnectionString("Sessions");
         if (string.IsNullOrWhiteSpace(connectionString))

@@ -40,7 +40,7 @@ public static class EnrollmentTimingEndpointExtensions
         }
 
         var result = await queries.GetEnrollmentTimingAsync(actor, activityId, cohortId, enrollmentId, context.RequestAborted);
-        await EnrollmentEndpointExtensions.WriteQuery(context, result, ProjectEnrollmentTiming);
+        await EnrollmentEndpointExtensions.WriteQuery(context, result, EnrollmentTimingResponseMapper.MapEnrollmentTiming);
     }
 
     private static async Task GetMyWorkTiming(
@@ -55,7 +55,7 @@ public static class EnrollmentTimingEndpointExtensions
         }
 
         var result = await queries.GetMyWorkTimingAsync(actor, enrollmentId, context.RequestAborted);
-        await EnrollmentEndpointExtensions.WriteQuery(context, result, ProjectMyWorkTiming);
+        await EnrollmentEndpointExtensions.WriteQuery(context, result, EnrollmentTimingResponseMapper.MapMyWorkTiming);
     }
 
     private static Task GrantAccommodation(
@@ -68,17 +68,12 @@ public static class EnrollmentTimingEndpointExtensions
         MutateAsync(context, antiforgery, async actor =>
         {
             var body = await EnrollmentEndpointExtensions.TryReadCommandAsync<GrantAccommodationCommandV2>(context);
-            if (body is null
-                || !string.Equals(body.SchemaVersion, "v2", StringComparison.Ordinal)
-                || EnrollmentIdempotencyKey.Validate(body.IdempotencyKey) is not null
-                || !EnrollmentHttpLimits.IsValidAccommodationRevision(body.ExpectedRevision)
-                || string.IsNullOrWhiteSpace(body.Dimension)
-                || string.IsNullOrWhiteSpace(body.RequestedValue)
-                || string.IsNullOrWhiteSpace(body.ReasonCategory))
+            if (!GrantAccommodationRequestValidator.IsValid(body))
             {
                 return null;
             }
 
+            var command = body!;
             var digest = AccommodationCommandDigest.Compute(
                 AccommodationOperationKinds.Grant,
                 actor.Organization.OrganizationId,
@@ -86,25 +81,25 @@ public static class EnrollmentTimingEndpointExtensions
                 cohortId,
                 enrollmentId,
                 null,
-                body.Dimension,
-                body.RequestedValue,
-                body.ReasonCategory,
-                body.FairnessException,
-                body.ExpectedRevision,
-                body.ExpiresAtUtc);
+                command.Dimension,
+                command.RequestedValue,
+                command.ReasonCategory,
+                command.FairnessException,
+                command.ExpectedRevision,
+                command.ExpiresAtUtc);
             return await coordinator.GrantAsync(
                 new GrantAccommodationCommand(
                     actor,
                     activityId,
                     cohortId,
                     enrollmentId,
-                    body.Dimension,
-                    body.RequestedValue,
-                    body.ReasonCategory,
-                    body.ExpiresAtUtc,
-                    body.FairnessException,
-                    body.ExpectedRevision,
-                    body.IdempotencyKey,
+                    command.Dimension,
+                    command.RequestedValue,
+                    command.ReasonCategory,
+                    command.ExpiresAtUtc,
+                    command.FairnessException,
+                    command.ExpectedRevision,
+                    command.IdempotencyKey,
                     digest),
                 context.RequestAborted);
         });
@@ -120,14 +115,12 @@ public static class EnrollmentTimingEndpointExtensions
         MutateAsync(context, antiforgery, async actor =>
         {
             var body = await EnrollmentEndpointExtensions.TryReadCommandAsync<DecideAccommodationCommandV2>(context);
-            if (body is null
-                || !string.Equals(body.SchemaVersion, "v2", StringComparison.Ordinal)
-                || EnrollmentIdempotencyKey.Validate(body.IdempotencyKey) is not null
-                || !EnrollmentHttpLimits.IsValidAccommodationRevision(body.ExpectedRevision))
+            if (!DecideAccommodationRequestValidator.IsValid(body))
             {
                 return null;
             }
 
+            var command = body!;
             var digest = AccommodationCommandDigest.Compute(
                 AccommodationOperationKinds.Decide,
                 actor.Organization.OrganizationId,
@@ -138,8 +131,8 @@ public static class EnrollmentTimingEndpointExtensions
                 null,
                 null,
                 null,
-                body.Approve,
-                body.ExpectedRevision);
+                command.Approve,
+                command.ExpectedRevision);
             return await coordinator.DecideAsync(
                 new DecideAccommodationCommand(
                     actor,
@@ -147,9 +140,9 @@ public static class EnrollmentTimingEndpointExtensions
                     cohortId,
                     enrollmentId,
                     accommodationId,
-                    body.Approve,
-                    body.ExpectedRevision,
-                    body.IdempotencyKey,
+                    command.Approve,
+                    command.ExpectedRevision,
+                    command.IdempotencyKey,
                     digest),
                 context.RequestAborted);
         });
@@ -165,14 +158,12 @@ public static class EnrollmentTimingEndpointExtensions
         MutateAsync(context, antiforgery, async actor =>
         {
             var body = await EnrollmentEndpointExtensions.TryReadCommandAsync<RevokeAccommodationCommandV2>(context);
-            if (body is null
-                || !string.Equals(body.SchemaVersion, "v2", StringComparison.Ordinal)
-                || EnrollmentIdempotencyKey.Validate(body.IdempotencyKey) is not null
-                || !EnrollmentHttpLimits.IsValidAccommodationRevision(body.ExpectedRevision))
+            if (!RevokeAccommodationRequestValidator.IsValid(body))
             {
                 return null;
             }
 
+            var command = body!;
             var digest = AccommodationCommandDigest.Compute(
                 AccommodationOperationKinds.Revoke,
                 actor.Organization.OrganizationId,
@@ -184,7 +175,7 @@ public static class EnrollmentTimingEndpointExtensions
                 null,
                 null,
                 false,
-                body.ExpectedRevision);
+                command.ExpectedRevision);
             return await coordinator.RevokeAsync(
                 new RevokeAccommodationCommand(
                     actor,
@@ -192,8 +183,8 @@ public static class EnrollmentTimingEndpointExtensions
                     cohortId,
                     enrollmentId,
                     accommodationId,
-                    body.ExpectedRevision,
-                    body.IdempotencyKey,
+                    command.ExpectedRevision,
+                    command.IdempotencyKey,
                     digest),
                 context.RequestAborted);
         });
@@ -241,88 +232,4 @@ public static class EnrollmentTimingEndpointExtensions
             outcome.Revision,
             outcome.PermittedActions));
     }
-
-    private static EnrollmentTimingV2 ProjectEnrollmentTiming(EnrollmentTimingDetail detail) =>
-        new(
-            "v2",
-            new EnrollmentTimingEnrollmentV2(
-                detail.Summary.EnrollmentId,
-                detail.Summary.Status,
-                detail.Summary.Revision,
-                detail.Summary.Visibility,
-                detail.Summary.PermittedActions),
-            ProjectBaseline(detail.Baseline),
-            ProjectEffective(detail.Timing),
-            ProjectCurrent(detail.Timing),
-            detail.PolicyAvailable,
-            detail.PermittedAccommodationDimensions,
-            detail.PermittedReasonCategories,
-            detail.History.Select(ProjectHistory).ToArray());
-
-    private static MyWorkTimingV2 ProjectMyWorkTiming(AssignmentTimingSummary detail) =>
-        new(
-            "v2",
-            new MyWorkTimingAssignmentV2(
-                detail.Assignment.EnrollmentId,
-                detail.Assignment.Status,
-                detail.Assignment.Visibility,
-                detail.Assignment.ActivityTitle,
-                detail.Assignment.TaskTitle,
-                detail.Assignment.TimeZoneId,
-                EnrollmentEndpointExtensions.FormatUtc(detail.Assignment.StartsAtUtc),
-                EnrollmentEndpointExtensions.FormatUtc(detail.Assignment.EndsAtUtc),
-                EnrollmentEndpointExtensions.FormatUtc(detail.Assignment.DeadlineUtc),
-                detail.Assignment.SummaryAvailable,
-                detail.Assignment.PermittedActions),
-            detail.Timing is null ? null : ProjectEffective(detail.Timing),
-            detail.ParticipantConsequenceCode);
-
-    private static TimingBaselineV2 ProjectBaseline(BaselineTiming baseline) =>
-        new(
-            RequiredUtc(baseline.StartsAtUtc),
-            RequiredUtc(baseline.EndsAtUtc),
-            RequiredUtc(baseline.DeadlineUtc),
-            baseline.TimeZoneId,
-            baseline.AttemptLimit,
-            baseline.PerAttemptDurationSeconds);
-
-    private static IReadOnlyList<CurrentAccommodationEffectV2> ProjectCurrent(EffectiveTiming timing) =>
-        timing.CurrentAccommodations
-            .Select(item => new CurrentAccommodationEffectV2(
-                item.AccommodationId,
-                item.Dimension,
-                item.ConsequenceCode))
-            .ToArray();
-
-    private static TimingEffectiveWindowV2 ProjectEffective(EffectiveTiming timing) =>
-        new(
-            RequiredUtc(timing.EffectiveSubmissionStartUtc),
-            RequiredUtc(timing.EffectiveSubmissionExclusiveEndUtc),
-            RequiredUtc(timing.EffectiveAttemptStartUtc),
-            RequiredUtc(timing.EffectiveAttemptStartExclusiveEndUtc),
-            timing.EffectivePerAttemptDurationSeconds,
-            RequiredUtc(timing.EvaluatedAtUtc),
-            timing.EligibilityState,
-            timing.IsAuthoritativeEligibility,
-            timing.TimeZoneId,
-            timing.ParticipantConsequenceCode);
-
-    private static AccommodationHistoryItemV2 ProjectHistory(Accommodation item) =>
-        new(
-            item.AccommodationId,
-            item.Dimension,
-            item.Status,
-            item.NormalizedValue,
-            item.ReasonCategory,
-            item.FairnessException,
-            item.Revision,
-            RequiredUtc(item.CreatedAtUtc),
-            EnrollmentEndpointExtensions.FormatUtc(item.DecidedAtUtc),
-            item.ExpiresAtUtc is null
-                ? null
-                : AccommodationPolicyNormalizer.FormatCanonicalInstant(item.ExpiresAtUtc.Value));
-
-    private static string RequiredUtc(DateTimeOffset value) =>
-        EnrollmentEndpointExtensions.FormatUtc(value)
-        ?? throw new InvalidOperationException("Timing projection requires a UTC instant.");
 }
