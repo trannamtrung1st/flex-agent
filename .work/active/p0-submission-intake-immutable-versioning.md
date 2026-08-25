@@ -631,6 +631,10 @@ Session rows remain unimplemented or Partial as governed by their owners.
 - [x] Remediate `3dbb93f` review: do not unique-index disposition audit facts;
   add a separate disposition acquisition guard; join reconstructed cleanup
   provenance to intake/accepted parents (legacy kind when unknown).
+- [x] Remediate `0b2527a` review: restore shipped `3dbb93f` `0057` checksum;
+  drop the disposition unique index in additive `0059`; give accepted-version
+  reconstruction precedence (including accepted intake + item overlap) and
+  recover `version_id`.
 - [>] Re-run independent backend, frontend, security/privacy, and QA review for
   remaining planned slice work after this remediation; reconcile actual
   changes with this plan and the governing sources, update truthful
@@ -638,21 +642,21 @@ Session rows remain unimplemented or Partial as governed by their owners.
 
 # Current state
 
-The slice remains **in progress**. Independent review of `3dbb93f` requested
-upgrade-safe duplicate dispositions and accurate reconstructed provenance;
+The slice remains **in progress**. Independent review of `0b2527a` requested
+restoring `0057` immutability and fixing accepted intake+version reconstruction;
 those fixes are in this working tree:
 
-- `0055` remains the `8b4aae1` checksum. `0057` no longer creates a unique
-  index on `submissions_artifact_dispositions` (historical duplicate facts
-  must remain). Databases that applied the `3dbb93f` `0057` checksum must be
-  recreated.
-- Additive `0058` adds `submissions_artifact_disposition_guards` as the unique
-  future-acquisition key, backfills one guard per artifact from the earliest
-  disposition, expands `cleanup_legacy_reconstruction`, and rewrites
-  reconstructed failed work from joinable intake/accepted parents. Orphan
-  unversioned items keep explicit legacy kind/reason instead of invented
-  `cleanup_incomplete`.
-- Runtime `RecordAsync` acquires the guard, then inserts a disposition fact.
+- `0057` is restored byte-for-byte to `3dbb93f` (unique index included). Do not
+  edit `0001`–`0058`. Databases that applied the edited `0b2527a` `0057` must
+  be recreated. `3dbb93f` databases can apply `0058`/`0059` without a `0057`
+  checksum mismatch. Historical duplicate disposition rows that already
+  prevented `3dbb93f` `0057` from applying still cannot reach later scripts;
+  that path remains a recreate/manual exception, not a rewritten checksum.
+- Additive `0059` drops `uq_submissions_artifact_dispositions_artifact` if
+  present and overwrites reconstructed failed work that matches an accepted
+  version item to `cleanup_accepted` with enrollment and `version_id`, even
+  when `0057` first created an intake-derived row (`intake_id` not null).
+- `0058` guard table is unchanged.
 
 Retention still uses `ApprovedDefaultAcceptedPayloadLifecyclePolicyPort`
 (`IndependentlyResolvedFromOwner=false`). No UI behavior changed.
@@ -771,9 +775,9 @@ recorded residual gaps are accepted.
   material-policy source. Development/Testing use environment-eligible OPS
   defaults; Production/Staging remain fail-closed.
 - **Migration/contracts gap (closed for canonical contracts):** persistence head
-  is `0058` with disposition acquisition guards and join-accurate reconstruction,
-  plus `0057` terminal-failure reconstruction (no unique index on disposition
-  facts), `0056` replica-safe scan generation, `0055` exact-version backfill
+  is `0059` with accepted-reconstruction precedence and disposition unique-index
+  drop, plus `0058` disposition acquisition guards, `0057` as shipped at
+  `3dbb93f`, `0056` replica-safe scan generation, `0055` exact-version backfill
   (shipped checksum), and
   `0048`–`0054` intake/
   version/hold/capability tables; v2 Submission command/outcome/My work/
@@ -873,7 +877,7 @@ recorded residual gaps are accepted.
 | SeaweedFS/AWS SDK artifact compatibility | passed — scope isolation plus exact-version delete | `FlexAgent.Artifact.Integration.Tests` **9 passed** against `chrislusf/seaweedfs:4.29`: conditional create, exact-version get, exact-version delete then GET-fail, presigned download, digest verification, and negative get/put/delete/upload-presign/download-presign scope checks (`scope_mismatch`). Paired restore as a joint backup product remains open. |
 | Frozen/current material-policy authority | partial | Assessment verifies activated Task identity (`OwnerMaterialPolicyPortTests` **5 passed**). Testing/Development org policy is environment-eligible OPS defaults. Production/Staging org policy still returns `null` (`policy_unavailable`) until Configuration stores a current material-policy version. |
 | Domain red/green | passed for intake receipt plus cleanup correctness | `FlexAgent.Submissions.Tests` **113 passed** on 2026-08-25, including missing-version terminal `failed`, 20-held persisted scan cursor, scan CAS, and two-replica accepted-cleanup duplicate no-op after peer disposition (red: duplicate returned `failed`; green: both `completed`, one delete, one disposition). |
-| PostgreSQL migration/isolation/concurrency/audit | partial | Head `0058`. Shipped `0055` matches `8b4aae1`. Persistence + scan CAS **15 passed**. Upgrade: backfill, shipped-`0055` unbackfillable `DELETE`, duplicate-disposition guard, orphan legacy reconstruction, rejected-intake kind/enrollment, and accepted enrollment **6 passed**. Recreate databases that applied the `3dbb93f` `0057` checksum (unique index removed). Full Postgres suite not re-run. |
+| PostgreSQL migration/isolation/concurrency/audit | partial | Head `0059`. `0057` blob matches `3dbb93f` (`3c2ab5b4…`). Persistence + scan CAS not re-run this pass. Upgrade **6 passed**: backfill, orphan legacy reconstruction, `0059` index drop plus later duplicate facts, rejected-intake, accepted-only, and accepted intake+version overlap (`cleanup_accepted` with enrollment and `version_id`). Recreate databases that applied edited `0b2527a` `0057`. Historical duplicate facts that already blocked `3dbb93f` `0057` still cannot apply that script. Full Postgres suite not re-run. |
 | Canonical schema/OpenAPI/C#/TypeScript parity | passed for added v2 Submission contracts | Catalog **33** representative schemas; `FlexAgent.Contract.Tests` **173 passed**; OpenAPI `$ref` for My work, version detail, and preview. Node OpenAPI parity **8 passed**. |
 | HTTP CSRF/admission/isolation | passed for added negatives | `SubmissionHttpNegativeContractTests` **9 passed**: begin/cancel/finalize CSRF, unauthenticated submission/version-detail/preview/download `no-store`, unauthenticated skip of shared admission, exhausted shared admission without protected query. |
 | API/Worker integration | partial | v2 routes: query, begin, complete-item, cancel, finalize, version detail, item preview, item download. Artifact store: SeaweedFS when `ArtifactStorage` is configured. Cleanup loop is API-hosted, not Worker-hosted. Finalize scanner calls are outside the DB transaction. |

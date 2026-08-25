@@ -74,6 +74,7 @@ public sealed class MigrationUpgradeTests
     private const string Current0056ScriptName = "0056_submission_cleanup_scan_generation.sql";
     private const string Current0057ScriptName = "0057_submission_cleanup_terminal_failure_and_disposition_uniqueness.sql";
     private const string Current0058ScriptName = "0058_submission_cleanup_disposition_guard_and_reconstruction.sql";
+    private const string Current0059ScriptName = "0059_submission_cleanup_accepted_reconstruction_precedence.sql";
 
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
@@ -154,7 +155,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -728,7 +730,7 @@ public sealed class MigrationUpgradeTests
             connectionString,
             migrationsDirectory,
             cancellationToken,
-            inclusiveMaxScriptName: Current0058ScriptName);
+            inclusiveMaxScriptName: Current0059ScriptName);
 
         await using var after = new NpgsqlConnection(connectionString);
         await after.OpenAsync(cancellationToken);
@@ -763,7 +765,7 @@ public sealed class MigrationUpgradeTests
     }
 
     [Fact]
-    public async Task Upgrade_from_0056_duplicate_dispositions_are_preserved_behind_a_guard()
+    public async Task Upgrade_from_0059_drops_disposition_unique_index_and_keeps_later_duplicate_facts()
     {
         await using var container = await StartContainerAsync();
         var connectionString = container.GetConnectionString();
@@ -789,14 +791,12 @@ public sealed class MigrationUpgradeTests
                 INSERT INTO submissions_artifact_dispositions (
                     organization_id, disposition_id, work_kind, artifact_object_key, disposed_at)
                 VALUES
-                    (@OrganizationId, @FirstDispositionId, 'cleanup_accepted', @ArtifactObjectKey, CLOCK_TIMESTAMP()),
-                    (@OrganizationId, @SecondDispositionId, 'cleanup_accepted', @ArtifactObjectKey, CLOCK_TIMESTAMP() + INTERVAL '1 second');
+                    (@OrganizationId, @FirstDispositionId, 'cleanup_accepted', @ArtifactObjectKey, CLOCK_TIMESTAMP());
                 """,
                 new
                 {
                     OrganizationId = organizationId,
                     FirstDispositionId = firstDispositionId,
-                    SecondDispositionId = secondDispositionId,
                     ArtifactObjectKey = objectKey,
                 });
         }
@@ -805,10 +805,23 @@ public sealed class MigrationUpgradeTests
             connectionString,
             migrationsDirectory,
             cancellationToken,
-            inclusiveMaxScriptName: Current0058ScriptName);
+            inclusiveMaxScriptName: Current0059ScriptName);
 
         await using var after = new NpgsqlConnection(connectionString);
         await after.OpenAsync(cancellationToken);
+        await after.ExecuteAsync(
+            """
+            INSERT INTO submissions_artifact_dispositions (
+                organization_id, disposition_id, work_kind, artifact_object_key, disposed_at)
+            VALUES
+                (@OrganizationId, @SecondDispositionId, 'cleanup_accepted', @ArtifactObjectKey, CLOCK_TIMESTAMP());
+            """,
+            new
+            {
+                OrganizationId = organizationId,
+                SecondDispositionId = secondDispositionId,
+                ArtifactObjectKey = objectKey,
+            });
         var dispositionCount = await after.ExecuteScalarAsync<int>(
             """
             SELECT COUNT(*)::int
@@ -1003,6 +1016,118 @@ public sealed class MigrationUpgradeTests
             migrationsDirectory,
             cancellationToken,
             inclusiveMaxScriptName: Current0058ScriptName);
+
+        await using var after = new NpgsqlConnection(connectionString);
+        await after.OpenAsync(cancellationToken);
+        var reconstructed = await after.QuerySingleAsync<(string Status, string WorkKind, Guid? EnrollmentId, Guid? VersionId)>(
+            """
+            SELECT status, work_kind, enrollment_id, version_id
+            FROM submissions_durable_work
+            WHERE organization_id = @OrganizationId AND artifact_object_key = @ArtifactObjectKey
+            """,
+            new { OrganizationId = organizationId, ArtifactObjectKey = objectKey });
+        Assert.Equal("failed", reconstructed.Status);
+        Assert.Equal("cleanup_accepted", reconstructed.WorkKind);
+        Assert.Equal(enrollmentId, reconstructed.EnrollmentId);
+        Assert.Equal(versionId, reconstructed.VersionId);
+    }
+
+    [Fact]
+    public async Task Upgrade_from_0059_accepted_intake_overlap_reconstructs_accepted_kind_and_version()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            cancellationToken,
+            inclusiveMaxScriptName: Current0053ScriptName);
+
+        var organizationId = Guid.CreateVersion7();
+        var enrollmentId = Guid.CreateVersion7();
+        var intakeId = Guid.CreateVersion7();
+        var versionId = Guid.CreateVersion7();
+        var workId = Guid.CreateVersion7();
+        var objectKey = $"org/{organizationId:D}/{Guid.CreateVersion7():D}";
+        var digest = new string('a', 64);
+
+        await using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync(cancellationToken);
+            await connection.ExecuteAsync(
+                """
+                SET session_replication_role = replica;
+                INSERT INTO submissions_intakes (
+                    organization_id, intake_id, submission_id, activity_id, cohort_id, baseline_id,
+                    enrollment_id, participant_actor_id, task_source_id, task_version_id,
+                    task_content_digest, status, revision, policy_digest,
+                    frozen_requirement_source_id, frozen_requirement_version_id, frozen_requirement_digest,
+                    organization_policy_source_id, organization_policy_version_id, organization_policy_digest,
+                    created_at, updated_at, complete_receipt_at)
+                VALUES (
+                    @OrganizationId, @IntakeId, @SubmissionId, @ActivityId, @CohortId, @BaselineId,
+                    @EnrollmentId, @ParticipantId, @TaskSourceId, @TaskVersionId,
+                    @Digest, 'accepted', 1, @Digest,
+                    @TaskSourceId, @TaskVersionId, @Digest,
+                    @TaskSourceId, @TaskVersionId, @Digest,
+                    CLOCK_TIMESTAMP(), CLOCK_TIMESTAMP(), CLOCK_TIMESTAMP());
+                INSERT INTO submissions_intake_items (
+                    organization_id, intake_id, item_id, category, filename, declared_mime_type,
+                    byte_count, content_digest, artifact_object_key, artifact_version_id, received_at)
+                VALUES (
+                    @OrganizationId, @IntakeId, @IntakeItemId, 'direct_text', NULL, 'text/plain',
+                    12, @Digest, @ArtifactObjectKey, NULL, CLOCK_TIMESTAMP());
+                INSERT INTO submissions_accepted_versions (
+                    organization_id, submission_id, version_id, version_number, activity_id, cohort_id,
+                    baseline_id, enrollment_id, participant_actor_id, task_source_id, task_version_id,
+                    task_content_digest, policy_digest, predecessor_version_id, accepted_at, accepted_by_actor_id)
+                VALUES (
+                    @OrganizationId, @SubmissionId, @VersionId, 1, @ActivityId, @CohortId,
+                    @BaselineId, @EnrollmentId, @ParticipantId, @TaskSourceId, @TaskVersionId,
+                    @Digest, @Digest, NULL, CLOCK_TIMESTAMP(), @ParticipantId);
+                INSERT INTO submissions_accepted_version_items (
+                    organization_id, version_id, item_id, category, filename, byte_count, content_digest,
+                    artifact_object_key, artifact_version_id)
+                VALUES (
+                    @OrganizationId, @VersionId, @AcceptedItemId, 'direct_text', NULL, 12, @Digest,
+                    @ArtifactObjectKey, '');
+                INSERT INTO submissions_durable_work (
+                    organization_id, work_id, work_kind, enrollment_id, intake_id, version_id,
+                    status, attempt_count, available_at, lease_until, artifact_object_key, created_at)
+                VALUES (
+                    @OrganizationId, @WorkId, 'cleanup_accepted', @EnrollmentId, @IntakeId, @VersionId,
+                    'pending', 0, CLOCK_TIMESTAMP(), NULL, @ArtifactObjectKey, CLOCK_TIMESTAMP());
+                SET session_replication_role = DEFAULT;
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    IntakeId = intakeId,
+                    SubmissionId = Guid.CreateVersion7(),
+                    ActivityId = Guid.CreateVersion7(),
+                    CohortId = Guid.CreateVersion7(),
+                    BaselineId = Guid.CreateVersion7(),
+                    EnrollmentId = enrollmentId,
+                    ParticipantId = Guid.CreateVersion7(),
+                    TaskSourceId = Guid.CreateVersion7(),
+                    TaskVersionId = Guid.CreateVersion7(),
+                    Digest = digest,
+                    IntakeItemId = Guid.CreateVersion7(),
+                    VersionId = versionId,
+                    AcceptedItemId = Guid.CreateVersion7(),
+                    WorkId = workId,
+                    ArtifactObjectKey = objectKey,
+                });
+        }
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            cancellationToken,
+            inclusiveMaxScriptName: Current0059ScriptName);
 
         await using var after = new NpgsqlConnection(connectionString);
         await after.OpenAsync(cancellationToken);
@@ -1459,7 +1584,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -1539,7 +1665,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -1619,7 +1746,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -1699,7 +1827,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -1779,7 +1908,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -1859,7 +1989,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -1939,7 +2070,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -2084,7 +2216,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -2164,7 +2297,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -2244,7 +2378,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -2462,7 +2597,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -2547,7 +2683,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -2637,7 +2774,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -2738,7 +2876,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -2859,7 +2998,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -2951,7 +3091,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
     }
 
     [Fact]
@@ -3411,7 +3552,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -3518,7 +3660,8 @@ public sealed class MigrationUpgradeTests
             Current0055ScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
-            Current0058ScriptName);
+            Current0058ScriptName,
+            Current0059ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
