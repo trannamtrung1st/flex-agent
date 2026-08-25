@@ -15,6 +15,12 @@ paths = ['''(?i)contracts/fixtures/''']
 regexes = ['''(?i)^(idem-synthetic|enr-assign-synthetic|enr-suspend-synthetic|acc-grant-synthetic|acc-decide-synthetic|acc-revoke-synthetic|intake-begin-synthetic|intake-complete-synthetic|intake-finalize-synthetic)-\d{4}$''']
 
 [[rules.allowlists]]
+description = "Documented quotes of the same synthetic idempotency_key values in implementation task records."
+condition = "AND"
+paths = ['''(?i)\.work/active/''']
+regexes = ['''(?i)^(idem-synthetic|enr-assign-synthetic|enr-suspend-synthetic|acc-grant-synthetic|acc-decide-synthetic|acc-revoke-synthetic|intake-begin-synthetic|intake-complete-synthetic|intake-finalize-synthetic)-\d{4}$''']
+
+[[rules.allowlists]]
 description = "Synthetic Submission HTTP negative-test idempotency keys."
 condition = "AND"
 paths = ['''(?i)tests/Runtime/FlexAgent.Runtime.Tests/SubmissionHttpNegativeContractTests.cs''']

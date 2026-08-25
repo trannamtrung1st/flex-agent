@@ -669,6 +669,8 @@ Session rows remain unimplemented or Partial as governed by their owners.
   instead of `String(init.body)`.
 - [x] Unblock supply-chain Secret scan on `956f6bb`: fingerprint the
   historical timing-task verification note that quoted a fixture key.
+- [x] Unblock supply-chain Secret scan on `d0f03dc`: allowlist synthetic
+  fixture-key quotes under `.work/active/` for shallow CI checkouts.
 - [ ] Independent review of the `e96290c` P2 remediations.
 - [ ] Re-run independent backend, frontend, security/privacy, and QA review for
   remaining planned slice work after this continuation; reconcile actual

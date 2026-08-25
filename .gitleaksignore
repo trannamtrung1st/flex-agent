@@ -20,6 +20,7 @@
 # wording fixed in a follow-up commit.
 b3e4d71ade79df8eebd3c653399ce5c9a9891a73:.work/active/postgres-authorization-configuration-foundation.md:generic-api-key:117
 
-# a186bad — timing-task verification note quoted acc-revoke-synthetic-0001
-# after the fixture allowlist; later wording moved the line.
+# a186bad — timing-task verification note quoted a synthetic revoke
+# fixture key; later wording moved the line. Current task records are
+# allowlisted in gitleaks.toml under .work/active/.
 a186bad5d6a55f18a9361da24b6ec817d014c820:.work/active/p0-participant-timing-accommodations.md:generic-api-key:563
