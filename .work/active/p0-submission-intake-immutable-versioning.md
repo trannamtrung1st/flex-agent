@@ -4,6 +4,7 @@ status: in-progress
 created: 2026-08-24
 updated: 2026-08-25
 review_chain_closeout_commit: b67a922
+cleanup_remediation_closeout_commit: 479c851
 predecessors:
   - p0-assessment-setup-cohort-activation
   - p0-enrollment-assignment-discovery
@@ -638,6 +639,10 @@ Session rows remain unimplemented or Partial as governed by their owners.
 - [x] Remediate `c84e960` review: non-destructive upgrade for databases already
   sitting on duplicate disposition facts at `0056`, without editing immutable
   `0057`/`0058`/`0059` or rewriting history.
+- [x] Record external review approval of `479c851` — the accepted-payload
+  cleanup / disposition-upgrade remediation chain from `7e7ffd8` through
+  `c84e960` is closed with no remaining blocking findings; no further
+  remediation commit is requested from that chain.
 - [>] Re-run independent backend, frontend, security/privacy, and QA review for
   remaining planned slice work after this remediation; reconcile actual
   changes with this plan and the governing sources, update truthful
@@ -645,13 +650,22 @@ Session rows remain unimplemented or Partial as governed by their owners.
 
 # Current state
 
-The slice remains **in progress**. Independent review of `c84e960` asked for a
-non-destructive upgrade of databases already sitting on duplicate disposition
-facts at `0056`. Additive `0056a` parks extra facts, immutable `0057` can create
-its unique index, `0059` drops that index, and additive `0060` restores the
-parked facts. `0001`–`0059` are not edited. Databases that applied the edited
-`0b2527a` `0057` still need recreate for checksum mismatch. Do not leave
-`3dbb93f` replicas serving cleanup against a schema through `0059`.
+The slice remains **in progress**. Independent review of `479c851` approved
+the cleanup/disposition-upgrade remediation with **no blocking findings**. The
+`c84e960` P1 is closed: `0056a` parks extra historical disposition facts,
+immutable `0057` keeps its shipped checksum, `0058`/`0059` stay unedited, and
+`0060` restores parked facts. Runtime acquisition still uses the guard table,
+not uniqueness of audit facts.
+
+Operational caveat (not a review finding): keep schema migration a controlled
+cutover; do not serve `3dbb93f` cleanup binaries against a schema through
+`0059`, and do not leave replicas serving midway through `0056a`–`0060`.
+Databases that applied the edited `0b2527a` `0057` still need recreate for
+checksum mismatch.
+
+Remaining work is other planned slice gaps (full PostgreSQL suite, Worker-
+hosted cleanup, Activity-closure clock, versioned lifecycle policy, Playwright
+gaps), not unresolved findings from this chain.
 
 Retention still uses `ApprovedDefaultAcceptedPayloadLifecyclePolicyPort`
 (`IndependentlyResolvedFromOwner=false`). No UI behavior changed.
@@ -852,6 +866,12 @@ recorded residual gaps are accepted.
   materialized (`timestamptz` as `DateTime`, `COUNT(*)` as `Int64`). List/find
   now map through Dapper-safe row types. Persistence **14 passed**; live GET
   history then showed Version 1.
+- **Independent review approval (`479c851`):** External review found no blocking
+  finding on the cleanup/disposition-upgrade remediations. Sequence: `7e7ffd8`
+  → `f0974fb` → `8b4aae1` → `ba87718` → `3dbb93f` → `0b2527a` → `c84e960` →
+  `479c851` (`0056a` park / `0060` restore around immutable `0057`). GitHub
+  exposes no commit status checks for this SHA. Remaining open items are
+  planned slice work, not unresolved review findings.
 - **Cleanup hosting (interim):** incomplete-artifact cleanup runs as an API
   `BackgroundService` (`SubmissionCleanupHostedService`) so the Worker OCI
   copy set does not expand in this slice. The Session invocation work
@@ -881,6 +901,7 @@ recorded residual gaps are accepted.
 | Authenticated Playwright MCP | partial — rebuilt compose 2026-08-25 | Re-review: Version 1/2 exact preview, `no-store` version-detail JSON, Download of Version 1 bytes, later-version dialog, Keep editing preserves local text, 360px, rebuilt list copy. Evidence includes `.playwright-mcp/page-2026-08-25T02-37-29-105Z.png` (V1 preview), `...T02-39-20-967Z.png` (new-version dialog), `...T02-40-18-236Z.png` (360px), `...T02-42-21-962Z.png` (list copy). Live cancel, receiving/validating, multi-item preview, and permission-loss not captured. |
 | Regression/security/supply-chain/OCI/recovery/docs | pending | Locked restore, full suites, allowlist/leakage, license/SBOM/vulnerability/secret scan, images, paired metadata/artifact restore, docs, and whitespace. |
 | Independent review — security/correctness remediation chain | passed — external review `b67a922` | No blocking findings. All issues raised from `7dac50c` through follow-up reviews resolved at `b67a922`, including S3 scope isolation, predecessor lineage, partial parent scope (`0049`), and Task-binding parent tuple (`0050`). `SubmissionPersistenceTests` **12 passed**; full PostgreSQL **340 passed / 1 failed** (Keycloak 403 flake). GitHub commit statuses not independently visible. Separate full-slice backend/frontend/QA review remains for unconsumed planned work. |
+| Independent review — accepted-payload cleanup remediations | passed — external review `479c851` | No blocking findings. `c84e960` P1 closed by `0056a`/`0060` around unchanged `0057`. Persistence + scan CAS **15 passed**; historical duplicate path covered by embedded runner and Grate tool. Full PostgreSQL suite still not re-run (recorded partial). GitHub commit statuses not independently visible. |
 
 # Planned verification command set
 
@@ -948,6 +969,8 @@ synthetic non-sensitive content.
 - [ ] Governing specifications and implementation-status rows remain truthful without claiming Attempt, exact binding, Session, Agent reading, Reviewer access, Evidence, Evaluation, or Release
 - [x] Security/correctness independent review findings from the `7dac50c` →
   `b67a922` chain are resolved (approved `b67a922`)
+- [x] Accepted-payload cleanup / disposition-upgrade independent review
+  findings from `7e7ffd8` through `c84e960` are resolved (approved `479c851`)
 - [ ] Independent backend, frontend, security/privacy, and QA review for
   remaining planned slice work is resolved or explicitly accepted by an
   authorized owner
