@@ -69,10 +69,10 @@ public sealed class SubmissionCleanupProcessor(
 
                 if (string.IsNullOrWhiteSpace(claimed.ArtifactVersionId))
                 {
-                    await work.FailAsync(
+                    await work.MarkTerminalFailureAsync(
                         claimed.OrganizationId,
                         claimed.WorkId,
-                        _clock.UtcNow.Add(SubmissionLifecycleClocks.WorkLease),
+                        SubmissionWorkFailureReasons.ExactArtifactVersionUnavailable,
                         cancellationToken);
                     return "failed";
                 }
@@ -125,23 +125,24 @@ public sealed class SubmissionCleanupProcessor(
             return;
         }
 
-        var cursor = await _acceptedScan.GetAsync(cancellationToken);
+        var snapshot = await _acceptedScan.GetSnapshotAsync(cancellationToken);
         var candidates = await versions.ListAcceptedArtifactCandidatesAsync(
             CandidatePageSize,
-            cursor,
+            snapshot.Cursor,
             cancellationToken);
-        if (candidates.Count == 0 && cursor is not null)
+        if (candidates.Count == 0 && snapshot.Cursor is not null)
         {
-            await _acceptedScan.SetAsync(null, cancellationToken);
+            await _acceptedScan.TryAdvanceAsync(snapshot.Generation, null, cancellationToken);
+            snapshot = await _acceptedScan.GetSnapshotAsync(cancellationToken);
             candidates = await versions.ListAcceptedArtifactCandidatesAsync(
                 CandidatePageSize,
-                null,
+                snapshot.Cursor,
                 cancellationToken);
         }
 
         if (candidates.Count == 0)
         {
-            await _acceptedScan.SetAsync(null, cancellationToken);
+            await _acceptedScan.TryAdvanceAsync(snapshot.Generation, null, cancellationToken);
             return;
         }
 
@@ -193,7 +194,8 @@ public sealed class SubmissionCleanupProcessor(
         }
 
         var last = candidates[^1];
-        await _acceptedScan.SetAsync(
+        await _acceptedScan.TryAdvanceAsync(
+            snapshot.Generation,
             candidates.Count < CandidatePageSize
                 ? null
                 : new AcceptedArtifactCleanupCursor(last.AcceptedAtUtc, last.VersionId, last.ItemId),

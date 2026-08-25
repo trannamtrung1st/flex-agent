@@ -349,6 +349,28 @@ public sealed class InMemorySubmissionWorkStore : ISubmissionWorkStore
 
         return Task.CompletedTask;
     }
+
+    public Task MarkTerminalFailureAsync(
+        Guid organizationId,
+        Guid workId,
+        string failureReason,
+        CancellationToken cancellationToken = default)
+    {
+        var index = _items.FindIndex(item => item.OrganizationId == organizationId && item.WorkId == workId);
+        if (index >= 0)
+        {
+            _items[index] = _items[index] with
+            {
+                Status = SubmissionWorkStates.Failed,
+                LeaseUntilUtc = null,
+                FailureReason = failureReason,
+            };
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public IReadOnlyList<SubmissionWorkItem> Items => _items;
 }
 
 public sealed class InMemoryLifecycleHoldStore : ISubmissionLifecycleHoldStore
@@ -425,14 +447,33 @@ public sealed class InMemoryProtectedArtifactCapabilityStore : IProtectedArtifac
 
 public sealed class InMemoryAcceptedCleanupScanStore : IAcceptedCleanupScanStore
 {
+    private readonly object _gate = new();
     private AcceptedArtifactCleanupCursor? _cursor;
+    private long _generation;
 
-    public Task<AcceptedArtifactCleanupCursor?> GetAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(_cursor);
-
-    public Task SetAsync(AcceptedArtifactCleanupCursor? cursor, CancellationToken cancellationToken = default)
+    public Task<AcceptedCleanupScanSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
     {
-        _cursor = cursor;
-        return Task.CompletedTask;
+        lock (_gate)
+        {
+            return Task.FromResult(new AcceptedCleanupScanSnapshot(_cursor, _generation));
+        }
+    }
+
+    public Task<bool> TryAdvanceAsync(
+        long expectedGeneration,
+        AcceptedArtifactCleanupCursor? cursor,
+        CancellationToken cancellationToken = default)
+    {
+        lock (_gate)
+        {
+            if (_generation != expectedGeneration)
+            {
+                return Task.FromResult(false);
+            }
+
+            _cursor = cursor;
+            _generation++;
+            return Task.FromResult(true);
+        }
     }
 }

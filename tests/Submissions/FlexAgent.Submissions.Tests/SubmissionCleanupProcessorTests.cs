@@ -453,6 +453,10 @@ public sealed class SubmissionCleanupProcessorTests
         Assert.Equal("failed", outcome);
         Assert.Empty(artifacts.Deleted);
         Assert.Empty(dispositions.Records);
+        Assert.Contains(
+            work.Items,
+            item => item.Status == SubmissionWorkStates.Failed
+                && item.FailureReason == SubmissionWorkFailureReasons.ExactArtifactVersionUnavailable);
         var stillPresent = await inner.GetExactVersionAsync(
             new ArtifactGetRequest(organizationId, put.Reference),
             TestContext.Current.CancellationToken);
@@ -520,7 +524,7 @@ public sealed class SubmissionCleanupProcessorTests
             acceptedScan: scan);
 
         Assert.Equal("idle", await processor.TryProcessNextAsync(TestContext.Current.CancellationToken));
-        Assert.NotNull(await scan.GetAsync(TestContext.Current.CancellationToken));
+        Assert.NotNull((await scan.GetSnapshotAsync(TestContext.Current.CancellationToken)).Cursor);
 
         string outcome = "idle";
         for (var i = 0; i < 6; i++)
@@ -539,6 +543,28 @@ public sealed class SubmissionCleanupProcessorTests
         Assert.Contains(
             dispositions.Records,
             record => record.ArtifactObjectKey == eligiblePut.Reference!.ObjectKey.Value);
+    }
+
+    [Fact]
+    public async Task Accepted_cleanup_scan_cas_rejects_stale_generation()
+    {
+        var scan = new InMemoryAcceptedCleanupScanStore();
+        var first = new AcceptedArtifactCleanupCursor(
+            DateTimeOffset.Parse("2026-08-25T12:00:00Z"),
+            Guid.Parse("11111111-1111-4111-8111-111111111111"),
+            Guid.Parse("22222222-2222-4222-8222-222222222222"));
+        var stale = new AcceptedArtifactCleanupCursor(
+            DateTimeOffset.Parse("2026-08-25T11:00:00Z"),
+            Guid.Parse("33333333-3333-4333-8333-333333333333"),
+            Guid.Parse("44444444-4444-4444-8444-444444444444"));
+        var snapshot = await scan.GetSnapshotAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(await scan.TryAdvanceAsync(snapshot.Generation, first, TestContext.Current.CancellationToken));
+        Assert.False(await scan.TryAdvanceAsync(snapshot.Generation, stale, TestContext.Current.CancellationToken));
+
+        var after = await scan.GetSnapshotAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(first, after.Cursor);
+        Assert.Equal(snapshot.Generation + 1, after.Generation);
     }
 
     private static SubmissionParentScope ClosedScope(Guid organizationId, Guid activityId) =>

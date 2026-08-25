@@ -511,3 +511,32 @@ public sealed class SubmissionPersistenceTests(PostgresIntegrationFixture fixtur
         return participantId;
     }
 }
+
+public sealed class SubmissionCleanupScanPersistenceTests(PostgresIntegrationFixture fixture)
+    : PostgresIntegrationTest(fixture)
+{
+    [Fact]
+    public async Task Accepted_cleanup_scan_cas_rejects_stale_replica_write()
+    {
+        var scan = new PostgresAcceptedCleanupScanStore(Fixture.Services.ConnectionAccessor);
+        var first = new AcceptedArtifactCleanupCursor(
+            DateTimeOffset.Parse("2026-08-25T12:00:00Z"),
+            Guid.Parse("11111111-1111-4111-8111-111111111111"),
+            Guid.Parse("22222222-2222-4222-8222-222222222222"));
+        var stale = new AcceptedArtifactCleanupCursor(
+            DateTimeOffset.Parse("2026-08-25T11:00:00Z"),
+            Guid.Parse("33333333-3333-4333-8333-333333333333"),
+            Guid.Parse("44444444-4444-4444-8444-444444444444"));
+        var snapshot = await scan.GetSnapshotAsync(CancellationToken);
+
+        Assert.True(await scan.TryAdvanceAsync(snapshot.Generation, first, CancellationToken));
+        Assert.False(await scan.TryAdvanceAsync(snapshot.Generation, stale, CancellationToken));
+
+        var after = await scan.GetSnapshotAsync(CancellationToken);
+        Assert.NotNull(after.Cursor);
+        Assert.Equal(first.AcceptedAtUtc, after.Cursor.AcceptedAtUtc);
+        Assert.Equal(first.VersionId, after.Cursor.VersionId);
+        Assert.Equal(first.ItemId, after.Cursor.ItemId);
+        Assert.Equal(snapshot.Generation + 1, after.Generation);
+    }
+}

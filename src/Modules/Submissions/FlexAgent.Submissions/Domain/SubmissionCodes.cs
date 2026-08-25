@@ -96,3 +96,8 @@ public static class SubmissionWorkStates
     public const string Completed = "completed";
     public const string Failed = "failed";
 }
+
+public static class SubmissionWorkFailureReasons
+{
+    public const string ExactArtifactVersionUnavailable = "exact_artifact_version_unavailable";
+}

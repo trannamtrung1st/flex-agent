@@ -251,11 +251,18 @@ public sealed record AcceptedArtifactCleanupCursor(
     Guid VersionId,
     Guid ItemId);
 
+public sealed record AcceptedCleanupScanSnapshot(
+    AcceptedArtifactCleanupCursor? Cursor,
+    long Generation);
+
 public interface IAcceptedCleanupScanStore
 {
-    Task<AcceptedArtifactCleanupCursor?> GetAsync(CancellationToken cancellationToken = default);
+    Task<AcceptedCleanupScanSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default);
 
-    Task SetAsync(AcceptedArtifactCleanupCursor? cursor, CancellationToken cancellationToken = default);
+    Task<bool> TryAdvanceAsync(
+        long expectedGeneration,
+        AcceptedArtifactCleanupCursor? cursor,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record AcceptedArtifactCleanupCandidate(
@@ -289,7 +296,8 @@ public sealed record SubmissionWorkItem(
     DateTimeOffset AvailableAtUtc,
     DateTimeOffset? LeaseUntilUtc,
     string? ArtifactObjectKey,
-    string? ArtifactVersionId);
+    string? ArtifactVersionId,
+    string? FailureReason = null);
 
 public interface ISubmissionWorkStore
 {
@@ -300,6 +308,12 @@ public interface ISubmissionWorkStore
     Task CompleteAsync(Guid organizationId, Guid workId, CancellationToken cancellationToken = default);
 
     Task FailAsync(Guid organizationId, Guid workId, DateTimeOffset retryAtUtc, CancellationToken cancellationToken = default);
+
+    Task MarkTerminalFailureAsync(
+        Guid organizationId,
+        Guid workId,
+        string failureReason,
+        CancellationToken cancellationToken = default);
 }
 
 public interface ISubmissionLifecycleHoldStore

@@ -928,6 +928,24 @@ public sealed class PostgresSubmissionWorkStore(PostgresConnectionAccessor conne
                 cancellationToken: cancellationToken));
     }
 
+    public async Task MarkTerminalFailureAsync(
+        Guid organizationId,
+        Guid workId,
+        string failureReason,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connections.OpenConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE submissions_durable_work
+                SET status = 'failed', lease_until = NULL, failure_reason = @FailureReason
+                WHERE organization_id = @OrganizationId AND work_id = @WorkId
+                """,
+                new { OrganizationId = organizationId, WorkId = workId, FailureReason = failureReason },
+                cancellationToken: cancellationToken));
+    }
+
     private sealed record WorkRow(
         Guid OrganizationId,
         Guid WorkId,
@@ -1091,59 +1109,73 @@ public sealed class PostgresProtectedArtifactCapabilityStore(PostgresConnectionA
 
 public sealed class PostgresAcceptedCleanupScanStore(PostgresConnectionAccessor connections) : IAcceptedCleanupScanStore
 {
-    public async Task<AcceptedArtifactCleanupCursor?> GetAsync(CancellationToken cancellationToken = default)
+    public async Task<AcceptedCleanupScanSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
         var row = await connection.QuerySingleOrDefaultAsync<ScanRow>(
             new CommandDefinition(
                 """
                 SELECT after_accepted_at AS AfterAcceptedAtUtc, after_version_id AS AfterVersionId,
-                       after_item_id AS AfterItemId
+                       after_item_id AS AfterItemId, generation AS Generation
                 FROM submissions_accepted_cleanup_scan
                 WHERE singleton_key = 1
                 """,
                 cancellationToken: cancellationToken));
-        if (row?.AfterAcceptedAtUtc is not DateTime acceptedAt
-            || row.AfterVersionId is not Guid versionId
-            || row.AfterItemId is not Guid itemId)
+        if (row is null)
         {
-            return null;
+            return new AcceptedCleanupScanSnapshot(null, 0);
         }
 
-        return new AcceptedArtifactCleanupCursor(
-            new DateTimeOffset(
-                acceptedAt.Kind == DateTimeKind.Unspecified
-                    ? DateTime.SpecifyKind(acceptedAt, DateTimeKind.Utc)
-                    : acceptedAt.ToUniversalTime()),
-            versionId,
-            itemId);
+        AcceptedArtifactCleanupCursor? cursor = null;
+        if (row.AfterAcceptedAtUtc is DateTime acceptedAt
+            && row.AfterVersionId is Guid versionId
+            && row.AfterItemId is Guid itemId)
+        {
+            cursor = new AcceptedArtifactCleanupCursor(
+                new DateTimeOffset(
+                    acceptedAt.Kind == DateTimeKind.Unspecified
+                        ? DateTime.SpecifyKind(acceptedAt, DateTimeKind.Utc)
+                        : acceptedAt.ToUniversalTime()),
+                versionId,
+                itemId);
+        }
+
+        return new AcceptedCleanupScanSnapshot(cursor, row.Generation);
     }
 
-    public async Task SetAsync(AcceptedArtifactCleanupCursor? cursor, CancellationToken cancellationToken = default)
+    public async Task<bool> TryAdvanceAsync(
+        long expectedGeneration,
+        AcceptedArtifactCleanupCursor? cursor,
+        CancellationToken cancellationToken = default)
     {
         await using var connection = await connections.OpenConnectionAsync(cancellationToken);
-        await connection.ExecuteAsync(
+        var updated = await connection.ExecuteAsync(
             new CommandDefinition(
                 """
                 UPDATE submissions_accepted_cleanup_scan
                 SET after_accepted_at = @AfterAcceptedAt,
                     after_version_id = @AfterVersionId,
                     after_item_id = @AfterItemId,
+                    generation = generation + 1,
                     updated_at = CLOCK_TIMESTAMP()
                 WHERE singleton_key = 1
+                  AND generation = @ExpectedGeneration
                 """,
                 new
                 {
                     AfterAcceptedAt = cursor?.AcceptedAtUtc,
                     AfterVersionId = cursor?.VersionId,
                     AfterItemId = cursor?.ItemId,
+                    ExpectedGeneration = expectedGeneration,
                 },
                 cancellationToken: cancellationToken));
+        return updated == 1;
     }
 
     private sealed record ScanRow(
         DateTime? AfterAcceptedAtUtc,
         Guid? AfterVersionId,
-        Guid? AfterItemId);
+        Guid? AfterItemId,
+        long Generation);
 }
 
