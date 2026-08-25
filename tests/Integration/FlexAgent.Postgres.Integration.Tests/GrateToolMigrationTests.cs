@@ -35,6 +35,85 @@ public sealed class GrateToolMigrationTests
     }
 
     [Fact]
+    public async Task Grate_tool_upgrades_historical_duplicate_dispositions_through_immutable_0057()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var through0056Directory = CopyProductionMigrationsToTempDirectory();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        try
+        {
+            var upDirectory = Path.Combine(through0056Directory, "up");
+            foreach (var scriptPath in Directory.GetFiles(upDirectory, "*.sql"))
+            {
+                var scriptName = Path.GetFileName(scriptPath);
+                if (string.CompareOrdinal(scriptName, "0056_submission_cleanup_scan_generation.sql") > 0)
+                {
+                    File.Delete(scriptPath);
+                }
+            }
+
+            GrateMigrationRunner.InvokeTool(
+                    connectionString,
+                    new GrateToolInvocationOptions(MigrationsDirectory: through0056Directory))
+                .EnsureSuccessful();
+
+            var organizationId = Guid.CreateVersion7();
+            var objectKey = $"org/{organizationId:D}/{Guid.CreateVersion7():D}";
+            var firstDispositionId = Guid.CreateVersion7();
+            var secondDispositionId = Guid.CreateVersion7();
+
+            await using (var connection = new NpgsqlConnection(connectionString))
+            {
+                await connection.OpenAsync(cancellationToken);
+                await connection.ExecuteAsync(
+                    """
+                    INSERT INTO submissions_artifact_dispositions (
+                        organization_id, disposition_id, work_kind, artifact_object_key, disposed_at)
+                    VALUES
+                        (@OrganizationId, @FirstDispositionId, 'cleanup_accepted', @ArtifactObjectKey, TIMESTAMPTZ '2026-08-20 12:00:00+00'),
+                        (@OrganizationId, @SecondDispositionId, 'cleanup_accepted', @ArtifactObjectKey, TIMESTAMPTZ '2026-08-21 12:00:00+00');
+                    """,
+                    new
+                    {
+                        OrganizationId = organizationId,
+                        FirstDispositionId = firstDispositionId,
+                        SecondDispositionId = secondDispositionId,
+                        ArtifactObjectKey = objectKey,
+                    });
+            }
+
+            GrateMigrationRunner.InvokeTool(connectionString).EnsureSuccessful();
+
+            await using var after = new NpgsqlConnection(connectionString);
+            await after.OpenAsync(cancellationToken);
+            var dispositionIds = (await after.QueryAsync<Guid>(
+                """
+                SELECT disposition_id
+                FROM submissions_artifact_dispositions
+                WHERE organization_id = @OrganizationId AND artifact_object_key = @ArtifactObjectKey
+                ORDER BY disposed_at, disposition_id
+                """,
+                new { OrganizationId = organizationId, ArtifactObjectKey = objectKey })).AsList();
+            Assert.Equal([firstDispositionId, secondDispositionId], dispositionIds);
+            Assert.False(await after.ExecuteScalarAsync<bool>(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM pg_indexes
+                    WHERE indexname = 'uq_submissions_artifact_dispositions_artifact');
+                """));
+            Assert.Null(await after.ExecuteScalarAsync<string>(
+                "SELECT to_regclass('public.submissions_artifact_disposition_upgrade_overflow')::text;"));
+        }
+        finally
+        {
+            Directory.Delete(through0056Directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Grate_tool_repeat_is_no_op()
     {
         await using var container = await StartContainerAsync();

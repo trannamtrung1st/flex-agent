@@ -72,9 +72,11 @@ public sealed class MigrationUpgradeTests
     private const string Current0054ScriptName = "0054_submission_cleanup_exact_artifact_version.sql";
     private const string Current0055ScriptName = "0055_submission_cleanup_version_backfill_and_scan.sql";
     private const string Current0056ScriptName = "0056_submission_cleanup_scan_generation.sql";
+    private const string Current0056aScriptName = "0056a_submission_cleanup_park_duplicate_disposition_facts.sql";
     private const string Current0057ScriptName = "0057_submission_cleanup_terminal_failure_and_disposition_uniqueness.sql";
     private const string Current0058ScriptName = "0058_submission_cleanup_disposition_guard_and_reconstruction.sql";
     private const string Current0059ScriptName = "0059_submission_cleanup_accepted_reconstruction_precedence.sql";
+    private const string Current0060ScriptName = "0060_submission_cleanup_restore_parked_disposition_facts.sql";
 
     [Fact]
     public async Task Upgrade_from_0001_backfills_idempotency_and_rejects_conflicting_retry()
@@ -153,10 +155,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -730,7 +734,7 @@ public sealed class MigrationUpgradeTests
             connectionString,
             migrationsDirectory,
             cancellationToken,
-            inclusiveMaxScriptName: Current0059ScriptName);
+            inclusiveMaxScriptName: Current0060ScriptName);
 
         await using var after = new NpgsqlConnection(connectionString);
         await after.OpenAsync(cancellationToken);
@@ -765,7 +769,89 @@ public sealed class MigrationUpgradeTests
     }
 
     [Fact]
-    public async Task Upgrade_from_0059_drops_disposition_unique_index_and_keeps_later_duplicate_facts()
+    public async Task Upgrade_from_0056_historical_duplicate_dispositions_survive_immutable_0057()
+    {
+        await using var container = await StartContainerAsync();
+        var connectionString = container.GetConnectionString();
+        var migrationsDirectory = Path.Combine(FindRepositoryRoot(), "database", "migrations");
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            cancellationToken,
+            inclusiveMaxScriptName: Current0056ScriptName);
+
+        var organizationId = Guid.CreateVersion7();
+        var objectKey = $"org/{organizationId:D}/{Guid.CreateVersion7():D}";
+        var firstDispositionId = Guid.CreateVersion7();
+        var secondDispositionId = Guid.CreateVersion7();
+        var firstDisposedAt = DateTimeOffset.Parse("2026-08-20T12:00:00Z");
+        var secondDisposedAt = DateTimeOffset.Parse("2026-08-21T12:00:00Z");
+
+        await using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync(cancellationToken);
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO submissions_artifact_dispositions (
+                    organization_id, disposition_id, work_kind, artifact_object_key, disposed_at)
+                VALUES
+                    (@OrganizationId, @FirstDispositionId, 'cleanup_accepted', @ArtifactObjectKey, @FirstDisposedAt),
+                    (@OrganizationId, @SecondDispositionId, 'cleanup_accepted', @ArtifactObjectKey, @SecondDisposedAt);
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    FirstDispositionId = firstDispositionId,
+                    SecondDispositionId = secondDispositionId,
+                    ArtifactObjectKey = objectKey,
+                    FirstDisposedAt = firstDisposedAt,
+                    SecondDisposedAt = secondDisposedAt,
+                });
+        }
+
+        await GrateMigrationRunner.RunEmbeddedMigrationsForTestsAsync(
+            connectionString,
+            migrationsDirectory,
+            cancellationToken,
+            inclusiveMaxScriptName: Current0060ScriptName);
+
+        await using var after = new NpgsqlConnection(connectionString);
+        await after.OpenAsync(cancellationToken);
+        var dispositions = (await after.QueryAsync<(Guid DispositionId, DateTimeOffset DisposedAt)>(
+            """
+            SELECT disposition_id, disposed_at
+            FROM submissions_artifact_dispositions
+            WHERE organization_id = @OrganizationId AND artifact_object_key = @ArtifactObjectKey
+            ORDER BY disposed_at, disposition_id
+            """,
+            new { OrganizationId = organizationId, ArtifactObjectKey = objectKey })).AsList();
+        Assert.Equal(2, dispositions.Count);
+        Assert.Equal(firstDispositionId, dispositions[0].DispositionId);
+        Assert.Equal(secondDispositionId, dispositions[1].DispositionId);
+        var guard = await after.QuerySingleAsync<(Guid FirstDispositionId, string ObjectKey)>(
+            """
+            SELECT first_disposition_id, artifact_object_key
+            FROM submissions_artifact_disposition_guards
+            WHERE organization_id = @OrganizationId AND artifact_object_key = @ArtifactObjectKey
+            """,
+            new { OrganizationId = organizationId, ArtifactObjectKey = objectKey });
+        Assert.Equal(firstDispositionId, guard.FirstDispositionId);
+        Assert.Equal(objectKey, guard.ObjectKey);
+        Assert.False(await after.ExecuteScalarAsync<bool>(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM pg_indexes
+                WHERE indexname = 'uq_submissions_artifact_dispositions_artifact');
+            """));
+        Assert.Null(await after.ExecuteScalarAsync<string>(
+            "SELECT to_regclass('public.submissions_artifact_disposition_upgrade_overflow')::text;"));
+    }
+
+    [Fact]
+    public async Task Upgrade_from_0060_keeps_later_duplicate_disposition_facts()
     {
         await using var container = await StartContainerAsync();
         var connectionString = container.GetConnectionString();
@@ -805,7 +891,7 @@ public sealed class MigrationUpgradeTests
             connectionString,
             migrationsDirectory,
             cancellationToken,
-            inclusiveMaxScriptName: Current0059ScriptName);
+            inclusiveMaxScriptName: Current0060ScriptName);
 
         await using var after = new NpgsqlConnection(connectionString);
         await after.OpenAsync(cancellationToken);
@@ -1127,7 +1213,7 @@ public sealed class MigrationUpgradeTests
             connectionString,
             migrationsDirectory,
             cancellationToken,
-            inclusiveMaxScriptName: Current0059ScriptName);
+            inclusiveMaxScriptName: Current0060ScriptName);
 
         await using var after = new NpgsqlConnection(connectionString);
         await after.OpenAsync(cancellationToken);
@@ -1582,10 +1668,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -1663,10 +1751,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -1744,10 +1834,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -1825,10 +1917,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -1906,10 +2000,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -1987,10 +2083,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -2068,10 +2166,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -2214,10 +2314,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -2295,10 +2397,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -2376,10 +2480,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -2595,10 +2701,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -2681,10 +2789,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -2772,10 +2882,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -2874,10 +2986,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -2996,10 +3110,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -3089,10 +3205,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
     }
 
     [Fact]
@@ -3550,10 +3668,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
@@ -3658,10 +3778,12 @@ public sealed class MigrationUpgradeTests
             Current0053ScriptName,
             Current0054ScriptName,
             Current0055ScriptName,
+            Current0056aScriptName,
             Current0056ScriptName,
             Current0057ScriptName,
             Current0058ScriptName,
-            Current0059ScriptName);
+            Current0059ScriptName,
+            Current0060ScriptName);
 
         await AssertRepairEvidenceAsync(connectionString, seededState);
     }
