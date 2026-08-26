@@ -1,6 +1,6 @@
 ---
 id: frontend-state-form-library-foundation
-status: in-progress
+status: completed
 created: 2026-08-26
 updated: 2026-08-26
 ---
@@ -571,10 +571,15 @@ review history.
 
 # Current state
 
-Owner review of `6f6e052` stale-401 epoch hole is fixed.
+Owner review of `f479059` approved with no requested changes. This
+frontend-foundation task is complete and will not be extended with further
+speculative `BrowserApiProvider` races (including overlapping `refresh()`).
 
-- [x] Ignore authentication-loss teardown when the request's epoch is no longer current
-- [x] Regression: delayed command 401 after actor switch leaves B ready
+- [x] Identity/auth replacement purges Query state, advances epoch, and remounts
+- [x] Ordinary command follow-up refresh preserves Session runtime
+- [x] Current-context 401/denied/error leaves ready and hides protected routes
+- [x] Stale previous-epoch 401 is ignored
+- [x] Command 403/409 remain caller-handled domain outcomes
 
 # Decisions
 
@@ -621,6 +626,8 @@ Owner review of `6f6e052` stale-401 epoch hole is fixed.
   loss and uses the same ready-exit. A 401 whose request started under a
   previous authorization-context epoch must not sign out the current context.
   Command HTTP 403/409 domain outcomes are returned to the caller.
+- Overlapping synthetic `refresh()` races stay outside this work item. Owner
+  review of `f479059` approved stopping further provider-race iteration.
 
 # Findings / deviations
 
@@ -682,13 +689,15 @@ Owner review of `6f6e052` stale-401 epoch hole is fixed.
 | Command/resource 401 confirmation (2026-08-26) | passed | Rechecked `executeCommand`, `reconcileCommand`, and `fetchJson` all use `withAuthenticationLoss`; command 401 still skips follow-up refresh; 403/409 remain returned bodies. Re-ran docs check, `git diff --check`, typecheck, and web tests (24 files, 181 passed). |
 | Stale-401 epoch follow-up | passed | Red: delayed command 401 after actor A→B signed out B. Green: `withAuthenticationLoss` tears down only when `startedEpoch === authContextEpochRef.current`. Overlapping `refresh()` races intentionally out of scope. Full web tests 24 files, 182 passed; typecheck; lint 0 errors; docs check |
 | Stale-401 epoch confirmation (2026-08-26) | passed | Rechecked epoch capture at request start; same wrapper still covers command, reconcile, and `fetchJson`. Same-epoch 401 still tears down. Re-ran docs check, `git diff --check`, typecheck, and web tests (24 files, 182 passed). |
+| Owner review of `f479059` | approved | No blocking findings. Reviewer would not extend this task with further speculative provider races. GitHub has no attached commit statuses; recorded local verification remains the CI evidence. Live Campaign-create/ThemeToggle Playwright remains the accepted non-blocking gap. |
+| Close-out confirmation (2026-08-26) | passed | Task `status: completed`; close-out matches approved `f479059` boundaries; file retained. `git diff --check` and `python3 scripts/check_docs.py` passed. Runtime suite not re-run for this task-file-only close-out. |
 
 # Blockers
 
 None. Live Campaign-create and ThemeToggle Playwright remains an accepted
 non-blocking verification gap (no authenticated production session and no
-synthetic API on `:8080`). It is not a code defect and does not block the
-review follow-up.
+synthetic API on `:8080`). It is not a code defect and does not reopen this
+completed task.
 
 # Completion
 
