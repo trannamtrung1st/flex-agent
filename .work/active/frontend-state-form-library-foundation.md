@@ -654,9 +654,10 @@ speculative `BrowserApiProvider` races (including overlapping `refresh()`).
   This is an accepted non-blocking verification gap; it does not reopen the
   three review defects.
 - CI supply-chain on `f479059` failed gitleaks `generic-api-key` for the
-  synthetic test fixture `idempotency_key: "cmd-stale-401"` in
+  synthetic Query-test command key `cmd-stale-401` in
   `web/src/api/query-client.test.tsx`. That value is not a credential; it is
-  allowlisted on that test path so historical scans remain green.
+  allowlisted on that test path and in this task file so historical scans
+  remain green.
 
 # Verification
 
@@ -695,7 +696,8 @@ speculative `BrowserApiProvider` races (including overlapping `refresh()`).
 | Stale-401 epoch confirmation (2026-08-26) | passed | Rechecked epoch capture at request start; same wrapper still covers command, reconcile, and `fetchJson`. Same-epoch 401 still tears down. Re-ran docs check, `git diff --check`, typecheck, and web tests (24 files, 182 passed). |
 | Owner review of `f479059` | approved | No blocking findings. Reviewer would not extend this task with further speculative provider races. GitHub has no attached commit statuses; recorded local verification remains the CI evidence. Live Campaign-create/ThemeToggle Playwright remains the accepted non-blocking gap. |
 | Close-out confirmation (2026-08-26) | passed | Task `status: completed`; close-out matches approved `f479059` boundaries; file retained. `git diff --check` and `python3 scripts/check_docs.py` passed. Runtime suite not re-run for this task-file-only close-out. |
-| CI supply-chain gitleaks on `f479059` | passed | [Implementation run 394](https://github.com/trannamtrung1st/flex-agent/actions/runs/32925277948) Secret scan failed. Local gitleaks reported `idempotency_key: "cmd-stale-401"` in `web/src/api/query-client.test.tsx`. Allowlisted on that test path; `gitleaks detect --config gitleaks.toml` reports no leaks. |
+| CI supply-chain gitleaks on `f479059` | passed | [Implementation run 394](https://github.com/trannamtrung1st/flex-agent/actions/runs/32925277948) Secret scan failed. Local gitleaks reported the synthetic command key `cmd-stale-401` in `web/src/api/query-client.test.tsx`. Allowlisted on that test path; `gitleaks detect --config gitleaks.toml` reports no leaks. |
+| Gitleaks allowlist confirmation (2026-08-26) | passed | Rechecked path-scoped `cmd-stale-401` allowlists for `query-client.test.tsx` and `.work/active/` (needed because commit `745f105` quoted the assignment form). `gitleaks detect --config gitleaks.toml` reports no leaks; `python3 scripts/check_docs.py` passed. |
 
 # Blockers
 
