@@ -27,6 +27,12 @@ paths = ['''(?i)tests/Runtime/FlexAgent.Runtime.Tests/SubmissionHttpNegativeCont
 regexes = ['''(?i)^(sub-1|sub-cancel-1|sub-finalize-1|intake-http-synthetic-\d{4})$''']
 
 [[rules.allowlists]]
+description = "Synthetic browser command idempotency keys in Query auth-lifecycle tests."
+condition = "AND"
+paths = ['''(?i)web/src/api/query-client\.test\.tsx$''']
+regexes = ['''(?i)^cmd-(1|denied-refresh|401|stale-401)$''']
+
+[[rules.allowlists]]
 description = "Synthetic Keycloak JDBC URLs in local/CI compose profiles."
 condition = "AND"
 paths = ['''(?i)deploy/compose/(keycloak-contract|authenticated-browser)\.compose\.yaml$''']
