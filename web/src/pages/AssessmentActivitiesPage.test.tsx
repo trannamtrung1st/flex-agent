@@ -166,7 +166,50 @@ describe("AssessmentActivitiesPage", () => {
     await waitFor(() => {
       expect(onCreated).toHaveBeenCalledWith("act-new");
     });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: assessmentKeys.activities() });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: assessmentKeys.activities(),
+      exact: true,
+      refetchType: "none",
+    });
+    expect(queryClient.getQueryState(assessmentKeys.activities())?.fetchStatus).not.toBe("fetching");
+  });
+
+  it("does not request source options from cached create permission", async () => {
+    const queryClient = createFlexQueryClient();
+    queryClient.setQueryData(assessmentKeys.activities(), {
+      activities: [{ activity_id: "act-1", title: "Cached", revision_number: 1, has_activated_cohort: false }],
+      permitted_actions: ["create_assessment"],
+    });
+    const loadSourceOptions = vi.fn(() => Promise.resolve({
+      sources: REQUIRED_SOURCE_CATEGORIES.map((category) => source(category)),
+    }));
+    let releaseList: ((value: {
+      activities: Array<{ activity_id: string; title: string; revision_number: number; has_activated_cohort: boolean }>;
+      permitted_actions: string[];
+    }) => void) | undefined;
+    const listPromise = new Promise<{
+      activities: Array<{ activity_id: string; title: string; revision_number: number; has_activated_cohort: boolean }>;
+      permitted_actions: string[];
+    }>((resolve) => {
+      releaseList = resolve;
+    });
+
+    renderActivities({
+      queryClient,
+      loadActivities: () => listPromise,
+      loadSourceOptions,
+    });
+
+    await waitFor(() => {
+      expect(loadSourceOptions).not.toHaveBeenCalled();
+    });
+    releaseList?.({
+      activities: [{ activity_id: "act-1", title: "Cached", revision_number: 1, has_activated_cohort: false }],
+      permitted_actions: [],
+    });
+    expect(await screen.findByRole("link", { name: /Cached/ })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Create assessment Campaign" })).not.toBeInTheDocument();
+    expect(loadSourceOptions).not.toHaveBeenCalled();
   });
 
   it("does not submit a client-invalid title and focuses the linked error summary", async () => {

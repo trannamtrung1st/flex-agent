@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved — 2026-08-26
+Approved — 2026-08-26; amended 2026-08-26 to require protected-subtree remount on identity replacement, fresh permission observation before dependent reads, and exact no-refetch Activities invalidation.
 
 This record was approved by the repository owner on 2026-08-26, with detailed
 technical realization delegated to the implementing architecture and frontend
@@ -83,15 +83,15 @@ ownership rules. Realtime Session UI remains a documented exception.
 | `FE-DEC-1` | Mount one in-memory TanStack Query client per App/test tree above both production and synthetic API-mode branches. Do not use a process-global singleton or persist the cache. | `WI-FE-02` |
 | `FE-DEC-2` | Query owns fetch, cache, load, error, refetch, cancellation, and invalidation for migrated HTTP resources. The server remains authoritative. Query data is the only client copy of those resources. | `WI-FE-04` |
 | `FE-DEC-3` | Query defaults start with no automatic retry, no window-focus refetch, no persistence, and no optimistic mutations. Feature hooks may later opt into bounded transient retries only after safe error classification and tests. | `WI-FE-05`, `WI-FE-15` |
-| `FE-DEC-4` | Treat every Query/mutation cache entry as protected until an explicit reviewed public/protected split exists. Every transition out of API `ready`, plus trusted actor or Organization replacement, must cancel in-flight work and clear the complete QueryClient, including mutation variables and results. | `WI-FE-03`, `WI-FE-14` |
+| `FE-DEC-4` | Treat every Query/mutation cache entry as protected until an explicit reviewed public/protected split exists. Every transition out of API `ready`, plus trusted actor or Organization replacement, must cancel in-flight work, clear the complete QueryClient (including mutation variables and results), and remount the protected React subtree keyed by trusted actor and Organization identity. Query-cache clearing alone does not discard RHF, refs, or other local protected UI state. | `WI-FE-03`, `WI-FE-14` |
 | `FE-DEC-5` | Query keys hold stable resource identities and a contract/projection version when parallel wire meanings can coexist. Keys are never authorization evidence and must not contain titles, source content, credentials, CSRF tokens, actor claims, or Organization identifiers used as scope. | `WI-FE-14` |
 | `FE-DEC-6` | Feature query hooks compose typed/domain API clients and pass Query `AbortSignal` through those clients. Query must not call `fetch` directly or wrap `ProductionApiError`/domain outcomes in a new generic error model. | `WI-FE-06` |
-| `FE-DEC-7` | Mutations are not optimistic for audited or authority-sensitive commands. After authoritative success, invalidate the documented keys and navigate or refresh from server state. Expected revision, idempotency, 403/409, and uncertain outcomes remain defined by the typed/domain API layer. | `WI-FE-05`, `WI-FE-08` |
+| `FE-DEC-7` | Mutations are not optimistic for audited or authority-sensitive commands. After authoritative success, invalidate the documented keys with an exact filter and `refetchType: "none"` when navigation will unobserve the query, then navigate or refresh from server state. Expected revision, idempotency, 403/409, and uncertain outcomes remain defined by the typed/domain API layer. | `WI-FE-05`, `WI-FE-08` |
 | `FE-DEC-8` | React Hook Form owns non-trivial form values, dirty/touched state, client errors, and submit coordination. Zod validates only client UX shape and basic constraints. Server authorization, eligibility, scope, revision, transitions, memory policy, and security rules remain server-authoritative. | `WI-FE-07`, `WI-FE-08` |
 | `FE-DEC-9` | Lucide React is the standard general-purpose icon set via direct named imports. Icons that accompany visible text are decorative (`aria-hidden="true"`). Do not add an icon wrapper until repeated sizing, semantic, or accessibility behavior cannot stay consistent through direct use. | `WI-FE-09` |
 | `FE-DEC-10` | Retain `tokens.css`, `components.css`, and `app.css`. Do not add Tailwind, CSS-in-JS, Axios, or Zustand. Simple ephemeral UI stays in component state; locally complex UI uses a focused reducer/hook before any state library. | `WI-FE-10`, `WI-FE-11`, `WI-FE-12` |
 | `FE-DEC-11` | Realtime Session projection, SSE/`EventSource` lifecycle, pending command identity, reconciliation, reconnect, and Session isolation remain outside this Query/form migration. They may be refactored only in a dedicated task that preserves the reviewed contracts. | `WI-FE-13` |
-| `FE-DEC-12` | Shell authentication, CSRF, logout, generation-based stale-response protection, actor/navigation bootstrap, and protected-state clearing remain in the existing API providers. Query cache clearing is a dependent lifecycle, not a replacement identity layer. | `WI-FE-03`, `WI-FE-06` |
+| `FE-DEC-12` | Shell authentication, CSRF, logout, generation-based stale-response protection, actor/navigation bootstrap, and protected-state clearing remain in the existing API providers. Query cache clearing is a dependent lifecycle, not a replacement identity layer. Identity replacement remounts the protected subtree (`ProtectedAuthSubtree`) without remounting the API provider. | `WI-FE-03`, `WI-FE-06` |
 
 ## Consequences
 

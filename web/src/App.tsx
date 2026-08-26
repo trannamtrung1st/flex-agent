@@ -1,5 +1,5 @@
 import { BrowserRouter, RouterProvider } from "react-router-dom";
-import { BrowserApiProvider } from "./api/browser-api";
+import { BrowserApiProvider, ProtectedBrowserAuthSubtree } from "./api/browser-api";
 import { isProductionApiMode, ProductionApiProvider } from "./api/production-api";
 import { FlexQueryProvider } from "./api/query-client";
 import { AppRoutes } from "./router/routes";
@@ -15,7 +15,9 @@ export function App() {
       ) : (
         <BrowserApiProvider>
           <BrowserRouter>
-            <AppRoutes />
+            <ProtectedBrowserAuthSubtree>
+              <AppRoutes />
+            </ProtectedBrowserAuthSubtree>
           </BrowserRouter>
         </BrowserApiProvider>
       )}

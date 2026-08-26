@@ -1,9 +1,9 @@
 import { QueryClient, useQueryClient } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { App } from "../App";
 import { BrowserApiProvider, useBrowserApi } from "./browser-api";
-import { ProductionApiProvider, useProductionApi } from "./production-api";
+import { ProductionApiProvider, ProtectedAuthSubtree, useProductionApi } from "./production-api";
 import { createFlexQueryClient, FlexQueryProvider } from "./query-client";
 
 const protectedKey = ["assessment", "v1", "activities", "list"] as const;
@@ -326,7 +326,7 @@ describe("protected Query cache lifecycle", () => {
     expect(client.getQueryData(protectedKey)).toBeUndefined();
   });
 
-  it("purges cached queries when a remounted provider bootstraps a different organization", async () => {
+  it("clears Query cache and protected local state on in-place actor/Organization replacement", async () => {
     const client = createFlexQueryClient();
     let organizationId = "org-1";
     vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
@@ -349,15 +349,29 @@ describe("protected Query cache lifecycle", () => {
       return jsonResponse(404, {});
     }));
 
-    function OrgProbe() {
-      const { shell } = useProductionApi();
-      return <p>org:{shell?.organization_id ?? "none"}</p>;
+    function LocalStateProbe() {
+      const { shell, reloadTrustedContext } = useProductionApi();
+      return (
+        <div>
+          <p>org:{shell?.organization_id ?? "none"}</p>
+          <input aria-label="Campaign title" />
+          <button type="button" onClick={() => {
+            organizationId = "org-2";
+            void reloadTrustedContext();
+          }}
+          >
+            Switch organization
+          </button>
+        </div>
+      );
     }
 
-    const view = render(
+    render(
       <FlexQueryProvider client={client}>
-        <ProductionApiProvider key={organizationId}>
-          <OrgProbe />
+        <ProductionApiProvider>
+          <ProtectedAuthSubtree>
+            <LocalStateProbe />
+          </ProtectedAuthSubtree>
         </ProductionApiProvider>
       </FlexQueryProvider>,
     );
@@ -366,19 +380,15 @@ describe("protected Query cache lifecycle", () => {
       expect(screen.getByText("org:org-1")).toBeInTheDocument();
     });
     seedProtectedData(client, "org-1-data");
-    organizationId = "org-2";
-    view.rerender(
-      <FlexQueryProvider client={client}>
-        <ProductionApiProvider key={organizationId}>
-          <OrgProbe />
-        </ProductionApiProvider>
-      </FlexQueryProvider>,
-    );
+    fireEvent.change(screen.getByLabelText("Campaign title"), { target: { value: "Actor A draft" } });
+    expect(screen.getByLabelText("Campaign title")).toHaveValue("Actor A draft");
+    fireEvent.click(screen.getByRole("button", { name: "Switch organization" }));
 
     await waitFor(() => {
       expect(screen.getByText("org:org-2")).toBeInTheDocument();
     });
     expect(client.getQueryData(protectedKey)).toBeUndefined();
+    expect(screen.getByLabelText("Campaign title")).toHaveValue("");
   });
 });
 

@@ -6,7 +6,7 @@ import {
   isKnownPreLogoutRejection,
   SignOutUnconfirmedCopy,
 } from "./production-logout";
-import { purgeProtectedQueryCache, rememberQueryAuthContext } from "./query-client";
+import { purgeProtectedQueryCache, rememberQueryAuthContext, authSubtreeKey, AuthScopedSubtree } from "./query-client";
 
 export { ProductionApiError } from "./production-api-error";
 
@@ -29,6 +29,7 @@ interface ProductionApiValue {
   fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>;
   login: () => void;
   logout: () => Promise<void>;
+  reloadTrustedContext: () => Promise<void>;
 }
 
 const ProductionApiContext = createContext<ProductionApiValue | null>(null);
@@ -168,6 +169,7 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
       shell,
       errorMessage,
       fetchJson,
+      reloadTrustedContext: () => bootstrap(),
       login: () => {
         const path = `${window.location.pathname}${window.location.search}`;
         const safe = path.startsWith("/") && !path.startsWith("//") && !path.includes("://") ? path : "/";
@@ -194,6 +196,20 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
   );
 
   return <ProductionApiContext.Provider value={value}>{children}</ProductionApiContext.Provider>;
+}
+
+export function ProtectedAuthSubtree({ children }: { children: ReactNode }) {
+  const { apiState, shell } = useProductionApi();
+  return (
+    <AuthScopedSubtree
+      scopeKey={authSubtreeKey(
+        shell ? { actorId: shell.actor_id, organizationId: shell.organization_id } : undefined,
+        apiState,
+      )}
+    >
+      {children}
+    </AuthScopedSubtree>
+  );
 }
 
 export function useProductionApi() {

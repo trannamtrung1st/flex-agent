@@ -571,17 +571,13 @@ review history.
 
 # Current state
 
-Phase 1–8 executed. ADR-019 and the frontend architecture guide govern
-Query/form/icon/transport ownership. Production Activities reads/mutations use
-TanStack Query; Campaign create uses RHF+Zod; ThemeToggle demonstrates Lucide.
-Locked packages: `@tanstack/react-query@5.102.4`, `react-hook-form@7.86.0`,
-`zod@4.4.3`, `@hookform/resolvers@5.2.2`, `lucide-react@1.34.0`.
-`@hookform/resolvers` was pinned to `5.2.2` after `5.9.1` inflated optional
-peers. SPA SBOM matching now uses CycloneDX `group`+`name` for scoped packages.
-Live Campaign-create/theme screenshots are blocked: Vite `/browser` APIs 404
-without the synthetic API on `:8080`, and `http://localhost:18080/activities`
-requires an authenticated production session. Sign-in-gate screenshots were
-captured. Task retained for external review.
+Owner review of `b8c6f6c` follow-up implemented.
+
+- [x] Identity change remounts the protected React subtree (not only Query cache)
+- [x] Source-options wait for a fresh Activity `permitted_actions` observation
+- [x] Create success invalidates `assessmentKeys.activities()` with `exact` and `refetchType: "none"`
+- [x] Amend ADR-019 / frontend architecture to match
+- [x] Record live Playwright as an accepted non-blocking verification gap
 
 # Decisions
 
@@ -603,6 +599,13 @@ captured. Task retained for external review.
 - Keep Zustand entirely out of this task. No repository evidence currently
   justifies it.
 - Use direct Lucide imports and no wrapper in the first slice.
+- Identity replacement remounts `ProtectedAuthSubtree` inside the existing API
+  provider rather than remounting the provider. That destroys RHF/refs while
+  keeping CSRF, generation, and QueryClient ownership intact.
+- Dependent source-option reads require `isFetchedAfterMount` on the Activity
+  list so cached `permitted_actions` cannot launch them.
+- Activities create invalidation uses `exact: true` and `refetchType: "none"`
+  so navigation does not race a still-mounted list refetch.
 
 # Findings / deviations
 
@@ -626,6 +629,8 @@ captured. Task retained for external review.
 - Live Activities form and ThemeToggle could not be exercised: synthetic Vite
   proxy has no `/browser` API, and production `:18080/activities` is
   sign-in gated. Form/query/theme behavior is covered by component tests.
+  This is an accepted non-blocking verification gap; it does not reopen the
+  three review defects.
 
 # Verification
 
@@ -650,11 +655,15 @@ captured. Task retained for external review.
 | Playwright accessibility/screenshots | blocked for migrated form/theme | Vite `http://localhost:5173` `/browser/actor-context` 404 (API `:8080` not running). Production `http://localhost:18080/activities` shows sign-in required. Inspected PNGs: `.playwright-mcp/page-2026-08-26T00-11-27-954Z.png` (desktop gate), `.playwright-mcp/page-2026-08-26T00-11-55-342Z.png` (narrow gate). Do not claim Campaign-create or ThemeToggle visual completion |
 | Independent architecture/frontend/security/QA review | passed with residual live gap | Implementer review: ADR-019/`FE-DEC-*` match code; Query hooks compose typed clients; cache purge on ready-exit and identity change; keys are not auth; no Axios/Tailwind/Zustand; Session files untouched. Residual: live form/theme screenshots require authenticated production session or synthetic API |
 | Post-review confirmation (2026-08-26) | passed with same live gap | Re-ran `python3 scripts/check_docs.py`, `git diff --check`, `pnpm --filter @flex-agent/web test` (24 files, 171 passed), and typecheck. Pins, keys, purge paths, Activities mutation/form contract, and Session non-edit rechecked. Production `:18080/activities` still sign-in gated; Vite `:5173` still Access denied without synthetic API. No new defects found |
+| Review follow-up (identity remount, fresh permission, exact invalidation) | passed | Red then green: in-place org replacement clears typed Campaign title without remounting `ProductionApiProvider`; cached `create_assessment` does not call source-options; create invalidates with `exact: true` and `refetchType: "none"`. Full web tests 24 files, 172 passed; typecheck; lint 0 errors; `python3 scripts/check_docs.py` |
+| Follow-up confirmation (2026-08-26) | passed | Re-ran docs check, `git diff --check`, web tests (24 files, 172 passed), and typecheck before commit |
 
 # Blockers
 
-None. No material open question remains; Phase 1 only needs to recheck the next
-available ADR number before creating the approved decision record.
+None. Live Campaign-create and ThemeToggle Playwright remains an accepted
+non-blocking verification gap (no authenticated production session and no
+synthetic API on `:8080`). It is not a code defect and does not block the
+review follow-up.
 
 # Completion
 

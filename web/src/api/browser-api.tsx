@@ -16,7 +16,7 @@ import type {
   NavigationProjectionV1,
 } from "./browser-contracts";
 import { apiFetch, executeBrowserCommand, loadBrowserContext, reconcileBrowserCommand, type ApiState } from "./browser-client";
-import { purgeProtectedQueryCache, rememberQueryAuthContext } from "./query-client";
+import { purgeProtectedQueryCache, rememberQueryAuthContext, authSubtreeKey, AuthScopedSubtree } from "./query-client";
 
 export type { ApiState };
 
@@ -114,4 +114,18 @@ export function useBrowserApi() {
     throw new Error("useBrowserApi must be used within BrowserApiProvider");
   }
   return context;
+}
+
+export function ProtectedBrowserAuthSubtree({ children }: { children: ReactNode }) {
+  const { actor, apiState } = useBrowserApi();
+  return (
+    <AuthScopedSubtree
+      scopeKey={authSubtreeKey(
+        actor ? { actorId: actor.actor_id, organizationId: actor.organization_id } : undefined,
+        apiState,
+      )}
+    >
+      {children}
+    </AuthScopedSubtree>
+  );
 }

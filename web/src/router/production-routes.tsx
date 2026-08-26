@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, Navigate, createBrowserRouter } from "react-router-dom";
-import { useProductionApi } from "../api/production-api";
+import { ProtectedAuthSubtree, useProductionApi } from "../api/production-api";
 import { ProductionAppShell } from "../components/shell/ProductionAppShell";
 import { Button } from "../components/ui/Button";
 import { ProtectedLoading } from "../components/ui/ProtectedLoading";
@@ -69,7 +69,11 @@ function ProductionGate() {
     );
   }
 
-  return <ProductionAppShell />;
+  return (
+    <ProtectedAuthSubtree>
+      <ProductionAppShell />
+    </ProtectedAuthSubtree>
+  );
 }
 
 export const productionRouter = createBrowserRouter([

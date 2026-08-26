@@ -1,11 +1,32 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 
 export const flexQueryAuthContextKey = ["flex-query", "auth-context"] as const;
 
 export interface FlexQueryAuthContext {
   actorId: string;
   organizationId: string;
+}
+
+export function authSubtreeKey(
+  identity: FlexQueryAuthContext | null | undefined,
+  fallback = "unauthenticated",
+) {
+  if (!identity?.actorId || !identity.organizationId) {
+    return fallback;
+  }
+
+  return `${identity.actorId}:${identity.organizationId}`;
+}
+
+export function AuthScopedSubtree({
+  scopeKey,
+  children,
+}: {
+  scopeKey: string;
+  children: ReactNode;
+}) {
+  return <Fragment key={scopeKey}>{children}</Fragment>;
 }
 
 export function createFlexQueryClient() {

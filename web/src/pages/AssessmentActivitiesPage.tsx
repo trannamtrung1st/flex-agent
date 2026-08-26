@@ -52,8 +52,10 @@ export function AssessmentActivitiesPage({
   const queryClient = useQueryClient();
   const sourcesInitialized = useRef(false);
   const activitiesQuery = useAssessmentActivitiesQuery(loadActivities);
-  const canCreate = activitiesQuery.data?.permitted_actions.includes("create_assessment") ?? false;
-  const sourcesQuery = useAssessmentSourceOptionsQuery(loadSourceOptions, activitiesQuery.isSuccess && canCreate);
+  const canCreate = activitiesQuery.isFetchedAfterMount
+    && activitiesQuery.isSuccess
+    && activitiesQuery.data.permitted_actions.includes("create_assessment");
+  const sourcesQuery = useAssessmentSourceOptionsQuery(loadSourceOptions, canCreate);
   const createMutation = useCreateAssessmentActivityMutation(createActivity, onCreated);
   const sources = useMemo(() => sourcesQuery.data?.sources ?? [], [sourcesQuery.data?.sources]);
   const form = useForm<CampaignCreateValues>({
@@ -80,7 +82,7 @@ export function AssessmentActivitiesPage({
     sourcesInitialized.current = true;
   }, [form, sources, sourcesQuery.isSuccess]);
 
-  const loading = !activitiesQuery.isFetched || (canCreate && !sourcesQuery.isFetched);
+  const loading = !activitiesQuery.isFetchedAfterMount || (canCreate && !sourcesQuery.isFetched);
   const accessChanged = isAssessmentAccessLoss(activitiesQuery.error)
     || isAssessmentAccessLoss(sourcesQuery.error)
     || isAssessmentAccessLoss(createMutation.error);

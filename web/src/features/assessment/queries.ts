@@ -22,6 +22,12 @@ export function useAssessmentSourceOptionsQuery(
   });
 }
 
+export const activitiesListInvalidation = {
+  queryKey: assessmentKeys.activities(),
+  exact: true,
+  refetchType: "none" as const,
+};
+
 export function useCreateAssessmentActivityMutation(
   createActivity: (title: string, sources: Partial<Record<string, ProductionSourceRef>>) => Promise<string>,
   onCreated: (activityId: string) => void,
@@ -36,7 +42,7 @@ export function useCreateAssessmentActivityMutation(
       sources: Partial<Record<string, ProductionSourceRef>>;
     }) => createActivity(title, sources),
     onSuccess: (activityId) => {
-      void queryClient.invalidateQueries({ queryKey: assessmentKeys.activities() });
+      void queryClient.invalidateQueries(activitiesListInvalidation);
       onCreated(activityId);
     },
   });

@@ -89,8 +89,11 @@ QueryClient, including mutation variables and results, when:
 - API state leaves `ready` for any equivalent protected-state reset
 
 A successful rebootstrap compares trusted current and incoming shell
-actor/Organization identities and purges before replacement when either
-changes. Generation-based stale-response protection in
+actor/Organization identities and purges Query cache before replacement when
+either changes. The protected React subtree (shell outlet, forms, refs, and
+ephemeral UI) remounts under a key derived from that trusted identity so local
+state cannot survive the replacement. Query-cache clearing alone is not
+sufficient. Generation-based stale-response protection in
 `ProductionApiProvider` must still reject older responses after reset.
 
 Query cancellation passes the provided `AbortSignal` through the typed client
@@ -120,9 +123,11 @@ not create unused hooks merely to populate a hierarchy.
 The Activities list is the prerequisite query because server-returned
 `permitted_actions` decides whether the create surface is available.
 
-- Enable the source-option query only after the list succeeds and includes
-  `create_assessment`. Actors without that action must not request unused
-  source options.
+- Enable the source-option query only after a **fresh** Activity-list
+  observation (`isFetchedAfterMount`) succeeds and includes
+  `create_assessment`. Cached list payloads must not enable that dependent
+  protected read. Actors without that action must not request unused source
+  options.
 - While creation is permitted, keep the protected loading state until the
   first source-option request has settled, preserving the current stable
   initial layout.
@@ -133,9 +138,12 @@ The Activities list is the prerequisite query because server-returned
   cached protected content.
 
 Campaign creation uses a non-optimistic `useMutation`. On authoritative
-success, invalidate exactly `assessmentKeys.activities()` and immediately run
-the existing `onCreated(activityId)` navigation. Do not await the list refetch
-and do not invent a local Activity summary from submitted fields.
+success, invalidate exactly `assessmentKeys.activities()` with `exact: true`
+and `refetchType: "none"`, then immediately run the existing
+`onCreated(activityId)` navigation. Do not refetch the still-mounted list
+during navigation, do not await a list refetch, and do not invent a local
+Activity summary from submitted fields. The invalidated list refetches when it
+is next observed.
 
 ## Forms and validation
 
