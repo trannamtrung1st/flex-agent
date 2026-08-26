@@ -17,7 +17,7 @@ import type {
   NavigationProjectionV1,
 } from "./browser-contracts";
 import { apiFetch, executeBrowserCommand, loadBrowserContext, reconcileBrowserCommand, type ApiState } from "./browser-client";
-import { purgeProtectedQueryCache, replaceTrustedAuthorizationContext, authSubtreeKey, AuthScopedSubtree } from "./query-client";
+import { purgeProtectedQueryCache, replaceTrustedAuthorizationContext, authSubtreeKey, AuthScopedSubtree, flexQueryAuthContextKey, type FlexQueryAuthContext } from "./query-client";
 
 export type { ApiState };
 
@@ -26,7 +26,7 @@ interface BrowserApiContextValue {
   navigation: NavigationProjectionV1 | null;
   apiState: ApiState;
   errorMessage: string | null;
-  refresh: () => Promise<void>;
+  refresh: (options?: { replaceAuthorizationContext?: boolean }) => Promise<void>;
   executeCommand: (command: Omit<BrowserCommandEnvelopeV1, "schema_version">) => Promise<BrowserCommandResultV1>;
   reconcileCommand: (
     command: Omit<BrowserCommandEnvelopeV1, "schema_version">,
@@ -46,21 +46,34 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [authContextEpoch, setAuthContextEpoch] = useState(0);
 
-  const refresh = useCallback(async () => {
-    setApiState("loading");
-    setErrorMessage(null);
+  const refresh = useCallback(async (options?: { replaceAuthorizationContext?: boolean }) => {
+    const replaceRequested = options?.replaceAuthorizationContext === true;
+    if (replaceRequested || authContextEpochRef.current === 0) {
+      setApiState("loading");
+      setErrorMessage(null);
+    }
 
     try {
       const context = await loadBrowserContext();
-      authContextEpochRef.current += 1;
-      replaceTrustedAuthorizationContext(queryClient, {
-        actorId: context.actor.actor_id,
-        organizationId: context.actor.organization_id,
-        epoch: authContextEpochRef.current,
-      });
-      setAuthContextEpoch(authContextEpochRef.current);
+      const previous = queryClient.getQueryData<FlexQueryAuthContext>(flexQueryAuthContextKey);
+      const identityChanged = !previous
+        || previous.actorId !== context.actor.actor_id
+        || previous.organizationId !== context.actor.organization_id;
+      const replaceAuthorizationContext = replaceRequested || identityChanged;
+
+      if (replaceAuthorizationContext) {
+        authContextEpochRef.current += 1;
+        replaceTrustedAuthorizationContext(queryClient, {
+          actorId: context.actor.actor_id,
+          organizationId: context.actor.organization_id,
+          epoch: authContextEpochRef.current,
+        });
+        setAuthContextEpoch(authContextEpochRef.current);
+      }
+
       setActor(context.actor);
       setNavigation(context.navigation);
+      setErrorMessage(null);
       setApiState("ready");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -87,7 +100,7 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     queueMicrotask(() => {
-      void refresh();
+      void refresh({ replaceAuthorizationContext: true });
     });
   }, [refresh]);
 
@@ -96,7 +109,7 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
   const executeCommand = useCallback(
     async (command: Omit<BrowserCommandEnvelopeV1, "schema_version">) => {
       const result = await executeBrowserCommand(command);
-      await refresh();
+      await refresh({ replaceAuthorizationContext: false });
       return result;
     },
     [refresh],

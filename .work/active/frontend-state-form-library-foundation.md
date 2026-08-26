@@ -1,6 +1,6 @@
 ---
 id: frontend-state-form-library-foundation
-status: completed
+status: in-progress
 created: 2026-08-26
 updated: 2026-08-26
 ---
@@ -571,11 +571,12 @@ review history.
 
 # Current state
 
-Owner review of `635f9c0` isolation follow-up implemented.
+Owner review of `ae0ac65` Session remount regression is fixed.
 
-- [x] Authorization-context epoch on every successful trusted-context replacement
-- [x] Remove `reloadTrustedContext` from the production application API
-- [x] Amend ADR-019 / frontend architecture for authorization-context vs identity
+- [x] Distinguish projection refresh from trusted-context replacement in BrowserApiProvider
+- [x] Regression: ordinary command follow-up does not remount under ProtectedBrowserAuthSubtree
+- [x] Complementary: actor switch and explicit same-actor replacement still remount
+- [x] Amend ADR-019 / frontend architecture
 
 # Decisions
 
@@ -610,6 +611,10 @@ Owner review of `635f9c0` isolation follow-up implemented.
   list so cached `permitted_actions` cannot launch them.
 - Activities create invalidation uses `exact: true` and `refetchType: "none"`
   so navigation does not race a still-mounted list refetch.
+- Synthetic projection refresh is not trusted-context replacement. Ordinary
+  `executeCommand` follow-up refresh must not increment the authorization
+  epoch or remount `ProtectedBrowserAuthSubtree`. Bootstrap, actor/org
+  identity change, and explicit `replaceAuthorizationContext` still replace.
 
 # Findings / deviations
 
@@ -663,6 +668,8 @@ Owner review of `635f9c0` isolation follow-up implemented.
 | Follow-up confirmation (2026-08-26) | passed | Re-ran docs check, `git diff --check`, web tests (24 files, 172 passed), and typecheck before commit |
 | Authorization-context epoch follow-up | passed | Red then green: same actor/Organization with administrator→reviewer shell replacement clears Query cache and Campaign local state, and renders the narrowed shell. `reloadTrustedContext` removed from `useProductionApi`; tests use `reloadTrustedContextForTests`. Full web tests 24 files, 173 passed; typecheck; lint 0 errors; docs check |
 | Authorization-context confirmation (2026-08-26) | passed | Re-ran docs check, `git diff --check`, web tests (24 files, 173 passed), and typecheck before commit |
+| Session remount follow-up (command refresh ≠ epoch) | passed | Under real `ProtectedBrowserAuthSubtree`: ordinary `executeCommand` follow-up refresh keeps Session stand-in mount id; actor switch and explicit same-actor `replaceAuthorizationContext` remount. `SessionPage.test.tsx` harness was not wrapped (bootstrap remount vs EventSource). Full web tests 24 files, 176 passed; typecheck; lint 0 errors; `python3 scripts/check_docs.py` |
+| Session remount confirmation (2026-08-26) | passed | Rechecked `executeCommand` uses `replaceAuthorizationContext: false`; epoch still advances on bootstrap, identity change, and explicit replace. Production epoch path unchanged. Re-ran docs check, `git diff --check`, typecheck, and web tests (24 files, 176 passed). |
 
 # Blockers
 

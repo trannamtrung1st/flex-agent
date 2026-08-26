@@ -98,6 +98,13 @@ the client epoch. Query-cache clearing alone is not sufficient.
 Generation-based stale-response protection in `ProductionApiProvider` must
 still reject older responses after reset.
 
+A synthetic actor/navigation reload after an ordinary `executeCommand` is a
+projection refresh, not trusted-context replacement. It must not increment the
+authorization-context epoch, purge the Query cache, set API state back to
+`loading`, or remount `ProtectedBrowserAuthSubtree`. Actor or Organization
+replacement, first bootstrap, and an explicit `replaceAuthorizationContext`
+refresh remain replacements.
+
 Query cancellation passes the provided `AbortSignal` through the typed client
 to `fetchJson`. Feature UI classifies access loss with typed status/outcome
 helpers, not regular expressions against presentation copy.

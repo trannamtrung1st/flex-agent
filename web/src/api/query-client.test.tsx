@@ -1,8 +1,8 @@
 import { QueryClient, useQueryClient } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { App } from "../App";
-import { BrowserApiProvider, useBrowserApi } from "./browser-api";
+import { BrowserApiProvider, ProtectedBrowserAuthSubtree, useBrowserApi } from "./browser-api";
 import { ProductionApiProvider, ProtectedAuthSubtree, reloadTrustedContextForTests, useProductionApi } from "./production-api";
 import { createFlexQueryClient, FlexQueryProvider } from "./query-client";
 
@@ -17,6 +17,10 @@ function RenderCounter({ onClient }: { onClient: (client: QueryClient) => void }
   const queryClient = useQueryClient();
   onClient(queryClient);
   return <p>ready</p>;
+}
+
+function requestUrl(input: RequestInfo | URL) {
+  return typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
 }
 
 function seedProtectedData(client: QueryClient, value: string) {
@@ -518,5 +522,216 @@ describe("synthetic actor replacement", () => {
       expect(screen.getByText("actor:actor.synthetic.other")).toBeInTheDocument();
     });
     expect(client.getQueryData(protectedKey)).toBeUndefined();
+  });
+
+  it("does not remount protected Session state after an ordinary command follow-up refresh", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/browser/actor-context")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          actor_id: "actor.synthetic.participant",
+          display_name: "Synthetic Participant",
+          organization_id: "org.synthetic.demo",
+          organization_name: "Synthetic Demo Organization",
+          capabilities: ["participant"],
+          actor_stage: "participant",
+          is_synthetic: true,
+        }));
+      }
+
+      if (url.includes("/browser/navigation")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          destinations: [{ destination_id: "home", label: "Home", route: "/", tier: "p0", is_available: true }],
+        }));
+      }
+
+      if (url.includes("/browser/commands")) {
+        return Promise.resolve(jsonResponse(200, { schema_version: "v1", outcome: "succeeded" }));
+      }
+
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    let mounts = 0;
+    function SessionRuntimeStandIn() {
+      const mountId = useRef(++mounts);
+      const { apiState, executeCommand } = useBrowserApi();
+      return (
+        <div>
+          <p>session-mounts:{mountId.current}</p>
+          <button type="button" disabled={apiState !== "ready"} onClick={() => {
+            void executeCommand({
+              command_id: "send_message",
+              idempotency_key: "cmd-1",
+              command_type: "session.send_message",
+              resource_id: "sess.synthetic.0001",
+              expected_version: 1,
+              payload: { message_text: "hello" },
+            });
+          }}
+          >
+            Send message
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <FlexQueryProvider>
+        <BrowserApiProvider>
+          <ProtectedBrowserAuthSubtree>
+            <SessionRuntimeStandIn />
+          </ProtectedBrowserAuthSubtree>
+        </BrowserApiProvider>
+      </FlexQueryProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
+    });
+    const mountsAfterReady = screen.getByText(/session-mounts:/).textContent;
+    const actorLoadsAfterReady = fetchMock.mock.calls.filter(([input]) => requestUrl(input).includes("/browser/actor-context")).length;
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([input]) => requestUrl(input).includes("/browser/commands"))).toBe(true);
+    });
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.filter(([input]) => requestUrl(input).includes("/browser/actor-context")).length).toBeGreaterThan(actorLoadsAfterReady);
+    });
+    expect(screen.getByText(/session-mounts:/).textContent).toBe(mountsAfterReady);
+  });
+
+  it("remounts protected Session state on explicit synthetic actor replacement", async () => {
+    let actorId = "actor.synthetic.participant";
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/browser/actor-context")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          actor_id: actorId,
+          display_name: "Synthetic",
+          organization_id: "org.synthetic.demo",
+          organization_name: "Synthetic Demo Organization",
+          capabilities: ["participant"],
+          actor_stage: "participant",
+          is_synthetic: true,
+        }));
+      }
+
+      if (url.includes("/browser/navigation")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          destinations: [{ destination_id: "home", label: "Home", route: "/", tier: "p0", is_available: true }],
+        }));
+      }
+
+      return Promise.resolve(jsonResponse(404, {}));
+    }));
+
+    let mounts = 0;
+    function SessionRuntimeStandIn() {
+      const mountId = useRef(++mounts);
+      const { actor, refresh } = useBrowserApi();
+      return (
+        <div>
+          <p>session-mounts:{mountId.current}</p>
+          <p>actor:{actor?.actor_id ?? "none"}</p>
+          <button type="button" onClick={() => {
+            actorId = "actor.synthetic.other";
+            void refresh({ replaceAuthorizationContext: true });
+          }}
+          >
+            Switch actor
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <FlexQueryProvider>
+        <BrowserApiProvider>
+          <ProtectedBrowserAuthSubtree>
+            <SessionRuntimeStandIn />
+          </ProtectedBrowserAuthSubtree>
+        </BrowserApiProvider>
+      </FlexQueryProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("actor:actor.synthetic.participant")).toBeInTheDocument();
+    });
+    const mountsAfterReady = screen.getByText(/session-mounts:/).textContent;
+    fireEvent.click(screen.getByRole("button", { name: "Switch actor" }));
+    await waitFor(() => {
+      expect(screen.getByText("actor:actor.synthetic.other")).toBeInTheDocument();
+    });
+    expect(screen.getByText(/session-mounts:/).textContent).not.toBe(mountsAfterReady);
+  });
+
+  it("remounts protected Session state on explicit same-actor authorization-context replacement", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      if (url.includes("/browser/actor-context")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          actor_id: "actor.synthetic.participant",
+          display_name: "Synthetic",
+          organization_id: "org.synthetic.demo",
+          organization_name: "Synthetic Demo Organization",
+          capabilities: ["participant"],
+          actor_stage: "participant",
+          is_synthetic: true,
+        }));
+      }
+
+      if (url.includes("/browser/navigation")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          destinations: [{ destination_id: "home", label: "Home", route: "/", tier: "p0", is_available: true }],
+        }));
+      }
+
+      return Promise.resolve(jsonResponse(404, {}));
+    }));
+
+    let mounts = 0;
+    function SessionRuntimeStandIn() {
+      const mountId = useRef(++mounts);
+      const { actor, refresh } = useBrowserApi();
+      return (
+        <div>
+          <p>session-mounts:{mountId.current}</p>
+          <p>actor:{actor?.actor_id ?? "none"}</p>
+          <button type="button" onClick={() => {
+            void refresh({ replaceAuthorizationContext: true });
+          }}
+          >
+            Replace context
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <FlexQueryProvider>
+        <BrowserApiProvider>
+          <ProtectedBrowserAuthSubtree>
+            <SessionRuntimeStandIn />
+          </ProtectedBrowserAuthSubtree>
+        </BrowserApiProvider>
+      </FlexQueryProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("actor:actor.synthetic.participant")).toBeInTheDocument();
+    });
+    const mountsAfterReady = screen.getByText(/session-mounts:/).textContent;
+    fireEvent.click(screen.getByRole("button", { name: "Replace context" }));
+    await waitFor(() => {
+      expect(screen.getByText(/session-mounts:/).textContent).not.toBe(mountsAfterReady);
+    });
   });
 });
