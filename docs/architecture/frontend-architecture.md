@@ -102,8 +102,13 @@ A synthetic actor/navigation reload after an ordinary `executeCommand` is a
 projection refresh, not trusted-context replacement. It must not increment the
 authorization-context epoch, purge the Query cache, set API state back to
 `loading`, or remount `ProtectedBrowserAuthSubtree`. Actor or Organization
-replacement, first bootstrap, and an explicit `replaceAuthorizationContext`
-refresh remain replacements.
+replacement, first bootstrap, explicit `replaceAuthorizationContext`, and
+same-actor `capabilities` or `actor_stage` narrowing remain replacements.
+
+Leaving synthetic API `ready` for unauthenticated, denied, or error must purge
+the Query cache, clear actor and navigation, advance the authorization-context
+epoch, and render `denied`/`error`/`idle` instead of protected routes. Do not
+keep a previous actor identity in the protected subtree key after access loss.
 
 Query cancellation passes the provided `AbortSignal` through the typed client
 to `fetchJson`. Feature UI classifies access loss with typed status/outcome

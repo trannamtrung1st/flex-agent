@@ -571,12 +571,12 @@ review history.
 
 # Current state
 
-Owner review of `ae0ac65` Session remount regression is fixed.
+Owner review of `9d380c6` ready-exit teardown is fixed.
 
-- [x] Distinguish projection refresh from trusted-context replacement in BrowserApiProvider
-- [x] Regression: ordinary command follow-up does not remount under ProtectedBrowserAuthSubtree
-- [x] Complementary: actor switch and explicit same-actor replacement still remount
-- [x] Amend ADR-019 / frontend architecture
+- [x] Leave ready: purge cache, clear actor/navigation, bump epoch, hide protected routes
+- [x] Regression: command success then follow-up actor-context 403 unmounts Session stand-in
+- [x] AppRoutes handles denied and error without falling through to Routes
+- [x] Same-identity capability/actor_stage narrowing treated as replacement (small P2)
 
 # Decisions
 
@@ -614,7 +614,11 @@ Owner review of `ae0ac65` Session remount regression is fixed.
 - Synthetic projection refresh is not trusted-context replacement. Ordinary
   `executeCommand` follow-up refresh must not increment the authorization
   epoch or remount `ProtectedBrowserAuthSubtree`. Bootstrap, actor/org
-  identity change, and explicit `replaceAuthorizationContext` still replace.
+  identity change, capability/`actor_stage` narrowing, and explicit
+  `replaceAuthorizationContext` still replace.
+- Leaving synthetic API `ready` for idle/denied/error purges Query cache,
+  clears actor/navigation, advances the epoch, and renders a workspace gate
+  instead of protected routes.
 
 # Findings / deviations
 
@@ -670,6 +674,8 @@ Owner review of `ae0ac65` Session remount regression is fixed.
 | Authorization-context confirmation (2026-08-26) | passed | Re-ran docs check, `git diff --check`, web tests (24 files, 173 passed), and typecheck before commit |
 | Session remount follow-up (command refresh ≠ epoch) | passed | Under real `ProtectedBrowserAuthSubtree`: ordinary `executeCommand` follow-up refresh keeps Session stand-in mount id; actor switch and explicit same-actor `replaceAuthorizationContext` remount. `SessionPage.test.tsx` harness was not wrapped (bootstrap remount vs EventSource). Full web tests 24 files, 176 passed; typecheck; lint 0 errors; `python3 scripts/check_docs.py` |
 | Session remount confirmation (2026-08-26) | passed | Rechecked `executeCommand` uses `replaceAuthorizationContext: false`; epoch still advances on bootstrap, identity change, and explicit replace. Production epoch path unchanged. Re-ran docs check, `git diff --check`, typecheck, and web tests (24 files, 176 passed). |
+| Ready-exit teardown follow-up | passed | Red: command success then follow-up actor-context 403 left `probe-actor` populated. Green: `leaveReady` clears actor/navigation, purges Query, bumps epoch; `BrowserWorkspaceGate` renders denied/error instead of routes. Same-actor capability narrowing remounts. App bootstrap 403 hides navigation. Full web tests 24 files, 179 passed; typecheck; lint 0 errors; docs check |
+| Ready-exit confirmation (2026-08-26) | passed | Rechecked `executeCommand` still uses `replaceAuthorizationContext: false`; catch paths all call `leaveReady`; `BrowserWorkspaceGate` handles loading/idle/denied/error before Routes. Re-ran docs check, `git diff --check`, typecheck, and web tests (24 files, 179 passed). |
 
 # Blockers
 

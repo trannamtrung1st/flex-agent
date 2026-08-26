@@ -17,9 +17,22 @@ import type {
   NavigationProjectionV1,
 } from "./browser-contracts";
 import { apiFetch, executeBrowserCommand, loadBrowserContext, reconcileBrowserCommand, type ApiState } from "./browser-client";
-import { purgeProtectedQueryCache, replaceTrustedAuthorizationContext, authSubtreeKey, AuthScopedSubtree, flexQueryAuthContextKey, type FlexQueryAuthContext } from "./query-client";
+import { purgeProtectedQueryCache, replaceTrustedAuthorizationContext, authSubtreeKey, AuthScopedSubtree } from "./query-client";
 
 export type { ApiState };
+
+function actorAuthorizationChanged(previous: ActorContextV1 | null, next: ActorContextV1): boolean {
+  if (!previous) {
+    return true;
+  }
+
+  const previousCapabilities = [...previous.capabilities].sort().join("\0");
+  const nextCapabilities = [...next.capabilities].sort().join("\0");
+  return previous.actor_id !== next.actor_id
+    || previous.organization_id !== next.organization_id
+    || previous.actor_stage !== next.actor_stage
+    || previousCapabilities !== nextCapabilities;
+}
 
 interface BrowserApiContextValue {
   actor: ActorContextV1 | null;
@@ -40,11 +53,23 @@ const BrowserApiContext = createContext<BrowserApiContextValue | null>(null);
 export function BrowserApiProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const authContextEpochRef = useRef(0);
+  const trustedActorRef = useRef<ActorContextV1 | null>(null);
   const [actor, setActor] = useState<ActorContextV1 | null>(null);
   const [navigation, setNavigation] = useState<NavigationProjectionV1 | null>(null);
   const [apiState, setApiState] = useState<ApiState>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [authContextEpoch, setAuthContextEpoch] = useState(0);
+
+  const leaveReady = useCallback((nextState: "idle" | "denied" | "error", message: string | null = null) => {
+    purgeProtectedQueryCache(queryClient);
+    authContextEpochRef.current += 1;
+    trustedActorRef.current = null;
+    setAuthContextEpoch(authContextEpochRef.current);
+    setActor(null);
+    setNavigation(null);
+    setErrorMessage(message);
+    setApiState(nextState);
+  }, [queryClient]);
 
   const refresh = useCallback(async (options?: { replaceAuthorizationContext?: boolean }) => {
     const replaceRequested = options?.replaceAuthorizationContext === true;
@@ -55,11 +80,7 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
 
     try {
       const context = await loadBrowserContext();
-      const previous = queryClient.getQueryData<FlexQueryAuthContext>(flexQueryAuthContextKey);
-      const identityChanged = !previous
-        || previous.actorId !== context.actor.actor_id
-        || previous.organizationId !== context.actor.organization_id;
-      const replaceAuthorizationContext = replaceRequested || identityChanged;
+      const replaceAuthorizationContext = replaceRequested || actorAuthorizationChanged(trustedActorRef.current, context.actor);
 
       if (replaceAuthorizationContext) {
         authContextEpochRef.current += 1;
@@ -71,6 +92,7 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
         setAuthContextEpoch(authContextEpochRef.current);
       }
 
+      trustedActorRef.current = context.actor;
       setActor(context.actor);
       setNavigation(context.navigation);
       setErrorMessage(null);
@@ -78,25 +100,18 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       if (message === "unauthenticated") {
-        purgeProtectedQueryCache(queryClient);
-        setActor(null);
-        setNavigation(null);
-        setApiState("idle");
+        leaveReady("idle");
         return;
       }
 
       if (message === "protected" || message.includes("Access")) {
-        purgeProtectedQueryCache(queryClient);
-        setApiState("denied");
-        setErrorMessage(message);
+        leaveReady("denied", message);
         return;
       }
 
-      purgeProtectedQueryCache(queryClient);
-      setApiState("error");
-      setErrorMessage(message);
+      leaveReady("error", message);
     }
-  }, [queryClient]);
+  }, [leaveReady, queryClient]);
 
   useEffect(() => {
     queueMicrotask(() => {

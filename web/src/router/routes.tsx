@@ -77,8 +77,8 @@ function ActivityChildGuard({ children }: { children: ReactNode }) {
   return <DestinationGuard destinationId="activities">{children}</DestinationGuard>;
 }
 
-export function AppRoutes() {
-  const { apiState } = useBrowserApi();
+export function BrowserWorkspaceGate({ children }: { children: ReactNode }) {
+  const { apiState, errorMessage } = useBrowserApi();
 
   if (apiState === "loading") {
     return <ProtectedLoading label="Establishing session context…" />;
@@ -88,8 +88,29 @@ export function AppRoutes() {
     return <AuthGatePage />;
   }
 
+  if (apiState === "denied") {
+    return (
+      <StatusPanel title="Access denied" variant="danger">
+        <p>{errorMessage ?? "You do not have access to this content."}</p>
+      </StatusPanel>
+    );
+  }
+
+  if (apiState === "error") {
+    return (
+      <StatusPanel title="Unable to load workspace" variant="danger">
+        <p>{errorMessage ?? "An unexpected error occurred. Try refreshing the page."}</p>
+      </StatusPanel>
+    );
+  }
+
+  return children;
+}
+
+export function AppRoutes() {
   return (
-    <Routes>
+    <BrowserWorkspaceGate>
+      <Routes>
       <Route element={<AppShell />}>
         <Route
           index
@@ -227,5 +248,6 @@ export function AppRoutes() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
+    </BrowserWorkspaceGate>
   );
 }

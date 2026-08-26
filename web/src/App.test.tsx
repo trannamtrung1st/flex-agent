@@ -89,4 +89,25 @@ describe("App shell", () => {
     expect(screen.getByRole("main")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /^home$/i })).toBeInTheDocument();
   });
+
+  it("does not render protected routes when actor context is denied", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/browser/actor-context") || url.includes("/browser/navigation")) {
+        return Promise.resolve({
+          ok: false,
+          status: 403,
+          json: () => Promise.resolve({ safe_message: "Access denied" }),
+        });
+      }
+
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    }));
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: /primary navigation/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^home$/i })).not.toBeInTheDocument();
+  });
 });

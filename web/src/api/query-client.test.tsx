@@ -5,6 +5,7 @@ import { App } from "../App";
 import { BrowserApiProvider, ProtectedBrowserAuthSubtree, useBrowserApi } from "./browser-api";
 import { ProductionApiProvider, ProtectedAuthSubtree, reloadTrustedContextForTests, useProductionApi } from "./production-api";
 import { createFlexQueryClient, FlexQueryProvider } from "./query-client";
+import { BrowserWorkspaceGate } from "../router/routes";
 
 const protectedKey = ["assessment", "v1", "activities", "list"] as const;
 
@@ -733,5 +734,161 @@ describe("synthetic actor replacement", () => {
     await waitFor(() => {
       expect(screen.getByText(/session-mounts:/).textContent).not.toBe(mountsAfterReady);
     });
+  });
+
+  it("tears down protected Session state when command follow-up context refresh is denied", async () => {
+    let actorContextStatus = 200;
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      if (url.includes("/browser/actor-context")) {
+        if (actorContextStatus === 403) {
+          return Promise.resolve(jsonResponse(403, { safe_message: "Access denied" }));
+        }
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          actor_id: "actor.synthetic.participant",
+          display_name: "Synthetic Participant",
+          organization_id: "org.synthetic.demo",
+          organization_name: "Synthetic Demo Organization",
+          capabilities: ["participant"],
+          actor_stage: "participant",
+          is_synthetic: true,
+        }));
+      }
+
+      if (url.includes("/browser/navigation")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          destinations: [{ destination_id: "home", label: "Home", route: "/", tier: "p0", is_available: true }],
+        }));
+      }
+
+      if (url.includes("/browser/commands")) {
+        actorContextStatus = 403;
+        return Promise.resolve(jsonResponse(200, { schema_version: "v1", outcome: "succeeded" }));
+      }
+
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    function ActorProbe() {
+      const { actor, apiState } = useBrowserApi();
+      return <p>{`probe-actor:${actor?.actor_id ?? "none"} probe-state:${apiState}`}</p>;
+    }
+
+    function SessionRuntimeStandIn() {
+      const { apiState, executeCommand } = useBrowserApi();
+      return (
+        <div>
+          <p>session-mounts:ready</p>
+          <button type="button" disabled={apiState !== "ready"} onClick={() => {
+            void executeCommand({
+              command_id: "send_message",
+              idempotency_key: "cmd-denied-refresh",
+              command_type: "session.send_message",
+              resource_id: "sess.synthetic.0001",
+              expected_version: 1,
+              payload: { message_text: "hello" },
+            });
+          }}
+          >
+            Send message
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <FlexQueryProvider>
+        <BrowserApiProvider>
+          <ActorProbe />
+          <ProtectedBrowserAuthSubtree>
+            <BrowserWorkspaceGate>
+              <SessionRuntimeStandIn />
+            </BrowserWorkspaceGate>
+          </ProtectedBrowserAuthSubtree>
+        </BrowserApiProvider>
+      </FlexQueryProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
+    });
+    expect(screen.getByText("probe-actor:actor.synthetic.participant probe-state:ready")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+    });
+    expect(screen.queryByText("session-mounts:ready")).not.toBeInTheDocument();
+    expect(screen.getByText("probe-actor:none probe-state:denied")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => requestUrl(input).includes("/browser/commands"))).toBe(true);
+  });
+
+  it("remounts protected Session state when the same actor returns narrowed capabilities", async () => {
+    let capabilities = ["participant", "session_control"];
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      if (url.includes("/browser/actor-context")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          actor_id: "actor.synthetic.participant",
+          display_name: "Synthetic",
+          organization_id: "org.synthetic.demo",
+          organization_name: "Synthetic Demo Organization",
+          capabilities,
+          actor_stage: "participant",
+          is_synthetic: true,
+        }));
+      }
+
+      if (url.includes("/browser/navigation")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          destinations: [{ destination_id: "home", label: "Home", route: "/", tier: "p0", is_available: true }],
+        }));
+      }
+
+      return Promise.resolve(jsonResponse(404, {}));
+    }));
+
+    let mounts = 0;
+    function SessionRuntimeStandIn() {
+      const mountId = useRef(++mounts);
+      const { actor, refresh } = useBrowserApi();
+      return (
+        <div>
+          <p>session-mounts:{mountId.current}</p>
+          <p>capabilities:{(actor?.capabilities ?? []).join(",")}</p>
+          <button type="button" onClick={() => {
+            capabilities = ["participant"];
+            void refresh({ replaceAuthorizationContext: false });
+          }}
+          >
+            Refresh projections
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <FlexQueryProvider>
+        <BrowserApiProvider>
+          <ProtectedBrowserAuthSubtree>
+            <SessionRuntimeStandIn />
+          </ProtectedBrowserAuthSubtree>
+        </BrowserApiProvider>
+      </FlexQueryProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("capabilities:participant,session_control")).toBeInTheDocument();
+    });
+    const mountsAfterReady = screen.getByText(/session-mounts:/).textContent;
+    fireEvent.click(screen.getByRole("button", { name: "Refresh projections" }));
+    await waitFor(() => {
+      expect(screen.getByText("capabilities:participant")).toBeInTheDocument();
+    });
+    expect(screen.getByText(/session-mounts:/).textContent).not.toBe(mountsAfterReady);
   });
 });
