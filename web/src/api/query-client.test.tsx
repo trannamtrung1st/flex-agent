@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { App } from "../App";
 import { BrowserApiProvider, useBrowserApi } from "./browser-api";
-import { ProductionApiProvider, ProtectedAuthSubtree, useProductionApi } from "./production-api";
+import { ProductionApiProvider, ProtectedAuthSubtree, reloadTrustedContextForTests, useProductionApi } from "./production-api";
 import { createFlexQueryClient, FlexQueryProvider } from "./query-client";
 
 const protectedKey = ["assessment", "v1", "activities", "list"] as const;
@@ -350,14 +350,14 @@ describe("protected Query cache lifecycle", () => {
     }));
 
     function LocalStateProbe() {
-      const { shell, reloadTrustedContext } = useProductionApi();
+      const { shell } = useProductionApi();
       return (
         <div>
           <p>org:{shell?.organization_id ?? "none"}</p>
           <input aria-label="Campaign title" />
           <button type="button" onClick={() => {
             organizationId = "org-2";
-            void reloadTrustedContext();
+            void reloadTrustedContextForTests();
           }}
           >
             Switch organization
@@ -387,6 +387,75 @@ describe("protected Query cache lifecycle", () => {
     await waitFor(() => {
       expect(screen.getByText("org:org-2")).toBeInTheDocument();
     });
+    expect(client.getQueryData(protectedKey)).toBeUndefined();
+    expect(screen.getByLabelText("Campaign title")).toHaveValue("");
+  });
+
+  it("purges Query cache and local state when authorization context is replaced for the same actor and Organization", async () => {
+    const client = createFlexQueryClient();
+    let relationship = "administrator";
+    let permittedActions = ["assessment.activity.create"];
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/auth/session")) {
+        return jsonResponse(200, { authenticated: true, csrf_token: "csrf-1" });
+      }
+
+      if (url.includes("/v1/assessment/shell")) {
+        return jsonResponse(200, {
+          schema_version: "v1",
+          actor_id: "actor-1",
+          organization_id: "org-1",
+          relationship,
+          navigation: [{ destination_id: "activities", is_available: true }],
+          permitted_actions: permittedActions,
+        });
+      }
+
+      return jsonResponse(404, {});
+    }));
+
+    function LocalStateProbe() {
+      const { shell } = useProductionApi();
+      return (
+        <div>
+          <p>relationship:{shell?.relationship ?? "none"}</p>
+          <p>actions:{shell?.permitted_actions.join(",") || "none"}</p>
+          <input aria-label="Campaign title" />
+          <button type="button" onClick={() => {
+            relationship = "reviewer";
+            permittedActions = ["assessment.review.read"];
+            void reloadTrustedContextForTests();
+          }}
+          >
+            Reload trusted context
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <FlexQueryProvider client={client}>
+        <ProductionApiProvider>
+          <ProtectedAuthSubtree>
+            <LocalStateProbe />
+          </ProtectedAuthSubtree>
+        </ProductionApiProvider>
+      </FlexQueryProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("relationship:administrator")).toBeInTheDocument();
+    });
+    seedProtectedData(client, "administrator-list");
+    fireEvent.change(screen.getByLabelText("Campaign title"), { target: { value: "Admin draft" } });
+    expect(screen.getByLabelText("Campaign title")).toHaveValue("Admin draft");
+    fireEvent.click(screen.getByRole("button", { name: "Reload trusted context" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("relationship:reviewer")).toBeInTheDocument();
+    });
+    expect(screen.getByText("actions:assessment.review.read")).toBeInTheDocument();
     expect(client.getQueryData(protectedKey)).toBeUndefined();
     expect(screen.getByLabelText("Campaign title")).toHaveValue("");
   });

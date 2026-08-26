@@ -6,6 +6,7 @@ export const flexQueryAuthContextKey = ["flex-query", "auth-context"] as const;
 export interface FlexQueryAuthContext {
   actorId: string;
   organizationId: string;
+  epoch: number;
 }
 
 export function authSubtreeKey(
@@ -16,7 +17,7 @@ export function authSubtreeKey(
     return fallback;
   }
 
-  return `${identity.actorId}:${identity.organizationId}`;
+  return `${identity.actorId}:${identity.organizationId}:${String(identity.epoch)}`;
 }
 
 export function AuthScopedSubtree({
@@ -48,21 +49,12 @@ export function purgeProtectedQueryCache(queryClient: QueryClient) {
   queryClient.clear();
 }
 
-export function rememberQueryAuthContext(
+export function replaceTrustedAuthorizationContext(
   queryClient: QueryClient,
   identity: FlexQueryAuthContext,
-): boolean {
-  const previous = queryClient.getQueryData<FlexQueryAuthContext>(flexQueryAuthContextKey);
-  const replaced = Boolean(
-    previous
-    && (previous.actorId !== identity.actorId || previous.organizationId !== identity.organizationId),
-  );
-  if (replaced) {
-    purgeProtectedQueryCache(queryClient);
-  }
-
+) {
+  purgeProtectedQueryCache(queryClient);
   queryClient.setQueryData(flexQueryAuthContextKey, identity);
-  return replaced;
 }
 
 export function FlexQueryProvider({

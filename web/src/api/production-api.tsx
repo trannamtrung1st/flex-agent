@@ -6,7 +6,7 @@ import {
   isKnownPreLogoutRejection,
   SignOutUnconfirmedCopy,
 } from "./production-logout";
-import { purgeProtectedQueryCache, rememberQueryAuthContext, authSubtreeKey, AuthScopedSubtree } from "./query-client";
+import { purgeProtectedQueryCache, replaceTrustedAuthorizationContext, authSubtreeKey, AuthScopedSubtree } from "./query-client";
 
 export { ProductionApiError } from "./production-api-error";
 
@@ -29,19 +29,31 @@ interface ProductionApiValue {
   fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>;
   login: () => void;
   logout: () => Promise<void>;
-  reloadTrustedContext: () => Promise<void>;
+  authContextEpoch: number;
 }
 
 const ProductionApiContext = createContext<ProductionApiValue | null>(null);
+
+let reloadTrustedContextForTestsImpl: (() => Promise<void>) | null = null;
+
+export function reloadTrustedContextForTests() {
+  if (!reloadTrustedContextForTestsImpl) {
+    throw new Error("ProductionApiProvider is not mounted");
+  }
+
+  return reloadTrustedContextForTestsImpl();
+}
 
 export function ProductionApiProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const csrfRef = useRef<string | null>(null);
   const generationRef = useRef(0);
+  const authContextEpochRef = useRef(0);
   const [apiState, setApiState] = useState<ProductionApiState>("loading");
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const [shell, setShell] = useState<ProductionShellContextV1 | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [authContextEpoch, setAuthContextEpoch] = useState(0);
 
   const clearProtectedState = useCallback((next: ProductionApiState, message: string | null = null) => {
     purgeProtectedQueryCache(queryClient);
@@ -133,13 +145,14 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
       }
 
       const nextShell = await shellResponse.json() as ProductionShellContextV1;
-      if (rememberQueryAuthContext(queryClient, {
+      authContextEpochRef.current += 1;
+      generationRef.current += 1;
+      replaceTrustedAuthorizationContext(queryClient, {
         actorId: nextShell.actor_id,
         organizationId: nextShell.organization_id,
-      })) {
-        generationRef.current += 1;
-      }
-
+        epoch: authContextEpochRef.current,
+      });
+      setAuthContextEpoch(authContextEpochRef.current);
       setShell(nextShell);
       setErrorMessage(null);
       setApiState("ready");
@@ -162,6 +175,13 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
     };
   }, [bootstrap]);
 
+  useEffect(() => {
+    reloadTrustedContextForTestsImpl = () => bootstrap();
+    return () => {
+      reloadTrustedContextForTestsImpl = null;
+    };
+  }, [bootstrap]);
+
   const value = useMemo<ProductionApiValue>(
     () => ({
       apiState,
@@ -169,7 +189,7 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
       shell,
       errorMessage,
       fetchJson,
-      reloadTrustedContext: () => bootstrap(),
+      authContextEpoch,
       login: () => {
         const path = `${window.location.pathname}${window.location.search}`;
         const safe = path.startsWith("/") && !path.startsWith("//") && !path.includes("://") ? path : "/";
@@ -192,18 +212,20 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
         }
       },
     }),
-    [apiState, bootstrap, clearProtectedState, csrfToken, errorMessage, fetchJson, shell],
+    [apiState, authContextEpoch, bootstrap, clearProtectedState, csrfToken, errorMessage, fetchJson, shell],
   );
 
   return <ProductionApiContext.Provider value={value}>{children}</ProductionApiContext.Provider>;
 }
 
 export function ProtectedAuthSubtree({ children }: { children: ReactNode }) {
-  const { apiState, shell } = useProductionApi();
+  const { apiState, authContextEpoch, shell } = useProductionApi();
   return (
     <AuthScopedSubtree
       scopeKey={authSubtreeKey(
-        shell ? { actorId: shell.actor_id, organizationId: shell.organization_id } : undefined,
+        shell
+          ? { actorId: shell.actor_id, organizationId: shell.organization_id, epoch: authContextEpoch }
+          : undefined,
         apiState,
       )}
     >

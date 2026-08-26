@@ -571,13 +571,11 @@ review history.
 
 # Current state
 
-Owner review of `b8c6f6c` follow-up implemented.
+Owner review of `635f9c0` isolation follow-up implemented.
 
-- [x] Identity change remounts the protected React subtree (not only Query cache)
-- [x] Source-options wait for a fresh Activity `permitted_actions` observation
-- [x] Create success invalidates `assessmentKeys.activities()` with `exact` and `refetchType: "none"`
-- [x] Amend ADR-019 / frontend architecture to match
-- [x] Record live Playwright as an accepted non-blocking verification gap
+- [x] Authorization-context epoch on every successful trusted-context replacement
+- [x] Remove `reloadTrustedContext` from the production application API
+- [x] Amend ADR-019 / frontend architecture for authorization-context vs identity
 
 # Decisions
 
@@ -602,6 +600,12 @@ Owner review of `b8c6f6c` follow-up implemented.
 - Identity replacement remounts `ProtectedAuthSubtree` inside the existing API
   provider rather than remounting the provider. That destroys RHF/refs while
   keeping CSRF, generation, and QueryClient ownership intact.
+- Every successful trusted-context replacement starts a new authorization-context
+  epoch. Same actor/Organization with a narrowed relationship or permission set
+  still purges Query cache and remounts protected UI. Isolation is not limited
+  to actor + Organization identity.
+- `reloadTrustedContext` is test-only (`reloadTrustedContextForTests`) and is
+  not part of the production `useProductionApi` surface.
 - Dependent source-option reads require `isFetchedAfterMount` on the Activity
   list so cached `permitted_actions` cannot launch them.
 - Activities create invalidation uses `exact: true` and `refetchType: "none"`
@@ -657,6 +661,8 @@ Owner review of `b8c6f6c` follow-up implemented.
 | Post-review confirmation (2026-08-26) | passed with same live gap | Re-ran `python3 scripts/check_docs.py`, `git diff --check`, `pnpm --filter @flex-agent/web test` (24 files, 171 passed), and typecheck. Pins, keys, purge paths, Activities mutation/form contract, and Session non-edit rechecked. Production `:18080/activities` still sign-in gated; Vite `:5173` still Access denied without synthetic API. No new defects found |
 | Review follow-up (identity remount, fresh permission, exact invalidation) | passed | Red then green: in-place org replacement clears typed Campaign title without remounting `ProductionApiProvider`; cached `create_assessment` does not call source-options; create invalidates with `exact: true` and `refetchType: "none"`. Full web tests 24 files, 172 passed; typecheck; lint 0 errors; `python3 scripts/check_docs.py` |
 | Follow-up confirmation (2026-08-26) | passed | Re-ran docs check, `git diff --check`, web tests (24 files, 172 passed), and typecheck before commit |
+| Authorization-context epoch follow-up | passed | Red then green: same actor/Organization with administrator→reviewer shell replacement clears Query cache and Campaign local state, and renders the narrowed shell. `reloadTrustedContext` removed from `useProductionApi`; tests use `reloadTrustedContextForTests`. Full web tests 24 files, 173 passed; typecheck; lint 0 errors; docs check |
+| Authorization-context confirmation (2026-08-26) | passed | Re-ran docs check, `git diff --check`, web tests (24 files, 173 passed), and typecheck before commit |
 
 # Blockers
 

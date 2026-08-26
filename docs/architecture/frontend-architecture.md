@@ -85,16 +85,18 @@ QueryClient, including mutation variables and results, when:
 - logout succeeds
 - bootstrap is unauthenticated or failed
 - synthetic actor/access is replaced
-- trusted production shell actor or Organization identity changes
+- trusted production shell actor, Organization, or authorization context is replaced
 - API state leaves `ready` for any equivalent protected-state reset
 
-A successful rebootstrap compares trusted current and incoming shell
-actor/Organization identities and purges Query cache before replacement when
-either changes. The protected React subtree (shell outlet, forms, refs, and
-ephemeral UI) remounts under a key derived from that trusted identity so local
-state cannot survive the replacement. Query-cache clearing alone is not
-sufficient. Generation-based stale-response protection in
-`ProductionApiProvider` must still reject older responses after reset.
+A successful trusted-context replacement always starts a new authorization-context
+epoch. Same actor and Organization with a narrowed relationship, navigation, or
+permission set still purges Query/mutation cache, bumps generation-based
+stale-response protection, and remounts the protected React subtree under
+`actorId:organizationId:epoch`. Do not fingerprint `permitted_actions` as the
+isolation key; a later server-issued authorization/session version may replace
+the client epoch. Query-cache clearing alone is not sufficient.
+Generation-based stale-response protection in `ProductionApiProvider` must
+still reject older responses after reset.
 
 Query cancellation passes the provided `AbortSignal` through the typed client
 to `fetchJson`. Feature UI classifies access loss with typed status/outcome

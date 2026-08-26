@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -16,7 +17,7 @@ import type {
   NavigationProjectionV1,
 } from "./browser-contracts";
 import { apiFetch, executeBrowserCommand, loadBrowserContext, reconcileBrowserCommand, type ApiState } from "./browser-client";
-import { purgeProtectedQueryCache, rememberQueryAuthContext, authSubtreeKey, AuthScopedSubtree } from "./query-client";
+import { purgeProtectedQueryCache, replaceTrustedAuthorizationContext, authSubtreeKey, AuthScopedSubtree } from "./query-client";
 
 export type { ApiState };
 
@@ -31,16 +32,19 @@ interface BrowserApiContextValue {
     command: Omit<BrowserCommandEnvelopeV1, "schema_version">,
   ) => Promise<BrowserCommandReconciliationV1>;
   fetchJson: <T>(path: string, init?: RequestInit) => Promise<T>;
+  authContextEpoch: number;
 }
 
 const BrowserApiContext = createContext<BrowserApiContextValue | null>(null);
 
 export function BrowserApiProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  const authContextEpochRef = useRef(0);
   const [actor, setActor] = useState<ActorContextV1 | null>(null);
   const [navigation, setNavigation] = useState<NavigationProjectionV1 | null>(null);
   const [apiState, setApiState] = useState<ApiState>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [authContextEpoch, setAuthContextEpoch] = useState(0);
 
   const refresh = useCallback(async () => {
     setApiState("loading");
@@ -48,10 +52,13 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
 
     try {
       const context = await loadBrowserContext();
-      rememberQueryAuthContext(queryClient, {
+      authContextEpochRef.current += 1;
+      replaceTrustedAuthorizationContext(queryClient, {
         actorId: context.actor.actor_id,
         organizationId: context.actor.organization_id,
+        epoch: authContextEpochRef.current,
       });
+      setAuthContextEpoch(authContextEpochRef.current);
       setActor(context.actor);
       setNavigation(context.navigation);
       setApiState("ready");
@@ -101,8 +108,8 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ actor, navigation, apiState, errorMessage, refresh, executeCommand, reconcileCommand, fetchJson }),
-    [actor, navigation, apiState, errorMessage, refresh, executeCommand, reconcileCommand, fetchJson],
+    () => ({ actor, navigation, apiState, errorMessage, refresh, executeCommand, reconcileCommand, fetchJson, authContextEpoch }),
+    [actor, navigation, apiState, errorMessage, refresh, executeCommand, reconcileCommand, fetchJson, authContextEpoch],
   );
 
   return <BrowserApiContext.Provider value={value}>{children}</BrowserApiContext.Provider>;
@@ -117,11 +124,13 @@ export function useBrowserApi() {
 }
 
 export function ProtectedBrowserAuthSubtree({ children }: { children: ReactNode }) {
-  const { actor, apiState } = useBrowserApi();
+  const { actor, apiState, authContextEpoch } = useBrowserApi();
   return (
     <AuthScopedSubtree
       scopeKey={authSubtreeKey(
-        actor ? { actorId: actor.actor_id, organizationId: actor.organization_id } : undefined,
+        actor
+          ? { actorId: actor.actor_id, organizationId: actor.organization_id, epoch: authContextEpoch }
+          : undefined,
         apiState,
       )}
     >
