@@ -1048,4 +1048,103 @@ describe("synthetic actor replacement", () => {
     expect(screen.queryByText("session-mounts:ready")).not.toBeInTheDocument();
     expect(screen.getByText("probe-actor:none probe-state:idle")).toBeInTheDocument();
   });
+
+  it("does not sign out a newer actor when a previous command 401 arrives late", async () => {
+    let actorId = "actor.synthetic.participant";
+    let releaseCommand401: (() => void) | undefined;
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      if (url.includes("/browser/actor-context")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          actor_id: actorId,
+          display_name: "Synthetic",
+          organization_id: "org.synthetic.demo",
+          organization_name: "Synthetic Demo Organization",
+          capabilities: ["participant"],
+          actor_stage: "participant",
+          is_synthetic: true,
+        }));
+      }
+
+      if (url.includes("/browser/navigation")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          destinations: [{ destination_id: "home", label: "Home", route: "/", tier: "p0", is_available: true }],
+        }));
+      }
+
+      if (url.endsWith("/browser/commands") || url.includes("/browser/commands?")) {
+        return new Promise((resolve) => {
+          releaseCommand401 = () => {
+            resolve(jsonResponse(401, {}));
+          };
+        });
+      }
+
+      return Promise.resolve(jsonResponse(404, {}));
+    }));
+
+    let commandSettled = false;
+    function Controls() {
+      const { actor, apiState, executeCommand, refresh } = useBrowserApi();
+      return (
+        <div>
+          <p>{`probe-actor:${actor?.actor_id ?? "none"} probe-state:${apiState}`}</p>
+          <button type="button" disabled={apiState !== "ready"} onClick={() => {
+            void executeCommand({
+              command_id: "send_message",
+              idempotency_key: "cmd-stale-401",
+              command_type: "session.send_message",
+              resource_id: "sess.synthetic.0001",
+              expected_version: 1,
+              payload: { message_text: "hello" },
+            }).catch(() => {
+              commandSettled = true;
+            });
+          }}
+          >
+            Send message
+          </button>
+          <button type="button" disabled={apiState !== "ready"} onClick={() => {
+            actorId = "actor.synthetic.other";
+            void refresh({ replaceAuthorizationContext: true });
+          }}
+          >
+            Switch actor
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <FlexQueryProvider>
+        <BrowserApiProvider>
+          <Controls />
+          <ProtectedBrowserAuthSubtree>
+            <BrowserWorkspaceGate>
+              <p>protected</p>
+            </BrowserWorkspaceGate>
+          </ProtectedBrowserAuthSubtree>
+        </BrowserApiProvider>
+      </FlexQueryProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => {
+      expect(releaseCommand401).toBeTypeOf("function");
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Switch actor" }));
+    await waitFor(() => {
+      expect(screen.getByText("probe-actor:actor.synthetic.other probe-state:ready")).toBeInTheDocument();
+    });
+    releaseCommand401?.();
+    await waitFor(() => {
+      expect(commandSettled).toBe(true);
+    });
+    expect(screen.getByText("probe-actor:actor.synthetic.other probe-state:ready")).toBeInTheDocument();
+  });
 });

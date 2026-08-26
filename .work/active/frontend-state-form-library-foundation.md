@@ -571,11 +571,10 @@ review history.
 
 # Current state
 
-Owner review of `c3a40bd` command-401 access-loss gap is fixed.
+Owner review of `6f6e052` stale-401 epoch hole is fixed.
 
-- [x] Propagate synthetic authentication loss from executeCommand/fetchJson/reconcile
-- [x] Regression: command 401 unmounts Session stand-in and shows sign-in gate
-- [x] Do not treat command 403/409 domain outcomes as workspace access loss
+- [x] Ignore authentication-loss teardown when the request's epoch is no longer current
+- [x] Regression: delayed command 401 after actor switch leaves B ready
 
 # Decisions
 
@@ -619,8 +618,9 @@ Owner review of `c3a40bd` command-401 access-loss gap is fixed.
   clears actor/navigation, advances the epoch, and renders a workspace gate
   instead of protected routes.
 - Synthetic HTTP 401 from command, reconcile, or `fetchJson` is authentication
-  loss and uses the same ready-exit. Command HTTP 403/409 domain outcomes are
-  returned to the caller.
+  loss and uses the same ready-exit. A 401 whose request started under a
+  previous authorization-context epoch must not sign out the current context.
+  Command HTTP 403/409 domain outcomes are returned to the caller.
 
 # Findings / deviations
 
@@ -680,6 +680,8 @@ Owner review of `c3a40bd` command-401 access-loss gap is fixed.
 | Ready-exit confirmation (2026-08-26) | passed | Rechecked `executeCommand` still uses `replaceAuthorizationContext: false`; catch paths all call `leaveReady`; `BrowserWorkspaceGate` handles loading/idle/denied/error before Routes. Re-ran docs check, `git diff --check`, typecheck, and web tests (24 files, 179 passed). |
 | Command/resource 401 access-loss follow-up | passed | Red: command and `fetchJson` 401 left actor `ready` and Session stand-in mounted. Green: shared `withAuthenticationLoss` wrapper calls `leaveReady("idle")` then rethrows; sign-in gate shown. Command 403/409 still return domain outcomes. Full web tests 24 files, 181 passed; typecheck; lint 0 errors; docs check |
 | Command/resource 401 confirmation (2026-08-26) | passed | Rechecked `executeCommand`, `reconcileCommand`, and `fetchJson` all use `withAuthenticationLoss`; command 401 still skips follow-up refresh; 403/409 remain returned bodies. Re-ran docs check, `git diff --check`, typecheck, and web tests (24 files, 181 passed). |
+| Stale-401 epoch follow-up | passed | Red: delayed command 401 after actor A→B signed out B. Green: `withAuthenticationLoss` tears down only when `startedEpoch === authContextEpochRef.current`. Overlapping `refresh()` races intentionally out of scope. Full web tests 24 files, 182 passed; typecheck; lint 0 errors; docs check |
+| Stale-401 epoch confirmation (2026-08-26) | passed | Rechecked epoch capture at request start; same wrapper still covers command, reconcile, and `fetchJson`. Same-epoch 401 still tears down. Re-ran docs check, `git diff --check`, typecheck, and web tests (24 files, 182 passed). |
 
 # Blockers
 

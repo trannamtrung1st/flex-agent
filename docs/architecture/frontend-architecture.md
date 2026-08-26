@@ -107,8 +107,10 @@ same-actor `capabilities` or `actor_stage` narrowing remain replacements.
 
 Synthetic authentication loss (`unauthenticated` / HTTP 401) discovered by
 `refresh`, `executeCommand`, `reconcileCommand`, or `fetchJson` must leave
-`ready` through the same teardown. Command HTTP 403/409 domain outcomes are
-returned to the caller and are not treated as complete workspace access loss.
+`ready` through the same teardown. Ignore a 401 whose request started under a
+previous authorization-context epoch so it cannot sign out a newer trusted
+context. Command HTTP 403/409 domain outcomes are returned to the caller and
+are not treated as complete workspace access loss.
 
 Leaving synthetic API `ready` for unauthenticated, denied, or error must purge
 the Query cache, clear actor and navigation, advance the authorization-context

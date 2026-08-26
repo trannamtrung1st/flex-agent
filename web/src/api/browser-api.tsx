@@ -76,10 +76,11 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   const withAuthenticationLoss = useCallback(async <T,>(operation: () => Promise<T>): Promise<T> => {
+    const startedEpoch = authContextEpochRef.current;
     try {
       return await operation();
     } catch (error) {
-      if (isUnauthenticatedError(error)) {
+      if (isUnauthenticatedError(error) && startedEpoch === authContextEpochRef.current) {
         leaveReady("idle");
       }
       throw error;
