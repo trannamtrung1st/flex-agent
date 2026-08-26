@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProductionApiProvider } from "../api/production-api";
+import { FlexQueryProvider } from "../api/query-client";
 import { ProductionAppShell } from "../components/shell/ProductionAppShell";
 import { ProductionDestinationGuard } from "./production-routes";
 
@@ -37,6 +38,7 @@ describe("production destination guards", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/activities"]}>
           <Routes>
@@ -57,7 +59,8 @@ describe("production destination guards", () => {
             </Route>
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     expect(await screen.findByText("Activities are not available for the current authorized relationship.")).toBeInTheDocument();
@@ -105,6 +108,7 @@ describe("production destination guards", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter>
           <Routes>
@@ -113,7 +117,8 @@ describe("production destination guards", () => {
             </Route>
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
@@ -162,6 +167,7 @@ describe("production destination guards", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter>
           <Routes>
@@ -170,7 +176,8 @@ describe("production destination guards", () => {
             </Route>
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
@@ -214,6 +221,7 @@ describe("production destination guards", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter>
           <Routes>
@@ -222,7 +230,8 @@ describe("production destination guards", () => {
             </Route>
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     expect(await screen.findByText("Assignment content")).toBeInTheDocument();
@@ -273,6 +282,7 @@ describe("production destination guards", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter>
           <Routes>
@@ -281,7 +291,8 @@ describe("production destination guards", () => {
             </Route>
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));

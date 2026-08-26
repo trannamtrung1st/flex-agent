@@ -5,7 +5,9 @@ This document describes the executable Flex Agent workspace scaffold introduced 
 Backend feature modules follow the
 [backend module architecture](../architecture/backend-module-architecture.md):
 a domain-oriented modular monolith with ports and adapters and inward dependency
-rules.
+rules. SPA Query, form, icon, and transport ownership follow
+[ADR-019](../architecture/decisions/ADR-019-frontend-state-and-library-boundaries.md)
+and the [frontend architecture](../architecture/frontend-architecture.md) guide.
 
 ## Prerequisites
 
@@ -19,6 +21,11 @@ Pinned toolchain versions are recorded in [`build/toolchain.json`](../../build/t
 | pnpm | `9.6.0` |
 | React | `19.2.8` |
 | Vite | `8.1.5` |
+| TanStack Query | `5.102.4` |
+| React Hook Form | `7.86.0` |
+| Zod | `4.4.3` |
+| Hook Form resolvers | `5.2.2` |
+| Lucide React | `1.34.0` |
 
 Use `corepack enable` so the repository `packageManager` field selects pnpm
 `9.6.0`.

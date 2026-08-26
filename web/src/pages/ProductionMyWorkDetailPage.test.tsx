@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProductionApiProvider } from "../api/production-api";
+import { FlexQueryProvider } from "../api/query-client";
 import { ProductionMyWorkDetailPage } from "./ProductionMyWorkDetailPage";
 
 function jsonResponse(body: unknown, status = 200) {
@@ -111,13 +112,15 @@ function laterActiveIntake(intakeId: string, status: string, revision = 1) {
 
 function renderAssignment() {
   return render(
-    <ProductionApiProvider>
+    <FlexQueryProvider>
+      <ProductionApiProvider>
       <MemoryRouter initialEntries={["/my-work/enr-1"]}>
         <Routes>
           <Route path="/my-work/:enrollmentId" element={<ProductionMyWorkDetailPage />} />
         </Routes>
       </MemoryRouter>
-    </ProductionApiProvider>,
+    </ProductionApiProvider>
+    </FlexQueryProvider>,
   );
 }
 
@@ -223,13 +226,15 @@ describe("ProductionMyWorkDetailPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/my-work/enr-1"]}>
           <Routes>
             <Route path="/my-work/:enrollmentId" element={<ProductionMyWorkDetailPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     expect(await screen.findByRole("heading", { name: "Campaign" })).toBeInTheDocument();
@@ -323,13 +328,15 @@ describe("ProductionMyWorkDetailPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/my-work/enr-1"]}>
           <Routes>
             <Route path="/my-work/:enrollmentId" element={<ProductionMyWorkDetailPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "Cancel intake" }));
@@ -444,13 +451,15 @@ describe("ProductionMyWorkDetailPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/my-work/enr-1"]}>
           <Routes>
             <Route path="/my-work/:enrollmentId" element={<ProductionMyWorkDetailPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     fireEvent.change(await screen.findByLabelText("Direct text"), { target: { value: "Direct text answer." } });
@@ -1423,13 +1432,15 @@ describe("ProductionMyWorkDetailPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/my-work/enr-1"]}>
           <Routes>
             <Route path="/my-work/:enrollmentId" element={<ProductionMyWorkDetailPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "Preview version 1" }));
@@ -1538,13 +1549,15 @@ describe("ProductionMyWorkDetailPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/my-work/enr-1"]}>
           <Routes>
             <Route path="/my-work/:enrollmentId" element={<ProductionMyWorkDetailPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     fireEvent.change(await screen.findByLabelText("Direct text"), { target: { value: "Direct text answer." } });
@@ -1611,13 +1624,15 @@ describe("ProductionMyWorkDetailPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/my-work/enr-1"]}>
           <Routes>
             <Route path="/my-work/:enrollmentId" element={<ProductionMyWorkDetailPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     expect(await screen.findByText(/Submission intake is not available/)).toBeInTheDocument();
@@ -1723,13 +1738,15 @@ describe("ProductionMyWorkDetailPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/my-work/enr-1"]}>
           <Routes>
             <Route path="/my-work/:enrollmentId" element={<ProductionMyWorkDetailPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     fireEvent.change(await screen.findByLabelText("Direct text"), { target: { value: "Direct text answer." } });
@@ -1928,13 +1945,15 @@ describe("ProductionMyWorkDetailPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/my-work/enr-1"]}>
           <Routes>
             <Route path="/my-work/:enrollmentId" element={<ProductionMyWorkDetailPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "Preview version 1" }));

@@ -1,6 +1,10 @@
-import { useEffect, useId, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useId, useMemo, useRef } from "react";
+import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 import {
+  isAssessmentAccessLoss,
   REQUIRED_SOURCE_CATEGORIES,
   resolveSelectedSources,
   sourceOptionIdentity,
@@ -13,18 +17,25 @@ import { Alert } from "../components/ui/Alert";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card, CardBody, CardHeader, CardTitle } from "../components/ui/Card";
-import { ErrorSummary } from "../components/ui/ErrorSummary";
+import { ErrorSummary, type ErrorSummaryItem } from "../components/ui/ErrorSummary";
 import { ProtectedLoading } from "../components/ui/ProtectedLoading";
 import { StatusPanel } from "../components/ui/StatusPanel";
-
-function isAccessLoss(cause: unknown) {
-  return cause instanceof Error && /access changed|expired/i.test(cause.message);
-}
+import {
+  campaignCreateSchema,
+  emptyCampaignCreateValues,
+  type CampaignCreateValues,
+} from "../features/assessment/campaignCreateSchema";
+import {
+  useAssessmentActivitiesQuery,
+  useAssessmentSourceOptionsQuery,
+  useCreateAssessmentActivityMutation,
+} from "../features/assessment/queries";
+import { assessmentKeys } from "../features/assessment/queryKeys";
 
 export interface AssessmentActivitiesPageProps {
   organizationId?: string;
-  loadActivities: () => Promise<ProductionActivityList>;
-  loadSourceOptions: () => Promise<{ sources: ProductionSourceOption[] }>;
+  loadActivities: (signal?: AbortSignal) => Promise<ProductionActivityList>;
+  loadSourceOptions: (signal?: AbortSignal) => Promise<{ sources: ProductionSourceOption[] }>;
   createActivity: (title: string, sources: Partial<Record<string, ProductionSourceRef>>) => Promise<string>;
   onCreated: (activityId: string) => void;
 }
@@ -37,48 +48,56 @@ export function AssessmentActivitiesPage({
   onCreated,
 }: AssessmentActivitiesPageProps) {
   const titleId = useId();
-  const [data, setData] = useState<ProductionActivityList | null>(null);
-  const [sources, setSources] = useState<ProductionSourceOption[]>([]);
-  const [selected, setSelected] = useState<Record<string, string>>({});
-  const [title, setTitle] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [accessChanged, setAccessChanged] = useState(false);
+  const summaryId = `${titleId}-summary`;
+  const queryClient = useQueryClient();
+  const sourcesInitialized = useRef(false);
+  const activitiesQuery = useAssessmentActivitiesQuery(loadActivities);
+  const canCreate = activitiesQuery.data?.permitted_actions.includes("create_assessment") ?? false;
+  const sourcesQuery = useAssessmentSourceOptionsQuery(loadSourceOptions, activitiesQuery.isSuccess && canCreate);
+  const createMutation = useCreateAssessmentActivityMutation(createActivity, onCreated);
+  const sources = useMemo(() => sourcesQuery.data?.sources ?? [], [sourcesQuery.data?.sources]);
+  const form = useForm<CampaignCreateValues>({
+    resolver: zodResolver(campaignCreateSchema),
+    defaultValues: emptyCampaignCreateValues,
+  });
+  // RHF watch is the supported subscription for keeping stale selected identities visible.
+  const sourceValues = form.watch("sources");
 
   useEffect(() => {
-    void (async () => {
-      try {
-        const list = await loadActivities();
-        setData(list);
-        try {
-          const options = await loadSourceOptions();
-          setSources(options.sources);
-          const next: Record<string, string> = {};
-          for (const category of REQUIRED_SOURCE_CATEGORIES) {
-            const first = options.sources.find((source) => source.category === category);
-            if (first) {
-              next[category] = sourceOptionIdentity(first);
-            }
-          }
+    if (!sourcesQuery.isSuccess || sourcesInitialized.current) {
+      return;
+    }
 
-          setSelected(next);
-        } catch {
-          setSources([]);
-        }
+    for (const category of REQUIRED_SOURCE_CATEGORIES) {
+      const first = sources.find((source) => source.category === category);
+      form.setValue(`sources.${category}`, first ? sourceOptionIdentity(first) : "", {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
+    }
 
-        setLoading(false);
-      } catch (cause: unknown) {
-        if (isAccessLoss(cause)) {
-          setAccessChanged(true);
-        } else {
-          setError(cause instanceof Error ? cause.message : "Could not load activities");
-        }
+    sourcesInitialized.current = true;
+  }, [form, sources, sourcesQuery.isSuccess]);
 
-        setLoading(false);
-      }
-    })();
-  }, [loadActivities, loadSourceOptions]);
+  const loading = !activitiesQuery.isFetched || (canCreate && !sourcesQuery.isFetched);
+  const accessChanged = isAssessmentAccessLoss(activitiesQuery.error)
+    || isAssessmentAccessLoss(sourcesQuery.error)
+    || isAssessmentAccessLoss(createMutation.error);
+  const loadError = activitiesQuery.error instanceof Error && !isAssessmentAccessLoss(activitiesQuery.error)
+    ? activitiesQuery.error.message
+    : null;
+  const createError = createMutation.error && !isAssessmentAccessLoss(createMutation.error)
+    ? "The Campaign could not be created."
+    : null;
+
+  useEffect(() => {
+    if (!createError) {
+      return;
+    }
+
+    document.getElementById(summaryId)?.focus();
+  }, [createError, summaryId]);
 
   if (loading) {
     return <ProtectedLoading label="Loading activities…" />;
@@ -92,12 +111,24 @@ export function AssessmentActivitiesPage({
     );
   }
 
-  if (error && !data) {
-    return <Alert variant="danger" title="Could not load activities">{error}</Alert>;
+  if (loadError && !activitiesQuery.data) {
+    return <Alert variant="danger" title="Could not load activities">{loadError}</Alert>;
   }
 
-  const canCreate = data?.permitted_actions.includes("create_assessment") ?? false;
+  const data = activitiesQuery.data;
   const missingCategory = REQUIRED_SOURCE_CATEGORIES.find((category) => !sources.some((source) => source.category === category));
+  const fieldErrors = form.formState.errors;
+  const summaryErrors: ErrorSummaryItem[] = [
+    ...(fieldErrors.title?.message
+      ? [{ message: fieldErrors.title.message, href: `#${titleId}` }]
+      : []),
+    ...REQUIRED_SOURCE_CATEGORIES.flatMap((category) => {
+      const message = fieldErrors.sources?.[category]?.message;
+      return message ? [{ message, href: `#${titleId}-${category}` }] : [];
+    }),
+    ...(fieldErrors.root?.message ? [{ message: fieldErrors.root.message }] : []),
+    ...(createError ? [createError] : []),
+  ];
 
   return (
     <div>
@@ -117,64 +148,82 @@ export function AssessmentActivitiesPage({
             <form
               className="stack"
               onSubmit={(event) => {
-                event.preventDefault();
-                setCreating(true);
-                const chosen = resolveSelectedSources(sources, selected, REQUIRED_SOURCE_CATEGORIES);
+                void form.handleSubmit((values) => {
+                if (createMutation.isPending) {
+                  return;
+                }
 
-                void createActivity(title, chosen)
-                  .then((activityId) => {
-                    onCreated(activityId);
-                  })
-                  .catch((cause: unknown) => {
-                    if (isAccessLoss(cause)) {
-                      setData(null);
-                      setSources([]);
-                      setSelected({});
-                      setAccessChanged(true);
-                      return;
-                    }
-
-                    setError("The Campaign could not be created.");
-                    setCreating(false);
+                const latestSources = queryClient.getQueryData<{ sources: ProductionSourceOption[] }>(
+                  assessmentKeys.sourceOptions(),
+                )?.sources ?? sources;
+                const chosen = resolveSelectedSources(latestSources, values.sources, REQUIRED_SOURCE_CATEGORIES);
+                if (Object.keys(chosen).length !== REQUIRED_SOURCE_CATEGORIES.length) {
+                  form.setError("root", {
+                    type: "manual",
+                    message: "Selected sources are no longer available. Choose current options.",
                   });
+                  requestAnimationFrame(() => {
+                    document.getElementById(summaryId)?.focus();
+                  });
+                  return;
+                }
+
+                createMutation.mutate({ title: values.title, sources: chosen });
+              }, () => {
+                requestAnimationFrame(() => {
+                  document.getElementById(summaryId)?.focus();
+                });
+              })(event);
               }}
             >
-              <label htmlFor={titleId}>Campaign title</label>
-              <input
-                id={titleId}
-                value={title}
-                onChange={(event) => {
-                  setTitle(event.target.value);
-                }}
-                required
-                maxLength={200}
-              />
+              {summaryErrors.length > 0 ? (
+                <ErrorSummary title="Correct the following" headingId={summaryId} errors={summaryErrors} />
+              ) : null}
+              <div className="field">
+                <label htmlFor={titleId}>Campaign title</label>
+                <input
+                  id={titleId}
+                  maxLength={200}
+                  aria-invalid={Boolean(fieldErrors.title)}
+                  aria-describedby={fieldErrors.title ? `${titleId}-error` : undefined}
+                  {...form.register("title")}
+                />
+                {fieldErrors.title?.message ? (
+                  <p id={`${titleId}-error`} className="field-error">{fieldErrors.title.message}</p>
+                ) : null}
+              </div>
               {REQUIRED_SOURCE_CATEGORIES.map((category) => {
                 const options = sources.filter((source) => source.category === category);
                 const fieldId = `${titleId}-${category}`;
+                const errorId = `${fieldId}-error`;
+                const message = fieldErrors.sources?.[category]?.message;
+                const field = form.register(`sources.${category}`);
+                const selectedValue = sourceValues[category];
+                const hasSelectedOption = options.some((option) => sourceOptionIdentity(option) === selectedValue);
                 return (
                   <div key={category} className="field">
                     <label className="field-label" htmlFor={fieldId}>{category.replaceAll("_", " ")}</label>
                     <select
                       id={fieldId}
-                      value={selected[category] ?? ""}
-                      onChange={(event) => {
-                        setSelected((current) => ({ ...current, [category]: event.target.value }));
-                      }}
+                      aria-invalid={Boolean(message)}
+                      aria-describedby={message ? errorId : undefined}
+                      {...field}
+                      value={selectedValue}
                     >
-                      {options.length === 0 ? <option value="">Unavailable</option> : null}
+                      {options.length === 0 && !selectedValue ? <option value="">Unavailable</option> : null}
+                      {selectedValue && !hasSelectedOption ? <option value={selectedValue}>No longer available</option> : null}
                       {options.map((option) => (
                         <option key={sourceOptionIdentity(option)} value={sourceOptionIdentity(option)}>
                           {sourceOptionLabel(option)}
                         </option>
                       ))}
                     </select>
+                    {message ? <p id={errorId} className="field-error">{message}</p> : null}
                   </div>
                 );
               })}
-              {error ? <ErrorSummary title="Correct the following" errors={[error]} /> : null}
-              <Button type="submit" disabled={creating || Boolean(missingCategory)}>
-                {creating ? "Creating…" : "Create assessment Campaign"}
+              <Button type="submit" disabled={createMutation.isPending || Boolean(missingCategory)}>
+                {createMutation.isPending ? "Creating…" : "Create assessment Campaign"}
               </Button>
             </form>
           )}

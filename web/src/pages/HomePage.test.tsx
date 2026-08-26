@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { BrowserApiProvider } from "../api/browser-api";
+import { FlexQueryProvider } from "../api/query-client";
 import type {
   ActorContextV1,
   HomeProjectionV1,
@@ -80,9 +81,11 @@ describe("HomePage", () => {
   it("renders work items with actionable links", async () => {
     render(
       <MemoryRouter>
-        <BrowserApiProvider>
+        <FlexQueryProvider>
+      <BrowserApiProvider>
           <HomePage />
         </BrowserApiProvider>
+    </FlexQueryProvider>
       </MemoryRouter>,
     );
 

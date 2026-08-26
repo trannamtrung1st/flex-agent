@@ -44,7 +44,22 @@ package_json = json.load(open(sys.argv[3]))
 web_package_json = json.load(open(sys.argv[4]))
 bom = json.load(open(output))
 components = bom.get("components") or []
-names = {component.get("name", "").lower() for component in components}
+
+def component_package_name(component: dict) -> str:
+    name = (component.get("name") or "").lower()
+    group = (component.get("group") or "").lower()
+    if group and name:
+        return f"{group}/{name}"
+    return name
+
+names = {component_package_name(component) for component in components if component_package_name(component)}
+
+version_by_name: dict[str, set[str]] = {}
+for component in components:
+    package_name = component_package_name(component)
+    version = component.get("version")
+    if package_name and version:
+        version_by_name.setdefault(package_name, set()).add(version)
 
 expected_generator = toolchain["supplyChain"]["cyclonedxNpm"]["version"]
 installed_generator = (
@@ -69,13 +84,6 @@ if missing:
 
 if not components:
     raise SystemExit("SPA SBOM contains zero components")
-
-version_by_name = {}
-for component in components:
-    name = component.get("name", "").lower()
-    version = component.get("version")
-    if name and version:
-        version_by_name.setdefault(name, set()).add(version)
 
 for package, expected in expected_dependencies.items():
     versions = version_by_name.get(package.lower(), set())

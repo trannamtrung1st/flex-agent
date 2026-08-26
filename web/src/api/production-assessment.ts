@@ -76,7 +76,7 @@ function createIdempotencyKey() {
   return `act-${crypto.randomUUID()}`;
 }
 
-function isAssessmentAccessLoss(error: unknown): error is ProductionApiError {
+export function isAssessmentAccessLoss(error: unknown): error is ProductionApiError {
   return error instanceof ProductionApiError
     && (error.status === 401 || error.status === 403 || error.outcomeCode === "assessment.denied");
 }
@@ -184,9 +184,13 @@ export function createProductionAssessmentClient(fetchJson: <T>(path: string, in
     fetchJson<ProductionActivityDetail>(`/v1/assessment/activities/${activityId}`);
 
   return {
-    listActivities: () => fetchJson<ProductionActivityList>("/v1/assessment/activities"),
-    listSourceOptions: () =>
-      fetchJson<{ sources: ProductionSourceOption[] }>("/v1/assessment/source-options"),
+    listActivities: (signal?: AbortSignal) =>
+      fetchJson<ProductionActivityList>("/v1/assessment/activities", signal ? { signal } : undefined),
+    listSourceOptions: (signal?: AbortSignal) =>
+      fetchJson<{ sources: ProductionSourceOption[] }>(
+        "/v1/assessment/source-options",
+        signal ? { signal } : undefined,
+      ),
     createActivity: async (title: string, sources: Partial<Record<string, ProductionSourceRef>>) => {
       const created = await fetchJson<{
         succeeded: boolean;

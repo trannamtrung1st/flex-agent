@@ -120,6 +120,11 @@ separate replica-independent quota implementation-ready through a
 PostgreSQL-backed application admission port, database UTC, atomic bounded
 acquisition, and fail-closed shared-state behavior.
 
+Approved [ADR-019](decisions/ADR-019-frontend-state-and-library-boundaries.md)
+and the [frontend architecture](frontend-architecture.md) guide assign HTTP
+resource, form, icon, and transport ownership in the SPA. They do not change
+`AR-DEC-12` server authority or the Session runtime contract.
+
 ## Purpose
 
 This area governs how the system is structured: boundaries, data ownership, runtime flows, deployment topology, quality attributes, and integration contracts.
@@ -138,6 +143,8 @@ This area governs how the system is structured: boundaries, data ownership, runt
 | Review the approved Worker identity and Invocation delegation | [ADR-016: Worker workload identity and bounded Invocation delegation](decisions/ADR-016-worker-workload-identity-and-invocation-delegation.md) |
 | Review Enrollment request-limit ownership and realization | [ADR-018: Enrollment request-limit scope](decisions/ADR-018-enrollment-request-limit-scope.md) |
 | Review the approved implementation stack and workspace | [ADR-010: .NET implementation stack](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) |
+| Review frontend state, form, icon, and transport ownership | [ADR-019: frontend state and library boundaries](decisions/ADR-019-frontend-state-and-library-boundaries.md) |
+| Structure or review SPA Query/form layering | [Frontend architecture](frontend-architecture.md) |
 | Structure or review a backend module | [Backend module architecture](backend-module-architecture.md) |
 | Review approved OSS component defaults and pending evidence gates | [ADR-008: bounded OSS component set](decisions/ADR-008-bounded-oss-component-set.md) |
 | Implement the approved text Session realization | [Text Session runtime contract](session-runtime-contract.md) |
@@ -183,5 +190,6 @@ Architecture must preserve [Concept model — Product invariants](../product/con
 - [Concept model](../product/concept-model.md)
 - [Requirements](../requirements/README.md)
 - [Approved MVP architecture](mvp-architecture.md)
+- [Frontend architecture](frontend-architecture.md)
 - [Backend module architecture](backend-module-architecture.md)
 - [Architecture decisions](decisions/README.md)

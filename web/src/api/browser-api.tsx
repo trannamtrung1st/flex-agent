@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type {
   ActorContextV1,
   BrowserCommandEnvelopeV1,
@@ -15,6 +16,7 @@ import type {
   NavigationProjectionV1,
 } from "./browser-contracts";
 import { apiFetch, executeBrowserCommand, loadBrowserContext, reconcileBrowserCommand, type ApiState } from "./browser-client";
+import { purgeProtectedQueryCache, rememberQueryAuthContext } from "./query-client";
 
 export type { ApiState };
 
@@ -34,6 +36,7 @@ interface BrowserApiContextValue {
 const BrowserApiContext = createContext<BrowserApiContextValue | null>(null);
 
 export function BrowserApiProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [actor, setActor] = useState<ActorContextV1 | null>(null);
   const [navigation, setNavigation] = useState<NavigationProjectionV1 | null>(null);
   const [apiState, setApiState] = useState<ApiState>("loading");
@@ -45,12 +48,17 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
 
     try {
       const context = await loadBrowserContext();
+      rememberQueryAuthContext(queryClient, {
+        actorId: context.actor.actor_id,
+        organizationId: context.actor.organization_id,
+      });
       setActor(context.actor);
       setNavigation(context.navigation);
       setApiState("ready");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       if (message === "unauthenticated") {
+        purgeProtectedQueryCache(queryClient);
         setActor(null);
         setNavigation(null);
         setApiState("idle");
@@ -58,15 +66,17 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
       }
 
       if (message === "protected" || message.includes("Access")) {
+        purgeProtectedQueryCache(queryClient);
         setApiState("denied");
         setErrorMessage(message);
         return;
       }
 
+      purgeProtectedQueryCache(queryClient);
       setApiState("error");
       setErrorMessage(message);
     }
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     queueMicrotask(() => {

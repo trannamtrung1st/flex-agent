@@ -198,6 +198,18 @@ describe("production assessment client", () => {
     expect(keys[2]).not.toEqual(keys[0]);
   });
 
+  it("passes an AbortSignal through list and source-option reads", async () => {
+    const fetchJson = vi.fn().mockResolvedValue({ activities: [], permitted_actions: [], sources: [] });
+    const client = createProductionAssessmentClient(fetchJson);
+    const controller = new AbortController();
+
+    await client.listActivities(controller.signal);
+    await client.listSourceOptions(controller.signal);
+
+    expect(fetchJson).toHaveBeenNthCalledWith(1, "/v1/assessment/activities", { signal: controller.signal });
+    expect(fetchJson).toHaveBeenNthCalledWith(2, "/v1/assessment/source-options", { signal: controller.signal });
+  });
+
   it("selects sources by category and source/version identity", () => {
     const sources = [
       { category: "agent", source_id: "agent-a", version_id: "v1", content_digest: "a".repeat(64), source_kind: "agent", production_eligible: true },

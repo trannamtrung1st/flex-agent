@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, RouterProvider, Routes, createMemoryRouter } from "react-router-dom";
 import { BrowserApiProvider } from "../api/browser-api";
+import { FlexQueryProvider } from "../api/query-client";
 import type {
   ActorContextV1,
   NavigationProjectionV1,
@@ -119,11 +120,13 @@ function mockFetch(getSession: () => SessionProjectionV1 | Promise<SessionProjec
 function renderSession() {
   return render(
     <MemoryRouter initialEntries={["/sessions/sess.synthetic.0001"]}>
+      <FlexQueryProvider>
       <BrowserApiProvider>
         <Routes>
           <Route path="/sessions/:sessionId" element={<SessionPage />} />
         </Routes>
       </BrowserApiProvider>
+    </FlexQueryProvider>
     </MemoryRouter>,
   );
 }
@@ -954,9 +957,11 @@ describe("SessionPage Decision presentation", () => {
       { initialEntries: ["/sessions/sess.synthetic.0001"] },
     );
     render(
+      <FlexQueryProvider>
       <BrowserApiProvider>
         <RouterProvider router={router} />
-      </BrowserApiProvider>,
+      </BrowserApiProvider>
+    </FlexQueryProvider>,
     );
 
     expect(await screen.findByText(/loading session/i)).toBeInTheDocument();
@@ -1075,9 +1080,11 @@ describe("SessionPage Decision presentation", () => {
       { initialEntries: ["/sessions/sess.synthetic.0001"] },
     );
     render(
+      <FlexQueryProvider>
       <BrowserApiProvider>
         <RouterProvider router={router} />
-      </BrowserApiProvider>,
+      </BrowserApiProvider>
+    </FlexQueryProvider>,
     );
 
     const composer = await screen.findByLabelText(/your message/i);
@@ -1166,9 +1173,11 @@ describe("SessionPage Decision presentation", () => {
       { initialEntries: ["/sessions/sess.synthetic.0001"] },
     );
     render(
+      <FlexQueryProvider>
       <BrowserApiProvider>
         <RouterProvider router={router} />
-      </BrowserApiProvider>,
+      </BrowserApiProvider>
+    </FlexQueryProvider>,
     );
 
     fireEvent.change(await screen.findByLabelText(/your message/i), {
@@ -1250,9 +1259,11 @@ describe("SessionPage Decision presentation", () => {
       { initialEntries: ["/sessions/sess.synthetic.0001"] },
     );
     render(
+      <FlexQueryProvider>
       <BrowserApiProvider>
         <RouterProvider router={router} />
-      </BrowserApiProvider>,
+      </BrowserApiProvider>
+    </FlexQueryProvider>,
     );
 
     fireEvent.change(await screen.findByLabelText(/your message/i), {
@@ -1342,9 +1353,11 @@ describe("SessionPage Decision presentation", () => {
       { initialEntries: ["/sessions/sess.synthetic.0001"] },
     );
     render(
+      <FlexQueryProvider>
       <BrowserApiProvider>
         <RouterProvider router={router} />
-      </BrowserApiProvider>,
+      </BrowserApiProvider>
+    </FlexQueryProvider>,
     );
 
     fireEvent.change(await screen.findByLabelText(/your message/i), {

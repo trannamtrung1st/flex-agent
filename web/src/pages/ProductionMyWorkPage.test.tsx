@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProductionApiProvider } from "../api/production-api";
+import { FlexQueryProvider } from "../api/query-client";
 import { ProductionMyWorkPage } from "./ProductionMyWorkPage";
 
 describe("ProductionMyWorkPage", () => {
@@ -50,13 +51,15 @@ describe("ProductionMyWorkPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/my-work"]}>
           <Routes>
             <Route path="/my-work" element={<ProductionMyWorkPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     expect(await screen.findByRole("heading", { name: "My work" })).toBeInTheDocument();
@@ -114,25 +117,29 @@ describe("ProductionMyWorkPage", () => {
     }));
 
     const first = render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/my-work"]}>
           <Routes>
             <Route path="/my-work" element={<ProductionMyWorkPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
     expect(await screen.findByText("You have no current assignments.")).toBeInTheDocument();
     first.unmount();
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/my-work"]}>
           <Routes>
             <Route path="/my-work" element={<ProductionMyWorkPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
     expect(await screen.findByText(/suspended/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Return to Home" })).toBeInTheDocument();
@@ -174,13 +181,15 @@ describe("ProductionMyWorkPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/my-work"]}>
           <Routes>
             <Route path="/my-work" element={<ProductionMyWorkPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     expect(await screen.findByRole("heading", { name: "Too many requests" })).toBeInTheDocument();

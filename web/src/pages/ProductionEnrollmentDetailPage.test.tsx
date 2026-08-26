@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProductionApiProvider } from "../api/production-api";
+import { FlexQueryProvider } from "../api/query-client";
 import { ProductionEnrollmentDetailPage } from "./ProductionEnrollmentDetailPage";
 
 describe("ProductionEnrollmentDetailPage", () => {
@@ -109,6 +110,7 @@ describe("ProductionEnrollmentDetailPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/activities/act-1/cohorts/coh-1/enrollments/enr-1"]}>
           <Routes>
@@ -118,7 +120,8 @@ describe("ProductionEnrollmentDetailPage", () => {
             />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     expect(await screen.findByRole("heading", { name: "Synthetic Participant" })).toBeInTheDocument();
@@ -244,6 +247,7 @@ describe("ProductionEnrollmentDetailPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/activities/act-1/cohorts/coh-1/enrollments/enr-1"]}>
           <Routes>
@@ -253,7 +257,8 @@ describe("ProductionEnrollmentDetailPage", () => {
             />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "Revoke submission_deadline_utc accommodation" }));

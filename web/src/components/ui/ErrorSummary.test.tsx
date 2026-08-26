@@ -1,0 +1,19 @@
+import { render, screen } from "@testing-library/react";
+import { ErrorSummary } from "./ErrorSummary";
+
+describe("ErrorSummary", () => {
+  it("keeps string errors as unlinked items", () => {
+    render(<ErrorSummary errors={["The Campaign could not be created."]} />);
+    expect(screen.getByText("The Campaign could not be created.")).toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("links structured errors to their fields", () => {
+    render(
+      <ErrorSummary
+        errors={[{ message: "Enter a Campaign title", href: "#campaign-title" }]}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Enter a Campaign title" })).toHaveAttribute("href", "#campaign-title");
+  });
+});

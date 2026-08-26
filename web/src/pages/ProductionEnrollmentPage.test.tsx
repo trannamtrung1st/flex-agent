@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProductionApiProvider } from "../api/production-api";
+import { FlexQueryProvider } from "../api/query-client";
 import { ProductionEnrollmentPage } from "./ProductionEnrollmentPage";
 
 function jsonBody(init?: RequestInit): { idempotency_key?: string; participant_actor_id?: string } {
@@ -74,13 +75,15 @@ describe("ProductionEnrollmentPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/activities/act-1/cohorts/coh-1/participants"]}>
           <Routes>
             <Route path="/activities/:activityId/cohorts/:cohortId/participants" element={<ProductionEnrollmentPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     expect(await screen.findByRole("heading", { name: "Assign Participants" })).toBeInTheDocument();
@@ -176,13 +179,15 @@ describe("ProductionEnrollmentPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/activities/act-1/cohorts/coh-1/participants"]}>
           <Routes>
             <Route path="/activities/:activityId/cohorts/:cohortId/participants" element={<ProductionEnrollmentPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     expect(await screen.findByRole("heading", { name: "Assign Participants" })).toBeInTheDocument();
@@ -272,13 +277,15 @@ describe("ProductionEnrollmentPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/activities/act-1/cohorts/coh-1/participants"]}>
           <Routes>
             <Route path="/activities/:activityId/cohorts/:cohortId/participants" element={<ProductionEnrollmentPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     expect(await screen.findByRole("heading", { name: "Assign Participants" })).toBeInTheDocument();
@@ -359,13 +366,15 @@ describe("ProductionEnrollmentPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/activities/act-1/cohorts/coh-1/participants"]}>
           <Routes>
             <Route path="/activities/:activityId/cohorts/:cohortId/participants" element={<ProductionEnrollmentPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     expect(await screen.findByRole("heading", { name: "Assign Participants" })).toBeInTheDocument();
@@ -433,13 +442,15 @@ describe("ProductionEnrollmentPage", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <MemoryRouter initialEntries={["/activities/act-1/cohorts/coh-1/participants"]}>
           <Routes>
             <Route path="/activities/:activityId/cohorts/:cohortId/participants" element={<ProductionEnrollmentPage />} />
           </Routes>
         </MemoryRouter>
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     expect(await screen.findByRole("heading", { name: "Assign Participants" })).toBeInTheDocument();

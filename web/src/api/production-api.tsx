@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ProductionApiError } from "./production-api-error";
 import {
@@ -5,6 +6,7 @@ import {
   isKnownPreLogoutRejection,
   SignOutUnconfirmedCopy,
 } from "./production-logout";
+import { purgeProtectedQueryCache, rememberQueryAuthContext } from "./query-client";
 
 export { ProductionApiError } from "./production-api-error";
 
@@ -32,6 +34,7 @@ interface ProductionApiValue {
 const ProductionApiContext = createContext<ProductionApiValue | null>(null);
 
 export function ProductionApiProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const csrfRef = useRef<string | null>(null);
   const generationRef = useRef(0);
   const [apiState, setApiState] = useState<ProductionApiState>("loading");
@@ -40,13 +43,14 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const clearProtectedState = useCallback((next: ProductionApiState, message: string | null = null) => {
+    purgeProtectedQueryCache(queryClient);
     generationRef.current += 1;
     csrfRef.current = null;
     setCsrfToken(null);
     setShell(null);
     setErrorMessage(message);
     setApiState(next);
-  }, []);
+  }, [queryClient]);
 
   const fetchJson = useCallback(async <T,>(path: string, init?: RequestInit): Promise<T> => {
     const generation = generationRef.current;
@@ -95,6 +99,7 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
         signal,
       });
       if (!sessionResponse.ok) {
+        purgeProtectedQueryCache(queryClient);
         setApiState("idle");
         return;
       }
@@ -107,6 +112,7 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
       csrfRef.current = session.csrf_token ?? null;
       setCsrfToken(session.csrf_token ?? null);
       if (!session.authenticated) {
+        purgeProtectedQueryCache(queryClient);
         setApiState("idle");
         return;
       }
@@ -125,7 +131,15 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      setShell(await shellResponse.json() as ProductionShellContextV1);
+      const nextShell = await shellResponse.json() as ProductionShellContextV1;
+      if (rememberQueryAuthContext(queryClient, {
+        actorId: nextShell.actor_id,
+        organizationId: nextShell.organization_id,
+      })) {
+        generationRef.current += 1;
+      }
+
+      setShell(nextShell);
       setErrorMessage(null);
       setApiState("ready");
     } catch (error) {
@@ -133,10 +147,11 @@ export function ProductionApiProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      purgeProtectedQueryCache(queryClient);
       setApiState("idle");
       void error;
     }
-  }, [clearProtectedState]);
+  }, [clearProtectedState, queryClient]);
 
   useEffect(() => {
     const controller = new AbortController();

@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { BrowserApiProvider } from "../../api/browser-api";
+import { FlexQueryProvider } from "../../api/query-client";
 import type { ActorContextV1, NavigationProjectionV1 } from "../../api/browser-contracts";
 import { AppShell } from "./AppShell";
 
@@ -56,6 +57,7 @@ function renderShell(availableIds: string[]) {
 
   render(
     <MemoryRouter initialEntries={["/"]}>
+      <FlexQueryProvider>
       <BrowserApiProvider>
         <Routes>
           <Route element={<AppShell />}>
@@ -63,6 +65,7 @@ function renderShell(availableIds: string[]) {
           </Route>
         </Routes>
       </BrowserApiProvider>
+    </FlexQueryProvider>
     </MemoryRouter>,
   );
 }

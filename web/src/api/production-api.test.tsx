@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { App } from "../App";
 import { ProductionApiProvider, useProductionApi } from "./production-api";
+import { FlexQueryProvider } from "./query-client";
 
 function ShellProbe() {
   const { apiState, shell, csrfToken } = useProductionApi();
@@ -50,9 +51,11 @@ describe("production application session", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <ShellProbe />
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     await waitFor(() => {
@@ -83,9 +86,11 @@ describe("production application session", () => {
     }));
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <ShellProbe />
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     await waitFor(() => {
@@ -154,9 +159,11 @@ describe("production application session", () => {
     }
 
     render(
+      <FlexQueryProvider>
       <ProductionApiProvider>
         <ResourceProbe />
-      </ProductionApiProvider>,
+      </ProductionApiProvider>
+    </FlexQueryProvider>,
     );
 
     await waitFor(() => {
