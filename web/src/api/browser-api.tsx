@@ -21,6 +21,10 @@ import { purgeProtectedQueryCache, replaceTrustedAuthorizationContext, authSubtr
 
 export type { ApiState };
 
+function isUnauthenticatedError(error: unknown): boolean {
+  return error instanceof Error && error.message === "unauthenticated";
+}
+
 function actorAuthorizationChanged(previous: ActorContextV1 | null, next: ActorContextV1): boolean {
   if (!previous) {
     return true;
@@ -71,6 +75,17 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
     setApiState(nextState);
   }, [queryClient]);
 
+  const withAuthenticationLoss = useCallback(async <T,>(operation: () => Promise<T>): Promise<T> => {
+    try {
+      return await operation();
+    } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        leaveReady("idle");
+      }
+      throw error;
+    }
+  }, [leaveReady]);
+
   const refresh = useCallback(async (options?: { replaceAuthorizationContext?: boolean }) => {
     const replaceRequested = options?.replaceAuthorizationContext === true;
     if (replaceRequested || authContextEpochRef.current === 0) {
@@ -98,12 +113,12 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
       setErrorMessage(null);
       setApiState("ready");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      if (message === "unauthenticated") {
+      if (isUnauthenticatedError(error)) {
         leaveReady("idle");
         return;
       }
 
+      const message = error instanceof Error ? error.message : "Unknown error";
       if (message === "protected" || message.includes("Access")) {
         leaveReady("denied", message);
         return;
@@ -119,20 +134,25 @@ export function BrowserApiProvider({ children }: { children: ReactNode }) {
     });
   }, [refresh]);
 
-  const fetchJson = useCallback(<T,>(path: string, init?: RequestInit) => apiFetch<T>(path, init), []);
+  const fetchJson = useCallback(
+    <T,>(path: string, init?: RequestInit) => withAuthenticationLoss(() => apiFetch<T>(path, init)),
+    [withAuthenticationLoss],
+  );
 
   const executeCommand = useCallback(
     async (command: Omit<BrowserCommandEnvelopeV1, "schema_version">) => {
-      const result = await executeBrowserCommand(command);
+      const result = await withAuthenticationLoss(() => executeBrowserCommand(command));
       await refresh({ replaceAuthorizationContext: false });
       return result;
     },
-    [refresh],
+    [refresh, withAuthenticationLoss],
   );
 
   const reconcileCommand = useCallback(
-    (command: Omit<BrowserCommandEnvelopeV1, "schema_version">) => reconcileBrowserCommand(command),
-    [],
+    (command: Omit<BrowserCommandEnvelopeV1, "schema_version">) => (
+      withAuthenticationLoss(() => reconcileBrowserCommand(command))
+    ),
+    [withAuthenticationLoss],
   );
 
   const value = useMemo(

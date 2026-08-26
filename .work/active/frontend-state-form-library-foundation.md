@@ -571,12 +571,11 @@ review history.
 
 # Current state
 
-Owner review of `9d380c6` ready-exit teardown is fixed.
+Owner review of `c3a40bd` command-401 access-loss gap is fixed.
 
-- [x] Leave ready: purge cache, clear actor/navigation, bump epoch, hide protected routes
-- [x] Regression: command success then follow-up actor-context 403 unmounts Session stand-in
-- [x] AppRoutes handles denied and error without falling through to Routes
-- [x] Same-identity capability/actor_stage narrowing treated as replacement (small P2)
+- [x] Propagate synthetic authentication loss from executeCommand/fetchJson/reconcile
+- [x] Regression: command 401 unmounts Session stand-in and shows sign-in gate
+- [x] Do not treat command 403/409 domain outcomes as workspace access loss
 
 # Decisions
 
@@ -619,6 +618,9 @@ Owner review of `9d380c6` ready-exit teardown is fixed.
 - Leaving synthetic API `ready` for idle/denied/error purges Query cache,
   clears actor/navigation, advances the epoch, and renders a workspace gate
   instead of protected routes.
+- Synthetic HTTP 401 from command, reconcile, or `fetchJson` is authentication
+  loss and uses the same ready-exit. Command HTTP 403/409 domain outcomes are
+  returned to the caller.
 
 # Findings / deviations
 
@@ -676,6 +678,8 @@ Owner review of `9d380c6` ready-exit teardown is fixed.
 | Session remount confirmation (2026-08-26) | passed | Rechecked `executeCommand` uses `replaceAuthorizationContext: false`; epoch still advances on bootstrap, identity change, and explicit replace. Production epoch path unchanged. Re-ran docs check, `git diff --check`, typecheck, and web tests (24 files, 176 passed). |
 | Ready-exit teardown follow-up | passed | Red: command success then follow-up actor-context 403 left `probe-actor` populated. Green: `leaveReady` clears actor/navigation, purges Query, bumps epoch; `BrowserWorkspaceGate` renders denied/error instead of routes. Same-actor capability narrowing remounts. App bootstrap 403 hides navigation. Full web tests 24 files, 179 passed; typecheck; lint 0 errors; docs check |
 | Ready-exit confirmation (2026-08-26) | passed | Rechecked `executeCommand` still uses `replaceAuthorizationContext: false`; catch paths all call `leaveReady`; `BrowserWorkspaceGate` handles loading/idle/denied/error before Routes. Re-ran docs check, `git diff --check`, typecheck, and web tests (24 files, 179 passed). |
+| Command/resource 401 access-loss follow-up | passed | Red: command and `fetchJson` 401 left actor `ready` and Session stand-in mounted. Green: shared `withAuthenticationLoss` wrapper calls `leaveReady("idle")` then rethrows; sign-in gate shown. Command 403/409 still return domain outcomes. Full web tests 24 files, 181 passed; typecheck; lint 0 errors; docs check |
+| Command/resource 401 confirmation (2026-08-26) | passed | Rechecked `executeCommand`, `reconcileCommand`, and `fetchJson` all use `withAuthenticationLoss`; command 401 still skips follow-up refresh; 403/409 remain returned bodies. Re-ran docs check, `git diff --check`, typecheck, and web tests (24 files, 181 passed). |
 
 # Blockers
 

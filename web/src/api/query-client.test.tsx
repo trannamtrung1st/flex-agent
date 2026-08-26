@@ -891,4 +891,161 @@ describe("synthetic actor replacement", () => {
     });
     expect(screen.getByText(/session-mounts:/).textContent).not.toBe(mountsAfterReady);
   });
+
+  it("tears down protected Session state when a command returns 401", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      if (url.includes("/browser/actor-context")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          actor_id: "actor.synthetic.participant",
+          display_name: "Synthetic Participant",
+          organization_id: "org.synthetic.demo",
+          organization_name: "Synthetic Demo Organization",
+          capabilities: ["participant"],
+          actor_stage: "participant",
+          is_synthetic: true,
+        }));
+      }
+
+      if (url.includes("/browser/navigation")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          destinations: [{ destination_id: "home", label: "Home", route: "/", tier: "p0", is_available: true }],
+        }));
+      }
+
+      if (url.includes("/browser/commands")) {
+        return Promise.resolve(jsonResponse(401, {}));
+      }
+
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    function ActorProbe() {
+      const { actor, apiState } = useBrowserApi();
+      return <p>{`probe-actor:${actor?.actor_id ?? "none"} probe-state:${apiState}`}</p>;
+    }
+
+    function SessionRuntimeStandIn() {
+      const { apiState, executeCommand } = useBrowserApi();
+      return (
+        <div>
+          <p>session-mounts:ready</p>
+          <button type="button" disabled={apiState !== "ready"} onClick={() => {
+            void executeCommand({
+              command_id: "send_message",
+              idempotency_key: "cmd-401",
+              command_type: "session.send_message",
+              resource_id: "sess.synthetic.0001",
+              expected_version: 1,
+              payload: { message_text: "hello" },
+            }).catch(() => undefined);
+          }}
+          >
+            Send message
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <FlexQueryProvider>
+        <BrowserApiProvider>
+          <ActorProbe />
+          <ProtectedBrowserAuthSubtree>
+            <BrowserWorkspaceGate>
+              <SessionRuntimeStandIn />
+            </BrowserWorkspaceGate>
+          </ProtectedBrowserAuthSubtree>
+        </BrowserApiProvider>
+      </FlexQueryProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Sign in required" })).toBeInTheDocument();
+    });
+    expect(screen.queryByText("session-mounts:ready")).not.toBeInTheDocument();
+    expect(screen.getByText("probe-actor:none probe-state:idle")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => requestUrl(input).includes("/browser/commands"))).toBe(true);
+  });
+
+  it("tears down protected Session state when fetchJson returns 401", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      if (url.includes("/browser/actor-context")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          actor_id: "actor.synthetic.participant",
+          display_name: "Synthetic Participant",
+          organization_id: "org.synthetic.demo",
+          organization_name: "Synthetic Demo Organization",
+          capabilities: ["participant"],
+          actor_stage: "participant",
+          is_synthetic: true,
+        }));
+      }
+
+      if (url.includes("/browser/navigation")) {
+        return Promise.resolve(jsonResponse(200, {
+          schema_version: "v1",
+          destinations: [{ destination_id: "home", label: "Home", route: "/", tier: "p0", is_available: true }],
+        }));
+      }
+
+      if (url.includes("/browser/sessions/")) {
+        return Promise.resolve(jsonResponse(401, {}));
+      }
+
+      return Promise.resolve(jsonResponse(404, {}));
+    }));
+
+    function ActorProbe() {
+      const { actor, apiState } = useBrowserApi();
+      return <p>{`probe-actor:${actor?.actor_id ?? "none"} probe-state:${apiState}`}</p>;
+    }
+
+    function SessionRuntimeStandIn() {
+      const { apiState, fetchJson } = useBrowserApi();
+      return (
+        <div>
+          <p>session-mounts:ready</p>
+          <button type="button" disabled={apiState !== "ready"} onClick={() => {
+            void fetchJson("/browser/sessions/sess.synthetic.0001").catch(() => undefined);
+          }}
+          >
+            Load session
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <FlexQueryProvider>
+        <BrowserApiProvider>
+          <ActorProbe />
+          <ProtectedBrowserAuthSubtree>
+            <BrowserWorkspaceGate>
+              <SessionRuntimeStandIn />
+            </BrowserWorkspaceGate>
+          </ProtectedBrowserAuthSubtree>
+        </BrowserApiProvider>
+      </FlexQueryProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Load session" })).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Load session" }));
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Sign in required" })).toBeInTheDocument();
+    });
+    expect(screen.queryByText("session-mounts:ready")).not.toBeInTheDocument();
+    expect(screen.getByText("probe-actor:none probe-state:idle")).toBeInTheDocument();
+  });
 });
