@@ -1,6 +1,8 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
+const devApiProxy = process.env.VITE_DEV_API_PROXY ?? "http://localhost:8080";
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -8,15 +10,15 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       "/browser": {
-        target: "http://localhost:8080",
+        target: devApiProxy,
         changeOrigin: true,
       },
       "/auth": {
-        target: "http://localhost:8080",
+        target: devApiProxy,
         changeOrigin: true,
       },
       "/v1": {
-        target: "http://localhost:8080",
+        target: devApiProxy,
         changeOrigin: true,
       },
     },

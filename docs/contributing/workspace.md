@@ -93,6 +93,20 @@ Candidate SPA (not production until cutover; `http://127.0.0.1:5274/`):
 cd web && pnpm dev
 ```
 
+Against the authenticated Docker profile, proxy API traffic through the gateway
+and use the candidate OIDC override (sets callback to `:5274`):
+
+```bash
+bash build/scripts/authenticated-browser-profile.sh up
+docker compose -f deploy/compose/authenticated-browser.compose.yaml \
+  -f deploy/compose/authenticated-browser.candidate-dev.compose.yaml \
+  --project-name flex-agent-authenticated-browser up -d --force-recreate api
+cd web && VITE_DEV_API_PROXY=http://127.0.0.1:18080 pnpm dev --host 127.0.0.1
+```
+
+Synthetic administrator: `synthetic.administrator` /
+`synthetic-administrator-password` (see `deploy/compose/keycloak/flex-agent-realm.json`).
+
 Isolated design lab (`http://127.0.0.1:5275/design-lab/surfaces`):
 
 ```bash

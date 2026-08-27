@@ -17,7 +17,9 @@
       "directAccessGrantsEnabled": true,
       "redirectUris": [
         "http://localhost:18082/auth/callback",
-        "http://localhost:18080/auth/callback"
+        "http://localhost:18080/auth/callback",
+        "http://127.0.0.1:5274/auth/callback",
+        "http://localhost:5274/auth/callback"
       ],
       "adminUrl": "http://host.docker.internal:18082",
       "rootUrl": "http://host.docker.internal:18082",
