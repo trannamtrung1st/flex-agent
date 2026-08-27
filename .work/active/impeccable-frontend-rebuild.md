@@ -1255,12 +1255,13 @@ Add and run focused commands for:
 
 # Current state
 
-Phases 0–2 are **sufficient to start Phase 3** after the gate/evidence
-corrective pass. They are not a complete authenticated production-parity
-visual baseline. Prototype comparison screenshots (committed, mapped below),
-synthetic-harness E2E, SPA OCI, and supply-chain/OCI checks are recorded.
-Impeccable adapters remain authority-safe until v1.0 token projection in
-Phase 3. Production `web/` has not been renamed.
+Phases 0–2 review-gate cleanup is **approved**. Next work is **Phase 3
+design-system v1.0**. Phases 0–2 remain sufficient to start that work; they
+are not a complete authenticated production-parity visual baseline. Prototype
+comparison screenshots (committed, mapped below), synthetic-harness E2E, SPA
+OCI, and supply-chain/OCI checks are recorded. Impeccable adapters remain
+authority-safe until v1.0 token projection in Phase 3. Production `web/` has
+not been renamed.
 
 # Decisions
 
@@ -1296,6 +1297,9 @@ Phase 3. Production `web/` has not been renamed.
   decisions. Independent Product/UI/UX/architecture review verifies faithful
   transcription; ask again only if execution discovers a new escalation-
   threshold conflict or would materially change those decisions.
+- Phase 0–2 review-gate cleanup is approved after `d3b0372` plus the 15-test
+  count correction. Phase 3 proceeds without reopening the adoption matrix,
+  prototype freeze, Impeccable provenance, or frontend migration architecture.
 
 # Findings / deviations
 
@@ -1373,8 +1377,9 @@ Phase 3. Production `web/` has not been renamed.
   authenticated-browser compose stack was not started. Current-web comparison
   evidence is the synthetic-mode workspace 502/unavailable panel. Prototype
   surfaces were captured at 1440×900 and 390×844 under `.playwright-mcp/`.
-- Consistency re-check (2026-08-27): adapter check and 6 Impeccable unit tests
-  passed; doctor findings unchanged (`product-schema-legacy`,
+- Consistency re-check (2026-08-27): adapter check passed; Impeccable unit
+  tests later grew to 15 and all passed on the post-`d3b0372` rerun; doctor
+  findings unchanged (`product-schema-legacy`,
   `design-md-coverage`); `.cursor/skills/impeccable` still symlinks to
   `.agents/skills/impeccable`; hashed snapshot is 215 files, plus snapshot
   `README.md`/`MANIFEST.json` on disk. The Phase 2 matrix is family-level;
@@ -1394,6 +1399,15 @@ Phase 3. Production `web/` has not been renamed.
   `.impeccable-live.json` / `.impeccable-live/` as runtime, and align the
   Phase 1 checkbox with email/secret tripwires plus Gitleaks/review policy
   rather than claiming generic participant-content detection.
+- External review of `d3b0372` approved Phase 0–2 review-gate cleanup (critique
+  path, live-state guard, claim/enforcement match). One leftover: this file
+  still said 12 adapter unit tests after three new tests landed. Corrected to
+  15 after a rerun of
+  `python3 -m unittest discover -s scripts -p 'test_impeccable_context.py'`
+  (15 OK). Non-blocking later hardening: drop the substring fallback in
+  `_is_snapshot_impeccable()` and keep only canonical `relative_to()`
+  containment. Proceed to Phase 3; do not reopen the adoption matrix,
+  prototype freeze, Impeccable provenance, or frontend migration architecture.
 
 # Verification
 
@@ -1410,9 +1424,9 @@ Phase 3. Production `web/` has not been renamed.
 | Plan consistency/readiness audit | passed | phases 0–11 are ordered with exit gates; `PC-01`–`PC-14` are complete; source capture needs no external write; synthetic/future capability is excluded from production parity; approval delegation and legacy retirement are explicit |
 | Authenticated production-profile definition | passed | `bash build/scripts/authenticated-browser-profile.sh validate` |
 | Plan markdown/content validation | passed | `python3 scripts/check_docs.py` |
-| Implementation verification | in progress | Phases 0–2 sufficient to start Phase 3 after gate/evidence corrections; v1.0 next |
+| Implementation verification | in progress | Phase 0–2 review gates closed and approved; Phase 3 design-system v1.0 next |
 | Experiment freeze | passed | HEAD `f724b68` clean; planning base `c52eeda3`; 215 hashed files in `.work/resources/impeccable-prototype-snapshot/MANIFEST.json` |
-| Impeccable adapter unit tests | passed | `python3 -m unittest discover -s scripts -p 'test_impeccable_context.py'` 12 tests |
+| Impeccable adapter unit tests | passed | `python3 -m unittest discover -s scripts -p 'test_impeccable_context.py'` 15 tests (rerun 2026-08-27 after `d3b0372` review) |
 | `verify-web.sh` | failed (pre-existing) | 181 pass / 1 fail `AssessmentSetupPage` access-loss focus; lint 11 warnings 0 errors; typecheck pass |
 | Production SPA build / bundle | passed | Vite `web/dist`: JS 546884 B / gzip 160.45 kB; CSS 19163 B / gzip 4.48 kB |
 | Prototype desktop/narrow screenshots | passed | 14 committed synthetic prototype PNGs; see evidence map below. Accessibility snapshots remain untracked. |
