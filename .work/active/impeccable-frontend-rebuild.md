@@ -1246,6 +1246,15 @@ on it.
   outside approved `web/src` prefixes; parse HTML module `src` / stylesheet
   `href` entry references for candidate and lab HTML shells.
 
+### Phase 7.5 external review approval
+
+- [x] Review loop closed at `5ffc0fd` (2026-08-27). Independent review approved
+  Phase 7.5 isolation enforcement (`0a1d557`, `dc2a3d9`), work-document Phase 8
+  heading restoration (`5ffc0fd`), and readiness to start Phase 8. No further
+  architectural findings. **Interim default:** if Phase 8 introduces TS/Vite path
+  aliases (`@/…`, `paths`, or `resolve.alias`), extend the isolation resolver
+  to resolve them before treating bare specifiers as external packages.
+
 ## Phase 8 — Migrate the frozen production-parity frontend in vertical waves
 
 Starts only after Phase 7.5 establishes `/design-lab`, verifies the promotion
@@ -1543,16 +1552,16 @@ Add and run focused commands for:
 
 # Current state
 
-Phase 7.5 isolation enforcement is closed. Candidate CSS is `shared.css`;
-lab-only demo/surface CSS is `design-lab.css` and is blocked from direct
-candidate imports (ESLint, isolation lib, architecture tests, style-entry scan).
-Design-lab outbound imports are allowlisted to lab, design-system, lib, and
-shared styles. Import checkers are specifier-aware.
-`verify:web:new`, `verify:design-lab`, and `verify:web` are named separately;
-candidate typecheck/lint no longer includes lab configs.
+Phase 7.5 isolation enforcement is closed and externally approved at `5ffc0fd`.
+Candidate CSS is `shared.css`; lab-only demo/surface CSS is `design-lab.css`
+and is blocked from direct candidate imports (ESLint, isolation lib, architecture
+tests, style-entry scan). Design-lab outbound imports are allowlisted to lab,
+design-system, lib, and shared styles under `web/src`, with repo-wide rejection
+of other paths and HTML entry-reference checks. Import checkers are
+specifier-aware. `verify:web:new`, `verify:design-lab`, and `verify:web` are
+named separately; candidate typecheck/lint no longer includes lab configs.
 
-**Current `[>]`:** Phase 8 remains available after this remediation is reviewed.
-Production is still `web-legacy/`.
+**Current `[>]`:** Phase 8 — Wave 8.1. Production is still `web-legacy/`.
 
 Candidate `web/public/favicon.svg` is the adopted Shipboard Terminal mark; its
 source hash and provenance are recorded in the verification history.
@@ -1798,6 +1807,8 @@ source hash and provenance are recorded in the verification history.
 | Governing product docs read | passed | Concept model v0.5, MVP scope v0.4, Product overview v0.4 |
 | UI/UX authority and design-system status read | passed | UI/UX hub; design-system Approved v1.0; implementation guide |
 | Implementation verification | Phase 7.5 closed | Candidate `pnpm --filter @flex-agent/web test` 28/28; lint/typecheck green; both Vite builds; `check-frontend-isolation.mjs` and `check-candidate-bundle.mjs` passed; architecture isolation 49/49; docs/context check passed; snapshot deleted |
+| Phase 7.5 external review | approved | Review loop closed at `5ffc0fd` (2026-08-27). Isolation enforcement (`0a1d557`, `dc2a3d9`) and work-doc Phase 8 heading restoration approved; no further findings. GitHub Actions not run for doc-only SHA. |
+| Phase 7.5 isolation hardening | passed | Repo-wide design-lab outbound allowlist; HTML module `src` / stylesheet `href` entry checks for `index.html` and `design-lab.html`. Architecture isolation 16/16; `verify:web:new` + `verify:design-lab` green at `dc2a3d9`. |
 | Phase 7.5 isolation enforcement | passed | Lab-owned stylesheet imports blocked at source (ESLint + isolation lib + C# + style-entry scan). Design-lab outbound allowlist blocks future production modules. Candidate `tsconfig`/lint excludes lab configs; lab lint/typecheck includes `e2e/design-lab`. Bundle checker covers all surface markers. `verify:web:new` + `verify:design-lab` green; architecture isolation 13/13; Playwright design-lab 3/3 |
 | Phase 7.5 isolation remediation | passed | Candidate style graph is `shared.css` only; lab uses `design-lab.css`. `check-candidate-bundle.mjs` rejects `.demo-plate` / gallery surface markers. Specifier-aware isolation lib + ESLint `no-restricted-imports` + C# tests catch `../../design-lab/...`. `verify:web:new` is candidate-only; `verify:design-lab` + `test:e2e:design-lab` 3/3; architecture isolation 10/10 in `FrontendRebuildIsolationTests` |
 | Phase 7.5 promotion | passed | `web/src/design-system/{foundations,components,patterns}` + `web/src/lib/`; lab imports promoted modules; chrome `homeTo` required; lab adapters keep catalog defaults |
@@ -1879,9 +1890,7 @@ production states remain deferred to their production-parity waves.
 
 # Blockers
 
-None for Phase 7.5 isolation enforcement. Phase 8 can start after this change
-set is reviewed: copy frozen production-parity routes from `web-legacy/` onto
-the promoted Shipboard shell.
+None. Phase 7.5 is approved and closed; Phase 8 may proceed.
 
 # Open questions
 
