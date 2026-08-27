@@ -26,19 +26,41 @@ the documented steps rather than arbitrary offsets.
 Prototype rhythm uses 8 / 10 / 16 / 22 / 26px. Map those onto this ladder.
 Dense command surfaces need 4px granularity; do not force an 8px-only system.
 
+Inner composition consumes this ladder through `Stack`, `Inline`, `Grid`,
+`Container`, `Inset`, and `SplitBay` ([layout primitives](../components/layout-primitives.md)).
+CSS variables `--space-1` … `--space-24` live in `web/src/styles/tokens.css`.
+Do not invent off-ladder offsets in feature CSS when a primitive `gap` or
+`Inset` space will do.
+
 ## Application shells
 
-Desktop pages compose from one of these Shipboard shells. Product routes and
-destinations still follow the approved Activity IA, not prototype paths
-(`PC-10`).
+Desktop pages compose from **exactly one** of these Shipboard shells. The set
+is closed. New production pages select a family; they do not invent another
+outer structure. Product routes and destinations still follow the approved
+Activity IA, not prototype paths (`PC-10`). Shared React implementations live
+in `web/src/design-system/patterns/layouts/` and are documented in
+[layouts](../components/layouts.md).
 
-1. **Management** — command strip, optional gangway, primary work bay, quiet
-   footer.
-2. **Guided task** — full-height instrument rail (hull bulkhead on desktop)
-   plus inset work well; compact identity.
-3. **Live session** — full-height instrument rail, inset transcript column,
-   inset examiner/Agent plate.
-4. **Reference** — catalog index only (design lab).
+1. **Management** (`management`) — command strip, optional gangway, primary
+   work bay, quiet footer.
+2. **Guided task** (`guided-task`) — full-height instrument rail (hull
+   bulkhead on desktop) plus inset work well; compact identity.
+3. **Live session** (`live-session`) — full-height instrument rail, inset
+   transcript column, inset examiner/Agent plate.
+4. **Reference** (`reference`) — catalog index / Component Deck only (design
+   lab). Forbidden in the production entry graph.
+
+Inner feature composition (tables, Status Bays, reviewer record grid, gallery
+specimens) lives inside named slots and is not a fifth shell. Prefer the
+[layout primitives](../components/layout-primitives.md) for stack, wrap, intrinsic
+grid, width, padding, and named split tracks inside those slots. Keep Status Bays
+and live-session columns in domain or shell CSS. Reviewer record columns use
+`SplitBay`. Management work bays use `OperateArea` for title, description, optional back, and body; see
+[layouts](../components/layouts.md). Management and reference-catalog mains
+wrap slot content in an even `Inset` by default (`contain`, `--shell-main-inset-inline`
+/ 22px, `--shell-main-inset-block` / 16px); hull shells and the Component Deck do not. `contain={false}` is flush
+to the main landmark unless the page reapplies the same hull token through
+`.workspace-area`.
 
 ### Command strip
 
@@ -66,7 +88,7 @@ work-bay column, not the viewport. The session examiner plate stays an inset
 work plane, not a second bulkhead.
 
 Short desktop viewports scroll instruments inside the rail (`.phase-rail-scroll`
-/ `.rail-scroll`); brand stays outside that scroller. Desktop shells use
+/ `.rail-scroll`); brand and seated rail actions stay outside that scroller. Desktop shells use
 `height: 100dvh` with no min-height taller than the viewport, so a short window
 cannot grow past the hull while `body` overflow stays hidden. Narrow/drawer
 widths stack the instrument band in the header and do not make that band

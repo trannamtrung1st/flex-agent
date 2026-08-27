@@ -30,7 +30,14 @@ the frontend rebuild. Do not use v0.1 Deep-Space styling as the target look.
    responsive states before styling only the happy path.
 8. Apply `PC-01`–`PC-14` so prototype visuals cannot change repo behavior.
 9. Verify specimens in the isolated design-lab Component Deck when it exists;
-   production routes never include `/design-lab/*`.
+   production routes never include `/design-lab/*`. Select one closed-set
+   layout family from [layouts](components/layouts.md); do not compose outer
+   chrome in a page module. Inside the chosen family, compose slot content with
+   [layout primitives](components/layout-primitives.md) (`Stack`, `Inline`,
+   `Grid`, `Container`, `Inset`, `SplitBay`) instead of one-off flex/grid/spacing CSS.
+   Shells wrap main content in an even `Inset` when `contain` is true
+   (management and reference catalog default on; hull shells and the Component
+   Deck default off). That pad is not a max-width column.
 
 ## Foundation index
 
@@ -66,7 +73,9 @@ the frontend rebuild. Do not use v0.1 Deep-Space styling as the target look.
   [modals](components/modals.md), [tabs](components/tabs.md), and
   [tooltips](components/tooltips-popovers.md)
 - [Tables](components/tables.md), [pagination](components/pagination.md),
-  [gangway/rails](components/sidebars.md), and
+  [gangway/rails](components/sidebars.md),
+  [layouts (shells)](components/layouts.md),
+  [layout primitives](components/layout-primitives.md), and
   [content/readout grid](components/content.md)
 
 ## Product-pattern index

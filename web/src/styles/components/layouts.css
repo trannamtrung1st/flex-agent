@@ -1,0 +1,523 @@
+/* Closed-set application shells. Feature sheets must not redeclare these. */
+
+.skip-link {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  position: relative;
+  display: inline-block;
+  align-self: flex-start;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  height: auto;
+  margin: 8px 12px;
+  padding: 8px 12px;
+  overflow: visible;
+  clip: auto;
+  white-space: nowrap;
+  z-index: 80;
+  background: var(--ground);
+  color: var(--text-bright);
+  border: 1px solid var(--teal);
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+.layout-management {
+  --gangway-w: 248px;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+}
+
+.layout-management .strip-ident > .key {
+  align-self: center;
+  margin-inline: 8px 0;
+}
+
+.layout-management__shell {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.layout-management__content {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-management__drawer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 45;
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--hairline-dim);
+  background: linear-gradient(180deg, rgba(2, 9, 14, 0.42), rgba(2, 9, 14, 0.16));
+}
+
+.layout-management__drawer-label {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  color: var(--label);
+}
+
+.layout-management__main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.layout-management__main > .composition-inset,
+.layout-guided__main > .composition-inset,
+.layout-session__main > .composition-inset,
+.layout-reference__main > .composition-inset {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-management__main > .composition-inset .workspace-area,
+.layout-management__main > .composition-inset .wall,
+.layout-management__main > .composition-inset .campaigns-wall {
+  padding: 0;
+}
+
+.layout-management__main:has(.breadcrumb-nav) .workspace-area {
+  padding-top: 8px;
+}
+
+@media (max-width: 1080px) {
+  .layout-management__shell {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 720px) {
+  .layout-management .strip-readout {
+    display: none;
+  }
+}
+
+.layout-guided {
+  --instrument-rail-width: 260px;
+  --instrument-bulkhead-fill: linear-gradient(180deg, rgba(2, 9, 14, 0.64), rgba(4, 16, 24, 0.5));
+  position: relative;
+  display: grid;
+  height: 100dvh;
+  grid-template-columns: var(--instrument-rail-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "phase-rail main";
+  gap: 0 28px;
+  padding: 0 22px 0 0;
+  overflow: hidden;
+}
+
+.layout-guided__bay {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  gap: 18px;
+  padding: 18px 0;
+}
+
+.layout-guided__main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-guided__main.well-frame {
+  --cut-tl: var(--notch);
+  --cut-br: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.layout-guided .frame-traces,
+.layout-session .frame-traces {
+  --trace-terminal-size: 5px;
+  --trace-terminal-rise: -3px;
+  --trace-terminal-outset: -7px;
+}
+
+.layout-guided .frame-traces .trace,
+.layout-session .frame-traces .trace {
+  position: absolute;
+  background: var(--hairline-dim);
+}
+
+.layout-guided .frame-traces .trace {
+  height: 1px;
+}
+
+/* Layout trace terminals — smaller than etched-frame beads (.frame-in > .frame-node). */
+.layout-guided .frame-traces .trace::before,
+.layout-guided .frame-traces .trace::after,
+.layout-session .frame-traces .trace::before,
+.layout-session .frame-traces .trace::after {
+  content: "";
+  position: absolute;
+  width: var(--trace-terminal-size);
+  height: var(--trace-terminal-size);
+  border: 1px solid var(--label-dim);
+  border-radius: 50%;
+  background: var(--ground);
+}
+
+.layout-guided .trace-top { top: 9px; left: 8%; width: 34%; }
+.layout-guided .trace-top::before { left: var(--trace-terminal-outset); top: var(--trace-terminal-rise); }
+.layout-guided .trace-top::after { right: var(--trace-terminal-outset); top: var(--trace-terminal-rise); }
+.layout-guided .trace-rail { top: 9px; left: 0; width: 16%; }
+.layout-guided .trace-rail::before { left: var(--trace-terminal-outset); top: var(--trace-terminal-rise); }
+.layout-guided .trace-rail::after { right: var(--trace-terminal-outset); top: var(--trace-terminal-rise); border-color: var(--teal); }
+
+.layout-guided .phase-rail {
+  grid-area: phase-rail;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 18px 0 16px var(--shell-main-inset-inline);
+  border-right: 1px solid var(--hairline-dim);
+  background: var(--instrument-bulkhead-fill);
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+
+.layout-guided .phase-rail > *:not(.phase-rail-scroll) {
+  flex-shrink: 0;
+}
+
+.layout-guided__rail-scroll,
+.layout-guided .phase-rail-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 0;
+  padding-right: var(--instrument-rail-dock-inline);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-dim) transparent;
+}
+
+.layout-guided .phase-rail-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.layout-guided .phase-rail-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.layout-guided .phase-rail-scroll::-webkit-scrollbar-thumb {
+  background: var(--hairline-dim);
+}
+
+.layout-guided .phase-rail-scroll > * {
+  flex-shrink: 0;
+}
+
+@media (max-width: 1080px) {
+  .layout-guided {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "phase-rail"
+      "main";
+    gap: 14px;
+    padding: 14px 16px;
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: visible;
+  }
+
+  .layout-guided__bay {
+    padding: 0;
+  }
+
+  html:has(.layout-guided) body {
+    overflow: auto;
+  }
+
+  .layout-guided .frame-traces {
+    display: none;
+  }
+
+  .layout-guided .phase-rail {
+    border-right: none;
+    border-bottom: 1px solid var(--hairline-dim);
+    padding: 0 0 14px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 14px 20px;
+    overflow: visible;
+  }
+
+  .layout-guided .phase-rail-scroll {
+    display: contents;
+  }
+}
+
+.layout-session {
+  --instrument-rail-width: 232px;
+  --instrument-bulkhead-fill: linear-gradient(180deg, rgba(2, 9, 14, 0.64), rgba(4, 16, 24, 0.5));
+  position: relative;
+  display: grid;
+  height: 100dvh;
+  overflow: hidden;
+  grid-template-columns: var(--instrument-rail-width) minmax(0, 1fr) 320px;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "rail session-main agent-panel";
+  gap: 0 26px;
+  padding: 0 20px 0 0;
+}
+
+.layout-session__bay {
+  grid-area: session-main;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  gap: 16px;
+  padding: 18px 0;
+}
+
+.layout-session__main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-session .trace-top { top: 9px; left: 8%; width: 28%; height: 1px; }
+.layout-session .trace-top::before { left: var(--trace-terminal-outset); top: var(--trace-terminal-rise); }
+.layout-session .trace-top::after { right: var(--trace-terminal-outset); top: var(--trace-terminal-rise); }
+.layout-session .trace-chrono { top: 9px; right: 28px; width: 18%; height: 1px; }
+.layout-session .trace-chrono::before { left: var(--trace-terminal-outset); top: var(--trace-terminal-rise); }
+.layout-session .trace-chrono::after { right: -2px; top: var(--trace-terminal-rise); border-color: var(--amber); }
+.layout-session .trace-foot { bottom: 10px; left: 24px; width: 22%; height: 1px; }
+.layout-session .trace-foot::before { left: var(--trace-terminal-outset); top: var(--trace-terminal-rise); }
+.layout-session .trace-foot::after { right: var(--trace-terminal-outset); top: var(--trace-terminal-rise); }
+
+.layout-session .rail {
+  grid-area: rail;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding: 18px 0 16px var(--shell-main-inset-inline);
+  border-right: 1px solid var(--hairline-dim);
+  background: var(--instrument-bulkhead-fill);
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+
+.layout-session .rail > *:not(.rail-scroll) {
+  flex-shrink: 0;
+}
+
+.layout-session__rail-scroll,
+.layout-session .rail-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 26px;
+  min-height: 0;
+  padding-right: var(--instrument-rail-dock-inline);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-dim) transparent;
+}
+
+.layout-session .rail-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.layout-session .rail-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.layout-session .rail-scroll::-webkit-scrollbar-thumb {
+  background: var(--hairline-dim);
+}
+
+.layout-session .rail-scroll > * {
+  flex-shrink: 0;
+}
+
+.layout-session__examiner,
+.layout-session .agent-panel {
+  grid-area: agent-panel;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+@media (max-width: 1180px) {
+  .layout-session {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "railband   railband"
+      "session-main agent-panel";
+    padding: 14px 20px 16px;
+    gap: 14px 20px;
+  }
+
+  .layout-session .frame-traces {
+    display: none;
+  }
+
+  .layout-session__bay {
+    padding: 0;
+  }
+
+  .layout-session .agent-panel {
+    margin: 0;
+  }
+
+  .layout-session .rail {
+    grid-area: railband;
+    flex-direction: row;
+    align-items: center;
+    gap: 20px;
+    border-right: none;
+    border-bottom: 1px solid var(--hairline-dim);
+    padding: 0 4px 12px;
+    margin-bottom: 14px;
+    overflow: visible;
+  }
+
+  .layout-session .rail-scroll {
+    display: contents;
+  }
+}
+
+@media (max-width: 760px) {
+  html:has(.layout-session) body {
+    overflow: auto;
+  }
+
+  .layout-session {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "railband"
+      "agent-panel"
+      "session-main";
+    padding: 10px 14px 14px;
+    min-height: 100dvh;
+    height: auto;
+    overflow: visible;
+    gap: 10px;
+  }
+
+  .layout-session .rail {
+    flex-wrap: wrap;
+    gap: 10px 16px;
+  }
+
+  .layout-session .agent-panel {
+    flex-direction: column;
+    flex-shrink: 0;
+    max-height: none;
+  }
+}
+
+.layout-reference {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.layout-reference__main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-reference--deck {
+  height: auto;
+}
+
+.layout-reference--deck .layout-reference__deck,
+.layout-reference--deck .deck {
+  display: grid;
+  grid-template-columns: 234px minmax(0, 1fr);
+  gap: 0 28px;
+  max-width: none;
+  margin: 0;
+  padding: 24px 20px 24px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-layout] {
+    scroll-behavior: auto;
+  }
+}
+
+@media (forced-colors: active) {
+  .layout-management,
+  .layout-guided,
+  .layout-session,
+  .layout-reference {
+    forced-color-adjust: none;
+    border-color: CanvasText;
+  }
+
+  .skip-link:focus,
+  .skip-link:focus-visible {
+    outline-color: Highlight;
+    border-color: Highlight;
+  }
+}
+
+@media print {
+  .skip-link,
+  .layout-guided .frame-traces,
+  .layout-session .frame-traces {
+    display: none;
+  }
+
+  .layout-management,
+  .layout-guided,
+  .layout-session,
+  .layout-reference {
+    height: auto;
+    overflow: visible;
+  }
+}
