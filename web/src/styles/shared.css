@@ -16,12 +16,3 @@
 @import "./components/searchable.css";
 @import "./components/overlays.css";
 @import "./components/datatable.css";
-@import "./components/demo.css";
-@import "./surfaces/surfaces-index.css";
-@import "./surfaces/participant-home.css";
-@import "./surfaces/participant-journey.css";
-@import "./surfaces/participant-session.css";
-@import "./surfaces/admin-console.css";
-@import "./surfaces/reviewer-console.css";
-@import "./surfaces/gallery.css";
-@import "./surfaces/not-found.css";

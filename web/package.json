@@ -7,11 +7,16 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "preview:design-lab": "vite preview --config vite.design-lab.config.ts --host 127.0.0.1 --strictPort",
     "dev:design-lab": "vite --config vite.design-lab.config.ts",
     "build:design-lab": "vite build --config vite.design-lab.config.ts",
-    "lint": "eslint .",
+    "lint": "eslint . --ignore-pattern src/design-lab --ignore-pattern e2e",
+    "lint:design-lab": "eslint src/design-lab",
     "typecheck": "tsc -b --noEmit",
-    "test": "vitest run"
+    "typecheck:design-lab": "tsc -p tsconfig.design-lab.json --noEmit",
+    "test": "vitest run",
+    "test:design-lab": "vitest run --config vitest.design-lab.config.ts",
+    "test:e2e:design-lab": "playwright test --config playwright.design-lab.config.ts"
   },
   "dependencies": {
     "@fontsource/michroma": "5.3.0",

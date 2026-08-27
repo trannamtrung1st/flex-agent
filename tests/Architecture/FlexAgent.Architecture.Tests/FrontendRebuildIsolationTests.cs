@@ -1,8 +1,18 @@
+using System.Text.RegularExpressions;
+
 namespace FlexAgent.Architecture.Tests;
 
 public sealed class FrontendRebuildIsolationTests
 {
     private static readonly string[] ProductionSourceExtensions = [".ts", ".tsx", ".js", ".jsx", ".css", ".html"];
+    private static readonly Regex[] SpecifierPatterns =
+    [
+        new(@"(?:import|export)\s+(?:type\s+)?(?:[\s\S]*?\sfrom\s+)?[""']([^""']+)[""']", RegexOptions.Compiled),
+        new(@"import\s*\(\s*[""']([^""']+)[""']\s*\)", RegexOptions.Compiled),
+        new(@"require\s*\(\s*[""']([^""']+)[""']\s*\)", RegexOptions.Compiled),
+        new(@"@import\s+(?:url\(\s*)?[""']([^""']+)[""']", RegexOptions.Compiled),
+    ];
+    private static readonly Regex DesignLabSegment = new(@"(?:^|/)design-lab(?:/|$)", RegexOptions.Compiled);
 
     [Fact]
     public void Spa_dockerfile_points_at_web_legacy_until_cutover()
@@ -34,6 +44,7 @@ public sealed class FrontendRebuildIsolationTests
         Assert.Contains("input: \"index.html\"", config, StringComparison.Ordinal);
         Assert.DoesNotContain("design-lab.html", config, StringComparison.Ordinal);
         Assert.Contains("src/design-lab/**", config, StringComparison.Ordinal);
+        Assert.Contains("exclude:", config, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -64,11 +75,16 @@ public sealed class FrontendRebuildIsolationTests
             }
 
             var relative = ToRepoRelative(root, file);
+            if (IsLabOwnedStylesheet(relative))
+            {
+                continue;
+            }
+
             var content = File.ReadAllText(file);
             AddIfContains(violations, relative, content, "web-legacy");
-            AddIfContains(violations, relative, content, "design-lab");
             AddIfContains(violations, relative, content, ".work/resources");
             AddIfContains(violations, relative, content, "impeccable-prototype");
+            AddDesignLabImportViolations(violations, file, relative, content);
             if (!relative.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
             {
                 AddIfContains(violations, relative, content, "HOME_ENROLLMENTS");
@@ -97,11 +113,36 @@ public sealed class FrontendRebuildIsolationTests
             AddIfContains(violations, relative, content, "web-legacy");
             AddIfContains(violations, relative, content, ".work/resources");
             AddIfContains(violations, relative, content, "impeccable-prototype");
-            AddIfContains(violations, relative, content, "src/design-lab");
-            AddIfContains(violations, relative, content, "web/src/design-lab");
+            AddDesignLabImportViolations(violations, file, relative, content);
         }
 
         Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
+    }
+
+    [Fact]
+    public void Relative_design_lab_import_specifiers_are_detected()
+    {
+        const string fromFile = "/repo/web/src/design-system/components/chrome/Brand.tsx";
+        Assert.True(SpecifierResolvesToDesignLab(fromFile, "../../design-lab/data/fixtures"));
+        Assert.True(SpecifierResolvesToDesignLab(fromFile, "src/design-lab/app/router"));
+        Assert.False(SpecifierResolvesToDesignLab(fromFile, "./operator"));
+        var specifiers = ExtractImportSpecifiers("import { x } from \"../../design-lab/data/fixtures\";");
+        Assert.Contains("../../design-lab/data/fixtures", specifiers);
+    }
+
+    [Fact]
+    public void Candidate_production_entry_does_not_load_lab_style_graph()
+    {
+        var root = FindRepositoryRoot();
+        var main = File.ReadAllText(Path.Combine(root, "web", "src", "main.tsx"));
+        Assert.Contains("styles/shared.css", main, StringComparison.Ordinal);
+        Assert.DoesNotContain("styles/index.css", main, StringComparison.Ordinal);
+        Assert.DoesNotContain("design-lab.css", main, StringComparison.Ordinal);
+
+        var shared = File.ReadAllText(Path.Combine(root, "web", "src", "styles", "shared.css"));
+        Assert.DoesNotContain("demo.css", shared, StringComparison.Ordinal);
+        Assert.DoesNotContain("./surfaces/", shared, StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(root, "web", "src", "styles", "index.css")));
     }
 
     [Fact]
@@ -158,6 +199,48 @@ public sealed class FrontendRebuildIsolationTests
             || content.Contains("\"web/src", StringComparison.Ordinal)
             || content.Contains("'web/src", StringComparison.Ordinal);
     }
+
+    private static void AddDesignLabImportViolations(List<string> violations, string file, string relative, string content)
+    {
+        foreach (var specifier in ExtractImportSpecifiers(content))
+        {
+            if (SpecifierResolvesToDesignLab(file, specifier))
+            {
+                violations.Add($"{relative} imports a design-lab module ('{specifier}')");
+            }
+        }
+    }
+
+    private static IReadOnlyList<string> ExtractImportSpecifiers(string content)
+    {
+        var specifiers = new List<string>();
+        foreach (var pattern in SpecifierPatterns)
+        {
+            foreach (Match match in pattern.Matches(content))
+            {
+                specifiers.Add(match.Groups[1].Value);
+            }
+        }
+
+        return specifiers;
+    }
+
+    private static bool SpecifierResolvesToDesignLab(string fromFile, string specifier)
+    {
+        var normalized = specifier.Replace('\\', '/');
+        if (normalized.StartsWith('.') || Path.IsPathRooted(specifier))
+        {
+            var directory = Path.GetDirectoryName(fromFile);
+            ArgumentException.ThrowIfNullOrEmpty(directory);
+            var resolved = Path.GetFullPath(Path.Combine(directory, specifier)).Replace('\\', '/');
+            return DesignLabSegment.IsMatch(resolved);
+        }
+
+        return DesignLabSegment.IsMatch(normalized);
+    }
+
+    private static bool IsLabOwnedStylesheet(string relative) =>
+        string.Equals(relative, "web/src/styles/design-lab.css", StringComparison.Ordinal);
 
     private static void AddIfContains(List<string> violations, string relative, string content, string needle)
     {

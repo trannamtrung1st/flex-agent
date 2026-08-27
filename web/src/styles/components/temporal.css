@@ -51,13 +51,11 @@
     inset 0 -18px 34px rgba(2, 9, 14, 0.45);
 }
 
-.demo-plate .select-shell--temporal.select-shell--field:has(.datetime-trigger[aria-expanded="true"]) .datetime-trigger,
 .console-foot .select-shell--temporal.select-shell--field:has(.datetime-trigger[aria-expanded="true"]) .datetime-trigger {
   border-bottom-color: transparent;
   border-top-color: var(--hairline);
 }
 
-.demo-plate .select-shell--temporal.is-invalid.select-shell--field:has(.datetime-trigger[aria-expanded="true"]) .datetime-trigger,
 .console-foot .select-shell--temporal.is-invalid.select-shell--field:has(.datetime-trigger[aria-expanded="true"]) .datetime-trigger {
   border-top-color: var(--amber);
 }

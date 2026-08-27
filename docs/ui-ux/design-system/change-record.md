@@ -53,6 +53,10 @@ command strip, keys, readout grid, wait instruments, clipped-border frames,
 emitters-only glow, the square hull-ground document icon (favicon), and the
 Component Deck as the design-lab catalog.
 
+Candidate production CSS loads `web/src/styles/shared.css` (tokens, base, and
+production-safe component families). Lab-only demo and surface sheets load
+only through `web/src/styles/design-lab.css`.
+
 ## Deliberate deviations from the prototype
 
 Every `PC-01`–`PC-14` / `BR-01`–`BR-14` item in the rebuild task. Material

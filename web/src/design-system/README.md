@@ -16,3 +16,5 @@ Rules:
   business state.
 - Production and the isolated lab may import this tree.
 - This tree must not import lab fixtures, lab routes, or lab surfaces.
+- Candidate CSS loads `web/src/styles/shared.css` only. Lab-only demo/surface
+  sheets stay behind `web/src/styles/design-lab.css`.

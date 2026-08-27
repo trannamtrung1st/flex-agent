@@ -44,9 +44,9 @@ behavior: after cutover they again mean `web/`.
 
 Production modules must not import `src/design-lab`, `.work/resources`, or
 `web-legacy` source. Shared visual implementations are owned by
-`web/src/design-system/` plus `web/src/lib/` and `web/src/styles/`. Design-lab
-modules may import that shared tree and synthetic fixtures only inside the
-design-lab entry graph. See ADR-020 `FE-TRANS-1`–`FE-TRANS-8`. The lab route
+`web/src/design-system/` plus `web/src/lib/` and `web/src/styles/shared.css`.
+Design-lab modules may import that shared tree, `web/src/styles/design-lab.css`,
+and synthetic fixtures only inside the design-lab entry graph. See ADR-020 `FE-TRANS-1`–`FE-TRANS-8`. The lab route
 namespace is `/design-lab/*`.
 
 Styling follows design-system v1.0 semantic tokens rather than v0.1

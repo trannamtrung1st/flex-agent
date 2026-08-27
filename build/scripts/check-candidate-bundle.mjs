@@ -6,7 +6,16 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const distAssets = path.join(root, "web", "dist", "assets");
-const forbidden = ["HOME_ENROLLMENTS", "Approve & Release", "Mark Submission Complete", "design-lab"];
+const forbidden = [
+  "HOME_ENROLLMENTS",
+  "Approve & Release",
+  "Mark Submission Complete",
+  "design-lab",
+  "prototype-only fixture",
+  ".demo-plate",
+  "html[data-surface=\"gallery\"]",
+  "html[data-surface=\"surfaces-index\"]",
+];
 
 let files = [];
 try {

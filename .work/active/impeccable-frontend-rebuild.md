@@ -1217,6 +1217,18 @@ on it.
   promotion loop is verified by tests and live browser evidence.
 - Phase 8 remains blocked until every Phase 7.5 item passes.
 
+### Phase 7.5 isolation remediation (review of `eb9c398` + `5436875`)
+
+- [x] Split candidate vs design-lab CSS entry graphs (`shared.css` vs
+  `design-lab.css`); keep lab-only demo/surface sheets out of the candidate
+  production bundle; extend `check-candidate-bundle.mjs` to catch those sheets.
+- [x] Close the `design-system → design-lab` relative-import hole with
+  specifier-aware checks, ESLint `no-restricted-imports`, and a regression
+  test for `../../design-lab/...`.
+- [x] Make ADR-020 `FE-TRANS-2`/`FE-TRANS-4` commands real: isolated candidate
+  vs design-lab test/lint/typecheck scopes, `verify:design-lab`,
+  `preview:design-lab`, and a small design-lab Playwright suite.
+
 ## Phase 8 — Migrate the frozen production-parity frontend in vertical waves
 
 Starts only after Phase 7.5 establishes `/design-lab`, verifies the promotion
@@ -1514,14 +1526,12 @@ Add and run focused commands for:
 
 # Current state
 
-Phases 0–7.5 are complete. Design-system **v1.0 is Approved**. Production
-remains `web-legacy/`. Candidate `web/` loads Shipboard CSS on a placeholder
-App. Promoted shared modules live in `web/src/design-system/` and
-`web/src/lib/`; synthetic surfaces remain under `web/src/design-lab/` at
-`/design-lab/*`. The raw prototype snapshot is deleted. Phase 8 may start.
+Phase 7.5 isolation remediation is implemented. Candidate CSS is `shared.css`;
+lab-only demo/surface CSS is `design-lab.css`. Import checkers are specifier-aware.
+`verify:web:new`, `verify:design-lab`, and `verify:web` are named separately.
 
-**Current `[>]`:** Phase 8 — copy `web-legacy/` production-parity routes onto
-the verified design-lab visual shell.
+**Current `[>]`:** Phase 8 remains available after this remediation is reviewed.
+Production is still `web-legacy/`.
 
 Candidate `web/public/favicon.svg` is the adopted Shipboard Terminal mark; its
 source hash and provenance are recorded in the verification history.
@@ -1767,6 +1777,7 @@ source hash and provenance are recorded in the verification history.
 | Governing product docs read | passed | Concept model v0.5, MVP scope v0.4, Product overview v0.4 |
 | UI/UX authority and design-system status read | passed | UI/UX hub; design-system Approved v1.0; implementation guide |
 | Implementation verification | Phase 7.5 closed | Candidate `pnpm --filter @flex-agent/web test` 28/28; lint/typecheck green; both Vite builds; `check-frontend-isolation.mjs` and `check-candidate-bundle.mjs` passed; architecture isolation 49/49; docs/context check passed; snapshot deleted |
+| Phase 7.5 isolation remediation | passed | Candidate style graph is `shared.css` only; lab uses `design-lab.css`. `check-candidate-bundle.mjs` rejects `.demo-plate` / gallery surface markers. Specifier-aware isolation lib + ESLint `no-restricted-imports` + C# tests catch `../../design-lab/...`. `verify:web:new` is candidate-only; `verify:design-lab` + `test:e2e:design-lab` 3/3; architecture isolation 10/10 in `FrontendRebuildIsolationTests` |
 | Phase 7.5 promotion | passed | `web/src/design-system/{foundations,components,patterns}` + `web/src/lib/`; lab imports promoted modules; chrome `homeTo` required; lab adapters keep catalog defaults |
 | Phase 7.5 route namespace | `/design-lab` | Router basename `DESIGN_LAB_BASENAME`; no `/prototypes` alias. Lab Vite SPA fallback excludes `/@` `/src/` `/node_modules/` |
 | Phase 7.5 live UI/UX screenshots | post-promotion | Channel Index desktop `.playwright-mcp/page-2026-08-27T06-59-58-368Z.png` + narrow `07-04-47-284Z.png`; Home desktop `07-00-25-967Z.png` + narrow `07-05-19-959Z.png`; Gallery `07-01-08-698Z.png`; Admin campaigns `07-01-42-677Z.png`; Reviewer `07-02-09-733Z.png`; invalid campaign `07-03-01-838Z.png`; candidate placeholder `07-06-21-579Z.png` |
@@ -1846,9 +1857,9 @@ production states remain deferred to their production-parity waves.
 
 # Blockers
 
-None. Phases 0–7.5 are closed. Phase 8 is the next executable checkpoint:
-copy frozen production-parity routes from `web-legacy/` onto the promoted
-Shipboard shell.
+None for Phase 7.5 isolation remediation. Phase 8 can start after this change
+set is reviewed: copy frozen production-parity routes from `web-legacy/` onto
+the promoted Shipboard shell.
 
 # Open questions
 
@@ -1871,7 +1882,7 @@ otherwise decide, document when consequential, and continue.
 - [ ] Governing specifications were rechecked
 - [ ] Design-system v1.0 and affected UI/UX docs are approved and synchronized
 - [ ] Impeccable is provenance-reviewed, explicitly controlled, and drift-checked
-- [ ] Production and design-lab entry graphs are verified isolated
+- [x] Production and design-lab entry graphs are verified isolated
 - [ ] Full frozen production-parity role journeys and applicable negative authorization E2E pass
 - [ ] Playwright accessibility and desktop/narrow visual evidence is reviewed
 - [ ] Supply-chain, SBOM, OCI, bundle, and artifact-content checks pass

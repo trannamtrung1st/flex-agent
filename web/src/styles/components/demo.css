@@ -67,6 +67,15 @@
   border-top-color: transparent;
 }
 
+.demo-plate .select-shell--temporal.select-shell--field:has(.datetime-trigger[aria-expanded="true"]) .datetime-trigger {
+  border-bottom-color: transparent;
+  border-top-color: var(--hairline);
+}
+
+.demo-plate .select-shell--temporal.is-invalid.select-shell--field:has(.datetime-trigger[aria-expanded="true"]) .datetime-trigger {
+  border-top-color: var(--amber);
+}
+
 /* Operate-surface page head — shared title + description stack */
 .operate-head {
   flex-shrink: 0;

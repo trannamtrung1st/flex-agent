@@ -17,7 +17,13 @@ Route namespace: `/design-lab/*` (no `/prototypes` alias). Dev server:
 | **lab-only** | Fixtures, demo controls, gallery, synthetic behavior, future/reference | `data/`, `lib/useDemoParam.ts`, `lib/useSurface.ts`, gallery, remaining `components/` |
 
 Promoted modules are imported from `web/src/design-system/` and `web/src/lib/`.
+Shared Shipboard CSS is `web/src/styles/shared.css`. Lab-only demo and surface
+sheets are composed by `web/src/styles/design-lab.css` and must not enter the
+candidate production bundle.
+
 Do not import this folder from production entry, features, or
 `web/src/design-system/`.
+
+Verify with `pnpm verify:design-lab` (unit, typecheck, lint, bundle, Playwright).
 
 See `components/README.md` for family-level notes.

@@ -39,6 +39,11 @@ export default defineConfig({
     port: 5275,
     strictPort: true,
   },
+  preview: {
+    port: 5275,
+    strictPort: true,
+    host: "127.0.0.1",
+  },
   build: {
     outDir: "dist-design-lab",
     sourcemap: false,

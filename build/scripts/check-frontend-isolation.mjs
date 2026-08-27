@@ -3,6 +3,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { designLabImportViolations } from "./frontend-isolation-lib.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -33,11 +34,22 @@ function addViolations(violations, relative, content, needles) {
   }
 }
 
-const importNeedles = ["web-legacy", "design-lab", ".work/resources", "impeccable-prototype"];
+function addDesignLabImportViolations(violations, file, relative, content) {
+  for (const violation of designLabImportViolations(file, content)) {
+    violations.push(`${relative} imports a design-lab module (${violation.slice(file.length + " imports ".length)})`);
+  }
+}
+
+const snapshotNeedles = ["web-legacy", ".work/resources", "impeccable-prototype"];
 const fixtureNeedles = ["HOME_ENROLLMENTS", "Approve & Release", "Mark Submission Complete"];
 
 function isCodeSource(file) {
   return /\.(ts|tsx|js|jsx|html)$/.test(file);
+}
+
+function isLabOwnedStylesheet(relative) {
+  return relative === path.join("web", "src", "styles", "design-lab.css")
+    || relative === "web/src/styles/design-lab.css";
 }
 
 const violations = [];
@@ -52,18 +64,13 @@ for (const file of await walk(productionRoot)) {
   }
 
   const relative = path.relative(root, file);
-  const content = await readFile(file, "utf8");
-  if (file.startsWith(designSystemRoot + path.sep)) {
-    addViolations(violations, relative, content, [
-      "web-legacy",
-      ".work/resources",
-      "impeccable-prototype",
-      "src/design-lab",
-      "web/src/design-lab",
-    ]);
+  if (isLabOwnedStylesheet(relative)) {
     continue;
   }
-  addViolations(violations, relative, content, importNeedles);
+
+  const content = await readFile(file, "utf8");
+  addViolations(violations, relative, content, snapshotNeedles);
+  addDesignLabImportViolations(violations, file, relative, content);
   if (isCodeSource(file)) {
     addViolations(violations, relative, content, fixtureNeedles);
   }
@@ -73,11 +80,7 @@ try {
   for (const file of await walk(designLabRoot)) {
     const relative = path.relative(root, file);
     const content = await readFile(file, "utf8");
-    addViolations(violations, relative, content, [
-      "web-legacy",
-      ".work/resources",
-      "impeccable-prototype",
-    ]);
+    addViolations(violations, relative, content, snapshotNeedles);
   }
 } catch (error) {
   if (error && typeof error === "object" && "code" in error && error.code !== "ENOENT") {

@@ -77,6 +77,7 @@ corepack enable
 pnpm install --frozen-lockfile
 pnpm verify:web:legacy
 pnpm verify:web:new
+pnpm verify:design-lab
 bash build/scripts/verify-web.sh
 ```
 
@@ -96,6 +97,13 @@ Isolated design lab (`http://127.0.0.1:5275/design-lab/surfaces`):
 
 ```bash
 cd web && pnpm dev:design-lab --host 127.0.0.1
+```
+
+Preview the design-lab bundle (build first):
+
+```bash
+cd web && pnpm build:design-lab && pnpm preview:design-lab
+pnpm --filter @flex-agent/web test:e2e:design-lab
 ```
 
 Start the authenticated Development/Testing browser profile

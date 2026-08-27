@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { designLabImportViolations } from "../../../build/scripts/frontend-isolation-lib.mjs";
 import { DESIGN_LAB_BASENAME, designLabRouter } from "./app/router";
 
 const designLabRoot = dirname(fileURLToPath(import.meta.url));
@@ -50,13 +51,14 @@ describe("Phase 7.5 design-lab promotion boundary", () => {
     const violations = promotedSources.flatMap((path) => {
       const content = readFileSync(path, "utf8");
       const relativePath = relative(repoRoot, path);
+      const importHits = designLabImportViolations(path, content).map(
+        (violation) => `${relativePath} ${violation.slice(path.length).trim()}`,
+      );
       const hits = [
-        ["src", "design-lab"].join("/"),
-        ["web", "src", "design-lab"].join("/"),
         [".work", "resources"].join("/"),
         ["impeccable", "prototype"].join("-"),
       ].filter((needle) => content.includes(needle));
-      return hits.map((needle) => `${relativePath} contains '${needle}'`);
+      return [...importHits, ...hits.map((needle) => `${relativePath} contains '${needle}'`)];
     });
     expect(violations).toEqual([]);
   });

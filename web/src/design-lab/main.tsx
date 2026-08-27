@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { designLabRouter } from "./app/router";
-import "../styles/index.css";
+import "../styles/design-lab.css";
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {

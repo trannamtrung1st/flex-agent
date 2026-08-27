@@ -21,8 +21,14 @@ pnpm --filter @flex-agent/contracts test
 echo "==> legacy web lint"
 pnpm --filter @flex-agent/web-legacy lint
 
+echo "==> design-lab import specifier regression"
+node --test build/scripts/frontend-isolation-lib.test.mjs
+
 echo "==> candidate web lint"
 pnpm --filter @flex-agent/web lint
+
+echo "==> design-lab lint"
+pnpm --filter @flex-agent/web lint:design-lab
 
 echo "==> legacy web typecheck"
 pnpm --filter @flex-agent/web-legacy typecheck
@@ -30,11 +36,17 @@ pnpm --filter @flex-agent/web-legacy typecheck
 echo "==> candidate web typecheck"
 pnpm --filter @flex-agent/web typecheck
 
+echo "==> design-lab typecheck"
+pnpm --filter @flex-agent/web typecheck:design-lab
+
 echo "==> legacy web unit tests"
 pnpm --filter @flex-agent/web-legacy test
 
 echo "==> candidate web unit tests"
 pnpm --filter @flex-agent/web test
+
+echo "==> design-lab unit tests"
+pnpm --filter @flex-agent/web test:design-lab
 
 echo "==> production web build (web-legacy)"
 pnpm --filter @flex-agent/web-legacy build
@@ -47,5 +59,9 @@ node build/scripts/check-candidate-bundle.mjs
 
 echo "==> design-lab build"
 pnpm --filter @flex-agent/web build:design-lab
+
+echo "==> design-lab Playwright"
+pnpm --filter @flex-agent/web exec playwright install chromium
+pnpm --filter @flex-agent/web test:e2e:design-lab
 
 echo "==> web verification complete"
