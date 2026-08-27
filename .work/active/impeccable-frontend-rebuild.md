@@ -461,9 +461,11 @@ presentation, state coordination, and integration, not new business layers.
 - [x] Capture pre-migration verification: docs check, frontend lint/typecheck/
   unit/build, and current bundle artifacts/sizes. Record exact results under
   `# Verification`.
-- [ ] Capture current E2E where runnable, supply-chain check, and OCI SPA
-  build. Deferred: authenticated-browser E2E, supply-chain, and OCI were not
-  run in Phase 0.
+- [x] Capture current E2E where runnable, supply-chain check, and OCI SPA
+  build. Synthetic-harness Playwright E2E 6/6, `verify-supply-chain.sh`, SPA
+  OCI build/probe, and `verify-oci.sh` recorded. Authenticated Keycloak-browser
+  E2E remains a later production-profile check, not required to close this
+  Phase 0 item.
 - [x] Capture synthetic desktop and narrow screenshots plus accessibility
   snapshots for representative current production states and all prototype
   surfaces. Use them only as comparison evidence, never as acceptance authority.
@@ -531,9 +533,12 @@ presentation, state coordination, and integration, not new business layers.
   fingerprint. CI check mode must fail on drift without rewriting files.
 - [x] Add focused tests for context generation and CI drift-check of the
   adapters without changing canonical docs.
-- [ ] Validate Impeccable `context.mjs` / doctor against the adapters in a
-  bounded pass that does not rewrite canonical `docs/`. Deferred until after
-  design-system v1.0 adapters are the intended doctor target.
+- [x] Validate Impeccable `context.mjs` / doctor against the adapters in a
+  bounded pass that does not rewrite canonical `docs/`. Ran `python3
+  scripts/impeccable_context.py check`, `node …/context.mjs --target .`, and
+  `node …/doctor.mjs --json --target .` without `--fix` or `init`/`document`.
+  Doctor `route`/`mention` findings are expected adapter-schema gaps until
+  Phase 3 v1.0 projections; they must not rewrite approved docs.
 
 ### Phase 1 exit gate
 
@@ -561,18 +566,20 @@ presentation, state coordination, and integration, not new business layers.
   snapshot is non-authoritative and temporary.
 - [x] Run secret scan on the imported snapshot before it is tracked. Font and
   npm license review for Michroma/Sometype Mono and prototype lockfile packages
-  is deferred to the Phase 3 font/supply-chain gate. No executable scripts were
-  included in the selected snapshot.
-- [>] Build a two-axis adoption matrix for every prototype token, font, glyph,
+  is deferred to the Phase 3 font/supply-chain gate. The selected snapshot has
+  no standalone `.mjs`/`.sh` skill or install scripts; `prototypes/eslint.config.js`
+  is config only.
+- [x] Build a two-axis adoption matrix for every prototype token, font, glyph,
   component, pattern, route, interaction, fixture, mutation, and test. Record a
   visual disposition (`adopt`, `adapt`, `reject`) separately from behavior
   disposition (`repo-backed`, `design-lab-only`, or `remove`), the owning repo
   requirement/UI-spec IDs, and applicable `PC-*` resolution. Default in-scope
   visuals to `adopt` and prototype behavior to `repo-backed` only when it is
   explicitly traceable; otherwise keep it design-lab-only or remove it.
-- [ ] Explicitly reject prototype behavior that invents P0 authority, leaks
+- [x] Explicitly reject prototype behavior that invents P0 authority, leaks
   protected content, couples UI state to business truth, conflicts with
-  ADR-019, or enables deferred capabilities.
+  ADR-019, or enables deferred capabilities. See `# Prototype behavior
+  rejections` and matrix rows marked `remove`.
 
 ### Phase 2 exit gate
 
@@ -580,6 +587,153 @@ presentation, state coordination, and integration, not new business layers.
   executable or authoritative by accident; the two-axis adoption matrix covers
   every useful design and code family, and every conflict maps to an existing
   `PC-*` resolution or a newly recorded entry.
+
+# Prototype two-axis adoption matrix
+
+Source: `.work/resources/impeccable-prototype-snapshot/` (HEAD `f724b68`).
+Visual axis: `adopt` / `adapt` / `reject`. Behavior axis: `repo-backed` /
+`design-lab-only` / `remove`. Production never imports snapshot modules.
+Font/npm license remains a Phase 3 gate; visual `adopt` for fonts is
+conditional on that gate.
+
+## Tokens (`prototypes/src/styles/tokens.css`)
+
+| Item | Visual | Behavior | Authority | Notes |
+| --- | --- | --- | --- | --- |
+| Ground / text / hairline / amber / teal palette | adopt | design-lab-only until v1.0 tokens | DS v1.0 (Phase 3); `PC-12` | Shipboard identity; map to semantic tokens, not raw page values |
+| `--font-plaque` Michroma + Arial Narrow | adopt | design-lab-only until license pin | Typography; `PC-12` | System fallbacks required until font gate |
+| `--font-mono` Sometype Mono + ui-monospace | adopt | design-lab-only until license pin | Typography; `PC-12` | Same |
+| `--notch: 10px` zero-radius geometry | adopt | design-lab-only until v1.0 radius | Radius; `PC-12` | Adapt clip/overflow for 400% zoom |
+| `--ease-out` and sheen/depth/inset fills | adopt | design-lab-only | Motion; `PC-12` | Honor `prefers-reduced-motion` |
+| Gangway/bulkhead/readout/select/key rhythm tokens | adopt | design-lab-only until primitives | Layout/density | Production uses same visual values via v1.0 |
+
+## Fonts and packages
+
+| Item | Visual | Behavior | Authority | Notes |
+| --- | --- | --- | --- | --- |
+| `@fontsource/michroma`, `@fontsource/sometype-mono` | adopt | remove from production until pinned exact versions + license | Supply chain; decided typography default | Do not copy caret ranges or pnpm 11 |
+| Prototype `package.json` / lockfile / Vite 8.2 / Playwright ^1.62 | reject | remove | ADR-010; toolchain pins | Rebuild on repo Node/pnpm/React/Vite/TS |
+| `@hookform/resolvers`, RHF, Zod, React Router in prototype | reject as copied deps | repo-backed via existing ADR-019 stack | ADR-019 | Keep library choices; restyle controls |
+
+## Glyphs
+
+| Item | Visual | Behavior | Authority | Notes |
+| --- | --- | --- | --- | --- |
+| `BrandMark` wordmark, `OperatorGlyph`, `TransmitChevron` | adopt | design-lab-only then shared primitives | Identity; `PC-13` | Brand/state marks may stay custom |
+| `ActionMenuGlyph`, `ChevronGlyph`, `DateGlyph`, `TimeGlyph` | adapt | repo-backed via Lucide for ordinary controls | ADR-019; `PC-13` | Match weight; do not duplicate a general icon set |
+| Phase complete/locked SVG, `ActivationMark`, `RecordSeal`, `StateRing` | adopt | design-lab-only then v1.0 state marks | Status; `PC-13` | Domain/state marks |
+| Inline rail Home chevron SVG | adapt | repo-backed | ADR-019 | Prefer named Lucide |
+
+## Components and stylesheets
+
+| Item | Visual | Behavior | Authority | Notes |
+| --- | --- | --- | --- | --- |
+| `base.css` reset, selection, scrollbars, `:focus-visible`, `[hidden]`, reduced-motion floor | adapt | repo-backed | Accessibility; `PC-12` | Keep Shipboard look; satisfy WCAG/forced-colors |
+| Keys (`Key`, `IconButton`, `BackKey`, `TooltipHost`) + `keys.css` | adopt | repo-backed | Buttons | Map variants to approved actions; `.key--release` label is visual only |
+| Chrome (`CommandStrip`, `OperateHead`, `ProfileMenu`, `ConsoleFoot`, brand) + `chrome.css` | adopt | adapt | Activity IA; `PC-10` | Production nav/copy/routes follow repo |
+| Navigation (`Gangway`, `AreaGroupList`, `IndexRail`, `SectionedNavigation`) | adopt | adapt | IA; `PC-09`, `PC-10` | Destinations only when permitted |
+| Plates (`OperateArea`, `EtchedFrame`, `EmptyPlate`, `DemoPlate`) | adopt | `DemoPlate` design-lab-only | Cards/empty | Demo fixture chrome never in production |
+| State (`StateIndicator`, `StateReadout`, `StageBars`, `AcknowledgmentGate`) | adopt | adapt | Status; Session/Submission specs | Server owns lifecycle |
+| Readouts (`ReadoutList`, `ReadoutGrid`) | adopt | repo-backed | Technical metadata | Timezone display `PC-11` |
+| Fields (`FormField`, `FieldInput`, `FieldTextarea`, `ControlLine`, `Breaker`, `RadioGroup`) | adopt | repo-backed | Inputs; ADR-019 RHF | Keep RHF/Zod ownership |
+| Select family + `searchable.css` | adapt | repo-backed | Inputs; `PC-12` | Keyboard/SR/listbox contracts win |
+| `DropdownMenu` + `menus.css` | adopt | adapt | Dropdown | Unapproved actions stay lab-only |
+| `DateTimePicker` + `temporal.css` / `temporalLogic` | adapt | repo-backed | `PC-11`; `UI-SUBM-DEC-6/12` | Named Campaign TZ + UTC fallback |
+| Overlays (`DialogPlate`, `NativeDialog`, `CeremonyDialog`, `Bulkhead`, `SignOutCeremony`, toasts) | adopt | adapt | Modals; auth logout | Ceremony styling; server logout |
+| Datatable shell/toolbar/pagination/sticky rails | adopt | repo-backed | Tables | Selection logic is reusable UI, not business truth |
+| `TableActions` / `EnrollmentTable` | adopt | adapt | Tables; `PC-09` | Export/delete/download actions `remove` in production |
+| `demo.css` | reject in production | design-lab-only | `PC-14` | Fixture controls |
+
+## Surfaces, routes, and patterns
+
+| Item | Visual | Behavior | Authority | Notes |
+| --- | --- | --- | --- | --- |
+| `/` → `/surfaces`, Surfaces Index | adopt | design-lab-only | `PC-10`, `PC-14` | Not a production route |
+| `/participant-home` Home bays | adopt | adapt; production `/` and `/my-work` | `PC-03`, `PC-10` | Neutral unpublished Result |
+| `/participant-journey` Assignment Station / `PhaseSpine` | adopt | adapt; production My Work | `PC-07`, `PC-03` | Rail is progress/nav only |
+| `/participant-session` Examination Console | adopt | design-lab-only this migration | `PC-08` | No production Session route in parity freeze |
+| `/admin-console/campaigns` registry + activation ceremony | adopt | adapt; production Activities/setup | `PC-05`, `PC-06` | Save draft / Check readiness / server activate |
+| `/admin-console/enrollments` | adopt | adapt; production Enrollment routes | Enrollment ACs | |
+| `/admin-console/cohorts`, `sessions` sample areas | adopt chrome | design-lab-only | `PC-09` | No production-backed pages in freeze |
+| `/admin-console/users-access`, `policies`, `audit-log` | adopt as specimens | design-lab-only | `PC-09`; MVP scope | Disabled/absent in production |
+| `/reviewer-console` | adopt geometry | design-lab-only this migration | `PC-01`, `PC-02`, `PC-04` | Separate Review vs Release |
+| `/shared/gallery` Component Deck | adopt | design-lab-only | Foundation sequencing | Gallery-first primitives |
+| Prototype 404 | adopt | design-lab-only | | Production uses app 404/unavailable |
+| Sign-out ceremony | adopt | repo-backed logout | Auth | Visual only; server session end |
+
+## Interactions, fixtures, and mutations
+
+| Item | Visual | Behavior | Authority | Notes |
+| --- | --- | --- | --- | --- |
+| `useDemoParam` / `useStateParam` / `DemoPlate` | n/a | design-lab-only | `PC-14` | Never in production bundle |
+| Fixtures `home.ts`, `journey.ts`, `session.ts`, `reviewer.ts`, `surfaces.ts`, admin sample data | n/a | design-lab-only | `PC-14` | Synthetic only |
+| `HOME_BAYS` **Pending Release** / reviewer-progress copy | adapt labels | remove disclosure | `PC-03` | **Result not available** |
+| Local Campaign `Activate` freeze (`CampaignConfigDialog`, `CampaignsArea`) | ceremony visual adopt | remove as authority | `PC-05` | |
+| `operationalCampaignId` invalid-id → first campaign | n/a | remove | `PC-06` | Unavailable / explicit select |
+| Journey local phase advance / **Mark Submission Complete** | n/a | remove | `PC-07` | Submit version / Start Attempt later |
+| `sessionReducer` local timer, scripted Agent, local complete | console visual adopt | remove in production | `PC-08` | Design-lab simulator only |
+| Reviewer `localStorage` score/rationale + **Approve & Release** | editor visual adopt | remove | `PC-01`, `PC-02`, `PC-14` | |
+| Campaign CSV/JSON download, delete, Users/Policies/Audit actions | menu visual adopt | remove in production | `PC-09` | |
+| `formatDeadline` / `12 SEP 18:00` without named TZ | n/a | adapt | `PC-11` | |
+| `CND-` / Candidate / Docket / Marginalia / prototype paths | decorative only | remove as IA | `PC-10` | |
+| Prototype account Profile/Preferences disabled stubs | n/a | design-lab-only | MVP scope | |
+
+## Tests
+
+| Item | Visual | Behavior | Authority | Notes |
+| --- | --- | --- | --- | --- |
+| Primitive tests (keys, select, menu, table, datetime, navigation, datatable) | n/a | adapt into new component tests | TDD | Re-express against v1.0 + a11y names |
+| `adminNav.test.ts` fallback-to-first-campaign | n/a | remove that assertion; invert | `PC-06` | |
+| `CampaignConfigDialog.test.tsx` activate-as-save | n/a | remove; replace with draft/readiness | `PC-05` | |
+| `sessionReducer.test.ts`, `reviewerStorage.test.ts` | n/a | design-lab-only | `PC-08`, `PC-02` | Do not port as production truth |
+| `campaignArtifacts.test.ts`, export/delete table tests | n/a | design-lab-only or remove | `PC-09` | |
+| `useDemoParam.test.tsx`, `surfaces.test.ts`, gallery tests | n/a | design-lab-only | `PC-14` | |
+| Prototype `e2e/surfaces.spec.ts` | n/a | design-lab-only | Isolation | Never production E2E |
+| `adminNav.test.ts` invalid-id → first Campaign (`CMP-NOPE` → `CMP-0042`) | n/a | remove that assertion; invert | `PC-06` | Confirmed in snapshot |
+| `chrome.test.tsx`, `shell.test.tsx`, `campaignSchema.test.ts`, `EnrollmentsArea.test.tsx`, `CampaignRegistry.test.tsx` | n/a | adapt or design-lab-only | TDD; `PC-05`/`PC-09` | Port only UI-contract assertions |
+
+## Remaining families (not separate visual identities)
+
+These are covered by the families above; listed so Phase 2 is file-complete without a per-file table.
+
+| Item | Visual | Behavior | Authority | Notes |
+| --- | --- | --- | --- | --- |
+| Snapshot `PRODUCT.md` / `DESIGN.md` / `.impeccable/*` | reject as authority | remove | docs authority | Historical evidence only; root adapters are generated from `docs/` |
+| `campaignSchema.ts` client Zod | n/a | adapt; server remains authority | Campaign setup; ADR-019 | Keep field-level UX checks; activation/readiness stay server-side (`PC-05`) |
+| `CampaignContext` / `ReadoutBand` / `CampaignRegistry` | adopt | adapt | `PC-05`, `PC-06` | Context instrument styling; no silent Campaign substitution |
+| `campaigns.ts` and other admin fixtures | n/a | design-lab-only | `PC-14` | |
+| `lib/cx`, `breakpoints`, `useAnnouncer`, `useMediaQuery`, `useSurface`, `format.ts` helpers | n/a | adapt into new `web/src/lib` | ADR-019; `PC-11`/`PC-12` | Rebuild; do not copy prototype package |
+| Gallery internals (`GalleryDeck`, `PanelTabs`, section files, scroll spy) | adopt | design-lab-only | Foundation sequencing | |
+| Reviewer `RecordPanels` | adopt geometry | design-lab-only; strip combined release | `PC-01`, `PC-02`, `PC-04` | |
+| `router.tsx` / page modules / surface CSS | adopt look | design-lab routes; production routes from Phase 0 table | `PC-10` | |
+| `eslint.config.js` in snapshot | n/a | remove | Toolchain | No standalone `.mjs`/`.sh` skill scripts in the selected snapshot |
+
+Hashed snapshot content is 215 files in `MANIFEST.json`. On-disk extras are `MANIFEST.json` and snapshot `README.md` only.
+
+# Prototype behavior rejections
+
+These are implementation constraints for later phases. Snapshot files stay as
+historical evidence; design-lab ports must not reintroduce the rejected
+behavior as if it were product truth.
+
+| ID | Rejected prototype behavior | Maps to | Production / lab rule |
+| --- | --- | --- | --- |
+| `BR-01` | Combined **Approve & Release**, including escalated cases entering Release confirmation | `PC-01` | Separate Review decision from Release; no releasable Result from Reject/Escalate |
+| `BR-02` | Local criterion mutation and **Save adjustment** as a completed Human revision | `PC-02` | Immutable server revision; structured evidence/reason/preview |
+| `BR-03` | Participant **Pending release**, Evaluation-under-review, reviewer activity, Release progress before publication | `PC-03` | Neutral **Result not available** only |
+| `BR-04` | Inferring participant Result fields from synthetic/raw Evaluation, confidence, or reviewer notes | `PC-04` | Server-projected released fields only |
+| `BR-05` | Direct local **Activate**, immediate freeze, missing draft/readiness/revalidation | `PC-05` | Server activation; browser `frozen` is not authority |
+| `BR-06` | Invalid Campaign id silently replaced by the first known Campaign | `PC-06` | Non-disclosing unavailable; no silent substitution |
+| `BR-07` | Local Briefing → Submission → Examination advance and **Mark Submission Complete** | `PC-07` | Phase rail cannot mutate lifecycle or entitlement |
+| `BR-08` | Client timer, scripted/random Agent turns, local completion, demo leave/resume as Session truth | `PC-08` | Design-lab simulator only; never production |
+| `BR-09` | Unapproved export/download/delete, Users & Access, Policies, Audit management | `PC-09` | Absent or disabled outside design lab |
+| `BR-10` | Prototype routes/labels replacing approved IA (`/participant-*`, Candidate, Docket, Marginalia) | `PC-10` | Lab-only paths; production copy/routes from repo |
+| `BR-11` | Dateless/local-only timestamps as governing time | `PC-11` | Named Campaign timezone + UTC fallback |
+| `BR-12` | Color-only state, undersized labels, inaccessible custom widgets, motion that ignores reduced-motion | `PC-12` | Accessibility is not optional styling |
+| `BR-13` | Blanket no-icon-library rule | `PC-13` | Lucide for ordinary controls |
+| `BR-14` | Fixtures, `localStorage`, demo query params, or local reducers as authoritative data or production imports | `PC-14` | Isolated design-lab entry graph only |
+
+No new product `PC-*` IDs: every rejection maps to `PC-01`–`PC-14`.
 
 ## Phase 3 — Replace the authoritative design system and synchronize UI/UX docs
 
@@ -1090,10 +1244,14 @@ Add and run focused commands for:
 
 # Current state
 
-Phases 0 and 1 are complete with recorded verification gaps (E2E/supply-chain/OCI
-and Impeccable doctor deferred). Cursor/Codex skill catalogs are aligned. The
-prototype snapshot is imported. Next: finish the two-axis adoption matrix, then
-Phase 3 design-system v1.0. Production `web/` has not been renamed.
+Phases 0–2 are complete and were re-checked for consistency. Pre-migration
+current-web E2E (synthetic harness 6/6, including Session/Release paths that
+are **not** frozen production API-mode parity), SPA OCI image/probe, and
+supply-chain/OCI baselines are recorded under `# Verification`. Impeccable
+`context.mjs` / doctor remain report-only against generated adapters.
+Canonical `docs/` were not rewritten. The two-axis adoption matrix is
+family-level plus an explicit remaining-family table. Next: Phase 3
+design-system v1.0. Production `web/` has not been renamed.
 
 # Decisions
 
@@ -1181,17 +1339,40 @@ Phase 3 design-system v1.0. Production `web/` has not been renamed.
   unit test: `AssessmentSetupPage` access-loss focus assertion. Lint 0 errors /
   11 warnings; typecheck passed; production build produced
   `index-DAqGTSFM.js` 546.88 kB (gzip 160.45 kB) and
-  `index-52J12w0Z.css` 19.16 kB (gzip 4.48 kB). E2E, supply-chain, and OCI
-  baselines were not executed in Phase 0 (E2E needs harness; OCI/supply-chain
-  deferred to cutover-adjacent runs unless Phase 5 needs them sooner).
+  `index-52J12w0Z.css` 19.16 kB (gzip 4.48 kB).
+- Phase 0 completion run (2026-08-27): `pnpm --filter @flex-agent/web
+  test:e2e` 6/6 passed (synthetic harness, NGINX `:5173` + API `:18080`);
+  `docker build -f deploy/docker/spa.Dockerfile -t flex-agent-oci-spa:local`
+  produced JS/CSS matching the Vite baseline; SPA probe served as `nginx`
+  with 0 source maps; `bash build/scripts/verify-supply-chain.sh` and
+  `bash build/scripts/verify-oci.sh` exited 0. Grype reports High findings
+  in the pinned nginx/alpine SPA base (`tiff`, `libcrypto3`/`libssl3`);
+  the scripts still completed because those scans are informational in
+  `scan-oci-image-sboms.sh`. Authenticated Keycloak-browser E2E was not
+  started. `pnpm licenses` printed npm peer-missing noise and still wrote
+  `artifacts/supply-chain/npm-licenses.json`.
 - Checkpoint review found Cursor role skills lagged `.agents/skills/` and
   Phase 0/1 checklists over-claimed E2E/OCI and Impeccable doctor. Catalogs
-  were aligned via symlink and role-skill mirrors; overclaims were marked
-  deferred.
+  were aligned via symlink and role-skill mirrors; the deferred items were
+  completed in this pass.
+- Impeccable doctor against root adapters (`--json --target .`, no `--fix`):
+  `product-schema-legacy` (route: do not `init`) and `design-md-coverage`
+  (mention: do not `document` until v1.0). `context.mjs --target .` resolved
+  `PRODUCT.md` / `DESIGN.md`. `scripts/impeccable_context.py check` passed.
+  Canonical `docs/` were not rewritten.
 - Authenticated production-profile screenshots were not captured: the
   authenticated-browser compose stack was not started. Current-web comparison
   evidence is the synthetic-mode workspace 502/unavailable panel. Prototype
   surfaces were captured at 1440×900 and 390×844 under `.playwright-mcp/`.
+- Consistency re-check (2026-08-27): adapter check and 6 Impeccable unit tests
+  passed; doctor findings unchanged (`product-schema-legacy`,
+  `design-md-coverage`); `.cursor/skills/impeccable` still symlinks to
+  `.agents/skills/impeccable`; hashed snapshot is 215 files, plus snapshot
+  `README.md`/`MANIFEST.json` on disk. The Phase 2 matrix is family-level;
+  remaining modules are listed in the remaining-families table. Current E2E
+  still exercises synthetic Session/Release, which the plan already excludes
+  from production parity. Playwright can leave `flex-agent-e2e-spa` bound to
+  `:5173`; remove it before a later E2E run.
 
 # Verification
 
@@ -1208,14 +1389,21 @@ Phase 3 design-system v1.0. Production `web/` has not been renamed.
 | Plan consistency/readiness audit | passed | phases 0–11 are ordered with exit gates; `PC-01`–`PC-14` are complete; source capture needs no external write; synthetic/future capability is excluded from production parity; approval delegation and legacy retirement are explicit |
 | Authenticated production-profile definition | passed | `bash build/scripts/authenticated-browser-profile.sh validate` |
 | Plan markdown/content validation | passed | `python3 scripts/check_docs.py` |
-| Implementation verification | in progress | Phases 0–1 complete with recorded gaps; Phase 2 snapshot imported; adoption matrix current |
+| Implementation verification | in progress | Phases 0–2 complete; Phase 3 design-system v1.0 next |
 | Experiment freeze | passed | HEAD `f724b68` clean; planning base `c52eeda3`; 215 hashed files in `.work/resources/impeccable-prototype-snapshot/MANIFEST.json` |
 | Impeccable adapter unit tests | passed | `python3 -m unittest discover -s scripts -p 'test_impeccable_context.py'` |
 | `verify-web.sh` | failed (pre-existing) | 181 pass / 1 fail `AssessmentSetupPage` access-loss focus; lint 11 warnings 0 errors; typecheck pass |
 | Production SPA build / bundle | passed | Vite `web/dist`: JS 546884 B / gzip 160.45 kB; CSS 19163 B / gzip 4.48 kB |
 | Prototype desktop/narrow screenshots | passed | `.playwright-mcp/` 2026-08-27T01-15 through 01-20 captures; a11y snapshots alongside; not committed |
 | Current-web comparison screenshots | partial | synthetic mode without API: 502 workspace panel; authenticated production states not captured |
-| Production E2E / supply-chain / OCI | not run | deferred; not a Phase 1 exit requirement |
+| Synthetic-harness web E2E | passed | `pnpm --filter @flex-agent/web test:e2e` 6/6. Current-web baseline, including synthetic Session/Release; not the frozen production API-mode route set. Re-run required stopping leftover `flex-agent-e2e-spa` on `:5173`. |
+| SPA OCI build + HTTP probe | passed | `flex-agent-oci-spa:local`; `/` 200; user `nginx`; 0 `*.map`; assets match Vite JS/CSS hashes |
+| `verify-supply-chain.sh` | passed | exit 0; SPA SBOM 566 components; artifacts under `artifacts/supply-chain/` |
+| `verify-oci.sh` | passed | API/worker/SPA health, non-root users, no SPA source maps, graceful stop |
+| Impeccable context check | passed | `python3 scripts/impeccable_context.py check`; `node .agents/skills/impeccable/scripts/context.mjs --target .` |
+| Impeccable doctor (report-only) | passed with expected adapter findings | `doctor.mjs --json --target .`: `product-schema-legacy` (route), `design-md-coverage` (mention); `--fix` not run |
+| Two-axis adoption matrix | passed | `# Prototype two-axis adoption matrix` and `# Prototype behavior rejections` (`BR-01`–`BR-14` → `PC-01`–`PC-14`) |
+| Authenticated Keycloak-browser E2E | not run | compose profile not started; not required to close Phase 0 once synthetic E2E ran |
 | Snapshot secret scan | passed | no credential/private-key matches; font/npm license deferred to Phase 3 |
 | Codex/Cursor Impeccable catalog | passed | five role skills mirrored; `.cursor/skills/impeccable` symlink to `.agents/skills/impeccable` |
 
