@@ -115,6 +115,12 @@ export default tseslint.config(
     files: [
       "src/lib/**/*.{ts,tsx}",
       "src/design-system/**/*.{ts,tsx}",
+      "src/api/**/*.{ts,tsx}",
+      "src/pages/**/*.{ts,tsx}",
+      "src/features/**/*.{ts,tsx}",
+      "src/router/**/*.{ts,tsx}",
+      "src/components/**/*.{ts,tsx}",
+      "src/hooks/**/*.{ts,tsx}",
       "src/design-lab/components/**/*.{ts,tsx}",
       "src/design-lab/lib/**/*.{ts,tsx}",
       "src/design-lab/data/**/*.{ts,tsx}",

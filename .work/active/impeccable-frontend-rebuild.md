@@ -1280,15 +1280,15 @@ the corrected behavior receives a traced regression test.
 
 ### Wave 8.1 — Authentication shell, protected routing, role home, and Activities
 
-- [>] Copy from `web-legacy/` then adapt: app bootstrap, production API clients
+- [x] Copy from `web-legacy/` then adapt: app bootstrap, production API clients
   and contracts, Query isolation, production API mode, login/callback/logout
   gates, protected-state teardown, role/capability navigation, Home, Activities
   list, Activity redirect, and Campaign-create entry. Retain a synthetic mode
   only in the isolated design lab; production entry code does not switch to it.
-- [ ] Preserve fresh permission observation before dependent reads, exact
+- [x] Preserve fresh permission observation before dependent reads, exact
   Activities invalidation, non-optimistic audited mutations, and safe access-
   loss handling from ADR-019.
-- [ ] Prove loading/unauthenticated/denied/error/ready/context-replacement/
+- [x] Prove loading/unauthenticated/denied/error/ready/context-replacement/
   logout states, keyboard shell navigation, and narrow gangway/bulkhead behavior.
 
 ### Wave 8.2 — Assessment setup and Enrollment administration
@@ -1561,7 +1561,11 @@ of other paths and HTML entry-reference checks. Import checkers are
 specifier-aware. `verify:web:new`, `verify:design-lab`, and `verify:web` are
 named separately; candidate typecheck/lint no longer includes lab configs.
 
-**Current `[>]`:** Phase 8 — Wave 8.1. Production is still `web-legacy/`.
+**Current `[>]`:** Phase 8 — Wave 8.2 assessment setup (Wave 8.1 candidate
+copy-adapt and mocked live-state proof is recorded). Production traffic is
+still `web-legacy/`. Candidate `web/` boots only the production API session
+(no synthetic `/browser` adapter) on `:5274`. Setup and My work remain
+later-wave placeholders so Campaign-create navigation keeps production paths.
 
 Candidate `web/public/favicon.svg` is the adopted Shipboard Terminal mark; its
 source hash and provenance are recorded in the verification history.
@@ -1798,6 +1802,19 @@ source hash and provenance are recorded in the verification history.
   Confirm activation disabled). Invalid campaign ids stay non-disclosing on
   enrollments and other campaign-scoped sample areas. Reviewer back control
   is **Queue**. Vitest 25/25; architecture isolation 7/7.
+- Wave 8.1 copy-adapt (2026-08-27): candidate `App` is production-only
+  (`ProductionApiProvider` + `productionRouter`). Synthetic browser-adapter
+  tests were not ported. `AssessmentSetupView` lives on the assessment client
+  so Wave 8.2 pages are not required to compile the client. `/activities/:id`
+  still redirects to `setup`; setup and My work render later-wave placeholders.
+  Sign-out remains a visible strip key so ported logout tests keep a button
+  name. Mocked Playwright pass on `:5274` covered loading, idle sign-in,
+  skip-link, workspace denied, Home, Activities, setup placeholder, destination
+  denied, logout retry, narrow bulkhead/Escape, and operator theme. API `:8080`
+  was not running. Follow-up defect pass closed gold-key focus, skip-link width,
+  loading empty-frame, later-wave title echo, locator breadcrumb hrefs, field
+  error alignment, and UA-blue links. Activities remains a long create form
+  (spec) versus the design-lab Campaign Registry table.
 
 # Verification
 
@@ -1806,7 +1823,9 @@ source hash and provenance are recorded in the verification history.
 | Required workflow and role skills read | passed | implementation-workflow, business analyst, architect, UI/UX, documentation, frontend, review, security/privacy, tester guidance inspected during planning |
 | Governing product docs read | passed | Concept model v0.5, MVP scope v0.4, Product overview v0.4 |
 | UI/UX authority and design-system status read | passed | UI/UX hub; design-system Approved v1.0; implementation guide |
-| Implementation verification | Phase 7.5 closed | Candidate `pnpm --filter @flex-agent/web test` 28/28; lint/typecheck green; both Vite builds; `check-frontend-isolation.mjs` and `check-candidate-bundle.mjs` passed; architecture isolation 49/49; docs/context check passed; snapshot deleted |
+| Implementation verification | Phase 7.5 closed | Candidate `pnpm --filter @flex-agent/web test` 28/28 at 7.5 close; isolation and both Vite builds passed |
+| Phase 8 Wave 8.1 copy-adapt | passed (mocked live proof) | Candidate `pnpm --filter @flex-agent/web test` 71/71; typecheck/lint green. Session gates use OperateArea chrome; Bulkhead skips scrim focus; breadcrumbs hide non-UUID activity locators. API `:8080` was not running — states proven with Playwright route mocks. |
+| Wave 8.1 live UI/UX screenshots | mocked session on `:5274` | Defect-pass recapture: loading `.playwright-mcp/page-2026-08-27T10-58-32-773Z.png`; skip+sign-in `10-58-58-578Z.png`; Home gold-key teal focus `10-59-27-347Z.png`; setup empty plate `10-59-55-764Z.png`; destination denied key `11-00-27-295Z.png`; narrow Home `11-00-50-873Z.png`; Activities validation `11-03-21-763Z.png`. Earlier state set retained: `10-43-49-346Z` through `10-50-37-151Z`. |
 | Phase 7.5 external review | approved | Review loop closed at `5ffc0fd` (2026-08-27). Isolation enforcement (`0a1d557`, `dc2a3d9`) and work-doc Phase 8 heading restoration approved; no further findings. GitHub Actions not run for doc-only SHA. |
 | Phase 7.5 isolation hardening | passed | Repo-wide design-lab outbound allowlist; HTML module `src` / stylesheet `href` entry checks for `index.html` and `design-lab.html`. Architecture isolation 16/16; `verify:web:new` + `verify:design-lab` green at `dc2a3d9`. |
 | Phase 7.5 isolation enforcement | passed | Lab-owned stylesheet imports blocked at source (ESLint + isolation lib + C# + style-entry scan). Design-lab outbound allowlist blocks future production modules. Candidate `tsconfig`/lint excludes lab configs; lab lint/typecheck includes `e2e/design-lab`. Bundle checker covers all surface markers. `verify:web:new` + `verify:design-lab` green; architecture isolation 13/13; Playwright design-lab 3/3 |

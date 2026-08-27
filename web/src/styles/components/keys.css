@@ -120,6 +120,18 @@ a.key[aria-disabled="true"] {
   box-shadow: 0 0 18px var(--amber-glow);
 }
 
+/* clip-path otherwise clips the focus ring; drop the notch only while focused */
+.key--transmit:focus-visible,
+.key--open:focus-visible,
+.key--inspect:focus-visible,
+.key--release:focus-visible,
+.key--begin:focus-visible,
+.key--activate:focus-visible {
+  clip-path: none;
+  outline: 2px solid var(--teal);
+  outline-offset: 3px;
+}
+
 .key--transmit:active, .key--open:active,
 .key--inspect:active, .key--release:active { background: rgba(226, 163, 60, 0.26); }
 

@@ -6,7 +6,12 @@ function bulkheadFocusable(root: HTMLElement) {
     ...root.querySelectorAll<HTMLElement>(
       "a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex='-1'])",
     ),
-  ].filter((el) => !el.closest("[hidden]") && el.getAttribute("aria-hidden") !== "true");
+  ].filter(
+    (el) =>
+      el.tabIndex >= 0
+      && !el.closest("[hidden]")
+      && el.getAttribute("aria-hidden") !== "true",
+  );
 }
 
 export function Bulkhead({
@@ -39,7 +44,7 @@ export function Bulkhead({
     document.body.classList.add("is-bulkhead-open");
     const inert = [
       ...document.querySelectorAll<HTMLElement>(
-        ".command-strip, .console-foot, .admin-shell, .queue-view, .record-head, .record-grid",
+        ".command-strip, .console-foot, .admin-shell, .workspace-shell, .queue-view, .record-head, .record-grid",
       ),
     ];
     inert.forEach((el) => el.setAttribute("inert", ""));

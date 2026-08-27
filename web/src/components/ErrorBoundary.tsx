@@ -16,16 +16,15 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   public componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error("Candidate workspace error", error, info);
+    console.error("Workspace error", error, info);
   }
 
   public render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <main className="candidate-workspace">
-          <p className="candidate-workspace__kicker">Workspace</p>
+        <main className="workspace-area">
           <h1>Something went wrong</h1>
-          <p>Reload the page. The production SPA is unchanged until cutover.</p>
+          <p>Reload the page to continue. Work already stored on the server is unchanged.</p>
         </main>
       );
     }
