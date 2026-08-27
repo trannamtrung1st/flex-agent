@@ -36,6 +36,88 @@ test("assignment and session left rails meet the desktop hull", async ({ page })
   expect(sessionBox!.height).toBeGreaterThanOrEqual(898);
 });
 
+function expectBoxInViewport(
+  box: { x: number; y: number; width: number; height: number } | null,
+  viewport: { width: number; height: number },
+) {
+  expect(box).toBeTruthy();
+  expect(box!.y).toBeGreaterThanOrEqual(-1);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height + 1);
+}
+
+test("short desktop viewports keep shells inside the window without forcing scroller height", async ({ page }) => {
+  const shortDesktop = { width: 1440, height: 500 };
+  await page.setViewportSize(shortDesktop);
+
+  await page.goto("/design-lab/participant-journey?demo=examination-ready");
+  const assignmentShell = page.locator(".station");
+  const assignmentShellBox = await assignmentShell.boundingBox();
+  expect(assignmentShellBox).toBeTruthy();
+  expect(assignmentShellBox!.height).toBeLessThanOrEqual(shortDesktop.height + 1);
+  expect(assignmentShellBox!.height).toBeGreaterThanOrEqual(shortDesktop.height - 2);
+
+  const assignmentScroller = page.locator(".phase-rail-scroll");
+  await expect(assignmentScroller).toBeVisible();
+  const assignmentOverflow = await assignmentScroller.evaluate(
+    (el) => el.scrollHeight - el.clientHeight,
+  );
+  expect(assignmentOverflow).toBeGreaterThan(40);
+  await assignmentScroller.evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  expectBoxInViewport(
+    await page.locator(".phase-rail .protocol-value").boundingBox(),
+    shortDesktop,
+  );
+  expectBoxInViewport(
+    await page.getByRole("button", { name: "Start Attempt" }).boundingBox(),
+    shortDesktop,
+  );
+
+  await page.goto("/design-lab/participant-session?state=live");
+  const sessionShell = page.locator(".console");
+  const sessionShellBox = await sessionShell.boundingBox();
+  expect(sessionShellBox).toBeTruthy();
+  expect(sessionShellBox!.height).toBeLessThanOrEqual(shortDesktop.height + 1);
+  expect(sessionShellBox!.height).toBeGreaterThanOrEqual(shortDesktop.height - 2);
+
+  const sessionScroller = page.locator(".rail-scroll");
+  await expect(sessionScroller).toBeVisible();
+  const sessionOverflow = await sessionScroller.evaluate(
+    (el) => el.scrollHeight - el.clientHeight,
+  );
+  expect(sessionOverflow).toBeGreaterThan(40);
+  await sessionScroller.evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  expectBoxInViewport(
+    await page.locator(".rail .protocol-value").boundingBox(),
+    shortDesktop,
+  );
+  expectBoxInViewport(
+    await page.getByRole("button", { name: "Transmit" }).boundingBox(),
+    shortDesktop,
+  );
+});
+
+test("session mid-width short viewport keeps transmit reachable", async ({ page }) => {
+  const midShort = { width: 1000, height: 500 };
+  await page.setViewportSize(midShort);
+  await page.goto("/design-lab/participant-session?state=live");
+
+  const sessionShellBox = await page.locator(".console").boundingBox();
+  expect(sessionShellBox).toBeTruthy();
+  expect(sessionShellBox!.height).toBeLessThanOrEqual(midShort.height + 1);
+  expectBoxInViewport(
+    await page.getByRole("button", { name: "Transmit" }).boundingBox(),
+    midShort,
+  );
+  expectBoxInViewport(
+    await page.getByRole("button", { name: "Leave session" }).first().boundingBox(),
+    midShort,
+  );
+});
+
 test("assignment left-rail brand stays seated while phases scroll", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 720 });
   await page.goto("/design-lab/participant-journey");

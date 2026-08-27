@@ -54,7 +54,9 @@ the token source:
 - Semantic aliases: `web/src/styles/semantic-aliases.css`.
 - Light remaps: `web/src/styles/adaptations.css`.
 - Participant instrument rails are desktop hull bulkheads (assignment 260px,
-  session 232px) with stacked instrument bands at ≤1080px / ≤1180px.
+  session 232px) with stacked instrument bands at ≤1080px / ≤1180px. Desktop
+  shells are `100dvh` with no 620px floor so short viewports scroll inside the
+  rail rather than clipping past a hidden body.
 
 ## Adopted visual concepts
 

@@ -18,6 +18,8 @@ describe("participant instrument bulkheads", () => {
   it("seats the assignment station rail flush to the hull on desktop", () => {
     const css = readFileSync(join(stylesRoot, "participant-journey.css"), "utf8");
     expect(desktopRule(css, ".station")).toMatch(/padding:\s*0 22px 0 0/);
+    expect(desktopRule(css, ".station")).toMatch(/height:\s*100dvh/);
+    expect(desktopRule(css, ".station")).not.toMatch(/min-height:\s*620px/);
     expect(desktopRule(css, ".station-main")).toMatch(/padding:\s*18px 0/);
     expect(desktopRule(css, ".phase-rail")).toMatch(/--instrument-bulkhead-fill/);
   });
@@ -25,6 +27,8 @@ describe("participant instrument bulkheads", () => {
   it("seats the examination console rail flush to the hull on desktop", () => {
     const css = readFileSync(join(stylesRoot, "participant-session.css"), "utf8");
     expect(desktopRule(css, ".console")).toMatch(/padding:\s*0 20px 0 0/);
+    expect(desktopRule(css, ".console")).toMatch(/height:\s*100dvh/);
+    expect(desktopRule(css, ".console")).not.toMatch(/min-height:\s*620px/);
     expect(desktopRule(css, ".session-main")).toMatch(/padding:\s*18px 0/);
     expect(desktopRule(css, ".rail")).toMatch(/--instrument-bulkhead-fill/);
   });

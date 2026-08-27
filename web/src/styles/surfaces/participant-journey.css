@@ -28,7 +28,6 @@ html[data-surface="participant-journey"] {
   position: relative;
   display: grid;
   height: 100dvh;
-  min-height: 620px;
   grid-template-columns: var(--instrument-rail-width) minmax(0, 1fr);
   grid-template-areas: "phase-rail main";
   gap: 0 28px;

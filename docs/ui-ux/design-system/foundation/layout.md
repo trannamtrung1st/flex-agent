@@ -66,8 +66,10 @@ work-bay column, not the viewport. The session examiner plate stays an inset
 work plane, not a second bulkhead.
 
 Short desktop viewports scroll instruments inside the rail (`.phase-rail-scroll`
-/ `.rail-scroll`); brand stays outside that scroller. Narrow/drawer widths
-stack the instrument band in the header and do not make that band
+/ `.rail-scroll`); brand stays outside that scroller. Desktop shells use
+`height: 100dvh` with no min-height taller than the viewport, so a short window
+cannot grow past the hull while `body` overflow stays hidden. Narrow/drawer
+widths stack the instrument band in the header and do not make that band
 viewport-sticky.
 
 ### Telemetry / readout

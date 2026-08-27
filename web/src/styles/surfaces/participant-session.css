@@ -30,7 +30,6 @@ html[data-surface="participant-session"] {
   position: relative;
   display: grid;
   height: 100dvh;
-  min-height: 620px;
   overflow: hidden;
   grid-template-columns: var(--instrument-rail-width) minmax(0, 1fr) 320px;
   grid-template-rows: minmax(0, 1fr);

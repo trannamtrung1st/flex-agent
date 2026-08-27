@@ -21,3 +21,5 @@ On desktop they flush to the hull; at ≤1080px (assignment) or ≤1180px
   substitution in the rail (`PC-06`).
 - Rail internals that overflow a short desktop scroll inside the rail; do not
   clip instruments, and do not pin the stacked narrow band to the viewport.
+  Desktop shells must not use a min-height taller than `100dvh` while page
+  overflow is hidden.

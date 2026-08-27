@@ -44,7 +44,7 @@ Desktop rails are flush hull bulkheads. Narrow/drawer widths keep the stacked in
 
 # Decisions
 
-- Desktop (≥1080 assignment / ≥1180 session): left rail flush top/bottom/left; work bay keeps 18px block inset.
+- Desktop (stacked at ≤1080 assignment / ≤1180 session; bulkhead above those widths): left rail flush top/bottom/left; work bay keeps 18px block inset.
 - Traces are clipped to the work-bay column, not the viewport.
 - Session right examiner plate stays an inset plate.
 - Session brand stays outside `.rail-scroll` (compatible with the pinned-brand scroller).
