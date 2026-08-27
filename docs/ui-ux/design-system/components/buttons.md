@@ -6,6 +6,12 @@ below map to Shipboard variants; product labels still come from governing
 specs (`PC-10`). Prototype names such as TRANSMIT or APPROVE & RELEASE are not
 production copy.
 
+Implementation: `web/src/design-system/components/keys/`. Gallery: `keys`,
+`key-group`. `Key` variants (`quiet`, `transmit`, `open`, `begin`, `activate`,
+`inspect`, `release`, `back`) are Shipboard skins. `BackKey`, `IconButton`,
+and `EllipsisKey` are named keys, not a second button family. Presentational
+`ThemeToggle` lives here; production shell may wrap it with the theme hook.
+
 ## Core Specs
 
 - Face: Michroma captions; tracking about 0.16em
@@ -39,10 +45,11 @@ workspace actions.
 ### Commit (primary)
 
 Amber text and border over a faint amber fill. Hover: Amber Bright and
-`emission-attention`. At most **one** commit key is lit in a region (amber
-ration). Map to the spec’s primary action (Save draft, Submit version, Start
-Attempt, Release Result, and similar). Occupied commit keys drop amber for
-teal wait.
+`emission-attention`. Shipboard skins: `transmit`, `begin`, `activate`, `open`,
+`inspect`, `release` (notched leading clip). At most **one** commit key is lit
+in a region (amber ration). Map to the spec’s primary action (Save draft,
+Submit version, Start Attempt, Release Result, and similar). Occupied commit
+keys drop amber for teal wait.
 
 ### Destructive
 
@@ -62,7 +69,10 @@ wait-mark, teal voice.
 
 ## Rules
 
-- Icon-only keys use Lucide or an approved glyph plus an accessible name.
+- Icon-only keys use Lucide or an approved glyph plus an accessible name
+  (`IconButton` + `TooltipHost`).
+- Truncation (`truncate`) ellipsizes a long caption; it does not stretch keys
+  in a `KeyGroup`.
 - Do not use pill shapes or permanent outer glow on quiet keys.
 - Unapproved export/delete actions are absent or disabled in production
   (`PC-09`).

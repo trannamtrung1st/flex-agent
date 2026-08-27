@@ -2,23 +2,31 @@
 
 ## Empty States
 
-A useful empty state is an **instrument plate**: dim node, Michroma label, mono
-note (max about 44ch), optional primary key. Unoccupied bays use a dashed
-hairline empty note (dashed absence), not a second clipped card.
+A useful empty state is an **instrument plate** (`EmptyPlate`): dim node,
+Michroma label, mono note (max about 44ch), optional primary key. Inset /
+separated modifiers (`empty-plate--inset`, `empty-plate--separated`) sit a
+dashed hairline empty note after seated content. Unoccupied bays use dashed
+absence, not a second clipped card. `OperateArea` `empty` renders this plate
+inside the etched frame.
 
 ## Loading
 
-Loading is a Shipboard instrument family, never a spinner:
+Loading is a Shipboard instrument family, never a spinner. Gallery: `wait`,
+`wait-panel`.
 
 - **Wait-mark:** square hairline bezel with pulsing teal node and scan line
 - **Scan-track:** 3px teal determinate or indeterminate fill
 - **Skel-stack:** dashed dim lines with optional teal sweep
 - **Wait-plate:** empty-plate anatomy plus wait-mark and scan-track
 - Occupied keys use the waiting state in [interaction states](../foundation/interaction-states.md)
+- **Wait panel:** `WaitPanel` (`.loading-panel`) is the inline protected-loading
+  composition: wait-mark plus polite `role="status"` / `aria-busy` copy.
+  `announceOnly` keeps the label for assistive technology only. There is no
+  `ProtectedLoading` alias. Default copy is generic; product strings come from
+  the governing specification.
 
 Teal is the wait voice. Amber stays on the current stage bar or other rationed
-attention object only. `role="status"` / `aria-busy` / polite live regions as
-appropriate. Reduced motion holds geometry still.
+attention object only. Reduced motion holds geometry still.
 
 ## Streaming
 

@@ -35,7 +35,7 @@ reorder children, and do not inject `data-layout` or `.layout-*` classes.
 `end`, optional `head` / `foot` / `toolbar` / `overlay`) and is also not a
 layout family. Optional `head` / `foot` span the main and end tracks when a
 composition needs a plaque or bar over the ledger only. The reviewer split
-ledger does not use those slots: `OperateHead` `arrangement="plaque"` is the
+ledger does not use those slots: `OperateArea` `headArrangement="plaque"` is the
 full-width `record-head`, `SplitBay` is the three work columns, and the
 decision bar is a sibling of the bay.
 
@@ -71,6 +71,12 @@ same `--shell-main-inset-inline` / `--shell-main-inset-block` tokens through
 
 Spacing belongs to the parent via `gap` or `Inset`. Do not add spacer nodes or
 arbitrary child margins to fake rhythm.
+
+## Recipes
+
+Component Deck `composition-recipes` shows common inner slots (a `Container
+size="form"` column, a grouped list with trailing open keys). Those are
+specimens of the primitives above, not additional components.
 
 ## Semantic examples
 

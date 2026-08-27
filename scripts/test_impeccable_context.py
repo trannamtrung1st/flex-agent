@@ -42,6 +42,8 @@ class ImpeccableContextTests(unittest.TestCase):
         self.assertIn("Shipboard Terminal", body)
         self.assertIn("foundation/typography.md", body)
         self.assertIn("foundation/layout.md", body)
+        self.assertIn("components/layouts.md", body)
+        self.assertIn("components/alerts.md", body)
         self.assertNotIn("--ground:", body)
         self.assertNotIn("Semantic tokens (dark canonical)", body)
         self.assertNotIn("Token projection is deferred until design-system v1.0", body)

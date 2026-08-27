@@ -44,6 +44,24 @@ must still verify every token pairing in both themes.
 Exact versions are pinned in `web/package.json`. Self-host only. Include OFL
 notices with the SPA license inventory.
 
+## Documentation sync from design lab (2026-08-28)
+
+Official modules refreshed from `web/src/design-system/` and the Component Deck
+without changing Approved v1.0 token meaning. Production candidate pages are
+explicitly not visual authority. Recorded: `Alert` / `WaitPanel` / `ErrorSummary`
+feedback trio, `BreadcrumbNav`, `TooltipHost`, `KeyGroup` as wrapping `Inline`,
+`OperateArea` work-bay contract, design-lab route-layout assignment, and the
+Deck section → module catalog in the implementation guide.
+
+Review pass (same day) corrected: `Alert` warning/success are not distinct
+skins; toast linger is 4200ms; `EtchedFrame` tick/flush rules; `WorkWell`;
+`select-mark` vs instrument marks; `nav-rail` grammar vs `IndexRail`;
+`OperateArea` `headArrangement` vs assembling `OperateHead`; accordion has no
+promoted primitive; candidate CSS is `shared.css`.
+
+Root `DESIGN.md` remains a generated adapter (`python3 scripts/impeccable_context.py
+generate`). It is not a Stitch token sheet.
+
 ## Shared layout library (2026-08-27)
 
 Closed shell set `management` / `guided-task` / `live-session` / `reference`

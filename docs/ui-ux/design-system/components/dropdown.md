@@ -1,5 +1,8 @@
 # Dropdown, listbox, and menus
 
+Implementation: `web/src/design-system/components/select/` and `menu/`.
+Gallery: `searchable-select`, `multiselect`, `menu`.
+
 ## Option menu (single-select)
 
 Hairline rows, teal-glass hover/focus, Bright Text plus 7×1px teal tick on the

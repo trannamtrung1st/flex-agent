@@ -7,7 +7,7 @@
 > Do not treat this file as a token sheet or component spec.
 
 Generator: `flex-agent-impeccable-context/1`
-Content fingerprint: `84c9ff4ed0b8fbf7bf7e716523265f4e6013e51b5ecffc5c582431c4ce134b12`
+Content fingerprint: `084a36645b330fa1fbde8dfea7b43d01a4996f7660b80cf1561ef067423d92db`
 
 ## Canonical sources
 
@@ -21,6 +21,11 @@ Content fingerprint: `84c9ff4ed0b8fbf7bf7e716523265f4e6013e51b5ecffc5c582431c4ce
 - `docs/ui-ux/design-system/foundation/shadows.md`
 - `docs/ui-ux/design-system/foundation/motion.md`
 - `docs/ui-ux/design-system/components/sidebars.md`
+- `docs/ui-ux/design-system/components/layouts.md`
+- `docs/ui-ux/design-system/components/layout-primitives.md`
+- `docs/ui-ux/design-system/components/cards.md`
+- `docs/ui-ux/design-system/components/buttons.md`
+- `docs/ui-ux/design-system/components/alerts.md`
 
 ## Projection
 

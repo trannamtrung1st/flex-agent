@@ -36,11 +36,12 @@ That plate owns the page title (`h1`), optional description, optional
 `BackKey`, optional advisory/context, and the etched body or empty plate.
 Pages do not assemble `OperateHead` plus `EtchedFrame` by hand, and they do
 not place a second heading stack above the operate area. Design-lab Home and
-Reviewer consoles use the same plate. The reviewer record is the split-ledger variant: `OperateHead`
-`arrangement="plaque"` is the prototype `record-head` (back, centered title and
-seal, session id). `SplitBay` is only the three work columns. The decision bar
-is a sibling foot of that bay, not a `SplitBay` `foot`. `framed={false}` so the
-ledger is not nested in a second etched well. `contain={false}` lets the
+Reviewer consoles use the same plate. The reviewer record is the split-ledger
+variant: `OperateArea` `headArrangement="plaque"` is the prototype `record-head`
+(back, centered title and seal, session id). `SplitBay` is only the three work
+columns. The decision bar is a sibling foot of that bay, not a `SplitBay`
+`foot`. `framed={false}` so the
+ledger is not nested in a second etched well. Layout `contain={false}` lets the
 queue/record unfold fill the main landmark. Live-session remains the
 examination shell and is not assigned to the reviewer route.
 
@@ -60,14 +61,14 @@ size="form"`. Etched table plates stay inside that pad.
 | `management` | `true` | Status Bays, reviewer split bay, other full-bleed work bays |
 | `guided-task` | `false` | Default fills the work well; set `true` for a readable form column |
 | `live-session` | `false` | Transcript pane is hull geometry |
-| `reference` catalog | `true` | Channel index and unknown-channel copy |
-| `reference` deck | `false` | Component Deck specimens need the full deck column |
+| `reference` catalog | `true` | Unknown-channel copy uses the default. `/surfaces` currently passes `contain={false}` for the flush channel board. |
+| `reference` deck | `false` (`contain ?? !index`) | Component Deck specimens need the full deck column |
 
 | Variant | Title | Description | Back | Body |
 | --- | --- | --- | --- | --- |
 | Console index / registry | required | recommended | omit | etched list, table, or destinations |
 | Nested record | required | recommended | `BackKey` to the parent index | etched record |
-| Split ledger | required (`arrangement="plaque"`) | recommended | `BackKey` in the plaque | `SplitBay` start/main/end plus sibling decision foot; `framed={false}` and `contain={false}` |
+| Split ledger | required (`headArrangement="plaque"`) | recommended | `BackKey` in the plaque | `SplitBay` start/main/end plus sibling decision foot; `framed={false}` and layout `contain={false}` |
 | Empty index | required (same as the populated index) | recommended | omit | `empty` plate inside the frame |
 
 Forbidden: a page or route module importing `CommandStrip`, `ConsoleFoot`,
@@ -91,8 +92,18 @@ a shell; declaring reserved `.layout-*` structural selectors; selecting
 
 ## Route examples
 
-- Production Home, Activities, later admin setup: `management`.
-- Design-lab participant home, admin console, reviewer console: `management`.
-- Assignment Station: `guided-task`.
-- Examination Console: `live-session`.
-- Channel index, Component Deck, unknown channel: `reference`.
+Family assignment is router-owned. Design-lab paths
+(`web/src/design-lab/app/design-lab-route-layouts.ts`):
+
+| Path | Family |
+| --- | --- |
+| `/surfaces` (channel index) | `reference` with `contain={false}` |
+| `/shared/gallery` (Component Deck) | `reference` deck (`index` present → contain off) |
+| `*` (unknown path) | `reference` catalog (contain defaults on) |
+| `/participant-home`, `/admin-console`, `/reviewer-console` | `management` |
+| `/participant-journey` | `guided-task` |
+| `/participant-session` | `live-session` |
+
+Production Home, Activities, and later admin setup use `management`. Candidate
+production pages are not visual specimens; copy shell composition from the lab
+donors and Component Deck, not from unpolished production routes.

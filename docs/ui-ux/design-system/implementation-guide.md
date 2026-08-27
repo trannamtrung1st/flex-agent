@@ -29,8 +29,10 @@ the frontend rebuild. Do not use v0.1 Deep-Space styling as the target look.
    validation, error/retry, reconnecting, permission-denied, terminal, and
    responsive states before styling only the happy path.
 8. Apply `PC-01`–`PC-14` so prototype visuals cannot change repo behavior.
-9. Verify specimens in the isolated design-lab Component Deck when it exists;
-   production routes never include `/design-lab/*`. Select one closed-set
+9. Verify specimens in the isolated design-lab Component Deck
+   (`/design-lab/shared/gallery`). Production routes never include
+   `/design-lab/*`. Candidate production pages are not a visual reference until
+   rebuilt ([visual evidence](README.md#visual-evidence)). Select one closed-set
    layout family from [layouts](components/layouts.md); do not compose outer
    chrome in a page module. Inside the chosen family, compose slot content with
    [layout primitives](components/layout-primitives.md) (`Stack`, `Inline`,
@@ -65,7 +67,8 @@ the frontend rebuild. Do not use v0.1 Deep-Space styling as the target look.
 - [Inputs](components/inputs.md),
   [selection controls](components/radios-checkboxes-toggle.md), and
   [error summary](components/error-summary.md)
-- [Alerts](components/alerts.md), [badges/marks](components/badges.md),
+- [Alerts / advisories / toasts](components/alerts.md),
+  [badges/marks](components/badges.md),
   [plates](components/cards.md), and [lists](components/lists.md)
 - [Operator identity](components/avatars.md) and
   [icon shapes](components/icon-shapes.md)
@@ -73,10 +76,39 @@ the frontend rebuild. Do not use v0.1 Deep-Space styling as the target look.
   [modals](components/modals.md), [tabs](components/tabs.md), and
   [tooltips](components/tooltips-popovers.md)
 - [Tables](components/tables.md), [pagination](components/pagination.md),
-  [gangway/rails](components/sidebars.md),
+  [gangway/rails/breadcrumbs](components/sidebars.md),
   [layouts (shells)](components/layouts.md),
   [layout primitives](components/layout-primitives.md), and
   [content/readout grid](components/content.md)
+
+## Component Deck catalog
+
+Map Deck section ids in `gallerySections.ts` to the governing module. Specimens
+are visual evidence; the module is the contract.
+
+| Deck group | Section ids | Module |
+| --- | --- | --- |
+| Foundations | `colors` | [colors](foundation/colors.md) |
+| Foundations | `type`, `typography` | [typography](foundation/typography.md) |
+| Foundations | `keys`, `key-group` | [buttons](components/buttons.md), [button groups](components/button-group.md) |
+| Foundations | `pane`, `frame` | [plates](components/cards.md) |
+| Navigation | `nav-rail` | [sidebars](components/sidebars.md) (`.nav-rail` grammar; `IndexRail` on the reference shell) |
+| Navigation | `strip`, `gangway`, `drawer`, `footer` | [layouts](components/layouts.md), [sidebars](components/sidebars.md) |
+| Navigation | `breadcrumbs` | [sidebars](components/sidebars.md) |
+| Navigation | `tabs` | [tabs](components/tabs.md) |
+| Data | `marks` | [badges](components/badges.md) |
+| Data | `select-mark` | [selection](components/radios-checkboxes-toggle.md), [tables](components/tables.md) |
+| Data | `readout`, `readout-grid` | [content](components/content.md) |
+| Data | `datatable` | [tables](components/tables.md), [pagination](components/pagination.md) |
+| Feedback | `toast`, `advisory`, `alert` | [alerts](components/alerts.md) |
+| Feedback | `tooltip` | [tooltips](components/tooltips-popovers.md) |
+| Feedback | `error-summary` | [error summary](components/error-summary.md) |
+| Feedback | `empty`, `wait`, `wait-panel` | [empty/loading](product/empty-loading.md) |
+| Shells | `layout-*` | [layouts](components/layouts.md) |
+| Composition | `composition-*` | [layout primitives](components/layout-primitives.md) (`composition-recipes` are specimen recipes, not a fifth primitive) |
+| Overlays & input | `form`, `datetime` | [inputs](components/inputs.md) |
+| Overlays & input | `searchable-select`, `multiselect`, `menu` | [dropdown](components/dropdown.md) |
+| Overlays & input | `dialog` | [modals](components/modals.md) |
 
 ## Product-pattern index
 
@@ -106,7 +138,8 @@ specification authorize it.
 - Product: empty/loading, protected content, technical metadata
 - Governing specification: [Activity journey](../activity-campaign-journey.md)
 - States: unauthenticated, loading, denied, ready, context replacement, logout
-- Gallery: command strip, gangway/bulkhead, quiet keys, empty plate
+- Gallery: command strip, gangway/bulkhead, quiet keys, empty plate (Deck:
+  `strip`, `gangway`, `keys`, `empty`)
 
 ### MVP Campaign setup and Enrollment
 
@@ -121,6 +154,8 @@ specification authorize it.
   [Submission and Attempt](../submission-attempt.md) (administrator Enrollment)
 - States: draft, invalid, pending, active, stale, conflict, denied, empty,
   large table, narrow
+- Gallery: form controls, number field, datatable, dialog (Deck: `form`,
+  `datatable`, `dialog`)
 - Constraints: `PC-05`, `PC-06`, `PC-09`, `PC-11`
 
 ### MVP Participant My Work and Submission intake

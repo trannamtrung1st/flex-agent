@@ -28,6 +28,11 @@ DESIGN_SOURCES = (
     ROOT / "docs" / "ui-ux" / "design-system" / "foundation" / "shadows.md",
     ROOT / "docs" / "ui-ux" / "design-system" / "foundation" / "motion.md",
     ROOT / "docs" / "ui-ux" / "design-system" / "components" / "sidebars.md",
+    ROOT / "docs" / "ui-ux" / "design-system" / "components" / "layouts.md",
+    ROOT / "docs" / "ui-ux" / "design-system" / "components" / "layout-primitives.md",
+    ROOT / "docs" / "ui-ux" / "design-system" / "components" / "cards.md",
+    ROOT / "docs" / "ui-ux" / "design-system" / "components" / "buttons.md",
+    ROOT / "docs" / "ui-ux" / "design-system" / "components" / "alerts.md",
 )
 
 METADATA_FIELD = re.compile(r"\|\s+\*\*(.+?)\*\*\s+\|\s+(.+?)\s+\|")
@@ -175,6 +180,11 @@ def render_design() -> str:
             "- `docs/ui-ux/design-system/foundation/shadows.md`",
             "- `docs/ui-ux/design-system/foundation/motion.md`",
             "- `docs/ui-ux/design-system/components/sidebars.md`",
+            "- `docs/ui-ux/design-system/components/layouts.md`",
+            "- `docs/ui-ux/design-system/components/layout-primitives.md`",
+            "- `docs/ui-ux/design-system/components/cards.md`",
+            "- `docs/ui-ux/design-system/components/buttons.md`",
+            "- `docs/ui-ux/design-system/components/alerts.md`",
             "",
             "## Projection",
             "",

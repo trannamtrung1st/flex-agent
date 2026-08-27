@@ -12,7 +12,7 @@ Flex Agent.
 | **Approvers** | Product Lead, UI/UX Lead |
 | **Version** | 1.0 |
 | **Effective date** | 2026-08-27 |
-| **Last reviewed** | 2026-08-27 |
+| **Last reviewed** | 2026-08-28 |
 | **Approval reference** | Repository-owner Shipboard Terminal direction in task `impeccable-frontend-rebuild`; 2026-08-27 completeness review (product-scope, UI/UX, accessibility, architecture, security/privacy) found no escalation-threshold conflict. Light-theme teal darkened to `#146261` for 4.5:1. `DS-DEC-1`/`DS-DEC-2`/`DS-DEC-8` superseded; `DS-DEC-9`–`DS-DEC-11` and `DS-PROP-2` accepted. |
 | **Related decisions** | `DS-DEC-3`–`DS-DEC-7` retained; `DS-DEC-1`, `DS-DEC-2`, `DS-DEC-8` superseded; `DS-DEC-9`–`DS-DEC-11` added; `DS-PROP-1` superseded by `DS-PROP-2`; resolved `Q-DS-1` |
 | **Upstream authority** | [Concept model](../../product/concept-model.md), [MVP scope](../../product/mvp-scope.md), approved [feature specifications](../../requirements/README.md), and approved [UI/UX specifications](../README.md) |
@@ -106,6 +106,23 @@ and approved UI/UX specifications (`PC-10`).
   or leading drawer, never amber.
 
 These are design metaphors, not product terms or required microcopy.
+
+## Visual evidence
+
+During the frontend rebuild, shared presentation is verified against the
+isolated design lab and the promoted library, not against candidate production
+pages.
+
+| Source | Role |
+| --- | --- |
+| Component Deck (`/design-lab/shared/gallery`) | Specimen catalog for promoted primitives |
+| Design-lab journeys (admin, reviewer, participant home / assignment / session) | Composition donors for shells and product plates |
+| `web/src/design-system/` plus `web/src/styles/shared.css` | Production-safe implementations |
+| Candidate production pages (`web/src/pages/`, production routes) | **Not** visual authority until rebuilt. Do not copy their chrome, density, or polish. |
+
+Prototype and lab fixtures remain visual evidence only. They do not define
+routes, actor names, action availability, disclosure, or lifecycle (`PC-09`,
+`PC-10`, `PC-14`).
 
 ## Approved shared decisions
 

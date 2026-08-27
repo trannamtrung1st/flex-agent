@@ -6,7 +6,7 @@ ownership.
 
 ## Status and authority
 
-**Approved — 2026-08-26; amended 2026-08-27** for the frontend rebuild
+**Approved — 2026-08-26; amended 2026-08-28** for the frontend rebuild
 transition in
 [ADR-020](decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md),
 including the Phase 7.5 `/design-lab` namespace and `web/src/design-system/`
@@ -49,8 +49,13 @@ Design-lab modules may import that shared tree, `web/src/styles/design-lab.css`,
 and synthetic fixtures only inside the design-lab entry graph. See ADR-020 `FE-TRANS-1`–`FE-TRANS-8`. The lab route
 namespace is `/design-lab/*`.
 
-Styling follows design-system v1.0 semantic tokens rather than v0.1
-`tokens.css` values. Lucide remains the general icon library (`DS-DEC-10`).
+Styling follows design-system v1.0: primitive values in
+`web/src/styles/tokens.css`, semantic aliases in `semantic-aliases.css`, light
+remaps in `adaptations.css`. Do not treat v0.1 Deep-Space names or candidate
+production pages as visual authority; the design-lab Component Deck and
+promoted `web/src/design-system/` modules are the specimen source until
+production surfaces are rebuilt. Lucide remains the general icon library
+(`DS-DEC-10`).
 
 ## Layering
 
@@ -237,9 +242,11 @@ first form migration.
 
 Use `lucide-react` with direct named imports so unused icons tree-shake.
 Follow [icon shapes](../ui-ux/design-system/components/icon-shapes.md) for
-size, semantic foreground, and accessibility. Retain `tokens.css`,
-`components.css`, and `app.css`. Add only the smallest semantic alignment rule
-when existing button gap/layout is insufficient.
+size, semantic foreground, and accessibility. The candidate package loads
+`web/src/styles/shared.css` (tokens, base, production-safe families). Lab-only
+sheets stay in `design-lab.css`. ADR-019 `FE-DEC-10` still names the legacy
+`tokens.css` / `components.css` / `app.css` split for `web-legacy`. Do not add
+Tailwind, CSS-in-JS, Axios, or Zustand.
 
 ## Intentionally unmigrated surfaces
 

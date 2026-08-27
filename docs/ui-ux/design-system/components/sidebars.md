@@ -23,3 +23,20 @@ On desktop they flush to the hull; at ≤1080px (assignment) or ≤1180px
   clip instruments, and do not pin the stacked narrow band to the viewport.
   Desktop shells must not use a min-height taller than `100dvh` while page
   overflow is hidden.
+
+## Breadcrumbs
+
+`BreadcrumbNav` is an in-bay trail (`nav` / `aria-label="Breadcrumb"`), not a
+second gangway. Home plus slash-separated items; the current crumb uses
+`aria-current="page"` and is not a link. Production maps route crumbs in
+`web/src/components/shell/`; the design lab and shared library import the
+presentational primitive. Gallery: `breadcrumbs`.
+
+## Index rail
+
+`IndexRail` is the reference-shell catalog (`ReferenceLayout`): `.deck-rail` >
+`.nav-rail` plus `SectionedNavigation`. Gallery section `nav-rail` shows the
+shared `.nav-rail` / `.nav-link` grammar (teal tick + Bright Text when
+current), including a nested `OperateHead` + `BackKey` specimen. That grammar
+is not production area navigation; production area nav is gangway/bulkhead.
+Current destination is never amber.
