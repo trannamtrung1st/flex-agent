@@ -13,7 +13,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: "http://localhost:5273",
     trace: "on-first-retry",
   },
   webServer: [
@@ -26,7 +26,7 @@ export default defineConfig({
     },
     {
       command: "bash ../build/scripts/serve-e2e-spa.sh",
-      url: "http://localhost:5173",
+      url: "http://localhost:5273",
       reuseExistingServer: false,
       timeout: 180000,
     },

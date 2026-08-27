@@ -8,15 +8,18 @@ or visual contracts. The [design-system README](README.md) and module files do.
 | Field | Value |
 | --- | --- |
 | Visual source | Shipboard Terminal prototypes |
-| Snapshot | `.work/resources/impeccable-prototype-snapshot/` |
+| Snapshot | Retired in Phase 7.5; formerly `.work/resources/impeccable-prototype-snapshot/` (Git history) |
 | Experiment HEAD | `f724b68b11c2a147e59864f5789b260baaa50641` |
 | Planning-review commit | `c52eeda3d8aa117bd7abd49f4ab0ab567953fe96` |
 | Hashed files | 215 in `MANIFEST.json` |
 | Rebuild task | `.work/active/impeccable-frontend-rebuild.md` |
 
-The raw snapshot is temporary historical evidence. Phase 10 of the rebuild
-deletes it after provenance and adopted outcomes are durable in Git, this
-change record, and approved v1.0 modules.
+The raw snapshot was temporary historical evidence and was deleted in Phase 7.5
+of the rebuild, after adopted visual outcomes were durable in Git, this change
+record, approved v1.0 modules, and the verified design lab. Recovery is Git
+history plus this provenance record. Do not treat the deleted tree, the
+external experiment checkout, or `/prototypes` as a live implementation
+dependency.
 
 ## Supersession
 
@@ -47,7 +50,8 @@ SPA license inventory.
 Smoked-glass plates, hairline bezels, notched zero-radius geometry, phosphor
 teal / rationed amber, Michroma placards, Sometype Mono data, gangway/bulkhead,
 command strip, keys, readout grid, wait instruments, clipped-border frames,
-emitters-only glow, and the Component Deck as the design-lab catalog.
+emitters-only glow, the square hull-ground document icon (favicon), and the
+Component Deck as the design-lab catalog.
 
 ## Deliberate deviations from the prototype
 

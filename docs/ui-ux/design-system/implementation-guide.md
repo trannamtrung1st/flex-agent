@@ -29,7 +29,7 @@ the frontend rebuild. Do not use v0.1 Deep-Space styling as the target look.
    responsive states before styling only the happy path.
 8. Apply `PC-01`–`PC-14` so prototype visuals cannot change repo behavior.
 9. Verify specimens in the isolated design-lab Component Deck when it exists;
-   production routes never include `/prototypes/*`.
+   production routes never include `/design-lab/*`.
 
 ## Foundation index
 

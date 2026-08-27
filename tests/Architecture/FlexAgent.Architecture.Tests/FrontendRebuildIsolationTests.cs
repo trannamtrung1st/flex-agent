@@ -69,6 +69,36 @@ public sealed class FrontendRebuildIsolationTests
             AddIfContains(violations, relative, content, "design-lab");
             AddIfContains(violations, relative, content, ".work/resources");
             AddIfContains(violations, relative, content, "impeccable-prototype");
+            if (!relative.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
+            {
+                AddIfContains(violations, relative, content, "HOME_ENROLLMENTS");
+                AddIfContains(violations, relative, content, "Approve & Release");
+                AddIfContains(violations, relative, content, "Mark Submission Complete");
+            }
+        }
+
+        Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
+    }
+
+    [Fact]
+    public void Candidate_design_system_does_not_import_design_lab_or_snapshot()
+    {
+        var root = FindRepositoryRoot();
+        var designSystemRoot = Path.Combine(root, "web", "src", "design-system");
+        Assert.True(Directory.Exists(Path.Combine(designSystemRoot, "foundations")));
+        Assert.True(Directory.Exists(Path.Combine(designSystemRoot, "components")));
+        Assert.True(Directory.Exists(Path.Combine(designSystemRoot, "patterns")));
+
+        var violations = new List<string>();
+        foreach (var file in EnumerateSourceFiles(designSystemRoot))
+        {
+            var relative = ToRepoRelative(root, file);
+            var content = File.ReadAllText(file);
+            AddIfContains(violations, relative, content, "web-legacy");
+            AddIfContains(violations, relative, content, ".work/resources");
+            AddIfContains(violations, relative, content, "impeccable-prototype");
+            AddIfContains(violations, relative, content, "src/design-lab");
+            AddIfContains(violations, relative, content, "web/src/design-lab");
         }
 
         Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));

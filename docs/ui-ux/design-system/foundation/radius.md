@@ -27,5 +27,6 @@ Notched corners are the default Shipboard signature, not an optional flourish.
 - Do not apply CSS `border-radius` on authored rectangles.
 - Do not make badges, keys, or chips into pills.
 - Nested containers stay square/notched; they do not regain v0.1 4–8px radii.
+- The document icon is a square tile (see [icon shapes](../components/icon-shapes.md#document-icon-favicon)).
 - Circular geometry is only for the exceptions in the table above.
 - Technical/log/timeline rows use hairline dividers, not rounded chips.

@@ -1,0 +1,46 @@
+/* Approved v1.0 / PC-12 adaptations. Copied prototype sheets stay byte-identical. */
+
+[data-theme="light"] {
+  --ground: #e8f0f2;
+  --ground-deep: #f4f8f9;
+  --ground-sheen: #dde8ec;
+  --text: #1a2a32;
+  --text-bright: #041018;
+  --label: #3d5a62;
+  --label-dim: #4a6a72;
+  --hairline: rgba(70, 110, 116, 0.55);
+  --hairline-dim: rgba(70, 110, 116, 0.35);
+  --amber: #9a6a12;
+  --amber-bright: #7a540e;
+  --amber-glow: rgba(154, 106, 18, 0.16);
+  --teal: #146261;
+  --teal-glow: rgba(26, 122, 121, 0.2);
+}
+
+@media (forced-colors: active) {
+  :root {
+    --ground: Canvas;
+    --ground-deep: Canvas;
+    --ground-sheen: Canvas;
+    --text: CanvasText;
+    --text-bright: CanvasText;
+    --label: GrayText;
+    --label-dim: GrayText;
+    --hairline: CanvasText;
+    --hairline-dim: GrayText;
+    --amber: Highlight;
+    --amber-bright: Highlight;
+    --teal: LinkText;
+  }
+
+  .brand-mark,
+  .strip-brand-core,
+  .rail-brand-core,
+  .agent-name-core {
+    text-shadow: none;
+  }
+
+  :focus-visible {
+    outline-color: Highlight;
+  }
+}

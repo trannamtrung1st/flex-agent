@@ -8,7 +8,9 @@ ownership.
 
 **Approved — 2026-08-26; amended 2026-08-27** for the frontend rebuild
 transition in
-[ADR-020](decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md).
+[ADR-020](decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md),
+including the Phase 7.5 `/design-lab` namespace and `web/src/design-system/`
+promotion boundary.
 This guide applies
 [ADR-019](decisions/ADR-019-frontend-state-and-library-boundaries.md). It does
 not introduce product behavior or replace feature or UI/UX specifications. If
@@ -41,8 +43,11 @@ in this guide mean the package that currently implements the described
 behavior: after cutover they again mean `web/`.
 
 Production modules must not import `src/design-lab`, `.work/resources`, or
-`web-legacy` source. Design-lab modules may import synthetic fixtures only
-inside the design-lab entry graph. See ADR-020 `FE-TRANS-1`–`FE-TRANS-8`.
+`web-legacy` source. Shared visual implementations are owned by
+`web/src/design-system/` plus `web/src/lib/` and `web/src/styles/`. Design-lab
+modules may import that shared tree and synthetic fixtures only inside the
+design-lab entry graph. See ADR-020 `FE-TRANS-1`–`FE-TRANS-8`. The lab route
+namespace is `/design-lab/*`.
 
 Styling follows design-system v1.0 semantic tokens rather than v0.1
 `tokens.css` values. Lucide remains the general icon library (`DS-DEC-10`).

@@ -80,16 +80,22 @@ pnpm verify:web:new
 bash build/scripts/verify-web.sh
 ```
 
-Run the SPA locally:
+Run the SPA locally (`http://127.0.0.1:5273/`):
 
 ```bash
 cd web-legacy && pnpm dev
 ```
 
-Candidate SPA (not production until cutover):
+Candidate SPA (not production until cutover; `http://127.0.0.1:5274/`):
 
 ```bash
 cd web && pnpm dev
+```
+
+Isolated design lab (`http://127.0.0.1:5275/design-lab/surfaces`):
+
+```bash
+cd web && pnpm dev:design-lab --host 127.0.0.1
 ```
 
 Start the authenticated Development/Testing browser profile

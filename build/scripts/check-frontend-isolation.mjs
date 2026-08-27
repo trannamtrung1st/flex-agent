@@ -33,10 +33,18 @@ function addViolations(violations, relative, content, needles) {
   }
 }
 
+const importNeedles = ["web-legacy", "design-lab", ".work/resources", "impeccable-prototype"];
+const fixtureNeedles = ["HOME_ENROLLMENTS", "Approve & Release", "Mark Submission Complete"];
+
+function isCodeSource(file) {
+  return /\.(ts|tsx|js|jsx|html)$/.test(file);
+}
+
 const violations = [];
 const productionRoot = path.join(root, "web", "src");
 const legacyRoot = path.join(root, "web-legacy", "src");
 const designLabRoot = path.join(productionRoot, "design-lab");
+const designSystemRoot = path.join(productionRoot, "design-system");
 
 for (const file of await walk(productionRoot)) {
   if (file.startsWith(designLabRoot + path.sep)) {
@@ -45,12 +53,20 @@ for (const file of await walk(productionRoot)) {
 
   const relative = path.relative(root, file);
   const content = await readFile(file, "utf8");
-  addViolations(violations, relative, content, [
-    "web-legacy",
-    "design-lab",
-    ".work/resources",
-    "impeccable-prototype",
-  ]);
+  if (file.startsWith(designSystemRoot + path.sep)) {
+    addViolations(violations, relative, content, [
+      "web-legacy",
+      ".work/resources",
+      "impeccable-prototype",
+      "src/design-lab",
+      "web/src/design-lab",
+    ]);
+    continue;
+  }
+  addViolations(violations, relative, content, importNeedles);
+  if (isCodeSource(file)) {
+    addViolations(violations, relative, content, fixtureNeedles);
+  }
 }
 
 try {

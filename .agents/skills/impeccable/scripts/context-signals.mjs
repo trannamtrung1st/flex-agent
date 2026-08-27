@@ -204,7 +204,7 @@ function gitSignals(cwd) {
   };
 }
 
-const COMMON_DEV_PORTS = [4321, 3000, 5173, 5174, 8080, 8000, 4200];
+const COMMON_DEV_PORTS = [4321, 3000, 5173, 5174, 5273, 5274, 5275, 8080, 8000, 4200];
 
 function probePort(port, timeout = 250) {
   return new Promise((resolve) => {

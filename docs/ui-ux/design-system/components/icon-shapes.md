@@ -22,6 +22,20 @@ wait-mark, phase complete/lock, document version, seal ring, warning triangle,
 and equivalent domain marks. Match Lucide stroke weight (~1–1.1px, square
 caps) so the two sources sit in one system.
 
+## Document icon (favicon)
+
+The browser tab / bookmark mark is a custom glyph, not a Lucide icon.
+
+- Serve `web/public/favicon.svg` from both the production shell (`web/index.html`)
+  and the design-lab shell (`web/design-lab.html`) as `/favicon.svg`, using
+  `<link rel="icon" type="image/svg+xml" href="/favicon.svg" />`.
+- Keep the Shipboard Terminal mark: square 32×32 hull-ground tile (`#07141b`),
+  1px phosphor-teal inner frame, phosphor-teal letterform (`#3cc0bf`). No
+  `border-radius` and no v0.1 electric-blue fill.
+- Do not restore the superseded Deep-Space rounded “F” tile. Transitional
+  `web-legacy/` may keep that file until cutover; it is not the candidate
+  identity.
+
 ## Core Specs
 
 | Size | Hit target | Graphic |

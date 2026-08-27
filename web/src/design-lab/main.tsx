@@ -1,8 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { DesignLabHome } from "./gallery";
-import "../styles/app.css";
-import "../styles/components.css";
+import { RouterProvider } from "react-router-dom";
+import { designLabRouter } from "./app/router";
+import "../styles/index.css";
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -11,6 +11,6 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <DesignLabHome />
+    <RouterProvider router={designLabRouter} />
   </StrictMode>,
 );

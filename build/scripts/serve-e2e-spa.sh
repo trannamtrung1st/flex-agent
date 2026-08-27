@@ -11,7 +11,7 @@ docker rm -f flex-agent-e2e-spa-test >/dev/null 2>&1 || true
 
 exec docker run --rm --name flex-agent-e2e-spa \
   --add-host=host.docker.internal:host-gateway \
-  -p 5173:5173 \
+  -p 5273:5273 \
   -v "$ROOT/web-legacy/dist:/usr/share/nginx/html:ro" \
   -v "$ROOT/deploy/nginx/e2e.conf:/etc/nginx/conf.d/default.conf:ro" \
   nginx:1.30.4-alpine

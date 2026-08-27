@@ -104,18 +104,14 @@ class ImpeccableContextTests(unittest.TestCase):
             errors = check_impeccable_tracked_paths([root / "config.json", root / "surfaces" / "ok.md"])
             self.assertEqual(errors, [])
 
-    def test_snapshot_impeccable_shots_are_exempt(self) -> None:
-        path = (
+    def test_retired_prototype_snapshot_is_not_a_live_dependency(self) -> None:
+        snapshot = (
             Path(__file__).resolve().parents[1]
             / ".work"
             / "resources"
             / "impeccable-prototype-snapshot"
-            / ".impeccable"
-            / "shots"
-            / "session-live-desktop.png"
         )
-        self.assertTrue(path.is_file())
-        self.assertEqual(check_impeccable_tracked_paths([path]), [])
+        self.assertFalse(snapshot.exists(), "Phase 7.5 must delete the raw prototype snapshot")
 
     def test_guard_relpaths_include_legacy_live_and_root_impeccable(self) -> None:
         self.assertTrue(is_impeccable_guard_relpath(".impeccable/critique/2026-08-27__session.md"))

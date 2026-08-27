@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5174,
+    port: 5274,
     strictPort: true,
     proxy: {
       "/browser": {

@@ -1,0 +1,26 @@
+/* v1.0 semantic names aliased over copied prototype token values. */
+
+:root {
+  --canvas: var(--ground);
+  --surface-primary: var(--ground-deep);
+  --surface-secondary: var(--ground-sheen);
+  --fg-strong: var(--text-bright);
+  --fg-default: var(--text);
+  --fg-muted: var(--label);
+  --fg-subtle: var(--label-dim);
+  --fg-brand: var(--teal);
+  --fg-attention: var(--amber);
+  --brand-primary: var(--teal);
+  --brand-signal: var(--teal);
+  --attention: var(--amber);
+  --border-default: var(--hairline);
+  --border-subtle: var(--hairline-dim);
+  --border-focus: var(--teal);
+  --font-display: var(--font-plaque);
+  --shell-max-width: 72rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-8: 2rem;
+  --focus-outline: 2px solid var(--teal);
+  --focus-offset: 2px;
+}

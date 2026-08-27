@@ -42,6 +42,9 @@ pnpm --filter @flex-agent/web-legacy build
 echo "==> candidate web build"
 pnpm --filter @flex-agent/web build
 
+echo "==> candidate production bundle isolation"
+node build/scripts/check-candidate-bundle.mjs
+
 echo "==> design-lab build"
 pnpm --filter @flex-agent/web build:design-lab
 

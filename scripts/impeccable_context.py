@@ -30,7 +30,6 @@ SECRET_PATTERN = re.compile(
 PARTICIPANT_EMAIL_PATTERN = re.compile(
     r"(?i)\b[A-Z0-9._%+\-]+@(?!(?:example\.com|flex-agent\.test)\b)[A-Z0-9.\-]+\.[A-Z]{2,}\b"
 )
-SNAPSHOT_IMPECCABLE = ROOT / ".work" / "resources" / "impeccable-prototype-snapshot"
 RUNTIME_DIR_PREFIXES = (
     "shots/",
     "live/",
@@ -233,14 +232,6 @@ def relative_impeccable_parts(path: Path) -> str | None:
     return parts[-1]
 
 
-def _is_snapshot_impeccable(path: Path) -> bool:
-    try:
-        path.resolve().relative_to(SNAPSHOT_IMPECCABLE.resolve())
-        return True
-    except (OSError, ValueError):
-        return ".work/resources/impeccable-prototype-snapshot/" in _posix(path)
-
-
 def _is_runtime_artifact(relative: str) -> bool:
     name = relative.rsplit("/", 1)[-1]
     if name in RUNTIME_FILENAMES:
@@ -288,8 +279,6 @@ def check_impeccable_tracked_paths(tracked_paths: list[Path] | None = None) -> l
             if root_impeccable.exists():
                 tracked_paths = [p for p in root_impeccable.rglob("*") if p.is_file()]
     for path in tracked_paths:
-        if _is_snapshot_impeccable(path):
-            continue
         try:
             label = path.relative_to(ROOT)
         except ValueError:

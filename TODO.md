@@ -1,3 +1,6 @@
+- [ ] Maybe side menu console full height => TBD
+- [ ] Maybe no need HOME anymore in admin console since we use side menu.
+- [ ] Participant session: side menu header should be sticky and consistent with other surfaces/pages.
 - [ ] Interaction controller: auto stop timer when idle too long or user not active on browser tab (close tab, switch tab, etc.)
 - [ ] Allow agents to propose/suggest improvements
 - [ ] Harness manager/assistant: help users to configure the harness

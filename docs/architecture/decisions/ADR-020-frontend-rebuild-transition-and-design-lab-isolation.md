@@ -2,14 +2,9 @@
 
 ## Status
 
-Approved — 2026-08-27.
-
-This record was approved by the repository owner through task
-`impeccable-frontend-rebuild`, with detailed realization delegated to
-architecture, frontend, and security/privacy roles. Completeness review on
-2026-08-27 found no new high-risk conflict with `AR-DEC-12`, ADR-019, or
-approved P0 behavior. It does not change product meaning, Assessment
-requirements, Session runtime contracts, or Result/Release authority.
+**Approved — 2026-08-27; amended 2026-08-27** for the Phase 7.5 design-lab
+route namespace, promoted `web/src/design-system/` ownership, and retirement of
+the raw prototype snapshot before production migration.
 
 ## Owners and approvers
 
@@ -27,9 +22,10 @@ plus the frozen production API-mode route set. A one-way rebuild must:
 
 - keep serving unchanged production behavior until an explicit cutover;
 - build a new SPA on the same ADR-010/ADR-019 stack and v1.0 tokens;
-- isolate prototype/design-lab surfaces from production routing, bundles, OCI
+- isolate design-lab surfaces from production routing, bundles, OCI
   images, authentication, and E2E;
-- remove `web-legacy/` and the raw prototype snapshot after acceptance.
+- retire the raw prototype snapshot before production migration, then remove
+  `web-legacy/` after cutover acceptance.
 
 ## Decision drivers
 
@@ -79,17 +75,23 @@ production-build selector owned by CI/Docker.
 ### `FE-TRANS-3` — Compile-time import boundary
 
 Production entry modules may import app, design-system, features, api, and
-lib code in new `web/src`. Design-lab entry modules may also import synthetic
-fixtures under `web/src/design-lab`. Production code must never import from
-`src/design-lab`, `.work/resources`, or `web-legacy/`. Legacy code must never
-import the new production tree. Architecture tests enforce both directions.
+lib code in new `web/src`. Shared visual implementations are owned by
+`web/src/design-system/{foundations,components,patterns}` plus `web/src/lib/`
+and `web/src/styles/`. Design-lab entry modules may import those modules and
+synthetic fixtures under `web/src/design-lab`. Production code must never
+import from `src/design-lab`, `.work/resources`, or `web-legacy/`. The design
+lab may import `design-system`; `design-system` must never import the design
+lab. Legacy code must never import the new production tree. Architecture tests
+enforce these directions.
 
 ### `FE-TRANS-4` — Design-lab isolation
 
-The design lab is a separate HTML/Vite entry, router root `/prototypes/*`,
+The design lab is a separate HTML/Vite entry, router root `/design-lab/*`,
 bundle, and Playwright config. It uses synthetic data only. It is not an input
 to the production SPA image, production E2E suite, authentication flow, or API
-traffic.
+traffic. Do not retain a `/prototypes` redirect; Git history preserves the
+former namespace. After Phase 7.5 the verified design lab is the sole local
+visual-composition donor.
 
 ### `FE-TRANS-5` — ADR-019 preserved
 
@@ -116,9 +118,11 @@ compatibility bridge that survives the task.
 
 ### `FE-TRANS-8` — Mandatory retirement
 
-After cutover gates pass, delete `web-legacy/`, transitional compatibility
-commands, and `.work/resources/impeccable-prototype-snapshot/`. Git history,
-the design-system change record, and this ADR remain the recovery path.
+After cutover gates pass, delete `web-legacy/` and transitional compatibility
+commands. The raw prototype snapshot
+(`.work/resources/impeccable-prototype-snapshot/`) is retired in Phase 7.5,
+before production migration. Git history, the design-system change record, and
+this ADR remain the recovery path.
 
 ## Consequences
 

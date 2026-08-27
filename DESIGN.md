@@ -6,7 +6,7 @@
 > approved UI/UX specifications. Approved product and feature specs still govern behavior.
 
 Generator: `flex-agent-impeccable-context/1`
-Content fingerprint: `34991efcb145cd85c1e24082158fa5f9adf6506a2c885423d1a51edae54e1d59`
+Content fingerprint: `4fa89dfb487231c084e267095f6af784e6d387a906b952a38ec8eac7b0c80b81`
 
 ## Canonical sources
 
