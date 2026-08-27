@@ -9,10 +9,11 @@
     "src/design-system",
     "src/lib",
     "src/vite-env.d.ts",
+    "e2e/design-lab",
     "vite.design-lab.config.ts",
     "vitest.design-lab.config.ts",
     "playwright.design-lab.config.ts",
     "vitest.setup.ts"
   ],
-  "exclude": ["e2e", "dist", "dist-design-lab"]
+  "exclude": ["dist", "dist-design-lab"]
 }

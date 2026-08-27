@@ -71,21 +71,26 @@ infer production source from the `@flex-agent/web` package name.
 Root/CI commands must name the target: `verify:web:legacy`, `verify:web:new`,
 combined `verify:web`, isolated `verify:design-lab` / `preview:design-lab` /
 `test:e2e:design-lab`, and an explicit production-build selector owned by
-CI/Docker. `verify:web:new` covers the candidate graph only; it does not
-substitute for design-lab verification.
+CI/Docker. `verify:web:new` covers the candidate graph only (candidate
+`tsconfig.json`, lint scope, and tests); it does not substitute for
+design-lab verification. `verify:design-lab` covers lab source, lab configs,
+lab E2E, and `tsconfig.design-lab.json`.
 
 ### `FE-TRANS-3` — Compile-time import boundary
 
 Production entry modules may import app, design-system, features, api, and
 lib code in new `web/src`. Shared visual implementations are owned by
 `web/src/design-system/{foundations,components,patterns}` plus `web/src/lib/`
-and `web/src/styles/shared.css`. Lab-only demo and surface styles load only
-through `web/src/styles/design-lab.css`. Design-lab entry modules may import those modules and
-synthetic fixtures under `web/src/design-lab`. Production code must never
-import from `src/design-lab`, `.work/resources`, or `web-legacy/`. The design
-lab may import `design-system`; `design-system` must never import the design
-lab. Legacy code must never import the new production tree. Architecture tests
-enforce these directions.
+and `web/src/styles/shared.css`. Lab-only demo and surface styles
+(`web/src/styles/design-lab.css`, `web/src/styles/components/demo.css`,
+`web/src/styles/surfaces/**`) load only through `web/src/styles/design-lab.css`
+and must not be imported directly from candidate modules. Design-lab entry
+modules may import those modules and synthetic fixtures under
+`web/src/design-lab`. Production code must never import from `src/design-lab`,
+`.work/resources`, or `web-legacy/`. The design lab may import `design-system`,
+`lib`, shared styles, and its own modules; `design-system` must never import
+the design lab. Legacy code must never import the new production tree.
+Architecture tests enforce these directions.
 
 ### `FE-TRANS-4` — Design-lab isolation
 
@@ -93,7 +98,8 @@ The design lab is a separate HTML/Vite entry, router root `/design-lab/*`,
 bundle, and Playwright config (`web/playwright.design-lab.config.ts`). It uses
 synthetic data only. It is not an input
 to the production SPA image, production E2E suite, authentication flow, or API
-traffic. Do not retain a `/prototypes` redirect; Git history preserves the
+traffic. Lab modules may not import future production `api/`, `features/`,
+`pages/`, `router/`, or `components/` trees under `web/src`. Do not retain a `/prototypes` redirect; Git history preserves the
 former namespace. After Phase 7.5 the verified design lab is the sole local
 visual-composition donor.
 

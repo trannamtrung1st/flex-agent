@@ -5,7 +5,14 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "dist-design-lab", "test-results", "playwright-report", "e2e", "playwright.design-lab.config.ts"] },
+  {
+    ignores: [
+      "dist",
+      "dist-design-lab",
+      "test-results",
+      "playwright-report",
+    ],
+  },
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/design-lab/**"],
@@ -22,6 +29,14 @@ export default tseslint.config(
               group: ["**/web-legacy", "**/web-legacy/**"],
               message: "Candidate modules must not import web-legacy.",
             },
+            {
+              group: [
+                "**/styles/design-lab.css",
+                "**/styles/components/demo.css",
+                "**/styles/surfaces/**",
+              ],
+              message: "Candidate modules must load lab-only styles through the design lab entry graph.",
+            },
           ],
         },
       ],
@@ -30,7 +45,13 @@ export default tseslint.config(
   {
     extends: [js.configs.recommended, ...tseslint.configs.strictTypeChecked],
     files: ["**/*.{ts,tsx}"],
-    ignores: ["src/design-lab/**"],
+    ignores: [
+      "src/design-lab/**",
+      "e2e/design-lab/**",
+      "vite.design-lab.config.ts",
+      "vitest.design-lab.config.ts",
+      "playwright.design-lab.config.ts",
+    ],
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.browser,
@@ -53,7 +74,13 @@ export default tseslint.config(
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.strictTypeChecked],
-    files: ["src/design-lab/**/*.{ts,tsx}"],
+    files: [
+      "src/design-lab/**/*.{ts,tsx}",
+      "e2e/design-lab/**/*.{ts,tsx}",
+      "playwright.design-lab.config.ts",
+      "vite.design-lab.config.ts",
+      "vitest.design-lab.config.ts",
+    ],
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.browser,
@@ -72,6 +99,16 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true },
       ],
+    },
+  },
+  {
+    files: ["**/*.{test,spec}.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-unsafe-return": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/restrict-template-expressions": "off",
     },
   },
   {

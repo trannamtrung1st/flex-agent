@@ -3,7 +3,12 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { designLabImportViolations } from "./frontend-isolation-lib.mjs";
+import {
+  designLabImportViolations,
+  designLabOutboundImportViolations,
+  isLabOwnedStylesheetFile,
+  labOwnedStylesheetImportViolations,
+} from "./frontend-isolation-lib.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -40,6 +45,18 @@ function addDesignLabImportViolations(violations, file, relative, content) {
   }
 }
 
+function addLabOwnedStylesheetImportViolations(violations, file, relative, content) {
+  for (const violation of labOwnedStylesheetImportViolations(file, content)) {
+    violations.push(`${relative} ${violation.slice(file.length + 1)}`);
+  }
+}
+
+function addDesignLabOutboundImportViolations(violations, file, relative, content) {
+  for (const violation of designLabOutboundImportViolations(file, content)) {
+    violations.push(`${relative} ${violation.slice(file.length + 1)}`);
+  }
+}
+
 const snapshotNeedles = ["web-legacy", ".work/resources", "impeccable-prototype"];
 const fixtureNeedles = ["HOME_ENROLLMENTS", "Approve & Release", "Mark Submission Complete"];
 
@@ -48,8 +65,7 @@ function isCodeSource(file) {
 }
 
 function isLabOwnedStylesheet(relative) {
-  return relative === path.join("web", "src", "styles", "design-lab.css")
-    || relative === "web/src/styles/design-lab.css";
+  return isLabOwnedStylesheetFile(relative.replaceAll("\\", "/"));
 }
 
 const violations = [];
@@ -71,6 +87,7 @@ for (const file of await walk(productionRoot)) {
   const content = await readFile(file, "utf8");
   addViolations(violations, relative, content, snapshotNeedles);
   addDesignLabImportViolations(violations, file, relative, content);
+  addLabOwnedStylesheetImportViolations(violations, file, relative, content);
   if (isCodeSource(file)) {
     addViolations(violations, relative, content, fixtureNeedles);
   }
@@ -81,6 +98,9 @@ try {
     const relative = path.relative(root, file);
     const content = await readFile(file, "utf8");
     addViolations(violations, relative, content, snapshotNeedles);
+    if (isCodeSource(file)) {
+      addDesignLabOutboundImportViolations(violations, file, relative, content);
+    }
   }
 } catch (error) {
   if (error && typeof error === "object" && "code" in error && error.code !== "ENOENT") {

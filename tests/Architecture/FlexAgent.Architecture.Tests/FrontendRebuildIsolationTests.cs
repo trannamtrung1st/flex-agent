@@ -13,6 +13,15 @@ public sealed class FrontendRebuildIsolationTests
         new(@"@import\s+(?:url\(\s*)?[""']([^""']+)[""']", RegexOptions.Compiled),
     ];
     private static readonly Regex DesignLabSegment = new(@"(?:^|/)design-lab(?:/|$)", RegexOptions.Compiled);
+    private static readonly Regex WebSrcSegment = new(@"(?:^|/)web/src/", RegexOptions.Compiled);
+    private static readonly Regex LabOwnedStylesheet = new(@"(?:^|/)styles/(?:design-lab\.css|components/demo\.css|surfaces/)", RegexOptions.Compiled);
+    private static readonly Regex[] DesignLabOutboundAllow =
+    [
+        new(@"(?:^|/)web/src/design-lab/", RegexOptions.Compiled),
+        new(@"(?:^|/)web/src/design-system/", RegexOptions.Compiled),
+        new(@"(?:^|/)web/src/lib/", RegexOptions.Compiled),
+        new(@"(?:^|/)web/src/styles/", RegexOptions.Compiled),
+    ];
 
     [Fact]
     public void Spa_dockerfile_points_at_web_legacy_until_cutover()
@@ -85,6 +94,7 @@ public sealed class FrontendRebuildIsolationTests
             AddIfContains(violations, relative, content, ".work/resources");
             AddIfContains(violations, relative, content, "impeccable-prototype");
             AddDesignLabImportViolations(violations, file, relative, content);
+            AddLabOwnedStylesheetImportViolations(violations, file, relative, content);
             if (!relative.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
             {
                 AddIfContains(violations, relative, content, "HOME_ENROLLMENTS");
@@ -131,6 +141,51 @@ public sealed class FrontendRebuildIsolationTests
     }
 
     [Fact]
+    public void Relative_lab_owned_stylesheet_import_specifiers_are_detected()
+    {
+        const string fromFile = "/repo/web/src/App.tsx";
+        Assert.True(SpecifierResolvesToLabOwnedStylesheet(fromFile, "./styles/surfaces/participant-home.css"));
+        Assert.True(SpecifierResolvesToLabOwnedStylesheet(fromFile, "./styles/components/demo.css"));
+        Assert.False(SpecifierResolvesToLabOwnedStylesheet(fromFile, "./styles/shared.css"));
+    }
+
+    [Fact]
+    public void Candidate_source_does_not_import_lab_owned_stylesheets()
+    {
+        var root = FindRepositoryRoot();
+        var productionRoot = Path.Combine(root, "web", "src");
+        var violations = new List<string>();
+
+        foreach (var file in EnumerateSourceFiles(productionRoot))
+        {
+            if (IsDesignLabPath(productionRoot, file))
+            {
+                continue;
+            }
+
+            var relative = ToRepoRelative(root, file);
+            if (IsLabOwnedStylesheet(relative))
+            {
+                continue;
+            }
+
+            var content = File.ReadAllText(file);
+            AddLabOwnedStylesheetImportViolations(violations, file, relative, content);
+        }
+
+        Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
+    }
+
+    [Fact]
+    public void Design_lab_outbound_import_allowlist_blocks_future_production_modules()
+    {
+        const string fromFile = "/repo/web/src/design-lab/features/admin/SampleArea.tsx";
+        Assert.True(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../components"));
+        Assert.False(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../../api/client"));
+        Assert.False(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../../components/ErrorBoundary"));
+    }
+
+    [Fact]
     public void Candidate_production_entry_does_not_load_lab_style_graph()
     {
         var root = FindRepositoryRoot();
@@ -146,7 +201,7 @@ public sealed class FrontendRebuildIsolationTests
     }
 
     [Fact]
-    public void Design_lab_source_does_not_import_legacy_or_snapshot()
+    public void Design_lab_source_does_not_import_legacy_snapshot_or_production_modules()
     {
         var root = FindRepositoryRoot();
         var designLabRoot = Path.Combine(root, "web", "src", "design-lab");
@@ -163,6 +218,10 @@ public sealed class FrontendRebuildIsolationTests
             AddIfContains(violations, relative, content, "web-legacy");
             AddIfContains(violations, relative, content, ".work/resources");
             AddIfContains(violations, relative, content, "impeccable-prototype");
+            if (!relative.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
+            {
+                AddDesignLabOutboundImportViolations(violations, file, relative, content);
+            }
         }
 
         Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
@@ -200,6 +259,28 @@ public sealed class FrontendRebuildIsolationTests
             || content.Contains("'web/src", StringComparison.Ordinal);
     }
 
+    private static void AddLabOwnedStylesheetImportViolations(List<string> violations, string file, string relative, string content)
+    {
+        foreach (var specifier in ExtractImportSpecifiers(content))
+        {
+            if (SpecifierResolvesToLabOwnedStylesheet(file, specifier))
+            {
+                violations.Add($"{relative} imports lab-owned stylesheet ('{specifier}')");
+            }
+        }
+    }
+
+    private static void AddDesignLabOutboundImportViolations(List<string> violations, string file, string relative, string content)
+    {
+        foreach (var specifier in ExtractImportSpecifiers(content))
+        {
+            if (!SpecifierResolvesToAllowedDesignLabOutbound(file, specifier))
+            {
+                violations.Add($"{relative} imports forbidden production module ('{specifier}')");
+            }
+        }
+    }
+
     private static void AddDesignLabImportViolations(List<string> violations, string file, string relative, string content)
     {
         foreach (var specifier in ExtractImportSpecifiers(content))
@@ -225,6 +306,39 @@ public sealed class FrontendRebuildIsolationTests
         return specifiers;
     }
 
+    private static bool SpecifierResolvesToLabOwnedStylesheet(string fromFile, string specifier)
+    {
+        var normalized = specifier.Replace('\\', '/');
+        if (!normalized.StartsWith('.') && !Path.IsPathRooted(specifier))
+        {
+            return false;
+        }
+
+        var directory = Path.GetDirectoryName(fromFile);
+        ArgumentException.ThrowIfNullOrEmpty(directory);
+        var resolved = Path.GetFullPath(Path.Combine(directory, specifier)).Replace('\\', '/');
+        return LabOwnedStylesheet.IsMatch(resolved);
+    }
+
+    private static bool SpecifierResolvesToAllowedDesignLabOutbound(string fromFile, string specifier)
+    {
+        var normalized = specifier.Replace('\\', '/');
+        if (!normalized.StartsWith('.') && !Path.IsPathRooted(specifier))
+        {
+            return true;
+        }
+
+        var directory = Path.GetDirectoryName(fromFile);
+        ArgumentException.ThrowIfNullOrEmpty(directory);
+        var resolved = Path.GetFullPath(Path.Combine(directory, specifier)).Replace('\\', '/');
+        if (!WebSrcSegment.IsMatch(resolved))
+        {
+            return true;
+        }
+
+        return DesignLabOutboundAllow.Any(pattern => pattern.IsMatch(resolved));
+    }
+
     private static bool SpecifierResolvesToDesignLab(string fromFile, string specifier)
     {
         var normalized = specifier.Replace('\\', '/');
@@ -240,7 +354,7 @@ public sealed class FrontendRebuildIsolationTests
     }
 
     private static bool IsLabOwnedStylesheet(string relative) =>
-        string.Equals(relative, "web/src/styles/design-lab.css", StringComparison.Ordinal);
+        LabOwnedStylesheet.IsMatch(relative.Replace('\\', '/'));
 
     private static void AddIfContains(List<string> violations, string relative, string content, string needle)
     {

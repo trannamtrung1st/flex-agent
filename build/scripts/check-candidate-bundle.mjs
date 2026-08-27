@@ -15,6 +15,12 @@ const forbidden = [
   ".demo-plate",
   "html[data-surface=\"gallery\"]",
   "html[data-surface=\"surfaces-index\"]",
+  "html[data-surface=\"participant-home\"]",
+  "html[data-surface=\"participant-journey\"]",
+  "html[data-surface=\"participant-session\"]",
+  "html[data-surface=\"admin-console\"]",
+  "html[data-surface=\"reviewer-console\"]",
+  "html[data-surface=\"not-found\"]",
 ];
 
 let files = [];
