@@ -39,7 +39,8 @@
 }
 
 [data-theme="light"] .field-input,
-[data-theme="light"] .field-textarea {
+[data-theme="light"] .field-textarea,
+[data-theme="light"] .field-number {
   background: rgba(227, 236, 240, 0.92);
 }
 

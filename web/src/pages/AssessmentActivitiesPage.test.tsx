@@ -110,6 +110,12 @@ describe("AssessmentActivitiesPage", () => {
       loadSourceOptions,
     });
     expect(await screen.findByRole("link", { name: /Existing/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Existing/ })).toHaveClass("composition-inline");
+    expect(screen.getByRole("link", { name: /Existing/ })).toHaveAttribute("data-flow-wrap", "false");
+    expect(screen.getByRole("heading", { name: "Activity list" }).closest(".workspace-section")?.parentElement).toHaveAttribute(
+      "data-flow-gap",
+      "none",
+    );
     expect(screen.queryByRole("heading", { name: "Create assessment Campaign" })).not.toBeInTheDocument();
     expect(loadSourceOptions).not.toHaveBeenCalled();
   });

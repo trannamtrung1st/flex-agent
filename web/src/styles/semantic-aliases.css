@@ -23,9 +23,13 @@
   --border-focus: var(--teal);
   --font-display: var(--font-plaque);
   --shell-max-width: 72rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-8: 2rem;
+  --content-width-prose: 68ch;
+  --content-width-form: 52rem;
+  --content-width-content: var(--shell-max-width);
+  --grid-min-compact: 10rem;
+  --grid-min-control: 16rem;
+  --grid-min-panel: 20rem;
+  --grid-min-wide: 28rem;
   --focus-outline: 1px solid var(--teal);
   --focus-offset: 3px;
 }

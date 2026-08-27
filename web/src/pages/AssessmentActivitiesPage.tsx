@@ -13,10 +13,7 @@ import {
   type ProductionSourceOption,
   type ProductionSourceRef,
 } from "../api/production-assessment";
-import { Alert } from "../components/ui/Alert";
-import { ErrorSummary, type ErrorSummaryItem } from "../components/ui/ErrorSummary";
-import { ProtectedLoading } from "../components/ui/ProtectedLoading";
-import { EmptyPlate, Key, OperateArea, StateReadout } from "../design-system";
+import { Alert, ErrorSummary, WaitPanel, type ErrorSummaryItem, Container, EmptyPlate, Inline, Key, OperateArea, Stack, StateReadout } from "../design-system";
 import { FieldInput } from "../design-system/components/fields/FieldControls";
 import { FormField } from "../design-system/components/fields/FormField";
 import {
@@ -106,7 +103,7 @@ export function AssessmentActivitiesPage({
         title="Activities"
         description="Create and resume Assessment Campaign drafts."
       >
-        <ProtectedLoading label="Loading activities…" />
+        <WaitPanel label="Loading activities…" />
       </OperateArea>
     );
   }
@@ -159,15 +156,19 @@ export function AssessmentActivitiesPage({
       title="Activities"
       description="Create and resume Assessment Campaign drafts."
     >
+      <Stack gap="none">
       {canCreate ? (
-        <section className="workspace-section" aria-labelledby="create-heading">
+        <Stack as="section" className="workspace-section" gap="4" aria-labelledby="create-heading">
           <h2 id="create-heading">Create assessment Campaign</h2>
           {missingCategory ? (
             <Alert variant="info" title={`No permitted ${missingCategory.replaceAll("_", " ")} revisions are available`}>
               A ready source set is required before a draft can be created.
             </Alert>
           ) : (
-            <form
+            <Container size="form">
+            <Stack
+              as="form"
+              gap="5"
               className="workspace-form"
               onSubmit={(event) => {
                 void form.handleSubmit((values) => {
@@ -203,7 +204,7 @@ export function AssessmentActivitiesPage({
               ) : null}
               <FormField
                 id={titleId}
-                className="field-stack"
+                layout="stack"
                 label="Campaign title"
                 error={fieldErrors.title?.message}
               >
@@ -216,7 +217,7 @@ export function AssessmentActivitiesPage({
                   />
                 )}
               </FormField>
-              <fieldset className="workspace-source-set">
+              <Stack as="fieldset" gap="5" className="workspace-source-set">
                 <legend>Sources</legend>
                 {REQUIRED_SOURCE_CATEGORIES.map((category) => {
                   const options = sources.filter((source) => source.category === category);
@@ -229,7 +230,7 @@ export function AssessmentActivitiesPage({
                     <FormField
                       key={category}
                       id={fieldId}
-                      className="field-stack"
+                      layout="stack"
                       label={category.replaceAll("_", " ")}
                       error={message}
                     >
@@ -252,16 +253,17 @@ export function AssessmentActivitiesPage({
                     </FormField>
                   );
                 })}
-              </fieldset>
+              </Stack>
               <Key type="submit" variant="transmit" disabled={createMutation.isPending || Boolean(missingCategory)} waiting={createMutation.isPending}>
                 {createMutation.isPending ? "Creating…" : "Create assessment Campaign"}
               </Key>
-            </form>
+            </Stack>
+            </Container>
           )}
-        </section>
+        </Stack>
       ) : null}
 
-      <section className="workspace-section" aria-labelledby="activities-list-heading">
+      <Stack as="section" className="workspace-section" gap="4" aria-labelledby="activities-list-heading">
         <h2 id="activities-list-heading">Activity list</h2>
         {data?.activities.length === 0 ? (
           <EmptyPlate
@@ -270,10 +272,17 @@ export function AssessmentActivitiesPage({
             note="No activities are available."
           />
         ) : (
-          <ul className="activity-list" aria-label="Activities">
+          <Stack as="ul" gap="none" className="activity-list" aria-label="Activities">
             {data?.activities.map((activity) => (
               <li key={activity.activity_id}>
-                <Link className="activity-link" to={`/activities/${activity.activity_id}/setup`}>
+                <Inline
+                  as={Link}
+                  className="activity-link"
+                  to={`/activities/${activity.activity_id}/setup`}
+                  justify="between"
+                  wrap={false}
+                  gap="4"
+                >
                   <span>{activity.title}</span>
                   <StateReadout
                     variant={activity.has_activated_cohort ? "sealed" : "rest"}
@@ -282,12 +291,13 @@ export function AssessmentActivitiesPage({
                     className="state-cell"
                     labelClassName="state-label"
                   />
-                </Link>
+                </Inline>
               </li>
             ))}
-          </ul>
+          </Stack>
         )}
-      </section>
+      </Stack>
+      </Stack>
     </OperateArea>
   );
 }

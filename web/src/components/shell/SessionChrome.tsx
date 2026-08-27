@@ -1,17 +1,21 @@
 import type { ReactNode } from "react";
-import { CommandStrip, Key, OperateArea } from "../../design-system";
-import { ProtectedLoading } from "../ui/ProtectedLoading";
+import { Key, LayoutAssignment, ManagementLayout, OperateArea, WaitPanel } from "../../design-system";
 import { ThemeToggle } from "./ThemeToggle";
+
+const statusStrip = {
+  homeTo: "/",
+  homeLabel: "Home",
+  origin: true,
+  identLeading: <ThemeToggle />,
+} as const;
 
 export function UnauthenticatedChrome({ children }: { children: ReactNode }) {
   return (
-    <div className="workspace-root">
-      <a href="#main-content" className="skip-link">Skip to main content</a>
-      <CommandStrip homeTo="/" homeLabel="Home" origin identLeading={<ThemeToggle />} />
-      <div id="main-content" className="workspace-main">
+    <LayoutAssignment id="management">
+      <ManagementLayout commandStrip={{ ...statusStrip }}>
         {children}
-      </div>
-    </div>
+      </ManagementLayout>
+    </LayoutAssignment>
   );
 }
 
@@ -24,7 +28,7 @@ export function SessionLoadingScreen() {
         title="Establishing session"
         description="Confirming the production application session for this organization."
       >
-        <ProtectedLoading label="Establishing session context…" />
+        <WaitPanel label="Establishing session context…" />
       </OperateArea>
     </UnauthenticatedChrome>
   );

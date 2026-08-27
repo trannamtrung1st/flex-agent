@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { ErrorBoundary } from "./ErrorBoundary";
 
 function Boom(): never {
@@ -10,12 +11,15 @@ describe("ErrorBoundary", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     render(
-      <ErrorBoundary>
-        <Boom />
-      </ErrorBoundary>,
+      <MemoryRouter>
+        <ErrorBoundary>
+          <Boom />
+        </ErrorBoundary>
+      </MemoryRouter>,
     );
 
     expect(screen.getByRole("heading", { name: "Something went wrong" })).toBeInTheDocument();
+    expect(screen.getAllByRole("main")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
     expect(screen.queryByText(/cutover/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/SPA/i)).not.toBeInTheDocument();

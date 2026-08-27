@@ -75,6 +75,36 @@ describe("candidate style entry graph", () => {
     }
   });
 
+  it("does not open a horizontal scrollport on etched plates", () => {
+    const plates = readFileSync(join(srcRoot, "styles/components/plates.css"), "utf8");
+    const appShell = readFileSync(join(srcRoot, "styles/app-shell.css"), "utf8");
+    const frameCut = plates.match(/\.frame-cut \{[^}]+\}/)?.[0] ?? "";
+    const frameNode = plates.match(/\.frame-in > \.frame-node \{[^}]+\}/)?.[0] ?? "";
+    const workspaceScroll = appShell.match(
+      /\.workspace-area > \.frame-cut > \.frame-in > \.frame-scroll \{[^}]+\}/,
+    )?.[0] ?? "";
+
+    expect(frameCut).toMatch(/--frame-node-size:\s*8px/);
+    expect(frameCut).toMatch(/--frame-node-hang:\s*-4px/);
+    expect(frameNode).toMatch(/right:\s*var\(--frame-node-hang\)/);
+    expect(frameNode).toMatch(/width:\s*var\(--frame-node-size\)/);
+    expect(workspaceScroll).toMatch(/overflow-x:\s*(?:hidden|clip)/);
+    expect(workspaceScroll).toMatch(/overflow-y:\s*auto/);
+    expect(appShell).not.toMatch(
+      /\.workspace-area > \.frame-cut > \.frame-in \{[^}]*overflow:\s*auto/,
+    );
+  });
+
+  it("keeps datatable horizontal overflow on the table scrollport, not the etched frame", () => {
+    const datatable = readFileSync(join(srcRoot, "styles/components/datatable.css"), "utf8");
+    const frame = datatable.match(/\.datatable-frame \{[^}]+\}/)?.[0] ?? "";
+    const scroll = datatable.match(/\.datatable-scroll \{[^}]+\}/)?.[0] ?? "";
+
+    expect(frame).toMatch(/overflow-x:\s*visible/);
+    expect(frame).not.toMatch(/overflow-x:\s*auto/);
+    expect(scroll).toMatch(/overflow-x:\s*auto/);
+  });
+
   it("does not keep a combined styles index the candidate can import", () => {
     expect(existsSync(join(srcRoot, "styles/index.css"))).toBe(false);
   });

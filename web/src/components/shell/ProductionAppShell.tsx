@@ -1,19 +1,19 @@
-import { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import {
-  AreaGroupList,
-  Bulkhead,
-  CommandStrip,
-  Gangway,
+  Alert,
   Key,
+  LayoutAssignment,
+  ManagementLayout,
   type GangwayGroup,
   type OperatorIdentity,
   type OperatorRole,
 } from "../../design-system";
 import { maxWidthQuery } from "../../lib/breakpoints";
+import { layoutIdForPath } from "../../router/route-layout-match";
+import { PRODUCTION_ROUTE_LAYOUTS } from "../../router/production-route-layouts";
+import { requireProductionShellLayout } from "../../router/require-production-shell-layout";
 import { useMediaQuery } from "../../lib/useMediaQuery";
 import { useProductionApi } from "../../api/production-api";
-import { Alert } from "../ui/Alert";
 import { SessionLoadingScreen, SessionStatusScreen, SignOutRetryKey } from "./SessionChrome";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { ThemeToggle } from "./ThemeToggle";
@@ -46,8 +46,6 @@ export function ProductionAppShell() {
   const { apiState, errorMessage, logout, shell } = useProductionApi();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
-  const [gangwayCollapsed, setGangwayCollapsed] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
   const isDrawerLayout = useMediaQuery(maxWidthQuery("adminDrawer"));
 
   if (apiState === "loading") {
@@ -118,77 +116,51 @@ export function ProductionAppShell() {
     return location.pathname === destination.route || location.pathname.startsWith(`${destination.route}/`);
   })?.label ?? "Home";
 
-  return (
-    <div className="workspace-root">
-      <a href="#main-content" className="skip-link">Skip to main content</a>
-      <CommandStrip
-        homeTo="/"
-        homeLabel="Home"
-        origin
-        readout="Organization"
-        profile={identity}
-        identLeading={(
-          <>
-            {!isDrawerLayout ? <ThemeToggle theme={theme} onToggle={toggleTheme} /> : null}
-            <Key variant="quiet" size="compact" onClick={() => { void logout(); }}>
-              Sign out
-            </Key>
-          </>
-        )}
-        actions={isDrawerLayout
-          ? [{
-              id: "theme",
-              label: theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
-              state: "enabled",
-              onSelect: toggleTheme,
-            }]
-          : []}
-      />
-      {apiState === "ready" && errorMessage ? (
-        <Alert variant="danger" title="Request could not be completed">{errorMessage}</Alert>
-      ) : null}
+  const assigned = requireProductionShellLayout(
+    layoutIdForPath(location.pathname, PRODUCTION_ROUTE_LAYOUTS),
+    location.pathname,
+  );
 
-      <div className="workspace-shell">
-        {!isDrawerLayout ? (
-          <Gangway
-            title={role}
-            groups={groups}
-            collapsed={gangwayCollapsed}
-            onCollapsedChange={setGangwayCollapsed}
-            ariaLabel="Primary navigation"
-          />
-        ) : null}
-        <div className="workspace-content">
-          {isDrawerLayout ? (
-            <div className="workspace-drawer-bar">
-              <span className="workspace-drawer-label">{currentLabel}</span>
-              <Key
-                size="compact"
-                ariaExpanded={navOpen}
-                ariaControls="workspaceNavBulkhead"
-                onClick={() => setNavOpen(true)}
-              >
-                Menu
+  return (
+    <LayoutAssignment id={assigned}>
+      <ManagementLayout
+        commandStrip={{
+          homeTo: "/",
+          homeLabel: "Home",
+          origin: true,
+          readout: "Organization",
+          profile: identity,
+          identLeading: (
+            <>
+              {!isDrawerLayout ? <ThemeToggle theme={theme} onToggle={toggleTheme} /> : null}
+              <Key variant="quiet" size="compact" onClick={() => { void logout(); }}>
+                Sign out
               </Key>
-            </div>
-          ) : null}
-          <div id="main-content" className="workspace-main">
-            <Breadcrumbs />
-            <Outlet />
-          </div>
-        </div>
-      </div>
-      <Bulkhead
-        id="workspaceNavBulkhead"
-        open={isDrawerLayout && navOpen}
-        onClose={() => setNavOpen(false)}
-        title={role}
-        titleId="workspaceNavBulkheadTitle"
+            </>
+          ),
+          actions: isDrawerLayout
+            ? [{
+                id: "theme",
+                label: theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
+                state: "enabled",
+                onSelect: toggleTheme,
+              }]
+            : [],
+        }}
+        navigation={{
+          title: role,
+          groups,
+          currentLabel,
+          ariaLabel: "Primary navigation",
+          bulkheadId: "workspaceNavBulkhead",
+        }}
+        banner={apiState === "ready" && errorMessage ? (
+          <Alert variant="danger" title="Request could not be completed">{errorMessage}</Alert>
+        ) : null}
+        breadcrumbs={<Breadcrumbs />}
       >
-        <nav className="nav-rail" aria-label="Primary navigation">
-          <AreaGroupList groups={groups} variant="rail" onNavigate={() => setNavOpen(false)} />
-        </nav>
-      </Bulkhead>
-    </div>
+        <Outlet />
+      </ManagementLayout>
+    </LayoutAssignment>
   );
 }

@@ -1,5 +1,64 @@
 export const DESIGN_LAB_CAMPAIGN_TIME_ZONE = "America/Chicago";
 
+export type ViewerInstantDisplay = {
+  datetime: string;
+  label: string;
+  title: string;
+};
+
+export function resolveViewerTimeZone(timeZone?: string) {
+  if (timeZone) return timeZone;
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+function shortTimeZoneName(date: Date, timeZone: string) {
+  const name = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    timeZoneName: "short",
+    hour: "2-digit",
+  })
+    .formatToParts(date)
+    .find((part) => part.type === "timeZoneName")?.value;
+  return name ?? timeZone;
+}
+
+function formatZonedClock(date: Date, timeZone: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
+export function formatViewerInstant(isoUtc: string, timeZone?: string): ViewerInstantDisplay {
+  const zone = resolveViewerTimeZone(timeZone);
+  const date = new Date(isoUtc);
+  if (Number.isNaN(date.getTime())) {
+    const fallback = `${isoUtc} (${zone} unavailable; UTC ${isoUtc})`;
+    return { datetime: isoUtc, label: fallback, title: fallback };
+  }
+  const datetime = date.toISOString();
+  try {
+    const clock = formatZonedClock(date, zone);
+    const shortZone = shortTimeZoneName(date, zone);
+    return {
+      datetime,
+      label: `${clock} ${shortZone}`,
+      title: `${clock} ${zone} · UTC ${datetime}`,
+    };
+  } catch {
+    const fallback = `${datetime} (${zone} unavailable; UTC ${datetime})`;
+    return { datetime, label: fallback, title: fallback };
+  }
+}
+
 export function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }

@@ -1,4 +1,4 @@
-import { Key, OperateArea } from "../design-system";
+import { Key, OperateArea, Stack } from "../design-system";
 import { useProductionApi } from "../api/production-api";
 
 export function ProductionHomePage() {
@@ -22,7 +22,7 @@ export function ProductionHomePage() {
       }
     >
       {activitiesAvailable || myWorkAvailable ? (
-        <div className="home-destinations">
+        <Stack gap="3" align="start" className="home-destinations">
           {activitiesAvailable ? (
             <Key variant="open" to="/activities">
               Open Activities
@@ -39,7 +39,7 @@ export function ProductionHomePage() {
           {!myWorkAvailable ? (
             <p className="home-unavailable">My work is not available for the current authorized relationship.</p>
           ) : null}
-        </div>
+        </Stack>
       ) : null}
     </OperateArea>
   );

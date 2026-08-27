@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { BrandMark, Key, OperateArea } from "../design-system";
+import { Key, LayoutAssignment, ManagementLayout, OperateArea } from "../design-system";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -23,14 +23,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   public render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <div className="workspace-root">
-          <a href="#main-content" className="skip-link">Skip to main content</a>
-          <header className="command-strip">
-            <span className="strip-brand strip-brand--origin">
-              <BrandMark />
-            </span>
-          </header>
-          <div id="main-content" className="workspace-main">
+        <LayoutAssignment id="management">
+          <ManagementLayout commandStrip={{ homeTo: "/", homeLabel: "Home", origin: true }}>
             <OperateArea
               className="workspace-area workspace-area--danger"
               label="Something went wrong"
@@ -39,8 +33,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             >
               <Key onClick={() => window.location.reload()}>Reload</Key>
             </OperateArea>
-          </div>
-        </div>
+          </ManagementLayout>
+        </LayoutAssignment>
       );
     }
 

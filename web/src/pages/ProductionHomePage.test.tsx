@@ -46,7 +46,9 @@ describe("ProductionHomePage", () => {
       </FlexQueryProvider>,
     );
 
-    expect(await screen.findByRole("link", { name: "Open Activities" })).toHaveAttribute("href", "/activities");
+    const activities = await screen.findByRole("link", { name: "Open Activities" });
+    expect(activities).toHaveAttribute("href", "/activities");
+    expect(activities.closest(".composition-stack")).toHaveClass("home-destinations");
     expect(screen.getByText("My work is not available for the current authorized relationship.")).toBeInTheDocument();
   });
 });
