@@ -44,6 +44,39 @@ must still verify every token pairing in both themes.
 Exact versions are pinned in `web/package.json`. Self-host only. Include OFL
 notices with the SPA license inventory.
 
+## Shared layout library (2026-08-27)
+
+Closed shell set `management` / `guided-task` / `live-session` / `reference`
+is implemented in `web/src/design-system/patterns/layouts/` with CSS in
+`web/src/styles/components/layouts.css`. Production pages cannot custom-compose
+outer chrome. `reference` remains design-lab only.
+
+## Typography gallery (2026-08-27)
+
+Component Deck Foundations now include `typography` after Type voices: heading,
+body, technical, and link roles from `foundation/typography.md`. Specimens use
+visual roles, not extra document headings.
+
+## Layout primitives (2026-08-27)
+
+Inner composition `Stack`, `Inline`, `Grid`, `Container`, `Inset`, and `SplitBay`
+live in `web/src/design-system/components/layout/` with CSS in
+`web/src/styles/components/layout-primitives.css`. They consume the spacing
+ladder (`--space-*`) and content-width tokens. They are not a fifth shell.
+`SplitBay` is the named start/main/end track for a management ledger (reviewer
+console). Wrapping `Inline` children keep content size (`flex-shrink: 0`); `wrap={false}`
+shrinks onto one row. Component Deck Composition sections are live
+specimens only. Management work-bay variants
+(index, nested record with `BackKey`, empty, split ledger) are Component Deck specimens of
+`OperateArea` inside that shell.
+
+Management and reference-catalog mains wrap slot content in `Inset`
+(`composition-inset--shell-main`; `--shell-main-inset-inline` / 22px,
+`--shell-main-inset-block` / 16px) by default. Page bays must not add a
+second edge pad. Pages pass `contain={false}` for flush bays (Status Bays,
+reviewer record, live-session transcript). Guided-task and live-session default
+to no wrap.
+
 ## Implementation mapping (2026-08-27)
 
 Recorded so agents do not treat root `DESIGN.md` or unused `--fa-*` names as
@@ -64,6 +97,11 @@ the token source:
   narrow width and 400% zoom. This implements the already-approved reflow rule
   in `foundation/layout.md` and `docs/ui-ux/text-session.md`; it does not
   introduce new product behavior.
+- **Number field (2026-08-27):** `FieldNumber` in
+  `web/src/design-system/components/fields/FieldNumber.tsx` with CSS in
+  `fields.css`. Native spin buttons remain hidden; authored chevron keys
+  provide increment/decrement. Component Deck Form controls shows text and
+  number specimens side by side.
 
 ## Adopted visual concepts
 

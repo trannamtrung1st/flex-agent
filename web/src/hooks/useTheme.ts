@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import type { Theme } from "../lib/theme";
 
-export type Theme = "light" | "dark";
+export type { Theme } from "../lib/theme";
 
 function resolveInitialTheme(): Theme {
   if (typeof window === "undefined") {

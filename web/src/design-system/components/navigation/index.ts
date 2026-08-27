@@ -4,6 +4,7 @@ export {
   type GangwayGroup,
   type GangwayItem,
 } from "./Gangway";
+export { BreadcrumbNav, type BreadcrumbNavItem } from "./BreadcrumbNav";
 export { IndexRail, type IndexRailGroup } from "./IndexRail";
 export {
   hashNavigationStrategy,

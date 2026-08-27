@@ -21,5 +21,6 @@ describe("ErrorSummary", () => {
     render(<ErrorSummary title="Correct the following" errors={["Enter a Campaign title"]} />);
     expect(screen.getByText("Error")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Correct the following" })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveClass("composition-stack");
   });
 });

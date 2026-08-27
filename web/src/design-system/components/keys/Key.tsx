@@ -1,5 +1,5 @@
 import { Link, type To } from "react-router-dom";
-import { forwardRef, useId, type KeyboardEvent, type ReactNode } from "react";
+import { forwardRef, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { cx } from "../../../lib/cx";
 import { TooltipHost } from "./TooltipHost";
 
@@ -12,10 +12,16 @@ function keySizeClass(size: KeySize) {
   return undefined;
 }
 
+function isTextLabel(children: ReactNode) {
+  return typeof children === "string" || typeof children === "number";
+}
+
 export const Key = forwardRef<HTMLButtonElement, {
   variant?: KeyVariant;
   size?: KeySize;
   waiting?: boolean;
+  /** Horizontal ellipsis when the caption can clip. Do not use this to stretch keys in a group. */
+  truncate?: boolean;
   type?: "button" | "submit";
   to?: To;
   disabled?: boolean;
@@ -36,6 +42,7 @@ export const Key = forwardRef<HTMLButtonElement, {
   variant = "quiet",
   size = "standard",
   waiting,
+  truncate,
   type = "button",
   to,
   disabled,
@@ -54,6 +61,7 @@ export const Key = forwardRef<HTMLButtonElement, {
   disabledReason,
 }, ref) {
   const reasonId = useId();
+  const labelRef = useRef<HTMLSpanElement>(null);
   const describedBy = cx(ariaDescribedBy, disabled && disabledReason ? reasonId : undefined) || undefined;
   const label = disabled && disabledReason && ariaLabel
     ? ariaLabel
@@ -65,8 +73,13 @@ export const Key = forwardRef<HTMLButtonElement, {
       ? `${typeof children === "string" ? children : "Action"}. ${disabledReason}`
       : label;
 
-  const cls = cx("key", `key--${variant}`, keySizeClass(size), waiting && "is-waiting", className);
-  const plaque = tooltip ?? (disabled && disabledReason ? disabledReason : undefined);
+  const cls = cx("key", `key--${variant}`, keySizeClass(size), waiting && "is-waiting", truncate && "key--truncate", className);
+  const caption = isTextLabel(children) ? String(children) : undefined;
+  const distinctTip = tooltip && caption && tooltip === caption ? undefined : tooltip;
+  const truncateTip = truncate ? distinctTip ?? caption : undefined;
+  const plaque = disabled && disabledReason
+    ? disabledReason
+    : (truncateTip ?? distinctTip);
 
   const reasonNode = disabled && disabledReason ? (
     <span id={reasonId} className="visually-hidden">
@@ -74,9 +87,18 @@ export const Key = forwardRef<HTMLButtonElement, {
     </span>
   ) : null;
 
+  const labelNode =
+    truncate || isTextLabel(children)
+      ? <span ref={truncate ? labelRef : undefined} className="key-label">{children}</span>
+      : children;
+
   if (to) {
     return (
-      <TooltipHost tip={plaque}>
+      <TooltipHost
+        tip={plaque}
+        tipOnlyWhenTruncated={truncate}
+        truncationRef={truncate ? labelRef : undefined}
+      >
         <Link
           id={id}
           className={cls}
@@ -93,7 +115,8 @@ export const Key = forwardRef<HTMLButtonElement, {
           aria-label={effectiveAriaLabel}
           aria-describedby={describedBy}
         >
-          {children}
+          {waiting ? <span className="wait-mark" aria-hidden="true" /> : null}
+          {labelNode}
         </Link>
         {reasonNode}
       </TooltipHost>
@@ -101,7 +124,11 @@ export const Key = forwardRef<HTMLButtonElement, {
   }
 
   return (
-    <TooltipHost tip={plaque}>
+    <TooltipHost
+      tip={plaque}
+      tipOnlyWhenTruncated={truncate}
+      truncationRef={truncate ? labelRef : undefined}
+    >
       <button
         ref={ref}
         id={id}
@@ -119,7 +146,7 @@ export const Key = forwardRef<HTMLButtonElement, {
         aria-describedby={describedBy}
       >
         {waiting ? <span className="wait-mark" aria-hidden="true" /> : null}
-        {children}
+        {labelNode}
       </button>
       {reasonNode}
     </TooltipHost>

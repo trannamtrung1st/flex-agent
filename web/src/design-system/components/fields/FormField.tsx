@@ -10,6 +10,31 @@ export type FormFieldControlMeta = {
   labelId: string;
 };
 
+export type FormFieldLayout = "row" | "stack" | "pair";
+
+function formFieldLayoutClass(layout: FormFieldLayout) {
+  if (layout === "stack") return "field-stack";
+  if (layout === "pair") return "field-pair";
+  return "form-row";
+}
+
+function resolveFormFieldClassName(layout: FormFieldLayout, className?: string) {
+  if (!className) return formFieldLayoutClass(layout);
+  if (
+    className === "form-row" ||
+    className === "field-stack" ||
+    className === "field-pair" ||
+    className.startsWith("form-row ") ||
+    className.startsWith("field-stack ") ||
+    className.startsWith("field-pair ") ||
+    className === "form-demo-row" ||
+    className.startsWith("form-demo-row ")
+  ) {
+    return className;
+  }
+  return `${formFieldLayoutClass(layout)} ${className}`;
+}
+
 export function FormField({
   id,
   label,
@@ -17,7 +42,8 @@ export function FormField({
   hint,
   describedBy,
   invalid,
-  className = "form-row",
+  layout = "row",
+  className,
   labelClassName = "field-label",
   errorClassName = "field-error",
   hintClassName = "field-hint",
@@ -30,6 +56,8 @@ export function FormField({
   hint?: ReactNode;
   describedBy?: string;
   invalid?: boolean;
+  /** Horizontal label row (default), stacked label/control (dialogs, bulkheads), or compact pair grid. */
+  layout?: FormFieldLayout;
   className?: string;
   labelClassName?: string;
   errorClassName?: string;
@@ -43,9 +71,10 @@ export function FormField({
   const errorId = `${id}Error`;
   const isInvalid = invalid ?? Boolean(error);
   const ariaDescribedBy = [describedBy, hint ? hintId : null, error ? errorId : null].filter(Boolean).join(" ") || undefined;
+  const rootClassName = resolveFormFieldClassName(layout, className);
 
   return (
-    <div className={className}>
+    <div className={rootClassName}>
       {labelAssociatesControl ? (
         <label className={labelClassName} id={labelId} htmlFor={id}>
           {label}

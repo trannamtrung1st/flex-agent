@@ -5,6 +5,11 @@
    the component. Layout shells and surface-tuned glyphs stay in surface CSS.
    ═══════════════════════════════════════════════════════════════════ */
 
+.icon-sm {
+  width: 14px;
+  height: 14px;
+}
+
 /* ═══ Keys (buttons) ═════════════════════════════════════════════ */
 
 .key {
@@ -18,14 +23,82 @@
   letter-spacing: var(--key-letter-spacing);
   padding: var(--key-padding-block) var(--key-padding-inline);
   display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 10px;
+  line-height: 1;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   text-decoration: none;
+  white-space: nowrap;
   transition: color 160ms var(--ease-out), border-color 160ms var(--ease-out),
               background-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
 }
 
-.key svg { width: var(--key-glyph-size); height: var(--key-glyph-size); flex-shrink: 0; }
+.key-label {
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  line-height: 1;
+  white-space: nowrap;
+  flex: 0 1 auto;
+  align-self: center;
+}
+
+.key--truncate .key-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1 1 auto;
+}
+
+.key--truncate {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Truncating keys must shrink inside grid/flex parents, not size to label width. */
+.tip-host:has(.key--truncate) {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tip-host:has(.key--truncate) > .key,
+.tip-host:has(.key--truncate) > a.key {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
+.key-group > .tip-host {
+  display: flex;
+  min-width: 0;
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+
+.key-group > .tip-host > .key,
+.key-group > .tip-host > a.key {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+}
+
+.key > svg,
+.key > .icon-sm {
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  align-self: center;
+  display: block;
+}
 
 .key--quiet {
   padding: var(--key-quiet-padding-block) var(--key-quiet-padding-inline);

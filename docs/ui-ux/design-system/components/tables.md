@@ -2,7 +2,10 @@
 
 Dense datatable grammar: mono about 0.72rem, tabular numerals, separate
 borders so sticky heads travel, opaque header fill, 18px inline gutter shared
-with toolbar and pagination.
+with toolbar and pagination. Body-only dockets keep that side gutter and add
+only 4px of floor so the last row clears the bottom chamfer. The etched frame
+has no inner well — hull pad stays outside the plate — and keeps the bottom
+center tick only so the first header row is not competing with top furniture.
 
 ## Behavior
 

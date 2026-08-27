@@ -103,6 +103,116 @@
   margin: 0;
 }
 
+/* Number slot: same bezel as .field-input, authored inc/dec instead of OS
+   spin buttons. Frozen withdraws the stepper the way selects withdraw chevrons. */
+.field-number {
+  display: inline-flex;
+  align-items: stretch;
+  box-sizing: border-box;
+  width: 108px;
+  max-width: 100%;
+  border: 1px solid var(--hairline);
+  background: rgba(2, 9, 14, 0.55);
+  transition: border-color 180ms var(--ease-out);
+}
+
+.field-number.field-input--narrow { width: 84px; }
+
+.field-number.field-input--wide {
+  display: flex;
+  width: 100%;
+}
+
+.field-number .field-input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding-right: 8px;
+}
+
+.field-number .field-input:focus {
+  outline: none;
+  border-color: transparent;
+}
+
+.field-number .field-input.is-invalid {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.field-number:focus-within {
+  border-color: rgba(60, 192, 191, 0.6);
+}
+
+.field-number.is-invalid {
+  border-color: var(--amber);
+  box-shadow: 0 0 10px var(--amber-glow);
+}
+
+.field-number.is-frozen {
+  width: auto;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.field-number.is-frozen .field-input {
+  padding-left: 0;
+}
+
+.field-number-steps {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 22px;
+  border-left: 1px solid var(--hairline);
+}
+
+.field-number-step {
+  flex: 1 1 50%;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--label);
+  cursor: pointer;
+  transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
+}
+
+.field-number-step + .field-number-step {
+  border-top: 1px solid var(--hairline);
+}
+
+.field-number-step:hover,
+.field-number-step:focus-visible {
+  color: var(--teal);
+  background: var(--teal-glow);
+}
+
+.field-number-step:focus-visible {
+  outline: 1px solid var(--teal);
+  outline-offset: -1px;
+}
+
+.field-number-step:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: transparent;
+  color: var(--label-dim);
+}
+
+.field-number-step .chevron-glyph {
+  width: 8px;
+  height: 5px;
+}
+
+.field-number-step--inc .chevron-glyph {
+  transform: rotate(180deg);
+}
+
 .field-input:focus { outline: none; border-color: rgba(60, 192, 191, 0.6); }
 .field-input::placeholder { color: var(--label-dim); }
 
@@ -170,8 +280,40 @@
 .field-stack {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: 8px;
   min-width: 0;
+}
+
+.field-stack > .field-hint,
+.field-stack > .field-error {
+  flex: none;
+  align-self: flex-start;
+  margin: 0;
+  padding: 0;
+  margin-top: -4px;
+  max-width: 100%;
+}
+
+/* stacked fields and unattached errors in narrow plates */
+.dialog-body > .field-stack,
+.ceremony-body > .field-stack,
+.bulkhead-body > .field-stack {
+  margin-top: 2px;
+}
+
+.dialog-body > p:first-child + .field-stack,
+.ceremony-body > p:first-child + .field-stack,
+.bulkhead-body > p:first-child + .field-stack {
+  margin-top: 14px;
+}
+
+.dialog-body > .field-error,
+.ceremony-body > .field-error {
+  align-self: flex-start;
+  margin: 10px 0 0;
+  padding: 0;
+  max-width: 100%;
 }
 
 .field-textarea {

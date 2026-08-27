@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Advisory } from "../../design-system";
+import { Advisory } from "../chrome/OperateHead";
+import { Stack } from "../layout/Stack";
 
 export function Alert({
   variant = "info",
@@ -11,15 +12,16 @@ export function Alert({
   children?: ReactNode;
 }) {
   return (
-    <div role={variant === "danger" ? "alert" : "status"} className="workspace-alert">
+    <Stack role={variant === "danger" ? "alert" : "status"} className="workspace-alert" gap="none">
       {title ? (
         <Advisory
           label={variant === "danger" ? "Error" : "Note"}
           copy={title}
           attention={variant === "danger"}
+          live={false}
         />
       ) : null}
       {children ? <div className="workspace-alert-body">{children}</div> : null}
-    </div>
+    </Stack>
   );
 }

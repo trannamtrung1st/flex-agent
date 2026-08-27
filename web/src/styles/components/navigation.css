@@ -527,7 +527,10 @@ body.is-bulkhead-open { overflow: hidden; }
 
 .gangway-link.is-current .gangway-tick,
 .gangway-link[aria-current="page"] .gangway-tick,
-.gangway-link[aria-current="location"] .gangway-tick {
+.gangway-link[aria-current="location"] .gangway-tick,
+.nav-link.is-current .gangway-tick,
+.nav-link[aria-current="page"] .gangway-tick,
+.nav-link[aria-current="location"] .gangway-tick {
   background: var(--teal);
 }
 
@@ -549,6 +552,12 @@ body.is-bulkhead-open { overflow: hidden; }
 .gangway-link[aria-current="page"] .gangway-abbr,
 .gangway-link[aria-current="location"] .gangway-abbr {
   color: var(--text-bright);
+}
+
+.gangway-link-text,
+.gangway-label,
+.gangway-abbr {
+  line-height: 1;
 }
 
 /* the label clips itself as the rail folds; opacity-0 text keeps the
@@ -658,5 +667,39 @@ body.is-bulkhead-open { overflow: hidden; }
   margin: 0;
   line-height: 1.45;
   text-wrap: pretty;
+}
+
+/* ═══ Breadcrumb navigation ═══════════════════════════════════════ */
+
+.breadcrumb-nav {
+  flex-shrink: 0;
+  padding-block: 14px 0;
+  padding-inline: var(--shell-main-inset-inline);
+}
+
+.breadcrumb-nav a {
+  color: var(--teal);
+}
+
+.breadcrumb-nav a:hover,
+.breadcrumb-nav a:focus-visible {
+  color: var(--text-bright);
+}
+
+.breadcrumb-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  list-style: none;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--label-dim);
+}
+
+.breadcrumb-separator {
+  margin-right: 6px;
+  color: var(--label-dim);
 }
 

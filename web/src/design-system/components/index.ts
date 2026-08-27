@@ -1,5 +1,20 @@
 export { ActionMenuGlyph, ChevronGlyph, OperatorGlyph, TransmitChevron } from "./glyphs";
-export { BackKey, IconButton, Key, TooltipHost, type KeySize, type KeyVariant } from "./keys";
+export { Alert, ErrorSummary, WaitPanel, type ErrorSummaryItem } from "./feedback";
+export {
+  Container,
+  Grid,
+  Inline,
+  Inset,
+  SplitBay,
+  Stack,
+  type ContainerSize,
+  type GridMinItemWidth,
+  type LayoutAlign,
+  type LayoutJustify,
+  type LayoutSpace,
+  type SplitBayProps,
+} from "./layout";
+export { BackKey, EllipsisKey, IconButton, Key, KeyGroup, ThemeToggle, TooltipHost, type KeySize, type KeyVariant, type Theme } from "./keys";
 export {
   Advisory,
   Announcer,
@@ -13,6 +28,7 @@ export {
   RailBrand,
   StripBrand,
   type CommandStripNavItem,
+  type CommandStripProps,
   type OperatorAction,
   type OperatorIdentity,
   type OperatorRole,
@@ -31,7 +47,7 @@ export {
   type CeremonyDialogVariant,
   type ToastNotice,
 } from "./overlays";
-export { EmptyPlate, EtchedFrame, OperateArea } from "./plates";
+export { EmptyPlate, EtchedFrame, OperateArea, PlateFoot, PlateStatusMark, WorkWell, WorkWellHead, WorkWellSection } from "./plates";
 export {
   AcknowledgmentGate,
   ActivationMark,
@@ -47,20 +63,28 @@ export {
   Breaker,
   ControlLine,
   FieldInput,
+  FieldNumber,
   FieldTextarea,
   FormField,
   RadioGroup,
   MM_SS_HINT,
   MM_SS_PATTERN,
   mmSsError,
+  boundedReasonError,
+  BOUNDED_REASON_MIN,
+  clearValidationErrorOnValid,
+  trimmedTextError,
+  type FormFieldLayout,
 } from "./fields";
 export {
   AreaGroupList,
+  BreadcrumbNav,
   Gangway,
   IndexRail,
   SectionedNavigation,
   hashNavigationStrategy,
   routeNavigationStrategy,
+  type BreadcrumbNavItem,
   type GangwayGroup,
   type GangwayItem,
   type IndexRailGroup,

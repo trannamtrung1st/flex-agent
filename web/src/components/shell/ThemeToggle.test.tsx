@@ -12,6 +12,10 @@ describe("ThemeToggle", () => {
     const toggle = screen.getByRole("button", { name: /switch to (light|dark) theme/i });
     expect(toggle).toHaveTextContent(/theme/i);
     expect(toggle.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(toggle.querySelector(".key-label")).toBeTruthy();
+    expect(toggle.querySelector(".key-label")?.parentElement).toBe(toggle);
+    expect(toggle.querySelector("svg")?.parentElement).toBe(toggle);
+    expect(toggle).not.toHaveStyle({ justifyContent: "center" });
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 

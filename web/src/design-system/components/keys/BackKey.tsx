@@ -11,7 +11,7 @@ export function BackKey({ label, ...props }: BackKeyProps) {
       <svg viewBox="0 0 12 12" aria-hidden="true">
         <path d="M9 1L3 6l6 5" fill="none" stroke="currentColor" strokeWidth="1.6" />
       </svg>
-      <span>{label}</span>
+      <span className="key-label">{label}</span>
     </Key>
   );
 }

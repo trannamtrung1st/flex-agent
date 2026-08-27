@@ -1,4 +1,5 @@
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import { BreadcrumbNav, type BreadcrumbNavItem } from "../../design-system";
 
 const ResourceLocator = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -85,33 +86,16 @@ export function Breadcrumbs() {
   }
 
   const segments = pathname.split("/").filter(Boolean);
-  const crumbs = segments.map((segment, index) => {
+  const items: BreadcrumbNavItem[] = segments.map((segment, index) => {
     const path = `/${segments.slice(0, index + 1).join("/")}`;
     const label = labelForSegment(segment, index, segments);
+    const current = path === pathname;
     return {
-      path,
-      href: hrefForCrumb(path, label, segments[index - 1]),
       label,
+      href: current ? undefined : hrefForCrumb(path, label, segments[index - 1]),
+      current,
     };
   });
 
-  return (
-    <nav className="shell-breadcrumbs" aria-label="Breadcrumb">
-      <ol className="breadcrumb-list">
-        <li>
-          <Link to="/">Home</Link>
-        </li>
-        {crumbs.map((crumb) => (
-          <li key={crumb.path}>
-            <span className="breadcrumb-separator" aria-hidden="true">/</span>
-            {crumb.path === pathname ? (
-              <span aria-current="page">{crumb.label}</span>
-            ) : (
-              <Link to={crumb.href}>{crumb.label}</Link>
-            )}
-          </li>
-        ))}
-      </ol>
-    </nav>
-  );
+  return <BreadcrumbNav items={items} />;
 }

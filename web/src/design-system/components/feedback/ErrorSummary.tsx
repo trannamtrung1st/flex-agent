@@ -1,3 +1,5 @@
+import { Stack } from "../layout/Stack";
+
 export type ErrorSummaryItem = string | { message: string; href?: string };
 
 interface ErrorSummaryProps {
@@ -14,13 +16,17 @@ function itemHref(error: ErrorSummaryItem) {
   return typeof error === "string" ? undefined : error.href;
 }
 
-export function ErrorSummary({ title = "There is a problem", errors, headingId = "error-summary-title" }: ErrorSummaryProps) {
+export function ErrorSummary({
+  title = "There is a problem",
+  errors,
+  headingId = "error-summary-title",
+}: ErrorSummaryProps) {
   if (errors.length === 0) {
     return null;
   }
 
   return (
-    <div className="error-summary" role="alert" aria-labelledby={headingId}>
+    <Stack className="error-summary" role="alert" aria-labelledby={headingId} gap="none">
       <div className="advisory advisory--attention">
         <span className="advisory-label">Error</span>
         <h2 id={headingId} className="error-summary-title" tabIndex={-1}>{title}</h2>
@@ -36,6 +42,6 @@ export function ErrorSummary({ title = "There is a problem", errors, headingId =
           );
         })}
       </ul>
-    </div>
+    </Stack>
   );
 }

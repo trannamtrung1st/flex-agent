@@ -1,5 +1,7 @@
 # Typography
 
+Gallery specimens: Component Deck section `typography` (scale) plus `type` (two voices).
+
 ## Font roles
 
 - **Placard / identity:** `--font-plaque` (aliased as `--font-display`);

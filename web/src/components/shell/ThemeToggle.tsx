@@ -1,6 +1,5 @@
-import { Moon, Sun } from "lucide-react";
-import { Key } from "../../design-system";
 import { useTheme, type Theme } from "../../hooks/useTheme";
+import { ThemeToggle as PresentationalThemeToggle } from "../../design-system";
 
 export function ThemeToggle({
   theme,
@@ -12,13 +11,6 @@ export function ThemeToggle({
   const local = useTheme();
   const resolved = theme ?? local.theme;
   const toggle = onToggle ?? local.toggleTheme;
-  const nextTheme = resolved === "dark" ? "light" : "dark";
-  const Icon = resolved === "dark" ? Sun : Moon;
 
-  return (
-    <Key variant="quiet" size="compact" onClick={toggle} ariaLabel={`Switch to ${nextTheme} theme`}>
-      <Icon aria-hidden="true" className="icon-sm" focusable="false" />
-      {resolved === "dark" ? "Light theme" : "Dark theme"}
-    </Key>
-  );
+  return <PresentationalThemeToggle theme={resolved} onToggle={toggle} />;
 }

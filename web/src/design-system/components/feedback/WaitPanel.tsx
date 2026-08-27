@@ -1,4 +1,6 @@
-export function ProtectedLoading({
+import { Inline } from "../layout/Inline";
+
+export function WaitPanel({
   label = "Loading protected content…",
   announceOnly = false,
 }: {
@@ -6,9 +8,9 @@ export function ProtectedLoading({
   announceOnly?: boolean;
 }) {
   return (
-    <div className="loading-panel" role="status" aria-live="polite" aria-busy="true">
+    <Inline className="loading-panel" gap="3" wrap={false} role="status" aria-live="polite" aria-busy="true">
       <span className="wait-mark" aria-hidden="true" />
       <span className={announceOnly ? "visually-hidden" : undefined}>{label}</span>
-    </div>
+    </Inline>
   );
 }

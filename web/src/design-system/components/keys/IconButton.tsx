@@ -31,7 +31,7 @@ export const IconButton = forwardRef<HTMLButtonElement, {
 }, ref) {
   const reasonId = useId();
   const describedBy = disabled && disabledReason ? reasonId : undefined;
-  const plaque = tooltip ?? (disabled && disabledReason ? disabledReason : undefined);
+  const plaque = disabled && disabledReason ? disabledReason : tooltip;
 
   return (
     <TooltipHost tip={plaque}>

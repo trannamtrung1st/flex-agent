@@ -9,8 +9,13 @@ notch variables. Modifiers: dim bezel, notched, chamfered eight-cut.
 
 ## Plate / operate area
 
-Administrator walls compose an operate-head plus etched frame. Ceremony plates
-use larger padding (30–46px) and a native dialog root.
+Administrator walls compose an operate-head plus etched frame via
+`OperateArea`. Operational plates keep the bottom center tick only; the top
+tick is reserved for the gallery `frame-demo` specimen until a surface needs
+both. Management shells use that plate as the work-bay contract:
+page title, optional description, optional `BackKey` on nested records, then
+body or empty plate. Ceremony plates use larger padding (30–46px) and a
+native dialog root.
 
 ## Enrollment / assignment plate
 

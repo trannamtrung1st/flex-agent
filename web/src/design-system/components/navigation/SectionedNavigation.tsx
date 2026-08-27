@@ -56,6 +56,15 @@ function itemContent<TItem>({
   strategy: NavigationRenderStrategy<TItem>;
   variant: SectionedNavigationProps<TItem>["variant"];
 }) {
+  if (variant === "index") {
+    return (
+      <>
+        <span className="gangway-tick" aria-hidden="true" />
+        <span className="gangway-link-text">{label}</span>
+      </>
+    );
+  }
+
   if (variant !== "gangway") return label;
 
   return (

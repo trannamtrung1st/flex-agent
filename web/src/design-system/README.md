@@ -6,9 +6,13 @@ for both production features and the design lab.
 
 ```text
 foundations/   # re-exports shared lib helpers; CSS lives in web/src/styles/
-components/    # keys, chrome, fields, overlays, navigation, tables, …
-patterns/      # cross-component recipes (table actions and selection)
+components/    # keys, chrome, fields, feedback, overlays, navigation, tables, layout primitives, …
+patterns/      # layouts (closed shell set) and table-action recipes
 ```
+
+Pages and routes must import layout families from `patterns/layouts`, not
+assemble `CommandStrip` / `Gangway` / instrument rails themselves. `reference`
+is valid only in the design-lab entry graph via `web/src/design-system/lab.ts`.
 
 Rules:
 

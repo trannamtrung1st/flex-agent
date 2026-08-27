@@ -16,6 +16,21 @@ form owners (ADR-019). Server validation still wins.
 - Frozen: etch the value on the glass; withdraw chevrons; not a plate skin
   (`PC-05`)
 
+## Number fields
+
+Numeric values use `FieldNumber`, not a bare `type="number"` slot. Native
+inner/outer spin buttons stay hidden; the slot draws stacked chevron keys on
+the trailing edge so increment/decrement match the bezel, not OS chrome.
+
+- Keyboard: type digits; Arrow Up / Arrow Down on the input still step
+- Pointer: Increase / Decrease keys; they are not in the tab order
+- Frozen: etch the value and withdraw the stepper (`PC-05`)
+- Invalid: amber on the whole slot, same as text
+- Width tokens apply to the shell (narrow, standard, wide/full)
+
+Do not restyle a text field with `inputMode="numeric"` to stand in for a
+steppable number.
+
 ## Composer
 
 Session composer is a notched slot with the commit key sharing the trailing
@@ -37,3 +52,5 @@ and wheel values use teal inset bezels, not amber.
 - Associate label, hint, and error with the control.
 - Pair rows stack at ≤720px without letting a long error drop the neighbor.
 - Width tokens: narrow, standard, wide/full.
+- Use `FieldNumber` when the value is a steppable number; keep text (including
+  mm:ss and other formatted marks) on `FieldInput`.

@@ -1,19 +1,26 @@
 import { createPortal } from "react-dom";
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { cx } from "../../../lib/cx";
+import { useTruncated } from "./useTruncated";
 
 export function TooltipHost({
   tip,
+  tipOnlyWhenTruncated,
+  truncationRef,
   children,
   className,
 }: {
   tip?: string;
+  tipOnlyWhenTruncated?: boolean;
+  truncationRef?: RefObject<HTMLElement | null>;
   children: ReactNode;
   className?: string;
 }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0, above: true });
+  const truncated = useTruncated(truncationRef ?? { current: null }, Boolean(tipOnlyWhenTruncated && truncationRef));
+  const effectiveTip = tipOnlyWhenTruncated ? (truncated ? tip : undefined) : tip;
 
   const place = useCallback(() => {
     const el = hostRef.current;
@@ -39,8 +46,8 @@ export function TooltipHost({
     };
   }, [open, place]);
 
-  if (!tip) {
-    return className ? <span className={className}>{children}</span> : <>{children}</>;
+  if (!effectiveTip) {
+    return <span className={cx("tip-host", className)}>{children}</span>;
   }
 
   const show = () => {
@@ -52,6 +59,21 @@ export function TooltipHost({
     setOpen(false);
   };
 
+  const showForFocusVisible = () => {
+    requestAnimationFrame(() => {
+      const host = hostRef.current;
+      const active = document.activeElement;
+      if (
+        host
+        && active instanceof HTMLElement
+        && host.contains(active)
+        && active.matches(":focus-visible")
+      ) {
+        show();
+      }
+    });
+  };
+
   return (
     <>
       <span
@@ -59,7 +81,7 @@ export function TooltipHost({
         className={cx("tip-host", className)}
         onMouseEnter={show}
         onMouseLeave={() => hide()}
-        onFocusCapture={show}
+        onFocusCapture={showForFocusVisible}
         onBlurCapture={(e) => hide(e.relatedTarget)}
       >
         {children}
@@ -71,7 +93,7 @@ export function TooltipHost({
               style={{ top: pos.top, left: pos.left }}
               role="tooltip"
             >
-              {tip}
+              {effectiveTip}
             </span>,
             document.body,
           )
