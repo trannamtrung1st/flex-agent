@@ -1293,6 +1293,37 @@ the corrected behavior receives a traced regression test.
 - [x] Coverage pass on remaining Wave 8.1 components (ErrorBoundary,
   ThemeToggle, SessionChrome, destination denied, Alert/loading, light theme).
 
+### Wave 8.1b — Governed shared layout library
+
+Governing: design-system `DS-DEC-3`, `DS-DEC-5`, `DS-DEC-6`, `DS-DEC-8`,
+`DS-DEC-9`; `PC-09`, `PC-10`, `PC-12`, `PC-14`; ADR-020 `FE-TRANS-9`. Does
+not authorize a deferred production route.
+
+- [x] Extract closed-set shells (`management`, `guided-task`, `live-session`,
+  lab-only `reference`) into `web/src/design-system/patterns/layouts/`.
+- [x] Migrate every design-lab route and current production chrome adapters
+  onto those layouts. Pages supply slots only.
+- [x] Enforce import/CSS ownership so production and lab routes cannot
+  custom-compose outer chrome.
+- [x] Remediate review defects: nested mains, manifest-driven assignment,
+  isolation gaps, layout tests, lab-only `ReferenceLayout` export, leftover
+  outer surface geometry, and Phase 8 verification.
+- [x] Gallery management work-bay variants: index (title + description + body),
+  nested record (`BackKey` + title + description + body), empty plate. Docs
+  constrain `OperateArea` as the management `children` contract.
+- [x] Home and Reviewer lab surfaces use the same OperateArea work-bay; routes
+  cannot assemble `OperateHead` by hand; isolation requires each lab route to
+  render its assigned layout family.
+
+Verification (Wave 8.1b): candidate unit 95 passed; design-lab unit 56 passed;
+candidate + lab lint and typecheck; `check-frontend-isolation.mjs` passed;
+`FrontendRebuildIsolationTests` 17 passed. Nested-main fix proven on Admin
+campaigns (`region "Campaign registry"` inside one `main`; historical screenshot
+`page-2026-08-27T13-33-04-219Z.png`, pruned 2026-08-28). Bounded family
+screenshots from `page-2026-08-27T13-10-16-075Z.png` through
+`page-2026-08-27T13-12-42-520Z.png` were captured at the time and are no
+longer on disk.
+
 ### Wave 8.2 — Assessment setup and Enrollment administration
 
 - [ ] Copy from `web-legacy/` then adapt: Campaign draft/readiness/activation,
@@ -1820,6 +1851,11 @@ source hash and provenance are recorded in the verification history.
 
 # Verification
 
+PNG paths in this table are historical audit references only. The
+`.playwright-mcp/` artifact directory was emptied on 2026-08-28; recapture
+through the Phase 6/7/8 playbook before citing new visual evidence. See also
+`Playwright screenshot evidence map` below.
+
 | Check | Status | Evidence |
 | --- | --- | --- |
 | Required workflow and role skills read | passed | implementation-workflow, business analyst, architect, UI/UX, documentation, frontend, review, security/privacy, tester guidance inspected during planning |
@@ -1877,8 +1913,9 @@ source hash and provenance are recorded in the verification history.
 ## Playwright screenshot evidence map
 
 Historical auto-named MCP paths are retained below only to explain prior
-reviews. The files were removed during the candidate reset and
-`.playwright-mcp/` is currently absent. None of these rows is current visual or
+reviews. The files were removed during the candidate reset and the 2026-08-28
+`.playwright-mcp/` cleanup; the directory is currently absent. None of these
+rows is current visual or
 exit-gate evidence. Fresh synthetic screenshots and accessibility snapshots
 must be captured through the bounded Phase 6/7/8 playbook; authenticated
 production states remain deferred to their production-parity waves.
