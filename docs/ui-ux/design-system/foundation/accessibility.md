@@ -3,7 +3,8 @@
 The approved P0 Activity journey and surface specifications establish WCAG 2.2
 AA as the contractual accessibility baseline. Shared components must preserve
 that baseline; a visual treatment is defective when it makes an approved flow
-less perceivable, operable, understandable, or robust.
+less perceivable, operable, understandable, or robust. Shipboard styling does
+not waive this contract (`PC-12`).
 
 ## Semantics and structure
 
@@ -14,6 +15,8 @@ less perceivable, operable, understandable, or robust.
 - Use tables only for true row/column relationships and expose header scope.
 - Dynamic content must preserve an understandable reading order independent of
   viewport layout.
+- Custom listboxes, menus, and temporal widgets must meet the same keyboard and
+  name contracts as native controls; visual adopt is not behavior authority.
 
 ## Keyboard and focus
 
@@ -36,7 +39,7 @@ less perceivable, operable, understandable, or robust.
   position, motion, or sound may reinforce but never replace it.
 - Announce accepted actions, material state transitions, errors, warnings, and
   completion at a useful rate. Do not announce every streaming token, upload
-  byte, timer tick, waveform change, or decorative animation frame.
+  byte, timer tick, or decorative animation frame.
 - Preserve user input on recoverable failure when the governing specification
   permits it and identify both the summary and field/item error.
 
@@ -49,10 +52,11 @@ less perceivable, operable, understandable, or robust.
   container while surrounding actions remain reachable.
 - The visual target for an interactive control must be at least 24 by 24 CSS
   pixels or meet the applicable WCAG spacing/exception. Prefer at least 44 by 44
-  CSS pixels for touch-critical, destructive, timed, voice, and primary
-  participant controls.
-- Sticky regions must not cover focused content, errors, dialogs, browser zoom
-  controls, or the software keyboard.
+  CSS pixels for touch-critical, destructive, timed, and primary Participant
+  controls. Compact 30px keys must still meet the target requirement via padding
+  or an invisible hit area.
+- Clip-path notches, sticky rails, and command strips must not cover focused
+  content, errors, dialogs, browser zoom controls, or the software keyboard.
 
 ## Contrast and themes
 
@@ -66,6 +70,8 @@ less perceivable, operable, understandable, or robust.
   state. Do not infer contrast from token names or visual inspection alone.
 - Do not place dither, emission, gradients, or imagery behind dense reading,
   form, transcript, Evidence, or table content.
+- Support `forced-colors`: keep borders, focus, and text keywords; do not rely
+  on phosphor glow.
 
 ## Motion, audio, and media
 
@@ -74,13 +80,12 @@ less perceivable, operable, understandable, or robust.
 - Avoid flashes, rapid high-contrast sweeps, and motion unrelated to state.
 - Voice and audio controls require visible state and an equivalent non-audio
   path where the owning feature specification requires one.
-- Decorative Agent Core, Observation Glass reflection, and dither imagery use
-  empty alternative text or the equivalent hidden presentation. State text
-  carries meaning.
+- Decorative Agent Core and trace imagery use empty alternative text or the
+  equivalent hidden presentation. State text carries meaning.
 
 ## Verification
 
 Combine automated accessibility checks with keyboard-only operation,
 accessibility-tree inspection, focus/announcement tests, 400 percent zoom,
-reduced motion, and desktop/narrow screenshots. Automated checks do not prove
-reading order, clear content, focus recovery, or visual polish.
+reduced motion, forced colors, and desktop/narrow screenshots. Automated checks
+do not prove reading order, clear content, focus recovery, or visual polish.

@@ -938,10 +938,11 @@ None.
   remain delivery gaps; approval of this specification does not imply them.
 - Frontend and backend contracts must map each state to bounded server reason
   categories without moving workflow authority into the SPA.
-- The approved [design-system foundation](design-system/README.md) defines
-  repeated upload, status, confirmation, protected-content viewer,
+- The [design-system foundation](design-system/README.md) (Approved v1.0)
+  defines repeated upload, status, confirmation, protected-content viewer,
   error-summary, and responsive-record patterns without weakening this surface
-  contract.
+  contract. Visual presentation follows Shipboard Terminal; this specification
+  still governs journey, copy meaning, and states.
 - The Text Session interaction specification must accept only the committed
   active Session handoff and exact bound Submission summary defined here.
 

@@ -1,6 +1,8 @@
 # Voice Interaction
 
-Voice is where the starship-AI metaphor becomes most tangible. The system should feel like a present onboard intelligence acquiring the floor, listening, processing, and speaking — while preserving exact session semantics.
+Voice is where Agent presence becomes most tangible. When in scope, map
+listening/speaking onto the Shipboard Core (teal live, amber processing) while
+preserving exact session semantics. This module does not enable P0 voice.
 
 Voice is deferred from the assessment MVP. Apply this shared visual preparation
 only after an approved voice feature and interaction specification define floor

@@ -1,56 +1,39 @@
 # Inputs
 
-Inputs should resemble integrated instrument controls: dark, precise, quiet at rest, clearly energized on focus.
+Fields are bezeled glass slots: 1px hairline, `surface-inset` fill, Sometype
+Mono, Bright Text, zero radius. React Hook Form and Zod remain the client
+form owners (ADR-019). Server validation still wins.
 
 ## Core Specs
 
-- height: 36px workspace / 40px interaction
-- radius: sm
-- border: 1px solid border-strong
-- background: surface-inset or surface-primary according to composition
-- text: fg-strong
-- font: 14px
-- padding: 10–12px horizontal
-- placeholder: fg-subtle
+- Padding: 10px 14px
+- Type: 0.78–0.82rem, tabular numerals where values are numeric or temporal
+- Placeholder: `fg-subtle`
+- Focus: whole slot bezel warms to teal at about 0.6 alpha; caret may be amber
+- Invalid: amber bezel, Amber Glow, error line in Amber Bright led by a
+  warning-triangle mark. Helper text stays `fg-subtle` and never uses the
+  triangle.
+- Frozen: etch the value on the glass; withdraw chevrons; not a plate skin
+  (`PC-05`)
 
-## Label
+## Composer
 
-- font: 13–14px, 500–600
-- color: fg-default
-- margin-bottom: 6px
-- required/optional marker uses text, not color only
+Session composer is a notched slot with the commit key sharing the trailing
+edge. Focus the slot, not a naked textarea outline. Production time and send
+status are runtime-owned (`PC-08`).
 
-## States
+## Temporal values
 
-### Hover
+Do not use native `date` / `time` / `datetime-local` as the only control if a
+custom picker is shipped. Custom pickers must satisfy keyboard, screen-reader,
+validation, and **named Campaign timezone with UTC fallback** (`PC-11`,
+`UI-SUBM-DEC-6`, `UI-SUBM-DEC-12`). Browser-local time is supplementary.
 
-- border: border-hover
+Closed marks use `YYYY-MM-DD` and 24h `HH:MM` (optional seconds). Selected day
+and wheel values use teal inset bezels, not amber.
 
-### Focus
+## Rules
 
-- border: border-focus
-- scanner focus ring from `interaction-states.md`
-- dark mode may use faint `emission-focus`; never glow entered text
-
-### Error
-
-- border: border-danger
-- helper text: fg-danger
-- include error icon/text when appropriate
-
-### Success
-
-Use only when successful validation needs to be communicated; do not green-outline every valid field.
-
-### Disabled
-
-- background: surface-disabled
-- text: fg-disabled
-- border: border-subtle
-- no emission
-
-## Textareas
-
-- minimum height: 96px
-- long-form configuration inputs may use 160–320px
-- vertical resize preferred where allowed
+- Associate label, hint, and error with the control.
+- Pair rows stack at ≤720px without letting a long error drop the neighbor.
+- Width tokens: narrow, standard, wide/full.

@@ -31,10 +31,10 @@ echo "==> Generate SPA runtime SBOM from locked dependency graph"
     --omit dev \
     --ignore-npm-errors \
     --output-file "$OUTPUT" \
-    web/package.json
+    web-legacy/package.json
 )
 
-python3 - "$OUTPUT" "$TOOLCHAIN" "$ROOT/package.json" "$ROOT/web/package.json" <<'PY'
+python3 - "$OUTPUT" "$TOOLCHAIN" "$ROOT/package.json" "$ROOT/web-legacy/package.json" <<'PY'
 import json
 import sys
 

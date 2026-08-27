@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    port: 5174,
     strictPort: true,
     proxy: {
       "/browser": {
@@ -16,11 +16,15 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: false,
+    rollupOptions: {
+      input: "index.html",
+    },
   },
+  // Design-lab sources live under src/design-lab/** and use vite.design-lab.config.ts.
   test: {
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     globals: true,
-    exclude: ["**/node_modules/**", "**/dist/**", "e2e/**"],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/dist-design-lab/**"],
   },
 });

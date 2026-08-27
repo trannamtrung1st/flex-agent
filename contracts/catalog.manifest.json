@@ -201,7 +201,7 @@
   "projections": {
     "openapi": "projections/openapi.v3.1.yaml",
     "csharp_dto_root": "src/BuildingBlocks/FlexAgent.Contracts/",
-    "typescript_root": "web/src/contracts/",
-    "typescript_internal_runtime_root": "web/src/contracts/internal-runtime.v1.ts"
+    "typescript_root": "web-legacy/src/contracts/",
+    "typescript_internal_runtime_root": "web-legacy/src/contracts/internal-runtime.v1.ts"
   }
 }

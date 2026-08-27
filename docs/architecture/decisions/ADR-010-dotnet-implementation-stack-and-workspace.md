@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved — 2026-08-07; amended 2026-08-21
+Approved — 2026-08-07; amended 2026-08-21; path note 2026-08-27 (ADR-020)
 
 This decision selects implementation technology only. It does not change
 product meaning, observable behavior, UI/UX behavior, or the approved
@@ -195,7 +195,9 @@ src/
         CyberphoneJsonCanonicalization/ # exact-commit source snapshot
       NOTICE.md             # source, commit, license, files, modifications
   Infrastructure/           # shared low-level adapter primitives only
-web/                        # React/Vite SPA and browser-safe generated types
+web/                        # React/Vite SPA until the ADR-020 rebuild rename;
+                            # during transition production is web-legacy/ and
+                            # the candidate is new web/ (see ADR-020)
 contracts/                  # canonical schemas, fixtures, compatibility profile
 database/
   migrations/               # Grate one-time plain-SQL migrations

@@ -1,15 +1,12 @@
-# Button Groups
+# Button groups
 
-## Core Specs
+Group related keys in a hairline-divided strip. Adjacent keys share bezels;
+the run reads as one instrument, not separate pills.
 
-- Display: inline-flex
-- Child gap: 0 for segmented controls; 8px for action groups
-- Segmented wrapper: 1px `border-strong`, `sm` radius, overflow hidden
-- Segmented children: no individual outer border except separators
-
-## Rules
-
-- Segmented controls represent mutually exclusive display/state choices.
-- Toolbars are action groups, not segmented controls; keep 4–8px gaps between actions.
-- Active segmented item uses `surface-selected`, `fg-brand`, and a clear selected indicator.
-- Do not use pills for every button group.
+- One commit key maximum in the group unless the governing spec requires two
+  equal-weight choices (then both stay quiet until confirmation).
+- Destructive actions stay visually quiet until confirmation.
+- Keyboard: arrow keys may move among grouped toggles; Tab moves by group when
+  using a toolbar pattern.
+- Disabled members remain in tab order only when their unavailable reason must
+  be reachable; otherwise omit them.

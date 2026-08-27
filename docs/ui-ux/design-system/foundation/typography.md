@@ -2,75 +2,67 @@
 
 ## Font roles
 
-- **UI / Body:** `--font-sans`; approved preferred face Geist Sans, followed by
-  the approved system sans-serif fallback stack.
-- **Display / Brand:** `--font-display`; approved preferred face Space Grotesk,
-  used sparingly for product/Agent identity, marketing, onboarding, and
-  top-level display moments.
-- **Technical / Mono:** `--font-mono`; approved preferred face IBM Plex Mono,
-  followed by the approved system monospace fallback stack.
+- **Placard / identity:** `--font-display`; approved preferred face **Michroma**,
+  followed by `"Arial Narrow", sans-serif`.
+- **UI / body / data / technical:** `--font-mono`; approved preferred face
+  **Sometype Mono**, weights 400/500/600, followed by `ui-monospace, monospace`.
+- There is no third application face. Do not use Geist Sans, Space Grotesk, or
+  IBM Plex Mono as v1.0 identity fonts.
 
-The resolved `Q-DS-1` and approved `DS-PROP-1` in the
-[design-system root](../README.md#q-ds-1-font-delivery-and-dependency-approval)
+`Q-DS-1` / `DS-PROP-2` in the [design-system root](../README.md#q-ds-1-font-delivery-and-dependency-approval)
 require self-hosted, version-pinned files after license and delivery-artifact
-review. Use the approved system fallbacks until those implementation checks
-pass; do not make third-party font requests from authenticated or Participant
-surfaces.
-
-Do not use a futuristic display face for normal application headings.
+review. Use the approved fallbacks until those implementation checks pass; do
+not make third-party font requests from authenticated or Participant surfaces.
 
 ## Core Rules
 
-- Normal UI hierarchy uses the sans font.
-- Long-form content and transcripts prioritize readability.
-- Monospace is reserved for machine-readable or machine-originated information.
-- Avoid uppercase for normal navigation and headings.
-- Use tabular numerals for timers, timestamps, scores, token counts, and aligned numeric columns.
-- Never use mono for a full conversation transcript.
+- **Two voices.** Michroma names (brand, plate titles, key captions, bay heads).
+  Sometype Mono speaks (transcript, readouts, inputs, navigation tokens, errors).
+- Placard and microlabel strings are uppercase with wide tracking. Sentence-case
+  body copy uses Sometype Mono and is not forced to uppercase.
+- Do not use a third family for headings.
+- Long-form content and transcripts prioritize readability: body 15px / 1.5–1.55,
+  measure about 68–78ch, `fg-default` / `fg-strong`.
+- Use tabular numerals for timers, timestamps, scores, token counts, calendar
+  days, and aligned numeric columns (`font-variant-numeric: tabular-nums`).
+- Interactive chrome must not drop below 0.75rem (12px) for visible control
+  labels. Supporting field errors/hints must not drop below 0.68rem.
+  Decorative microlabels may be smaller only when they are not the sole name of
+  a control and still meet contrast (`PC-12`).
+- Semantic `h1`–`h6` follow document order regardless of visual token.
 
 ## Heading Scale
 
-| Role | Desktop | Mobile | Weight | Line height |
-| --- | ---: | ---: | ---: | ---: |
-| Display | 40px | 32px | 600 | 1.1 |
-| H1 | 30px | 26px | 600 | 1.2 |
-| H2 | 24px | 22px | 600 | 1.25 |
-| H3 | 20px | 18px | 600 | 1.3 |
-| H4 | 16px | 16px | 600 | 1.35 |
-| H5 | 14px | 14px | 600 | 1.4 |
-| H6 | 13px | 13px | 600 | 1.4 |
-| Section label | 13px | 13px | 600 | 1.4 |
-
-Use semantic `h1`–`h6` in document order regardless of visual token chosen.
+| Role | Desktop | Narrow | Weight | Line height | Face |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Display (timer digits only) | 2.9rem | 1.75–2.2rem | 600 | 1 | Mono |
+| H1 / wall head | 0.78–1.15rem | 0.72–0.9rem | 400 | 1.2 | Placard |
+| H2 / plate title | 0.72rem | 0.68rem | 400 | 1.25 | Placard |
+| H3 | 0.68rem | 0.68rem | 400 | 1.3 | Placard or mono |
+| Section label | 0.62–0.68rem | 0.62rem | 400–500 | 1.4 | Mono microlabel |
 
 ## Body Scale
 
 | Role | Size | Line height | Usage |
 | --- | ---: | ---: | --- |
-| Reading large | 18px | 1.65 | participant answers, long agent responses, review narratives |
-| Body | 15px | 1.6 | standard application content |
-| Compact body | 14px | 1.5 | workspace panels, tables, settings |
-| Small | 13px | 1.45 | helper text, secondary metadata |
-| Micro | 12px | 1.4 | timestamps, compact labels, dense technical metadata |
+| Reading large | 16–18px | 1.55–1.65 | long Agent/Participant narratives, review rationale |
+| Body | 15px | 1.5–1.55 | standard application content and transcript |
+| Compact body | 0.88–0.95rem | 1.5 | plates, tables, settings |
+| Small | 0.75rem | 1.45 | interactive chrome, helper text |
+| Micro | 0.62–0.68rem | 1.4 | readout keys, timestamps; not sole control names |
 
 ## Technical Typography
 
-Use `--font-mono` for:
-
-- session IDs
-- agent IDs
-- campaign/workflow IDs
-- harness versions and snapshot identifiers
-- timestamps when shown as audit data
-- tool names and execution metadata
-- token counts
-- JSON, code, expressions, schemas, logs
-- model/configuration identifiers
-
-Default technical size: 12–13px with 1.45 line height.
+Use `--font-mono` for session, Agent, Campaign, harness, timestamp, tool,
+token-count, JSON, and identifier data. Default technical size: 0.72–0.82rem
+with tabular numerals. Unlike v0.1, mono is also the body face; do not
+introduce a sans body to “fix” that. Improve readability with size, measure,
+contrast, and line height instead.
 
 ## Links
 
-- Inline links: same font and size as surrounding text, `fg-brand`, underline on hover or persistent underline in prose.
-- Navigation links: no underline by default; selected/active state must be structural, not color-only.
-- External links may include a small external-link icon.
+- Inline links: same font and size as surrounding text, `fg-brand`, underline
+  on hover or persistent underline in prose.
+- Navigation links: no underline by default; current state uses a teal tick or
+  underline bar plus `aria-current`. Never amber.
+- External links may include a small Lucide external-link icon.

@@ -1039,10 +1039,12 @@ no-action journeys.
 - The approved [Result and Release interaction specification](result-release.md)
   keeps Session completion neutral until an independently authorized Release
   makes a Result visible.
-- The approved [design-system foundation](design-system/README.md) defines
-  repeated status, transcript, composer, warning, dialog, protected-content,
-  and responsive-record patterns without weakening the authority or privacy
-  boundaries in this specification.
+- The [design-system foundation](design-system/README.md) (Approved v1.0)
+  defines repeated status, transcript, composer, warning, dialog,
+  protected-content, and responsive-record patterns without weakening the
+  authority or privacy boundaries in this specification. Visual presentation
+  follows Shipboard Terminal; this specification still governs journey, copy
+  meaning, and states.
 
 ## Approval record
 

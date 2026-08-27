@@ -870,10 +870,12 @@ None. `PROP-UI-REL-1`–`PROP-UI-REL-12` were approved on 2026-08-09.
 
 ## Downstream gaps and review needed
 
-- The approved [design-system foundation](design-system/README.md) defines
-  reusable protected Result, exact-preview, status, confirmation,
+- The [design-system foundation](design-system/README.md) (Approved v1.0)
+  defines reusable protected Result, exact-preview, status, confirmation,
   error-summary, audience/policy summary, updated-Result, history, and
   responsive stacked-record patterns in conformance with this specification.
+  Visual presentation follows Shipboard Terminal; this specification still
+  governs Release authority, Participant disclosure, and states.
 - Frontend and backend contracts must expose the six independent state tracks,
   exact Result/digest and expected versions, server-derived audience and
   permitted actions, authoritative Participant visibility, correction lineage,

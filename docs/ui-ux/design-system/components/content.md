@@ -1,46 +1,20 @@
-# Content & Grid System
+# Content and readout grid
 
-## Reading Widths
+Prose measure 68–78ch. Section headings may use teal uppercase mono with a
+7×1px tick. Completion lines may prefix a teal check glyph.
 
-| Content | Max width |
-| --- | ---: |
-| Long conversation / narrative | 760px |
-| Documentation / review text | 800px |
-| Form | 640–760px unless multi-column |
-| Standard application content | 1280–1440px |
-| Workspace/data | full available width |
+## Readout grid
 
-## Grid
+Aligned record data uses 2, 3, 4, or 6 equal tracks and semantic spans.
+Each row remains a labeled `<dl>` so visual and AT order agree. A container
+query collapses spans to divided rows below 46rem.
 
-Use responsive CSS grid. Typical gaps:
+## Readout list / band
 
-- dense metadata: 8–12px
-- standard component grid: 16–24px
-- wide dashboard grid: 24–32px
+Teal microlabel over Bright Text values, hairline dividers. Times lead with
+the named Campaign timezone (`PC-11`).
 
-## Breakpoints
+## Untrusted content
 
-Implementation may align to framework breakpoints, but behavior should roughly support:
-
-- small: 640px
-- medium: 768px
-- large: 1024px
-- extra large: 1280px
-- wide: 1536px
-
-Do not force marketing-style centered containers onto operational workspaces.
-
-## Responsive records
-
-When a table row cannot preserve readable, operable meaning at a narrow width,
-use a labeled stacked record rather than hiding decision-relevant columns.
-
-- Preserve one semantic record and the same logical reading order.
-- Keep identity, status, consequence, exact version/time when relevant, and the
-  primary/recovery action visible.
-- Use a definition list, labeled groups, or another semantic structure; do not
-  emulate a table with inaccessible generic containers.
-- Secondary technical detail may move into a deliberate disclosure, but status,
-  permission consequence, deadline, and destructive action must not.
-- A true comparison table may retain horizontal scrolling inside a named region
-  when stacking would destroy the relationship between columns.
+Sanitize and isolate untrusted rich content. Never present internal rubric or
+authorization data to unauthorized clients.

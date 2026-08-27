@@ -12,19 +12,37 @@ pnpm install --frozen-lockfile
 echo "==> web boundary check"
 node build/scripts/check-web-boundaries.mjs
 
+echo "==> frontend isolation check"
+node build/scripts/check-frontend-isolation.mjs
+
 echo "==> contracts JCS conformance"
 pnpm --filter @flex-agent/contracts test
 
-echo "==> web lint"
-pnpm lint
+echo "==> legacy web lint"
+pnpm --filter @flex-agent/web-legacy lint
 
-echo "==> web typecheck"
-pnpm typecheck
+echo "==> candidate web lint"
+pnpm --filter @flex-agent/web lint
 
-echo "==> web unit tests"
-pnpm test
+echo "==> legacy web typecheck"
+pnpm --filter @flex-agent/web-legacy typecheck
 
-echo "==> web production build"
-pnpm build
+echo "==> candidate web typecheck"
+pnpm --filter @flex-agent/web typecheck
+
+echo "==> legacy web unit tests"
+pnpm --filter @flex-agent/web-legacy test
+
+echo "==> candidate web unit tests"
+pnpm --filter @flex-agent/web test
+
+echo "==> production web build (web-legacy)"
+pnpm --filter @flex-agent/web-legacy build
+
+echo "==> candidate web build"
+pnpm --filter @flex-agent/web build
+
+echo "==> design-lab build"
+pnpm --filter @flex-agent/web build:design-lab
 
 echo "==> web verification complete"

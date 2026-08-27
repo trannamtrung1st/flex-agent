@@ -16,11 +16,12 @@ Each reference may include:
 
 ## Presentation
 
-- border: 1px border-subtle
-- radius: sm/md
-- background: surface-inset or surface-primary
-- citation/source label: 12–13px, mono where identifier-oriented
-- excerpt: 13–15px readable sans
+- border: 1px hairline; zero radius; optional 10px notch on the plate
+- background: smoked-glass inset
+- citation/source label: mono microlabel
+- excerpt: 13–15px Sometype Mono body
+- optional hairline tether to the cited turn on Review surfaces; tethers are
+  decorative reinforcement of exact Evidence references, not authority
 
 ## Evidence Quality / Confidence
 

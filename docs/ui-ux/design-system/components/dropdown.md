@@ -1,33 +1,30 @@
-# Dropdown
+# Dropdown, listbox, and menus
 
-## Trigger
+## Option menu (single-select)
 
-- Follow `buttons.md` or `inputs.md` depending on whether the trigger is an action or value selector.
-- Open state uses `surface-selected` or an explicit chevron/state change.
-- Focus-visible follows `interaction-states.md`.
-- Chevron: 16px; rotate only when the control semantics benefit from it.
+Hairline rows, teal-glass hover/focus, Bright Text plus 7×1px teal tick on the
+selected option. Selected rest is the tick, not the fill. Fully keyboard
+operable (arrows, Enter, Escape, typeahead where specified).
 
-## Menu Container
+## Command menu
 
-- background: surface-elevated
-- border: 1px solid border-default
-- radius: md
-- shadow: shadow-sm
-- padding: 4–6px
-- typical min width: 180px
-- max height: bounded with vertical scrolling when needed
+Same popover surface without listbox ticks. Rows are commands. Destructive
+labels stay `fg-default` until confirmation. Production omits unapproved
+export/delete (`PC-09`).
 
-## Menu Item
+## Searchable select / multiselect
 
-- height: 32–36px
-- padding: 8px
-- radius: sm
-- font: 13–14px
-- icon: 16px
-- hover: surface-hover
-- active: surface-selected
-- destructive: fg-danger; hover danger-soft
-- disabled: fg-disabled; no hover/active activation
-- keyboard-highlighted/active-descendant item: same visible emphasis as hover, with focus semantics preserved on the owning control
+Field or context plate; commit on pick for single-select. Multiselect uses teal
+select-marks and explicit Done/Clear. Do not treat the widget as Campaign
+authority (`PC-06`).
 
-Dividers use 1px border-subtle with 4–6px vertical separation.
+## Placement
+
+Popover sheen plus overlay umbra. Foot menus open upward inside clipped frames.
+Width tokens come from the select-shell family, not ad-hoc per page.
+
+## Rules
+
+Custom listboxes must meet accessible name, expanded state, active descendant,
+and focus return. Visual Shipboard styling is not a reason to ship an
+inaccessible widget (`PC-12`).

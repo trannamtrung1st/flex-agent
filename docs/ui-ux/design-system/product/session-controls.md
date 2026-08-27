@@ -4,11 +4,15 @@ Structured activities may have timers, deadlines, attempts, stages, pause/end co
 
 ## Timer / Deadline
 
-- use tabular numerals; mono is appropriate for audit timestamps but optional for a participant-facing countdown
-- normal remaining time: neutral foreground
-- approaching configured threshold: warning semantics plus text
-- expired: danger only when expiration blocks or fails an action; otherwise use neutral lifecycle wording
+- use tabular Display-role digits for the Participant countdown; amber is the
+  attention voice for time
+- approaching configured threshold: amber intensification plus text; do not
+  switch the timer to red
+- expired: danger only when expiration blocks or fails an action; otherwise use
+  neutral lifecycle wording
 - never communicate urgency through color or animation alone
+- stage bars: completed teal, current amber, remaining dim hairline
+- client timers are never authority (`PC-08`)
 
 ## Stage / Progress
 

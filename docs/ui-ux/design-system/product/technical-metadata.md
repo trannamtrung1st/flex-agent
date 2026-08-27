@@ -5,7 +5,7 @@ Technical metadata should be easy to inspect without visually overpowering human
 ## Typography
 
 - font: `--font-mono`
-- size: 12–13px
+- size: 0.72–0.82rem (12–13px)
 - tabular numerals where applicable
 - color: fg-muted by default
 - primary technical value: fg-default or fg-strong

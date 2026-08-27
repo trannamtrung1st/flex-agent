@@ -64,7 +64,8 @@ affected
 integration must not be accepted or enabled for real use until its gates pass,
 and the production pilot remains blocked on the evidence listed in
 [MVP architecture implementation readiness](../architecture/mvp-architecture.md#implementation-readiness).
-Apply the approved shared [design system](../ui-ux/design-system/README.md) with
+Apply the approved shared [design system](../ui-ux/design-system/README.md)
+(v1.0 Shipboard Terminal) with
 the approved interaction specifications and implement and verify the
 [MVP executable workflow](mvp-scope.md#mvp-executable-workflow) with
 specification-driven TDD.

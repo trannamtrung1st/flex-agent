@@ -42,8 +42,9 @@ Session publication boundary is revised by
 [MVP operational defaults](../requirements/mvp-operational-defaults.md) resolve
 upload, application-session, lifecycle, and recovery-placement policy. The
 approved [Result and Release interaction specification](../ui-ux/result-release.md)
-completes the P0 surface interaction set. The shared
-[design system](../ui-ux/design-system/README.md) is approved. Session runtime
+completes the P0 surface interaction set. Shared
+[design system](../ui-ux/design-system/README.md) v1.0 is Approved as
+Shipboard Terminal; P0 interaction specifications remain approved. Session runtime
 machine-readable schemas and fixtures exist. ADR-008 provider qualification
 and remaining production evidence remain staged work as mapped in the
 approved overview.
@@ -123,7 +124,10 @@ acquisition, and fail-closed shared-state behavior.
 Approved [ADR-019](decisions/ADR-019-frontend-state-and-library-boundaries.md)
 and the [frontend architecture](frontend-architecture.md) guide assign HTTP
 resource, form, icon, and transport ownership in the SPA. They do not change
-`AR-DEC-12` server authority or the Session runtime contract.
+`AR-DEC-12` server authority or the Session runtime contract. Approved
+[ADR-020](decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md)
+governs the `web-legacy`/`web` dual-build, design-lab isolation, cutover, and
+legacy retirement.
 
 ## Purpose
 
@@ -144,6 +148,7 @@ This area governs how the system is structured: boundaries, data ownership, runt
 | Review Enrollment request-limit ownership and realization | [ADR-018: Enrollment request-limit scope](decisions/ADR-018-enrollment-request-limit-scope.md) |
 | Review the approved implementation stack and workspace | [ADR-010: .NET implementation stack](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) |
 | Review frontend state, form, icon, and transport ownership | [ADR-019: frontend state and library boundaries](decisions/ADR-019-frontend-state-and-library-boundaries.md) |
+| Review frontend rebuild directories, design-lab isolation, and cutover | [ADR-020: frontend rebuild transition](decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md) |
 | Structure or review SPA Query/form layering | [Frontend architecture](frontend-architecture.md) |
 | Structure or review a backend module | [Backend module architecture](backend-module-architecture.md) |
 | Review approved OSS component defaults and pending evidence gates | [ADR-008: bounded OSS component set](decisions/ADR-008-bounded-oss-component-set.md) |

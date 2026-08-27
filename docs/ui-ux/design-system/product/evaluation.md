@@ -6,6 +6,13 @@ score/outcome → summary/rationale → Evidence references → confidence →
 Evaluation lineage**, while keeping Human revision and Review decision as
 distinct objects.
 
+This module is presentation only. Governing behavior is
+[Evidence, Evaluation, and Human Review](../../evidence-evaluation-human-review.md).
+Do not combine **Approve** with **Release** (`PC-01`). Do not treat local
+score/rationale edits as a completed Human revision (`PC-02`). Visual
+marginalia/editor geometry may be adopted; submission remains immutable and
+server-validated.
+
 ## Evaluation Summary
 
 A summary surface may include:
@@ -16,7 +23,8 @@ A summary surface may include:
 - criterion coverage/progress
 - confidence summary when configured
 - human-review flags
-- release state when results may be withheld/released
+- Result-ready / not-released handoff when authorized — never a combined
+  Release control on this surface (`PC-01`)
 
 Do not visually imply that a high score is equivalent to system health/success status. Scores are evaluation data, not generic success semantics.
 

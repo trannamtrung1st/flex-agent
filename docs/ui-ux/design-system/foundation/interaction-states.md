@@ -6,34 +6,58 @@ may refine them but must not omit the requirements in
 
 ## Hover
 
-Prefer `surface-hover`, a slightly brighter edge, or foreground emphasis. Never make essential information hover-only. Do not trigger glow simply because the pointer passes over an element.
+Prefer `fg-brand` on quiet keys, a slightly brighter hairline, or
+`surface-hover` on rows. Never make essential information hover-only. Do not
+trigger glow simply because the pointer passes over resting chrome.
 
-## Focus Visible — Scanner State
+## Focus Visible
 
-- Use a 2px `border-focus` ring with 2px offset.
-- In dark mode, a faint `emission-focus` halo may extend 8–12px beyond the ring.
-- A short one-time directional highlight/sweep is allowed when focus enters a large composite control; reduced-motion users receive a static equivalent.
+- Use a 1px `border-focus` (phosphor teal) outline with 3px offset on keys and
+  equivalent controls.
+- Composite fields may warm the whole slot bezel to teal at about 0.6 alpha
+  instead of outlining the inner input; the visible focus must remain.
+- A faint `emission-focus` halo may extend 8–12px in dark mode.
+- A short one-time directional highlight is allowed when focus enters a large
+  composite; reduced-motion users receive a static equivalent.
 - Never remove focus indication without an equivalent visible replacement.
+- Forced-colors mode must preserve a visible focus overlay.
 
 ## Active / Pressed
 
-Use `surface-tertiary`, stronger edge contrast, or subtle 1px inset/press feedback. Avoid bounce, large transforms, or glow bursts.
+Use Teal Glow or Amber Glow fill according to the control voice, stronger edge
+contrast, or a 1px inset. Avoid bounce, large transforms, or glow bursts.
 
 ## Selected / Current
 
-- Use `surface-selected` plus `border-selected` or a **signal rail**.
-- A selected workspace region may use very faint `emission-selected`.
-- Selected state must not depend on color alone; use marker position, icon/check, label, rail, or shape.
-- Use `aria-selected`, `aria-pressed`, `aria-current`, or native checked semantics as appropriate.
+- Use `surface-selected` plus a **teal tick**, node, or underline bar.
+- Selected state must not depend on color alone.
+- Use `aria-selected`, `aria-pressed`, `aria-current`, or native checked
+  semantics as appropriate.
+- Navigation is never amber.
 
 ## Disabled
 
-Use `surface-disabled` and/or `fg-disabled`. Disabled controls do not emit, pulse, or respond to hover/active states. Prefer native `disabled` where possible.
+Use reduced opacity (about 0.4) and/or `fg-disabled`. Disabled controls do not
+emit, pulse, or respond to hover/active. Prefer native `disabled` where
+possible. Explanations of why an action is unavailable remain normally
+readable (`PC-09` unapproved actions stay absent or disabled with a reason).
 
-## Readonly
+## Occupied / waiting
 
-Readonly is not disabled. Keep text readable with normal foreground contrast and a neutral/inset panel treatment. Values remain selectable/copyable when useful.
+`.is-waiting` on a control that is busy: `aria-busy`, pointer-events none,
+opacity 1 (occupied, not the disabled fade). Quiet keys stay teal. Hot keys
+drop amber for teal occupation and seat a wait-mark. Reduced motion holds the
+mark still.
+
+## Readonly / frozen
+
+Readonly is not disabled. Frozen configuration etches the committed value on
+the glass (`readOnly` / `disabled` presentation with bezels withdrawn) while
+keeping `fg-strong` readable. Browser `frozen` styling is never activation
+authority (`PC-05`).
 
 ## Loading
 
-Preserve dimensions and label context, prevent duplicate activation, and show an accessible progress cue. A bounded blue signal pulse is acceptable; unexplained pulsing dots are not.
+Preserve dimensions and label context, prevent duplicate activation, and show
+an accessible wait instrument. Unexplained pulsing dots and spinners are not
+allowed.

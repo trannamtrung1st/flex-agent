@@ -874,5 +874,6 @@ than implemented as an implicit choice.
 - [Activity journey and Campaign information architecture](activity-campaign-journey.md)
 - [Assessment setup requirements](../requirements/features/assessment-setup.md)
 - [Authorization and resource isolation](../requirements/features/auth-resource-isolation.md)
+- [Flex Agent design system](design-system/README.md) (Approved v1.0)
 - [MVP architecture](../architecture/mvp-architecture.md)
 - [ADR-004: Assessment activation baseline and atomicity](../architecture/decisions/ADR-004-assessment-activation-baseline-and-atomicity.md)

@@ -1,35 +1,10 @@
-# Avatars
+# Avatars and operator identity
 
-## Roles
+Do not use photographic avatars, smiling assistant faces, or pill identity
+chips.
 
-Avatars may represent:
-
-- participant/user
-- administrator/reviewer
-- agent
-- participant group
-
-Agent identity marks use the abstract Agent Core or related dither/grid artwork
-rather than humanoid robot imagery.
-
-## Sizes
-
-| Size | Dimensions |
-| --- | ---: |
-| XS | 20px |
-| SM | 24px |
-| Base | 32px |
-| LG | 40px |
-| XL | 48px |
-| 2XL | 64px |
-
-Default radius is `full` for people. Default Agent identity-mark radius is
-`md`. Under the approved `DS-DEC-4`, an active Agent uses the abstract Agent
-Core or a related non-human identity mark. Person-like photographic treatment
-is not an approved active-Agent pattern in v0.1; a later owning specification
-may introduce one only under the approved
-[`PROP-AGENT-1`](../../../product/concept-model.md#person-like-persona-and-honest-identity-boundary)
-honest-identity boundary, with explicit Agent attribution and participant-trust
-review.
-
-Presence/status indicators require border buffering and must follow `status.md`.
+- **Operator:** 14px drawn hairline glyph plus tabular ID. Menu actions are
+  real commands; unavailable destinations are disabled with a reason.
+- **Agent:** Agent Core, never a human likeness (`DS-DEC-4`, `PROP-AGENT-1`).
+- **Participant in review:** authorized label or identifier from the server
+  projection, not a decorative “Candidate” product noun in production (`PC-10`).

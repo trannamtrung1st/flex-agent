@@ -1,20 +1,10 @@
 # Lists
 
-## Standard List
+Use hairline-divided rows, teal hover wash, and a teal tick or node for the
+current item. Do not use large rounded list tiles.
 
-- vertical gap: 8–12px
-- text: fg-default
-- marker/icon: fg-muted
-
-## Operational Row List
-
-Use for sessions, events, tools, knowledge sources, memories, snapshots, participants.
-
-- row padding: 8–12px workspace
-- divider: 1px border-subtle
-- primary label: fg-strong, 13–14px, medium
-- secondary metadata: 12–13px, fg-muted
-- selected: surface-selected
-- hover: surface-hover
-
-Avoid placing each row in an individual card.
+- Interactive rows need a named control (link or key). Row whitespace is not
+  an implicit button unless the spec says the whole row is the target.
+- Locked items use the lock glyph plus text; they do not advance lifecycle
+  (`PC-07`).
+- Protected or unauthorized items use the non-disclosing unavailable pattern.

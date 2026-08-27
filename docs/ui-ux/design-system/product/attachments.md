@@ -6,11 +6,13 @@ that produced and consumed them.
 
 ## File Row
 
-- icon/preview: 32–40px when useful
+- document glyph (teal on current accepted version, dim on superseded)
 - filename: 13–14px, fg-strong, truncate only when full name remains available
-- metadata: size/type/time/status in 12–13px fg-muted; mono only for technical identifiers
-- row boundary: divider-first; use a card only for a standalone submission object
-- actions: preview/open, download/export when permitted, remove before submission when permitted
+- metadata: size/type/time/status in microlabel `fg-muted`; tabular mono for
+  identifiers and times in the named Campaign timezone (`PC-11`)
+- row boundary: hairline divider-first; use a plate only for a standalone
+  submission object
+- actions: authorized preview/open/download; no unapproved export (`PC-09`)
 
 ## Local preparation and intake states
 

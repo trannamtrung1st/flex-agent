@@ -8,6 +8,10 @@ a domain-oriented modular monolith with ports and adapters and inward dependency
 rules. SPA Query, form, icon, and transport ownership follow
 [ADR-019](../architecture/decisions/ADR-019-frontend-state-and-library-boundaries.md)
 and the [frontend architecture](../architecture/frontend-architecture.md) guide.
+The frontend rebuild transition is
+[ADR-020](../architecture/decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md):
+until cutover, production verify/build/OCI use `web-legacy/`; new `web/` is
+the candidate. Combined `verify-web` must name both packages.
 
 ## Prerequisites
 
@@ -40,6 +44,7 @@ src/Hosts/FlexAgent.Worker/
 src/Modules/Sessions/
 src/Modules/SyntheticBrowser/
 web/
+web-legacy/
 tests/Architecture/
 tests/Runtime/
 tests/Sessions/
@@ -70,14 +75,18 @@ bash build/scripts/verify-dotnet.sh
 ```bash
 corepack enable
 pnpm install --frozen-lockfile
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
+pnpm verify:web:legacy
+pnpm verify:web:new
 bash build/scripts/verify-web.sh
 ```
 
 Run the SPA locally:
+
+```bash
+cd web-legacy && pnpm dev
+```
+
+Candidate SPA (not production until cutover):
 
 ```bash
 cd web && pnpm dev

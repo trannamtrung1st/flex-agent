@@ -1,89 +1,68 @@
-# Buttons
+# Buttons (keys)
 
-Buttons should feel like precise command controls, not glossy consumer CTAs.
+Buttons are engraved **console keys**: uppercase captions, 1px bezels, zero
+radius, no fills at rest. They are not glossy consumer CTAs. Semantic roles
+below map to Shipboard variants; product labels still come from governing
+specs (`PC-10`). Prototype names such as TRANSMIT or APPROVE & RELEASE are not
+production copy.
 
 ## Core Specs
 
-- Font: 14px, 600 weight
-- Radius: `sm`
-- Border: 1px solid unless ghost
-- Icon: 16px default
-- Gap: 8px
-- Transition: 100–150ms
-- Default minimum target height: 36px workspace, 40px interaction
-- Touch-critical controls: 44px minimum target
+- Face: Michroma captions; tracking about 0.16em
+- Radius: `none`; hot keys may use a 14px angled leading clip
+- Border: 1px hairline
+- Gap: 8–10px; wait-mark seats in the gap when occupied
+- Transition: 150–160ms
+- Default minimum target: 36px workspace, 40px interaction; 44px for
+  touch-critical, destructive, timed, and primary Participant actions
+- Focus-visible: 1px teal outline, 3px offset
 
 ## Sizes
 
-| Size | Height | Horizontal padding | Font |
-| --- | ---: | ---: | ---: |
-| XS | 28px | 8px | 12px |
-| SM | 32px | 10px | 13px |
-| Base | 36px | 12px | 14px |
-| LG | 40px | 16px | 14px |
-| XL | 44px | 18px | 15px |
+| Size | Visual height | Padding | Caption |
+| --- | ---: | --- | ---: |
+| Compact | 30px | 6px 12px | 0.62–0.68rem |
+| Standard / quiet | ≥36px | 10px 20px | 0.68rem |
+| Large / ceremony | ≥44px | 12px 24px | 0.75rem |
+
+Compact keys must still meet [accessibility](../foundation/accessibility.md)
+target rules via hit area.
 
 ## Variants
 
-### Primary Command
+### Quiet (secondary / tertiary)
 
-- background: brand-primary
-- text: fg-on-accent
-- border: brand-primary
-- hover: brand-strong
-- active: brand-strong plus subtle inset/1px press feedback
-- focus-visible: scanner ring
-- no permanent outer glow
+Transparent, `fg-muted` text, hairline border. Hover/focus: teal text and
+border. Active: Teal Glow fill. Use for Back, Cancel, View, and secondary
+workspace actions.
 
-### Secondary
+### Commit (primary)
 
-- background: surface-secondary or surface-primary according to adjacent plane
-- text: fg-strong
-- border: border-strong
-- hover: surface-hover + border-hover
-- active: surface-tertiary
+Amber text and border over a faint amber fill. Hover: Amber Bright and
+`emission-attention`. At most **one** commit key is lit in a region (amber
+ration). Map to the spec’s primary action (Save draft, Submit version, Start
+Attempt, Release Result, and similar). Occupied commit keys drop amber for
+teal wait.
 
-### Tertiary / Ghost
+### Destructive
 
-- transparent background/border
-- text: fg-default
-- hover: surface-hover
-- active: surface-tertiary
+Quiet danger text (`fg-danger`) plus a confirmation dialog. The dialog’s
+confirm key may use commit anatomy with danger consequence copy. Do not use a
+filled red rectangle as the resting identity.
 
-### Danger
+### Live
 
-- background: danger
-- text: fg-on-accent
-- border: danger
-- hover/active: danger-strong
-- only for destructive primary actions
+Reserved for genuine live Session/voice controls when that capability is in
+scope. Teal occupation, never decorative.
 
-### Quiet Danger
+### Disabled / occupied
 
-- transparent or neutral background
-- text: fg-danger
-- hover/active: danger-soft
-
-### Live / Beacon
-
-- background: brand-live
-- text: fg-on-live
-- border: brand-live
-- hover/active: brand-live-strong
-- may use restrained `emission-live` only while genuinely live
-- reserved for microphone/listening/speaking/live-session controls
-
-### Disabled
-
-- background: surface-disabled
-- text: fg-disabled
-- border: border-subtle
-- no hover/active/emission
+Disabled: about 0.4 opacity, no hover. Occupied: `aria-busy`, opacity 1,
+wait-mark, teal voice.
 
 ## Rules
 
-- One dominant primary command per local action group.
-- Do not use bright blue buttons as decoration or status.
-- Icon-only buttons need accessible labels/tooltips when meaning is not universally obvious.
-- Destructive actions must not use brand-primary.
-- Do not rename ordinary actions with fictional command terminology unless the product language calls for it.
+- Icon-only keys use Lucide or an approved glyph plus an accessible name.
+- Do not use pill shapes or permanent outer glow on quiet keys.
+- Unapproved export/delete actions are absent or disabled in production
+  (`PC-09`).

@@ -32,6 +32,8 @@ assert_matches .gitleaksignore
 assert_matches build/scripts/verify-supply-chain.sh
 assert_matches contracts/schemas/v1/example.schema.json
 assert_matches src/Hosts/FlexAgent.Api/Program.cs
+assert_matches web/package.json
+assert_matches web-legacy/package.json
 
 assert_no_match README.md
 assert_no_match docs/contributing/workspace.md

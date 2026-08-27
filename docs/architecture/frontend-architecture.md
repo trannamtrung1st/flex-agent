@@ -6,7 +6,10 @@ ownership.
 
 ## Status and authority
 
-**Approved — 2026-08-26.** This guide applies
+**Approved — 2026-08-26; amended 2026-08-27** for the frontend rebuild
+transition in
+[ADR-020](decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md).
+This guide applies
 [ADR-019](decisions/ADR-019-frontend-state-and-library-boundaries.md). It does
 not introduce product behavior or replace feature or UI/UX specifications. If
 this guide conflicts with an approved ADR, the ADR governs technical
@@ -29,6 +32,21 @@ server-authoritative state.
   native `fetch` (`FE-DEC-6`, `FE-DEC-12`).
 - **Realtime Session UI** is an explicit exception (`FE-DEC-11`).
 
+## Rebuild transition
+
+Until Phase 9 cutover, the production SPA source is `web-legacy/`
+(`@flex-agent/web-legacy`). New `web/` (`@flex-agent/web`) is the candidate
+plus a separately built design lab. Production never serves both. Path names
+in this guide mean the package that currently implements the described
+behavior: after cutover they again mean `web/`.
+
+Production modules must not import `src/design-lab`, `.work/resources`, or
+`web-legacy` source. Design-lab modules may import synthetic fixtures only
+inside the design-lab entry graph. See ADR-020 `FE-TRANS-1`–`FE-TRANS-8`.
+
+Styling follows design-system v1.0 semantic tokens rather than v0.1
+`tokens.css` values. Lucide remains the general icon library (`DS-DEC-10`).
+
 ## Layering
 
 ```text
@@ -38,7 +56,7 @@ App composition root (main.tsx)
       Router
         Feature pages
           feature query/mutation hooks
-            typed/domain API clients (web/src/api/)
+            typed/domain API clients (web/src/api/; production pointer is web-legacy until cutover)
               fetchJson / native fetch
 ```
 

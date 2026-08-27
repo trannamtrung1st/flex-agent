@@ -6,15 +6,18 @@
 | --- | ---: |
 | Hairline structure | 1px |
 | Default controls | 1px |
-| Selected/emphasis | 1px + state treatment |
-| Focus-visible ring | 2px |
-| High-emphasis special boundary | 2px sparingly |
+| Selected/emphasis | 1px + teal or amber state treatment |
+| Focus-visible ring | 1px phosphor teal with 3px offset (global key/control contract) |
+| High-emphasis special boundary | second inset 1px stroke on ceremony commit keys only |
 
 ## Rules
 
-- `border-subtle` is the default structural divider.
-- `border-default` is used for bounded surfaces, menus, and secondary structural boundaries.
-- `border-strong` is the default boundary for inputs, checkboxes, radios, and neutral controls when the border is necessary to identify the component against an adjacent same-colored surface; it is also used for drag targets or strong separation.
-- Focus-visible uses a 2px `border-focus` ring with a 2px offset. Do not rely on a border-color change alone.
-- Dashed borders are reserved for drop zones, empty insertion targets, or draft placeholders.
+- `border-subtle` (`hairline-dim`) is the default internal divider.
+- `border-default` (`hairline`) is the bezel for plates, menus, and fields.
+- Focus-visible uses `border-focus` plus offset; do not rely on a border-color
+  change alone.
+- **Dashed absence.** A dashed hairline marks what is not the current record:
+  empty bay notes, superseded Agent originals, skeleton lines in transit. Solid
+  hairlines frame what is seated. Dashed strokes never frame a live control.
 - Do not use thick black borders as a general product motif.
+- Navigation bezels never use amber.

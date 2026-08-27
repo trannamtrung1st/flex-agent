@@ -1,50 +1,48 @@
 # Dither, Vector Fields & Agent Identity
 
-Flex Agent uses a controlled **constellation/vector field** as a signature
-visual language. It represents Agent identity, computation, memory, transition,
-and presence.
+Flex Agent uses restrained **hairline circuitry and phosphor fields** as
+identity language. It represents Agent presence and computation — not retro
+pixel art and not a decorative starfield wallpaper.
 
-The field should feel like an advanced onboard intelligence rendered through instrumentation — not retro pixel art and not a decorative starfield wallpaper.
+The prototype constellation/dither motif is **adapt**: keep bounded Agent Core
+auras and frame traces; do not place fields behind reading content.
 
 ## Allowed Uses
 
-- Agent Core
-- bounded AI Observation Glass viewport
-- agent identity artwork
-- onboarding/login
-- empty states
-- processing/thinking state
-- live voice visualization
-- memory/knowledge visualization
-- subtle masks around high-salience identity regions
-- documentation/marketing artwork
+- Agent Core aura and rings
+- frame circuitry traces with circular node terminals
+- onboarding/login identity (design lab or approved marketing)
+- empty/wait plates as still geometry
+- processing state inside the Core
+- later-release voice visualization when that specification is in scope
+- documentation artwork
 
 ## Prohibited Uses
 
 - behind transcript text
-- beneath Observation Glass reflections when they would reduce control or state
-  contrast
-- behind form fields
-- beneath tables/evidence
-- beneath dense navigation
+- behind form fields, tables, Evidence, or dense navigation
 - as a full-page animated starfield on application screens
+- as a substitute for status text
 
 ## Field States
 
-- **Dormant:** sparse, dim points; core barely energized.
-- **Ready:** stable regular constellation with faint blue center/rail.
-- **Listening:** local cyan density responds to real audio energy.
-- **Processing:** blue points phase, orbit, or propagate through a bounded region.
-- **Speaking:** directional expansion/pulse follows actual playback state.
-- **Interrupted:** propagation stops or splits immediately.
-- **Dormant after completion:** stable low-energy structure.
+- **Dormant:** dim teal; no repeated motion.
+- **Ready:** stable Core; faint teal field.
+- **Processing:** Core shifts toward amber; bounded pulse.
+- **Speaking:** directional pulse tied to actual playback or stream.
+- **Interrupted:** propagation stops immediately.
+- Listening applies only when voice is an approved capability.
 
 ## Geometry
 
-For application-scale fields: base grid approximately 6–10px, mark size 1–2px, generally low opacity, and field boundaries masked before readable content. Direction may align with panel edges, rails, circular core geometry, or data flow.
+Traces are 1px hairline ending in 5px circular nodes (1px border, canvas fill).
+Attention-side nodes may warm to amber. Agent Core is about 72–118px in live
+Session layouts and smaller in compact chrome.
 
-Use `brand-primary`, `brand-signal`, `brand-live`, `brand-violet` sparingly, and neutral foreground tokens. Blue dominates; violet is secondary and rare.
+Do not use v0.1 `brand-violet` fields.
 
 ## Accessibility
 
-The field is decorative unless paired with explicit state text. Never rely on pattern alone to communicate listening, processing, failure, or completion. Under reduced motion, resolve animated fields to a stable pattern plus the same visible state label.
+The field is decorative unless paired with explicit state text. Never rely on
+pattern alone. Under reduced motion, resolve animated fields to a stable Core
+plus the same visible state label.

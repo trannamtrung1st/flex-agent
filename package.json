@@ -7,11 +7,15 @@
     "pnpm": "9.6.0"
   },
   "scripts": {
-    "lint": "pnpm --filter @flex-agent/web lint",
-    "typecheck": "pnpm --filter @flex-agent/web typecheck",
-    "test": "pnpm --filter @flex-agent/web test",
-    "build": "pnpm --filter @flex-agent/web build",
-    "verify:web": "pnpm install --frozen-lockfile && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "lint": "pnpm --filter @flex-agent/web-legacy lint && pnpm --filter @flex-agent/web lint",
+    "typecheck": "pnpm --filter @flex-agent/web-legacy typecheck && pnpm --filter @flex-agent/web typecheck",
+    "test": "pnpm --filter @flex-agent/web-legacy test && pnpm --filter @flex-agent/web test",
+    "build": "pnpm --filter @flex-agent/web-legacy build",
+    "build:web:new": "pnpm --filter @flex-agent/web build",
+    "build:design-lab": "pnpm --filter @flex-agent/web build:design-lab",
+    "verify:web:legacy": "pnpm --filter @flex-agent/web-legacy lint && pnpm --filter @flex-agent/web-legacy typecheck && pnpm --filter @flex-agent/web-legacy test && pnpm --filter @flex-agent/web-legacy build",
+    "verify:web:new": "pnpm --filter @flex-agent/web lint && pnpm --filter @flex-agent/web typecheck && pnpm --filter @flex-agent/web test && pnpm --filter @flex-agent/web build && pnpm --filter @flex-agent/web build:design-lab",
+    "verify:web": "bash build/scripts/verify-web.sh",
     "verify:dotnet": "bash build/scripts/verify-dotnet.sh",
     "verify:supply-chain": "bash build/scripts/verify-supply-chain.sh",
     "verify:oci": "bash build/scripts/verify-oci.sh"

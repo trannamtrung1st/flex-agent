@@ -1,31 +1,31 @@
 # Border Radius & Panel Geometry
 
-The system is engineered and precise rather than soft or bubbly.
+The system is fabricated and notched rather than soft or bubbly.
 
 | Token | Value | Usage |
 | --- | ---: | --- |
-| xs | 2px | tiny controls, telemetry chips, code tokens |
-| sm | 4px | buttons, inputs, compact menus |
-| md | 6px | cards, dropdowns, panels |
-| lg | 8px | dialogs, large contextual surfaces |
-| full | 9999px | avatars, status dots, toggles, intentional circular controls |
+| none | 0 | every authored rectangle, key, field, plate, dialog, and table |
+| notch | 10px | standard clip-path cut (`--fa-notch`) |
+| notch-lg | 12–18px | examiner plates, ceremony frames, angled hot-key leading edges |
+| full | 9999px | node terminals (5–7px), Agent Core, radio marks, scrollbar thumbs |
 
 ## Notched Geometry
 
-A small clipped/notched corner is an optional Flex Agent signature for **special operational surfaces only**.
+Notched corners are the default Shipboard signature, not an optional flourish.
 
-- notch-sm: approximately 6px
-- notch-md: approximately 10px
-- preferred corner: top-right or bottom-right, consistently within a component family
-- use for Agent Core frames, live-session headers, telemetry plates, or high-salience inspector panels
-
-Do not apply notches to ordinary text inputs, every button, table cell, or every card. Implementation may use pseudo-elements, masks, borders, or clip-path as long as focus outlines and content are not clipped.
+- Standard cut: 10px on selected corners (often top-leading and/or
+  bottom-trailing).
+- Eight-cut chamfer: about 18px outer / 17px inner on board frames.
+- **Clipped-border:** when a chamfered frame must show a bezel on the diagonal,
+  use two clipped layers (1px-padded hairline outer cut, inner pane re-cut 1px
+  inside). A plain `border` plus `clip-path` leaves chamfers unstroked.
+- Implementation may use clip-path, masks, or equivalent as long as focus
+  outlines and content are not clipped at 400% zoom (`PC-12`).
 
 ## Rules
 
-- `sm` and `md` are the default application radii.
-- Avoid radii above 8px in core application UI unless the element is circular/pill-shaped.
-- Do not make every badge a pill.
-- Nested containers should usually have equal or smaller radius than their parent.
-- Technical/log/timeline rows may use 0–2px radius when divider-based.
-- Geometry should feel fabricated and instrument-like, not playful.
+- Do not apply CSS `border-radius` on authored rectangles.
+- Do not make badges, keys, or chips into pills.
+- Nested containers stay square/notched; they do not regain v0.1 4–8px radii.
+- Circular geometry is only for the exceptions in the table above.
+- Technical/log/timeline rows use hairline dividers, not rounded chips.

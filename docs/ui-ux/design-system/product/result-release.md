@@ -5,6 +5,12 @@ This pattern implements shared presentation from the approved
 specification governs behavior; this module does not authorize Release or
 redefine Result construction, visibility, correction, or notification.
 
+Use Shipboard plates, ceremony dialogs, and commit keys for the authorized
+Release flow only. Do not adopt prototype **Approve & Release** (`PC-01`).
+Released Participant views render only server-projected fields (`PC-04`).
+Before Release, Participant Home/My Work show **Result not available**
+(`PC-03`).
+
 ## Distinct state tracks
 
 Keep Evaluation completion, Review decision, Result readiness, Release, and

@@ -426,6 +426,9 @@ FodyWeavers.xsd
 !.playwright-mcp/*.png
 web/test-results/
 web/playwright-report/
+web/dist-design-lab/
+web-legacy/test-results/
+web-legacy/playwright-report/
 
 # Windows Installer files from build outputs
 *.cab
@@ -442,6 +445,8 @@ artifacts/
 .tools/
 web/dist/
 web/tsconfig.tsbuildinfo
+web-legacy/dist/
+web-legacy/tsconfig.tsbuildinfo
 
 # Coding-agent implementation working state under .work/ is intentionally
 # tracked so external reviewers can inspect plans and verification evidence.

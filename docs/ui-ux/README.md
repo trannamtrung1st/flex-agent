@@ -24,7 +24,9 @@ and the approved
 [Evidence, Evaluation, and Human Review](evidence-evaluation-human-review.md)
 interaction specifications, the approved
 [Result and Release](result-release.md) interaction specification, and the
-approved shared [design system](design-system/README.md). Every state and
+shared [design system](design-system/README.md) (Approved v1.0 Shipboard
+Terminal presentation; P0 interaction specifications remain Approved). Every
+state and
 interaction must trace to the owning `AC-*` criteria
 and preserve the SPA/server authority boundary defined by `AR-DEC-12`.
 
@@ -65,7 +67,7 @@ UI/UX documents implement and extend approved requirements; they do not override
 | [Text Session interaction specification](text-session.md) | P0 surface interaction specification | Approved v0.5 | Participant pre-start acknowledgment, committed Session entry, intentional no-action, internal next-timer behavior, durable token-by-token Agent-response streaming, Agent work state, timing, reconnect, partial-stream recovery, pause, completion, terminal transcript access, administrator control, accessibility, responsive, and protected-content behavior |
 | [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md) | P0 surface interaction specification | Approved | Assigned Review work, Evaluation processing and candidate lineage, criterion/Evidence inspection, optional Human revision, Review decision, and Result-ready/not-released handoff |
 | [Result and Release interaction specification](result-release.md) | P0 surface interaction specification | Approved | Release work, immutable Result preview, explicit Release confirmation and reconciliation, Participant pre-release/released/corrected/unavailable Results, notification handoff, accessibility, responsive behavior, and protected-content interaction |
-| [Flex Agent design system](design-system/README.md) | Shared visual, interaction, accessibility, and product-pattern foundation | Approved v0.1 | Deep-Space Operational Futurism, AI Observation Glass, semantic tokens, foundations, reusable components, cross-surface product patterns, authority boundaries, later-release applicability, and implementation checklist |
+| [Flex Agent design system](design-system/README.md) | Shared visual, interaction, accessibility, and product-pattern foundation | Approved v1.0 | Shipboard Terminal visual language superseding v0.1 Deep-Space Operational Futurism; semantic tokens, foundations, reusable components, cross-surface product patterns, authority boundaries, later-release applicability, implementation checklist, and [change record](design-system/change-record.md) |
 
 ## Related documents
 

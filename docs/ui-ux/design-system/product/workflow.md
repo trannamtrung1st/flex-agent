@@ -8,7 +8,8 @@ specification enables it.
 
 ## Participant / Live Session View
 
-- show the current stage clearly
+- show the current stage clearly; a phase rail is visual progress/navigation
+  only and must not mutate lifecycle or entitlement (`PC-07`)
 - show overall progress only when the workflow configuration makes that progress meaningful
 - keep future stage details hidden or subdued when revealing them would be inappropriate for the activity
 - transitions should feel stable and preserve conversation/session context

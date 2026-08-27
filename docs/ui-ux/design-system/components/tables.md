@@ -1,40 +1,29 @@
 # Tables
 
-Tables are a core workspace primitive.
+Dense datatable grammar: mono about 0.72rem, tabular numerals, separate
+borders so sticky heads travel, opaque header fill, 18px inline gutter shared
+with toolbar and pagination.
 
-## Wrapper
+## Behavior
 
-- background: surface-primary
-- optional 1px border-subtle/default
-- radius: md only when bounded as a standalone object
-- no shadow by default
-- horizontal overflow when required
+- Sort on heads with `aria-sort`; optional multi-column rank.
+- Hover: teal glass wash plus tick before the identifier.
+- Selection: teal select-mark; header cycles none → partial → page → matching.
+- Only the object identifier and explicit keys open the record; ordinary cells
+  remain selectable text.
+- Expansion: named Expand/Collapse; details as a clipped-border object, not a
+  nested card stack.
+- Bulk actions are all-or-nothing; mixed eligibility disables with a reason.
+- Production actions require server permission (`PC-09`).
 
-## Header
+## Narrow
 
-- background: surface-secondary or sticky surface-primary
-- text: fg-muted, 12–13px, 600
-- bottom border: 1px border-default
-- cell padding: 10–12px horizontal, 8–10px vertical
-
-## Body
-
-- text: 13–14px
-- row divider: 1px border-subtle
-- cell padding: 10–12px horizontal, 9–12px vertical
-- hover: surface-hover when rows are inspectable/clickable
-- selected: surface-selected
-
-## Numeric / Technical Columns
-
-- use tabular numerals
-- use mono when values are machine identifiers or technical metrics
-- right-align comparable numeric columns
+At workspace widths, horizontal scroll with a named region is allowed. At
+≤720px, some queues may restack as labeled records (`data-label`) when the
+governing spec uses the responsive-record pattern. Never hide status or
+destructive consequence in overflow.
 
 ## Rules
 
-- Do not use zebra striping by default.
-- Sticky first/last columns require clear divider treatment.
-- Row action menus should not dominate scanning.
-- Status values follow `status.md`.
-- Use semantic table markup for true row/column data, including header scopes. Do not make an entire table row the only inaccessible click target; provide a keyboard-operable link/button or equivalent row interaction semantics.
+Selection is UI state, not business truth. Frozen/sorted/filtered views do not
+change server authority.

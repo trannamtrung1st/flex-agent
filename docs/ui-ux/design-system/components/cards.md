@@ -1,35 +1,29 @@
-# Cards & Hull Panels
+# Cards and plates
 
-Cards are explicit object/group boundaries, not the default container for all content. Bounded operational surfaces should read more like **instrument panels** than floating SaaS cards.
+Cards are smoked-glass **plates**, not floating SaaS cards.
 
-## Core Specs
+## Pane
 
-- background: surface-primary or surface-secondary according to plane
-- border: 1px solid border-subtle by default; border-default for stronger grouping
-- radius: md
-- shadow: none by default
-- padding: 16–24px depending on density
+Reusable surface: 1px hairline, sheen over depth fill, panel inset, per-corner
+notch variables. Modifiers: dim bezel, notched, chamfered eight-cut.
 
-## Hull Panel Variant
+## Plate / operate area
 
-Use for active agent/session summary, inspector groups, live controls, or telemetry clusters.
+Administrator walls compose an operate-head plus etched frame. Ceremony plates
+use larger padding (30–46px) and a native dialog root.
 
-- precise 1px edge
-- optional 2–3px signal rail on one edge for current context
-- optional notch-sm/md on one corner
-- optional very faint inner blue edge; no general outer glow
+## Enrollment / assignment plate
 
-## Static Card
+Readout `<dl>` with shared horizon geometry and a reserved key foot. Record
+marks follow [status](../foundation/status.md). Production actions follow
+permissions, not prototype OPEN/INSPECT labels.
 
-No hover effect. Use for summaries, evidence groups, and bounded dashboard objects.
+## Demo plate
 
-## Interactive Card
-
-- hover: surface-hover and/or border-hover
-- selected/current: surface-selected + border-selected or signal rail
-- focus-visible: scanner focus treatment
-- cursor only if the whole surface is truly actionable
+Design-lab only. Never in the production bundle (`PC-14`).
 
 ## Rules
 
-Avoid nested cards when dividers/sections can express hierarchy. Do not notch every panel or add shadows to every card.
+- No outer drop shadows.
+- Avoid nested plates when a divider suffices.
+- Empty plates use the empty-state instrument, not bare text.

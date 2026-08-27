@@ -7,7 +7,9 @@ reproducible, and auditable.
 
 This is a later-release shared pattern unless an approved feature specification
 enables the relevant Harness-management capability. It does not add Harness
-editing, snapshots, restoration, or improvement to the assessment MVP.
+editing, snapshots, restoration, or improvement to the assessment MVP. When
+rendered, use workspace density, readout grids, and Shipboard plates — never
+prototype Users/Policies/Audit management destinations (`PC-09`).
 
 ## Current working Harness
 

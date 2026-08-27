@@ -4,7 +4,7 @@ Architecture Decision Records (ADRs) for Flex Agent.
 
 ## Status
 
-**Nineteen approved decisions.** ADR-012 through ADR-014 plus their approved upstream
+**Twenty approved decisions.** ADR-012 through ADR-014 plus their approved upstream
 product/requirement revisions govern structured Agent Invocation/Decision,
 next-timer replacement, and the P0 Decision-output envelope.
 [ADR-015](ADR-015-session-timer-lane-service-delegation.md) records the Worker
@@ -51,6 +51,7 @@ reproducible synthetic authenticated-browser profile for local verification.
 | [ADR-017](ADR-017-assessment-source-authority-and-activation-transaction.md) | Approved | Configuration-owned transactional source descriptors, named Assessment activation coordinator, Sessions file-registry exclusion, and Production fail-closed source participation |
 | [ADR-018](ADR-018-enrollment-request-limit-scope.md) | Approved; amended 2026-08-23 | First Enrollment slice keeps replica-local request limits; the separate replica-independent quota task uses PostgreSQL-backed application admission rather than gateway identity policy or a new cache component |
 | [ADR-019](ADR-019-frontend-state-and-library-boundaries.md) | Approved | TanStack Query for HTTP-backed SPA resources, React Hook Form and Zod for non-trivial forms, Lucide for icons, native `fetch` retained, Zustand/Tailwind/Axios excluded, and realtime Session UI left unmigrated |
+| [ADR-020](ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md) | Approved | Dual-build `web-legacy`/`web` transition, compile-time design-lab isolation, explicit production pointer, revision-only rollback, mandatory legacy retirement |
 
 ## Purpose
 

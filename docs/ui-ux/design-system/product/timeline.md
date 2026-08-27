@@ -17,12 +17,13 @@ The timeline unifies conversation, tool execution, interruption, workflow, evide
 
 ## Standard Event Row
 
-- optional 16–20px event icon
-- event label: 12–13px, 600
-- time: mono 12px, fg-muted
-- body: 13–15px depending on type
+- optional 16–20px Lucide or state glyph
+- event label: microlabel, `fg-muted`
+- time: mono tabular, named timezone then UTC fallback (`PC-11`)
+- body: 13–15px
 - vertical padding: 8–16px
-- left rail/divider optional for audit-oriented timelines
+- left hairline rail optional for audit-oriented timelines; node terminals
+  mark the current event when useful
 
 ## Tool Execution Event
 

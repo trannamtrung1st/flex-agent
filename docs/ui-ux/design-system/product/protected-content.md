@@ -5,6 +5,16 @@ revisions, Results, memory, and audit records are sensitive. Shared UI patterns
 must preserve the authorization, isolation, redaction, and non-disclosure rules
 from the owning approved specification.
 
+## Visual presentation
+
+Use the empty-state instrument plate (dim node, Michroma label, mono note) for
+protected loading and non-disclosing unavailable. Wait instruments may occupy
+the plate during loading. Do not use amber, live Core motion, or distinctive
+copy that would disclose whether a target exists.
+
+Blur, smoked-glass overlay, or clip-path must never be the mechanism that hides
+unauthorized content (`DS-DEC-7`).
+
 ## State sequence
 
 1. **Protected loading** — show neutral structure/status without protected

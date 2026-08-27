@@ -1,26 +1,16 @@
-import { BrowserRouter, RouterProvider } from "react-router-dom";
-import { BrowserApiProvider, ProtectedBrowserAuthSubtree } from "./api/browser-api";
-import { isProductionApiMode, ProductionApiProvider } from "./api/production-api";
-import { FlexQueryProvider } from "./api/query-client";
-import { AppRoutes } from "./router/routes";
-import { productionRouter } from "./router/production-routes";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export function App() {
   return (
-    <FlexQueryProvider>
-      {isProductionApiMode() ? (
-        <ProductionApiProvider>
-          <RouterProvider router={productionRouter} />
-        </ProductionApiProvider>
-      ) : (
-        <BrowserApiProvider>
-          <BrowserRouter>
-            <ProtectedBrowserAuthSubtree>
-              <AppRoutes />
-            </ProtectedBrowserAuthSubtree>
-          </BrowserRouter>
-        </BrowserApiProvider>
-      )}
-    </FlexQueryProvider>
+    <ErrorBoundary>
+      <main className="candidate-workspace">
+        <p className="candidate-workspace__kicker">Candidate SPA</p>
+        <h1>Flex Agent candidate workspace</h1>
+        <p>
+          This package is the rebuild candidate. Production traffic continues to
+          use the frozen legacy SPA until an explicit cutover.
+        </p>
+      </main>
+    </ErrorBoundary>
   );
 }

@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const webRoot = path.join(root, "web", "src");
+const webRoots = [path.join(root, "web", "src"), path.join(root, "web-legacy", "src")];
 const forbiddenPatterns = [
   /\.\.\/\.\.\/src\//,
   /FlexAgent\./,
@@ -32,14 +32,16 @@ async function walk(directory) {
   return files;
 }
 
-const files = await walk(webRoot);
 const violations = [];
 
-for (const file of files) {
-  const content = await readFile(file, "utf8");
-  for (const pattern of forbiddenPatterns) {
-    if (pattern.test(content)) {
-      violations.push(`${path.relative(root, file)} matched ${pattern}`);
+for (const webRoot of webRoots) {
+  const files = await walk(webRoot);
+  for (const file of files) {
+    const content = await readFile(file, "utf8");
+    for (const pattern of forbiddenPatterns) {
+      if (pattern.test(content)) {
+        violations.push(`${path.relative(root, file)} matched ${pattern}`);
+      }
     }
   }
 }

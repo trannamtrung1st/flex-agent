@@ -1,36 +1,51 @@
 # Motion
 
-Motion makes the onboard intelligence feel responsive. It must be tied to state, causality, or navigation.
+Motion makes the console feel responsive. It must be tied to state, causality,
+or navigation.
 
 ## Timing
 
-| Interaction | Duration |
-| --- | ---: |
-| hover / selection | 100–150ms |
-| press feedback | 80–120ms |
-| signal/focus sweep | 140–220ms |
-| panel / popover | 160–220ms |
-| modal | 180–240ms |
-| layout transition | 180–260ms |
-| Agent Core state transition | 220–420ms |
+| Interaction | Duration | Easing |
+| --- | ---: | --- |
+| hover / selection | 150–160ms | `--fa-ease-out` `cubic-bezier(0.16, 1, 0.3, 1)` |
+| press feedback | 80–120ms | same |
+| focus / bezel shift | 160–180ms | same |
+| panel / popover / toast | 240–320ms | same |
+| gangway width | 240ms | same; disabled under reduced motion |
+| bulkhead / dialog | 320ms | same |
+| authored reveal (plate, ledger turn, seal-sweep) | 640ms | clip-path or gradient; one at a time |
+| Agent Core color/state | 480ms | color; pulse period shortens while processing |
 
-Use restrained ease-out for entrances and ease-in-out for state transitions. Avoid playful bounce/spring behavior in operational work surfaces.
+Avoid playful bounce/spring behavior in operational work surfaces.
 
 ## Functional Motion
 
-Allowed continuous/repeated motion includes voice activity while audio is actually active, Agent Core activity tied to listening/processing/speaking, streaming signal markers, actual progress, live recording state, and a brief directional scan when focus/current context changes.
+Allowed continuous/repeated motion includes Agent Core activity tied to
+processing/speaking, wait-mark scan while work is actually in progress, scan-
+track indeterminate fill, streaming markers at the current generation
+boundary, and a brief directional reveal when a record opens.
+
+Wait is never a spinner. Use wait-mark, scan-track, skel-stack, and wait-plate
+from [empty/loading](../product/empty-loading.md).
 
 ## Agent Core Motion
 
-- **Ready:** nearly still; low-intensity stable field.
-- **Listening:** cyan perimeter/local field responds to actual audio energy.
-- **Processing:** bounded orbital/raster/dither phase shift; never full-screen.
-- **Speaking:** directional pulses synchronized to playback/activity.
-- **Interrupted:** active motion cuts/fractures immediately, then resolves to the new floor state.
+- **Ready / idle:** nearly still; slow teal aura (about 6.2s / 3.55s).
+- **Processing:** same silhouette; shift toward amber; faster pulse
+  (about 2.13s / 1.8s).
+- **Speaking / streaming:** directional pulse tied to actual playback or
+  token stream, plus visible state text.
+- **Interrupted:** active motion cuts immediately, then resolves to the new
+  floor state.
+- Listening/voice motion applies only when an approved voice specification
+  is in scope; MVP text Session does not imply a microphone beacon.
 
 ## Reduced Motion
 
-Respect `prefers-reduced-motion`. Replace sweeps, orbital motion, and waveform animation with stable edge illumination, state text, and simple opacity changes.
+Respect `prefers-reduced-motion`. Replace sweeps, pulses, and width
+transitions with stable geometry, state text, and simple opacity changes. Wait
+instruments remain seated (node fully lit, scan line centered, indeterminate
+fill parked). Authored 640ms clip-path reveals cut straight to the end state.
 
 ## Prohibited
 
@@ -39,4 +54,5 @@ Respect `prefers-reduced-motion`. Replace sweeps, orbital motion, and waveform a
 - looping decorative gradient motion
 - random pulsing of idle controls
 - constant scan lines across readable content
+- circular spinners or bouncing dots
 - unnecessary spring/bounce interactions

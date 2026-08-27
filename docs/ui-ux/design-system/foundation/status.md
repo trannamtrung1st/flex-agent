@@ -1,17 +1,20 @@
 # Status Grammar
 
-Status is a shared product language. The same state must look and read consistently across lists, details, timelines, and dialogs.
+Status is a shared product language. The same state must look and read
+consistently across lists, details, timelines, and dialogs.
 
 ## Status Anatomy
 
-A status representation may include:
+A status representation must include:
 
-1. icon or dot
-2. text label
-3. semantic color
-4. optional supporting timestamp/detail
+1. text label when the meaning affects user decisions
+2. instrument mark (node, glyph, or tick)
+3. optional semantic color (teal, amber, success, danger)
+4. optional supporting timestamp/detail in the named Campaign timezone with UTC
+   fallback (`PC-11`)
 
-Text label is mandatory when status meaning affects user decisions.
+Color alone is never sufficient (`PC-12`). Filled pills are not the status
+control.
 
 ## Common State Families
 
@@ -40,6 +43,8 @@ Text label is mandatory when status meaning affects user decisions.
 - Review required
 - Approved
 - Rejected
+
+Do not combine Review decision with Release in one control or label (`PC-01`).
 
 ### Agent memory mode
 
@@ -81,7 +86,10 @@ assignment when useful for audit.
 - Reconnecting
 - Disconnected
 
-Connectivity is separate from Agent Core/voice state. Do not use `Offline` as a substitute for an agent-presence state. `Reconnecting` normally uses warning/attention semantics; `Disconnected` uses danger only when it blocks required interaction, otherwise use neutral lifecycle styling plus explicit text.
+Connectivity is separate from Agent Core state. Do not use `Offline` as a
+substitute for an agent-presence state. `Reconnecting` uses warning/attention
+semantics; `Disconnected` uses danger only when it blocks required interaction,
+otherwise use neutral lifecycle styling plus explicit text.
 
 ### Session
 
@@ -92,13 +100,22 @@ Connectivity is separate from Agent Core/voice state. Do not use `Offline` as a 
 - Terminated
 - Expired
 
+Session timers and completion are server/runtime owned (`PC-08`).
+
 ## Visual Mapping
 
-- neutral: draft, waiting, archived
-- brand: active, selected, current
-- live/cyan: listening, streaming, speaking, live
-- success: succeeded, approved, completed when success semantics apply
-- warning: review required, needs attention, reconnecting, or paused when pause has a consequence requiring attention
-- danger: failed, rejected, terminated, disconnected when blocking, destructive/error states
+- neutral / dim node: draft, waiting, archived, empty
+- teal node or tick: selected, current, sealed, ready, released, succeeded when
+  success is not a separate outcome
+- amber solid node: live work demanded, attention, reconnecting, paused when
+  pause has a consequence
+- success: succeeded, approved when success semantics apply — text plus mark
+- danger: failed, rejected, terminated, disconnected when blocking
+- live Agent: teal Core plus explicit Ready/Processing/Speaking text
 
-Do not automatically make every completed state green if completion is merely lifecycle information rather than success.
+Do not automatically make every completed state green if completion is merely
+lifecycle information rather than success.
+
+Participant surfaces must not reveal Evaluation-under-review, reviewer
+activity, or Release progress before publication. Use the approved neutral
+**Result not available** copy (`PC-03`).

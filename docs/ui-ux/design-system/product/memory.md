@@ -1,6 +1,6 @@
 # Memory Mode & Stored Memories
 
-Memory UI must clearly separate **mode/configuration** from **stored memory records**. Stable mode disables new long-term learning; it does not imply that previously approved memory has been erased.
+Memory UI must clearly separate **mode/configuration** from **stored memory records**. Stable mode disables new long-term learning; it does not imply that previously approved memory has been erased. Present mode as readout text plus a teal or dim node, not a decorative badge.
 
 Stored-memory management and Dynamic memory are later-release patterns. They do
 not enable those capabilities in the assessment MVP. The approved assessment

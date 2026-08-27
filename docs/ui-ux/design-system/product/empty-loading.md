@@ -2,61 +2,61 @@
 
 ## Empty States
 
-A useful empty state contains a concise explanation, why the space is empty when not obvious, one primary next action when applicable, and optional low-energy constellation/Agent Core artwork.
-
-Empty operational bays may use faint grid/vector structure, but the action remains dominant.
+A useful empty state is an **instrument plate**: dim node, Michroma label, mono
+note (max about 44ch), optional primary key. Unoccupied bays use a dashed
+hairline empty note (dashed absence), not a second clipped card.
 
 ## Loading
 
-Use skeletons for predictable structures, compact spinners for bounded short actions, real progress when available, and state text for noticeable operations. A bounded blue signal scan/pulse is allowed when it corresponds to real work.
+Loading is a Shipboard instrument family, never a spinner:
+
+- **Wait-mark:** square hairline bezel with pulsing teal node and scan line
+- **Scan-track:** 3px teal determinate or indeterminate fill
+- **Skel-stack:** dashed dim lines with optional teal sweep
+- **Wait-plate:** empty-plate anatomy plus wait-mark and scan-track
+- Occupied keys use the waiting state in [interaction states](../foundation/interaction-states.md)
+
+Teal is the wait voice. Amber stays on the current stage bar or other rationed
+attention object only. `role="status"` / `aria-busy` / polite live regions as
+appropriate. Reduced motion holds geometry still.
 
 ## Streaming
 
 - show content incrementally when appropriate
-- use a current-generation **signal cursor**: small blue/cyan line, point, or bounded dither marker
+- use a current-generation marker at the boundary only
 - do not animate previously generated content
-- keep Agent Core processing/speaking state synchronized with streaming/playback semantics
+- keep Agent Core processing/speaking synchronized with real semantics
 
 ## Pending
 
-Use explicit labels such as `Waiting`, `Queued`, `Pending review`, or `Processing`. Avoid ambiguous pulsing dots without text when state matters.
+Use explicit labels such as `Waiting`, `Queued`, or `Processing`. Avoid
+ambiguous pulsing dots without text when state matters. Do not use
+Participant-facing **Pending release** copy (`PC-03`).
 
 ## Product Composition Rules
 
-### Agent Configuration — Systems Bay
+### Live Interaction — Session console
 
-Use a stable command-deck shell with agent context rail, clear agent header with Compact Core, sections such as Overview/Instructions/Knowledge/Tools/Memory/Harness/Activity, inspectors for advanced configuration, and dark hull panels/signal rails rather than nested generic cards.
+Instrument rail, ledger, examiner plate, composer. Strongest Shipboard
+expression. Later-release voice beacons stay out of MVP text Session.
 
-### Live Interaction — AI Conversation Bay
+### Activities / Campaigns & Enrollment — Operations
 
-This is the most expressive application surface and should deliver the strongest starship-AI feeling:
+Tables, gangway, Campaign Context instrument, ceremony dialogs. Save draft /
+Check readiness / server Activate (`PC-05`). Invalid Campaign id shows
+unavailable, never silent substitution (`PC-06`).
 
-- Primary or Compact Agent Core anchored above/near the conversation
-- bounded AI Observation Glass framing the Agent focal plane without obscuring
-  transcript or controls
-- session/voice telemetry rail
-- readable auditable conversation timeline
-- integrated text + voice interaction zone
-- live cyan only when genuinely listening/speaking
-- blue processing state synchronized with real agent activity
-- optional dark peripheral panels for task/context/evidence
+### Evaluation & Review — Analysis bay
 
-The conversation itself remains calm. The science-fiction identity frames the interaction rather than competing with every sentence.
+Split ledger and marginalia. Separate Review decision from Release (`PC-01`).
+Human revision is preview-and-submit, not local mutation (`PC-02`).
 
-### Activities / Campaigns & Sessions — Operations
+### Result / Release
 
-Use tables/operational lists for overview and interaction mode inside a live session. Campaign is one structured-activity configuration, not the visual organizing principle for the whole product. Do not gamify ordinary product copy as missions unless the domain explicitly calls for it.
+Neutral unpublished Participant state; server-projected released fields only
+(`PC-03`, `PC-04`).
 
-### Harness / Snapshot Management — Configuration History
+### Marketing / Onboarding
 
-Use timeline/table patterns with mono identifiers, diff/review actions, and restrained blue current-version indication. Pinned/current snapshot may use a signal rail; historical versions stay quiet.
-
-### Evaluation & Review — Analysis Bay
-
-Use split-pane or stacked evidence/evaluation structure. Preserve an auditable relationship between criterion, score/outcome, evidence, confidence, and reviewer action. Keep these surfaces calmer than live interaction.
-
-### Marketing / Onboarding — Exterior View
-
-This is where the system may become cinematic: larger Agent Core, deep black/blue fields, controlled blue/cyan directional gradients, visible constellation/vector artwork, Space Grotesk display typography, atmospheric grid/scan structure, and restrained parallax/orbital movement when motion is allowed.
-
-The application itself remains more instrument-like and less theatrical.
+May be more cinematic: larger Core, hull ground, restrained traces. The
+application remains instrument-like.
