@@ -38,6 +38,7 @@ RUNTIME_DIR_PREFIXES = (
     "hooks/",
     "cache/",
     "logs/",
+    "critique/",
     "critiques/",
     "previews/",
     "annotations/",
@@ -202,8 +203,28 @@ def check_adapters() -> list[str]:
     return errors
 
 
+def _posix(path: Path) -> str:
+    return path.as_posix()
+
+
+def _is_legacy_live_path(path: Path) -> bool:
+    posix = _posix(path)
+    name = path.name
+    if name == ".impeccable-live.json" or posix.endswith("/.impeccable-live.json"):
+        return True
+    return "/.impeccable-live/" in posix or posix.endswith("/.impeccable-live")
+
+
+def is_impeccable_guard_relpath(rel: str) -> bool:
+    if rel.startswith(".impeccable/") or "/.impeccable/" in f"/{rel}":
+        return True
+    if rel == ".impeccable-live.json" or rel.startswith(".impeccable-live/"):
+        return True
+    return rel.endswith("/.impeccable-live.json") or "/.impeccable-live/" in rel
+
+
 def relative_impeccable_parts(path: Path) -> str | None:
-    parts = path.as_posix().split("/.impeccable/")
+    parts = _posix(path).split("/.impeccable/")
     if len(parts) < 2:
         name = path.name
         if path.parent.name == ".impeccable":
@@ -217,7 +238,7 @@ def _is_snapshot_impeccable(path: Path) -> bool:
         path.resolve().relative_to(SNAPSHOT_IMPECCABLE.resolve())
         return True
     except (OSError, ValueError):
-        return ".work/resources/impeccable-prototype-snapshot/" in path.as_posix()
+        return ".work/resources/impeccable-prototype-snapshot/" in _posix(path)
 
 
 def _is_runtime_artifact(relative: str) -> bool:
@@ -227,6 +248,13 @@ def _is_runtime_artifact(relative: str) -> bool:
     if any(relative == prefix[:-1] or relative.startswith(prefix) for prefix in RUNTIME_DIR_PREFIXES):
         return True
     return relative.lower().endswith(RUNTIME_SUFFIXES)
+
+
+def _is_runtime_path(path: Path) -> bool:
+    if _is_legacy_live_path(path):
+        return True
+    relative = relative_impeccable_parts(path)
+    return bool(relative and _is_runtime_artifact(relative))
 
 
 def git_tracked_impeccable_paths() -> list[Path]:
@@ -245,7 +273,7 @@ def git_tracked_impeccable_paths() -> list[Path]:
         if not raw:
             continue
         rel = raw.decode("utf-8", errors="replace")
-        if "/.impeccable/" not in f"/{rel}" and not rel.startswith(".impeccable/"):
+        if not is_impeccable_guard_relpath(rel):
             continue
         paths.append(ROOT / rel)
     return paths
@@ -262,12 +290,11 @@ def check_impeccable_tracked_paths(tracked_paths: list[Path] | None = None) -> l
     for path in tracked_paths:
         if _is_snapshot_impeccable(path):
             continue
-        relative = relative_impeccable_parts(path)
         try:
             label = path.relative_to(ROOT)
         except ValueError:
             label = path
-        if relative and _is_runtime_artifact(relative):
+        if _is_runtime_path(path):
             errors.append(f"refusing runtime artifact in tracked Impeccable path {label}")
             continue
         try:

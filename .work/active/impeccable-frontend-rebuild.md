@@ -519,10 +519,13 @@ presentation, state coordination, and integration, not new business layers.
   detection and live mode off.
 - [x] Add explicit `.gitignore` and artifact-retention rules for Impeccable:
   ignore local config, hook state, live sessions/previews/annotations/caches,
-  screenshots, logs, and manual-edit transactions; keep only reviewed shared
-  config, generated authority adapters/sidecar, and intentionally retained
-  synthetic critique records. Add a check that rejects secrets, real
-  participant content, and runtime artifacts from tracked `.impeccable/` paths.
+  screenshots, logs, critique records, and manual-edit transactions; keep only
+  reviewed shared config and generated authority adapters/sidecar. Add a check
+  that rejects runtime artifacts, high-signal secret patterns, and
+  non-synthetic email identifiers from tracked Impeccable paths. Repository
+  policy still requires synthetic-only participant content and reviewed
+  artifacts; Gitleaks covers general secret scanning; workflow/review covers
+  transcripts, submissions, and evaluations.
 - [x] Update `AGENTS.md` role routing and the repository skills for UI/UX
   design, frontend development, frontend review, testing, and documentation so
   they compose Impeccable explicitly at suitable stages without delegating
@@ -1386,6 +1389,11 @@ Phase 3. Production `web/` has not been renamed.
   as prototype comparison plus deferred authenticated current-web capture;
   `license_review` on the snapshot manifest; DESIGN.md token projection
   explicitly deferred to Phase 3; committed PNG evidence map.
+- Follow-up to `d1a95f5`: ignore and reject upstream `.impeccable/critique/`
+  (`CRITIQUE_DIR`), keep plural `critiques/` as a leftover alias, classify
+  `.impeccable-live.json` / `.impeccable-live/` as runtime, and align the
+  Phase 1 checkbox with email/secret tripwires plus Gitleaks/review policy
+  rather than claiming generic participant-content detection.
 
 # Verification
 
@@ -1418,7 +1426,7 @@ Phase 3. Production `web/` has not been renamed.
 | Two-axis adoption matrix | passed | `# Prototype two-axis adoption matrix` and `# Prototype behavior rejections` (`BR-01`–`BR-14` → `PC-01`–`PC-14`) |
 | Authenticated Keycloak-browser E2E | not run | compose profile not started; not required to close Phase 0 once synthetic E2E ran |
 | Snapshot secret scan | passed | no credential/private-key matches; `license_review` in `MANIFEST.json`; font/npm license deferred to Phase 3 |
-| Impeccable tracked-path guard | passed | runtime shots/live/cache ignored; check rejects secrets, non-synthetic emails, and runtime artifacts under tracked `.impeccable/` except the prototype snapshot |
+| Impeccable tracked-path guard | passed | ignore + check cover `.impeccable/critique/` (upstream `CRITIQUE_DIR`) and `.impeccable-live*`; tripwire is secrets + non-synthetic emails, not a PII detector. Snapshot shots remain exempt. Gitleaks remains the repo-wide secret scan. |
 | Codex/Cursor Impeccable catalog | passed | five role skills mirrored; `.cursor/skills/impeccable` symlink to `.agents/skills/impeccable` |
 
 ## Playwright screenshot evidence map

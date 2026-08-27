@@ -448,9 +448,9 @@ web/tsconfig.tsbuildinfo
 
 # Impeccable local/runtime state; keep reviewed shared config.json and
 # generated design.json / surface briefs. Do not track screenshots, live
-# sessions, caches, logs, or other generated UI captures (they may include
-# participant or evaluation pixels). Reviewed synthetic Playwright PNGs stay
-# under .playwright-mcp/*.png only.
+# sessions, caches, logs, critique markdown (upstream CRITIQUE_DIR is
+# critique/, not critiques/), or other generated UI captures. Reviewed
+# synthetic Playwright PNGs stay under .playwright-mcp/*.png only.
 .impeccable/config.local.json
 .impeccable/hook.cache.json
 .impeccable/hook.pending.json
@@ -458,6 +458,7 @@ web/tsconfig.tsbuildinfo
 .impeccable/questions/
 .impeccable/hooks/
 .impeccable/shots/
+.impeccable/critique/
 .impeccable/critiques/
 .impeccable/cache/
 .impeccable/logs/

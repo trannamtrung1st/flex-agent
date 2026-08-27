@@ -8,6 +8,7 @@ from impeccable_context import (
     check_impeccable_tracked_paths,
     check_impeccable_tracked_secrets,
     complete_sentences,
+    is_impeccable_guard_relpath,
     render_design,
     render_product,
     relative_impeccable_parts,
@@ -64,6 +65,25 @@ class ImpeccableContextTests(unittest.TestCase):
             errors = check_impeccable_tracked_paths([path])
             self.assertTrue(any("runtime artifact" in error for error in errors), errors)
 
+    def test_upstream_critique_markdown_path_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".impeccable" / "critique" / "2026-08-27__session.md"
+            path.parent.mkdir(parents=True)
+            path.write_text("# Critique\nSynthetic session findings.\n", encoding="utf-8")
+            errors = check_impeccable_tracked_paths([path])
+            self.assertTrue(any("runtime artifact" in error for error in errors), errors)
+
+    def test_legacy_impeccable_live_state_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            live_json = Path(tmp) / ".impeccable-live.json"
+            live_json.write_text("{}\n", encoding="utf-8")
+            live_file = Path(tmp) / ".impeccable-live" / "sessions" / "state.json"
+            live_file.parent.mkdir(parents=True)
+            live_file.write_text("{}\n", encoding="utf-8")
+            errors = check_impeccable_tracked_paths([live_json, live_file])
+            self.assertEqual(len(errors), 2, errors)
+            self.assertTrue(all("runtime artifact" in error for error in errors), errors)
+
     def test_participant_email_in_impeccable_text_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".impeccable" / "surfaces" / "leak.md"
@@ -95,6 +115,12 @@ class ImpeccableContextTests(unittest.TestCase):
         )
         self.assertTrue(path.is_file())
         self.assertEqual(check_impeccable_tracked_paths([path]), [])
+
+    def test_guard_relpaths_include_legacy_live_and_root_impeccable(self) -> None:
+        self.assertTrue(is_impeccable_guard_relpath(".impeccable/critique/2026-08-27__session.md"))
+        self.assertTrue(is_impeccable_guard_relpath(".impeccable-live.json"))
+        self.assertTrue(is_impeccable_guard_relpath(".impeccable-live/sessions/state.json"))
+        self.assertFalse(is_impeccable_guard_relpath("docs/ui-ux/design-system/README.md"))
 
     def test_relative_impeccable_parts(self) -> None:
         self.assertEqual(
