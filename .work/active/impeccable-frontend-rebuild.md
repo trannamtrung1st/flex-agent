@@ -1246,6 +1246,8 @@ on it.
   outside approved `web/src` prefixes; parse HTML module `src` / stylesheet
   `href` entry references for candidate and lab HTML shells.
 
+## Phase 8 — Migrate the frozen production-parity frontend in vertical waves
+
 Starts only after Phase 7.5 establishes `/design-lab`, verifies the promotion
 boundary, and removes every live dependency on the raw/original prototypes.
 
