@@ -467,8 +467,11 @@ presentation, state coordination, and integration, not new business layers.
   E2E remains a later production-profile check, not required to close this
   Phase 0 item.
 - [x] Capture synthetic desktop and narrow screenshots plus accessibility
-  snapshots for representative current production states and all prototype
-  surfaces. Use them only as comparison evidence, never as acceptance authority.
+  snapshots for all prototype surfaces. Use them only as comparison evidence,
+  never as acceptance authority. Authenticated current-production visual
+  states were not captured (synthetic-mode 502 workspace panel only). This is
+  **sufficient to start Phase 3**; a complete production-parity screenshot
+  baseline is deferred to the production-parity/cutover phase.
 - [x] Classify current non-P0/synthetic routes (`Agents`, `Harnesses`,
   `Governance`, and similar) as design-lab-only, deferred, or removable. Default
   all capabilities lacking approved P0 specs to design-lab/reference only.
@@ -478,8 +481,9 @@ presentation, state coordination, and integration, not new business layers.
 - Target changes are understood; the selected prototype content is an immutable
   hash-manifested snapshot tied to its base revision and recorded dirty state;
   all inputs have provenance; production parity is separated from synthetic
-  reference behavior; the route/behavior/AC inventory is complete; and baseline
-  checks and screenshots are recorded.
+  reference behavior; the route/behavior/AC inventory is complete; prototype
+  visual comparison screenshots are recorded. Authenticated current-web
+  production screenshots remain deferred and are not required to start Phase 3.
 
 ## Phase 1 — Integrate Impeccable as a governed repository capability
 
@@ -530,7 +534,11 @@ presentation, state coordination, and integration, not new business layers.
 - [x] Add deterministic generation/check tooling for root `PRODUCT.md` and
   `DESIGN.md`. The generated files must contain authority warnings, canonical
   links, approved version/status, relevant design tokens/rules, and a content
-  fingerprint. CI check mode must fail on drift without rewriting files.
+  fingerprint. Until design-system v1.0, `DESIGN.md` is a minimal
+  authority-safe adapter (canonical links, status, Shipboard migration
+  guidance) and does **not** project v0.1 tokens. Complete v1.0 design
+  token/rule projection happens in Phase 3. CI check mode must fail on drift
+  without rewriting files.
 - [x] Add focused tests for context generation and CI drift-check of the
   adapters without changing canonical docs.
 - [x] Validate Impeccable `context.mjs` / doctor against the adapters in a
@@ -562,7 +570,7 @@ presentation, state coordination, and integration, not new business layers.
   artifacts, and bulk generated critique/audit material.
 - [x] Add a snapshot README and cryptographic manifest recording source remote,
   base commit, branch, source status, included dirty paths, import time,
-  included/excluded paths, file hashes, licenses, and the statement that the
+  included/excluded paths, file hashes, license-review status, and the statement that the
   snapshot is non-authoritative and temporary.
 - [x] Run secret scan on the imported snapshot before it is tracked. Font and
   npm license review for Michroma/Sometype Mono and prototype lockfile packages
@@ -1244,14 +1252,12 @@ Add and run focused commands for:
 
 # Current state
 
-Phases 0–2 are complete and were re-checked for consistency. Pre-migration
-current-web E2E (synthetic harness 6/6, including Session/Release paths that
-are **not** frozen production API-mode parity), SPA OCI image/probe, and
-supply-chain/OCI baselines are recorded under `# Verification`. Impeccable
-`context.mjs` / doctor remain report-only against generated adapters.
-Canonical `docs/` were not rewritten. The two-axis adoption matrix is
-family-level plus an explicit remaining-family table. Next: Phase 3
-design-system v1.0. Production `web/` has not been renamed.
+Phases 0–2 are **sufficient to start Phase 3** after the gate/evidence
+corrective pass. They are not a complete authenticated production-parity
+visual baseline. Prototype comparison screenshots (committed, mapped below),
+synthetic-harness E2E, SPA OCI, and supply-chain/OCI checks are recorded.
+Impeccable adapters remain authority-safe until v1.0 token projection in
+Phase 3. Production `web/` has not been renamed.
 
 # Decisions
 
@@ -1373,6 +1379,13 @@ design-system v1.0. Production `web/` has not been renamed.
   still exercises synthetic Session/Release, which the plan already excludes
   from production parity. Playwright can leave `flex-agent-e2e-spa` bound to
   `:5173`; remove it before a later E2E run.
+- External review of `6622c96`/`73bedd0`/`c66152a` required gate/evidence
+  corrections before treating Phases 0–2 as a closed reviewed baseline:
+  Apache-2.0 notice on `agents/openai.yaml`; `.impeccable` runtime ignore plus
+  tracked-path/secret/participant-email checks; Phase 0 screenshot item scoped
+  as prototype comparison plus deferred authenticated current-web capture;
+  `license_review` on the snapshot manifest; DESIGN.md token projection
+  explicitly deferred to Phase 3; committed PNG evidence map.
 
 # Verification
 
@@ -1389,13 +1402,13 @@ design-system v1.0. Production `web/` has not been renamed.
 | Plan consistency/readiness audit | passed | phases 0–11 are ordered with exit gates; `PC-01`–`PC-14` are complete; source capture needs no external write; synthetic/future capability is excluded from production parity; approval delegation and legacy retirement are explicit |
 | Authenticated production-profile definition | passed | `bash build/scripts/authenticated-browser-profile.sh validate` |
 | Plan markdown/content validation | passed | `python3 scripts/check_docs.py` |
-| Implementation verification | in progress | Phases 0–2 complete; Phase 3 design-system v1.0 next |
+| Implementation verification | in progress | Phases 0–2 sufficient to start Phase 3 after gate/evidence corrections; v1.0 next |
 | Experiment freeze | passed | HEAD `f724b68` clean; planning base `c52eeda3`; 215 hashed files in `.work/resources/impeccable-prototype-snapshot/MANIFEST.json` |
-| Impeccable adapter unit tests | passed | `python3 -m unittest discover -s scripts -p 'test_impeccable_context.py'` |
+| Impeccable adapter unit tests | passed | `python3 -m unittest discover -s scripts -p 'test_impeccable_context.py'` 12 tests |
 | `verify-web.sh` | failed (pre-existing) | 181 pass / 1 fail `AssessmentSetupPage` access-loss focus; lint 11 warnings 0 errors; typecheck pass |
 | Production SPA build / bundle | passed | Vite `web/dist`: JS 546884 B / gzip 160.45 kB; CSS 19163 B / gzip 4.48 kB |
-| Prototype desktop/narrow screenshots | passed | `.playwright-mcp/` 2026-08-27T01-15 through 01-20 captures; a11y snapshots alongside; not committed |
-| Current-web comparison screenshots | partial | synthetic mode without API: 502 workspace panel; authenticated production states not captured |
+| Prototype desktop/narrow screenshots | passed | 14 committed synthetic prototype PNGs; see evidence map below. Accessibility snapshots remain untracked. |
+| Current-web comparison screenshots | partial — deferred for parity | Two committed 502 workspace panels (desktop/narrow). Authenticated production states not captured; not required to start Phase 3. |
 | Synthetic-harness web E2E | passed | `pnpm --filter @flex-agent/web test:e2e` 6/6. Current-web baseline, including synthetic Session/Release; not the frozen production API-mode route set. Re-run required stopping leftover `flex-agent-e2e-spa` on `:5173`. |
 | SPA OCI build + HTTP probe | passed | `flex-agent-oci-spa:local`; `/` 200; user `nginx`; 0 `*.map`; assets match Vite JS/CSS hashes |
 | `verify-supply-chain.sh` | passed | exit 0; SPA SBOM 566 components; artifacts under `artifacts/supply-chain/` |
@@ -1404,8 +1417,34 @@ design-system v1.0. Production `web/` has not been renamed.
 | Impeccable doctor (report-only) | passed with expected adapter findings | `doctor.mjs --json --target .`: `product-schema-legacy` (route), `design-md-coverage` (mention); `--fix` not run |
 | Two-axis adoption matrix | passed | `# Prototype two-axis adoption matrix` and `# Prototype behavior rejections` (`BR-01`–`BR-14` → `PC-01`–`PC-14`) |
 | Authenticated Keycloak-browser E2E | not run | compose profile not started; not required to close Phase 0 once synthetic E2E ran |
-| Snapshot secret scan | passed | no credential/private-key matches; font/npm license deferred to Phase 3 |
+| Snapshot secret scan | passed | no credential/private-key matches; `license_review` in `MANIFEST.json`; font/npm license deferred to Phase 3 |
+| Impeccable tracked-path guard | passed | runtime shots/live/cache ignored; check rejects secrets, non-synthetic emails, and runtime artifacts under tracked `.impeccable/` except the prototype snapshot |
 | Codex/Cursor Impeccable catalog | passed | five role skills mirrored; `.cursor/skills/impeccable` symlink to `.agents/skills/impeccable` |
+
+## Playwright screenshot evidence map
+
+Auto-named MCP files under `.playwright-mcp/`. Purpose is comparison evidence,
+not visual acceptance. Authenticated current-web production states remain
+deferred.
+
+| File | Source | Surface / route | State | Viewport | Actor |
+| --- | --- | --- | --- | --- | --- |
+| `page-2026-08-27T01-15-17-315Z.png` | prototype | `/surfaces` Channel Index | populated index | 1440×900 | none (catalog) |
+| `page-2026-08-27T01-15-38-270Z.png` | prototype | `/participant-home` Status Bays | roster populated (`PC-03` disclosure present in prototype) | 1440×900 | Participant |
+| `page-2026-08-27T01-16-10-248Z.png` | prototype | `/participant-journey` Assignment Station | first arrival / briefing | 1440×900 | Participant |
+| `page-2026-08-27T01-16-35-989Z.png` | prototype | `/participant-session` Examination Console | briefing/consent overlay | 1440×900 | Participant |
+| `page-2026-08-27T01-16-58-948Z.png` | prototype | `/admin-console/enrollments` | draft campaign, 120-row manifest | 1440×900 | Administrator |
+| `page-2026-08-27T01-17-27-245Z.png` | prototype | `/reviewer-console` Review Docket | mixed docket (`PC-01` combined release still in prototype) | 1440×900 | Reviewer |
+| `page-2026-08-27T01-17-47-544Z.png` | prototype | `/shared/gallery` Component Deck | foundations / colors | 1440×900 | none (catalog) |
+| `page-2026-08-27T01-18-19-705Z.png` | prototype | `/shared/gallery` Component Deck | foundations index | 390×844 | none (catalog) |
+| `page-2026-08-27T01-18-40-499Z.png` | prototype | `/participant-home` Status Bays | roster populated | 390×844 | Participant |
+| `page-2026-08-27T01-19-00-396Z.png` | prototype | `/surfaces` Channel Index | populated index | 390×844 | none (catalog) |
+| `page-2026-08-27T01-19-26-528Z.png` | prototype | `/participant-session` Examination Console | briefing/consent overlay | 390×844 | Participant |
+| `page-2026-08-27T01-19-49-465Z.png` | prototype | `/reviewer-console` Review Docket | mixed docket | 390×844 | Reviewer |
+| `page-2026-08-27T01-20-12-358Z.png` | prototype | `/admin-console/enrollments` | draft campaign manifest | 390×844 | Administrator |
+| `page-2026-08-27T01-20-31-307Z.png` | prototype | `/participant-journey` Assignment Station | first arrival / briefing | 390×844 | Participant |
+| `page-2026-08-27T01-21-20-383Z.png` | current `web/` | workspace load | synthetic mode without API: 502 | 1440×900 | unauthenticated |
+| `page-2026-08-27T01-21-37-543Z.png` | current `web/` | workspace load | synthetic mode without API: 502 | 390×844 | unauthenticated |
 
 # Blockers
 

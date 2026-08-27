@@ -16,7 +16,7 @@ It is a repository capability, not product or design authority.
 
 ## Local modifications
 
-- `agents/openai.yaml`: set `policy.allow_implicit_invocation: false` so the skill is explicit-invocation only.
+- `agents/openai.yaml`: set `policy.allow_implicit_invocation: false` so the skill is explicit-invocation only. The file carries a prominent `# Modified by Flex Agent` notice (Apache-2.0 §4(b)).
 - Hooks, live mode, and automatic update/staleness network checks are not enabled. Shared `.impeccable/config.json` sets `stalenessCheck: false` and `updateCheck: false`.
 
 ## Experiment copy comparison

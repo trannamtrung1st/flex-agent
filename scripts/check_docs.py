@@ -273,10 +273,10 @@ def main() -> int:
     errors.extend(check_catalog_order(DOCS / "requirements" / "README.md", "requirements/README.md"))
     errors.extend(check_tier_counts(FEATURES / "README.md", "features/README.md"))
     errors.extend(check_tier_counts(DOCS / "requirements" / "README.md", "requirements/README.md"))
-    from impeccable_context import check_adapters, check_impeccable_tracked_secrets
+    from impeccable_context import check_adapters, check_impeccable_tracked_paths
 
     errors.extend(check_adapters())
-    errors.extend(check_impeccable_tracked_secrets())
+    errors.extend(check_impeccable_tracked_paths())
     report_spec_status()
 
     if errors:

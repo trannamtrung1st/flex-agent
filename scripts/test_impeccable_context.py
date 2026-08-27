@@ -5,10 +5,12 @@ from pathlib import Path
 from impeccable_context import (
     SECRET_PATTERN,
     check_adapters,
+    check_impeccable_tracked_paths,
     check_impeccable_tracked_secrets,
     complete_sentences,
     render_design,
     render_product,
+    relative_impeccable_parts,
 )
 
 
@@ -53,6 +55,57 @@ class ImpeccableContextTests(unittest.TestCase):
 
     def test_secret_pattern_ignores_design_token_copy(self) -> None:
         self.assertIsNone(SECRET_PATTERN.search("CSS token strip and teal token chips"))
+
+    def test_runtime_shot_path_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".impeccable" / "shots" / "session.png"
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"\x89PNG")
+            errors = check_impeccable_tracked_paths([path])
+            self.assertTrue(any("runtime artifact" in error for error in errors), errors)
+
+    def test_participant_email_in_impeccable_text_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".impeccable" / "surfaces" / "leak.md"
+            path.parent.mkdir(parents=True)
+            path.write_text("Contact jane.doe@university.edu about the evaluation.\n", encoding="utf-8")
+            errors = check_impeccable_tracked_paths([path])
+            self.assertTrue(any("participant-like" in error for error in errors), errors)
+
+    def test_synthetic_example_email_and_config_are_allowed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / ".impeccable"
+            (root / "surfaces").mkdir(parents=True)
+            (root / "config.json").write_text('{"stalenessCheck": false}\n', encoding="utf-8")
+            (root / "surfaces" / "ok.md").write_text(
+                "Synthetic participant CND-8842. Contact ops@example.com.\n", encoding="utf-8"
+            )
+            errors = check_impeccable_tracked_paths([root / "config.json", root / "surfaces" / "ok.md"])
+            self.assertEqual(errors, [])
+
+    def test_snapshot_impeccable_shots_are_exempt(self) -> None:
+        path = (
+            Path(__file__).resolve().parents[1]
+            / ".work"
+            / "resources"
+            / "impeccable-prototype-snapshot"
+            / ".impeccable"
+            / "shots"
+            / "session-live-desktop.png"
+        )
+        self.assertTrue(path.is_file())
+        self.assertEqual(check_impeccable_tracked_paths([path]), [])
+
+    def test_relative_impeccable_parts(self) -> None:
+        self.assertEqual(
+            relative_impeccable_parts(Path("/repo/.impeccable/shots/a.png")),
+            "shots/a.png",
+        )
+
+    def test_design_adapter_defers_token_projection(self) -> None:
+        body = render_design()
+        self.assertIn("Token projection is deferred until design-system v1.0", body)
+        self.assertNotIn("--ground:", body)
 
 
 if __name__ == "__main__":

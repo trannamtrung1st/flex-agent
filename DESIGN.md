@@ -23,5 +23,9 @@ approved design-system status. This migration's visual identity is Shipboard Ter
 from the recorded prototypes; Phase 3 promotes that identity into v1.0. Do not treat
 v0.1 Deep-Space styling as the target look for work under that task.
 
+Token projection is deferred until design-system v1.0. Do not copy v0.1 palette, type,
+spacing, or component values into this adapter; Impeccable must follow approved docs
+and the recorded prototype snapshot rather than treating this file as a token sheet.
+
 Accessibility, semantic HTML, keyboard operation, and non-color state communication
 remain repository requirements even when visual identity is Shipboard Terminal.

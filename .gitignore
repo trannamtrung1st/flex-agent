@@ -446,9 +446,25 @@ web/tsconfig.tsbuildinfo
 # Coding-agent implementation working state under .work/ is intentionally
 # tracked so external reviewers can inspect plans and verification evidence.
 
-# Impeccable local/runtime state; keep reviewed shared config.json
+# Impeccable local/runtime state; keep reviewed shared config.json and
+# generated design.json / surface briefs. Do not track screenshots, live
+# sessions, caches, logs, or other generated UI captures (they may include
+# participant or evaluation pixels). Reviewed synthetic Playwright PNGs stay
+# under .playwright-mcp/*.png only.
 .impeccable/config.local.json
 .impeccable/hook.cache.json
+.impeccable/hook.pending.json
 .impeccable/live/
 .impeccable/questions/
 .impeccable/hooks/
+.impeccable/shots/
+.impeccable/critiques/
+.impeccable/cache/
+.impeccable/logs/
+.impeccable/previews/
+.impeccable/annotations/
+.impeccable/manual-edits/
+.impeccable/**/*.png
+.impeccable/**/*.webp
+.impeccable-live.json
+.impeccable-live/

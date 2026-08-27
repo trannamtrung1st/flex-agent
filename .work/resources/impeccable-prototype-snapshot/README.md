@@ -17,3 +17,6 @@ strip design-process archive/shims and land the previously dirty
 
 Do not execute this snapshot as a workspace package or import it from production
 `web/` code.
+
+License review status is recorded in `MANIFEST.json` (`license_review`). Font and
+npm dependency licenses remain a Phase 3 gate.

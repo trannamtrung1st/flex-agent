@@ -16,6 +16,12 @@
     "TODO.md"
   ],
   "imported_at_utc": "2026-08-27T01:14:50.609130+00:00",
+  "license_review": {
+    "status": "partial",
+    "snapshot_source": "Temporary non-authoritative copy of the ui-design-systems experiment at f724b68. That tree had no LICENSE/NOTICE. It is not redistributed as a package; Apache-2.0 Impeccable is vendored separately under .agents/skills/impeccable/.",
+    "fonts": "deferred-phase-3",
+    "npm_dependencies": "deferred-phase-3"
+  },
   "include_rules": [
     "PRODUCT.md",
     "DESIGN.md",

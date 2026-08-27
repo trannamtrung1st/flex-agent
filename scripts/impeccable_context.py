@@ -27,6 +27,32 @@ METADATA_FIELD = re.compile(r"\|\s+\*\*(.+?)\*\*\s+\|\s+(.+?)\s+\|")
 SECRET_PATTERN = re.compile(
     r"(?i)(-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----|api[_-]?key\s*[:=]\s*['\"]?[A-Za-z0-9_\-]{16})"
 )
+PARTICIPANT_EMAIL_PATTERN = re.compile(
+    r"(?i)\b[A-Z0-9._%+\-]+@(?!(?:example\.com|flex-agent\.test)\b)[A-Z0-9.\-]+\.[A-Z]{2,}\b"
+)
+SNAPSHOT_IMPECCABLE = ROOT / ".work" / "resources" / "impeccable-prototype-snapshot"
+RUNTIME_DIR_PREFIXES = (
+    "shots/",
+    "live/",
+    "questions/",
+    "hooks/",
+    "cache/",
+    "logs/",
+    "critiques/",
+    "previews/",
+    "annotations/",
+    "manual-edits/",
+)
+RUNTIME_FILENAMES = frozenset(
+    {
+        "config.local.json",
+        "hook.cache.json",
+        "hook.pending.json",
+        ".impeccable-live.json",
+    }
+)
+RUNTIME_SUFFIXES = (".png", ".webp", ".jpg", ".jpeg", ".gif", ".webm", ".mp4")
+ALLOWED_SYNTHETIC_EMAIL_NOTE = "example.com or flex-agent.test"
 
 
 def metadata(path: Path) -> dict[str, str]:
@@ -144,6 +170,10 @@ def render_design() -> str:
             "from the recorded prototypes; Phase 3 promotes that identity into v1.0. Do not treat",
             "v0.1 Deep-Space styling as the target look for work under that task.",
             "",
+            "Token projection is deferred until design-system v1.0. Do not copy v0.1 palette, type,",
+            "spacing, or component values into this adapter; Impeccable must follow approved docs",
+            "and the recorded prototype snapshot rather than treating this file as a token sheet.",
+            "",
             "Accessibility, semantic HTML, keyboard operation, and non-color state communication",
             "remain repository requirements even when visual identity is Shipboard Terminal.",
             "",
@@ -172,25 +202,90 @@ def check_adapters() -> list[str]:
     return errors
 
 
-def check_impeccable_tracked_secrets(tracked_paths: list[Path] | None = None) -> list[str]:
+def relative_impeccable_parts(path: Path) -> str | None:
+    parts = path.as_posix().split("/.impeccable/")
+    if len(parts) < 2:
+        name = path.name
+        if path.parent.name == ".impeccable":
+            return name
+        return None
+    return parts[-1]
+
+
+def _is_snapshot_impeccable(path: Path) -> bool:
+    try:
+        path.resolve().relative_to(SNAPSHOT_IMPECCABLE.resolve())
+        return True
+    except (OSError, ValueError):
+        return ".work/resources/impeccable-prototype-snapshot/" in path.as_posix()
+
+
+def _is_runtime_artifact(relative: str) -> bool:
+    name = relative.rsplit("/", 1)[-1]
+    if name in RUNTIME_FILENAMES:
+        return True
+    if any(relative == prefix[:-1] or relative.startswith(prefix) for prefix in RUNTIME_DIR_PREFIXES):
+        return True
+    return relative.lower().endswith(RUNTIME_SUFFIXES)
+
+
+def git_tracked_impeccable_paths() -> list[Path]:
+    import subprocess
+
+    completed = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+    )
+    if completed.returncode != 0:
+        return []
+    paths: list[Path] = []
+    for raw in completed.stdout.split(b"\0"):
+        if not raw:
+            continue
+        rel = raw.decode("utf-8", errors="replace")
+        if "/.impeccable/" not in f"/{rel}" and not rel.startswith(".impeccable/"):
+            continue
+        paths.append(ROOT / rel)
+    return paths
+
+
+def check_impeccable_tracked_paths(tracked_paths: list[Path] | None = None) -> list[str]:
     errors: list[str] = []
-    root_impeccable = ROOT / ".impeccable"
     if tracked_paths is None:
-        if not root_impeccable.exists():
-            return errors
-        tracked_paths = [p for p in root_impeccable.rglob("*") if p.is_file()]
+        tracked_paths = git_tracked_impeccable_paths()
+        if not tracked_paths:
+            root_impeccable = ROOT / ".impeccable"
+            if root_impeccable.exists():
+                tracked_paths = [p for p in root_impeccable.rglob("*") if p.is_file()]
     for path in tracked_paths:
+        if _is_snapshot_impeccable(path):
+            continue
+        relative = relative_impeccable_parts(path)
+        try:
+            label = path.relative_to(ROOT)
+        except ValueError:
+            label = path
+        if relative and _is_runtime_artifact(relative):
+            errors.append(f"refusing runtime artifact in tracked Impeccable path {label}")
+            continue
         try:
             text = path.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
+        except (UnicodeDecodeError, OSError, IsADirectoryError):
             continue
         if SECRET_PATTERN.search(text):
-            try:
-                label = path.relative_to(ROOT)
-            except ValueError:
-                label = path
             errors.append(f"refusing secret-like content in {label}")
+        if PARTICIPANT_EMAIL_PATTERN.search(text):
+            errors.append(
+                f"refusing participant-like email content in {label} "
+                f"(allow only {ALLOWED_SYNTHETIC_EMAIL_NOTE})"
+            )
     return errors
+
+
+def check_impeccable_tracked_secrets(tracked_paths: list[Path] | None = None) -> list[str]:
+    return check_impeccable_tracked_paths(tracked_paths)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -201,7 +296,7 @@ def main(argv: list[str] | None = None) -> int:
         write_adapters()
         print("Wrote PRODUCT.md and DESIGN.md")
         return 0
-    errors = check_adapters() + check_impeccable_tracked_secrets()
+    errors = check_adapters() + check_impeccable_tracked_paths()
     if errors:
         print("Impeccable context validation failed:")
         for error in errors:
