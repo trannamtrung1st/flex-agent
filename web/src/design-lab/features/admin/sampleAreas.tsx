@@ -1,4 +1,4 @@
-import { ReadoutGrid, ReadoutGridField, ReadoutGridRow } from "../../components";
+import { PlateFoot, ReadoutGrid, ReadoutGridField, ReadoutGridRow, Stack } from "../../components";
 import { SampleArea } from "./SampleArea";
 
 export function CohortsArea() {
@@ -50,6 +50,7 @@ export function PoliciesArea() {
       advisoryLabel="Future / not in current MVP"
       advisoryCopy="These are demonstration readouts of organization limits — not a preference sheet and not a policy-rule builder. Absent from production."
     >
+      <Stack gap="none">
       <ReadoutGrid label="Organization policy bounds" columns={2}>
         <ReadoutGridRow label="Authorization and retention">
           <ReadoutGridField term="Authorization">
@@ -66,7 +67,10 @@ export function PoliciesArea() {
           <ReadoutGridField term="Human review">Required before Release</ReadoutGridField>
         </ReadoutGridRow>
       </ReadoutGrid>
-      <p className="frozen-line">Policy authoring is not seated in this prototype</p>
+      <PlateFoot className="plate-foot--start">
+        <p className="frozen-line">Policy authoring is not seated in this prototype</p>
+      </PlateFoot>
+      </Stack>
     </SampleArea>
   );
 }

@@ -1,5 +1,20 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { AcknowledgmentGate, Announcer, BrandMark, CeremonyDialog, Key, RailBrand, ReadoutList, StageBars, TransmitChevron } from "../components";
+import {
+  AcknowledgmentGate,
+  Announcer,
+  BrandMark,
+  CeremonyDialog,
+  DialogPlate,
+  DialogPlateBody,
+  DialogPlateFooter,
+  DialogPlateHead,
+  Key,
+  KeyGroup,
+  ReadoutList,
+  StageBars,
+  TransmitChevron,
+} from "../components";
+import { LiveSessionLayout } from "../../design-system";
 import { arcPath, formatClock, polar } from "../../lib/format";
 import { useAnnouncer } from "../../lib/useAnnouncer";
 import { useStateParam } from "../lib/useDemoParam";
@@ -87,16 +102,29 @@ export function SessionPage() {
   }, []);
 
   return (
-    <>
-      <div className={`console${state.warned && !state.complete ? " is-warned" : ""}${state.complete ? " is-complete" : ""}`}>
-        <div className="frame-traces" aria-hidden="true">
-          <span className="trace trace-top" />
-          <span className="trace trace-chrono" />
-          <span className="trace trace-foot" />
+    <LiveSessionLayout
+      railLabel="Session instruments"
+      brandSuffix="Examination Console"
+      warned={state.warned}
+      complete={state.complete}
+      mainRef={ledgerRef}
+      brandExtras={
+        <div className="rail-nav">
+          <Key
+            className="rail-back"
+            variant="quiet"
+            to={`/participant-journey?demo=${assignmentDemo}`}
+            ariaLabel="Back to assignment"
+          >
+            Assignment
+          </Key>
+          <Key className="rail-leave" onClick={() => setLeaveOpen(true)}>
+            Leave session
+          </Key>
         </div>
-        <aside className="rail" aria-label="Session instruments">
-          <RailBrand suffix="Examination Console" />
-          <div className="rail-scroll">
+      }
+      instruments={
+        <>
             <ReadoutList
               rows={[
                 { term: "Session ID", value: "FXA-7C19-2A07" },
@@ -104,19 +132,6 @@ export function SessionPage() {
                 { term: "Session", value: "07" },
               ]}
             />
-            <div className="rail-nav">
-              <Key
-                className="rail-back"
-                variant="quiet"
-                to={`/participant-journey?demo=${assignmentDemo}`}
-                ariaLabel="Back to assignment"
-              >
-                Assignment
-              </Key>
-              <Key className="rail-leave" onClick={() => setLeaveOpen(true)}>
-                Leave session
-              </Key>
-            </div>
             <section className="feed" aria-label="Console feed">
               <h2 className="rail-h">Console Feed</h2>
               <p className="feed-sub">Live transcript</p>
@@ -140,53 +155,10 @@ export function SessionPage() {
               <span className="protocol-label">Protocol</span>
               <span className="protocol-value">V7.3.1</span>
             </div>
-          </div>
-        </aside>
-
-        <div className="session-main">
-          <main className="ledger-frame pane pane--tl" aria-label="Examination transcript" ref={ledgerRef}>
-            <ol className="ledger">
-              {state.turns.map((turn, i) => {
-                const idx = String(state.turns.slice(0, i + 1).filter((t) => !t.thinking).length).padStart(2, "0");
-                return (
-                  <li
-                    key={i}
-                    className={`turn turn--${turn.speaker}${turn.active ? " is-active" : ""}${turn.thinking ? " is-thinking-row" : ""}${turn.arriving ? " is-arriving" : ""}`}
-                  >
-                    <div className="turn-body-wrap">
-                      <span className="turn-index turn-index--card-edge" aria-hidden="true">
-                        {turn.thinking ? "" : idx}
-                      </span>
-                      <p className="turn-speaker">{turn.speaker === "agent" ? "Agent" : "Participant"}</p>
-                      <p className={`turn-text${turn.thinking ? " wait-copy" : ""}`}>{turn.text}</p>
-                      {turn.time ? <p className="turn-time">{turn.time}</p> : null}
-                    </div>
-                  </li>
-                );
-              })}
-              {state.complete ? (
-                <li>
-                  <div className="complete-plate pane pane--notched">
-                    <svg className="complete-mark" viewBox="0 0 52 52" aria-hidden="true">
-                      <circle cx="26" cy="26" r="24" />
-                      <path d="M15 27l8 8 15-17" />
-                    </svg>
-                    <h2 className="complete-title">Session Complete</h2>
-                    <p className="complete-copy">Your examination record for Session 07 has been transmitted and preserved. Nothing further is required of you.</p>
-                    <p className="complete-copy">A human reviewer will inspect the evaluation before any result is released. You will be notified when your result is available.</p>
-                    <p className="complete-sub">Record FXA-7C19-2A07 · Attempt 1 · Sealed</p>
-                    <div className="complete-keys">
-                      <Key id="completeToAssignment" variant="begin" to={`/participant-journey?demo=${assignmentDemo}`}>
-                        <span>Return to Assignment</span>
-                        <TransmitChevron />
-                      </Key>
-                    </div>
-                  </div>
-                </li>
-              ) : null}
-            </ol>
-          </main>
-          <footer className="composer-row">
+        </>
+      }
+      composer={
+        <>
             <form
               className="composer"
               onSubmit={(e) => {
@@ -254,10 +226,10 @@ export function SessionPage() {
                 </g>
               </svg>
             </div>
-          </footer>
-        </div>
-
-        <aside className="agent-panel pane" aria-label="Examiner station">
+        </>
+      }
+      examiner={
+        <>
           <section className="agent-post" aria-label="Examiner">
             <div
               className={`agent-core agent-core--live1${state.thinking ? " is-thinking" : ""}`}
@@ -316,9 +288,10 @@ export function SessionPage() {
               </Key>
             </div>
           </section>
-        </aside>
-      </div>
-
+        </>
+      }
+      overlays={
+        <>
       {!state.dismissed ? (
         <div className={`briefing${state.briefing ? "" : " is-dismissed"}`} role="dialog" aria-modal="true" aria-labelledby="briefTitle">
           <div className="briefing-plate pane pane--notched">
@@ -375,53 +348,98 @@ export function SessionPage() {
         onClose={() => dispatch({ type: "open-confirm", open: false })}
         labelledBy="confirmTitle"
         id="confirmDialog"
-        className="confirm"
       >
-        <div className="confirm-plate pane pane--notched">
-          <h2 className="confirm-title" id="confirmTitle">
-            Confirm Submission
-          </h2>
-          <p className="confirm-copy">This ends Session 07 and transmits your examination record for evaluation and human review. You will not be able to add further replies.</p>
-          <div className="confirm-keys">
-            <Key id="confirmCancel" onClick={() => dispatch({ type: "open-confirm", open: false })}>Remain in Session</Key>
-            <Key
-              id="confirmSubmit"
-              variant="transmit"
-              onClick={() => {
-                dispatch({ type: "complete" });
-                announce("Session submitted and sealed. A human reviewer will release your result.");
-              }}
-            >
-              <span>Submit Session</span>
-              <TransmitChevron />
-            </Key>
-          </div>
-        </div>
+        <DialogPlate width="wide">
+          <DialogPlateHead title="Confirm Submission" titleId="confirmTitle" />
+          <DialogPlateBody>
+            <p>
+              This ends Session 07 and transmits your examination record for evaluation and human review. You will not
+              be able to add further replies.
+            </p>
+          </DialogPlateBody>
+          <DialogPlateFooter>
+            <KeyGroup>
+              <Key id="confirmCancel" onClick={() => dispatch({ type: "open-confirm", open: false })}>
+                Remain in Session
+              </Key>
+              <Key
+                id="confirmSubmit"
+                variant="transmit"
+                onClick={() => {
+                  dispatch({ type: "complete" });
+                  announce("Session submitted and sealed. A human reviewer will release your result.");
+                }}
+              >
+                <span>Submit Session</span>
+                <TransmitChevron />
+              </Key>
+            </KeyGroup>
+          </DialogPlateFooter>
+        </DialogPlate>
       </CeremonyDialog>
-      <CeremonyDialog
-        open={leaveOpen}
-        onClose={() => setLeaveOpen(false)}
-        labelledBy="leaveTitle"
-        id="leaveDialog"
-        className="confirm"
-      >
-        <div className="confirm-plate pane pane--notched">
-          <h2 className="confirm-title" id="leaveTitle">
-            Leave session
-          </h2>
-          <p className="confirm-copy">
-            Current replies stay preserved in this prototype. The demonstration timer continues while this plate is
-            open. Production pause and resume are owned by the examination runtime and are not simulated here.
-          </p>
-          <div className="confirm-keys">
-            <Key onClick={() => setLeaveOpen(false)}>Remain in session</Key>
-            <Key variant="quiet" to={`/participant-journey?demo=${assignmentDemo}`}>
-              Leave to assignment
-            </Key>
-          </div>
-        </div>
+      <CeremonyDialog open={leaveOpen} onClose={() => setLeaveOpen(false)} labelledBy="leaveTitle" id="leaveDialog">
+        <DialogPlate width="wide">
+          <DialogPlateHead title="Leave session" titleId="leaveTitle" />
+          <DialogPlateBody>
+            <p>
+              Current replies stay preserved in this prototype. The demonstration timer continues while this plate is
+              open. Production pause and resume are owned by the examination runtime and are not simulated here.
+            </p>
+          </DialogPlateBody>
+          <DialogPlateFooter>
+            <KeyGroup>
+              <Key onClick={() => setLeaveOpen(false)}>Remain in session</Key>
+              <Key variant="quiet" to={`/participant-journey?demo=${assignmentDemo}`}>
+                Leave to assignment
+              </Key>
+            </KeyGroup>
+          </DialogPlateFooter>
+        </DialogPlate>
       </CeremonyDialog>
       <Announcer message={message} />
-    </>
+        </>
+      }
+    >
+      <ol className="ledger">
+              {state.turns.map((turn, i) => {
+                const idx = String(state.turns.slice(0, i + 1).filter((t) => !t.thinking).length).padStart(2, "0");
+                return (
+                  <li
+                    key={i}
+                    className={`turn turn--${turn.speaker}${turn.active ? " is-active" : ""}${turn.thinking ? " is-thinking-row" : ""}${turn.arriving ? " is-arriving" : ""}`}
+                  >
+                    <div className="turn-body-wrap">
+                      <span className="turn-index turn-index--card-edge" aria-hidden="true">
+                        {turn.thinking ? "" : idx}
+                      </span>
+                      <p className="turn-speaker">{turn.speaker === "agent" ? "Agent" : "Participant"}</p>
+                      <p className={`turn-text${turn.thinking ? " wait-copy" : ""}`}>{turn.text}</p>
+                      {turn.time ? <p className="turn-time">{turn.time}</p> : null}
+                    </div>
+                  </li>
+                );
+              })}
+              {state.complete ? (
+                <li>
+                  <div className="complete-plate pane pane--notched">
+                    <svg className="complete-mark" viewBox="0 0 52 52" aria-hidden="true">
+                      <circle cx="26" cy="26" r="24" />
+                      <path d="M15 27l8 8 15-17" />
+                    </svg>
+                    <h2 className="complete-title">Session Complete</h2>
+                    <p className="complete-copy">Your examination record for Session 07 has been transmitted and preserved. Nothing further is required of you.</p>
+                    <p className="complete-copy">A human reviewer will inspect the evaluation before any result is released. You will be notified when your result is available.</p>
+                    <p className="complete-sub">Record FXA-7C19-2A07 · Attempt 1 · Sealed</p>
+                    <div className="complete-keys">
+                      <Key id="completeToAssignment" variant="begin" to={`/participant-journey?demo=${assignmentDemo}`}>
+                        <span>Return to Assignment</span>
+                        <TransmitChevron />
+                      </Key>
+                    </div>
+                  </div>
+                </li>
+              ) : null}
+      </ol>
+    </LiveSessionLayout>
   );
 }

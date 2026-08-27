@@ -8,8 +8,6 @@ html[data-surface="admin-console"] {
 body {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
-  overflow: hidden;
 }
 
 /* ═══ Command strip (shared wordmark + ADMIN suffix, tab tokens) ════ */
@@ -18,46 +16,7 @@ body {
 
 .strip-nav { min-width: 0; }
 
-/* ═══ Administrator shell (gangway + area content) ═══════════════ */
-
-.admin-shell {
-  --gangway-w: 248px;
-  display: flex;
-  flex: 1 1 auto;
-  min-height: 0;
-  align-items: stretch;
-}
-
-.admin-content {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.admin-drawer-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 45;
-  padding: 12px 22px;
-  border-bottom: 1px solid var(--hairline-dim);
-  background: linear-gradient(180deg, rgba(2, 9, 14, 0.42), rgba(2, 9, 14, 0.16));
-}
-
-.admin-drawer-label {
-  font-family: var(--font-plaque);
-  text-transform: uppercase;
-  font-size: 0.68rem;
-  letter-spacing: 0.18em;
-  color: var(--label);
-}
-
-/* ═══ Campaigns area ═════════════════════════════════════════════ */
+/* ═══ Administrator area content ═════════════════════════════════ */
 
 .campaigns-wall {
   position: relative;
@@ -66,7 +25,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding: 18px 24px 16px;
+  padding: 0;
 }
 
 .campaigns-registry-frame.frame-cut {
@@ -101,7 +60,12 @@ body {
   width: 100%;
   min-height: 0;
   flex-direction: column;
-  padding: 22px 28px 20px;
+}
+
+.campaigns-frame .frame-scroll {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .campaigns-readout-band {
@@ -208,14 +172,8 @@ body {
   gap: 8px;
 }
 
-.campaigns-foot {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 18px;
-}
-
 .campaigns-wall .frozen-line {
-  margin-top: 18px;
+  margin: 0;
 }
 
 /* ═══ Wall frame ═════════════════════════════════════════════════ */
@@ -226,7 +184,7 @@ body {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 18px 24px 16px;
+  padding: 0;
 }
 
 .wall-frame {
@@ -294,6 +252,7 @@ body {
 
 .ceremony-plate {
   width: min(620px, calc(100vw - 48px));
+  max-height: calc(100dvh - 48px);
   display: flex;
   flex-direction: column;
   clip-path: polygon(
@@ -311,6 +270,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 16px;
+  flex-shrink: 0;
   padding-bottom: 24px;
 }
 
@@ -343,7 +303,23 @@ body {
   background: var(--ground);
 }
 
-.ceremony-body { display: flex; flex-direction: column; }
+.ceremony-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ceremony-body > .composition-stack > .form-divider {
+  margin: 0;
+}
+
+.ceremony-config-grid .field-input {
+  width: 100%;
+  max-width: 108px;
+}
 
 /* .form-row, .field-label, .form-divider, the .dropdown selector
    family, and the .option-menu grammar come from the shared component family sheets */
@@ -356,10 +332,35 @@ body {
 }
 
 .ceremony-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-shrink: 0;
   padding-top: 18px;
+  border-top: 1px solid var(--hairline-dim);
+}
+
+.ceremony-foot-actions {
+  width: 100%;
+}
+
+.ceremony-foot-row.key-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.ceremony-foot-row.key-group > .tip-host {
+  display: flex;
+  min-width: 0;
+}
+
+.ceremony-foot-row .key {
+  justify-content: center;
+  width: 100%;
+  min-height: 42px;
+}
+
+.ceremony-foot-row.key-group:has(> .tip-host:only-child) > .tip-host {
+  grid-column: 1 / -1;
 }
 
 .frozen-line {
@@ -407,12 +408,8 @@ body {
   &, body { height: auto; min-height: 100dvh; }
   body { overflow: auto; }
 
-  .admin-shell { flex-direction: column; }
-  .admin-content { flex: none; }
-  .admin-drawer-bar { padding: 12px 18px; }
-
   .wall,
-  .campaigns-wall { flex: none; display: block; padding: 14px 18px 36px; }
+  .campaigns-wall { flex: none; display: block; padding: 0; }
   .sample-frame.frame-cut { display: block; }
   .wall-head,
   .campaigns-head { padding: 0 0 12px; }
@@ -462,10 +459,6 @@ body {
     min-width: 0;
     width: 100%;
   }
-  .campaigns-foot .key {
-    width: 100%;
-    justify-content: center;
-  }
   .wall-frame,
   .campaigns-registry-frame { display: block; }
   .frame-in { display: block; }
@@ -475,8 +468,11 @@ body {
 @media (max-width: 720px) /* bp.compact */ {
   .ceremony-plate { padding: 26px 22px 24px; }
 
-  .ceremony-foot { flex-direction: column; align-items: stretch; gap: 12px; }
-  .ceremony-foot .key { justify-content: center; }
+  .ceremony-foot-row .key {
+    font-size: var(--key-compact-font-size);
+    padding: var(--key-compact-padding-block) var(--key-compact-padding-inline);
+    letter-spacing: var(--key-compact-letter-spacing);
+  }
 }
 
 /* reduced-motion floor lives in shared/base.css */

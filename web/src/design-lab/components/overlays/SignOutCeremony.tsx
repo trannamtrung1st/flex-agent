@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { CATALOG_ROUTE } from "../chrome/operator";
-import { Key } from "../../../design-system/components/keys/Key";
+import { Key, KeyGroup } from "../../../design-system/components/keys";
 import { CeremonyDialog } from "../../../design-system/components/overlays/CeremonyDialog";
 import {
   DialogPlate,
@@ -28,18 +28,20 @@ export function SignOutCeremony({
           </p>
         </DialogPlateBody>
         <DialogPlateFooter>
-          <Key variant="quiet" onClick={onClose}>
-            Remain signed in
-          </Key>
-          <Key
-            variant="quiet"
-            onClick={() => {
-              onClose();
-              navigate(CATALOG_ROUTE);
-            }}
-          >
-            Sign out
-          </Key>
+          <KeyGroup>
+            <Key variant="quiet" onClick={onClose}>
+              Remain signed in
+            </Key>
+            <Key
+              variant="quiet"
+              onClick={() => {
+                onClose();
+                navigate(CATALOG_ROUTE);
+              }}
+            >
+              Sign out
+            </Key>
+          </KeyGroup>
         </DialogPlateFooter>
       </DialogPlate>
     </CeremonyDialog>

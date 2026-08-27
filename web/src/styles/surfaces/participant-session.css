@@ -1,7 +1,5 @@
 html[data-surface="participant-session"] {
   --key-quiet-padding-inline: 18px;
-  --instrument-rail-width: 232px;
-  --instrument-bulkhead-fill: linear-gradient(180deg, rgba(2, 9, 14, 0.64), rgba(4, 16, 24, 0.5));
 /* ═══════════════════════════════════════════════════════════════════
    Flex Agent — Participant examination session
    World: Shipboard Terminal (seed 8066189d)
@@ -12,7 +10,7 @@ html[data-surface="participant-session"] {
 /* ── plaque + label voices ───────────────────────────────────────── */
 
 .plaque, .agent-name, .chrono-label, .rail-h,
-.protocol-label, .link-label, .briefing-title, .confirm-title, .key {
+.protocol-label, .link-label, .briefing-title, .key {
   font-family: var(--font-plaque);
   text-transform: uppercase;
 }
@@ -24,105 +22,12 @@ html[data-surface="participant-session"] {
   letter-spacing: 0.14em;
 }
 
-/* ═══ Console grid ═══════════════════════════════════════════════ */
-
-.console {
-  position: relative;
-  display: grid;
-  height: 100dvh;
-  overflow: hidden;
-  grid-template-columns: var(--instrument-rail-width) minmax(0, 1fr) 320px;
-  grid-template-rows: minmax(0, 1fr);
-  grid-template-areas: "rail session-main agent-panel";
-  gap: 0 26px;
-  padding: 0 20px 0 0;
-}
-
-.session-main {
-  grid-area: session-main;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  min-width: 0;
-  gap: 16px;
-  padding: 18px 0;
-}
-
-/* ═══ Frame circuitry traces (comp's signature ornament) ═════════ */
-
-.frame-traces {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: var(--instrument-rail-width);
-  pointer-events: none;
-  z-index: 1;
-}
-
-.trace { position: absolute; background: var(--hairline-dim); }
-.trace::before, .trace::after {
-  content: "";
-  position: absolute;
-  width: 5px; height: 5px;
-  border: 1px solid var(--label-dim);
-  border-radius: 50%;
-  background: var(--ground);
-}
-
-.trace-top { top: 9px; left: 8%; width: 28%; height: 1px; }
-.trace-top::before { left: -7px; top: -3px; }
-.trace-top::after { right: -7px; top: -3px; }
-
-.trace-chrono { top: 9px; right: 28px; width: 18%; height: 1px; }
-.trace-chrono::before { left: -7px; top: -3px; }
-.trace-chrono::after { right: -2px; top: -3px; border-color: var(--amber); }
-
-.trace-foot { bottom: 10px; left: 24px; width: 22%; height: 1px; }
-.trace-foot::before { left: -7px; top: -3px; }
-.trace-foot::after { right: -7px; top: -3px; }
-
-/* ═══ Left instrument rail ═══════════════════════════════════════ */
-
-.rail {
-  grid-area: rail;
-  display: flex;
-  flex-direction: column;
-  gap: 26px;
-  padding: 18px 0 16px 26px;
-  border-right: 1px solid var(--hairline-dim);
-  background: var(--instrument-bulkhead-fill);
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: hidden;
-}
-
-.rail > *:not(.rail-scroll) { flex-shrink: 0; }
-
-.rail-scroll {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 26px;
-  min-height: 0;
-  padding-right: 18px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--hairline-dim) transparent;
-}
-
-.rail-scroll::-webkit-scrollbar { width: 6px; }
-.rail-scroll::-webkit-scrollbar-track { background: transparent; }
-.rail-scroll::-webkit-scrollbar-thumb {
-  background: var(--hairline-dim);
-}
-
-.rail-scroll > * { flex-shrink: 0; }
+/* ═══ Console grid (outer geometry in layouts.css) ═══════════════ */
 
 /* .rail-brand family comes from the shared component family sheets */
-.rail-brand { padding-bottom: 8px; padding-right: 18px; }
+.rail-brand { padding-bottom: 8px; padding-right: var(--instrument-rail-dock-inline); }
+
+.rail-brand .rail-nav { margin-top: 12px; }
 
 /* .readout-stack / .readout come from the shared component family sheets */
 
@@ -294,7 +199,7 @@ html[data-surface="participant-session"] {
   flex-shrink: 0;
   transition: color 320ms var(--ease-out), opacity 200ms var(--ease-out);
 }
-.console.is-complete .agent-line {
+.layout-session.is-complete .agent-line {
   color: var(--teal);
 }
 .agent-post:has(.agent-core.is-thinking) .agent-line {
@@ -387,8 +292,8 @@ html[data-surface="participant-session"] {
 
 /* time warning */
 
-.console.is-warned .agent-panel { animation: warn-pulse 1.2s var(--ease-out) 3; }
-.console.is-warned .chrono-digits { color: var(--amber-bright); }
+.layout-session.is-warned .agent-panel { animation: warn-pulse 1.2s var(--ease-out) 3; }
+.layout-session.is-warned .chrono-digits { color: var(--amber-bright); }
 
 /* ═══ Ledger (transcript) ════════════════════════════════════════ */
 
@@ -693,20 +598,6 @@ html[data-surface="participant-session"] {
   width: 7px; height: 1px; background: var(--teal);
 }
 
-.briefing-ack {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 13px;
-  padding: 15px 16px;
-  border: 1px solid var(--hairline-dim);
-  cursor: pointer;
-  font-size: 0.84rem;
-  color: var(--text);
-  transition: border-color 160ms var(--ease-out);
-}
-.briefing-ack:hover { border-color: var(--hairline); }
-.briefing-ack input { position: absolute; opacity: 0; }
 /* .ack-mark and its checked/focus states come from the shared component family sheets */
 
 .briefing-foot {
@@ -719,38 +610,6 @@ html[data-surface="participant-session"] {
   border-top: 1px solid var(--hairline-dim);
 }
 .briefing-note { font-size: 0.64rem; color: var(--label-dim); letter-spacing: 0.06em; max-width: 30ch; }
-
-/* ═══ Confirm dialog ═════════════════════════════════════════════ */
-
-/* dialog root (.dialog) comes from the shared component family sheets; the plate
-   is a pane pane--notched with the ceremony's own darker glass */
-.confirm-plate {
-  --pane-fill: linear-gradient(180deg, rgba(5, 14, 19, 0.92), rgba(2, 9, 14, 0.97));
-  width: min(480px, calc(100vw - 40px));
-  margin: auto;
-  padding: 32px 34px 28px;
-  color: var(--text);
-}
-.confirm-title {
-  font-size: 0.85rem;
-  letter-spacing: 0.22em;
-  font-weight: 400;
-  color: var(--amber);
-  margin-bottom: 14px;
-}
-
-.confirm-title::before {
-  content: "";
-  display: inline-block;
-  width: 11px;
-  height: 10px;
-  margin-right: 10px;
-  background: var(--amber);
-  clip-path: polygon(50% 0, 100% 100%, 0 100%);
-  filter: drop-shadow(0 0 5px rgba(226, 163, 60, 0.5));
-}
-.confirm-copy { font-size: 0.88rem; max-width: 52ch; margin-bottom: 24px; }
-.confirm-keys { display: flex; justify-content: flex-end; gap: 14px; }
 
 /* ═══ Session complete state ═════════════════════════════════════ */
 
@@ -784,36 +643,12 @@ html[data-surface="participant-session"] {
   margin-top: 28px;
 }
 
-.console.is-complete .composer textarea,
-.console.is-complete .key--transmit { pointer-events: none; }
+.layout-session.is-complete .composer textarea,
+.layout-session.is-complete .key--transmit { pointer-events: none; }
 
 /* ═══ Responsive ═════════════════════════════════════════════════ */
 
 @media (max-width: 1180px) /* bp.wideGrid */ {
-  .console {
-    grid-template-columns: minmax(0, 1fr) 300px;
-    grid-template-rows: auto minmax(0, 1fr);
-    grid-template-areas:
-      "railband   railband"
-      "session-main agent-panel";
-    padding: 14px 20px 16px;
-    gap: 14px 20px;
-  }
-  .frame-traces { display: none; }
-  .session-main { padding: 0; }
-  .agent-panel { margin: 0; }
-  .rail {
-    grid-area: railband;
-    flex-direction: row;
-    align-items: center;
-    gap: 20px;
-    border-right: none;
-    border-bottom: 1px solid var(--hairline-dim);
-    padding: 0 4px 12px;
-    margin-bottom: 14px;
-    overflow: visible;
-  }
-  .rail-scroll { display: contents; }
   .rail-brand { border-bottom: none; padding-bottom: 0; }
   .readout-stack { flex-direction: row; gap: 20px; }
   .readout, .readout:first-child { border: none; padding: 0; }
@@ -829,25 +664,11 @@ html[data-surface="participant-session"] {
 @media (max-width: 760px) /* bp.session */ {
   body {
     font-size: 14px;
-    overflow: auto;
   }
   .stage-line { white-space: normal; }
   .rail-brand-name { white-space: normal; }
   .readout-stack { flex-wrap: wrap; }
   .turn-text { max-width: none; }
-  .console {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto;
-    grid-template-areas:
-      "railband"
-      "agent-panel"
-      "session-main";
-    padding: 10px 14px 14px;
-    min-height: 100dvh;
-    height: auto;
-    overflow: visible;
-    gap: 10px;
-  }
   .rail { flex-wrap: wrap; gap: 10px 16px; }
   .agent-panel {
     flex-direction: column;

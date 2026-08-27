@@ -3,13 +3,24 @@ import { gallerySections } from "./gallerySections";
 
 const sectionIds = gallerySections.flatMap((group) => group.items.map((item) => item.id));
 
+const SCROLL_SETTLE_MS = 150;
+const NAV_LOCK_MS = 10_000;
+const HASH_LOCK_MS = 900;
+
+type HashLock = { id: string; until: number };
+
+function sectionAtSpyLine(id: string, offset: number) {
+  const section = document.getElementById(id);
+  return section ? section.getBoundingClientRect().top <= offset : false;
+}
+
 export function useGalleryScrollSpy() {
   const initial = useMemo(() => {
     const hash = window.location.hash.slice(1);
     return sectionIds.includes(hash as (typeof sectionIds)[number]) ? hash : sectionIds[0];
   }, []);
   const [activeId, setActiveId] = useState(initial);
-  const hashLock = useRef<{ id: string; until: number } | null>(null);
+  const hashLock = useRef<HashLock | null>(null);
 
   const headerOffset = useCallback(() => {
     const header = document.querySelector<HTMLElement>("header.page-strip");
@@ -18,18 +29,22 @@ export function useGalleryScrollSpy() {
 
   useEffect(() => {
     if (initial !== sectionIds[0]) {
-      hashLock.current = { id: initial, until: Date.now() + 900 };
+      hashLock.current = { id: initial, until: Date.now() + HASH_LOCK_MS };
     }
     const header = document.querySelector<HTMLElement>("header.page-strip");
     const syncHeader = () => {
       if (header) document.documentElement.style.setProperty("--gallery-header-h", `${header.offsetHeight}px`);
     };
     const markCurrent = () => {
-      if (hashLock.current && Date.now() < hashLock.current.until) {
-        setActiveId(hashLock.current.id);
-        return;
+      if (hashLock.current) {
+        const { id, until } = hashLock.current;
+        setActiveId(id);
+        const offset = headerOffset();
+        const atTarget = sectionAtSpyLine(id, offset);
+        if (!atTarget && Date.now() < until) return;
+        if (!atTarget && Date.now() >= until) hashLock.current = null;
+        if (hashLock.current && atTarget) return;
       }
-      hashLock.current = null;
       let current = sectionIds[0];
       const offset = headerOffset();
       for (const id of sectionIds) {
@@ -44,7 +59,7 @@ export function useGalleryScrollSpy() {
     const onHashChange = () => {
       const id = window.location.hash.slice(1);
       if (sectionIds.includes(id as (typeof sectionIds)[number])) {
-        hashLock.current = { id, until: Date.now() + 900 };
+        hashLock.current = { id, until: Date.now() + HASH_LOCK_MS };
         setActiveId(id);
       }
     };
@@ -53,13 +68,26 @@ export function useGalleryScrollSpy() {
     const schedule = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(markCurrent);
+      if (!hashLock.current) return;
+      const lockedId = hashLock.current.id;
       window.clearTimeout(scrollReleaseTimer);
-      if (hashLock.current) {
-        scrollReleaseTimer = window.setTimeout(() => {
+      scrollReleaseTimer = window.setTimeout(() => {
+        const lock = hashLock.current;
+        if (!lock || lock.id !== lockedId) return;
+        const offset = headerOffset();
+        const arrived = sectionAtSpyLine(lockedId, offset);
+        if (arrived || Date.now() >= lock.until) {
           hashLock.current = null;
+          if (arrived) {
+            setActiveId(lockedId);
+            if (window.location.hash !== `#${lockedId}`) {
+              window.history.replaceState(window.history.state, "", `#${lockedId}`);
+            }
+            return;
+          }
           markCurrent();
-        }, 160);
-      }
+        }
+      }, SCROLL_SETTLE_MS);
     };
 
     syncHeader();
@@ -88,13 +116,11 @@ export function useGalleryScrollSpy() {
   const navigate = useCallback((id: string) => {
     const section = document.getElementById(id);
     if (!section) return;
-    // Keep the requested item current for the whole smooth-scroll journey.
-    // The scroll listener releases this lock after scrolling settles.
-    hashLock.current = { id, until: Date.now() + 10_000 };
+    hashLock.current = { id, until: Date.now() + NAV_LOCK_MS };
     setActiveId(id);
     window.history.pushState(window.history.state, "", `#${id}`);
     window.scrollTo({
-      top: Math.max(0, window.scrollY + section.getBoundingClientRect().top - headerOffset()),
+      top: Math.max(0, window.scrollY + section.getBoundingClientRect().top - headerOffset() + 1),
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
     });
   }, [headerOffset]);

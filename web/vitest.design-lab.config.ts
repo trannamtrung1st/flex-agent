@@ -7,6 +7,9 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     globals: true,
-    include: ["src/design-lab/**/*.{test,spec}.{ts,tsx}"],
+    include: [
+      "src/design-lab/**/*.{test,spec}.{ts,tsx}",
+      "src/design-system/components/keys/**/*.{test,spec}.{ts,tsx}",
+    ],
   },
 });

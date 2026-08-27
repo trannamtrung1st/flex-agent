@@ -9,7 +9,7 @@ import { ChevronGlyph } from "../components/glyphs/ChevronGlyph";
 import { NativeDialog } from "../components/overlays/NativeDialog";
 import { DialogPlate, DialogPlateBody, DialogPlateFooter, DialogPlateHead } from "../components/overlays/DialogPlate";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator, type DropdownMenuTriggerBind } from "../components/menu";
-import { IconButton, Key, TooltipHost } from "../components/keys";
+import { IconButton, Key, KeyGroup, TooltipHost } from "../components/keys";
 import {
   deriveHeaderSelectionState,
   headerCheckboxState,
@@ -394,10 +394,11 @@ export function TableActionBar<T>({
 
   return (
     <div className="datatable-actions" aria-label="Table actions">
-      <div className="datatable-actions-keys">
+      <KeyGroup className="datatable-actions-keys">
         {tableLevel.map((action) => {
           const eligibility = action.eligibility(records);
           const waiting = busyActionId === action.id;
+          const face = actionFace(action);
           return (
             <Key
               key={action.id}
@@ -405,7 +406,7 @@ export function TableActionBar<T>({
               waiting={waiting}
               disabled={!eligibility.allowed || busy}
               ariaLabel={action.label}
-              tooltip={action.tooltip ?? action.label}
+              tooltip={action.tooltip ?? (face !== action.label ? action.label : undefined)}
               disabledReason={!eligibility.allowed ? eligibility.reason : undefined}
               onClick={() => {
                 const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -422,6 +423,7 @@ export function TableActionBar<T>({
           const allowed = domain.allowed;
           const reason = !allowed ? domain.reason : undefined;
           const waiting = busyActionId === action.id;
+          const face = actionFace(action);
           return (
             <Key
               key={action.id}
@@ -429,7 +431,7 @@ export function TableActionBar<T>({
               waiting={waiting}
               disabled={!allowed || busy}
               ariaLabel={action.label}
-              tooltip={action.tooltip ?? action.label}
+              tooltip={action.tooltip ?? (face !== action.label ? action.label : undefined)}
               disabledReason={reason}
               onClick={() => {
                 const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -455,7 +457,7 @@ export function TableActionBar<T>({
             busyActionId={busyActionId}
           />
         ) : null}
-      </div>
+      </KeyGroup>
     </div>
   );
 }
@@ -482,15 +484,21 @@ export function ActionConfirmDialog({
         <DialogPlateHead title={confirmation.title} titleId="tableActionConfirmTitle" />
         <DialogPlateBody>
           <p>{confirmation.body}</p>
-          {error ? <p className="field-error">{error}</p> : null}
+          {error ? (
+            <p className="field-error" id="tableActionConfirmError" role="alert">
+              {error}
+            </p>
+          ) : null}
         </DialogPlateBody>
         <DialogPlateFooter>
-          <Key disabled={waiting} onClick={onCancel}>
-            Cancel
-          </Key>
-          <Key variant="activate" waiting={waiting} disabled={waiting} onClick={onConfirm}>
-            {confirmation.commitLabel}
-          </Key>
+          <KeyGroup>
+            <Key disabled={waiting} onClick={onCancel}>
+              Cancel
+            </Key>
+            <Key variant="activate" waiting={waiting} disabled={waiting} onClick={onConfirm}>
+              {confirmation.commitLabel}
+            </Key>
+          </KeyGroup>
         </DialogPlateFooter>
       </DialogPlate>
     </NativeDialog>

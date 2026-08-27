@@ -121,6 +121,12 @@
   padding: 6px 8px;
 }
 
+.datetime-foot-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .calendar-head {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr) 22px;

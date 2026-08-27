@@ -2,7 +2,7 @@ import { Fragment, useRef, type ReactNode } from "react";
 import { ChevronGlyph } from "../../design-system/components/glyphs";
 import { DisclosureMenu } from "../../design-system/components/select";
 import { EmptyPlate } from "../../design-system/components/plates";
-import { IconButton, Key } from "../../design-system/components/keys";
+import { IconButton, Key, KeyGroup } from "../../design-system/components/keys";
 import { recordResultMark } from "../../design-system/components/state/recordResultMark";
 import {
   DataTablePagination,
@@ -424,14 +424,14 @@ function DetailRow({
                   <dd>{row.evidence}</dd>
                 </div>
               </dl>
-              <div className="datatable-detail-keys">
+              <KeyGroup className="datatable-detail-keys">
                 <Key size="compact" onClick={onOpen}>
                   View record
                 </Key>
                 <Key size="compact" onClick={onOutside}>
                   Transcript
                 </Key>
-              </div>
+              </KeyGroup>
             </div>
           </div>
         </div>

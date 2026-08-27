@@ -11,9 +11,11 @@ import {
   DialogPlateHead,
   DropdownSelect,
   FieldInput,
+  FieldNumber,
   FieldTextarea,
   FormField,
   Key,
+  KeyGroup,
   MM_SS_HINT,
   MM_SS_PATTERN,
   RadioGroup,
@@ -136,8 +138,10 @@ function DemoDialog({
         <DialogPlateHead title={title} titleId={titleId} />
         <DialogPlateBody>{children}</DialogPlateBody>
         <DialogPlateFooter>
-          <Key onClick={onClose}>Cancel</Key>
-          <Key variant={width === "default" ? "release" : "transmit"} onClick={onClose}>{commit}</Key>
+          <KeyGroup>
+            <Key onClick={onClose}>Cancel</Key>
+            <Key variant={width === "default" ? "release" : "transmit"} onClick={onClose}>{commit}</Key>
+          </KeyGroup>
         </DialogPlateFooter>
       </DialogPlate>
     </CeremonyDialog>
@@ -164,13 +168,38 @@ export function InputSections() {
   const [syncMark, setSyncMark] = useState("09:00:00");
   const [activationAt, setActivationAt] = useState("2026-08-26T14:30");
   const [windowStart, setWindowStart] = useState("");
+  const [score, setScore] = useState("3");
   const invalid = !MM_SS_PATTERN.test(limit.trim());
   const pairLimitInvalid = !MM_SS_PATTERN.test(pairLimit.trim());
   const pairWarningInvalid = !MM_SS_PATTERN.test(pairWarning.trim());
 
   return (
     <>
-      <GallerySection id="form" title="Form controls" note="Dark slot fills on inputs, teal focus bezels. Field, context, and toolbar selects share one popover grammar. Validation speaks amber; helpers stay dim. Frozen etches the committed value — bezels drop, nothing turns red.">
+      <GallerySection id="form" title="Form controls" note="Dark slot fills on inputs, teal focus bezels. Text stays a typed slot; numbers get authored inc/dec chevrons instead of native spin buttons. Field, context, and toolbar selects share one popover grammar. Validation speaks amber; helpers stay dim. Frozen etches the committed value — bezels drop, nothing turns red.">
+        <div className="spec-row spec-row--fields">
+          <Spec tag=".field-input · text slot">
+            <FormField id="demoText" label="Callsign" className="form-demo-row">
+              {(controlProps) => (
+                <FieldInput {...controlProps} type="text" defaultValue="BERTH-04" />
+              )}
+            </FormField>
+          </Spec>
+          <Spec tag=".field-number · authored inc/dec">
+            <FormField id="demoNumber" label="Score" className="form-demo-row">
+              {(controlProps) => (
+                <FieldNumber
+                  {...controlProps}
+                  stepperLabel="score"
+                  min={0}
+                  max={4}
+                  step={1}
+                  value={score}
+                  onChange={(event) => setScore(event.target.value)}
+                />
+              )}
+            </FormField>
+          </Spec>
+        </div>
         <div className="form-demo-grid form-demo-grid--states">
           <Spec tag=".field-input · type mm:ss — clear it to see amber validation">
             <FormField
@@ -204,6 +233,11 @@ export function InputSections() {
               {(controlProps) => <FieldInput {...controlProps} value="60:00" frozen />}
             </FormField>
           </Spec>
+          <Spec tag=".field-number.is-frozen · stepper withdrawn">
+            <FormField id="demoFrozenNumber" label="Committed score" className="form-demo-row">
+              {(controlProps) => <FieldNumber {...controlProps} value={3} frozen />}
+            </FormField>
+          </Spec>
           <Spec tag=".select-shell.is-frozen · chevron withdrawn">
             <FormField id="demoFrozenDrop" label="Harness" className="form-demo-row" labelAssociatesControl={false}>
               {(controlProps, { labelId }) => (
@@ -228,7 +262,7 @@ export function InputSections() {
                 label="Session limit"
                 hint={MM_SS_HINT}
                 error={pairLimitInvalid ? mmSsError("Session limit", "60:00") : undefined}
-                className="field-pair"
+                layout="pair"
               >
                 {(controlProps) => (
                   <FieldInput
@@ -243,7 +277,7 @@ export function InputSections() {
                 label="Time warning at"
                 hint={MM_SS_HINT}
                 error={pairWarningInvalid ? mmSsError("Time warning", "10:00") : undefined}
-                className="field-pair"
+                layout="pair"
               >
                 {(controlProps) => (
                   <FieldInput
@@ -259,18 +293,20 @@ export function InputSections() {
         <Spec wide tag=".field-group · .field-stack · locked stack vs .field-textarea--resize-y">
           <div className="form-demo-textareas">
             <div className="field-group form-demo-stack">
-              <FormField id="demoStackScore" label="Adjusted score" className="field-stack">
+              <FormField id="demoStackScore" label="Adjusted score" layout="stack">
                 {(controlProps) => (
-                  <FieldInput
+                  <FieldNumber
                     {...controlProps}
                     width="narrow"
-                    type="text"
-                    inputMode="numeric"
+                    stepperLabel="adjusted score"
+                    min={0}
+                    max={4}
+                    step={1}
                     defaultValue={3}
                   />
                 )}
               </FormField>
-              <FormField id="demoStackRationale" label="Adjusted rationale" className="field-stack">
+              <FormField id="demoStackRationale" label="Adjusted rationale" layout="stack">
                 {(controlProps) => (
                   <FieldTextarea
                     {...controlProps}
@@ -280,7 +316,7 @@ export function InputSections() {
                 )}
               </FormField>
             </div>
-            <FormField id="demoResizeRationale" label="Adjusted rationale" className="field-stack form-demo-stack">
+            <FormField id="demoResizeRationale" label="Adjusted rationale" layout="stack" className="form-demo-stack">
               {(controlProps) => (
                 <FieldTextarea
                   {...controlProps}
@@ -362,23 +398,8 @@ export function InputSections() {
       </GallerySection>
 
       <GallerySection id="datetime" title="Date & time" note="Field-slot triggers with authored calendar and chrono plates — not native browser pickers. The trigger shrinks to the mark; the plate keeps its own instrument width. Selected day is a rectangular teal inset bezel; today is a circular teal ring on the numeral. Time wheels keep option-menu hairline and teal-glass hover, but selected is the inset bezel — the 7×1px tick stays on menus and nav. Session mark uses HH/MM; Sync mark opts into HH/MM/SS via withSeconds. Amber still owns invalid; frozen etches the committed mark.">
-        <div className="spec-row spec-row--temporal">
-          <Spec tag=".select-shell--date · calendar grid · Monday start">
-            <FormField id="demoDate" label="Cohort deadline" className="form-demo-row" labelAssociatesControl={false}>
-              {(controlProps, { labelId }) => (
-                <DatePicker
-                  id={controlProps.id}
-                  valueId="demoDateValue"
-                  labelId={labelId}
-                  describedBy={controlProps["aria-describedby"]}
-                  value={deadline}
-                  onChange={setDeadline}
-                  now="2026-08-26"
-                />
-              )}
-            </FormField>
-          </Spec>
-          <Spec tag=".select-shell--time · HH/MM wheels · tabular 24h">
+        <div className="spec-row spec-row--temporal-times">
+          <Spec tag=".select-shell--time · HH/MM wheels · tabular 24h · Clear / Done">
             <FormField id="demoTime" label="Session mark" className="form-demo-row" labelAssociatesControl={false}>
               {(controlProps, { labelId }) => (
                 <TimePicker
@@ -392,7 +413,7 @@ export function InputSections() {
               )}
             </FormField>
           </Spec>
-          <Spec tag=".select-shell--time · HH/MM/SS wheels · withSeconds">
+          <Spec tag=".select-shell--time · HH/MM/SS wheels · withSeconds · Clear / Done">
             <FormField id="demoTimeSeconds" label="Sync mark" className="form-demo-row" labelAssociatesControl={false}>
               {(controlProps, { labelId }) => (
                 <TimePicker
@@ -408,7 +429,24 @@ export function InputSections() {
             </FormField>
           </Spec>
         </div>
-        <Spec wide tag=".select-shell--datetime · calendar + chrono · Clear / Done">
+        <div className="spec-row spec-row--temporal-dates">
+          <Spec tag=".select-shell--date · calendar grid · Monday start · Now / Clear / Done">
+            <FormField id="demoDate" label="Cohort deadline" className="form-demo-row" labelAssociatesControl={false}>
+              {(controlProps, { labelId }) => (
+                <DatePicker
+                  id={controlProps.id}
+                  valueId="demoDateValue"
+                  labelId={labelId}
+                  describedBy={controlProps["aria-describedby"]}
+                  value={deadline}
+                  onChange={setDeadline}
+                  now="2026-08-26"
+                />
+              )}
+            </FormField>
+          </Spec>
+        </div>
+        <Spec wide tag=".select-shell--datetime · calendar + chrono · Now / Clear / Done">
           <FormField id="demoDateTime" label="Activation at" className="form-demo-row" labelAssociatesControl={false}>
             {(controlProps, { labelId }) => (
               <DateTimePicker
@@ -496,7 +534,7 @@ export function InputSections() {
 
       <DemoDialog open={dialog === "narrow"} onClose={() => setDialog(null)} id="deckDialogNarrow" width="narrow" title="Discard Reply" titleId="deckDialogNarrowTitle" commit="Discard"><p>Your unsent reply will be removed. Unsent text is not part of the examination record.</p></DemoDialog>
       <DemoDialog open={dialog === "default"} onClose={() => setDialog(null)} id="deckDialog" title="Confirm Release" titleId="deckDialogTitle" commit="Release result"><p>Release makes the Result visible to the participant after audited transition. This action is recorded with reviewer identity, timestamp, and evaluation revision.</p><dl className="dialog-readout"><div><dt>Candidate</dt><dd>CND-8842-19</dd></div><div><dt>Review decision</dt><dd>Approve unchanged</dd></div></dl></DemoDialog>
-      <DemoDialog open={dialog === "wide"} onClose={() => setDialog(null)} id="deckDialogWide" width="wide" title="Record Accommodation" titleId="deckDialogWideTitle" commit="Record accommodation"><p>Timing accommodations are enrollment-scoped and recorded with administrator identity. Other participants never see this adjustment.</p><FormField id="dlgExtension" label="Time extension" className="form-row">{(controlProps) => <FieldInput {...controlProps} defaultValue="15:00" />}</FormField></DemoDialog>
+      <DemoDialog open={dialog === "wide"} onClose={() => setDialog(null)} id="deckDialogWide" width="wide" title="Record Accommodation" titleId="deckDialogWideTitle" commit="Record accommodation"><p>Timing accommodations are enrollment-scoped and recorded with administrator identity. Other participants never see this adjustment.</p><FormField id="dlgExtension" label="Time extension" layout="stack">{(controlProps) => <FieldInput {...controlProps} defaultValue="15:00" />}</FormField></DemoDialog>
     </>
   );
 }

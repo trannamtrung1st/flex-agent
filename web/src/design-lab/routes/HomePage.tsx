@@ -2,18 +2,17 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Announcer,
-  CommandStrip,
-  ConsoleFoot,
   DemoPlate,
   EmptyPlate,
-  EtchedFrame,
   PARTICIPANT_HOME,
   PARTICIPANT_IDENTITY,
   RecordSeal,
   SignOutCeremony,
   StateIndicator,
   usePrototypeSignOut,
+  CATALOG_ROUTE,
 } from "../components";
+import { ManagementLayout, OperateArea, Stack } from "../../design-system";
 import { HOME_BAYS, HOME_DEMO, HOME_DEMO_KEYS } from "../data/fixtures/home";
 import type { HomeEnrollment } from "../data/types";
 import { useAnnouncer } from "../../lib/useAnnouncer";
@@ -43,44 +42,18 @@ export function HomePage() {
   const { actions, signOutOpen, setSignOutOpen } = usePrototypeSignOut();
 
   return (
-    <>
-      <CommandStrip
-        nav={[{ to: PARTICIPANT_HOME, label: "Home" }]}
-        profile={PARTICIPANT_IDENTITY}
-        actions={actions}
-      />
-      <main className="board" aria-label="Assigned work by record state">
-        <h1 className="visually-hidden">Assigned work</h1>
-        <EtchedFrame className="board-frame" revealing={revealing}>
-          {entries.length === 0 ? (
-            <div className="board-empty">
-              <EmptyPlate
-                label="No assigned work"
-                note="Nothing is enrolled to this participant. Assignments appear here the moment an administrator enrolls you."
-              />
-            </div>
-          ) : (
-            <div className={`bays${dense ? " bays--dense" : ""}`}>
-              {HOME_BAYS.map((bay) => {
-                const plates = entries.filter((e) => e.bay === bay.id);
-                return (
-                  <section className="bay" aria-labelledby={`bay-${bay.id}`} key={bay.id}>
-                    <h2 className="bay-head" id={`bay-${bay.id}`}>
-                      {bay.label}
-                    </h2>
-                    <div className="bay-plates">
-                      {plates.length ? plates.map((entry) => <Plate key={entry.campaign} entry={entry} />) : (
-                        <p className="bay-empty">No enrollments in this bay</p>
-                      )}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
-          )}
-        </EtchedFrame>
-      </main>
-      <ConsoleFoot note="Synthetic demonstration content — no real participant data.">
+    <ManagementLayout
+      contain={false}
+      commandStrip={{
+        homeTo: CATALOG_ROUTE,
+        homeLabel: "Channel index",
+        nav: [{ to: PARTICIPANT_HOME, label: "Home" }],
+        profile: PARTICIPANT_IDENTITY,
+        actions,
+      }}
+      mainLabel="Assigned work by record state"
+      footerNote="Synthetic demonstration content — no real participant data."
+      footer={
         <DemoPlate
           id="demoState"
           value={demo}
@@ -99,10 +72,50 @@ export function HomePage() {
             { value: "empty", label: "No enrollments" },
           ]}
         />
-      </ConsoleFoot>
-      <Announcer message={message || rosterNote} />
-      <SignOutCeremony open={signOutOpen} onClose={() => setSignOutOpen(false)} />
-    </>
+      }
+      overlays={
+        <>
+          <Announcer message={message || rosterNote} />
+          <SignOutCeremony open={signOutOpen} onClose={() => setSignOutOpen(false)} />
+        </>
+      }
+    >
+      <OperateArea
+        className="workspace-area board"
+        label="Assigned work by record state"
+        title="Assigned work"
+        description="Open assignments and released records for this participant."
+        revealing={revealing}
+        frameClassName="board-frame"
+      >
+        {entries.length === 0 ? (
+          <div className="board-empty">
+            <EmptyPlate
+              label="No assigned work"
+              note="Nothing is enrolled to this participant. Assignments appear here the moment an administrator enrolls you."
+            />
+          </div>
+        ) : (
+            <div className={`bays${dense ? " bays--dense" : ""}`}>
+              {HOME_BAYS.map((bay) => {
+                const plates = entries.filter((e) => e.bay === bay.id);
+                return (
+                  <Stack as="section" className="bay" gap="none" aria-labelledby={`bay-${bay.id}`} key={bay.id}>
+                    <h2 className="bay-head" id={`bay-${bay.id}`}>
+                      {bay.label}
+                    </h2>
+                    <Stack gap="4" className="bay-plates">
+                      {plates.length ? plates.map((entry) => <Plate key={entry.campaign} entry={entry} />) : (
+                        <p className="bay-empty">No enrollments in this bay</p>
+                      )}
+                    </Stack>
+                  </Stack>
+                );
+              })}
+            </div>
+        )}
+      </OperateArea>
+    </ManagementLayout>
   );
 }
 

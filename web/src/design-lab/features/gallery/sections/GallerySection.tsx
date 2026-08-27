@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Stack } from "../../../../design-system";
 import {
   gallerySectionIndex,
   gallerySectionItem,
@@ -18,8 +19,10 @@ export function GallerySection({
 }) {
   const registryItem = gallerySectionItem(id);
   return (
-    <section
+    <Stack
+      as="section"
       className="deck-sec"
+      gap="none"
       id={registryItem.id}
       data-gallery-label={registryItem.label}
       data-gallery-order={gallerySectionIndex(id)}
@@ -27,7 +30,7 @@ export function GallerySection({
       <h2 className="sec-title">{title}</h2>
       <p className="sec-note">{note}</p>
       {children}
-    </section>
+    </Stack>
   );
 }
 
@@ -43,9 +46,13 @@ export function Spec({
   children: ReactNode;
 }) {
   return (
-    <div className={`spec${wide ? " spec--wide" : ""}${center ? " spec--center" : ""}`}>
+    <Stack
+      className={`spec${wide ? " spec--wide" : ""}${center ? " spec--center" : ""}`}
+      gap="2.5"
+      align={center ? "center" : wide ? "stretch" : "start"}
+    >
       {children}
       <span className="spec-tag">{tag}</span>
-    </div>
+    </Stack>
   );
 }

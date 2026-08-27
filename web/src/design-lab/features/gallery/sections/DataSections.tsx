@@ -12,6 +12,7 @@ import {
   EtchedFrame,
   HeaderSelectionControl,
   Key,
+  KeyGroup,
   ReadoutGrid,
   ReadoutGridField,
   ReadoutGridRow,
@@ -86,10 +87,10 @@ function DatatableDetailRow({
                   <dd>12 ITEMS</dd>
                 </div>
               </dl>
-              <div className="datatable-detail-keys">
+              <KeyGroup className="datatable-detail-keys">
                 <Key size="compact" onClick={onOpen}>View record</Key>
                 <Key size="compact" onClick={onOutside}>Transcript</Key>
-              </div>
+              </KeyGroup>
             </div>
           </div>
         </div>
@@ -201,7 +202,7 @@ function DatatableSpecimen({
             ariaLabel="Table controls"
             actions={
               <div className="datatable-actions" id="dtActionsStrip" aria-label="Table actions">
-                <div className="datatable-actions-keys">
+                <KeyGroup className="datatable-actions-keys">
                   <Key id="create" size="compact" onClick={() => announce({ label: "Create", copy: "Gallery-only create action demonstrated." })}>Create</Key>
                   <Key id="dtBulkKey" size="compact" disabled={!selectedRows.length} disabledReason="Select one or more enrollments." onClick={() => announce({ label: "Export", copy: `${selectedRows.length} enrollments exported.` })}>Export</Key>
                   <Key id="dtDownloadKey" size="compact" disabled={!selectedRows.length || selectedRows.some((row) => row.result !== "COMPLETE")} disabledReason={!selectedRows.length ? "Select one or more enrollments." : "Selected enrollments must be complete."}>Download</Key>
@@ -217,7 +218,7 @@ function DatatableSpecimen({
                     triggerDisabled={!selectedRows.length}
                     triggerDisabledReason="Select one or more enrollments."
                   />
-                </div>
+                </KeyGroup>
               </div>
             }
             leading={

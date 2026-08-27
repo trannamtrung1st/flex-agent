@@ -88,6 +88,46 @@
   padding: 0 0 14px;
 }
 
+.operate-head--plaque {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.operate-head-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.operate-head--plaque .page-desc {
+  width: auto;
+  max-width: none;
+  margin: 0;
+  text-align: end;
+}
+
+@media (max-width: 960px) /* bp.reviewerDrawer */ {
+  .operate-head--plaque {
+    grid-template-columns: 1fr;
+    text-align: left;
+  }
+
+  .operate-head--plaque .operate-head-cluster {
+    justify-content: flex-start;
+  }
+
+  .operate-head--plaque .page-desc {
+    text-align: start;
+  }
+}
+
 .operate-title,
 .campaigns-title,
 .wall-title,

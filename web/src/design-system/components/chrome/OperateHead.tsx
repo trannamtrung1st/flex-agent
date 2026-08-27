@@ -15,21 +15,40 @@ export function OperateHead({
   back,
   className,
   titleTabIndex,
+  headExtra,
+  arrangement = "stack",
 }: {
   title: string;
   description?: string;
   back?: ReactNode;
   className?: string;
   titleTabIndex?: number;
+  headExtra?: ReactNode;
+  arrangement?: "stack" | "plaque";
 }) {
+  const plaque = arrangement === "plaque";
+  const Root = plaque ? "header" : "div";
   return (
-    <div className={cx("operate-head", className)}>
+    <Root
+      className={cx("operate-head", plaque && "operate-head--plaque", className)}
+      data-head-arrange={plaque ? "plaque" : undefined}
+    >
       {back}
-      <h1 className="operate-title" tabIndex={titleTabIndex}>
-        {title}
-      </h1>
+      {plaque ? (
+        <div className="operate-head-cluster">
+          <h1 className="operate-title" tabIndex={titleTabIndex}>
+            {title}
+          </h1>
+          {headExtra}
+        </div>
+      ) : (
+        <h1 className="operate-title" tabIndex={titleTabIndex}>
+          {title}
+        </h1>
+      )}
       {description ? <p className="page-desc">{description}</p> : null}
-    </div>
+      {plaque ? null : headExtra}
+    </Root>
   );
 }
 
@@ -38,14 +57,20 @@ export function Advisory({
   copy,
   attention,
   className,
+  live = true,
 }: {
   label: string;
   copy: string;
   attention?: boolean;
   className?: string;
+  /** When false, omit role so a parent live region owns the announcement. */
+  live?: boolean;
 }) {
   return (
-    <div className={cx("advisory", attention && "advisory--attention", className)} role="status">
+    <div
+      className={cx("advisory", attention && "advisory--attention", className)}
+      role={live ? "status" : undefined}
+    >
       <span className="advisory-label">{label}</span>
       <span className="advisory-copy">{copy}</span>
     </div>

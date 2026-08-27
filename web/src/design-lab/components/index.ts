@@ -1,5 +1,17 @@
 export { ActionMenuGlyph, ChevronGlyph, OperatorGlyph, TransmitChevron } from "../../design-system/components/glyphs";
-export { BackKey, IconButton, Key, TooltipHost, type KeySize, type KeyVariant } from "../../design-system/components/keys";
+export { Alert, ErrorSummary, WaitPanel, type ErrorSummaryItem } from "../../design-system/components/feedback";
+export {
+  BackKey,
+  EllipsisKey,
+  IconButton,
+  Key,
+  KeyGroup,
+  ThemeToggle,
+  TooltipHost,
+  type KeySize,
+  type KeyVariant,
+  type Theme,
+} from "../../design-system/components/keys";
 export {
   ADMINISTRATOR_HOME,
   ADMINISTRATOR_IDENTITY,
@@ -42,7 +54,19 @@ export {
   type CeremonyDialogVariant,
   type ToastNotice,
 } from "./overlays";
-export { DemoPlate, EmptyPlate, EtchedFrame, OperateArea } from "./plates";
+export { DemoPlate, EmptyPlate, EtchedFrame, OperateArea, PlateFoot, PlateStatusMark, WorkWell, WorkWellHead, WorkWellSection } from "./plates";
+export {
+  Container,
+  Grid,
+  Inline,
+  Inset,
+  Stack,
+  type ContainerSize,
+  type GridMinItemWidth,
+  type LayoutAlign,
+  type LayoutJustify,
+  type LayoutSpace,
+} from "../../design-system/components/layout";
 export {
   AcknowledgmentGate,
   ActivationMark,
@@ -58,6 +82,7 @@ export {
   Breaker,
   ControlLine,
   FieldInput,
+  FieldNumber,
   FieldTextarea,
   FormField,
   RadioGroup,
@@ -67,8 +92,10 @@ export {
 } from "../../design-system/components/fields";
 export {
   AreaGroupList,
+  BreadcrumbNav,
   Gangway,
   IndexRail,
+  type BreadcrumbNavItem,
   type GangwayGroup,
   type GangwayItem,
   type IndexRailGroup,

@@ -2,12 +2,15 @@ import { useState, type CSSProperties } from "react";
 import {
   ActionMenuGlyph,
   Advisory,
+  Alert,
   EmptyPlate,
+  ErrorSummary,
   IconButton,
   Key,
   StageBars,
   ToastDock,
   TooltipHost,
+  WaitPanel,
   type ToastNotice,
 } from "../../../components";
 import { GallerySection, Spec } from "./GallerySection";
@@ -30,17 +33,36 @@ export function FeedbackSections({
         </div>
       </GallerySection>
 
-      <GallerySection id="tooltip" title="Tooltip" note="Shared TooltipHost wraps interactive controls so plaques receive hover and focus even when the inner control is disabled. Disabled reasons also use persistent aria-describedby text.">
+      <GallerySection id="tooltip" title="Tooltip" note="Shared TooltipHost wraps interactive controls so plaques receive hover and focus-visible even when the inner control is disabled. Disabled reasons also use persistent aria-describedby text.">
         <div className="spec-row">
-          <Spec tag="enabled · hover / :focus-within"><TooltipHost tip="Frozen at cohort activation"><Key ariaLabel="Harness snapshot">Harness snapshot</Key></TooltipHost></Spec>
+          <Spec tag="enabled · hover / :focus-visible"><TooltipHost tip="Frozen at cohort activation"><Key ariaLabel="Harness snapshot">Harness snapshot</Key></TooltipHost></Spec>
           <Spec tag="disabled · aria-describedby + host hover"><Key disabled ariaLabel="Configure campaign" disabledReason="Configuration frozen at activation">Configure campaign</Key></Spec>
           <Spec tag="icon-button · TooltipHost"><IconButton label="More actions" tooltip="More actions"><ActionMenuGlyph /></IconButton></Spec>
         </div>
       </GallerySection>
 
-      <GallerySection id="advisory" title="Advisory" note="A standing notice strip bounded by hairlines. Same two voices as the toast.">
+      <GallerySection id="advisory" title="Advisory" note="A standing notice strip bounded by hairlines. Same two voices as the toast. The leading mark stays with the label row when copy wraps.">
         <Spec wide tag=".advisory"><Advisory label="Record" copy="Configuration frozen at activation. Every participant sits the same examination." /></Spec>
         <Spec wide tag=".advisory--attention"><Advisory attention label="Time warning" copy="10 minutes remain in this session. Unsent replies are not part of the record." /></Spec>
+        <Spec tag=".advisory · multiline">
+          <div style={{ maxWidth: "280px" }}>
+            <Advisory label="Record" copy="Configuration frozen at activation. Every participant sits the same examination." />
+          </div>
+        </Spec>
+        <Spec tag=".advisory--attention · multiline">
+          <div style={{ maxWidth: "280px" }}>
+            <Advisory attention label="Time warning" copy="10 minutes remain in this session. Unsent replies are not part of the record." />
+          </div>
+        </Spec>
+      </GallerySection>
+
+      <GallerySection id="alert" title="Alert" note="Workspace banner combining an advisory strip with optional body copy. Danger uses alert semantics and the attention voice.">
+        <Spec wide tag=".workspace-alert · danger"><Alert variant="danger" title="Request could not be completed">The server could not complete this request. Try again.</Alert></Spec>
+        <Spec wide tag=".workspace-alert · status"><Alert variant="info" title="Draft saved">Campaign configuration is stored locally until you check readiness.</Alert></Spec>
+      </GallerySection>
+
+      <GallerySection id="error-summary" title="Error summary" note="Named validation summary before fields. Each item may link to the invalid control.">
+        <Spec wide tag=".error-summary"><ErrorSummary title="Correct the following" errors={[{ message: "Enter a Campaign title", href: "#campaign-title" }, "Select a source for each required category"]} /></Spec>
       </GallerySection>
 
       <GallerySection id="empty" title="Empty state" note="The empty state is still an instrument, never bare text.">
@@ -61,6 +83,11 @@ export function FeedbackSections({
           <Spec tag="click to occupy the key for 2.2s"><Key id="waitDemoKey" waiting={waiting} disabled={waiting} onClick={() => { setWaiting(true); window.setTimeout(() => { setWaiting(false); pushToast({ label: "Manifest", copy: "Enrollments seated. Table is ready." }); }, 2200); }}>{waiting ? "Retrieving" : "Retrieve manifest"}</Key></Spec>
           <Spec tag=".key--transmit.is-waiting · teal occupation"><Key variant="transmit" waiting disabled>Transmit</Key></Spec>
         </div>
+      </GallerySection>
+
+      <GallerySection id="wait-panel" title="Wait panel" note="Inline protected-loading status: wait-mark plus polite live region text.">
+        <Spec tag=".loading-panel · role=status"><WaitPanel label="Loading activities…" /></Spec>
+        <Spec tag=".loading-panel · announceOnly"><WaitPanel label="Establishing session context…" announceOnly /></Spec>
       </GallerySection>
       <ToastDock toasts={toasts} />
     </>

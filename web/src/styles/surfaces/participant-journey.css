@@ -1,116 +1,26 @@
 html[data-surface="participant-journey"] {
   --key-quiet-padding-inline: 18px;
-  --instrument-rail-width: 260px;
-  --instrument-bulkhead-fill: linear-gradient(180deg, rgba(2, 9, 14, 0.64), rgba(4, 16, 24, 0.5));
 /* ═══════════════════════════════════════════════════════════════════
    Flex Agent — Participant assignment journey
    World: Shipboard Terminal (seed 8066189d)
    Tokens, base chrome, and shared components live in ../shared/.
    ═══════════════════════════════════════════════════════════════════ */
 
-.plaque, .assignment-title, .well-title, .protocol-label,
+.plaque, .assignment-title, .protocol-label,
 .demo-label, .instrument-label, .key {
   font-family: var(--font-plaque);
   text-transform: uppercase;
 }
 
-.microlabel, .readout dt, .assignment-meta, .well-ident, .phase-short,
+.microlabel, .readout dt, .assignment-meta, .phase-short,
 .protocol-value, .status-item dt, .version-meta, .demo-note, .action-note,
-.well-sec h3, .session-readout dt {
+.session-readout dt {
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.14em;
 }
 
-/* ═══ Station grid ═══════════════════════════════════════════════ */
-
-.station {
-  position: relative;
-  display: grid;
-  height: 100dvh;
-  grid-template-columns: var(--instrument-rail-width) minmax(0, 1fr);
-  grid-template-areas: "phase-rail main";
-  gap: 0 28px;
-  padding: 0 22px 0 0;
-  overflow: hidden;
-}
-
-.station-main {
-  grid-area: main;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  min-width: 0;
-  gap: 18px;
-  padding: 18px 0;
-}
-
-/* ═══ Frame traces ═══════════════════════════════════════════════ */
-
-.frame-traces {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: var(--instrument-rail-width);
-  pointer-events: none;
-  z-index: 1;
-}
-.trace { position: absolute; background: var(--hairline-dim); height: 1px; }
-.trace::before, .trace::after {
-  content: "";
-  position: absolute;
-  width: 5px; height: 5px;
-  border: 1px solid var(--label-dim);
-  border-radius: 50%;
-  background: var(--ground);
-  top: -3px;
-}
-.trace-top { top: 9px; left: 8%; width: 34%; }
-.trace-top::before { left: -7px; }
-.trace-top::after { right: -7px; }
-.trace-rail { top: 9px; left: 0; width: 16%; }
-.trace-rail::before { left: -7px; }
-.trace-rail::after { right: -7px; border-color: var(--teal); }
-
-/* ═══ Phase rail ═════════════════════════════════════════════════ */
-
-.phase-rail {
-  grid-area: phase-rail;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 18px 0 16px 26px;
-  border-right: 1px solid var(--hairline-dim);
-  background: var(--instrument-bulkhead-fill);
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: hidden;
-}
-
-.phase-rail > *:not(.phase-rail-scroll) { flex-shrink: 0; }
-
-.phase-rail-scroll {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 20px;
-  min-height: 0;
-  padding-right: 18px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--hairline-dim) transparent;
-}
-
-.phase-rail-scroll::-webkit-scrollbar { width: 6px; }
-.phase-rail-scroll::-webkit-scrollbar-track { background: transparent; }
-.phase-rail-scroll::-webkit-scrollbar-thumb {
-  background: var(--hairline-dim);
-}
-
-.phase-rail-scroll > * { flex-shrink: 0; }
+/* ═══ Station grid (outer geometry in layouts.css) ═══════════════ */
 
 /* .rail-brand family and .rail-home-link come from the shared component family sheets */
 .rail-brand {
@@ -118,7 +28,7 @@ html[data-surface="participant-journey"] {
   flex-direction: column;
   align-items: stretch;
   padding-bottom: 4px;
-  padding-right: 18px;
+  padding-right: var(--instrument-rail-dock-inline);
 }
 
 /* .readout-stack / .readout come from the shared component family sheets */
@@ -341,159 +251,7 @@ html[data-surface="participant-journey"] {
   vertical-align: 1px;
 }
 
-/* ═══ Well ═══════════════════════════════════════════════════════ */
-
-/* pane in markup; the well takes the standard top cut + 14px trailing cut */
-.well-frame {
-  --cut-tl: var(--notch);
-  --cut-br: 14px;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.well {
-  padding: 32px 38px 36px;
-  max-width: 78ch;
-}
-
-.well.is-revealing {
-  animation: well-reveal 640ms var(--ease-out);
-}
-
-
-
-.well-head {
-  margin-bottom: 24px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--hairline-dim);
-}
-
-.well-title {
-  font-size: 1.05rem;
-  letter-spacing: 0.2em;
-  color: var(--text-bright);
-  font-weight: 400;
-  margin-bottom: 8px;
-}
-
-.well-ident { font-size: 0.64rem; color: var(--label); }
-
-.well-sec { margin-bottom: 22px; }
-
-.well-sec h3 {
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: var(--teal);
-  margin-bottom: 9px;
-}
-
-.well-sec h3::before {
-  content: "";
-  display: inline-block;
-  width: 7px;
-  height: 1px;
-  background: var(--teal);
-  margin-right: 9px;
-  vertical-align: 0.22em;
-}
-
-.well-sec p, .well-sec li {
-  font-size: 0.9rem;
-  color: var(--text);
-  max-width: 68ch;
-}
-
-.well-sec em { color: var(--text-bright); font-style: normal; }
-.well-sec strong { color: var(--amber-bright); font-weight: 600; }
-
-.well-sec ul {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.well-sec li {
-  padding-left: 18px;
-  position: relative;
-}
-
-.well-sec li::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0.62em;
-  width: 7px;
-  height: 1px;
-  background: var(--teal);
-}
-
-.well-ack {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 13px;
-  padding: 15px 16px;
-  border: 1px solid var(--hairline-dim);
-  cursor: pointer;
-  font-size: 0.86rem;
-  color: var(--text);
-  transition: border-color 160ms var(--ease-out);
-  margin-top: 8px;
-}
-
-.well-ack:hover { border-color: var(--hairline); }
-.well-ack input { position: absolute; opacity: 0; }
-/* .ack-mark and its checked/focus states come from the shared component family sheets */
-
-.well-complete-mark {
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--teal);
-  padding-top: 8px;
-}
-
-.well-complete-mark::before {
-  content: "";
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-right: 9px;
-  background: var(--teal);
-  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
-  vertical-align: -1px;
-}
-
-/* released-result seal: same drawn ring mark as the session complete plate */
-.well-seal {
-  display: block;
-  width: 34px;
-  height: 34px;
-  margin-bottom: 14px;
-}
-
-.well-seal circle {
-  fill: none;
-  stroke: var(--teal);
-  stroke-width: 1.4;
-}
-
-.well-seal path {
-  fill: none;
-  stroke: var(--teal);
-  stroke-width: 2.4;
-  stroke-linecap: square;
-  filter: drop-shadow(0 0 5px var(--teal-glow));
-}
-
-.well-hint {
-  font-size: 0.78rem;
-  color: var(--label);
-  margin-top: 12px;
-}
+/* ═══ Version list ═══════════════════════════════════════════════ */
 
 .version-list {
   list-style: none;
@@ -659,41 +417,6 @@ html[data-surface="participant-journey"] {
 /* ═══ Responsive ═════════════════════════════════════════════════ */
 
 @media (max-width: 1080px) /* bp.pageScroll */ {
-  .station {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
-    grid-template-areas:
-      "phase-rail"
-      "main";
-    gap: 14px;
-    padding: 14px 16px;
-    height: auto;
-    min-height: 100dvh;
-    overflow-y: visible;
-  }
-
-  /* the page scrolls at this width; keep the content well readable
-     instead of letting the rail starve it of height */
-  .well-frame { min-height: 340px; }
-  .station-main { padding: 0; }
-
-  body { overflow: auto; }
-
-  .frame-traces { display: none; }
-
-  .phase-rail {
-    border-right: none;
-    border-bottom: 1px solid var(--hairline-dim);
-    padding: 0 0 14px;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 14px 20px;
-    overflow: visible;
-  }
-
-  .phase-rail-scroll { display: contents; }
-
   .rail-brand {
     flex: 1 1 100%;
     display: grid;
@@ -753,18 +476,10 @@ html[data-surface="participant-journey"] {
     padding: 10px 0 0;
   }
   .status-item:first-child { border-top: none; padding-top: 0; }
-  .well { padding: 24px 20px 28px; }
   .action-row { flex-direction: column; align-items: stretch; }
   .action-keys { margin-left: 0; justify-content: flex-end; }
 }
 
 /* reduced-motion floor lives in shared/base.css */
-@media (prefers-reduced-motion: reduce) {
-  .well.is-revealing { animation: none; }
-}
 
-}
-@keyframes well-reveal {
-  from { clip-path: inset(0 100% 0 0); }
-  to { clip-path: inset(0 0 0 0); }
 }

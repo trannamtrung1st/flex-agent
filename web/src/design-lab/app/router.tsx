@@ -1,4 +1,6 @@
 import { createBrowserRouter, Navigate, useSearchParams, type RouteObject } from "react-router-dom";
+import type { ReactElement } from "react";
+import { LayoutAssignment } from "../../design-system";
 import { CampaignsArea } from "../features/admin/CampaignsArea";
 import { EnrollmentsArea } from "../features/admin/EnrollmentsArea";
 import {
@@ -16,6 +18,11 @@ import { NotFoundPage } from "../routes/NotFoundPage";
 import { ReviewerPage } from "../routes/ReviewerPage";
 import { SessionPage } from "../routes/SessionPage";
 import { SurfacesPage } from "../routes/SurfacesPage";
+import { DESIGN_LAB_ROUTE_LAYOUTS, type DesignLabRoutedPath } from "./design-lab-route-layouts";
+
+function assignLabLayout(path: DesignLabRoutedPath, element: ReactElement) {
+  return <LayoutAssignment id={DESIGN_LAB_ROUTE_LAYOUTS[path]}>{element}</LayoutAssignment>;
+}
 
 function AdminIndexRedirect() {
   const [searchParams] = useSearchParams();
@@ -24,13 +31,13 @@ function AdminIndexRedirect() {
 
 export const designLabRoutes: RouteObject[] = [
   { index: true, element: <Navigate to="/surfaces" replace /> },
-  { path: "/surfaces", element: <SurfacesPage /> },
-  { path: "/participant-home", element: <HomePage /> },
-  { path: "/participant-journey", element: <JourneyPage /> },
-  { path: "/participant-session", element: <SessionPage /> },
+  { path: "/surfaces", element: assignLabLayout("/surfaces", <SurfacesPage />) },
+  { path: "/participant-home", element: assignLabLayout("/participant-home", <HomePage />) },
+  { path: "/participant-journey", element: assignLabLayout("/participant-journey", <JourneyPage />) },
+  { path: "/participant-session", element: assignLabLayout("/participant-session", <SessionPage />) },
   {
     path: "/admin-console",
-    element: <AdminPage />,
+    element: assignLabLayout("/admin-console", <AdminPage />),
     children: [
       { index: true, element: <AdminIndexRedirect /> },
       { path: "campaigns", element: <CampaignsArea /> },
@@ -42,9 +49,9 @@ export const designLabRoutes: RouteObject[] = [
       { path: "audit-log", element: <AuditLogArea /> },
     ],
   },
-  { path: "/reviewer-console", element: <ReviewerPage /> },
-  { path: "/shared/gallery", element: <GalleryPage /> },
-  { path: "*", element: <NotFoundPage /> },
+  { path: "/reviewer-console", element: assignLabLayout("/reviewer-console", <ReviewerPage />) },
+  { path: "/shared/gallery", element: assignLabLayout("/shared/gallery", <GalleryPage />) },
+  { path: "*", element: assignLabLayout("*", <NotFoundPage />) },
 ];
 
 export const DESIGN_LAB_BASENAME = "/design-lab";

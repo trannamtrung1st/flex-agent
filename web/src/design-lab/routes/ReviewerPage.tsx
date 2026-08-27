@@ -2,10 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Announcer,
   BackKey,
-  Bulkhead,
   CeremonyDialog,
-  CommandStrip,
-  ConsoleFoot,
   DataTableShell,
   DemoPlate,
   DialogPlate,
@@ -13,11 +10,11 @@ import {
   DialogPlateFooter,
   DialogPlateHead,
   EmptyPlate,
-  EtchedFrame,
   FieldTextarea,
   FormField,
   Key,
-  OperateHead,
+  KeyGroup,
+  CATALOG_ROUTE,
   REVIEWER_HOME,
   REVIEWER_IDENTITY,
   SignOutCeremony,
@@ -28,9 +25,13 @@ import {
 import { REVIEWER_DEMO_KEYS } from "../data/fixtures/reviewer";
 import type { ReviewSession } from "../data/types";
 import { ManifestPanel, MarginaliaStack, statusLabel } from "../features/reviewer/RecordPanels";
+import { ReviewerDrawerOverlays } from "../features/reviewer/ReviewerDrawerOverlays";
+import { ManagementLayout, OperateArea, SplitBay } from "../../design-system";
+import { boundedReasonError, clearValidationErrorOnValid } from "../../design-system/components/fields";
 import { loadReviewerState, persistReviewerState } from "../features/reviewer/storage";
 import { useAnnouncer } from "../../lib/useAnnouncer";
 import { useDemoParam } from "../lib/useDemoParam";
+import { formatViewerInstant } from "../../lib/format";
 import { maxWidthQuery } from "../../lib/breakpoints";
 import { useMediaQuery } from "../../lib/useMediaQuery";
 import { useSurface } from "../lib/useSurface";
@@ -81,7 +82,30 @@ export function ReviewerPage() {
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
   };
 
-  const rows = useMemo(() => [...sessions].sort((a, b) => a.receivedSort - b.receivedSort), [sessions]);
+  const recordHandoffCopy = (s: ReviewSession) => {
+    if (handoffNote) return handoffNote;
+    if (s.reviewStatus === "approved") {
+      return "Approval recorded. Result-ready handoff only. Release is a separate authorized flow.";
+    }
+    if (s.reviewStatus === "released") return "Result released. Record is sealed for audit inspection.";
+    if (s.reviewStatus === "escalated") {
+      return "Escalated for senior review. Reject or escalate with a bounded reason. This console cannot create a releasable Result.";
+    }
+    if (s.reviewStatus === "rejected") {
+      return "Evaluation rejected. This decision does not create a releasable Result.";
+    }
+    return "Inspect rationale and evidence. Approval creates a Result-ready handoff only. Release is a separate authorized flow.";
+  };
+
+  const rows = useMemo(
+    () =>
+      [...sessions].sort((a, b) => {
+        const byReceived = Date.parse(b.received) - Date.parse(a.received);
+        if (!Number.isNaN(byReceived) && byReceived !== 0) return byReceived;
+        return a.receivedSort - b.receivedSort;
+      }),
+    [sessions],
+  );
   const hotId = rows.find((s) => s.hot && s.reviewStatus === "awaiting")?.id ?? rows.find((s) => s.reviewStatus === "awaiting")?.id;
 
   const drawTethers = useCallback(() => {
@@ -168,6 +192,13 @@ export function ReviewerPage() {
     setMarginaliaOpen(false);
   };
 
+  const returnToQueue = () => {
+    setView("queue");
+    setActiveId(null);
+    setAdjustMode(false);
+    closeDrawers();
+  };
+
   const openRecord = (id: string) => {
     setActiveId(id);
     setAdjustMode(false);
@@ -216,26 +247,124 @@ export function ReviewerPage() {
   };
 
   return (
-    <>
-      <CommandStrip
-        nav={[{ to: REVIEWER_HOME, label: "Review" }]}
-        profile={REVIEWER_IDENTITY}
-        actions={actions}
-      />
-      <div className="shell">
-        <section className="queue-view" aria-label="Review queue" hidden={view === "record"}>
-          <OperateHead
-            className="queue-head"
-            title="Review queue"
-            description="Sessions awaiting human review — ranked by receipt time."
+    <ManagementLayout
+      contain={false}
+      commandStrip={{
+        homeTo: CATALOG_ROUTE,
+        homeLabel: "Channel index",
+        nav: [{ to: REVIEWER_HOME, label: "Review" }],
+        profile: REVIEWER_IDENTITY,
+        actions,
+      }}
+      footerNote="Synthetic demonstration content — no real participant or evaluation data."
+      footer={
+        <DemoPlate
+          id="demoState"
+          value={demo}
+          onChange={(v) => {
+            setDemo(v as typeof demo);
+            announce("Demo state loaded.");
+          }}
+          options={[
+            { value: "default", label: "Mixed review queue" },
+            { value: "busy", label: "Busy review queue" },
+            { value: "single", label: "Single awaiting review" },
+            { value: "empty", label: "Queue clear" },
+          ]}
+        />
+      }
+      overlays={
+        <>
+          {session ? (
+            <ReviewerDrawerOverlays
+              session={session}
+              open={isDrawerLayout}
+              manifestOpen={manifestOpen}
+              marginaliaOpen={marginaliaOpen}
+              adjustMode={adjustMode}
+              activeCriterionId={activeCriterionId}
+              stackRef={stackRef}
+              onCloseManifest={() => setManifestOpen(false)}
+              onCloseMarginalia={() => setMarginaliaOpen(false)}
+              onSelectCriterion={setActiveCriterionId}
+              onCancelAdjust={() => {
+                setAdjustMode(false);
+                setMarginaliaOpen(false);
+              }}
+              onSaveAdjust={commitAdjustment}
+            />
+          ) : null}
+      <CeremonyDialog open={decision !== null} onClose={() => setDecision(null)} labelledBy="decisionTitle" id="decisionDialog">
+        <DialogPlate width="wide">
+          <DialogPlateHead
+            title={decision === "reject" ? "Reject evaluation" : "Escalate evaluation"}
+            titleId="decisionTitle"
           />
-          <div className="queue-frame">
-            <EtchedFrame className="datatable-frame">
+          <DialogPlateBody>
+            <p>Reject and escalate require a bounded reason and never create a releasable Result.</p>
+            <FormField id="decisionReason" label="Bounded reason" layout="stack" error={decisionError || undefined}>
+              {(controlProps) => (
+                <FieldTextarea
+                  {...controlProps}
+                  value={decisionReason}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setDecisionReason(next);
+                    setDecisionError((current) => clearValidationErrorOnValid(current, next, boundedReasonError));
+                  }}
+                />
+              )}
+            </FormField>
+          </DialogPlateBody>
+          <DialogPlateFooter>
+            <KeyGroup>
+              <Key onClick={() => setDecision(null)}>Cancel</Key>
+              <Key
+              onClick={() => {
+                if (!session || !decision) return;
+                const reasonError = boundedReasonError(decisionReason);
+                if (reasonError) {
+                  setDecisionError(reasonError);
+                  return;
+                }
+                updateSession(session.id, (s) => ({
+                  ...s,
+                  reviewStatus: decision === "reject" ? "rejected" : "escalated",
+                }));
+                setDecision(null);
+                setHandoffNote(
+                  decision === "reject"
+                    ? "Evaluation rejected. This decision does not create a releasable Result."
+                    : "Escalated. This console cannot create a releasable Result.",
+                );
+                announce("Decision recorded with a bounded reason. Release is a separate authorized flow.");
+              }}
+            >
+              {decision === "reject" ? "Confirm reject" : "Confirm escalate"}
+              </Key>
+            </KeyGroup>
+          </DialogPlateFooter>
+        </DialogPlate>
+      </CeremonyDialog>
+      <Announcer message={message} />
+      <SignOutCeremony open={signOutOpen} onClose={() => setSignOutOpen(false)} />
+        </>
+      }
+    >
+      <div className="shell">
+        <OperateArea
+          className="queue-view workspace-area"
+          label="Review queue"
+          title="Review queue"
+          description="Sessions awaiting human review — ranked by receipt time."
+          hidden={view === "record"}
+          frameClassName="datatable-frame"
+        >
               <DataTableShell
                 variant="bodyOnly"
                 className="queue-datatable"
                 table={
-                  <table className="datatable-table manifest">
+                  <table className="datatable-table manifest" hidden={rows.length === 0}>
                     <caption className="visually-hidden">Sessions awaiting human review</caption>
                     <thead>
                       <tr>
@@ -251,6 +380,7 @@ export function ReviewerPage() {
                     <tbody>
                       {rows.map((s) => {
                         const isHot = s.id === hotId && s.reviewStatus === "awaiting";
+                        const received = formatViewerInstant(s.received);
                         return (
                           <tr key={s.id} className={`datatable-row${isHot ? " is-hot" : ""}`}>
                             <td className="col-candidate cell-id" data-label="Participant">
@@ -264,7 +394,11 @@ export function ReviewerPage() {
                             </td>
                             <td className="cell-content" data-label="Campaign">{s.campaign}</td>
                             <td className="col-assignment cell-content" data-label="Assignment">{s.assignment}</td>
-                            <td className="col-received cell-content" data-label="Received">{s.received} America/Chicago</td>
+                            <td className="col-received cell-content" data-label="Received">
+                              <time dateTime={received.datetime} title={received.title}>
+                                {received.label}
+                              </time>
+                            </td>
                             <td className="col-confidence cell-content" data-label="Confidence">{mean(s).toFixed(2)}</td>
                             <td className="cell-content" data-label="State">
                               <StateReadout
@@ -291,82 +425,94 @@ export function ReviewerPage() {
                 }
                 empty={
                   rows.length === 0 ? (
-                    <div className="queue-empty">
-                      <EmptyPlate label="Queue clear" note="No sessions are queued for review in this demo state." />
-                    </div>
+                    <EmptyPlate
+                      id="queueEmpty"
+                      className="datatable-empty queue-empty-plate"
+                      label="Queue clear"
+                      note="No sessions are queued for review in this demo state."
+                    />
                   ) : undefined
                 }
               />
-            </EtchedFrame>
-          </div>
-        </section>
+        </OperateArea>
 
-        <section
-          className={`record-view${session?.reviewStatus === "released" ? " is-released" : ""}${adjustMode ? " is-adjusting" : ""}`}
-          aria-label="Evaluation record"
+        <OperateArea
+          className={`record-view workspace-area${session?.reviewStatus === "released" ? " is-released" : ""}${adjustMode ? " is-adjusting" : ""}`}
+          label="Evaluation record"
+          title="Examination Transcript — The Overlay Ledger"
+          description={session?.sessionLabel}
           hidden={view === "queue"}
+          framed={false}
+          headArrangement="plaque"
+          back={<BackKey label="Queue" onClick={returnToQueue} />}
+          headExtra={<StateReadout variant="sealed" solid label="Sealed" className="sealed-mark" />}
         >
-          <header className="record-head">
-            <BackKey
-              label="Queue"
-              onClick={() => {
-                setView("queue");
-                setActiveId(null);
-                setAdjustMode(false);
-                closeDrawers();
-              }}
-            />
-            <div className="record-head-center">
-              <h1 className="record-title">Examination Transcript — The Overlay Ledger</h1>
-              <StateReadout variant="sealed" solid label="Sealed" className="sealed-mark" />
-            </div>
-            <p className="record-session-id">{session?.sessionLabel}</p>
-          </header>
-
           {session ? (
-            <div className={`record-grid${isDrawerLayout ? " record-grid--drawer" : ""}`} ref={gridRef}>
-              <svg className="tether-layer" ref={svgRef} aria-hidden="true" />
-              {isDrawerLayout ? (
-                <div className="record-drawer-bar" aria-label="Record panels">
-                  <Key
-                    pressed={manifestOpen}
-                    ariaExpanded={manifestOpen}
-                    ariaControls="recordManifestBulkhead"
-                    onClick={() => {
-                      if (manifestOpen) {
-                        setManifestOpen(false);
-                        return;
-                      }
-                      setMarginaliaOpen(false);
-                      setManifestOpen(true);
-                    }}
-                  >
-                    Manifest
-                  </Key>
-                  <Key
-                    pressed={marginaliaOpen}
-                    ariaExpanded={marginaliaOpen}
-                    ariaControls="recordMarginaliaBulkhead"
-                    onClick={() => {
-                      if (marginaliaOpen) {
+            <SplitBay
+              ref={gridRef}
+              className="record-grid"
+              drawer={isDrawerLayout}
+              overlay={<svg className="tether-layer" ref={svgRef} aria-hidden="true" />}
+              toolbar={
+                isDrawerLayout ? (
+                  <KeyGroup className="record-drawer-bar" aria-label="Record panels">
+                    <Key
+                      pressed={manifestOpen}
+                      ariaExpanded={manifestOpen}
+                      ariaControls="recordManifestBulkhead"
+                      onClick={() => {
+                        if (manifestOpen) {
+                          setManifestOpen(false);
+                          return;
+                        }
                         setMarginaliaOpen(false);
-                        return;
-                      }
-                      setManifestOpen(false);
-                      setMarginaliaOpen(true);
-                    }}
-                  >
-                    Marginalia
-                    {activeCriterionId ? (
-                      <span className="record-drawer-mark" aria-hidden="true" />
-                    ) : null}
-                  </Key>
-                </div>
-              ) : (
-                <aside className="manifest-rail" aria-label="Session manifest">
-                  <ManifestPanel session={session} />
-                </aside>
-              )}
+                        setManifestOpen(true);
+                      }}
+                    >
+                      Manifest
+                    </Key>
+                    <Key
+                      pressed={marginaliaOpen}
+                      ariaExpanded={marginaliaOpen}
+                      ariaControls="recordMarginaliaBulkhead"
+                      onClick={() => {
+                        if (marginaliaOpen) {
+                          setMarginaliaOpen(false);
+                          return;
+                        }
+                        setManifestOpen(false);
+                        setMarginaliaOpen(true);
+                      }}
+                    >
+                      Marginalia
+                      {activeCriterionId ? (
+                        <span className="record-drawer-mark" aria-hidden="true" />
+                      ) : null}
+                    </Key>
+                  </KeyGroup>
+                ) : undefined
+              }
+              start={
+                isDrawerLayout ? undefined : (
+                  <aside className="manifest-rail" aria-label="Session manifest">
+                    <ManifestPanel session={session} />
+                  </aside>
+                )
+              }
+              end={
+                isDrawerLayout ? undefined : (
+                  <aside className="marginalia-rail" aria-label="Criterion evaluations">
+                    <MarginaliaStack
+                      ref={stackRef}
+                      session={session}
+                      activeCriterionId={activeCriterionId}
+                      onSelectCriterion={setActiveCriterionId}
+                      adjustMode={adjustMode}
+                    />
+                  </aside>
+                )
+              }
+            >
               <div className="transcript-col">
                 <div className="ledger-frame pane pane--tl" id="ledgerFrame" onClick={() => setActiveCriterionId(null)}>
                   <ol className="ledger" ref={ledgerRef} aria-label="Sealed examination transcript">
@@ -394,34 +540,12 @@ export function ReviewerPage() {
                   </ol>
                 </div>
               </div>
-              {!isDrawerLayout ? (
-                <aside className="marginalia-rail" aria-label="Criterion evaluations">
-                  <MarginaliaStack
-                    ref={stackRef}
-                    session={session}
-                    activeCriterionId={activeCriterionId}
-                    onSelectCriterion={setActiveCriterionId}
-                    adjustMode={adjustMode}
-                  />
-                </aside>
-              ) : null}
-            </div>
+            </SplitBay>
           ) : null}
 
           <footer className="decision-bar">
-            <p className="decision-note bar-note">
-              {handoffNote ||
-                (session?.reviewStatus === "approved"
-                  ? "Approval recorded. Result-ready handoff only. Release is a separate authorized flow."
-                  : session?.reviewStatus === "released"
-                    ? "Result released. Record is sealed for audit inspection."
-                    : session?.reviewStatus === "escalated"
-                      ? "Escalated for senior review. Reject or escalate with a bounded reason. This console cannot create a releasable Result."
-                      : session?.reviewStatus === "rejected"
-                        ? "Evaluation rejected. This decision does not create a releasable Result."
-                        : "Inspect rationale and evidence. Approval creates a Result-ready handoff only. Release is a separate authorized flow.")}
-            </p>
-            <div className="decision-keys">
+            <p className="decision-note bar-note">{session ? recordHandoffCopy(session) : ""}</p>
+            <KeyGroup className="decision-keys">
               <Key
                 pressed={adjustMode}
                 disabled={session?.reviewStatus === "released"}
@@ -474,120 +598,10 @@ export function ReviewerPage() {
               >
                 Approve
               </Key>
-            </div>
+            </KeyGroup>
           </footer>
-        </section>
+        </OperateArea>
       </div>
-      {session && isDrawerLayout ? (
-        <>
-          <Bulkhead
-            id="recordManifestBulkhead"
-            open={manifestOpen}
-            onClose={() => setManifestOpen(false)}
-            side="leading"
-            title="Session manifest"
-            titleId="recordManifestTitle"
-          >
-            <ManifestPanel session={session} />
-          </Bulkhead>
-          <Bulkhead
-            id="recordMarginaliaBulkhead"
-            open={marginaliaOpen}
-            onClose={() => setMarginaliaOpen(false)}
-            side="trailing"
-            wide={adjustMode}
-            title="Criterion Marginalia"
-            titleId="recordMarginaliaTitle"
-            footer={
-              adjustMode ? (
-                <>
-                  <Key
-                    onClick={() => {
-                      setAdjustMode(false);
-                      setMarginaliaOpen(false);
-                    }}
-                  >
-                    Cancel
-                  </Key>
-                  <Key onClick={commitAdjustment}>Save adjustment</Key>
-                </>
-              ) : undefined
-            }
-          >
-            <MarginaliaStack
-              ref={stackRef}
-              session={session}
-              activeCriterionId={activeCriterionId}
-              onSelectCriterion={setActiveCriterionId}
-              showLabel={false}
-              adjustMode={adjustMode}
-            />
-          </Bulkhead>
-        </>
-      ) : null}
-      <ConsoleFoot note="Synthetic demonstration content — no real participant or evaluation data.">
-        <DemoPlate
-          id="demoState"
-          value={demo}
-          onChange={(v) => {
-            setDemo(v as typeof demo);
-            announce("Demo state loaded.");
-          }}
-          options={[
-            { value: "default", label: "Mixed review queue" },
-            { value: "busy", label: "Busy review queue" },
-            { value: "single", label: "Single awaiting review" },
-            { value: "empty", label: "Queue clear" },
-          ]}
-        />
-      </ConsoleFoot>
-      <CeremonyDialog open={decision !== null} onClose={() => setDecision(null)} labelledBy="decisionTitle" id="decisionDialog">
-        <DialogPlate>
-          <DialogPlateHead
-            title={decision === "reject" ? "Reject evaluation" : "Escalate evaluation"}
-            titleId="decisionTitle"
-          />
-          <DialogPlateBody>
-            <p>Reject and escalate require a bounded reason and never create a releasable Result.</p>
-            <FormField id="decisionReason" label="Bounded reason" error={decisionError || undefined}>
-              {(controlProps) => (
-                <FieldTextarea
-                  {...controlProps}
-                  value={decisionReason}
-                  onChange={(event) => setDecisionReason(event.target.value)}
-                />
-              )}
-            </FormField>
-          </DialogPlateBody>
-          <DialogPlateFooter>
-            <Key onClick={() => setDecision(null)}>Cancel</Key>
-            <Key
-              onClick={() => {
-                if (!session || !decision) return;
-                if (decisionReason.trim().length < 8) {
-                  setDecisionError("A bounded reason is required.");
-                  return;
-                }
-                updateSession(session.id, (s) => ({
-                  ...s,
-                  reviewStatus: decision === "reject" ? "rejected" : "escalated",
-                }));
-                setDecision(null);
-                setHandoffNote(
-                  decision === "reject"
-                    ? "Evaluation rejected. This decision does not create a releasable Result."
-                    : "Escalated. This console cannot create a releasable Result.",
-                );
-                announce("Decision recorded with a bounded reason. Release is a separate authorized flow.");
-              }}
-            >
-              {decision === "reject" ? "Confirm reject" : "Confirm escalate"}
-            </Key>
-          </DialogPlateFooter>
-        </DialogPlate>
-      </CeremonyDialog>
-      <Announcer message={message} />
-      <SignOutCeremony open={signOutOpen} onClose={() => setSignOutOpen(false)} />
-    </>
+    </ManagementLayout>
   );
 }

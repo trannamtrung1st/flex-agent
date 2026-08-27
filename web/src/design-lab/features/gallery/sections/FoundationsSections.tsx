@@ -1,5 +1,17 @@
-import { ActionMenuGlyph, EtchedFrame, IconButton, Key } from "../../../components";
+import type { ReactNode } from "react";
+import { ExternalLink } from "lucide-react";
+import { ActionMenuGlyph, EtchedFrame, EllipsisKey, IconButton, Key, KeyGroup } from "../../../components";
+import { Inline, Stack } from "../../../../design-system";
 import { GallerySection, Spec } from "./GallerySection";
+
+function TypeRow({ role, children }: { role: string; children: ReactNode }) {
+  return (
+    <div className="type-ladder-row">
+      <span className="type-ladder-role">{role}</span>
+      {children}
+    </div>
+  );
+}
 
 const colors = [
   ["ground", "#07141b"], ["ground-deep", "#041018"], ["ground-sheen", "#0e1c24"],
@@ -16,11 +28,11 @@ export function FoundationsSections() {
       <GallerySection id="colors" title="Colors" note={<>Two structural teal voices, one rationed amber, nothing else. Tokens live in <span className="code">tokens.css</span>.</>}>
         <ul className="chip-row">
           {colors.map(([name, color]) => (
-            <li className="chip" key={name}>
+            <Stack as="li" className="chip" gap="2" key={name}>
               <span className="chip-swatch" style={{ background: color }} />
               <span className="chip-name">{name}</span>
               <span className="chip-value">{color}</span>
-            </li>
+            </Stack>
           ))}
         </ul>
       </GallerySection>
@@ -32,6 +44,79 @@ export function FoundationsSections() {
           <Spec tag="body · mono 400 · 15px · lh 1.55 · max 78ch"><p className="type-body">The Examiner — an AI agent operating under a frozen configuration — will ask follow-up questions about your work.</p></Spec>
           <Spec tag="microlabel · mono 400 · 0.14em tracking · uppercase"><span className="type-microlabel">Session Duration</span></Spec>
         </div>
+      </GallerySection>
+
+      <GallerySection
+        id="typography"
+        title="Typography"
+        note="Heading, body, technical, and link roles from the approved scale. Specimens are visual roles only."
+      >
+        <Spec wide tag="heading scale · placard names; display digits stay mono">
+          <Stack gap="5" className="type-ladder">
+            <TypeRow role="Display"><p className="type-scale-display">00:41:17</p></TypeRow>
+            <TypeRow role="H1 wall"><p className="type-scale-h1">Campaign Registry</p></TypeRow>
+            <TypeRow role="H2 plate"><p className="type-scale-h2">Shoreline Operations</p></TypeRow>
+            <TypeRow role="H3"><p className="type-scale-h3">Protocol freeze</p></TypeRow>
+            <TypeRow role="Section"><p className="type-scale-section">Session duration</p></TypeRow>
+          </Stack>
+        </Spec>
+        <Spec wide tag="body scale · Sometype Mono · 68–78ch reading measure">
+          <Stack gap="5" className="type-ladder">
+            <TypeRow role="Reading">
+              <p className="type-scale-reading">
+                Review rationale and long Agent or Participant narratives use the larger reading size so a frozen session still scans as prose.
+              </p>
+            </TypeRow>
+            <TypeRow role="Body">
+              <p className="type-scale-body">The Examiner will ask follow-up questions about your work.</p>
+            </TypeRow>
+            <TypeRow role="Compact">
+              <p className="type-scale-compact">Compact body belongs on plates, tables, and settings rows.</p>
+            </TypeRow>
+            <TypeRow role="Small">
+              <p className="type-scale-small">Small chrome labels stay at or above 0.75rem.</p>
+            </TypeRow>
+            <TypeRow role="Micro">
+              <p className="type-scale-micro">Micro readouts and timestamps · not sole control names</p>
+            </TypeRow>
+          </Stack>
+        </Spec>
+        <Spec wide tag="technical · mono 0.72–0.82rem · tabular-nums">
+          <Stack gap="3" className="type-ladder">
+            <TypeRow role="Campaign"><p className="type-scale-technical">CAMP-2204</p></TypeRow>
+            <TypeRow role="Time"><p className="type-scale-technical">14:22:08</p></TypeRow>
+            <TypeRow role="Tokens"><p className="type-scale-technical">tok 1,204</p></TypeRow>
+          </Stack>
+        </Spec>
+        <Spec wide tag="links · fg-brand inline; nav current uses a teal tick">
+          <Stack gap="5" className="type-ladder">
+            <TypeRow role="Inline">
+              <p className="type-scale-body">
+                Sessions run under a{" "}
+                <a className="type-inline-link" href="#typography">
+                  frozen configuration
+                </a>
+                .
+              </p>
+            </TypeRow>
+            <TypeRow role="Nav">
+              <Inline gap="6" as="nav" aria-label="Typography nav specimen">
+                <a className="type-nav-link" href="#typography">
+                  Registry
+                </a>
+                <a className="type-nav-link" href="#typography" aria-current="location">
+                  Campaigns
+                </a>
+              </Inline>
+            </TypeRow>
+            <TypeRow role="Icon">
+              <a className="type-inline-link" href="#typography">
+                Source set catalog
+                <ExternalLink className="icon-sm" aria-hidden="true" focusable="false" />
+              </a>
+            </TypeRow>
+          </Stack>
+        </Spec>
       </GallerySection>
 
       <GallerySection id="keys" title="Keys" note={<>Engraved console keys: square corners, hairline bezels, no fills at rest. Hot keys cut a 14px leading edge and are rationed to one per live surface. Use <span className="code">size="compact"</span> for dense table toolbars; standard is the default form scale; large is ceremony emphasis.</>}>
@@ -58,6 +143,53 @@ export function FoundationsSections() {
           <Spec tag=".key--release"><Key variant="release">Approve &amp; release</Key></Spec>
           <Spec tag=".key--begin · pre-lit"><Key variant="begin">Begin examination</Key></Spec>
           <Spec tag=".key--activate · double stroke"><Key variant="activate">Activate</Key></Spec>
+        </div>
+        <Spec wide tag="EllipsisKey · truncate · tooltip only when clipped">
+          <div className="key-group-demo-narrow">
+            <EllipsisKey>Confirm activation after readiness</EllipsisKey>
+            <EllipsisKey variant="activate">Confirm activation after readiness</EllipsisKey>
+          </div>
+        </Spec>
+      </GallerySection>
+
+      <GallerySection
+        id="key-group"
+        title="Key group"
+        note={
+          <>
+            Named <span className="code">Inline</span> cluster with <span className="code">role="group"</span> and a 10px gap. Key height comes from <span className="code">size</span>, not the group. Use for dialog feet, ceremony bars, and toolbar pairs — not for single keys or icon-only controls.
+          </>
+        }
+      >
+        <Spec wide tag=".key-group · ceremony foot · wrap">
+          <KeyGroup aria-label="Ceremony actions">
+            <Key>Cancel</Key>
+            <Key>Save draft</Key>
+            <Key>Check readiness</Key>
+            <Key variant="activate" disabled disabledReason="Check readiness before activation">
+              Confirm activation
+            </Key>
+          </KeyGroup>
+        </Spec>
+        <div className="spec-row">
+          <Spec tag=".key-group · compact toolbar pair">
+            <KeyGroup aria-label="Toolbar pair">
+              <Key size="compact">Dismiss</Key>
+              <Key size="compact" variant="transmit">
+                Retry
+              </Key>
+            </KeyGroup>
+          </Spec>
+          <Spec tag=".key-group · wait pair">
+            <KeyGroup aria-label="Wait pair">
+              <Key waiting disabled>
+                Retrieving
+              </Key>
+              <Key disabled>
+                Cancel
+              </Key>
+            </KeyGroup>
+          </Spec>
         </div>
       </GallerySection>
 

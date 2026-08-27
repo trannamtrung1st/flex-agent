@@ -70,6 +70,8 @@
   font-size: 0.84rem;
   line-height: 1.55;
   color: var(--text);
+  display: flex;
+  flex-direction: column;
 }
 
 .dialog-readout {
@@ -95,9 +97,15 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
   gap: 10px;
   padding: 14px 24px 20px;
   border-top: 1px solid var(--hairline-dim);
+}
+
+.dialog-foot > .key-group {
+  flex: 1 1 auto;
+  justify-content: flex-end;
 }
 
 @media (max-width: 480px) /* bp.dialog */ {
@@ -107,9 +115,11 @@
     align-items: stretch;
   }
 
-  .dialog-foot .key {
+  .dialog-foot .key,
+  .dialog-foot .key-group > .tip-host > .key {
     justify-content: center;
     width: 100%;
+    box-sizing: border-box;
   }
 }
 

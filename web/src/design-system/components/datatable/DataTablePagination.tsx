@@ -1,6 +1,6 @@
 import { ChevronGlyph } from "../glyphs";
 import { DisclosureMenu } from "../select";
-import { Key } from "../keys";
+import { Key, KeyGroup } from "../keys";
 import { pad } from "../../../lib/format";
 
 export function DataTablePagination({
@@ -63,24 +63,26 @@ export function DataTablePagination({
             onSelect={(id) => onPageChange(Number(id))}
           />
         </div>
-        <Key
-          size="compact"
-          className="datatable-step datatable-step--prev"
-          disabled={page <= 0 || total === 0}
-          onClick={onPrevious}
-        >
-          <ChevronGlyph />
-          <span>Prev</span>
-        </Key>
-        <Key
-          size="compact"
-          className="datatable-step datatable-step--next"
-          disabled={page >= maxPage || total === 0}
-          onClick={onNext}
-        >
-          <span>Next</span>
-          <ChevronGlyph />
-        </Key>
+        <KeyGroup>
+          <Key
+            size="compact"
+            className="datatable-step datatable-step--prev"
+            disabled={page <= 0 || total === 0}
+            onClick={onPrevious}
+          >
+            <ChevronGlyph />
+            <span>Prev</span>
+          </Key>
+          <Key
+            size="compact"
+            className="datatable-step datatable-step--next"
+            disabled={page >= maxPage || total === 0}
+            onClick={onNext}
+          >
+            <span>Next</span>
+            <ChevronGlyph />
+          </Key>
+        </KeyGroup>
       </div>
     </footer>
   );

@@ -9,7 +9,7 @@ on synthetic fixtures.
 | Family | Path | Notes |
 | --- | --- | --- |
 | Foundations | `web/src/lib/`, `web/src/styles/` | `cx`, breakpoints, announcer, format helpers, Shipboard CSS |
-| Glyphs, keys, fields, plates, overlays, state, navigation, readouts, select, menu, temporal, datatable, chrome | `design-system/components/` | Generic typed props; chrome `homeTo` is required; no fixture identities |
+| Glyphs, keys, fields, feedback, plates, overlays, state, navigation, readouts, select, menu, temporal, datatable, chrome | `design-system/components/` | Generic typed props; chrome `homeTo` is required; no fixture identities |
 | Table actions / selection | `design-system/patterns/` | Descriptor-driven table/bulk/row actions |
 
 ## Surface donor

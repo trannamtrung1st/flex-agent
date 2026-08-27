@@ -18,9 +18,11 @@ import {
   placeholderFor,
   secondValues,
   shiftIsoDate,
+  resolveNowAnchor,
   shiftTime,
   splitDateTime,
   toIsoDate,
+  valueForNow,
   viewMonthFrom,
   wheelScrollTop,
   type TemporalMode,
@@ -152,6 +154,17 @@ export function DateTimePicker({
       return;
     }
     onChange(joinDateTime(date || today, nextTime, withSeconds));
+  };
+
+  const commitNow = () => {
+    const anchor = resolveNowAnchor(now);
+    const next = valueForNow(mode, anchor, timeStepOptions);
+    onChange(next);
+    if (mode === "date") {
+      close(true);
+      return;
+    }
+    setView(viewMonthFrom(next, today));
   };
 
   const onTriggerKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -404,14 +417,21 @@ export function DateTimePicker({
           </div>
         ) : null}
         <div className="multiselect-foot datetime-foot">
-          <button
-            className="clear-action"
-            type="button"
-            disabled={!value}
-            onClick={() => onChange("")}
-          >
-            Clear
-          </button>
+          <div className="datetime-foot-actions">
+            {mode !== "time" ? (
+              <button className="clear-action" type="button" onClick={commitNow}>
+                Now
+              </button>
+            ) : null}
+            <button
+              className="clear-action"
+              type="button"
+              disabled={!value}
+              onClick={() => onChange("")}
+            >
+              Clear
+            </button>
+          </div>
           <Key variant="quiet" size="compact" onClick={() => close(true)}>
             Done
           </Key>

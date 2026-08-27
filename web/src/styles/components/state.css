@@ -302,6 +302,17 @@ input:focus-visible + .ack-mark {
 
 .control-line input { position: absolute; opacity: 0; }
 
+.briefing-ack {
+  position: relative;
+  gap: 13px;
+  padding: 15px 16px;
+  border: 1px solid var(--hairline-dim);
+  font-size: 0.86rem;
+  transition: border-color 160ms var(--ease-out);
+}
+
+.briefing-ack:hover { border-color: var(--hairline); }
+
 .radio-group {
   border: 0;
   display: flex;

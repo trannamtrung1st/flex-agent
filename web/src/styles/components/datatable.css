@@ -114,6 +114,8 @@ input:focus-visible + .select-mark {
   position: relative;
   display: flex;
   align-items: stretch;
+  box-sizing: border-box;
+  min-height: 30px;
   border: 1px solid var(--hairline-dim);
 }
 
@@ -141,11 +143,12 @@ input:focus-visible + .select-mark {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 16px;
+  padding: var(--key-compact-padding-block) var(--key-compact-padding-inline);
   border: 0;
   cursor: pointer;
   font-family: var(--font-mono);
   font-size: 0.66rem;
+  line-height: 1;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--label);
@@ -178,8 +181,9 @@ input:focus-visible + .select-mark {
 .toolbar-seg--readout {
   align-items: center;
   gap: 8px;
-  padding: 9px 16px;
+  padding: var(--key-compact-padding-block) var(--key-compact-padding-inline);
   font-size: 0.66rem;
+  line-height: 1;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--label);
@@ -222,11 +226,12 @@ input:focus-visible + .select-mark {
 
 .seg-search {
   width: 170px;
-  padding: 9px 16px;
+  padding: var(--key-compact-padding-block) var(--key-compact-padding-inline);
   border: 0;
   background: transparent;
   font-family: var(--font-mono);
   font-size: 0.66rem;
+  line-height: 1;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-bright);
@@ -257,6 +262,8 @@ input:focus-visible + .select-mark {
 .datatable-frame {
   width: 100%;
   min-width: 0;
+  /* Beads hang past the inner pane; never turn that hang into a scrollport. */
+  overflow-x: visible;
 }
 
 .datatable-frame > .frame-in {
@@ -265,6 +272,16 @@ input:focus-visible + .select-mark {
 
 .datatable-frame .datatable {
   flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Body-only dockets hug rows. Flush inset is owned by EtchedFrame (frame-cut--flush). */
+.datatable-frame.frame-cut:has(.datatable--body-only) {
+  flex: 0 1 auto;
+}
+
+.datatable-frame:has(.datatable--body-only) .datatable {
+  flex: 0 1 auto;
   min-height: 0;
 }
 
@@ -303,9 +320,6 @@ input:focus-visible + .select-mark {
 }
 
 .datatable-actions-keys {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   overflow: visible;
 }
 
@@ -530,6 +544,8 @@ input:focus-visible + .select-mark {
   scrollbar-color: var(--hairline-dim) transparent;
 }
 
+/* body-only keeps the shared 18px side gutter; only a hair of floor so
+   the last row does not kiss the bottom chamfer */
 .datatable--body-only .datatable-scroll {
   padding-bottom: 4px;
 }
@@ -860,9 +876,7 @@ td.cell-state { text-align: center; }
   letter-spacing: 0.04em;
 }
 
-.datatable-detail-keys {
-  display: flex;
-  gap: 14px;
+.datatable-detail-keys.key-group {
   padding-top: 16px;
 }
 
@@ -898,12 +912,6 @@ td.cell-state { text-align: center; }
 }
 
 .datatable-page-group { flex-shrink: 0; }
-
-.datatable-foot .datatable-step.key--compact {
-  padding: 9px 14px;
-  font-size: 0.66rem;
-  letter-spacing: 0.14em;
-}
 
 .datatable-step {
   display: inline-flex;

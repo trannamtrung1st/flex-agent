@@ -26,14 +26,48 @@
   --notch: 10px;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
+  /* Spacing ladder — 4px–96px (docs/ui-ux/design-system/foundation/layout.md) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-2-5: 10px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-5-5: 22px;
+  --space-6: 24px;
+  --space-6-5: 26px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* Hull pad — inline matches command-strip brand (22px); block stays workspace-tight (16px).
+     Do not stack a second page-edge pad on OperateArea / wall when the shell already insets. */
+  --shell-main-inset-inline: var(--space-5-5);
+  --shell-main-inset-block: var(--space-4);
+  --shell-main-inset: var(--shell-main-inset-block);
+
   --gangway-w: 232px;
   --gangway-w-collapsed: 76px;
   --bulkhead-w: 280px;
+
+  /* Participant instrument rails — leading uses --shell-main-inset-inline; trailing
+     docks scrollports and rail-brand to the bulkhead hairline (guided-task / live-session). */
+  --instrument-rail-dock-inline: 18px;
 
   /* Readout grid — aligned instrument fields (Campaign Record, Policies, …) */
   --readout-grid-pad-block-start: 10px;
   --readout-grid-pad-block-end: 12px;
   --readout-grid-pad-inline: 20px;
+
+  /* Etched operate-frame inset — shared by workspace plates and record frames */
+  --frame-inset-block-start: var(--space-5);
+  --frame-inset-block-end: var(--space-5);
+  --frame-inset-inline: var(--space-6);
+  /* Foot block rhythm matches frame top inset so plate head, action gap, and frame floor read equal. */
+  --plate-foot-pad-block: var(--frame-inset-block-start);
 
   --panel-sheen: linear-gradient(115deg, rgba(215, 227, 234, 0.045), transparent 34%);
   --panel-depth: linear-gradient(200deg, rgba(2, 9, 14, 0.58), rgba(5, 14, 19, 0.24));
@@ -82,4 +116,10 @@
   --key-glyph-size: 11px;
   --key-quiet-padding-block: var(--key-padding-block);
   --key-quiet-padding-inline: var(--key-padding-inline);
+}
+
+@media (max-width: 720px) /* bp.compact */ {
+  :root {
+    --shell-main-inset-inline: var(--space-4);
+  }
 }

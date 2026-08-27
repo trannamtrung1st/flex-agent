@@ -221,3 +221,56 @@ export function viewMonthFrom(value: string, today: string) {
 export function wheelScrollTop(itemOffsetTop: number, itemHeight: number, listClientHeight: number) {
   return Math.round(itemOffsetTop - (listClientHeight - itemHeight) / 2);
 }
+
+/** Resolve the anchor instant for "Now" — full datetime when provided, else date-only or live clock. */
+export function resolveNowAnchor(now?: string): Date {
+  if (!now) return new Date();
+  const { date, time } = splitDateTime(now);
+  if (date && time) {
+    const parsedDate = parseIsoDate(date);
+    const parsedTime = parseTimePart(time);
+    if (parsedDate && parsedTime) {
+      return new Date(
+        parsedDate.year,
+        parsedDate.month,
+        parsedDate.day,
+        parsedTime.hour,
+        parsedTime.minute,
+        parsedTime.second,
+      );
+    }
+  }
+  const parsedDate = parseIsoDate(now);
+  if (parsedDate) {
+    const live = new Date();
+    return new Date(parsedDate.year, parsedDate.month, parsedDate.day, live.getHours(), live.getMinutes(), live.getSeconds());
+  }
+  return new Date();
+}
+
+export function snapTimeToSteps(parsed: ParsedTime, options: TimeStepOptions = {}): string {
+  const { minuteStep = 1, secondStep = 1, withSeconds = false } = options;
+  let minute = parsed.minute;
+  let second = parsed.second;
+  if (minuteStep > 1) {
+    minute = Math.round(minute / minuteStep) * minuteStep;
+    if (minute >= 60) minute = 60 - minuteStep;
+  }
+  if (withSeconds && secondStep > 1) {
+    second = Math.round(second / secondStep) * secondStep;
+    if (second >= 60) second = 60 - secondStep;
+  }
+  return formatIsoTime({ ...parsed, minute, second }, withSeconds);
+}
+
+export function valueForNow(mode: TemporalMode, anchor: Date, options: TimeStepOptions = {}): string {
+  const { withSeconds = false } = options;
+  const date = toIsoDate(anchor);
+  const time = snapTimeToSteps(
+    { hour: anchor.getHours(), minute: anchor.getMinutes(), second: anchor.getSeconds() },
+    options,
+  );
+  if (mode === "date") return date;
+  if (mode === "time") return time;
+  return joinDateTime(date, time, withSeconds);
+}

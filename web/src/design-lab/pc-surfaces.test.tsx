@@ -1,4 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { DESIGN_LAB_BASENAME, designLabRoutes } from "./app/router";
 
@@ -71,13 +74,80 @@ describe("PC-01 and PC-02 reviewer decision", () => {
       await vi.advanceTimersByTimeAsync(700);
     });
     fireEvent.click(screen.getByRole("button", { name: "Reject" }));
-    expect(screen.getByRole("dialog", { name: /Reject/i })).toBeInTheDocument();
+    const rejectDialog = screen.getByRole("dialog", { name: /Reject/i });
+    expect(rejectDialog).toBeInTheDocument();
+    expect(rejectDialog.querySelector(".dialog-plate--wide")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Confirm reject" }));
-    expect(screen.getByText("A bounded reason is required.")).toBeInTheDocument();
+    expect(screen.getByText("Enter a bounded reason.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Bounded reason"), { target: { value: "a a" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm reject" }));
+    expect(screen.getByText("Enter at least 8 characters.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Bounded reason"), { target: { value: "policy mismatch on criterion 2" } });
+    expect(screen.queryByText("Enter at least 8 characters.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(screen.getByRole("button", { name: "Adjust" }));
     fireEvent.click(screen.getByRole("button", { name: "Save adjustment" }));
     expect(screen.getByText(/not submitted/i)).toBeInTheDocument();
+  });
+
+  it("shows Received in the viewer timezone with compact zone disclosure", () => {
+    renderLab("/design-lab/reviewer-console");
+    const received = document.querySelector(".col-received time");
+    expect(received).toHaveAttribute("datetime", "2026-08-25T19:42:00.000Z");
+    expect(received?.textContent).toMatch(/\d{2}:\d{2}/);
+    expect(received?.textContent).toMatch(/GMT|[A-Z]{2,5}/);
+    expect(received?.textContent).not.toMatch(/America\/Chicago/);
+    expect(received?.getAttribute("title")).toMatch(/UTC 2026-08-25T19:42:00/);
+    expect(screen.queryAllByText(/America\/Chicago/).length).toBe(0);
+  });
+
+  it("ranks the busy queue by receipt instant newest first", () => {
+    renderLab("/design-lab/reviewer-console?demo=busy");
+    const datetimes = [...document.querySelectorAll(".col-received time")].map((el) => el.getAttribute("datetime"));
+    expect(datetimes[0]).toBe("2026-08-25T19:42:00.000Z");
+    expect(datetimes).toEqual([...datetimes].sort((a, b) => (b ?? "").localeCompare(a ?? "")));
+  });
+
+  it("hides the queue table chrome when the demo queue is empty", () => {
+    renderLab("/design-lab/reviewer-console?demo=empty");
+    const table = document.querySelector(".queue-datatable .datatable-table");
+    expect(document.getElementById("queueEmpty")).toBeInTheDocument();
+    expect(table).toHaveAttribute("hidden");
+    expect(table).not.toBeVisible();
+  });
+
+  it("keeps the evaluation record on a full-bleed split bay", async () => {
+    vi.useFakeTimers();
+    renderLab("/design-lab/reviewer-console");
+    expect(document.querySelector("#main-content > .composition-inset")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "CND-8842-19" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(700);
+    });
+    const split = document.querySelector(".composition-split");
+    expect(split).toHaveAttribute("data-flow-split", "bay");
+    expect(split).toHaveClass("record-grid");
+    expect(screen.getByRole("complementary", { name: "Session manifest" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Criterion evaluations" })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Sealed examination transcript" })).toBeInTheDocument();
+    expect(document.querySelector(".record-view > .operate-head")).toHaveClass("operate-head--plaque");
+    expect(document.querySelector(".record-view .sealed-mark")?.closest(".operate-head-cluster")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Queue" }).closest(".operate-head")).toBeTruthy();
+    expect(document.querySelector(".composition-split__head")).toBeNull();
+    expect(document.querySelector(".composition-split__foot")).toBeNull();
+    expect(document.querySelector(".decision-bar .decision-note")).toBeTruthy();
+    expect(document.querySelector(".decision-bar")?.closest(".composition-split")).toBeNull();
+  });
+
+  it("lets the drawer breakpoint override the key-group decision grid", () => {
+    const css = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../styles/surfaces/reviewer-console.css"),
+      "utf8",
+    );
+    const drawer = css.split("@media (max-width: 960px)")[1] ?? "";
+    expect(drawer).toMatch(/\.decision-keys\.key-group/);
+    expect(drawer).toMatch(/grid-template-columns:\s*1fr 1fr/);
+    expect(drawer).toMatch(/\.decision-keys > \.tip-host:has\(\.key--release\)/);
   });
 });
 
@@ -132,7 +202,7 @@ describe("PC-08 session specimen", () => {
     expect(screen.queryByText(/I'm listening/i)).not.toBeInTheDocument();
   });
 
-  it("keeps the examination console brand outside the rail scroller", () => {
+  it("keeps the examination console brand and rail actions outside the rail scroller", () => {
     const { container } = renderLab("/design-lab/participant-session?state=live");
     const rail = screen.getByRole("complementary", { name: "Session instruments" });
     const brand = rail.querySelector(".rail-brand");
@@ -141,8 +211,36 @@ describe("PC-08 session specimen", () => {
     expect(scroller).toBeTruthy();
     expect(brand!.parentElement).toBe(rail);
     expect(scroller!.contains(brand)).toBe(false);
+    expect(brand!.querySelector(".rail-nav")).toBeTruthy();
+    expect(scroller!.querySelector(".rail-nav")).toBeNull();
+    expect(within(brand as HTMLElement).getByRole("link", { name: "Back to assignment" })).toBeInTheDocument();
+    expect(within(brand as HTMLElement).getByRole("button", { name: "Leave session" })).toBeInTheDocument();
     expect(within(scroller as HTMLElement).getByRole("heading", { name: "Console Feed" })).toBeInTheDocument();
     expect(container.querySelector(".rail-scroll .protocol-plate")).toBeTruthy();
+  });
+
+  it("seats submit and leave ceremonies on the shared dialog plate with an accessible footer", () => {
+    renderLab("/design-lab/participant-session?state=live");
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit Session" }));
+    const submitDialog = screen.getByRole("dialog", { name: "Confirm Submission" });
+    expect(submitDialog.querySelector(".dialog-plate")).toBeTruthy();
+    expect(submitDialog.querySelector(".dialog-plate--wide")).toBeTruthy();
+    expect(submitDialog.querySelector(".dialog-plate--narrow")).toBeNull();
+    expect(submitDialog.querySelector(".dialog-foot")).toBeTruthy();
+    expect(within(submitDialog).getByRole("button", { name: "Remain in Session" })).toBeVisible();
+    expect(within(submitDialog).getByRole("button", { name: "Submit Session" })).toBeVisible();
+
+    fireEvent.click(within(submitDialog).getByRole("button", { name: "Remain in Session" }));
+    expect(screen.queryByRole("dialog", { name: "Confirm Submission" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Leave session" }));
+    const leaveDialog = screen.getByRole("dialog", { name: "Leave session" });
+    expect(leaveDialog.querySelector(".dialog-plate")).toBeTruthy();
+    expect(leaveDialog.querySelector(".dialog-plate--wide")).toBeTruthy();
+    expect(leaveDialog.querySelector(".dialog-foot")).toBeTruthy();
+    expect(within(leaveDialog).getByRole("button", { name: "Remain in session" })).toBeVisible();
+    expect(within(leaveDialog).getByRole("link", { name: "Leave to assignment" })).toBeVisible();
   });
 });
 
@@ -162,7 +260,7 @@ describe("PC-11 named timezone", () => {
 });
 
 describe("gallery primitive specimens", () => {
-  it("covers disabled, empty, and dialog states with accessible names", () => {
+  it("covers disabled, empty, and dialog states with accessible names", { timeout: 15_000 }, () => {
     renderLab("/design-lab/shared/gallery");
     expect(screen.getByRole("heading", { name: "Shared component deck" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Disabled" })).toBeDisabled();

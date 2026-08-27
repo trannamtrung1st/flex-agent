@@ -63,6 +63,21 @@ function StripNavToken({ item }: { item: CommandStripNavItem }) {
   );
 }
 
+export type CommandStripProps = {
+  homeTo: To;
+  homeLabel?: string;
+  origin?: boolean;
+  brandSuffix?: string;
+  nav?: CommandStripNavItem[];
+  tabs?: ReactNode;
+  mode?: string;
+  readout?: string;
+  profile?: OperatorIdentity;
+  actions?: OperatorAction[];
+  identLeading?: ReactNode;
+  className?: string;
+};
+
 export function CommandStrip({
   homeTo,
   homeLabel,
@@ -76,20 +91,7 @@ export function CommandStrip({
   actions,
   identLeading,
   className,
-}: {
-  homeTo: To;
-  homeLabel?: string;
-  origin?: boolean;
-  brandSuffix?: string;
-  nav?: CommandStripNavItem[];
-  tabs?: ReactNode;
-  mode?: string;
-  readout?: string;
-  profile?: OperatorIdentity;
-  actions?: OperatorAction[];
-  identLeading?: ReactNode;
-  className?: string;
-}) {
+}: CommandStripProps) {
   const hasCenter = Boolean(nav?.length || tabs);
   return (
     <header className={cx("command-strip", className)}>

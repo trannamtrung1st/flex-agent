@@ -35,7 +35,10 @@
    10px via --cut). */
 .frame-cut {
   --cut: 18px;
+  --frame-node-size: 8px;
+  --frame-node-hang: -4px;
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
   display: flex;
   padding: 1px;
@@ -62,6 +65,303 @@
   box-shadow: var(--panel-inset);
 }
 
+/* Padded operate plates — flush bays and datatables zero .frame-in padding via frame-cut--flush. */
+.frame-cut:not(.frame-cut--flush) > .frame-in {
+  flex-direction: column;
+  align-items: stretch;
+  overflow: visible;
+  padding:
+    var(--frame-inset-block-start)
+    var(--frame-inset-inline)
+    var(--frame-inset-block-end);
+}
+
+.frame-cut:not(.frame-cut--flush) > .frame-in:has(.plate-foot) {
+  padding-block-end: var(--plate-foot-pad-block);
+}
+
+/* Reserved key foot inside etched frames; block rhythm matches --frame-inset-block-start. */
+.plate-foot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-block-start: var(--plate-foot-pad-block);
+  padding-block-end: 0;
+}
+
+.plate-foot--start {
+  justify-content: flex-start;
+}
+
+/* ═══ Guided-task work well (shell slot plate) ═══════════════════ */
+
+.layout-guided__main > .work-well {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.work-well {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.work-well__head {
+  flex-shrink: 0;
+  padding:
+    var(--frame-inset-block-start)
+    var(--frame-inset-inline)
+    18px;
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.work-well__title {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 1.05rem;
+  letter-spacing: 0.2em;
+  color: var(--text-bright);
+  font-weight: 400;
+  margin: 0;
+}
+
+.work-well__ident {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.64rem;
+  color: var(--label);
+}
+
+.work-well__body {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding:
+    var(--frame-inset-block-start)
+    var(--frame-inset-inline)
+    var(--frame-inset-block-end);
+}
+
+.work-well:has(.work-well__foot) .work-well__body {
+  flex: 1 1 auto;
+  padding-block-end: var(--space-5);
+}
+
+.work-well__section {
+  margin-bottom: 22px;
+}
+
+.work-well__section:last-child {
+  margin-bottom: 0;
+}
+
+.work-well__section h3 {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--teal);
+  margin-bottom: 9px;
+}
+
+.work-well__section h3::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 1px;
+  background: var(--teal);
+  margin-right: 9px;
+  vertical-align: 0.22em;
+}
+
+.work-well__section p,
+.work-well__section li {
+  font-size: 0.9rem;
+  color: var(--text);
+  max-width: 68ch;
+}
+
+.work-well__section em {
+  color: var(--text-bright);
+  font-style: normal;
+}
+
+.work-well__section strong {
+  color: var(--amber-bright);
+  font-weight: 600;
+}
+
+.work-well__section ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.work-well__section li {
+  padding-left: 18px;
+  position: relative;
+}
+
+.work-well__section li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 7px;
+  height: 1px;
+  background: var(--teal);
+}
+
+.work-well__hint {
+  font-size: 0.78rem;
+  color: var(--label);
+  margin-top: 12px;
+}
+
+.work-well__seal {
+  display: block;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  margin-bottom: 14px;
+}
+
+.work-well__seal circle {
+  fill: none;
+  stroke: var(--teal);
+  stroke-width: 1.4;
+}
+
+.work-well__seal path {
+  fill: none;
+  stroke: var(--teal);
+  stroke-width: 2.4;
+  stroke-linecap: square;
+  filter: drop-shadow(0 0 5px var(--teal-glow));
+}
+
+.work-well > .work-well__foot {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-inline: var(--frame-inset-inline);
+  padding-block-end: var(--frame-inset-block-end);
+  border-top: 1px solid var(--hairline-dim);
+}
+
+.work-well > .work-well__foot .briefing-ack {
+  width: 100%;
+}
+
+.plate-status-mark {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin: 0;
+}
+
+.plate-status-mark::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 9px;
+  background: var(--teal);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  vertical-align: -1px;
+}
+
+.work-well.is-revealing {
+  animation: work-well-reveal 640ms var(--ease-out);
+}
+
+@media (max-width: 1080px) /* bp.pageScroll */ {
+  .layout-guided__main.well-frame {
+    min-height: 340px;
+  }
+}
+
+@media (max-width: 720px) /* bp.compact */ {
+  .work-well__head,
+  .work-well__body,
+  .work-well > .work-well__foot {
+    padding-inline: var(--space-5);
+  }
+
+  .work-well__head {
+    padding-top: var(--space-6);
+  }
+
+  .work-well__body {
+    padding-block-end: var(--space-6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .work-well.is-revealing {
+    animation: none;
+  }
+}
+
+@keyframes work-well-reveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+@media (max-width: 1080px) /* bp.pageScroll */ {
+  .plate-foot .key {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 720px) /* bp.compact */ {
+  :root {
+    --frame-inset-block-start: var(--space-4);
+    --frame-inset-block-end: var(--space-5);
+    --frame-inset-inline: var(--space-4);
+  }
+}
+
+/* Scroll the payload, not the etched furniture. */
+.frame-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Flush inset: payload meets the etched hairline; surfaces read --frame-content-pad-* */
+.frame-cut--flush {
+  --frame-content-pad-block-start: var(--space-4);
+  --frame-content-pad-block-end: var(--space-4);
+  --frame-content-pad-inline-start: var(--space-4);
+  --frame-content-pad-inline-end: var(--space-3);
+}
+
+.frame-cut--flush > .frame-in {
+  padding: 0;
+}
+
+/* Datatable scrollport owns horizontal overflow; beads hang outside the inner pane. */
+.frame-cut--flush > .frame-in:has(.datatable) {
+  overflow: visible;
+}
+
+.frame-cut--flush > .frame-in:has(.datatable) > .frame-scroll {
+  overflow: visible;
+}
+
 /* etched double-edge ticks at the frame's top and bottom center */
 .frame-tick {
   position: absolute;
@@ -78,11 +378,12 @@
 .frame-tick--top { top: 0; border-bottom: 1px solid var(--hairline); }
 .frame-tick--bottom { bottom: 0; border-top: 1px solid var(--hairline); }
 
-.frame-node {
+/* Etched-frame beads only — do not reuse for layout trace terminals. */
+.frame-in > .frame-node {
   position: absolute;
-  right: -3px;
-  width: 5px;
-  height: 5px;
+  right: var(--frame-node-hang);
+  width: var(--frame-node-size);
+  height: var(--frame-node-size);
   border: 1px solid var(--label-dim);
   border-radius: 50%;
   background: var(--ground);
@@ -174,7 +475,7 @@
    voice leads with the teal tick, attention with the warn triangle */
 .advisory {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 12px;
   padding: 11px 18px 12px;
   border-top: 1px solid var(--hairline-dim);
@@ -188,7 +489,7 @@
   width: 7px;
   height: 1px;
   background: var(--teal);
-  align-self: center;
+  margin-top: 0.42em;
 }
 
 .advisory-label {
@@ -198,6 +499,7 @@
   text-transform: uppercase;
   color: var(--teal);
   white-space: nowrap;
+  line-height: 1.45;
 }
 
 .advisory-copy {
@@ -218,6 +520,7 @@
   height: 8px;
   background: var(--amber);
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  margin-top: 0.23em;
 }
 
 .advisory--attention .advisory-label { color: var(--amber); }

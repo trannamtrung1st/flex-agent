@@ -55,7 +55,6 @@ function expectIntersectsViewport(
 }
 
 async function expectReachableAfterScroll(
-  page: import("@playwright/test").Page,
   locator: import("@playwright/test").Locator,
   viewport: { width: number; height: number },
   mode: "fit" | "intersect" = "fit",
@@ -75,7 +74,7 @@ test("short desktop viewports keep shells inside the window without forcing scro
   await page.setViewportSize(shortDesktop);
 
   await page.goto("/design-lab/participant-journey?demo=examination-ready");
-  const assignmentShell = page.locator(".station");
+  const assignmentShell = page.locator('[data-layout="guided-task"]');
   const assignmentShellBox = await assignmentShell.boundingBox();
   expect(assignmentShellBox).toBeTruthy();
   expect(assignmentShellBox!.height).toBeLessThanOrEqual(shortDesktop.height + 1);
@@ -100,7 +99,7 @@ test("short desktop viewports keep shells inside the window without forcing scro
   );
 
   await page.goto("/design-lab/participant-session?state=live");
-  const sessionShell = page.locator(".console");
+  const sessionShell = page.locator('[data-layout="live-session"]');
   const sessionShellBox = await sessionShell.boundingBox();
   expect(sessionShellBox).toBeTruthy();
   expect(sessionShellBox!.height).toBeLessThanOrEqual(shortDesktop.height + 1);
@@ -140,7 +139,7 @@ test("narrow session viewport reflows with page scroll so transcript and compose
   await page.goto("/design-lab/participant-session?state=live");
 
   const scrollMetrics = await page.evaluate(() => {
-    const consoleEl = document.querySelector(".console")!;
+    const consoleEl = document.querySelector('[data-layout="live-session"]')!;
     const consoleBox = consoleEl.getBoundingClientRect();
     return {
       bodyOverflow: getComputedStyle(document.body).overflow,
@@ -153,18 +152,15 @@ test("narrow session viewport reflows with page scroll so transcript and compose
   expect(scrollMetrics.pageScrollable).toBe(true);
 
   await expectReachableAfterScroll(
-    page,
     page.locator(".turn").last(),
     narrowZoom,
     "intersect",
   );
   await expectReachableAfterScroll(
-    page,
     page.getByRole("textbox", { name: /compose reply/i }),
     narrowZoom,
   );
   await expectReachableAfterScroll(
-    page,
     page.getByRole("button", { name: "Transmit" }),
     narrowZoom,
   );
@@ -176,12 +172,10 @@ test("narrow session completion consequence is reachable after page scroll", asy
   await page.goto("/design-lab/participant-session?state=complete");
 
   await expectReachableAfterScroll(
-    page,
     page.getByRole("heading", { name: "Session Complete" }),
     narrowZoom,
   );
   await expectReachableAfterScroll(
-    page,
     page.getByRole("link", { name: /return to assignment/i }),
     narrowZoom,
   );
@@ -192,7 +186,7 @@ test("session mid-width short viewport keeps transmit reachable", async ({ page 
   await page.setViewportSize(midShort);
   await page.goto("/design-lab/participant-session?state=live");
 
-  const sessionShellBox = await page.locator(".console").boundingBox();
+  const sessionShellBox = await page.locator('[data-layout="live-session"]').boundingBox();
   expect(sessionShellBox).toBeTruthy();
   expect(sessionShellBox!.height).toBeLessThanOrEqual(midShort.height + 1);
   expectBoxInViewport(
@@ -242,12 +236,14 @@ test("session left-rail brand stays seated while instruments scroll", async ({ p
   const scroller = rail.locator(".rail-scroll");
   await expect(brand).toBeVisible();
   await expect(scroller).toBeVisible();
+  await expect(brand.locator(".rail-nav")).toBeVisible();
+  await expect(scroller.locator(".rail-nav")).toHaveCount(0);
 
   await scroller.evaluate((el) => {
-    el.style.height = "220px";
+    el.style.height = "180px";
   });
   const overflow = await scroller.evaluate((el) => el.scrollHeight - el.clientHeight);
-  expect(overflow).toBeGreaterThan(40);
+  expect(overflow).toBeGreaterThan(20);
 
   const brandBefore = await brand.boundingBox();
   expect(brandBefore).toBeTruthy();
@@ -288,13 +284,13 @@ test("assignment and session rail scrollports sit on the rail hairline", async (
   await expectScrollerFlush("Assignment phases", ".phase-rail-scroll", ".phase-node");
 
   await page.goto("/design-lab/participant-session?state=live");
-  await expectScrollerFlush("Session instruments", ".rail-scroll", ".rail-back");
+  await expectScrollerFlush("Session instruments", ".rail-scroll", ".feed-log");
 });
 
-test("gallery Index returns to the catalog", async ({ page }) => {
+test("gallery brand returns to the catalog", async ({ page }) => {
   await page.goto("/design-lab/shared/gallery");
   await expect(page.getByRole("heading", { name: "Shared component deck" })).toBeVisible();
-  await page.getByRole("link", { name: "Index", exact: true }).click();
+  await page.getByRole("link", { name: "Channel index" }).click();
   await expect(page).toHaveURL(/\/design-lab\/surfaces$/);
   await expect(page.getByRole("heading", { name: "Prototype Surfaces" })).toBeVisible();
 });

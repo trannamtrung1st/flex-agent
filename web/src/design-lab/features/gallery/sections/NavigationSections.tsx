@@ -1,14 +1,16 @@
 import { useState } from "react";
 import {
   BackKey,
+  BreadcrumbNav,
   Bulkhead,
   CommandStrip,
   ConsoleFoot,
   DropdownSelect,
-  FieldInput,
+  FieldNumber,
   FormField,
   Gangway,
   Key,
+  KeyGroup,
   OperateHead,
   PARTICIPANT_IDENTITY,
   ReadoutList,
@@ -19,13 +21,30 @@ import {
 import { PanelTabs } from "../PanelTabs";
 import { GallerySection, Spec } from "./GallerySection";
 
-const gangwayGroups: GangwayGroup[] = [{
-  label: "Assessment operations",
-  items: [
-    { to: "/shared/gallery#gangway", label: "Campaigns", abbr: "CAM" },
-    { to: "/shared/gallery#gangway", label: "Enrollments", abbr: "ENR", current: true },
-  ],
-}];
+const gangwayGroups: GangwayGroup[] = [
+  {
+    label: "Assessment operations",
+    items: [
+      { to: "/shared/gallery#gangway", label: "Campaigns", abbr: "CAM" },
+      { to: "/shared/gallery#gangway", label: "Cohorts", abbr: "COH" },
+      { to: "/shared/gallery#gangway", label: "Enrollments", abbr: "ENR", current: true },
+      { to: "/shared/gallery#gangway", label: "Sessions", abbr: "SES" },
+    ],
+  },
+  {
+    label: "Organization control",
+    items: [
+      { to: "/shared/gallery#gangway", label: "Users & Access", abbr: "ACC" },
+      { to: "/shared/gallery#gangway", label: "Policies", abbr: "POL" },
+    ],
+  },
+  {
+    label: "Governance",
+    items: [
+      { to: "/shared/gallery#gangway", label: "Audit Log", abbr: "AUD" },
+    ],
+  },
+];
 
 const stripRoleNav: CommandStripNavItem[] = [
   { to: "/shared/gallery#strip", label: "Home", current: true },
@@ -98,24 +117,47 @@ export function NavigationSections() {
         </Spec>
       </GallerySection>
 
-      <GallerySection id="drawer" title="Bulkhead drawer" note="Smoked-glass off-canvas panel over an 82% ground scrim. Leading slides from the left; trailing slides from the right. Escape, scrim click, and Close dismiss; focus returns to the trigger.">
-        <div className="spec-row">
-          <Spec tag=".bulkhead--leading"><Key onClick={() => setDrawer("leading")}>Open left drawer</Key></Spec>
-          <Spec tag=".bulkhead--trailing"><Key onClick={() => setDrawer("trailing")}>Open right drawer</Key></Spec>
-          <Spec tag=".bulkhead--trailing.bulkhead--wide · .form-row inside"><Key onClick={() => setDrawer("form")}>Open form drawer</Key></Spec>
-        </div>
-        <Bulkhead id="demoBulkheadLeading" open={drawer === "leading"} onClose={() => setDrawer(null)} title="Navigation" titleId="bulkheadLeadingTitle">
-          <nav className="nav-rail" aria-label="Left drawer navigation"><ul className="nav-list"><li><a className="nav-link" href="#colors" onClick={() => setDrawer(null)}>Colors</a></li><li><a className="nav-link" href="#dialog" onClick={() => setDrawer(null)}>Dialog</a></li></ul></nav>
-        </Bulkhead>
-        <Bulkhead id="demoBulkheadTrailing" open={drawer === "trailing"} onClose={() => setDrawer(null)} side="trailing" title="Marginalia" titleId="bulkheadTrailingTitle" footer={<Key size="compact" onClick={() => setDrawer(null)}>Dismiss</Key>}>
-          <ReadoutList rows={[{ term: "Criterion", value: "Evidence linkage" }, { term: "Score", value: "3.5 / 4.0" }, { term: "Confidence", value: "0.82" }]} />
-        </Bulkhead>
-        <Bulkhead id="demoBulkheadForm" open={drawer === "form"} onClose={() => setDrawer(null)} side="trailing" wide title="Adjust Criterion" titleId="bulkheadFormTitle" footer={<Key size="compact" onClick={() => setDrawer(null)}>Save adjustment</Key>}>
-          <FormField id="bkScore" label="Revised score">
-            {(controlProps) => <FieldInput {...controlProps} width="narrow" defaultValue="3.5" />}
-          </FormField>
-        </Bulkhead>
+      <GallerySection id="breadcrumbs" title="Breadcrumbs" note="Management-layout breadcrumb slot. Home is always linked; the current page is plain text with aria-current.">
+        <Spec wide tag=".breadcrumb-nav">
+          <BreadcrumbNav
+            items={[
+              { label: "Activities", href: "/activities" },
+              { label: "Setup and readiness", current: true },
+            ]}
+          />
+        </Spec>
       </GallerySection>
+
+      <GallerySection id="drawer" title="Bulkhead drawer" note="Smoked-glass off-canvas panel over an 82% ground scrim. Leading slides from the left; trailing slides from the right. Escape, scrim click, and Close dismiss; focus returns to the trigger.">
+        <Spec wide tag=".key-group · bulkhead open triggers">
+          <KeyGroup aria-label="Drawer triggers">
+            <Key onClick={() => setDrawer("leading")}>Open left drawer</Key>
+            <Key onClick={() => setDrawer("trailing")}>Open right drawer</Key>
+            <Key onClick={() => setDrawer("form")}>Open form drawer</Key>
+          </KeyGroup>
+        </Spec>
+      </GallerySection>
+      <Bulkhead id="demoBulkheadLeading" open={drawer === "leading"} onClose={() => setDrawer(null)} title="Navigation" titleId="bulkheadLeadingTitle">
+        <nav className="nav-rail" aria-label="Left drawer navigation"><ul className="nav-list"><li><a className="nav-link" href="#colors" onClick={() => setDrawer(null)}>Colors</a></li><li><a className="nav-link" href="#dialog" onClick={() => setDrawer(null)}>Dialog</a></li></ul></nav>
+      </Bulkhead>
+      <Bulkhead id="demoBulkheadTrailing" open={drawer === "trailing"} onClose={() => setDrawer(null)} side="trailing" title="Marginalia" titleId="bulkheadTrailingTitle" footer={<Key size="compact" onClick={() => setDrawer(null)}>Dismiss</Key>}>
+        <ReadoutList rows={[{ term: "Criterion", value: "Evidence linkage" }, { term: "Score", value: "3.5 / 4.0" }, { term: "Confidence", value: "0.82" }]} />
+      </Bulkhead>
+      <Bulkhead id="demoBulkheadForm" open={drawer === "form"} onClose={() => setDrawer(null)} side="trailing" wide title="Adjust Criterion" titleId="bulkheadFormTitle" footer={<Key size="compact" onClick={() => setDrawer(null)}>Save adjustment</Key>}>
+        <FormField id="bkScore" label="Revised score" layout="stack">
+          {(controlProps) => (
+            <FieldNumber
+              {...controlProps}
+              width="narrow"
+              stepperLabel="revised score"
+              min={0}
+              max={4}
+              step={0.5}
+              defaultValue="3.5"
+            />
+          )}
+        </FormField>
+      </Bulkhead>
 
       <GallerySection id="tabs" title="Panel tabs" note="In-page tab set — not the strip's campaign tabs. Current token seats the 2px teal underline; panels switch with a 200ms opacity ease. Arrow, Home, and End keys move focus and automatically select the focused tab.">
         <Spec wide tag=".panel-tabs · .panel-tablist · .panel-tab · .panel-panel">

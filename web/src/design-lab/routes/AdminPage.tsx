@@ -3,17 +3,13 @@ import { Outlet, useLocation, useSearchParams } from "react-router-dom";
 import {
   ADMINISTRATOR_IDENTITY,
   Announcer,
-  AreaGroupList,
-  Bulkhead,
-  CommandStrip,
-  ConsoleFoot,
-  Gangway,
-  Key,
+  CATALOG_ROUTE,
   SignOutCeremony,
   ToastDock,
   usePrototypeSignOut,
   useToasts,
 } from "../components";
+import { ManagementLayout } from "../../design-system";
 import { createCampaigns } from "../data/fixtures/campaigns";
 import type { AdminOutletContext } from "../features/admin/adminContext";
 import {
@@ -24,8 +20,6 @@ import {
   operationalCampaignId,
 } from "../features/admin/adminNav";
 import { useAnnouncer } from "../../lib/useAnnouncer";
-import { maxWidthQuery } from "../../lib/breakpoints";
-import { useMediaQuery } from "../../lib/useMediaQuery";
 import { useSurface } from "../lib/useSurface";
 
 export function AdminPage() {
@@ -33,10 +27,7 @@ export function AdminPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [campaigns, setCampaigns] = useState(() => createCampaigns());
-  const [gangwayCollapsed, setGangwayCollapsed] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
   const [sealing, setSealing] = useState(false);
-  const isDrawerLayout = useMediaQuery(maxWidthQuery("adminDrawer"));
   const { message, announce } = useAnnouncer();
   const { toasts, pushToast } = useToasts();
   const { actions, signOutOpen, setSignOutOpen } = usePrototypeSignOut();
@@ -105,54 +96,31 @@ export function AdminPage() {
   };
 
   return (
-    <>
-      <CommandStrip
-        brandSuffix="Admin"
-        profile={ADMINISTRATOR_IDENTITY}
-        actions={actions}
-      />
-      <div className="admin-shell">
-        {!isDrawerLayout ? (
-          <Gangway
-            title="Administrator"
-            groups={navGroups}
-            collapsed={gangwayCollapsed}
-            onCollapsedChange={setGangwayCollapsed}
-            ariaLabel="Administrator areas"
-          />
-        ) : null}
-        <div className="admin-content">
-          {isDrawerLayout ? (
-            <div className="admin-drawer-bar" aria-label="Administrator areas">
-              <span className="admin-drawer-label">{areaLabel}</span>
-              <Key
-                size="compact"
-                ariaExpanded={navOpen}
-                ariaControls="adminNavBulkhead"
-                onClick={() => setNavOpen(true)}
-              >
-                Menu
-              </Key>
-            </div>
-          ) : null}
-          <Outlet context={outletContext} />
-        </div>
-      </div>
-      <ConsoleFoot note="Synthetic demonstration content — no real participant data." />
-      <Bulkhead
-        id="adminNavBulkhead"
-        open={isDrawerLayout && navOpen}
-        onClose={() => setNavOpen(false)}
-        title="Administrator"
-        titleId="adminNavBulkheadTitle"
-      >
-        <nav className="nav-rail" aria-label="Administrator areas">
-          <AreaGroupList groups={navGroups} variant="rail" onNavigate={() => setNavOpen(false)} />
-        </nav>
-      </Bulkhead>
-      <Announcer message={message} />
-      <ToastDock toasts={toasts} />
-      <SignOutCeremony open={signOutOpen} onClose={() => setSignOutOpen(false)} />
-    </>
+    <ManagementLayout
+      commandStrip={{
+        homeTo: CATALOG_ROUTE,
+        homeLabel: "Channel index",
+        brandSuffix: "Admin",
+        profile: ADMINISTRATOR_IDENTITY,
+        actions,
+      }}
+      navigation={{
+        title: "Administrator",
+        groups: navGroups,
+        currentLabel: areaLabel,
+        ariaLabel: "Administrator areas",
+        bulkheadId: "adminNavBulkhead",
+      }}
+      footerNote="Synthetic demonstration content — no real participant data."
+      overlays={
+        <>
+          <Announcer message={message} />
+          <ToastDock toasts={toasts} />
+          <SignOutCeremony open={signOutOpen} onClose={() => setSignOutOpen(false)} />
+        </>
+      }
+    >
+      <Outlet context={outletContext} />
+    </ManagementLayout>
   );
 }

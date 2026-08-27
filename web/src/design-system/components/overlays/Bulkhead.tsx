@@ -44,7 +44,7 @@ export function Bulkhead({
     document.body.classList.add("is-bulkhead-open");
     const inert = [
       ...document.querySelectorAll<HTMLElement>(
-        ".command-strip, .console-foot, .admin-shell, .workspace-shell, .queue-view, .record-head, .record-grid",
+        ".command-strip, .console-foot, .layout-management__shell, .queue-view, .record-view .operate-head, .record-grid, .composition-split",
       ),
     ];
     inert.forEach((el) => el.setAttribute("inert", ""));

@@ -4,7 +4,12 @@
    mono value, hairline dividers between rows. Used on the session and
    journey rails; other readout forms (home plate rows, admin detail
    band) keep their own horizon mechanics locally. */
-.readout-stack { display: flex; flex-direction: column; }
+.readout-stack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+}
 
 .readout {
   padding: 9px 0;

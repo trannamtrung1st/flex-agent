@@ -74,22 +74,9 @@ body {
 
 /* ═══ Queue ══════════════════════════════════════════════════════ */
 
-.queue-view { padding: 18px 0 12px; }
-
-.queue-head {
-  padding: 0 22px 14px 22px;
-}
-
-/* frame hugs the docket's rows (never balloons past them); the shared
-   etched frame-cut/frame-in pair carries bezel, eight-cut, and glass */
-.queue-frame {
-  flex: 0 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding-left: 22px;
-  padding-right: 22px;
-}
+/* Hull pad comes from shared .workspace-area / --shell-main-inset-* tokens.
+   The etched plate has no inner well; body-only keeps the shared 18px side
+   gutter and a 4px floor (datatable.css). */
 
 /* .frame-tick comes from the shared component family sheets (etched double-edge form) */
 
@@ -137,47 +124,33 @@ body {
 
 .manifest .col-action { text-align: right; white-space: nowrap; }
 
-.queue-empty {
+.queue-datatable .datatable-scroll:has(.datatable-table[hidden]) {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 280px;
-  padding: 40px;
+  min-height: min(420px, 58dvh);
 }
 
-.queue-empty[hidden] { display: none; }
+.queue-datatable .datatable-empty.queue-empty-plate {
+  margin: 0;
+  padding: 40px 24px;
+}
 
 /* .empty-plate and its children come from the shared component family sheets */
-
-/* ═══ Keys (family comes from shared; reviewer draws larger glyphs) ═ */
-
-.key svg { width: 12px; height: 12px; }
 
 /* ═══ Record head ════════════════════════════════════════════════ */
 
 .record-view {
-  padding: 12px 0 0;
+  padding: 0;
   overflow: hidden;
 }
 
-.record-head {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 16px;
-  padding: 4px 22px 12px;
-  border-bottom: 1px solid var(--hairline-dim);
+.record-view .operate-head--plaque {
+  flex: 0 0 auto;
+  padding-inline: var(--shell-main-inset-inline);
 }
 
-.record-head-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.record-title {
+.record-view .operate-title {
   font-family: var(--font-plaque);
   text-transform: uppercase;
   font-size: 0.62rem;
@@ -198,7 +171,7 @@ body {
 
 /* sealed node is a shared .state-node--sealed-solid */
 
-.record-session-id {
+.record-view .page-desc {
   font-size: 0.68rem;
   letter-spacing: 0.1em;
   color: var(--label-dim);
@@ -208,24 +181,14 @@ body {
 /* ═══ Record grid ════════════════════════════════════════════════ */
 
 .record-grid {
-  flex: 1 1 auto;
   min-height: 0;
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 280px;
-  gap: 0;
   padding-left: 22px;
-  position: relative;
 }
 
 .tether-layer {
-  grid-column: 1 / -1;
-  grid-row: 1 / -1;
-  position: absolute;
-  inset: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none;
-  z-index: 4;
+  display: block;
 }
 
 .tether-line {
@@ -626,11 +589,18 @@ body {
   display: none;
 }
 
+.decision-keys.key-group,
 .decision-keys {
   display: grid;
+  align-items: stretch;
   grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.15fr);
   gap: 10px;
   min-width: min(100%, 620px);
+}
+
+.decision-keys > .tip-host {
+  display: flex;
+  min-width: 0;
 }
 
 .decision-keys .key {
@@ -650,20 +620,22 @@ body {
 /* ═══ Responsive ═════════════════════════════════════════════════ */
 
 @media (max-width: 1180px) /* bp.wideGrid */ {
-  .record-grid { grid-template-columns: 200px minmax(0, 1fr) 240px; }
+  .record-view .composition-split {
+    --split-start: 200px;
+    --split-end: 240px;
+  }
 }
 
 @media (max-width: 960px) /* bp.reviewerDrawer */ {
   body { overflow: auto; height: auto; min-height: 100dvh; }
   .shell { min-height: 62dvh; }
 
-  .record-grid--drawer {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
+  .record-view .composition-split[data-flow-split="drawer"] {
     padding-left: 0;
     overflow: hidden;
   }
 
+  .record-drawer-bar.key-group,
   .record-drawer-bar {
     display: flex;
     flex-wrap: wrap;
@@ -673,9 +645,11 @@ body {
     border-bottom: 1px solid var(--hairline-dim);
   }
 
-  .record-drawer-bar .key {
-    min-height: 40px;
+  .record-drawer-bar > .tip-host {
+    display: flex;
+    min-width: 0;
   }
+
 
   .record-drawer-mark {
     width: 6px;
@@ -685,7 +659,7 @@ body {
     box-shadow: 0 0 8px var(--teal-glow);
   }
 
-  .record-grid--drawer .transcript-col {
+  .record-view .composition-split[data-flow-split="drawer"] .transcript-col {
     border-right: none;
     min-height: 0;
     overflow: hidden;
@@ -698,25 +672,23 @@ body {
     gap: 12px;
   }
 
+  .decision-keys.key-group,
   .decision-keys {
     grid-template-columns: 1fr 1fr;
     min-width: 0;
   }
 
-  .decision-keys .key--release {
+  .decision-keys > .tip-host:has(.key--release) {
     grid-column: 1 / -1;
   }
 
-  .record-head {
-    grid-template-columns: 1fr;
+  .record-view .operate-head--plaque {
     text-align: left;
   }
-
-  .record-head-center { justify-content: flex-start; }
 }
 
 @media (max-width: 720px) /* bp.compact */ {
-  .queue-view, .record-view { padding-right: 0; }
+  .record-view { padding-right: 0; }
 
   /* the short docket re-lays as labeled cards instead of taking the
      shared datatable's horizontal scroll (which suits 100-row walls) */

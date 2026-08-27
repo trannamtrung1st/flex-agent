@@ -1,3 +1,11 @@
 export { DemoPlate } from "./DemoPlate";
-export { EmptyPlate, EtchedFrame } from "../../../design-system/components/plates";
-export { OperateArea } from "../../../design-system/components/plates";
+export {
+  EmptyPlate,
+  EtchedFrame,
+  OperateArea,
+  PlateFoot,
+  PlateStatusMark,
+  WorkWell,
+  WorkWellHead,
+  WorkWellSection,
+} from "../../../design-system/components/plates";

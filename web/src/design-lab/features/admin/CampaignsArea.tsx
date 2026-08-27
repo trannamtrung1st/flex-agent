@@ -5,9 +5,11 @@ import {
   EmptyPlate,
   Key,
   OperateArea,
+  PlateFoot,
   ReadoutGrid,
   ReadoutGridField,
   ReadoutGridRow,
+  Stack,
   useTableActionRunner,
 } from "../../components";
 import { EMPTY_SELECTION, removeIds } from "../../../design-system/patterns/tableSelection";
@@ -175,6 +177,7 @@ export function CampaignsArea() {
         sealing={sealing}
         back={<BackKey label="Campaigns" onClick={backToRegistry} />}
       >
+          <Stack gap="none">
           <ReadoutGrid label="Campaign record">
             <ReadoutGridRow label="Campaign summary">
               <ReadoutGridField term="Campaign" span={3}>
@@ -195,12 +198,15 @@ export function CampaignsArea() {
             </ReadoutGridRow>
           </ReadoutGrid>
           {campaign.frozen ? (
-            <p className="frozen-line">Configuration frozen at activation</p>
+            <PlateFoot className="plate-foot--start">
+              <p className="frozen-line">Configuration frozen at activation</p>
+            </PlateFoot>
           ) : (
-            <div className="campaigns-foot">
+            <PlateFoot>
               <Key onClick={() => setDialogOpen(true)}>Configure campaign</Key>
-            </div>
+            </PlateFoot>
           )}
+          </Stack>
       </OperateArea>
       <CampaignConfigDialog
         open={dialogOpen}

@@ -29,7 +29,8 @@ body {
   display: flex;
 }
 
-.index-frame .frame-in {
+.index-frame .frame-in,
+.index-frame .frame-scroll {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
@@ -38,16 +39,10 @@ body {
 .channel-index {
   flex: 1 1 auto;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
   padding: 28px 30px 32px;
 }
 
 .channel-index-head {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
   max-width: 62ch;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--hairline-dim);
@@ -69,12 +64,6 @@ body {
   color: var(--label);
 }
 
-.channel-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
 .channel-group-label {
   font-family: var(--font-plaque);
   text-transform: uppercase;
@@ -87,8 +76,6 @@ body {
 
 .channel-roster {
   list-style: none;
-  display: flex;
-  flex-direction: column;
   border: 1px solid var(--hairline-dim);
   background: rgba(4, 16, 24, 0.35);
 }
@@ -118,9 +105,6 @@ body {
 }
 
 .channel-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
   min-width: 0;
 }
 

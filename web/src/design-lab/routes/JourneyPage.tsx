@@ -8,13 +8,13 @@ import {
   PARTICIPANT_HOME,
   PARTICIPANT_IDENTITY,
   ProfileMenu,
-  RailBrand,
   ReadoutList,
   SignOutCeremony,
   StateIndicator,
   TransmitChevron,
   usePrototypeSignOut,
 } from "../components";
+import { GuidedTaskLayout, PlateStatusMark, Stack, WorkWell, WorkWellHead, WorkWellSection } from "../../design-system";
 import { JOURNEY_DEMO_KEYS, JOURNEY_DEMOS, JOURNEY_PHASES, type JourneyDemo } from "../data/fixtures/journey";
 import { useAnnouncer } from "../../lib/useAnnouncer";
 import { useDemoParam } from "../lib/useDemoParam";
@@ -60,123 +60,115 @@ export function JourneyPage() {
       : "";
 
   return (
-    <>
-      <div className="station">
-        <div className="frame-traces" aria-hidden="true">
-          <span className="trace trace-top" />
-          <span className="trace trace-rail" />
-        </div>
-        <aside className="phase-rail" aria-label="Assignment phases">
-          <RailBrand suffix="Assignment Station">
-            <Link className="rail-home-link" to={PARTICIPANT_HOME}>
-              <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false">
-                <path d="M6.5 1.5 L3 5 L6.5 8.5" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="square" />
-              </svg>
-              Home
-            </Link>
-            <ProfileMenu identity={PARTICIPANT_IDENTITY} actions={actions} className="strip-profile--rail" />
-          </RailBrand>
-          <div className="phase-rail-scroll">
-            <ReadoutList
-              rows={[
-                { term: "Enrollment", value: "ENR-7C19-8842" },
-                { term: "Campaign", value: "Systems Design Q3" },
-                { term: "Attempt", value: "1 of 1" },
-              ]}
-            />
-            <PhaseSpine
-              snap={snap}
-              viewPhase={viewPhase}
-              onSelect={(phaseId) => setView(phaseId === snap.current ? null : phaseId)}
-            />
-            <DemoPlate
-              id="demoState"
-              value={demo}
-              describedBy="demoNote"
-              plateLabel="Prototype demonstration controls"
-              onChange={(next) => {
-                const demoValue = next as JourneyDemo;
-                setDemo(demoValue);
-                setView(null);
-                setBriefingAcked(demoValue !== "briefing");
-                const label = JOURNEY_DEMO_OPTIONS.find((opt) => opt.value === demoValue)?.label ?? next;
-                announce(`Demo state set to ${label}.`);
-              }}
-              options={[...JOURNEY_DEMO_OPTIONS]}
-              note={
-                <p className="demo-note" id="demoNote">
-                  Cycles assignment beats for later implementation reference.
-                </p>
-              }
-            />
-            <div className="protocol-plate pane pane--dim pane--br">
-              <span className="protocol-label">Protocol</span>
-              <span className="protocol-value">V7.3.1</span>
-            </div>
+    <GuidedTaskLayout
+      railLabel="Assignment phases"
+      brandSuffix="Assignment Station"
+      brandExtras={
+        <>
+          <Link className="rail-home-link" to={PARTICIPANT_HOME}>
+            <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+              <path d="M6.5 1.5 L3 5 L6.5 8.5" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="square" />
+            </svg>
+            Home
+          </Link>
+          <ProfileMenu identity={PARTICIPANT_IDENTITY} actions={actions} className="strip-profile--rail" />
+        </>
+      }
+      instruments={
+        <>
+          <ReadoutList
+            rows={[
+              { term: "Enrollment", value: "ENR-7C19-8842" },
+              { term: "Campaign", value: "Systems Design Q3" },
+              { term: "Attempt", value: "1 of 1" },
+            ]}
+          />
+          <PhaseSpine
+            snap={snap}
+            viewPhase={viewPhase}
+            onSelect={(phaseId) => setView(phaseId === snap.current ? null : phaseId)}
+          />
+          <DemoPlate
+            id="demoState"
+            value={demo}
+            describedBy="demoNote"
+            plateLabel="Prototype demonstration controls"
+            onChange={(next) => {
+              const demoValue = next as JourneyDemo;
+              setDemo(demoValue);
+              setView(null);
+              setBriefingAcked(demoValue !== "briefing");
+              const label = JOURNEY_DEMO_OPTIONS.find((opt) => opt.value === demoValue)?.label ?? next;
+              announce(`Demo state set to ${label}.`);
+            }}
+            options={[...JOURNEY_DEMO_OPTIONS]}
+            note={
+              <p className="demo-note" id="demoNote">
+                Cycles assignment beats for later implementation reference.
+              </p>
+            }
+          />
+          <div className="protocol-plate pane pane--dim pane--br">
+            <span className="protocol-label">Protocol</span>
+            <span className="protocol-value">V7.3.1</span>
           </div>
-        </aside>
-        <div className="station-main">
-          <header className="assignment-head">
-            <div className="assignment-ident">
-              <h1 className="assignment-title">Real-time Inventory &amp; Order Management at Scale</h1>
-              <p className="assignment-meta">Activity · Text examination · Session 07 · FXA-7C19-2A07</p>
+        </>
+      }
+      heading={
+        <header className="assignment-head">
+          <div className="assignment-ident">
+            <h1 className="assignment-title">Real-time Inventory &amp; Order Management at Scale</h1>
+            <p className="assignment-meta">Activity · Text examination · Session 07 · FXA-7C19-2A07</p>
+          </div>
+          <dl className="status-readout" aria-label="Assignment status">
+            <div className="status-item">
+              <dt>Phase</dt>
+              <dd>{status.statusPhase}</dd>
             </div>
-            <dl className="status-readout" aria-label="Assignment status">
-              <div className="status-item">
-                <dt>Phase</dt>
-                <dd>{status.statusPhase}</dd>
-              </div>
-              <div className="status-item">
-                <dt>Record</dt>
-                <dd>
-                  <StateIndicator
-                    variant={nodeMod === "live" ? "live" : nodeMod === "sealed" ? "sealed" : "rest"}
-                  />
-                  {status.statusRecord}
-                </dd>
-              </div>
-            </dl>
-          </header>
-          <main className="well-frame pane">
-            <article className="well is-revealing" aria-live="polite" aria-atomic="true">
-              <Well
-                view={viewPhase}
-                snap={snap}
-                briefingAcked={briefingAcked}
-                onAck={setBriefingAcked}
-              />
-            </article>
-          </main>
-          <footer className="action-row">
-            <p className="action-note bar-note">Synthetic demonstration content — no real participant data.</p>
-            <div className="action-keys">
-              <Actions
-                view={viewPhase}
-                snap={snap}
-                demo={demo}
-                briefingAcked={briefingAcked}
-                onAnnounce={announce}
-                onReturn={() => {
-                  setView(null);
-                  announce(`Returned to ${JOURNEY_PHASES.find((p) => p.id === snap.current)?.label} phase.`);
-                }}
-              />
+            <div className="status-item">
+              <dt>Record</dt>
+              <dd>
+                <StateIndicator
+                  variant={nodeMod === "live" ? "live" : nodeMod === "sealed" ? "sealed" : "rest"}
+                />
+                {status.statusRecord}
+              </dd>
             </div>
-          </footer>
-        </div>
-      </div>
-      <Announcer message={message} />
-      <SignOutCeremony open={signOutOpen} onClose={() => setSignOutOpen(false)} />
-    </>
-  );
-}
-
-function DocGlyph({ variant }: { variant?: string }) {
-  return (
-    <svg className={`doc-glyph${variant ? ` ${variant}` : ""}`} viewBox="0 0 12 14">
-      <path d="M1 .5h6.5L11 4v9.5H1z" />
-      <path d="M7.5 .5V4H11" />
-    </svg>
+          </dl>
+        </header>
+      }
+      actions={
+        <>
+          <p className="action-note bar-note">Synthetic demonstration content — no real participant data.</p>
+          <div className="action-keys">
+            <Actions
+              view={viewPhase}
+              snap={snap}
+              demo={demo}
+              briefingAcked={briefingAcked}
+              onAnnounce={announce}
+              onReturn={() => {
+                setView(null);
+                announce(`Returned to ${JOURNEY_PHASES.find((p) => p.id === snap.current)?.label} phase.`);
+              }}
+            />
+          </div>
+        </>
+      }
+      overlays={
+        <>
+          <Announcer message={message} />
+          <SignOutCeremony open={signOutOpen} onClose={() => setSignOutOpen(false)} />
+        </>
+      }
+    >
+      <Well
+        view={viewPhase}
+        snap={snap}
+        briefingAcked={briefingAcked}
+        onAck={setBriefingAcked}
+      />
+    </GuidedTaskLayout>
   );
 }
 
@@ -194,18 +186,31 @@ function Well({
   if (view === "briefing") {
     const isCurrent = snap.current === "briefing";
     return (
-      <>
-        <header className="well-head">
-          <h2 className="well-title">Assignment briefing</h2>
-          <p className="well-ident">Enrollment ENR-7C19-8842 · Participant CND-8842-19</p>
-        </header>
-        <section className="well-sec">
+      <WorkWell
+        revealing
+        head={
+          <WorkWellHead
+            title="Assignment briefing"
+            ident="Enrollment ENR-7C19-8842 · Participant CND-8842-19"
+          />
+        }
+        foot={
+          isCurrent ? (
+            <AcknowledgmentGate id="ackBox" checked={briefingAcked} onChange={onAck}>
+              I acknowledge the assignment requirements and consent to participate under these rules.
+            </AcknowledgmentGate>
+          ) : (
+            <PlateStatusMark>Briefing acknowledged and recorded.</PlateStatusMark>
+          )
+        }
+      >
+        <WorkWellSection>
           <h3>What you are completing</h3>
           <p>
             A text examination on your case study, <em>Real-time Inventory &amp; Order Management at Scale</em>. Configuration for this cohort was frozen at activation — every participant receives the same tasks, timing rules, and examiner conduct.
           </p>
-        </section>
-        <section className="well-sec">
+        </WorkWellSection>
+        <WorkWellSection>
           <h3>Before you begin</h3>
           <ul>
             <li>Complete required submission work before starting the timed examination.</li>
@@ -216,30 +221,23 @@ function Well({
               Your result becomes visible only after publication. Until then the Result stays unavailable.
             </li>
           </ul>
-        </section>
-        {isCurrent ? (
-          <AcknowledgmentGate id="ackBox" className="well-ack" checked={briefingAcked} onChange={onAck}>
-            I acknowledge the assignment requirements and consent to participate under these rules.
-          </AcknowledgmentGate>
-        ) : (
-          <p className="well-complete-mark">Briefing acknowledged and recorded.</p>
-        )}
-      </>
+        </WorkWellSection>
+      </WorkWell>
     );
   }
   if (view === "submission") {
     const isCurrent = snap.current === "submission";
     return (
-      <>
-        <header className="well-head">
-          <h2 className="well-title">Submission</h2>
-          <p className="well-ident">Task · Case study upload · Versioned preservation</p>
-        </header>
-        <section className="well-sec">
+      <WorkWell
+        revealing
+        head={<WorkWellHead title="Submission" ident="Task · Case study upload · Versioned preservation" />}
+        foot={isCurrent ? undefined : <PlateStatusMark>Submission recorded for Attempt 1.</PlateStatusMark>}
+      >
+        <WorkWellSection>
           <h3>Required work</h3>
           <p>Upload your written case study and any permitted attachments. Later versions are preserved — nothing is silently replaced.</p>
-        </section>
-        <section className="well-sec">
+        </WorkWellSection>
+        <WorkWellSection>
           <h3>Preserved versions</h3>
           <ol className="version-list">
             <li className="version-row version-row--current">
@@ -259,44 +257,38 @@ function Well({
               <span className="version-meta">Synthetic · 231 KB · superseded</span>
             </li>
           </ol>
-        </section>
+        </WorkWellSection>
         <div className="instrument-plate instrument-plate--dim">
           <span className="instrument-label">Upload channel</span>
           <p className="instrument-value">Not implemented in this prototype. Production will accept permitted file types here.</p>
         </div>
         {isCurrent ? (
-          <p className="well-hint">Submit a version. Attempt readiness is server-authoritative and is not granted from this control.</p>
-        ) : (
-          <p className="well-complete-mark">Submission recorded for Attempt 1.</p>
-        )}
-      </>
+          <p className="work-well__hint">Submit a version. Attempt readiness is server-authoritative and is not granted from this control.</p>
+        ) : null}
+      </WorkWell>
     );
   }
   if (view === "examination") {
     if (snap.examination === "locked") {
       return (
-        <>
-          <header className="well-head">
-            <h2 className="well-title">Examination</h2>
-          </header>
+        <WorkWell revealing head={<WorkWellHead title="Examination" />}>
           <div className="instrument-plate instrument-plate--dim">
             <span className="instrument-label">Access</span>
             <p className="instrument-value">Complete briefing and submission before the text session unlocks.</p>
           </div>
-        </>
+        </WorkWell>
       );
     }
     if (snap.examination === "ready") {
       return (
-        <>
-          <header className="well-head">
-            <h2 className="well-title">Examination ready</h2>
-            <p className="well-ident">Session 07 · Attempt 1 · 45 minutes allotted</p>
-          </header>
-          <section className="well-sec">
+        <WorkWell
+          revealing
+          head={<WorkWellHead title="Examination ready" ident="Session 07 · Attempt 1 · 45 minutes allotted" />}
+        >
+          <WorkWellSection>
             <h3>Text session</h3>
             <p>Enter the examination console to review session protocol, acknowledge recording rules, and begin your timed conversation with the governed Examiner Agent.</p>
-          </section>
+          </WorkWellSection>
           <dl className="session-readout">
             <div>
               <dt>Session ID</dt>
@@ -311,83 +303,86 @@ function Well({
               <dd>One participant · one session</dd>
             </div>
           </dl>
-        </>
+        </WorkWell>
       );
     }
     if (snap.examination === "active") {
       return (
-        <>
-          <header className="well-head">
-            <h2 className="well-title">Examination in progress</h2>
-            <p className="well-ident">Session 07 · Record open</p>
-          </header>
-          <section className="well-sec">
+        <WorkWell revealing head={<WorkWellHead title="Examination in progress" ident="Session 07 · Record open" />}>
+          <WorkWellSection>
             <h3>Return to session</h3>
             <p>Your timed text session remains active. Time remaining, stage, and transcript are maintained on the examination console.</p>
-          </section>
+          </WorkWellSection>
           <div className="instrument-plate">
             <span className="instrument-label">Session state</span>
             <p className="instrument-value">Live · examination stage in progress</p>
           </div>
-        </>
+        </WorkWell>
       );
     }
     return (
-      <>
-        <header className="well-head">
-          <h2 className="well-title">Examination complete</h2>
-          <p className="well-ident">Session 07 · Submitted for evaluation</p>
-        </header>
-        <section className="well-sec">
+      <WorkWell
+        revealing
+        head={<WorkWellHead title="Examination complete" ident="Session 07 · Submitted for evaluation" />}
+        foot={<PlateStatusMark>Examination closed. Result not available until publication.</PlateStatusMark>}
+      >
+        <WorkWellSection>
           <p>Your examination record has been transmitted. Result not available until publication.</p>
-        </section>
-        <p className="well-complete-mark">Examination closed. Result not available until publication.</p>
-      </>
+        </WorkWellSection>
+      </WorkWell>
     );
   }
   if (snap.result === "locked") {
     return (
-      <>
-        <header className="well-head">
-          <h2 className="well-title">Result</h2>
-        </header>
+      <WorkWell revealing head={<WorkWellHead title="Result" />}>
         <div className="instrument-plate instrument-plate--dim">
           <span className="instrument-label">Visibility</span>
-            <p className="instrument-value">Results appear only after publication. Complete prior phases first.</p>
+          <p className="instrument-value">Results appear only after publication. Complete prior phases first.</p>
         </div>
-      </>
+      </WorkWell>
     );
   }
   if (snap.result === "pending") {
     return (
-      <>
-        <header className="well-head">
-          <h2 className="well-title">Result not available</h2>
-          <p className="well-ident">Enrollment ENR-7C19-8842</p>
-        </header>
-        <section className="well-sec">
+      <WorkWell revealing head={<WorkWellHead title="Result not available" ident="Enrollment ENR-7C19-8842" />}>
+        <WorkWellSection>
           <p>Result not available. Return to your activity or use the provided support route if you need help.</p>
-        </section>
-      </>
+        </WorkWellSection>
+      </WorkWell>
     );
   }
   return (
-    <>
-      <header className="well-head">
-        <svg className="well-seal" viewBox="0 0 52 52" aria-hidden="true">
-          <circle cx="26" cy="26" r="24" />
-          <path d="M15 27l8 8 15-17" />
-        </svg>
-        <h2 className="well-title">Result released</h2>
-        <p className="well-ident">Synthetic published-result specimen</p>
-      </header>
-      <section className="well-sec">
+    <WorkWell
+      revealing
+      head={
+        <WorkWellHead gap="none">
+          <svg className="work-well__seal" viewBox="0 0 52 52" aria-hidden="true">
+            <circle cx="26" cy="26" r="24" />
+            <path d="M15 27l8 8 15-17" />
+          </svg>
+          <Stack gap="2">
+            <h2 className="work-well__title">Result released</h2>
+            <p className="work-well__ident">Synthetic published-result specimen</p>
+          </Stack>
+        </WorkWellHead>
+      }
+    >
+      <WorkWellSection>
         <p>
           This design-lab plate shows publication chrome only. Participant-visible fields come from the
           frozen release policy on the server; this specimen does not invent scores, criteria, or reviewer notes.
         </p>
-      </section>
-    </>
+      </WorkWellSection>
+    </WorkWell>
+  );
+}
+
+function DocGlyph({ variant }: { variant?: string }) {
+  return (
+    <svg className={`doc-glyph${variant ? ` ${variant}` : ""}`} viewBox="0 0 12 14">
+      <path d="M1 .5h6.5L11 4v9.5H1z" />
+      <path d="M7.5 .5V4H11" />
+    </svg>
   );
 }
 

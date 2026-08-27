@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { FieldInput, FieldTextarea, FormField, ReadoutList } from "../../components";
+import { FieldNumber, FieldTextarea, FormField, ReadoutList } from "../../components";
 import type { ReviewSession } from "../../data/types";
 
 export function statusLabel(status: ReviewSession["reviewStatus"]) {
@@ -122,19 +122,21 @@ export const MarginaliaStack = forwardRef<HTMLDivElement, MarginaliaStackProps>(
               </dl>
             ) : null}
             <div className={`marginalia-adjust field-group${adjustMode ? " is-open" : ""}`}>
-              <FormField id={`score-${c.id}`} label="Adjusted score" className="field-stack">
+              <FormField id={`score-${c.id}`} label="Adjusted score" layout="stack">
                 {(controlProps) => (
-                  <FieldInput
+                  <FieldNumber
                     {...controlProps}
                     width="narrow"
-                    type="text"
-                    inputMode="numeric"
+                    stepperLabel={`${c.label} score`}
+                    min={0}
+                    max={c.max}
+                    step={1}
                     defaultValue={c.score}
                     data-field="score"
                   />
                 )}
               </FormField>
-              <FormField id={`rationale-${c.id}`} label="Adjusted rationale" className="field-stack">
+              <FormField id={`rationale-${c.id}`} label="Adjusted rationale" layout="stack">
                 {(controlProps) => (
                   <FieldTextarea
                     {...controlProps}
