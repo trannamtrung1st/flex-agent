@@ -10,6 +10,13 @@ import {
   designLabOutboundImportViolations,
   isLabOwnedStylesheetFile,
   labOwnedStylesheetImportViolations,
+  outerChromeImportViolations,
+  operateHeadRouteViolations,
+  designLabRouteLayoutComponentViolations,
+  productionPageLayoutImportViolations,
+  productionReferenceLayoutViolations,
+  reservedLayoutCssViolations,
+  layoutRootAttributeViolations,
 } from "./frontend-isolation-lib.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -90,6 +97,12 @@ for (const file of await walk(productionRoot)) {
   addViolations(violations, relative, content, snapshotNeedles);
   addDesignLabImportViolations(violations, file, relative, content);
   addLabOwnedStylesheetImportViolations(violations, file, relative, content);
+  violations.push(...productionReferenceLayoutViolations(relative, content));
+  violations.push(...reservedLayoutCssViolations(relative, content));
+  violations.push(...outerChromeImportViolations(relative, content));
+  violations.push(...operateHeadRouteViolations(relative, content));
+  violations.push(...productionPageLayoutImportViolations(relative, content));
+  violations.push(...layoutRootAttributeViolations(relative, content));
   if (isCodeSource(file)) {
     addViolations(violations, relative, content, fixtureNeedles);
   }
@@ -116,6 +129,11 @@ try {
     const relative = path.relative(root, file);
     const content = await readFile(file, "utf8");
     addViolations(violations, relative, content, snapshotNeedles);
+    violations.push(...reservedLayoutCssViolations(relative, content));
+    violations.push(...outerChromeImportViolations(relative, content));
+    violations.push(...operateHeadRouteViolations(relative, content));
+    violations.push(...designLabRouteLayoutComponentViolations(relative, content));
+    violations.push(...layoutRootAttributeViolations(relative, content));
     if (isCodeSource(file) && !/\.(test|spec)\.(ts|tsx)$/.test(file)) {
       addDesignLabOutboundImportViolations(violations, file, relative, content);
     }

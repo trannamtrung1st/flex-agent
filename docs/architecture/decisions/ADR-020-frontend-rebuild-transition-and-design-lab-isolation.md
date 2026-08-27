@@ -103,6 +103,17 @@ traffic. Lab modules may not import future production `api/`, `features/`,
 former namespace. After Phase 7.5 the verified design lab is the sole local
 visual-composition donor.
 
+### `FE-TRANS-9` — Shared layout library
+
+Outer page structure is a closed set of four families implemented under
+`web/src/design-system/patterns/layouts/`: `management`, `guided-task`,
+`live-session`, and lab-only `reference`. Production route layout selection is
+router-owned. Design-lab routes consume the same implementations. Architecture
+and isolation checks enforce import and CSS ownership: page/route modules
+must not compose outer chrome, reserved `.layout-*` selectors belong only in
+`web/src/styles/components/layouts.css`, and `reference` must not enter the
+production entry graph or candidate bundle.
+
 ### `FE-TRANS-5` — ADR-019 preserved
 
 TanStack Query, React Hook Form, Zod, Lucide named imports, native `fetch`,

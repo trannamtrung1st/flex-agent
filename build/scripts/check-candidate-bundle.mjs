@@ -21,6 +21,8 @@ const forbidden = [
   "html[data-surface=\"admin-console\"]",
   "html[data-surface=\"reviewer-console\"]",
   "html[data-surface=\"not-found\"]",
+  "data-layout=\"reference\"",
+  "ReferenceLayout",
 ];
 
 let files = [];

@@ -228,3 +228,200 @@ export function isLabOwnedStylesheetFile(relativePath) {
     || normalized.includes("/styles/surfaces/")
   );
 }
+
+const OUTER_CHROME_NAMES = [
+  "CommandStrip",
+  "ConsoleFoot",
+  "Gangway",
+  "Bulkhead",
+  "AreaGroupList",
+  "RailBrand",
+  "IndexRail",
+];
+
+const CHROME_ALLOW_PATH = /(?:^|\/)(?:design-system\/(?:patterns\/layouts|components)|design-lab\/components|design-lab\/features\/gallery\/sections)(?:\/|$)/;
+const ROUTE_OR_PAGE_PATH = /(?:^|\/)(?:pages|design-lab\/routes)\//;
+const LAYOUT_CSS_OWNER = /(?:^|\/)styles\/components\/layouts\.css$/;
+const RESERVED_LAYOUT_SELECTOR = /(?:^|})\s*\.layout-(?:management|guided|session|reference)(?:__[a-z0-9-]+)?(?=\s*[,{:])/gi;
+
+function extractNamedImports(content) {
+  const names = [];
+  const pattern = /import\s+(?:type\s+)?\{([^}]+)\}/g;
+  let match;
+  while ((match = pattern.exec(content)) !== null) {
+    for (const part of match[1].split(",")) {
+      const ident = part.replace(/\s+as\s+\w+/g, "").replace(/type\s+/g, "").trim();
+      if (ident) names.push(ident);
+    }
+  }
+  return names;
+}
+
+const LAYOUT_COMPONENT_NAMES = [
+  "ManagementLayout",
+  "GuidedTaskLayout",
+  "LiveSessionLayout",
+  "ReferenceLayout",
+  "LayoutAssignment",
+];
+
+export function productionPageLayoutImportViolations(relativePath, content) {
+  const normalized = relativePath.replaceAll("\\", "/");
+  if (!/(?:^|\/)pages\//.test(normalized) || /\.(test|spec)\.(ts|tsx)$/.test(normalized)) {
+    return [];
+  }
+  const imported = new Set(extractNamedImports(content));
+  return LAYOUT_COMPONENT_NAMES
+    .filter((name) => imported.has(name) || content.includes(`<${name}`))
+    .map((name) => `${relativePath} imports layout '${name}'`);
+}
+
+const OPERATE_HEAD_ROUTE_ALLOW = /(?:^|\/)design-lab\/features\/gallery\/sections\//;
+
+const LAB_ROUTE_LAYOUT_COMPONENT = {
+  "AdminPage.tsx": "ManagementLayout",
+  "HomePage.tsx": "ManagementLayout",
+  "JourneyPage.tsx": "GuidedTaskLayout",
+  "SessionPage.tsx": "LiveSessionLayout",
+  "ReviewerPage.tsx": "ManagementLayout",
+  "SurfacesPage.tsx": "ReferenceLayout",
+  "NotFoundPage.tsx": "ReferenceLayout",
+};
+
+export function operateHeadRouteViolations(relativePath, content) {
+  const normalized = relativePath.replaceAll("\\", "/");
+  if (!ROUTE_OR_PAGE_PATH.test(normalized)) {
+    return [];
+  }
+  if (/\.(test|spec)\.(ts|tsx)$/.test(normalized)) {
+    return [];
+  }
+  if (OPERATE_HEAD_ROUTE_ALLOW.test(normalized)) {
+    return [];
+  }
+  const imported = new Set(extractNamedImports(content));
+  if (imported.has("OperateHead") || content.includes("<OperateHead")) {
+    return [`${relativePath} assembles OperateHead; use OperateArea`];
+  }
+  return [];
+}
+
+export function designLabRouteLayoutComponentViolations(relativePath, content) {
+  const normalized = relativePath.replaceAll("\\", "/");
+  if (!normalized.includes("/design-lab/routes/")) {
+    return [];
+  }
+  if (/\.(test|spec)\.(ts|tsx)$/.test(normalized)) {
+    return [];
+  }
+  const file = normalized.split("/").pop();
+  const expected = LAB_ROUTE_LAYOUT_COMPONENT[file];
+  if (!expected) {
+    return [];
+  }
+  if (!content.includes(`<${expected}`)) {
+    return [`${relativePath} must render ${expected}`];
+  }
+  return [];
+}
+
+export function outerChromeImportViolations(relativePath, content) {
+  const normalized = relativePath.replaceAll("\\", "/");
+  if (!ROUTE_OR_PAGE_PATH.test(normalized)) {
+    return [];
+  }
+  if (/\.(test|spec)\.(ts|tsx)$/.test(normalized)) {
+    return [];
+  }
+  const imported = new Set(extractNamedImports(content));
+  return OUTER_CHROME_NAMES
+    .filter((name) => imported.has(name) || content.includes(`<${name}`))
+    .map((name) => `${relativePath} composes outer chrome '${name}'`);
+}
+
+export function reservedLayoutCssViolations(relativePath, content) {
+  const normalized = relativePath.replaceAll("\\", "/");
+  if (!normalized.endsWith(".css") || LAYOUT_CSS_OWNER.test(normalized)) {
+    return [];
+  }
+  RESERVED_LAYOUT_SELECTOR.lastIndex = 0;
+  if (!RESERVED_LAYOUT_SELECTOR.test(content)) {
+    return [];
+  }
+  return [`${relativePath} declares reserved layout selectors outside styles/components/layouts.css`];
+}
+
+export function productionReferenceLayoutViolations(relativePath, content) {
+  const normalized = relativePath.replaceAll("\\", "/");
+  if (normalized.includes("/design-lab/")) {
+    return [];
+  }
+  if (normalized.includes("/design-system/patterns/layouts/")) {
+    return [];
+  }
+  if (normalized.endsWith("/design-system/lab.ts")) {
+    return [];
+  }
+  if (!/\.(ts|tsx|js|jsx)$/.test(normalized)) {
+    return [];
+  }
+  const violations = [];
+  if (content.includes("ReferenceLayout")) {
+    violations.push(`${relativePath} references ReferenceLayout`);
+  }
+  if (content.includes('data-layout="reference"')) {
+    violations.push(`${relativePath} selects data-layout="reference"`);
+  }
+  return violations;
+}
+
+const LAYOUT_ROOT_ALLOW = /(?:^|\/)(?:design-system\/patterns\/layouts\/|design-lab\/features\/gallery\/sections\/)/;
+const LAYOUT_ROOT_ATTR = /data-layout=["'](management|guided-task|live-session|reference)["']/;
+
+export function layoutRootAttributeViolations(relativePath, content) {
+  const normalized = relativePath.replaceAll("\\", "/");
+  if (!/\.(ts|tsx|js|jsx)$/.test(normalized)) {
+    return [];
+  }
+  if (/\.(test|spec)\.(ts|tsx)$/.test(normalized)) {
+    return [];
+  }
+  if (LAYOUT_ROOT_ALLOW.test(normalized)) {
+    return [];
+  }
+  if (!LAYOUT_ROOT_ATTR.test(content)) {
+    return [];
+  }
+  return [`${relativePath} uses a layout root attribute outside the layout library`];
+}
+
+export function routeLayoutMappingViolations(mappedPaths, leaves) {
+  const violations = [];
+  const counts = new Map();
+  for (const path of mappedPaths) {
+    counts.set(path, (counts.get(path) ?? 0) + 1);
+  }
+  for (const [path, count] of counts) {
+    if (count > 1) {
+      violations.push(`multiply mapped '${path}'`);
+    }
+  }
+  const mapped = new Set(mappedPaths);
+  for (const leaf of leaves) {
+    if (leaf.redirect) {
+      if (mapped.has(leaf.path)) {
+        violations.push(`redirect '${leaf.path}' has an independent layout`);
+      }
+      continue;
+    }
+    if (!mapped.has(leaf.path)) {
+      violations.push(`unmapped route '${leaf.path}'`);
+    }
+  }
+  return violations;
+}
+
+export function chromeAllowPath(relativePath) {
+  return CHROME_ALLOW_PATH.test(relativePath.replaceAll("\\", "/"));
+}
+

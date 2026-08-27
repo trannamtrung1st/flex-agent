@@ -300,6 +300,119 @@ public sealed class FrontendRebuildIsolationTests
         Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
     }
 
+    [Fact]
+    public void Pages_and_lab_routes_do_not_compose_outer_chrome_or_reference_layout()
+    {
+        var root = FindRepositoryRoot();
+        var violations = new List<string>();
+        var chrome = new[] { "CommandStrip", "ConsoleFoot", "Gangway", "Bulkhead", "AreaGroupList", "RailBrand", "IndexRail" };
+
+        foreach (var file in EnumerateSourceFiles(Path.Combine(root, "web", "src", "pages"))
+            .Concat(EnumerateSourceFiles(Path.Combine(root, "web", "src", "design-lab", "routes"))))
+        {
+            var relative = ToRepoRelative(root, file);
+            if (relative.Contains(".test.", StringComparison.Ordinal) || relative.Contains(".spec.", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var content = File.ReadAllText(file);
+            foreach (var name in chrome)
+            {
+                if (Regex.IsMatch(content, $@"import\s+(?:type\s+)?\{{[^}}]*\b{name}\b")
+                    || content.Contains($"<{name}", StringComparison.Ordinal))
+                {
+                    violations.Add($"{relative} composes outer chrome '{name}'");
+                }
+            }
+
+            if (Regex.IsMatch(content, @"import\s+(?:type\s+)?\{[^}]*\bOperateHead\b")
+                || content.Contains("<OperateHead", StringComparison.Ordinal))
+            {
+                violations.Add($"{relative} assembles OperateHead; use OperateArea");
+            }
+
+            var fileName = Path.GetFileName(file);
+            var expectedLayout = fileName switch
+            {
+                "AdminPage.tsx" => "ManagementLayout",
+                "HomePage.tsx" => "ManagementLayout",
+                "JourneyPage.tsx" => "GuidedTaskLayout",
+                "SessionPage.tsx" => "LiveSessionLayout",
+                "ReviewerPage.tsx" => "ManagementLayout",
+                "SurfacesPage.tsx" => "ReferenceLayout",
+                "NotFoundPage.tsx" => "ReferenceLayout",
+                _ => null,
+            };
+            if (expectedLayout is not null && !content.Contains($"<{expectedLayout}", StringComparison.Ordinal))
+            {
+                violations.Add($"{relative} must render {expectedLayout}");
+            }
+
+            if (relative.Contains("/web/src/pages/", StringComparison.Ordinal)
+                || relative.StartsWith("web/src/pages/", StringComparison.Ordinal))
+            {
+                foreach (var name in new[] { "ManagementLayout", "GuidedTaskLayout", "LiveSessionLayout", "ReferenceLayout", "LayoutAssignment" })
+                {
+                    if (Regex.IsMatch(content, $@"import\s+(?:type\s+)?\{{[^}}]*\b{name}\b")
+                        || content.Contains($"<{name}", StringComparison.Ordinal))
+                    {
+                        violations.Add($"{relative} imports layout '{name}'");
+                    }
+                }
+            }
+
+            if (Regex.IsMatch(content, @"data-layout=[""'](management|guided-task|live-session|reference)[""']"))
+            {
+                violations.Add($"{relative} uses a layout root attribute outside the layout library");
+            }
+        }
+
+        foreach (var file in EnumerateSourceFiles(Path.Combine(root, "web", "src")))
+        {
+            var relative = ToRepoRelative(root, file);
+            if (relative.Contains("/design-lab/", StringComparison.Ordinal)
+                || relative.Contains("/design-system/patterns/layouts/", StringComparison.Ordinal)
+                || relative.EndsWith("/design-system/lab.ts", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!relative.EndsWith(".ts", StringComparison.Ordinal) && !relative.EndsWith(".tsx", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var content = File.ReadAllText(file);
+            if (content.Contains("ReferenceLayout", StringComparison.Ordinal))
+            {
+                violations.Add($"{relative} references ReferenceLayout");
+            }
+        }
+
+        foreach (var file in EnumerateSourceFiles(Path.Combine(root, "web", "src", "styles")))
+        {
+            var relative = ToRepoRelative(root, file);
+            if (relative.EndsWith("styles/components/layouts.css", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!relative.EndsWith(".css", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var content = File.ReadAllText(file);
+            if (Regex.IsMatch(content, @"(?:^|})\s*\.layout-(?:management|guided|session|reference)(?:__[a-z0-9-]+)?(?=\s*[,{:])"))
+            {
+                violations.Add($"{relative} declares reserved layout selectors outside layouts.css");
+            }
+        }
+
+        Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
+    }
+
     private static bool HasParentWebImport(string content)
     {
         return content.Contains("../web/", StringComparison.Ordinal)

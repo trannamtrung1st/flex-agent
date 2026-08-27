@@ -109,6 +109,7 @@ export default tseslint.config(
       "@typescript-eslint/no-unsafe-member-access": "off",
       "@typescript-eslint/no-unsafe-assignment": "off",
       "@typescript-eslint/restrict-template-expressions": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
     },
   },
   {
@@ -139,6 +140,94 @@ export default tseslint.config(
       "react-refresh/only-export-components": "off",
       "react-hooks/exhaustive-deps": "off",
       "react-hooks/incompatible-library": "off",
+    },
+  },
+  {
+    files: ["src/pages/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "../components",
+              importNames: [
+                "CommandStrip",
+                "ConsoleFoot",
+                "Gangway",
+                "Bulkhead",
+                "AreaGroupList",
+                "RailBrand",
+                "IndexRail",
+              ],
+              message: "Routes supply layout slots; outer chrome belongs to the shared layout library.",
+            },
+            {
+              name: "../design-system",
+              importNames: [
+                "ManagementLayout",
+                "GuidedTaskLayout",
+                "LiveSessionLayout",
+                "ReferenceLayout",
+                "LayoutAssignment",
+              ],
+              message: "Production pages supply slot content; the router/shell owns layout selection.",
+            },
+          ],
+          patterns: [
+            {
+              group: [
+                "**/CommandStrip",
+                "**/Gangway",
+                "**/Bulkhead",
+                "**/AreaGroupList",
+                "**/RailBrand",
+                "**/IndexRail",
+                "**/design-system/lab",
+              ],
+              message: "Pages supply layout slots; outer chrome and ReferenceLayout belong to the shared layout library.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/design-lab/routes/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "../components",
+              importNames: [
+                "CommandStrip",
+                "ConsoleFoot",
+                "Gangway",
+                "Bulkhead",
+                "AreaGroupList",
+                "RailBrand",
+                "IndexRail",
+              ],
+              message: "Routes supply layout slots; outer chrome belongs to the shared layout library.",
+            },
+          ],
+          patterns: [
+            {
+              group: [
+                "**/CommandStrip",
+                "**/Gangway",
+                "**/Bulkhead",
+                "**/AreaGroupList",
+                "**/RailBrand",
+                "**/IndexRail",
+              ],
+              message: "Routes supply layout slots; outer chrome belongs to the shared layout library.",
+            },
+          ],
+        },
+      ],
     },
   },
 );

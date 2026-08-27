@@ -59,11 +59,26 @@ App composition root (main.tsx)
   QueryClientProvider          # one in-memory client per mounted tree
     ProductionApiProvider | BrowserApiProvider
       Router
-        Feature pages
-          feature query/mutation hooks
-            typed/domain API clients (web/src/api/; production pointer is web-legacy until cutover)
-              fetchJson / native fetch
+        Shared layout (router-assigned family)
+          Composition primitives (Stack, Inline, Grid, Container, Inset, SplitBay)
+            Feature pages (slot content only)
+            feature query/mutation hooks
+              typed/domain API clients (web/src/api/; production pointer is web-legacy until cutover)
+                fetchJson / native fetch
 ```
+
+Route composition is **router layout assignment → shared layout → inner
+composition primitives → feature page content**. Pages under `web/src/pages/`
+and design-lab routes must not import outer-chrome primitives (`CommandStrip`,
+`Gangway`, `Bulkhead`, `ConsoleFoot`, `RailBrand`, `IndexRail`,
+`AreaGroupList`) to assemble a shell. Layouts live in
+`web/src/design-system/patterns/layouts/`. Inner flow, wrap, intrinsic grid,
+width, and padding live in `web/src/design-system/components/layout/` and may
+be imported from the production design-system barrel. Production may use
+`management`, `guided-task`, and `live-session`. `reference` is design-lab
+only (`web/src/design-system/lab.ts`) and must not enter the candidate barrel.
+Router hosts resolve the family from the route-layout manifest before rendering
+the matching layout.
 
 - `web/src/api/` remains React-free except existing provider components. It
   owns CSRF, credentials, generation guards, `ProductionApiError`, command
@@ -73,6 +88,10 @@ App composition root (main.tsx)
   authorization from keys or cached payloads.
 - Pages render Query and form state. They must not copy successful query data
   or RHF field values into parallel `useState` authority.
+- Reusable Shipboard primitives (`keys`, `fields`, `feedback`, `navigation`,
+  layout primitives, and closed layout families) live in `web/src/design-system/`.
+  Production app composition (auth shell, route-derived breadcrumbs, API wiring)
+  lives in `web/src/components/` and must not be imported from the design lab.
 
 ## State ownership
 

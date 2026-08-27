@@ -8,6 +8,14 @@ import {
   extractHtmlEntryReferences,
   extractImportSpecifiers,
   labOwnedStylesheetImportViolations,
+  outerChromeImportViolations,
+  operateHeadRouteViolations,
+  designLabRouteLayoutComponentViolations,
+  productionPageLayoutImportViolations,
+  productionReferenceLayoutViolations,
+  reservedLayoutCssViolations,
+  layoutRootAttributeViolations,
+  routeLayoutMappingViolations,
   specifierResolvesToAllowedDesignLabOutbound,
   specifierResolvesToDesignLab,
   specifierResolvesToLabOwnedStylesheet,
@@ -102,5 +110,94 @@ describe("HTML entry reference parsing", () => {
     assert.ok(violations.some((violation) => violation.includes("module entry")));
     assert.ok(violations.some((violation) => violation.includes("lab-owned stylesheet")));
     assert.ok(violations.some((violation) => violation.includes("design-lab")));
+  });
+});
+
+describe("shared layout governance", () => {
+  it("flags a production page importing CommandStrip", () => {
+    const relative = "web/src/pages/ProductionHomePage.tsx";
+    const source = 'import { CommandStrip } from "../design-system";\n<CommandStrip homeTo="/" />\n';
+    const violations = outerChromeImportViolations(relative, source);
+    assert.equal(violations.length, 1);
+    assert.match(violations[0], /CommandStrip/);
+  });
+
+  it("flags a production page importing a layout family", () => {
+    const violations = productionPageLayoutImportViolations(
+      "web/src/pages/ProductionHomePage.tsx",
+      'import { ManagementLayout } from "../design-system";\n<ManagementLayout />\n',
+    );
+    assert.ok(violations.some((item) => item.includes("ManagementLayout")));
+  });
+
+  it("flags a lab route hand-building Gangway", () => {
+    const relative = "web/src/design-lab/routes/HomePage.tsx";
+    const source = 'import { Gangway } from "../components";\n<main /><Gangway title="Admin" groups={[]} />\n';
+    assert.ok(outerChromeImportViolations(relative, source).some((item) => item.includes("Gangway")));
+  });
+
+  it("flags a lab route assembling OperateHead instead of OperateArea", () => {
+    const relative = "web/src/design-lab/routes/ReviewerPage.tsx";
+    const source = 'import { OperateHead } from "../components";\n<OperateHead title="Review queue" />\n';
+    const violations = operateHeadRouteViolations(relative, source);
+    assert.equal(violations.length, 1);
+    assert.match(violations[0], /OperateHead/);
+  });
+
+  it("flags a lab route that does not render its assigned layout family", () => {
+    const violations = designLabRouteLayoutComponentViolations(
+      "web/src/design-lab/routes/HomePage.tsx",
+      "export function HomePage() { return <div>roster</div>; }\n",
+    );
+    assert.ok(violations.some((item) => item.includes("ManagementLayout")));
+  });
+
+  it("flags feature stylesheets that declare reserved layout selectors", () => {
+    const violations = reservedLayoutCssViolations(
+      "web/src/styles/surfaces/participant-session.css",
+      ".layout-session { height: 100dvh; }\n",
+    );
+    assert.equal(violations.length, 1);
+  });
+
+  it("does not treat inner composition selectors as reserved shells", () => {
+    assert.deepEqual(
+      reservedLayoutCssViolations(
+        "web/src/styles/components/layout-primitives.css",
+        ".composition-stack, .composition-inline { display: flex; }\n",
+      ),
+      [],
+    );
+  });
+
+  it("flags production modules that select the reference layout", () => {
+    const violations = productionReferenceLayoutViolations(
+      "web/src/router/production-route-layouts.ts",
+      'export const x = "reference";\nconst Layout = ReferenceLayout;\n',
+    );
+    assert.ok(violations.some((item) => item.includes("ReferenceLayout")));
+  });
+
+  it("does not flag the lab-only ReferenceLayout entry", () => {
+    assert.deepEqual(
+      productionReferenceLayoutViolations("web/src/design-system/lab.ts", "export { ReferenceLayout } from './patterns/layouts/ReferenceLayout';\n"),
+      [],
+    );
+  });
+
+  it("flags layout root attributes outside the layout library", () => {
+    const violations = layoutRootAttributeViolations(
+      "web/src/pages/ProductionHomePage.tsx",
+      '<div data-layout="management" />\n',
+    );
+    assert.equal(violations.length, 1);
+  });
+
+  it("reports a newly added route omitted from the manifest", () => {
+    const violations = routeLayoutMappingViolations(["/"], [
+      { path: "/", redirect: false },
+      { path: "/new-leaf", redirect: false },
+    ]);
+    assert.ok(violations.some((item) => item.includes("/new-leaf")));
   });
 });
