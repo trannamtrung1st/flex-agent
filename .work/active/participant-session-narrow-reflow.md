@@ -45,7 +45,9 @@ Narrow session (`≤760px`) mirrors stacked Assignment: page scroll enabled, `.c
 
 # Findings / deviations
 
-- None.
+- Post-review (`bec75d5`): governance bookkeeping added under
+  `change-record.md` implementation mapping as a v1.0 accessibility
+  clarification (option A), not a v1.0.1 normative bump.
 
 # Verification
 

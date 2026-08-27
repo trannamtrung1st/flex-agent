@@ -57,6 +57,13 @@ the token source:
   session 232px) with stacked instrument bands at ≤1080px / ≤1180px. Desktop
   shells are `100dvh` with no 620px floor so short viewports scroll inside the
   rail rather than clipping past a hidden body.
+- **v1.0 accessibility clarification (2026-08-27, `bec75d5`):** Examination
+  Console at ≤760px (`bp.session`) reflows with page scroll (`body {
+  overflow: auto }`, `.console { height: auto; min-height: 100dvh }`) so
+  transcript, composer, Transmit, and completion consequence stay reachable at
+  narrow width and 400% zoom. This implements the already-approved reflow rule
+  in `foundation/layout.md` and `docs/ui-ux/text-session.md`; it does not
+  introduce new product behavior.
 
 ## Adopted visual concepts
 
