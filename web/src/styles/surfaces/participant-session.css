@@ -827,21 +827,25 @@ html[data-surface="participant-session"] {
 }
 
 @media (max-width: 760px) /* bp.session */ {
-  body { font-size: 14px; }
+  body {
+    font-size: 14px;
+    overflow: auto;
+  }
   .stage-line { white-space: normal; }
   .rail-brand-name { white-space: normal; }
   .readout-stack { flex-wrap: wrap; }
   .turn-text { max-width: none; }
   .console {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
     grid-template-areas:
       "railband"
       "agent-panel"
       "session-main";
     padding: 10px 14px 14px;
     min-height: 100dvh;
-    height: 100dvh;
+    height: auto;
+    overflow: visible;
     gap: 10px;
   }
   .rail { flex-wrap: wrap; gap: 10px 16px; }

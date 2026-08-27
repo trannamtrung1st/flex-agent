@@ -26,7 +26,7 @@ const copiedSheets: Record<string, string> = {
   "surfaces/not-found.css": "359a389fb1f0f60143fcd528dab71faf42b5426e1906d32a0295873b600518b4",
   "surfaces/participant-home.css": "8dadfc5da147308ad32f06cadef0cc860273a085e8719aacd81a53fdc05cc4eb",
   "surfaces/participant-journey.css": "3bf6ec0b0fa3527c43598c3caeb29e48c55dfb3cbf37af9e00c922b46ae4c403",
-  "surfaces/participant-session.css": "d0195bee6aeb737381945d4f14658734a3ba29fc9aef347829dfb2fd912668a8",
+  "surfaces/participant-session.css": "96b010751f93b7639d4a6895d4120c65063e92fee006a801ee3d2a0f00df3b56",
   "surfaces/reviewer-console.css": "43348fda627e810ffafdbbdd6f34e2b39c6eff16b8a0b03935126dc4236a5f00",
   "surfaces/surfaces-index.css": "d1cc4a5210e3355a88577b1c8c33fa7bb6e1001eca789d1dbc8efd7a84fb9f24",
 };

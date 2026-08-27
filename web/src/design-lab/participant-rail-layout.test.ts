@@ -14,6 +14,14 @@ function desktopRule(css: string, selector: string): string {
   return match[1];
 }
 
+function narrowSessionBlock(css: string): string {
+  const match = css.match(/@media \(max-width: 760px\)[\s\S]*?(?=@media|$)/);
+  if (!match?.[0]) {
+    throw new Error("Narrow session media block not found");
+  }
+  return match[0];
+}
+
 describe("participant instrument bulkheads", () => {
   it("seats the assignment station rail flush to the hull on desktop", () => {
     const css = readFileSync(join(stylesRoot, "participant-journey.css"), "utf8");
@@ -59,5 +67,16 @@ describe("participant instrument bulkheads", () => {
     expect(desktopRule(session, ".rail")).toMatch(/padding:\s*18px 0 16px 26px/);
     expect(desktopRule(session, ".rail-scroll")).toMatch(/padding-right:\s*18px/);
     expect(desktopRule(session, ".rail-scroll")).not.toMatch(/scrollbar-gutter/);
+  });
+
+  it("enables page scroll on narrow session layout for 400% zoom reflow", () => {
+    const css = readFileSync(join(stylesRoot, "participant-session.css"), "utf8");
+    const narrow = narrowSessionBlock(css);
+    expect(narrow).toMatch(/body\s*\{[^}]*overflow:\s*auto/);
+    expect(narrow).toMatch(/\.console\s*\{[^}]*height:\s*auto/);
+    expect(narrow).toMatch(/\.console\s*\{[^}]*min-height:\s*100dvh/);
+    expect(narrow).toMatch(/\.console\s*\{[^}]*overflow:\s*visible/);
+    expect(narrow).not.toMatch(/\sheight:\s*100dvh;/);
+    expect(narrow).toMatch(/grid-template-rows:\s*auto auto auto/);
   });
 });

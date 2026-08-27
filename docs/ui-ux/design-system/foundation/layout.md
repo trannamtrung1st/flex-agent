@@ -122,7 +122,9 @@ Do not add every motif to every screen.
 - Desktop-optimized command-deck composition with stacked narrow behavior.
 - Multi-pane layouts collapse into stacked views or bulkhead navigation.
 - Assignment Station stacks at ≤1080px (`bp.pageScroll`). Examination Console
-  stacks at ≤1180px (`bp.wideGrid`).
+  stacks at ≤1180px (`bp.wideGrid`) and reflows with page scroll at ≤760px
+  (`bp.session`) so transcript, composer, and completion controls stay reachable
+  at narrow width and 400% zoom.
 - Important actions remain reachable without hiding under overflow.
 - Tables may scroll horizontally when columns are required; surrounding
   actions stay reachable.

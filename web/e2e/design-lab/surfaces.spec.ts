@@ -45,6 +45,31 @@ function expectBoxInViewport(
   expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height + 1);
 }
 
+function expectIntersectsViewport(
+  box: { x: number; y: number; width: number; height: number } | null,
+  viewport: { width: number; height: number },
+) {
+  expect(box).toBeTruthy();
+  expect(box!.y + box!.height).toBeGreaterThan(0);
+  expect(box!.y).toBeLessThan(viewport.height);
+}
+
+async function expectReachableAfterScroll(
+  page: import("@playwright/test").Page,
+  locator: import("@playwright/test").Locator,
+  viewport: { width: number; height: number },
+  mode: "fit" | "intersect" = "fit",
+) {
+  await locator.scrollIntoViewIfNeeded();
+  await expect(locator).toBeVisible();
+  const box = await locator.boundingBox();
+  if (mode === "intersect") {
+    expectIntersectsViewport(box, viewport);
+    return;
+  }
+  expectBoxInViewport(box, viewport);
+}
+
 test("short desktop viewports keep shells inside the window without forcing scroller height", async ({ page }) => {
   const shortDesktop = { width: 1440, height: 500 };
   await page.setViewportSize(shortDesktop);
@@ -97,6 +122,68 @@ test("short desktop viewports keep shells inside the window without forcing scro
   expectBoxInViewport(
     await page.getByRole("button", { name: "Transmit" }).boundingBox(),
     shortDesktop,
+  );
+
+  const chrono = page.locator(".chrono");
+  await chrono.evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  expectBoxInViewport(
+    await page.getByRole("button", { name: "Submit Session" }).boundingBox(),
+    shortDesktop,
+  );
+});
+
+test("narrow session viewport reflows with page scroll so transcript and composer stay reachable", async ({ page }) => {
+  const narrowZoom = { width: 320, height: 256 };
+  await page.setViewportSize(narrowZoom);
+  await page.goto("/design-lab/participant-session?state=live");
+
+  const scrollMetrics = await page.evaluate(() => {
+    const consoleEl = document.querySelector(".console")!;
+    const consoleBox = consoleEl.getBoundingClientRect();
+    return {
+      bodyOverflow: getComputedStyle(document.body).overflow,
+      consoleTallerThanViewport: consoleBox.height > window.innerHeight,
+      pageScrollable: document.documentElement.scrollHeight > window.innerHeight,
+    };
+  });
+  expect(scrollMetrics.bodyOverflow).toBe("auto");
+  expect(scrollMetrics.consoleTallerThanViewport).toBe(true);
+  expect(scrollMetrics.pageScrollable).toBe(true);
+
+  await expectReachableAfterScroll(
+    page,
+    page.locator(".turn").last(),
+    narrowZoom,
+    "intersect",
+  );
+  await expectReachableAfterScroll(
+    page,
+    page.getByRole("textbox", { name: /compose reply/i }),
+    narrowZoom,
+  );
+  await expectReachableAfterScroll(
+    page,
+    page.getByRole("button", { name: "Transmit" }),
+    narrowZoom,
+  );
+});
+
+test("narrow session completion consequence is reachable after page scroll", async ({ page }) => {
+  const narrowZoom = { width: 320, height: 256 };
+  await page.setViewportSize(narrowZoom);
+  await page.goto("/design-lab/participant-session?state=complete");
+
+  await expectReachableAfterScroll(
+    page,
+    page.getByRole("heading", { name: "Session Complete" }),
+    narrowZoom,
+  );
+  await expectReachableAfterScroll(
+    page,
+    page.getByRole("link", { name: /return to assignment/i }),
+    narrowZoom,
   );
 });
 
