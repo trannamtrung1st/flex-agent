@@ -31,34 +31,71 @@ is only its provider adapter.
 
 ## Pin
 
-- Keycloak image: `quay.io/keycloak/keycloak:26.7.0`
-- PostgreSQL: `postgres:18`
-- NGINX: `nginx:1.30.4`
+- Keycloak image: `quay.io/keycloak/keycloak:26.7.0` (digest-pinned in Compose)
+- PostgreSQL: `postgres:18` (digest-pinned in Compose)
+- NGINX: `nginx:1.30.4` (digest-pinned in Compose)
 - Realm: `flex-agent`
 - Client: `flex-agent-api`
-- Accepted MFA evidence: `acr=acr:mfa` and/or `amr` containing `mfa`
+- Accepted MFA evidence: synthetic hardcoded `acr=acr:mfa` and/or `amr` containing `mfa`. This is not a live Keycloak OTP/WebAuthn qualification.
+
+## Evidence layers
+
+| Layer | Command | What it proves |
+| --- | --- | --- |
+| Deterministic contract | ordinary `dotnet test` / `verify-dotnet` | Application OIDC/session rules and fixture structure. Does not start Keycloak. |
+| Keycloak logout-token compatibility | `pnpm verify:oidc` (`FlexAgent.Keycloak.Integration.Tests`) | Pinned Keycloak emits a signed Logout Token the adapter accepts. Does not prove API or PostgreSQL revocation. |
+| Canonical Compose contract | `bash build/scripts/authenticated-browser-profile.sh validate` | Rendered services, digest pins, loopback gateway, generated secrets, in-compose back-channel `http://api:8080/auth/backchannel-logout`. |
+| Full-stack OIDC acceptance | `pnpm verify:oidc` canonical Playwright | Real PKCE, opaque session, protected read, local logout, signed back-channel revocation, unbound/ambiguous fail-closed, public route denials. |
+| Candidate transition regression | `pnpm verify:oidc` candidate/non-Production project | Wave 8.1 auth shell against candidate `web/` through the explicit overlay. Not Production. |
+| Deferred `AC-OPS-4` matrix | successor task(s) | Real MFA, key rotation, clock skew, account-disablement, provider outage, multi-instance callback/session. |
 
 ## Compose
 
-```bash
-docker compose -f deploy/compose/keycloak-contract.compose.yaml up -d
-```
-
-The authenticated Development/Testing browser profile is one documented
-command:
+The canonical Development/Testing browser profile is one documented command:
 
 ```bash
 bash build/scripts/authenticated-browser-profile.sh
 ```
 
-Use `down`, `reset`, `status`, `seed`, or `validate` as the optional argument.
-Synthetic operator credentials live only in the disposable compose fixture.
-Do not copy them into production secret stores or browser artifacts.
+Use `down`, `reset`, `status`, `seed`, `validate`, `--overlay candidate`, or
+`--project-name`. The wrapper generates bearer-capable client and operator
+secrets into an ignored `.generated/` directory, renders the realm import, and
+fails if Docker Compose is missing. Do not copy those values into production
+secret stores, logs, or browser artifacts.
 
-The `keycloak-contract` Compose file remains the focused provider-qualification
-fixture (PostgreSQL, Keycloak, and the restricted identity gateway). The
-authenticated browser profile composes Keycloak, application PostgreSQL,
-migrations, seed, API, SPA, and the canonical `http://localhost:18080` gateway.
+The focused Keycloak logout-token compatibility test uses Testcontainers and
+the shared realm template. It does not run Compose, the API, or PostgreSQL
+application-session revocation. Docker published ports arrive as non-loopback
+source addresses, so Keycloak's master realm treats host HTTP token requests as
+external (`HTTPS required`). The test uses in-container `kcadm` to set
+`sslRequired=NONE` on master after startup. That is a harness workaround, not
+production TLS policy. The imported `flex-agent` realm already sets
+`sslRequired` to `none` for the HTTP Development/Testing origin.
+
+The blocking local/CI gate is:
+
+```bash
+pnpm verify:oidc
+```
+
+Implementation CI runs that command in the `oidc` job of
+[`.github/workflows/implementation.yml`](../../../.github/workflows/implementation.yml)
+and always tears down the Compose project. Playwright lives in
+`tests/Browser/FlexAgent.Oidc.Playwright` (`@flex-agent/oidc-playwright`).
+
+Required case IDs:
+
+| ID | Mode |
+| --- | --- |
+| `OIDC-E2E-01` | Canonical PKCE login |
+| `OIDC-E2E-02` | Opaque cookie and protected read (`Secure` follows request scheme) |
+| `OIDC-E2E-03` | Local logout |
+| `OIDC-E2E-04` | Provider-forced logout through the real API |
+| `OIDC-E2E-05A` | Unbound identity fail-closed |
+| `OIDC-E2E-05B` | Zero/ambiguous Organization fail-closed |
+| `OIDC-E2E-06` | Public route allowlist |
+| `OIDC-E2E-07` | Wrapper negatives and injected-failure cleanup |
+| `OIDC-CANDIDATE-01` | Wave 8.1 candidate/non-Production auth shell |
 
 ## Authenticated browser profile
 
@@ -77,7 +114,8 @@ canonical browser-visible origin is `http://localhost:18080`; it must provide:
   port;
 - migrations, health/readiness checks, deterministic synthetic seed, and
   disposable reset;
-- an MFA-qualified synthetic Administrator in Keycloak;
+- an MFA-qualified synthetic Administrator in Keycloak whose `acr`/`amr`
+  claims are a synthetic accepted-strength fixture;
 - an exact pre-provisioned IdentityAccess binding from that provider identity
   to one enabled actor and one Organization;
 - only the minimum application-owned capability grants, Assessment-owned
@@ -93,19 +131,11 @@ Production authentication policy as authority. Test credentials remain
 synthetic fixture data and must not appear in screenshots, logs, tracked task
 state, or Production configuration.
 
-## Qualifying matrix
-
-Exercise PKCE login, logout, revocation, key rotation, clock skew, account
-disablement, back-channel logout, provider outage, and multi-instance callback
-against synthetic users only. New-login failures and existing-session
-revocation must be reported separately.
-
-The imported `flex-agent-api` client sets `backchannel.logout.url` and
-`adminUrl` to `http://host.docker.internal:18082/auth/backchannel-logout` so
-Keycloak can propagate logout to the host API. The fixture also enables
-direct-access grants only so CI can create a synthetic provider session and
-drive Keycloak logout without a browser. Do not copy that grant into
-Production.
+The imported `flex-agent-api` client sets `backchannel.logout.url` to
+`http://api:8080/auth/backchannel-logout` so Keycloak can reach the API on the
+canonical Compose network. Direct-access grants remain enabled only so the
+focused compatibility fixture can create a synthetic provider session without
+a browser. Do not copy that grant into Production.
 
 ## Logout-token scope
 
@@ -119,9 +149,14 @@ Logout contract:
 - `sid` and `sub`: revoke the intersecting provider session only. Do not
   watermark the identity or revoke sibling sessions for the same subject.
 
-Docker-backed Keycloak `26.7.0` signed back-channel logout and NGINX
-restricted-route probes (`/realms/flex-agent` allowed, `/admin` and `/health`
-denied) have executable evidence. The remaining browser PKCE, MFA, key
-rotation, clock skew, account-disablement, outage, and multi-instance
-callback matrix is still a later qualification gate. Do not claim that
-remaining matrix from unit tests or the back-channel/NGINX probes alone.
+## Current qualification
+
+`pnpm verify:oidc` is the required live evidence command. It covers signed
+logout-token compatibility, rendered Compose semantics, NGINX allowlist,
+browser PKCE, opaque PostgreSQL-backed sessions, local logout, provider-forced
+logout through the real API, unbound and ambiguous-Organization fail-closed
+cases, and the named candidate/non-Production Wave 8.1 shell. Full `AC-OPS-4`
+remains `Partial` until real MFA, key rotation, clock skew, account
+disablement, provider outage, and multi-instance callback/session cases pass.
+The Development HTTP gateway uses same-as-request cookie `Secure` flags;
+`Secure=true` on every cookie remains a TLS/production concern.

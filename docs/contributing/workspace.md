@@ -49,10 +49,13 @@ tests/Architecture/
 tests/Runtime/
 tests/Sessions/
 tests/Integration/
+tests/Browser/FlexAgent.Oidc.Playwright/
 deploy/docker/
+deploy/compose/
 build/scripts/
 database/migrations/
 contracts/
+scripts/
 ```
 
 The workspace grows by implemented capability. Do not create placeholder
@@ -87,25 +90,31 @@ Run the SPA locally (`http://127.0.0.1:5273/`):
 cd web-legacy && pnpm dev
 ```
 
-Candidate SPA (not production until cutover; `http://127.0.0.1:5274/`):
+### OIDC / authenticated browser
+
+Canonical Development/Testing origin is `http://localhost:18080` ([STACK-DEC-27](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md)). Contract, case IDs, and residuals: [Keycloak OIDC contract](../operations/provider-profiles/keycloak-oidc-contract.md).
 
 ```bash
-cd web && pnpm dev
-```
-
-Against the authenticated Docker profile, proxy API traffic through the gateway
-and use the candidate OIDC override (sets callback to `:5274`):
-
-```bash
+bash build/scripts/authenticated-browser-profile.sh validate
 bash build/scripts/authenticated-browser-profile.sh up
-docker compose -f deploy/compose/authenticated-browser.compose.yaml \
-  -f deploy/compose/authenticated-browser.candidate-dev.compose.yaml \
-  --project-name flex-agent-authenticated-browser up -d --force-recreate api
-cd web && VITE_DEV_API_PROXY=http://127.0.0.1:18080 pnpm dev --host 127.0.0.1
+bash build/scripts/authenticated-browser-profile.sh down
+pnpm verify:oidc
 ```
 
-Synthetic administrator: `synthetic.administrator` /
-`synthetic-administrator-password` (see `deploy/compose/keycloak/flex-agent-realm.json`).
+`pnpm verify:oidc` requires Docker Compose and Chromium. It runs OIDC-E2E-07 negatives, Keycloak logout-token compatibility, canonical Playwright against shipped `web-legacy`, then the named candidate/non-Production overlay plus Vite on `http://127.0.0.1:5274`, and always tears down Compose.
+
+Candidate SPA against that overlay (not production until ADR-020 cutover):
+
+```bash
+bash build/scripts/authenticated-browser-profile.sh --overlay candidate up
+VITE_DEV_API_PROXY=http://127.0.0.1:18080 pnpm --filter @flex-agent/web exec -- vite --host 127.0.0.1 --port 5274
+```
+
+The overlay sets `RedirectUri` to `http://127.0.0.1:5274/auth/callback`. Do not start candidate Vite on another port against this overlay.
+
+Synthetic administrator username `synthetic.administrator` is in
+`deploy/compose/keycloak/flex-agent-realm.json`. Do not copy fixture passwords
+into task records, screenshots, or Production configuration.
 
 Isolated design lab (`http://127.0.0.1:5275/design-lab/surfaces`):
 
@@ -118,13 +127,6 @@ Preview the design-lab bundle (build first):
 ```bash
 cd web && pnpm build:design-lab && pnpm preview:design-lab
 pnpm --filter @flex-agent/web test:e2e:design-lab
-```
-
-Start the authenticated Development/Testing browser profile
-(`http://localhost:18080`):
-
-```bash
-bash build/scripts/authenticated-browser-profile.sh
 ```
 
 ### Supply chain
@@ -186,7 +188,7 @@ deploy them.
 ## CI
 
 - [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml) — documentation validation
-- [`.github/workflows/implementation.yml`](../../.github/workflows/implementation.yml) — locked restore/build/test, web checks, supply-chain evidence, and **linux/amd64** OCI builds on every implementation-relevant change (see [`build/scripts/detect-implementation-changes.sh`](../../build/scripts/detect-implementation-changes.sh))
+- [`.github/workflows/implementation.yml`](../../.github/workflows/implementation.yml) — locked restore/build/test, web checks, supply-chain evidence, **linux/amd64** OCI builds, and the blocking `oidc` job (`pnpm verify:oidc`) on every implementation-relevant change (see [`build/scripts/detect-implementation-changes.sh`](../../build/scripts/detect-implementation-changes.sh))
 - [`.github/workflows/architecture-certification.yml`](../../.github/workflows/architecture-certification.yml) — **non-blocking** weekly/manual **linux/arm64** OCI certification; required before claiming `arm64` release support (see [ADR-010](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md#oci-platform-certification))
 
 ## Gate coverage
@@ -201,9 +203,9 @@ deploy them.
 | `GATE-STACK-JCS` | Partial — language-neutral ADR-001/ADR-004/Evidence-set and manifest-seal fixtures with independent .NET and Node verification; production normalization builders remain deferred |
 | `GATE-STACK-POSTGRES` | Partial — Grate empty/repeat/changed-script plus Session runtime migrations `0005`–`0029`, human-authentication migrations `0030`–`0033`, Assessment migrations `0034`–`0042`, Enrollment assignment `0043`, shared admission `0044`–`0045`, accommodations `0046`, and complete Enrollment parent identity `0047`, including Docker-backed upgrade execution and scoped repository isolation/concurrency/idempotency/audit tests against PostgreSQL 18; backup/restore remain later |
 | `GATE-STACK-ISOLATION` | Partial — Sessions protected repositories require complete ownership tuples and have wrong-scope/guessed-id tests; Worker timer fire reauthorizes per-Session service delegation at commit; human OIDC application-session isolation and the first Enrollment assignment/discovery slice are implemented and independently reviewed; organization-wide list/count matrices remain later |
-| `GATE-STACK-SESSION` | Partial — synthetic SSE reconnect/replay and production HTTP SSE host wiring preserve Session sequence and scoped reauthorization; opaque application-session login/rotation/revocation/back-channel logout is implemented, independently reviewed, and Docker-backed through `0033`; remaining Keycloak browser/multi-instance live matrix remains later |
-| `GATE-STACK-BROWSER` | Partial — static SPA build plus Playwright MCP on the synthetic Participant Text Session and authenticated production Campaign setup, Enrollment, and My work journeys; NGINX-hosted e2e in CI and the remaining production journeys remain later |
-| `GATE-STACK-HTTP` | Partial — human OIDC login/callback/logout/back-channel, opaque application-session cookies, and JWKS fail-closed behavior are implemented and independently reviewed; Keycloak `26.7.0` signed back-channel logout and NGINX restricted-route probes have Docker evidence; remaining browser PKCE/MFA/key-rotation/clock-skew/multi-instance matrix and body-coercion/payload-limit HTTP suite remain later |
+| `GATE-STACK-SESSION` | Partial — opaque application-session login/rotation/revocation/back-channel logout is implemented; `pnpm verify:oidc` proves live PKCE login, local logout, and signed provider-forced logout against PostgreSQL. Remaining multi-instance live matrix, 30-minute/12-hour elapsed bounds, and held-SSE adoption remain later |
+| `GATE-STACK-BROWSER` | Partial — static SPA build plus Playwright MCP; NGINX-hosted canonical OIDC Playwright and a named candidate/non-Production Wave 8.1 transition suite are required through `pnpm verify:oidc`. Remaining production journeys after authentication remain later |
+| `GATE-STACK-HTTP` | Partial — human OIDC login/callback/logout/back-channel and JWKS fail-closed behavior are implemented; Keycloak `26.7.0` signed logout-token compatibility, canonical gateway PKCE, unbound/ambiguous fail-closed, and restricted-route probes are required through `pnpm verify:oidc`. Real MFA, key rotation, clock skew, account-disablement, outage, and multi-instance callback remain later |
 | `GATE-STACK-ARTIFACTS` | Deferred — SeaweedFS remains a later sequenced artifact |
 | `GATE-STACK-PROVIDERS` | Partial — deterministic fake plus the vendor-neutral OpenAI-compatible adapter isolated in `FlexAgent.Sessions.OpenAiCompatible` (`openai_compatible` / `sessions.openai_compatible.v1`), fake-transport Chat Completions contract tests at digest-bound base paths, public/private destination-policy negatives, frozen per-Session profile/credential authority, and fail-closed Worker composition. Historical `direct_openai` / `sessions.openai.v1` identities remain inspectable and cannot enable execution. Deterministic migration evidence is not live qualification; the adapter stays default-off until a successor exact-profile run passes. The distinct OpenRouter synthetic-development adapter is implemented and labeled `qualified_for: synthetic_development` for the pinned `openai/gpt-oss-20b:free` / Darkbloom adapter harness only ([phase 28](../operations/provider-profiles/qualified/openrouter/synthetic-development-phase28-2026-08-21.md)). It is not enabled for real data, Production, or Staging. Interactive hosted chat, exact OpenAI-compatible profile qualification, Organization-hosted private-endpoint live evidence, and vLLM contract evidence also remain |
 

@@ -76,6 +76,13 @@ Start that profile with one documented command:
 bash build/scripts/authenticated-browser-profile.sh
 ```
 
+The required local/CI OIDC gate is `pnpm verify:oidc`. It fails when Docker or
+the Playwright browser is missing and always tears down Compose plus generated
+secret material. Canonical Playwright uses shipped `web-legacy` at
+`http://localhost:18080`. The named candidate/non-Production mode uses
+`--overlay candidate` and Vite at `http://127.0.0.1:5274`. Commands: [workspace
+development](workspace.md#oidc-authenticated-browser).
+
 Use its canonical `http://localhost:18080` browser origin and exact
 `http://localhost:18080/auth/callback` redirect so Playwright, the SPA, API,
 and Keycloak exercise one documented gateway contract.
@@ -139,7 +146,7 @@ Every open question (`Q-*`) must include an **interim default** plus brief ratio
 Run documentation validation before pushing doc changes:
 
 ```bash
-python scripts/check_docs.py
+python3 scripts/check_docs.py
 ```
 
 The script validates internal links and heading fragments (including the repository root `README.md`), deprecated terms, duplicate requirement IDs, Mermaid fence balance, all 19 feature-spec file presence, catalog membership and tier order in both requirements hubs, and tier counts.

@@ -39,7 +39,16 @@ paths = ['''(?i)\.work/active/''']
 regexes = ['''(?i)^cmd-(1|denied-refresh|401|stale-401)$''']
 
 [[rules.allowlists]]
+description = "SHA-256 content hashes of copied design-lab stylesheets."
+condition = "AND"
+paths = ['''(?i)web/src/design-lab/copied-styles\.test\.ts$''']
+regexes = ['''^[a-f0-9]{64}$''']
+
+[[rules.allowlists]]
 description = "Synthetic Keycloak JDBC URLs in local/CI compose profiles."
 condition = "AND"
-paths = ['''(?i)deploy/compose/(keycloak-contract|authenticated-browser)\.compose\.yaml$''']
+paths = [
+  '''(?i)deploy/compose/authenticated-browser\.compose\.yaml$''',
+  '''(?i)deploy/compose/keycloak-contract\.compose\.yaml$''',
+]
 regexes = ['''5432/keycloak''']

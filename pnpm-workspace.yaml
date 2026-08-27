@@ -2,3 +2,4 @@ packages:
   - "web"
   - "web-legacy"
   - "contracts"
+  - "tests/Browser/FlexAgent.Oidc.Playwright"

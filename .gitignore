@@ -451,6 +451,13 @@ web-legacy/tsconfig.tsbuildinfo
 # Coding-agent implementation working state under .work/ is intentionally
 # tracked so external reviewers can inspect plans and verification evidence.
 
+# Generated OIDC fixture secrets and rendered Keycloak realm (runtime only).
+deploy/compose/authenticated-browser/.generated/
+
+# OIDC Playwright runner output (keep inspected MCP PNGs under .playwright-mcp/).
+tests/Browser/FlexAgent.Oidc.Playwright/test-results/
+tests/Browser/FlexAgent.Oidc.Playwright/playwright-report.json
+
 # Impeccable local/runtime state; keep reviewed shared config.json and
 # generated design.json / surface briefs. Do not track screenshots, live
 # sessions, caches, logs, critique markdown (upstream CRITIQUE_DIR is

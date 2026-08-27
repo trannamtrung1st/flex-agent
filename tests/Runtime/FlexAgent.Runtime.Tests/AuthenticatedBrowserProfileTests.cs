@@ -9,13 +9,19 @@ public sealed class AuthenticatedBrowserProfileTests
     {
         var root = FindRepositoryRoot();
         Assert.True(File.Exists(Path.Combine(root, "build", "scripts", "authenticated-browser-profile.sh")));
+        Assert.True(File.Exists(Path.Combine(root, "build", "scripts", "validate-authenticated-browser-compose.py")));
+        Assert.True(File.Exists(Path.Combine(root, "build", "scripts", "render-oidc-realm.py")));
+        Assert.True(File.Exists(Path.Combine(root, "build", "scripts", "verify-oidc.sh")));
         Assert.True(File.Exists(Path.Combine(root, "deploy", "compose", "authenticated-browser.compose.yaml")));
         Assert.True(File.Exists(Path.Combine(root, "deploy", "compose", "nginx", "authenticated-browser.conf")));
         Assert.True(File.Exists(Path.Combine(root, "deploy", "compose", "authenticated-browser", "seed.sql")));
+        Assert.False(File.Exists(Path.Combine(root, "deploy", "compose", "keycloak-contract.compose.yaml")));
+        Assert.False(File.Exists(Path.Combine(root, "deploy", "compose", "nginx", "keycloak-contract.conf")));
+        Assert.False(File.Exists(Path.Combine(root, "deploy", "compose", "authenticated-browser", "secrets", "oidc-client-secret")));
     }
 
     [Fact]
-    public void Compose_uses_the_canonical_gateway_without_a_host_database_port()
+    public void Compose_pins_images_and_uses_the_canonical_gateway_without_a_host_database_port()
     {
         var compose = File.ReadAllText(ComposePath());
         Assert.Contains("127.0.0.1:18080:80", compose);
@@ -30,7 +36,16 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("http://keycloak:8080/realms/flex-agent/protocol/openid-connect/token", compose);
         Assert.Contains("http://keycloak:8080/realms/flex-agent/protocol/openid-connect/certs", compose);
         Assert.Contains("VITE_API_MODE: production", compose);
+        Assert.Contains(".generated/secrets", compose);
+        Assert.Contains(".generated/flex-agent-realm.json", compose);
+        Assert.Contains("@sha256:", compose);
+        Assert.Contains("postgres:18@sha256:", compose);
+        Assert.Contains("quay.io/keycloak/keycloak:26.7.0@sha256:", compose);
+        Assert.Contains("nginx:1.30.4@sha256:", compose);
+        Assert.Contains("chrislusf/seaweedfs:4.29@sha256:", compose);
+        Assert.Contains("condition: service_healthy", compose);
         Assert.DoesNotContain("/browser", compose);
+        Assert.DoesNotContain("host.docker.internal", compose);
     }
 
     [Fact]
@@ -54,38 +69,52 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("proxy_pass http://keycloak:8080/realms/flex-agent", nginx);
         Assert.Contains("location /admin", nginx);
         Assert.Contains("location /health", nginx);
+        Assert.Contains("location /metrics", nginx);
+        Assert.Contains("location /realms/master", nginx);
+        Assert.Contains("location /browser", nginx);
         Assert.Contains("return 404", nginx);
-        Assert.DoesNotContain("/browser", nginx);
-        Assert.DoesNotContain("realms/master", nginx);
+        Assert.DoesNotContain("proxy_pass http://keycloak:8080/realms/master", nginx);
+        Assert.DoesNotContain("host.docker.internal", nginx);
     }
 
     [Fact]
-    public void Realm_registers_the_gateway_callback_and_an_administrator_with_mfa_claims()
+    public void Realm_template_registers_the_in_compose_backchannel_without_a_client_secret()
     {
         using var document = JsonDocument.Parse(File.ReadAllText(RealmPath()));
         var client = document.RootElement.GetProperty("clients").EnumerateArray()
             .Single(item => item.GetProperty("clientId").GetString() == "flex-agent-api");
+        Assert.False(client.TryGetProperty("secret", out var secret) && secret.ValueKind == JsonValueKind.String && secret.GetString()?.Length > 0);
         var redirects = client.GetProperty("redirectUris").EnumerateArray()
             .Select(item => item.GetString())
             .ToArray();
         Assert.Contains("http://localhost:18080/auth/callback", redirects);
+        Assert.Contains("http://127.0.0.1:5274/auth/callback", redirects);
+        Assert.Equal("http://api:8080", client.GetProperty("adminUrl").GetString());
+        Assert.Equal(
+            "http://api:8080/auth/backchannel-logout",
+            client.GetProperty("attributes").GetProperty("backchannel.logout.url").GetString());
+        Assert.Equal("S256", client.GetProperty("attributes").GetProperty("pkce.code.challenge.method").GetString());
 
         var mappers = client.GetProperty("protocolMappers").EnumerateArray().ToArray();
         Assert.Contains(mappers, mapper =>
             mapper.GetProperty("config").GetProperty("claim.name").GetString() == "acr"
-            && mapper.GetProperty("config").GetProperty("claim.value").GetString() == "acr:mfa");
+            && mapper.GetProperty("config").GetProperty("claim.value").GetString() == "acr:mfa"
+            && mapper.GetProperty("name").GetString()!.Contains("synthetic-accepted-strength", StringComparison.Ordinal));
         Assert.Contains(mappers, mapper =>
             mapper.GetProperty("config").GetProperty("claim.name").GetString() == "amr"
             && mapper.GetProperty("config").GetProperty("claim.value").GetString()!.Contains("mfa", StringComparison.Ordinal));
 
-        var admin = document.RootElement.GetProperty("users").EnumerateArray()
-            .Single(item => item.GetProperty("username").GetString() == "synthetic.administrator");
-        Assert.True(admin.GetProperty("enabled").GetBoolean());
-        Assert.False(string.IsNullOrWhiteSpace(admin.GetProperty("id").GetString()));
+        var usernames = document.RootElement.GetProperty("users").EnumerateArray()
+            .Select(item => item.GetProperty("username").GetString())
+            .ToArray();
+        Assert.Contains("synthetic.administrator", usernames);
+        Assert.Contains("synthetic.unbound", usernames);
+        Assert.Contains("synthetic.zeroorg", usernames);
+        Assert.Contains("synthetic.ambiguous", usernames);
     }
 
     [Fact]
-    public void Seed_binds_the_exact_gateway_identity_and_minimum_assessment_grants()
+    public void Seed_binds_the_exact_gateway_identity_and_fail_closed_fixtures()
     {
         var seed = File.ReadAllText(Path.Combine(
             FindRepositoryRoot(),
@@ -98,23 +127,18 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("synthetic.administrator", seed);
         Assert.Contains("assessment.activity.create", seed);
         Assert.Contains("assessment.activity.read", seed);
-        Assert.Contains("assessment.activity.save", seed);
-        Assert.Contains("assessment.readiness.check", seed);
-        Assert.Contains("assessment.cohort.activate", seed);
-        Assert.Contains("assessment.source.select", seed);
-        Assert.Contains("assessment.activation.reconcile", seed);
-        Assert.Contains("assessment.baseline.read", seed);
-        Assert.Contains("assessment.enrollment.assign", seed);
-        Assert.Contains("assessment.assignment.discover", seed);
+        Assert.DoesNotContain("ffffffff-ffff-4fff-8fff-ffffffffffff", seed);
+        Assert.Contains("11111111-1111-4111-8111-111111111111", seed);
+        Assert.Contains("22222222-2222-4222-8222-222222222222", seed);
+        Assert.Contains("cccccccc-cccc-4ccc-8ccc-cccccccccccd", seed);
         Assert.Contains("identity_human_display_profiles", seed);
         Assert.Contains("synthetic.participant", seed);
-        Assert.Contains("configuration_source_readiness_descriptors", seed);
         Assert.DoesNotContain("INSERT INTO assessment_activities", seed);
         Assert.DoesNotContain("/browser", seed);
     }
 
     [Fact]
-    public void Script_is_non_interactive_and_exposes_start_readiness_seed_and_reset()
+    public void Script_requires_docker_and_validates_the_rendered_file_set()
     {
         var script = File.ReadAllText(Path.Combine(
             FindRepositoryRoot(),
@@ -123,36 +147,28 @@ public sealed class AuthenticatedBrowserProfileTests
             "authenticated-browser-profile.sh"));
 
         Assert.Contains("set -euo pipefail", script);
-        Assert.Contains("up", script);
-        Assert.Contains("reset", script);
-        Assert.Contains("status", script);
-        Assert.Contains("down", script);
-        Assert.Contains("validate", script);
-        Assert.DoesNotContain("read -p", script);
-        Assert.DoesNotContain("read -r", script);
-        Assert.Contains("http://localhost:18080", script);
-        Assert.Contains("127.0.0.1:18080:80", script);
-        Assert.Contains("non-loopback gateway publication is not permitted", script);
+        Assert.Contains("require_docker", script);
+        Assert.Contains("Docker Compose is required", script);
+        Assert.Contains("--overlay", script);
+        Assert.Contains("--project-name", script);
+        Assert.Contains("candidate", script);
+        Assert.Contains("validate-authenticated-browser-compose.py", script);
+        Assert.Contains("render-oidc-realm.py", script);
         Assert.Contains("config --format json", script);
-        Assert.Contains("host_ip", script);
-        Assert.Contains("0.0.0.0:18080:80", script);
-        Assert.Contains("authenticated-browser.compose.yaml", script);
+        Assert.DoesNotContain("read -p", script);
     }
 
     [Fact]
-    public void Negative_configuration_rejects_a_host_published_database_and_synthetic_browser_route()
+    public void Candidate_overlay_is_explicitly_non_production()
     {
-        var compose = File.ReadAllText(ComposePath());
-        var nginx = File.ReadAllText(Path.Combine(
+        var overlay = File.ReadAllText(Path.Combine(
             FindRepositoryRoot(),
             "deploy",
             "compose",
-            "nginx",
-            "authenticated-browser.conf"));
-
-        Assert.DoesNotContain("5432:5432", compose);
-        Assert.DoesNotContain("location /browser", nginx);
-        Assert.DoesNotContain("proxy_pass http://host.docker.internal:18082", nginx);
+            "authenticated-browser.candidate-dev.compose.yaml"));
+        Assert.Contains("Not Production", overlay);
+        Assert.Contains("http://127.0.0.1:5274/auth/callback", overlay);
+        Assert.Contains("authenticated-browser-profile.sh --overlay candidate", overlay);
     }
 
     private static string ComposePath() =>

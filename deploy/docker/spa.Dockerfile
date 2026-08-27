@@ -10,6 +10,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY contracts/package.json contracts/package.json
 COPY web/package.json web/package.json
 COPY web-legacy/package.json web-legacy/package.json
+COPY tests/Browser/FlexAgent.Oidc.Playwright/package.json tests/Browser/FlexAgent.Oidc.Playwright/package.json
 RUN pnpm install --frozen-lockfile
 
 COPY web-legacy/ web-legacy/

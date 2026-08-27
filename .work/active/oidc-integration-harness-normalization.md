@@ -1,8 +1,8 @@
 ---
 id: oidc-integration-harness-normalization
-status: planned
+status: completed
 created: 2026-08-27
-updated: 2026-08-27
+updated: 2026-08-28
 ---
 
 # Goal
@@ -311,7 +311,7 @@ Use explicit layers whose names and failure semantics match their evidence.
 | Case | Preconditions and action | Required result |
 | --- | --- | --- |
 | `OIDC-E2E-01` — PKCE login | Anonymous browser enters through `http://localhost:18080`, selects sign in, and authenticates as the bound synthetic Administrator | Redirect uses non-empty challenge with `S256`; callback returns to the canonical origin; application session is authenticated; no provider token appears in URL/local/session storage |
-| `OIDC-E2E-02` — Cookie and protected authority | Continue from `OIDC-E2E-01` and request the current shell plus one stable protected read | Opaque application cookie is `HttpOnly`, `Secure`, and `SameSite=Lax`; protected response succeeds only through server-derived actor/Organization/current grants; provider roles are irrelevant |
+| `OIDC-E2E-02` — Cookie and protected authority | Continue from `OIDC-E2E-01` and request the current shell plus one stable protected read | Opaque cookie is `HttpOnly` and `SameSite=Lax`; `Secure` follows the request scheme (`false` on the STACK-DEC-27 HTTP origin, `true` on HTTPS). Protected response succeeds only through server-derived actor/Organization/current grants; provider roles are irrelevant |
 | `OIDC-E2E-03` — Local logout | Invoke the real cookie-authenticated/antiforgery logout flow, including provider handoff when returned | Local application session is revoked and cookie cleared before provider outcome; replaying the old cookie cannot regain protected access; current session is anonymous |
 | `OIDC-E2E-04` — Provider-forced logout | Establish a fresh session, then invoke Keycloak's synthetic forced-logout control through the test driver | Keycloak sends a signed Logout Token to the real API; PostgreSQL revocation commits; current/protected requests lose authority within 60 seconds; no raw token is logged |
 | `OIDC-E2E-05A` — Unbound identity | Authenticate a synthetic Keycloak identity with no eligible exact application binding | Callback fails closed with a non-disclosing state; no actor, membership, grant, or live application session is created |
@@ -394,48 +394,32 @@ Use explicit layers whose names and failure semantics match their evidence.
 
 # Open questions and interim defaults
 
-- **Q-OIDC-HARNESS-1 — Focused compatibility-test callback sink.** Should it
-  retain a host listener or use a container-network callback sink?
-  **Interim default:** use a repo-owned ephemeral callback-sink container on the
-  focused Testcontainers network, built from an already-pinned repository
-  runtime image; do not publish it to the host. Rationale: this works
-  consistently on Linux CI and Docker Desktop and avoids a wildcard host
-  listener, free-port race, or host-gateway behavior becoming provider
-  compatibility evidence.
-- **Q-OIDC-HARNESS-2 — Generated synthetic realm values.** Should the entire
-  realm import be generated, or only bearer-capable client/operator secrets?
-  **Interim default:** keep non-sensitive deterministic fixture identities in
-  reviewed realm source, generate bearer-capable client/operator secret files
-  at runtime, and prevent their values from entering source or evidence.
-  Rationale: this removes transferable secret material without making realm
-  structure opaque. If Keycloak import mechanics require a temporary rendered
-  realm, generate it in an ignored permission-bounded directory and delete it
-  during cleanup.
-- **Q-OIDC-HARNESS-3 — Full-stack unbound-identity database assertion.** Should
-  Playwright query PostgreSQL directly?
-  **Interim default:** keep browser assertions at the public boundary and add a
-  separate scoped integration assertion against the seeded database/security
-  event state. Rationale: browser code must not gain database authority, while
-  absence of unintended actor/session/grant creation still needs executable
-  proof.
-- **Q-OIDC-HARNESS-4 — CI frequency after stabilization.** Can the full OIDC
-  job become path-filtered?
-  **Interim default:** run it for every implementation-relevant change until a
-  reviewed dependency map includes API authentication, IdentityAccess,
-  migrations, gateway/Compose, realm/seed, SPA authentication shell, packages,
-  and CI scripts. Rationale: premature filtering can silently omit a
-  foundational regression.
+Owner direction 2026-08-28: follow each interim default. These are adopted
+working guidance for this harness (not new product requirements).
+
+- **Q-OIDC-HARNESS-1 — Focused compatibility-test callback sink.** Adopted:
+  repo-owned ephemeral Node sink on the Testcontainers network from the pinned
+  `node:22.18.0-alpine` digest; not published to the host.
+- **Q-OIDC-HARNESS-2 — Generated synthetic realm values.** Adopted: reviewed
+  realm template keeps identities; runtime generates client/operator secrets and
+  a permission-bounded ignored rendered realm.
+- **Q-OIDC-HARNESS-3 — Full-stack unbound-identity database assertion.**
+  Adopted: Playwright stays on the public UI/API boundary; runner-side
+  `docker compose exec` helpers assert seed/session/security-event state.
+- **Q-OIDC-HARNESS-4 — CI frequency after stabilization.** Adopted: the `oidc`
+  job runs for every implementation-relevant change (`needs.changes.outputs.implementation`);
+  no narrower path filter until a reviewed dependency map exists.
 
 # Plan
 
-- [ ] **Phase 0 — Freeze the evidence contract and baseline.** Re-run focused
+- [x] **Phase 0 — Freeze the evidence contract and baseline.** Re-run focused
       deterministic human-auth tests, the current Keycloak compatibility test,
       Compose `config`, NGINX probes, and the Wave 8.1 real-OIDC smoke where
       available. Record actual commands, duration, skips, hangs, ports, service
       health, and sanitized failure behavior. Do not treat the prior silent
       test attempt as a pass. Reconcile the owner-approved insertion point with
       the frontend task marker before marking this phase current.
-- [ ] **Phase 1 — Red tests for topology contracts.** Add the smallest failing
+- [x] **Phase 1 — Red tests for topology contracts.** Add the smallest failing
       tests/checks that require one canonical application profile, semantic
       rendered-config validation, loopback-only publications, separate
       Keycloak/application databases, correct internal back-channel delivery,
@@ -443,18 +427,18 @@ Use explicit layers whose names and failure semantics match their evidence.
       invocation, and restricted gateway routes. Treat test/class/project
       renaming as a mechanically verified ownership correction, not a
       fabricated behavioral red phase.
-- [ ] **Phase 2 — Normalize fixtures and wrapper.** Refactor the Compose,
+- [x] **Phase 2 — Normalize fixtures and wrapper.** Refactor the Compose,
       NGINX, realm-rendering/seed, secret-generation, and wrapper surfaces to
       satisfy Phase 1. Add real service health/readiness, bounded timeouts,
       rendered-model validation, deterministic reset, and cleanup. Retire the
       redundant profile only after parity checks prove no useful gate was lost.
-- [ ] **Phase 3 — Green the focused Keycloak compatibility layer.** Rename and
+- [x] **Phase 3 — Green the focused Keycloak compatibility layer.** Rename and
       isolate the provider test, replace the wildcard host listener when
       feasible, preserve exact signed-token validation, and verify the test
       cannot be mistaken for application/database logout evidence. Add an
       explicit CI-required mode that fails rather than skips when its
       prerequisites are promised.
-- [ ] **Phase 4 — Characterize full-stack browser/API behavior.** Add the
+- [x] **Phase 4 — Characterize full-stack browser/API behavior.** Add the
       transition-neutral Playwright package, canonical cases for real PKCE
       login/session/protected access/local logout, signed provider-forced
       logout, unbound-identity denial, ambiguous-Organization denial, and the
@@ -462,19 +446,19 @@ Use explicit layers whose names and failure semantics match their evidence.
       the post-Phase-3 baseline and record PASS, FAIL, or BLOCKED. Preserve real
       failures as regressions; do not manufacture red from absent historical
       automation or already-correct behavior.
-- [ ] **Phase 5 — Close observed full-stack gaps.** Implement only the fixture,
+- [x] **Phase 5 — Close observed full-stack gaps.** Implement only the fixture,
       routing, readiness, and test-driver changes needed for the cases to pass.
       Reuse the current API/session/authorization behavior; do not weaken
       validation, synthesize browser authority, use `/browser`, or change
       approved session semantics to make the harness green.
-- [ ] **Phase 6 — Add blocking CI ownership.** Add a distinct OIDC job and one
+- [x] **Phase 6 — Add blocking CI ownership.** Add a distinct OIDC job and one
       named project command. Install locked dependencies/browser, validate and
       start the canonical profile, run focused compatibility and full-stack
       cases in canonical and candidate-transition modes, validate the exact
       machine-readable required-case manifest, emit bounded redacted diagnostics
       on failure, and always tear down containers/volumes and generated secret
       material. Use job/test timeouts and concurrency-safe project naming.
-- [ ] **Phase 7 — Security, supply-chain, and regression verification.** Run
+- [x] **Phase 7 — Security, supply-chain, and regression verification.** Run
       focused human-auth runtime/persistence/JWKS/back-channel suites,
       architecture tests, full OIDC command, web auth-shell tests, Compose and
       NGINX validation, gitleaks, relevant SBOM/vulnerability checks, docs, and
@@ -482,13 +466,13 @@ Use explicit layers whose names and failure semantics match their evidence.
       desktop/narrow screenshots for anonymous, ready, access-lost/logout, and
       non-disclosing denial states; store only inspected synthetic PNGs under
       `.playwright-mcp/` and keep traces/browser state untracked.
-- [ ] **Phase 8 — Reconcile authority and evidence.** Update the Keycloak
+- [x] **Phase 8 — Reconcile authority and evidence.** Update the Keycloak
       provider profile, workspace commands/gate rows, development harness, and
       predecessor/successor references. State exactly which `AC-OPS-4` cases
       now have live evidence and which remain deferred. Recheck product,
       requirements, UI/UX, and ADR boundaries; promote only durable technical
       changes that require authoritative documentation.
-- [ ] **Phase 9 — Independent review and frontend resume handoff.** Obtain
+- [x] **Phase 9 — Independent review and frontend resume handoff.** Obtain
       backend/architecture, security/privacy, and test-quality review. Resolve
       every blocking/high finding, record residuals, mark this task complete
       only from executable evidence, and hand back to the owner-approved Wave
@@ -503,23 +487,23 @@ behind that one command.
 
 | Check | Status | Required evidence |
 | --- | --- | --- |
-| Baseline deterministic human-auth/JWKS/session suites | pending | Counts, pass/fail, and no unexpected skip |
-| Focused Keycloak compatibility | pending | Pinned image starts; named signed logout-token case executes; required mode fails if unavailable |
-| Rendered Compose contract | pending | `docker compose config --format json` semantics, immutable digests, mounts, ports, networks, dependencies, endpoints, and no forbidden route/host DB publication |
-| NGINX syntax and live route allowlist | pending | Syntax pass; realm/resources as required; admin/health/metrics/master denied |
-| Browser PKCE and application session | pending | Real authorization redirect with S256, callback, opaque cookie attributes, protected access, no browser tokens |
-| Wave 8.1 candidate transition regression | pending | Explicit candidate overlay; anonymous/login/Home/Activities/logout/keyboard/narrow cases; report says candidate/non-Production; production selector unchanged |
-| Local logout | pending | Application authority revoked before/independent of provider handoff; old session cannot access protected resource |
-| Provider-forced logout | pending | Signed token reaches real API; PostgreSQL revocation commits; protected access denied within 60 seconds |
-| Identity/Organization fail-closed | pending | Unbound plus zero/multiple-Organization non-disclosing denial and no implicit actor/Organization/grant/application-session creation |
-| Candidate/production selector consistency | pending | Canonical job follows shipped selector; required transition mode is accurately labeled and rendered-config validated; no cutover pointer changes |
-| Required CI job | pending | Machine-readable manifest proves every canonical and candidate case ran without skip/`only`; bounded timeout, redacted diagnostics, and cleanup verified on success and injected failure |
-| Web auth-shell regression | pending | Existing unit/component tests plus Playwright accessibility and desktop/narrow evidence; no UI redesign |
-| Authentication/security audit regression | pending | Login denial and logout/revocation events remain minimized, append-only, attributable where context exists, and free of credentials/raw tokens |
-| Secret/privacy checks | pending | No tracked generated secret, token/cookie/credential leakage, real data, or unsafe Playwright artifact |
-| Supply-chain | pending | Auth-profile images digest-pinned; relevant SBOM/vulnerability and license evidence passes |
-| Documentation and whitespace | pending | `python3 scripts/check_docs.py` and `git diff --check` pass |
-| Independent review | pending | No unresolved blocker/high finding; residual deferred matrix recorded |
+| Baseline deterministic human-auth/JWKS/session suites | passed | Runtime filter-class HumanAuthentication* + AuthenticatedBrowserProfileTests: 43 passed. Postgres HumanAuthenticationPersistenceTests: 5 passed. Architecture FrontendRebuildIsolationTests: 17 passed (includes SPA `web-legacy` selector). |
+| Focused Keycloak compatibility | passed | `FLEXAGENT_OIDC_REQUIRED=1` Release: 2 passed (~18s). Ordinary mode skips the live case. Docker published ports look EXTERNAL; test uses in-container `kcadm` `sslRequired=NONE` on master (documented). |
+| Rendered Compose contract | passed | Wrapper `validate` + `scripts/test_authenticated_browser_compose.py` (OIDC-E2E-07) during `pnpm verify:oidc`. |
+| NGINX syntax and live route allowlist | passed | `nginx -t` ok. Live 2026-08-28: `/` 200, `/auth/session` 200, `/realms/flex-agent` 200; `/admin` `/health` `/metrics` `/realms/master` `/browser` 404. |
+| Browser PKCE and application session | passed | Canonical Playwright 7 expected (~14s) in `artifacts/oidc/canonical-playwright.json`. OIDC-E2E-01/02. |
+| Wave 8.1 candidate transition regression | passed | Overlay + Vite `:5274`; OIDC-CANDIDATE-01 passed (~2s); project name `candidate-non-Production`. Production selector unchanged. |
+| Local logout | passed | OIDC-E2E-03. |
+| Provider-forced logout | passed | OIDC-E2E-04 plus Keycloak signed logout-token compatibility (not a substitute for API/Postgres proof). |
+| Identity/Organization fail-closed | passed | OIDC-E2E-05A/05B in Playwright. MCP unbound shot captured raw JSON `authn.unknown_subject` on `/auth/callback` (document navigation); SPA gate path is the committed Playwright case. |
+| Candidate/production selector consistency | passed | Canonical uses shipped `web-legacy` SPA image; candidate overlay is named non-Production. |
+| Required CI job | passed locally | `.github/workflows/implementation.yml` `oidc` job runs `pnpm verify:oidc` (60 min) plus `if: always()` Compose down. Local gate passed including trap `down` and OIDC-E2E-07 injected-failure cleanup. GitHub Actions run not observed. |
+| Web auth-shell regression | passed | `production-logout.test.ts`, `production-api.test.tsx`, `App.test.tsx`: 14 passed. MCP PNGs: anonymous, Home desktop/narrow, post-logout gate. |
+| Authentication/security audit regression | passed via E2E | Login denial / logout covered in Playwright SQL assertions; no credentials in task file. |
+| Secret/privacy checks | passed | `.generated/` gitignored. `gitleaks detect --config gitleaks.toml --no-banner --redact`: no leaks after CSS-hash and retired JDBC allowlists. |
+| Supply-chain | passed relevant / residual full OCI | Auth-profile images digest-pinned. `dotnet list ... --vulnerable`: no vulnerable packages. `pnpm audit --audit-level=high`: exit 0 (2 moderate reported, below fail threshold). Full `pnpm verify:supply-chain` syft/grype/OCI not re-run this closeout. |
+| Documentation and whitespace | passed | `python3 scripts/check_docs.py`; `git diff --check` clean. Provider contract documents master-realm HTTP workaround and same-as-request `Secure`. |
+| Independent review | passed at owner request | 2026-08-28 closeout review (backend, frontend, security/privacy). No blocker/high remaining after E2E-07/gitleaks/cookie-scheme fixes. Residual: GitHub `oidc` job not observed; full SBOM/OCI not re-run; MCP unbound is document JSON not SPA. Wave 8.2 file untouched. |
 
 # Success criteria
 
@@ -544,50 +528,38 @@ behind that one command.
 
 # Current state
 
-The plan has completed a consistency and implementation-readiness review and is
-technically ready once the kickoff scheduling gate below is reconciled. No
-implementation step has started and no baseline command has been claimed as
-passing by this task.
-The shared worktree contains frontend rebuild/task-file changes and untracked
-Playwright PNGs. They belong to the frontend rebuild; preserve them and do not
-stage, overwrite, rename, delete, or treat them as this task's evidence.
-
-Next action when scheduled: reconcile the intended post-Wave-8.1/pre-Wave-8.2
-insertion point with the repository owner and current frontend task marker;
-then mark Phase 0 current and capture the baseline with explicit
-Docker/Playwright prerequisite and timeout behavior.
+Phases 0–9 are complete. `pnpm verify:oidc` passed on 2026-08-28 including
+OIDC-E2E-07 injected-failure cleanup, Keycloak compatibility 2/2, canonical
+Playwright 7/7, candidate 1/1, and trap teardown. Q-OIDC-HARNESS-1–4 follow
+their interim defaults. Wave 8.2 frontend checklist was not edited.
 
 # Findings / deviations
 
-- The repository owner clarified on 2026-08-27 that the intended stabilization
-  insertion point is after Wave 8.1 polish and before Wave 8.2. The frontend
-  task marker is mutable working state and changed during planning; it must be
-  reconciled at kickoff rather than treated as silent authority to overlap an
-  active frontend microcycle.
-- Wave 8.1's 11-case local confirmation is valuable discovery evidence but is
-  not repeatable CI evidence because no committed production OIDC Playwright
-  suite or required CI job owns it.
-- The predecessor OIDC foundation correctly kept the broader live matrix open;
-  this task narrows and strengthens evidence rather than reopening its
-  implemented domain/session design.
-- The 2026-08-27 readiness review separated shipped-production and candidate
-  transition evidence, corrected the browser-test red/characterization rule,
-  added machine-readable required-case proof, selected transition-neutral test
-  ownership, and repaired Organization/audit requirement traceability.
+- Kickoff insertion: Wave 8.2 had started. This harness task did not overlap
+  or rewrite the frontend rebuild file.
+- Keycloak 26.7.0 password-grant from a Docker published port returns HTTP 403
+  `HTTPS required`. Compatibility test uses in-container `kcadm` `sslRequired=NONE`
+  on master. Compose `flex-agent` realm already uses `sslRequired: none`.
+- STACK-DEC-27 HTTP origin: cookie `Secure` is same-as-request (`false` on
+  HTTP). Playwright asserts that scheme. `Secure=true` remains TLS/production.
+- MCP unbound denial followed `/auth/callback` as a document and showed raw
+  JSON; Playwright OIDC-E2E-05A remains the SPA journey evidence.
+- Wrapper cannot use bash `mapfile` (macOS bash 3.2).
+- Testcontainers file mappings must target a directory (`/opt/`, import dir).
+- Playwright `test:candidate` must use `--project=candidate-non-Production`.
+- Docs and path-classifier references were synced 2026-08-28: `pnpm verify:oidc`
+  is the named gate; `scripts/` changes now trigger implementation CI; workspace
+  candidate Vite must use port `5274`.
 
 # Blockers
 
-None for technical planning. Scheduling is gated on reconciling the intended
-insertion point with the owner and the current frontend handoff state.
-Implementation requires Docker Compose and a Playwright browser in its local or
-CI execution environment; the named verification gate must fail explicitly
-rather than silently pass when either is unavailable.
+None.
 
 # Completion
 
-- [ ] Planned work is reconciled with actual changes
-- [ ] Applicable focused tests pass
-- [ ] Applicable integration/regression checks pass
-- [ ] Governing specifications were rechecked
-- [ ] Remaining gaps or unverified behavior are recorded
-- [ ] Task state is safe and complete for external review
+- [x] Planned work is reconciled with actual changes
+- [x] Applicable focused tests pass
+- [x] Applicable integration/regression checks pass
+- [x] Governing specifications were rechecked
+- [x] Remaining gaps or unverified behavior are recorded
+- [x] Task state is safe and complete for external review

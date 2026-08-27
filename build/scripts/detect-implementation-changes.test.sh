@@ -30,6 +30,8 @@ assert_no_match() {
 assert_matches gitleaks.toml
 assert_matches .gitleaksignore
 assert_matches build/scripts/verify-supply-chain.sh
+assert_matches scripts/test_authenticated_browser_compose.py
+assert_matches tests/Browser/FlexAgent.Oidc.Playwright/package.json
 assert_matches contracts/schemas/v1/example.schema.json
 assert_matches src/Hosts/FlexAgent.Api/Program.cs
 assert_matches web/package.json

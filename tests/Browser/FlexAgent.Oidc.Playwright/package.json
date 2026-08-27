@@ -1,0 +1,13 @@
+{
+  "name": "@flex-agent/oidc-playwright",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "test": "playwright test",
+    "test:canonical": "playwright test --project=canonical",
+    "test:candidate": "playwright test --project=candidate-non-Production"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.1"
+  }
+}

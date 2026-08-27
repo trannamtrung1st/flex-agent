@@ -15,6 +15,8 @@ dotnet restore FlexAgent.slnx --locked-mode && dotnet test --solution FlexAgent.
 corepack enable && pnpm install --frozen-lockfile && pnpm verify:web
 bash build/scripts/verify-oci.sh
 python3 scripts/check_docs.py
+# Docker Compose required; canonical origin http://localhost:18080
+pnpm verify:oidc
 ```
 
 ## Start here

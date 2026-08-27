@@ -25,8 +25,9 @@ model-provider profiles. It does not select a product-default model.
   `openrouter/free` is discovery/smoke only. This evidence does not qualify
   production or close the OpenAI-compatible endpoint qualification track.
 - The [Keycloak OIDC contract profile](keycloak-oidc-contract.md) pins
-  Keycloak `26.7.0` for local/CI human-authentication qualification. It is not
-  a Production or real-Participant enablement.
+Keycloak `26.7.0` for local/CI human-authentication qualification. The blocking
+command is `pnpm verify:oidc`. It is not a Production or real-Participant
+enablement.
 - Do not commit API keys, prompts, participant data, or raw provider payloads
   here.
 

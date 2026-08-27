@@ -146,3 +146,41 @@ VALUES
     ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', '22222222-2222-2222-2222-222222222210', '33333333-3333-3333-3333-333333333310', 'assessment.capability_profile.v1', 'capability', 'available', 'p0-text', TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, '{"ref":"33333333-3333-3333-3333-333333333310"}'::jsonb, CLOCK_TIMESTAMP()),
     ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', '22222222-2222-2222-2222-222222222211', '33333333-3333-3333-3333-333333333311', 'assessment.review_release.v1', 'review_release', 'available', 'p0-text', TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, '{"ref":"33333333-3333-3333-3333-333333333311"}'::jsonb, CLOCK_TIMESTAMP())
 ON CONFLICT (organization_id, version_id) DO NOTHING;
+
+-- Fail-closed identities: exact binding with zero Organizations, and an exact
+-- binding with two eligible Organizations. Unbound Keycloak users have no rows.
+
+INSERT INTO actors (id, created_at)
+VALUES
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaac', CLOCK_TIMESTAMP()),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad', CLOCK_TIMESTAMP())
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO human_identity_bindings (
+    binding_id, issuer, subject, actor_id, created_at, disabled_at)
+VALUES (
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbd',
+    'http://localhost:18080/realms/flex-agent',
+    '11111111-1111-4111-8111-111111111111',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaac',
+    CLOCK_TIMESTAMP(),
+    NULL),
+(
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbe',
+    'http://localhost:18080/realms/flex-agent',
+    '22222222-2222-4222-8222-222222222222',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad',
+    CLOCK_TIMESTAMP(),
+    NULL)
+ON CONFLICT (issuer, subject) DO NOTHING;
+
+INSERT INTO organizations (id, created_at)
+VALUES ('cccccccc-cccc-4ccc-8ccc-cccccccccccd', CLOCK_TIMESTAMP())
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO actor_organization_grants (
+    organization_id, actor_id, relationship_version, granted_action, created_at)
+VALUES
+    ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad', 1, 'assessment.activity.read', CLOCK_TIMESTAMP()),
+    ('cccccccc-cccc-4ccc-8ccc-cccccccccccd', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad', 1, 'assessment.activity.read', CLOCK_TIMESTAMP())
+ON CONFLICT (organization_id, actor_id, granted_action) DO NOTHING;
