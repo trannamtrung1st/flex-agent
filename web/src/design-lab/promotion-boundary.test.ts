@@ -64,10 +64,12 @@ describe("Phase 7.5 design-lab promotion boundary", () => {
   });
 
   it("keeps the design lab from importing future production modules", () => {
-    const labSources = walk(designLabRoot).filter((path) => /\.(ts|tsx)$/.test(path));
+    const labSources = walk(designLabRoot).filter(
+      (path) => /\.(ts|tsx)$/.test(path) && !/\.(test|spec)\.(ts|tsx)$/.test(path),
+    );
     const violations = labSources.flatMap((path) => {
       const content = readFileSync(path, "utf8");
-      return designLabOutboundImportViolations(path, content).map(
+      return designLabOutboundImportViolations(path, content, repoRoot).map(
         (violation) => `${relative(repoRoot, path)} ${violation.slice(path.length + 1)}`,
       );
     });

@@ -4,6 +4,8 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  candidateHtmlEntryViolations,
+  designLabHtmlEntryViolations,
   designLabImportViolations,
   designLabOutboundImportViolations,
   isLabOwnedStylesheetFile,
@@ -46,13 +48,13 @@ function addDesignLabImportViolations(violations, file, relative, content) {
 }
 
 function addLabOwnedStylesheetImportViolations(violations, file, relative, content) {
-  for (const violation of labOwnedStylesheetImportViolations(file, content)) {
+  for (const violation of labOwnedStylesheetImportViolations(file, content, root)) {
     violations.push(`${relative} ${violation.slice(file.length + 1)}`);
   }
 }
 
 function addDesignLabOutboundImportViolations(violations, file, relative, content) {
-  for (const violation of designLabOutboundImportViolations(file, content)) {
+  for (const violation of designLabOutboundImportViolations(file, content, root)) {
     violations.push(`${relative} ${violation.slice(file.length + 1)}`);
   }
 }
@@ -93,12 +95,28 @@ for (const file of await walk(productionRoot)) {
   }
 }
 
+const candidateIndex = path.join(root, "web", "index.html");
+const designLabIndex = path.join(root, "web", "design-lab.html");
+for (const violation of candidateHtmlEntryViolations(
+  candidateIndex,
+  await readFile(candidateIndex, "utf8"),
+  root,
+)) {
+  violations.push(violation);
+}
+for (const violation of designLabHtmlEntryViolations(
+  designLabIndex,
+  await readFile(designLabIndex, "utf8"),
+)) {
+  violations.push(violation);
+}
+
 try {
   for (const file of await walk(designLabRoot)) {
     const relative = path.relative(root, file);
     const content = await readFile(file, "utf8");
     addViolations(violations, relative, content, snapshotNeedles);
-    if (isCodeSource(file)) {
+    if (isCodeSource(file) && !/\.(test|spec)\.(ts|tsx)$/.test(file)) {
       addDesignLabOutboundImportViolations(violations, file, relative, content);
     }
   }

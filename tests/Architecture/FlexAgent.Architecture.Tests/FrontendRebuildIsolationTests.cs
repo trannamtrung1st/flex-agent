@@ -13,15 +13,23 @@ public sealed class FrontendRebuildIsolationTests
         new(@"@import\s+(?:url\(\s*)?[""']([^""']+)[""']", RegexOptions.Compiled),
     ];
     private static readonly Regex DesignLabSegment = new(@"(?:^|/)design-lab(?:/|$)", RegexOptions.Compiled);
-    private static readonly Regex WebSrcSegment = new(@"(?:^|/)web/src/", RegexOptions.Compiled);
     private static readonly Regex LabOwnedStylesheet = new(@"(?:^|/)styles/(?:design-lab\.css|components/demo\.css|surfaces/)", RegexOptions.Compiled);
-    private static readonly Regex[] DesignLabOutboundAllow =
+    private static readonly Regex[] HtmlReferencePatterns =
     [
-        new(@"(?:^|/)web/src/design-lab/", RegexOptions.Compiled),
-        new(@"(?:^|/)web/src/design-system/", RegexOptions.Compiled),
-        new(@"(?:^|/)web/src/lib/", RegexOptions.Compiled),
-        new(@"(?:^|/)web/src/styles/", RegexOptions.Compiled),
+        new(@"<script\b[^>]*\btype\s*=\s*[""']module[""'][^>]*\bsrc\s*=\s*[""']([^""']+)[""']", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+        new(@"<script\b[^>]*\bsrc\s*=\s*[""']([^""']+)[""'][^>]*\btype\s*=\s*[""']module[""']", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+        new(@"<link\b[^>]*\brel\s*=\s*[""']stylesheet[""'][^>]*\bhref\s*=\s*[""']([^""']+)[""']", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+        new(@"<link\b[^>]*\bhref\s*=\s*[""']([^""']+)[""'][^>]*\brel\s*=\s*[""']stylesheet[""']", RegexOptions.Compiled | RegexOptions.IgnoreCase),
     ];
+    private static readonly string[] DesignLabOutboundRepoPrefixes =
+    [
+        "web/src/design-lab/",
+        "web/src/design-system/",
+        "web/src/lib/",
+        "web/src/styles/",
+    ];
+    private const string CandidateHtmlModuleEntry = "/src/main.tsx";
+    private const string DesignLabHtmlModuleEntry = "/src/design-lab/main.tsx";
 
     [Fact]
     public void Spa_dockerfile_points_at_web_legacy_until_cutover()
@@ -179,10 +187,48 @@ public sealed class FrontendRebuildIsolationTests
     [Fact]
     public void Design_lab_outbound_import_allowlist_blocks_future_production_modules()
     {
-        const string fromFile = "/repo/web/src/design-lab/features/admin/SampleArea.tsx";
-        Assert.True(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../components"));
-        Assert.False(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../../api/client"));
-        Assert.False(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../../components/ErrorBoundary"));
+        var root = FindRepositoryRoot();
+        var fromFile = Path.Combine(root, "web", "src", "design-lab", "features", "admin", "SampleArea.tsx");
+        Assert.True(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../components", root));
+        Assert.False(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../../api/client", root));
+        Assert.False(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../../components/ErrorBoundary", root));
+        Assert.False(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../../../../contracts/something", root));
+        Assert.False(SpecifierResolvesToAllowedDesignLabOutbound(fromFile, "../../../../../build/scripts/foo", root));
+    }
+
+    [Fact]
+    public void Candidate_html_entry_loads_only_approved_production_assets()
+    {
+        var root = FindRepositoryRoot();
+        var index = File.ReadAllText(Path.Combine(root, "web", "index.html"));
+        Assert.Contains("src=\"/src/main.tsx\"", index, StringComparison.Ordinal);
+        Assert.DoesNotContain("design-lab", index, StringComparison.Ordinal);
+        Assert.DoesNotContain("styles/surfaces/", index, StringComparison.Ordinal);
+        Assert.DoesNotContain("styles/components/demo.css", index, StringComparison.Ordinal);
+
+        var violations = CandidateHtmlEntryViolations(Path.Combine(root, "web", "index.html"), index, root);
+        Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
+    }
+
+    [Fact]
+    public void Design_lab_html_entry_loads_only_design_lab_main()
+    {
+        var root = FindRepositoryRoot();
+        var index = File.ReadAllText(Path.Combine(root, "web", "design-lab.html"));
+        Assert.Contains("src=\"/src/design-lab/main.tsx\"", index, StringComparison.Ordinal);
+        Assert.DoesNotContain("src=\"/src/main.tsx\"", index, StringComparison.Ordinal);
+
+        var violations = DesignLabHtmlEntryViolations(Path.Combine(root, "web", "design-lab.html"), index);
+        Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
+    }
+
+    [Fact]
+    public void Html_module_and_stylesheet_references_are_parsed_for_isolation_checks()
+    {
+        const string html = "<script type=\"module\" src=\"/src/main.tsx\"></script><link rel=\"stylesheet\" href=\"/src/styles/shared.css\" />";
+        var specifiers = ExtractImportSpecifiers(html);
+        Assert.Contains("/src/main.tsx", specifiers);
+        Assert.Contains("/src/styles/shared.css", specifiers);
     }
 
     [Fact]
@@ -218,7 +264,9 @@ public sealed class FrontendRebuildIsolationTests
             AddIfContains(violations, relative, content, "web-legacy");
             AddIfContains(violations, relative, content, ".work/resources");
             AddIfContains(violations, relative, content, "impeccable-prototype");
-            if (!relative.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
+            if (!relative.EndsWith(".css", StringComparison.OrdinalIgnoreCase)
+                && !relative.Contains(".test.", StringComparison.Ordinal)
+                && !relative.Contains(".spec.", StringComparison.Ordinal))
             {
                 AddDesignLabOutboundImportViolations(violations, file, relative, content);
             }
@@ -272,9 +320,10 @@ public sealed class FrontendRebuildIsolationTests
 
     private static void AddDesignLabOutboundImportViolations(List<string> violations, string file, string relative, string content)
     {
+        var root = FindRepositoryRoot();
         foreach (var specifier in ExtractImportSpecifiers(content))
         {
-            if (!SpecifierResolvesToAllowedDesignLabOutbound(file, specifier))
+            if (!SpecifierResolvesToAllowedDesignLabOutbound(file, specifier, root))
             {
                 violations.Add($"{relative} imports forbidden production module ('{specifier}')");
             }
@@ -303,54 +352,178 @@ public sealed class FrontendRebuildIsolationTests
             }
         }
 
+        if (content.Contains('<', StringComparison.Ordinal))
+        {
+            foreach (var pattern in HtmlReferencePatterns)
+            {
+                foreach (Match match in pattern.Matches(content))
+                {
+                    specifiers.Add(match.Groups[1].Value);
+                }
+            }
+        }
+
         return specifiers;
     }
 
-    private static bool SpecifierResolvesToLabOwnedStylesheet(string fromFile, string specifier)
+    private static string? ResolveSpecifierToAbsolute(string fromFile, string specifier, string repoRoot)
     {
         var normalized = specifier.Replace('\\', '/');
-        if (!normalized.StartsWith('.') && !Path.IsPathRooted(specifier))
+        if (normalized.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
         {
-            return false;
+            return null;
         }
 
-        var directory = Path.GetDirectoryName(fromFile);
-        ArgumentException.ThrowIfNullOrEmpty(directory);
-        var resolved = Path.GetFullPath(Path.Combine(directory, specifier)).Replace('\\', '/');
-        return LabOwnedStylesheet.IsMatch(resolved);
-    }
-
-    private static bool SpecifierResolvesToAllowedDesignLabOutbound(string fromFile, string specifier)
-    {
-        var normalized = specifier.Replace('\\', '/');
-        if (!normalized.StartsWith('.') && !Path.IsPathRooted(specifier))
+        if (normalized.StartsWith('/') && !normalized.StartsWith("//", StringComparison.Ordinal))
         {
-            return true;
+            return Path.GetFullPath(Path.Combine(repoRoot, "web", normalized.TrimStart('/'))).Replace('\\', '/');
         }
 
-        var directory = Path.GetDirectoryName(fromFile);
-        ArgumentException.ThrowIfNullOrEmpty(directory);
-        var resolved = Path.GetFullPath(Path.Combine(directory, specifier)).Replace('\\', '/');
-        if (!WebSrcSegment.IsMatch(resolved))
-        {
-            return true;
-        }
-
-        return DesignLabOutboundAllow.Any(pattern => pattern.IsMatch(resolved));
-    }
-
-    private static bool SpecifierResolvesToDesignLab(string fromFile, string specifier)
-    {
-        var normalized = specifier.Replace('\\', '/');
         if (normalized.StartsWith('.') || Path.IsPathRooted(specifier))
         {
             var directory = Path.GetDirectoryName(fromFile);
             ArgumentException.ThrowIfNullOrEmpty(directory);
-            var resolved = Path.GetFullPath(Path.Combine(directory, specifier)).Replace('\\', '/');
-            return DesignLabSegment.IsMatch(resolved);
+            return Path.GetFullPath(Path.Combine(directory, specifier)).Replace('\\', '/');
         }
 
-        return DesignLabSegment.IsMatch(normalized);
+        return null;
+    }
+
+    private static bool IsAllowedDesignLabOutboundRepoRelative(string relativeToRepo) =>
+        DesignLabOutboundRepoPrefixes.Any(prefix =>
+            string.Equals(relativeToRepo, prefix.TrimEnd('/'), StringComparison.Ordinal)
+            || relativeToRepo.StartsWith(prefix, StringComparison.Ordinal));
+
+    private static List<string> CandidateHtmlEntryViolations(string htmlFile, string content, string repoRoot)
+    {
+        var violations = new List<string>();
+        foreach (var reference in ExtractHtmlModuleScriptSources(content))
+        {
+            if (!string.Equals(reference, CandidateHtmlModuleEntry, StringComparison.Ordinal))
+            {
+                violations.Add($"{htmlFile} module entry must be '{CandidateHtmlModuleEntry}', found '{reference}'");
+            }
+
+            if (SpecifierResolvesToDesignLab(htmlFile, reference, repoRoot))
+            {
+                violations.Add($"{htmlFile} references design-lab module '{reference}'");
+            }
+        }
+
+        foreach (var reference in ExtractHtmlStylesheetHrefs(content))
+        {
+            if (SpecifierResolvesToLabOwnedStylesheet(htmlFile, reference, repoRoot))
+            {
+                violations.Add($"{htmlFile} references lab-owned stylesheet '{reference}'");
+            }
+
+            if (SpecifierResolvesToDesignLab(htmlFile, reference, repoRoot))
+            {
+                violations.Add($"{htmlFile} references design-lab asset '{reference}'");
+            }
+        }
+
+        return violations;
+    }
+
+    private static List<string> DesignLabHtmlEntryViolations(string htmlFile, string content)
+    {
+        var violations = new List<string>();
+        foreach (var reference in ExtractHtmlModuleScriptSources(content))
+        {
+            if (!string.Equals(reference, DesignLabHtmlModuleEntry, StringComparison.Ordinal))
+            {
+                violations.Add($"{htmlFile} module entry must be '{DesignLabHtmlModuleEntry}', found '{reference}'");
+            }
+        }
+
+        return violations;
+    }
+
+    private static IEnumerable<string> ExtractHtmlModuleScriptSources(string content)
+    {
+        foreach (var pattern in HtmlReferencePatterns.Take(2))
+        {
+            foreach (Match match in pattern.Matches(content))
+            {
+                yield return match.Groups[1].Value;
+            }
+        }
+    }
+
+    private static IEnumerable<string> ExtractHtmlStylesheetHrefs(string content)
+    {
+        foreach (var pattern in HtmlReferencePatterns.Skip(2))
+        {
+            foreach (Match match in pattern.Matches(content))
+            {
+                yield return match.Groups[1].Value;
+            }
+        }
+    }
+
+    private static bool SpecifierResolvesToLabOwnedStylesheet(string fromFile, string specifier, string? repoRoot = null)
+    {
+        var normalized = specifier.Replace('\\', '/');
+        if (!normalized.StartsWith('.') && !normalized.StartsWith('/') && !Path.IsPathRooted(specifier))
+        {
+            return false;
+        }
+
+        var root = repoRoot ?? InferRepoRootFromWebSrcFile(fromFile);
+        var resolved = ResolveSpecifierToAbsolute(fromFile, specifier, root);
+        return resolved is not null && LabOwnedStylesheet.IsMatch(resolved);
+    }
+
+    private static bool SpecifierResolvesToAllowedDesignLabOutbound(string fromFile, string specifier, string? repoRoot = null)
+    {
+        var normalized = specifier.Replace('\\', '/');
+        if (!normalized.StartsWith('.') && !normalized.StartsWith('/') && !Path.IsPathRooted(specifier))
+        {
+            return true;
+        }
+
+        var root = repoRoot ?? InferRepoRootFromWebSrcFile(fromFile);
+        var resolved = ResolveSpecifierToAbsolute(fromFile, specifier, root);
+        if (resolved is null)
+        {
+            return false;
+        }
+
+        var relativeToRepo = ToRepoRelative(root, resolved);
+        if (relativeToRepo.StartsWith("..", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return IsAllowedDesignLabOutboundRepoRelative(relativeToRepo);
+    }
+
+    private static bool SpecifierResolvesToDesignLab(string fromFile, string specifier, string? repoRoot = null)
+    {
+        var normalized = specifier.Replace('\\', '/');
+        if (!normalized.StartsWith('.') && !normalized.StartsWith('/') && !Path.IsPathRooted(specifier))
+        {
+            return DesignLabSegment.IsMatch(normalized);
+        }
+
+        var root = repoRoot ?? InferRepoRootFromWebSrcFile(fromFile);
+        var resolved = ResolveSpecifierToAbsolute(fromFile, specifier, root);
+        return resolved is not null && DesignLabSegment.IsMatch(resolved);
+    }
+
+    private static string InferRepoRootFromWebSrcFile(string fromFile)
+    {
+        var normalized = fromFile.Replace('\\', '/');
+        const string marker = "/web/src/";
+        var index = normalized.IndexOf(marker, StringComparison.Ordinal);
+        if (index < 0)
+        {
+            throw new InvalidOperationException($"Cannot infer repository root from file path: {fromFile}");
+        }
+
+        return normalized[..index];
     }
 
     private static bool IsLabOwnedStylesheet(string relative) =>

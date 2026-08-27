@@ -1242,8 +1242,9 @@ on it.
   covers lab E2E and lab config files.
 - [x] Extend bundle defense-in-depth markers for all surface `data-surface`
   selectors.
-
-## Phase 8 — Migrate the frozen production-parity frontend in vertical waves
+- [x] Tighten design-lab outbound allowlist to reject arbitrary repo paths
+  outside approved `web/src` prefixes; parse HTML module `src` / stylesheet
+  `href` entry references for candidate and lab HTML shells.
 
 Starts only after Phase 7.5 establishes `/design-lab`, verifies the promotion
 boundary, and removes every live dependency on the raw/original prototypes.
