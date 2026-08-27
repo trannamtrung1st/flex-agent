@@ -1,0 +1,145 @@
+import type { ReviewSession } from "../types";
+
+export const REVIEWER_BASE: ReviewSession[] = [
+  {
+    id: "sess-7c19",
+    candidate: "CND-8842-19",
+    campaign: "Systems Design Q3",
+    assignment: "Real-time Inventory & Order Management at Scale",
+    received: "25 AUG 14:42",
+    receivedSort: 1,
+    sessionLabel: "Session 07 · FXA-7C19-2A07",
+    rubric: "v3",
+    agentRevision: "R-14",
+    harnessSnapshot: "HS-7C19",
+    submissions: [
+      { version: "v1", label: "inventory-design-v1.pdf", preserved: false },
+      { version: "v2", label: "inventory-design-v2.pdf", preserved: true },
+    ],
+    turns: [
+      { index: "01", speaker: "agent", time: "00:00:28", text: "Welcome. This examination focuses on a systems design case study: a real-time inventory and order management platform at global scale. Begin when you are ready." },
+      { index: "02", speaker: "participant", time: "00:01:12", text: "Before proposing architecture, I want to confirm requirements: expected read/write throughput, consistency expectations, and whether integrations are synchronous." },
+      { index: "03", speaker: "agent", time: "00:03:12", text: "Requirements include real-time inventory accuracy, high write throughput for order events, and low-latency reads for storefront queries. Constraints: global scale, 99.99% availability, and integrations with payment and fulfillment services." },
+      { index: "04", speaker: "participant", time: "00:05:47", text: "I would start with a multi-region active-active topology, partition inventory by item_id, stream order events through a durable log, and use CQRS so reads do not contend with writes." },
+      { index: "05", speaker: "agent", time: "00:08:31", text: "How would you handle trade-offs between consistency and availability when stock is decremented under contention?" },
+    ],
+    criteria: [
+      { id: "req", label: "Requirements Coverage", max: 5, score: 4, rationale: "Captured core requirements and constraints with good specificity.", confidence: 0.82, cites: ["01"] },
+      { id: "trade", label: "Trade-off Reasoning", max: 5, score: 3, rationale: "Explains architecture choices but trade-offs are only partially explored.", confidence: 0.68, uncertainty: "Limited discussion of failure modes under partition.", cites: ["03"] },
+      { id: "evidence", label: "Evidence Use", max: 5, score: 4, rationale: "Uses requirements and constraints to justify design decisions.", confidence: 0.77, cites: ["04"] },
+    ],
+    reviewStatus: "awaiting",
+    hot: true,
+  },
+  {
+    id: "sess-3a08",
+    candidate: "CND-7713-08",
+    campaign: "Architecture Critique",
+    assignment: "Distributed Lock Service",
+    received: "24 AUG 09:18",
+    receivedSort: 2,
+    sessionLabel: "Session 04 · FXA-3A08-9B12",
+    rubric: "v2",
+    agentRevision: "R-14",
+    harnessSnapshot: "HS-3A08",
+    submissions: [{ version: "v1", label: "lock-service-memo.pdf", preserved: true }],
+    turns: [
+      { index: "01", speaker: "agent", time: "00:00:22", text: "Describe how you would design a distributed lock service with fencing tokens." },
+      { index: "02", speaker: "participant", time: "00:02:05", text: "Lease-based locks with versioned tokens returned to clients; storage layer records owner epoch." },
+      { index: "03", speaker: "agent", time: "00:04:40", text: "What happens when a partitioned client believes it still holds the lock?" },
+    ],
+    criteria: [
+      { id: "req", label: "Correctness", max: 5, score: 4, rationale: "Identifies fencing and lease expiry as primary safety mechanisms.", confidence: 0.79, cites: ["02"] },
+      { id: "ops", label: "Operational Clarity", max: 5, score: 3, rationale: "Partition behavior described but recovery steps remain implicit.", confidence: 0.64, uncertainty: "No explicit mention of clock skew bounds.", cites: ["03"] },
+    ],
+    reviewStatus: "awaiting",
+  },
+  {
+    id: "sess-9f44",
+    candidate: "CND-9021-44",
+    campaign: "Network Failure Case",
+    assignment: "Failover Strategy Analysis",
+    received: "23 AUG 16:55",
+    receivedSort: 3,
+    sessionLabel: "Session 11 · FXA-9F44-1D03",
+    rubric: "v3",
+    agentRevision: "R-12",
+    harnessSnapshot: "HS-9F44",
+    submissions: [{ version: "v1", label: "failover-analysis.pdf", preserved: true }],
+    turns: [
+      { index: "01", speaker: "agent", time: "00:00:19", text: "Walk through failover for a regional API gateway during partial network partition." },
+      { index: "02", speaker: "participant", time: "00:01:48", text: "Health checks shift traffic to secondary region; stale routes drained with bounded retry budgets." },
+    ],
+    criteria: [
+      { id: "req", label: "Failure Analysis", max: 5, score: 3, rationale: "Covers routing shift but under-specifies data-plane consistency during failover.", confidence: 0.61, uncertainty: "Needs stronger evidence on split-brain prevention.", cites: ["02"] },
+    ],
+    reviewStatus: "escalated",
+  },
+  {
+    id: "sess-6612",
+    candidate: "CND-6630-12",
+    campaign: "Cache Coherence Lab",
+    assignment: "MESI Protocol Walkthrough",
+    received: "20 AUG 11:02",
+    receivedSort: 4,
+    sessionLabel: "Session 02 · FXA-6612-4E88",
+    rubric: "v2",
+    agentRevision: "R-11",
+    harnessSnapshot: "HS-6612",
+    submissions: [{ version: "v1", label: "mesi-walkthrough.pdf", preserved: true }],
+    turns: [
+      { index: "01", speaker: "agent", time: "00:00:15", text: "Explain MESI states and when a cache line transitions to Modified." },
+      { index: "02", speaker: "participant", time: "00:01:02", text: "Modified when a core writes locally without sharing; other cores must invalidate or fetch on read." },
+    ],
+    criteria: [
+      { id: "req", label: "Conceptual Accuracy", max: 5, score: 5, rationale: "States transitions precisely with correct invalidation behavior.", confidence: 0.91, cites: ["02"] },
+    ],
+    reviewStatus: "released",
+  },
+];
+
+const BUSY_EXTRA: ReviewSession[] = [
+  {
+    id: "sess-b01",
+    candidate: "CND-5520-33",
+    campaign: "API Design Review",
+    assignment: "Rate Limiter Contract",
+    received: "25 AUG 08:10",
+    receivedSort: 0,
+    sessionLabel: "Session 15 · FXA-B01-2201",
+    rubric: "v3",
+    agentRevision: "R-14",
+    harnessSnapshot: "HS-B01",
+    submissions: [{ version: "v1", label: "rate-limit-spec.pdf", preserved: true }],
+    turns: [{ index: "01", speaker: "agent", time: "00:00:20", text: "Define a rate limiter API for multi-tenant workloads." }],
+    criteria: [{ id: "req", label: "API Clarity", max: 5, score: 4, rationale: "Clear tenant scoping and burst semantics.", confidence: 0.74, cites: ["01"] }],
+    reviewStatus: "awaiting",
+    hot: true,
+  },
+  {
+    id: "sess-b02",
+    candidate: "CND-4411-07",
+    campaign: "Storage Deep Dive",
+    assignment: "Write-Ahead Log Recovery",
+    received: "24 AUG 20:44",
+    receivedSort: 1,
+    sessionLabel: "Session 09 · FXA-B02-1188",
+    rubric: "v3",
+    agentRevision: "R-14",
+    harnessSnapshot: "HS-B02",
+    submissions: [{ version: "v1", label: "wal-recovery.pdf", preserved: true }],
+    turns: [{ index: "01", speaker: "agent", time: "00:00:18", text: "How do you recover committed writes after crash between log append and page flush?" }],
+    criteria: [{ id: "req", label: "Recovery Reasoning", max: 5, score: 3, rationale: "Mentions replay but omits checksum validation step.", confidence: 0.66, cites: ["01"] }],
+    reviewStatus: "awaiting",
+  },
+];
+
+export const REVIEWER_DEMOS = {
+  default: REVIEWER_BASE,
+  busy: [...REVIEWER_BASE, ...BUSY_EXTRA],
+  single: [REVIEWER_BASE[0]],
+  empty: [] as ReviewSession[],
+};
+
+export const REVIEWER_DEMO_KEYS = ["default", "busy", "single", "empty"] as const;
+export const REVIEWER_STORAGE_KEY = "flex-agent-reviewer-demo-v1";

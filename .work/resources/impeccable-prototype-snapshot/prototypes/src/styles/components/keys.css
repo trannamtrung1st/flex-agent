@@ -1,0 +1,218 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Flex Agent — Shipboard Terminal · Keys
+   Requires tokens.css. Loaded from index.css before surface sheets, so a
+   surface may tighten density (e.g. session key padding) without forking
+   the component. Layout shells and surface-tuned glyphs stay in surface CSS.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ═══ Keys (buttons) ═════════════════════════════════════════════ */
+
+.key {
+  cursor: pointer;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--label);
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: var(--key-font-size);
+  letter-spacing: var(--key-letter-spacing);
+  padding: var(--key-padding-block) var(--key-padding-inline);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  transition: color 160ms var(--ease-out), border-color 160ms var(--ease-out),
+              background-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+}
+
+.key svg { width: var(--key-glyph-size); height: var(--key-glyph-size); flex-shrink: 0; }
+
+.key--quiet {
+  padding: var(--key-quiet-padding-block) var(--key-quiet-padding-inline);
+}
+
+.key--quiet:hover, .key--quiet:focus-visible { color: var(--teal); border-color: var(--teal); }
+.key--quiet:active { background: var(--teal-glow); }
+.key--quiet:disabled { opacity: 0.4; cursor: not-allowed; }
+a.key[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.key--compact {
+  font-size: var(--key-compact-font-size);
+  padding: var(--key-compact-padding-block) var(--key-compact-padding-inline);
+  letter-spacing: var(--key-compact-letter-spacing);
+  min-height: 30px;
+}
+
+.key--large {
+  font-size: var(--key-large-font-size);
+  padding: var(--key-large-padding-block) var(--key-large-padding-inline);
+}
+
+.key--back { padding: 8px 16px 8px 12px; }
+
+.icon-button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--label-dim);
+  cursor: pointer;
+  transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
+}
+
+.icon-button::before {
+  content: "";
+  position: absolute;
+  inset: -11px;
+}
+
+.icon-button:hover,
+.icon-button:focus-visible,
+.icon-button.is-open {
+  color: var(--teal);
+  background: var(--teal-glow);
+}
+
+.icon-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: transparent;
+}
+
+.icon-button > svg {
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+
+/* — Hot key family: amber, notched leading edge — */
+
+.key--transmit, .key--begin, .key--open, .key--activate, .key--inspect, .key--release {
+  clip-path: polygon(14px 0, 100% 0, 100% 100%, 0 100%, 0 50%);
+  font-size: 0.75rem;
+}
+
+.key--transmit, .key--open, .key--inspect, .key--release {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: linear-gradient(180deg, rgba(226, 163, 60, 0.08), rgba(226, 163, 60, 0.02));
+}
+
+.key--transmit { padding: 10px 26px 10px 30px; }
+.key--open     { padding: 10px 30px 10px 34px; }
+.key--inspect  { padding: 10px 26px 10px 34px; }
+.key--release  { padding: 10px 30px 10px 38px; }
+
+.key--transmit:hover, .key--transmit:focus-visible,
+.key--open:hover, .key--open:focus-visible,
+.key--inspect:hover, .key--inspect:focus-visible,
+.key--release:hover, .key--release:focus-visible {
+  color: var(--amber-bright);
+  background: rgba(226, 163, 60, 0.16);
+  box-shadow: 0 0 18px var(--amber-glow);
+}
+
+.key--transmit:active, .key--open:active,
+.key--inspect:active, .key--release:active { background: rgba(226, 163, 60, 0.26); }
+
+.key--transmit:disabled, .key--inspect:disabled, .key--release:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* waiting: system teal, not the disabled fade — the key is occupied, not dead */
+.key.is-waiting {
+  pointer-events: none;
+  cursor: progress;
+}
+.key.is-waiting:disabled,
+.key--quiet.is-waiting:disabled,
+.key--transmit.is-waiting:disabled,
+.key--inspect.is-waiting:disabled,
+.key--release.is-waiting:disabled,
+.key--begin.is-waiting:disabled,
+.key--open.is-waiting:disabled,
+.key--activate.is-waiting:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+
+/* occupation is system teal — hot keys drop the amber commit voice */
+.key--transmit.is-waiting,
+.key--transmit.is-waiting:disabled,
+.key--open.is-waiting,
+.key--open.is-waiting:disabled,
+.key--inspect.is-waiting,
+.key--inspect.is-waiting:disabled,
+.key--release.is-waiting,
+.key--release.is-waiting:disabled,
+.key--begin.is-waiting,
+.key--begin.is-waiting:disabled,
+.key--activate.is-waiting,
+.key--activate.is-waiting:disabled {
+  color: var(--teal);
+  border-color: var(--teal);
+  background: var(--teal-glow);
+  box-shadow: none;
+}
+
+/* pre-lit primary: the one already-armed key on a surface */
+.key--begin {
+  color: var(--amber-bright);
+  border-color: var(--amber-bright);
+  background: linear-gradient(180deg, rgba(226, 163, 60, 0.38), rgba(226, 163, 60, 0.16));
+  padding: 10px 26px 10px 30px;
+  box-shadow: 0 0 20px var(--amber-glow);
+}
+
+.key--begin:hover, .key--begin:focus-visible {
+  color: var(--amber-bright);
+  background: rgba(226, 163, 60, 0.48);
+  box-shadow: 0 0 26px rgba(226, 163, 60, 0.32);
+}
+
+.key--begin:active { background: rgba(226, 163, 60, 0.56); }
+
+.key--begin:disabled {
+  opacity: 0.78;
+  cursor: not-allowed;
+  background: linear-gradient(180deg, rgba(226, 163, 60, 0.26), rgba(226, 163, 60, 0.1));
+  color: var(--amber-bright);
+  border-color: var(--amber);
+  box-shadow: none;
+}
+
+/* ceremony hot key: double amber stroke over a pre-lit glow fill */
+.key--activate {
+  color: var(--amber-bright);
+  border-color: var(--amber);
+  background: linear-gradient(180deg, rgba(226, 163, 60, 0.18), rgba(226, 163, 60, 0.06));
+  padding: 10px 30px 10px 34px;
+  box-shadow:
+    inset 0 0 0 1px rgba(226, 163, 60, 0.45),
+    inset 0 0 16px rgba(226, 163, 60, 0.22),
+    0 0 14px var(--amber-glow);
+}
+
+.key--activate:hover, .key--activate:focus-visible {
+  color: var(--amber-bright);
+  background: rgba(226, 163, 60, 0.28);
+  box-shadow:
+    inset 0 0 0 1px rgba(226, 163, 60, 0.6),
+    inset 0 0 18px rgba(226, 163, 60, 0.3),
+    0 0 22px var(--amber-glow);
+}
+
+.key--activate:active { background: rgba(226, 163, 60, 0.36); }
+.key--activate:disabled { opacity: 0.38; cursor: not-allowed; background: transparent; box-shadow: none; }
+

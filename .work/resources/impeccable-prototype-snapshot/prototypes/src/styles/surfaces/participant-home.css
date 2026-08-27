@@ -1,0 +1,296 @@
+html[data-surface="participant-home"] {
+/* ═══════════════════════════════════════════════════════════════════
+   Flex Agent — Participant Home (Status Bays)
+   World: Shipboard Terminal (seed 8066189d) · Surface: cd5abd06
+   Tokens, base chrome, and shared components live in ../shared/.
+   ═══════════════════════════════════════════════════════════════════ */
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ═══ Board frame ════════════════════════════════════════════════ */
+
+.board {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  padding: 26px 30px 18px;
+}
+
+/* .frame-cut / .frame-in / .frame-tick / .frame-node come from
+   the shared component family sheets (the clipped-border etched frame) */
+
+/* ═══ Bays ═══════════════════════════════════════════════════════ */
+
+.bays {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.bay {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* 22px left / 9px right outer inset (+ 1px column hairline on non-last bays);
+     plates reserve 12px for the scroll channel → 22px card inset each side */
+  padding: 26px 9px 24px 22px;
+  border-right: 1px solid var(--hairline-dim);
+}
+
+.bay:last-child {
+  border-right: none;
+  padding-right: 10px;
+}
+
+.bay-head {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-weight: 400;
+  font-size: 0.66rem;
+  letter-spacing: 0.3em;
+  text-align: center;
+  color: var(--teal);
+  text-shadow: 0 0 10px rgba(60, 192, 191, 0.6), 0 0 24px rgba(60, 192, 191, 0.3);
+  margin: 0 12px 24px 0;
+  flex-shrink: 0;
+}
+
+.bay-plates {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 0 12px 2px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-dim) transparent;
+}
+
+.bay-plates::-webkit-scrollbar { width: 6px; }
+.bay-plates::-webkit-scrollbar-track { background: transparent; }
+.bay-plates::-webkit-scrollbar-thumb {
+  background: var(--hairline-dim);
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  border-radius: 5px;
+}
+.bay-plates::-webkit-scrollbar-thumb:hover { background: var(--hairline); }
+
+/* dense board: any stacked bay switches every plate to content height so
+   lone plates do not stretch beside crowded neighbors */
+.bays--dense .plate { flex: 0 0 auto; }
+.bays--dense .plate-row { flex: none; }
+.bays--dense .plate-keys { min-height: 0; padding-top: 14px; }
+.bays--dense .plate-keys:empty { display: none; }
+
+.bay-empty {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--label-dim);
+  text-align: center;
+  padding: 26px 8px;
+  border: 1px dashed var(--hairline-dim);
+  opacity: 0.8;
+}
+
+/* ═══ Enrollment plates ══════════════════════════════════════════ */
+
+.plate {
+  flex: 1 1 auto;
+  display: flex;
+  padding: 1px;
+  background: var(--hairline);
+  clip-path: polygon(
+    var(--notch) 0, calc(100% - var(--notch)) 0, 100% var(--notch),
+    100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%,
+    var(--notch) 100%, 0 calc(100% - var(--notch)), 0 var(--notch)
+  );
+}
+
+.plate-in {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  clip-path: polygon(
+    9px 0, calc(100% - 9px) 0, 100% 9px,
+    100% calc(100% - 9px), calc(100% - 9px) 100%,
+    9px 100%, 0 calc(100% - 9px), 0 9px
+  );
+  background: var(--panel-sheen), linear-gradient(rgba(2, 9, 14, 0.4), rgba(2, 9, 14, 0.4)) var(--ground-deep);
+  box-shadow: var(--panel-inset);
+  padding: 6px 18px 18px;
+}
+
+.plate--released .plate-in {
+  background: var(--panel-sheen), linear-gradient(rgba(60, 192, 191, 0.05), rgba(60, 192, 191, 0.05)) var(--ground-deep);
+}
+
+.plate-readout {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* rows share one horizon across all four plates: equal flex tracks inside
+   identically-sized plates, divider seated tight under the value, slack after */
+.plate-row {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 12px;
+}
+
+.plate-row::after {
+  content: "";
+  width: 100%;
+  height: 1px;
+  background: var(--hairline-dim);
+  margin-top: 12px;
+}
+
+.plate-row:last-of-type::after { display: none; }
+
+.plate-row dt {
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal);
+  opacity: 0.85;
+  margin-bottom: 4px;
+}
+
+.plate-row dd {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.plate-row--title dd {
+  color: var(--text-bright);
+  text-wrap: balance;
+}
+
+.plate-row--record dd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* record state marks come from the shared component family sheets (.state-node) */
+.record-seal {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.record-seal circle {
+  fill: none;
+  stroke: var(--teal);
+  stroke-width: 1.2;
+}
+.record-seal circle:first-child { stroke-dasharray: 2.4 2.2; }
+.record-seal path {
+  fill: none;
+  stroke: var(--teal);
+  stroke-width: 1.8;
+  stroke-linecap: square;
+  filter: drop-shadow(0 0 4px var(--teal-glow));
+}
+
+/* ═══ Plate keys ═════════════════════════════════════════════════ */
+
+/* every plate reserves the key foot so record rows share one horizon
+   whether or not a key is present; slack lives here, not in the rows */
+.plate-keys {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 58px;
+  padding-top: 10px;
+}
+
+/* .key family comes from the shared component family sheets */
+
+/* ═══ Empty board ════════════════════════════════════════════════ */
+
+.board-empty[hidden], .bays[hidden] { display: none; }
+
+.board-empty {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+/* .empty-plate and its children come from the shared component family sheets */
+
+/* ═══ Footer ═════════════════════════════════════════════════════ */
+
+/* .console-foot, .demo-plate, .demo-label, .demo-select, .foot-note
+   come from the shared component family sheets */
+
+/* ═══ Board reveal (one authored moment) ═════════════════════════ */
+
+.board-frame.is-revealing { animation: board-reveal 640ms var(--ease-out); }
+
+
+
+/* ═══ Responsive ═════════════════════════════════════════════════ */
+
+@media (max-width: 1080px) /* bp.pageScroll */ {
+  &, body { height: auto; min-height: 100dvh; }
+  body { overflow: auto; }
+
+  .board { padding: 20px 18px 12px; flex: none; display: block; }
+
+  .board-frame { display: block; }
+  .frame-in { display: block; }
+  .plate { flex: none; }
+
+  .bays { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: auto; }
+
+  .bay {
+    padding: 26px 22px 24px;
+    border-bottom: 1px solid var(--hairline-dim);
+  }
+  .bay:nth-child(2n) { border-right: none; }
+  .bay:nth-last-child(-n+2) { border-bottom: none; }
+
+  .bay-head { margin-right: 0; }
+  .bay-plates {
+    overflow-y: visible;
+    padding-right: 0;
+  }
+
+  .frame-node { display: none; }
+}
+
+@media (max-width: 720px) /* bp.compact */ {
+  .bays { grid-template-columns: minmax(0, 1fr); }
+  .bay { border-right: none; border-bottom: 1px solid var(--hairline-dim); }
+  .bay:last-child { border-bottom: none; }
+  .bay:nth-last-child(-n+2):not(:last-child) { border-bottom: 1px solid var(--hairline-dim); }
+
+  .demo-plate { justify-content: flex-end; }
+}
+
+/* reduced-motion floor lives in shared/base.css */
+@media (prefers-reduced-motion: reduce) {
+  .board-frame.is-revealing { animation: none; }
+}
+
+}
+@keyframes board-reveal {
+  from { clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% 18px, calc(100% - 18px) 0, 18px 0, 0 18px, 0 18px); opacity: 0.4; }
+  to { opacity: 1; }
+}

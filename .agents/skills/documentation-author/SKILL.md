@@ -48,6 +48,10 @@ Do not average conflicting specialist views. Surface the conflict, decision owne
 - Contributor process guidance (`docs/contributing/`)
 - API/event contract, operational runbook, test strategy, or traceability report
 
+Root `PRODUCT.md` and `DESIGN.md` are generated Impeccable adapters. They must
+not become product or design authority. Update canonical `docs/` sources, then
+run `python3 scripts/impeccable_context.py generate`.
+
 Create a new document only when it has a distinct owner, lifecycle, audience, or decision boundary. Otherwise update the existing source.
 
 ## Quality standards

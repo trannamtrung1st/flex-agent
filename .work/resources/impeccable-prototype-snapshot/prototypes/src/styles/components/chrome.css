@@ -1,0 +1,553 @@
+/* ═══ Command strip ══════════════════════════════════════════════ */
+
+.command-strip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  min-height: 48px;
+  border-bottom: 1px solid var(--hairline-dim);
+  background: linear-gradient(180deg, rgba(2, 9, 14, 0.6), rgba(2, 9, 14, 0.25));
+}
+
+.strip-brand {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 11px 22px;
+  border-right: 1px solid var(--hairline-dim);
+}
+
+/* Chrome wordmark link: same backlit sign, routes to the channel index. */
+.brand-home-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+  transition: filter 160ms var(--ease-out);
+}
+
+.brand-home-link:hover,
+.brand-home-link:focus-visible {
+  filter: brightness(1.12);
+}
+
+.brand-home-link:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+/* Canonical product wordmark: one backlit sign, every chrome. */
+.brand-mark,
+.strip-brand-core,
+.rail-brand-core,
+.agent-name-core {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  color: var(--teal);
+  text-shadow: 0 0 14px rgba(60, 192, 191, 0.55), 0 0 30px rgba(60, 192, 191, 0.25);
+}
+
+.strip-center {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.strip-nav {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.strip-nav--role {
+  flex: 0 0 auto;
+}
+
+.strip-center--tabs .strip-nav--tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* campaign tabs: center segment scrolls horizontally under pressure */
+.strip-nav--tabs {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-dim) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.strip-nav--tabs::-webkit-scrollbar { height: 3px; }
+.strip-nav--tabs::-webkit-scrollbar-thumb { background: var(--hairline-dim); }
+
+.strip-nav--tabs .strip-token--tab {
+  flex: 0 0 auto;
+  max-width: none;
+}
+
+.strip-nav--tabs .strip-token--tab .token-label {
+  overflow: visible;
+  text-overflow: clip;
+  max-width: none;
+}
+
+.strip-token {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0 22px;
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  color: var(--label);
+  text-decoration: none;
+  transition: color 160ms var(--ease-out);
+}
+
+.strip-nav > .strip-token:not(:last-child) {
+  border-right: 1px solid var(--hairline-dim);
+}
+
+.strip-token:hover, .strip-token:focus-visible { color: var(--teal); }
+
+.strip-token.is-current { color: var(--text-bright); }
+
+.strip-token.is-current::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--teal);
+  box-shadow: 0 0 10px var(--teal-glow);
+}
+
+/* campaign-tab variant: button tokens in the strip's center segment */
+.strip-token--tab {
+  padding: 0 18px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  border-right: 1px solid var(--hairline-dim);
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.strip-nav > .strip-token--tab:last-child { border-right: none; }
+
+/* tabs shrink with ellipsis only under width pressure, never at rest */
+.strip-token--tab .token-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.strip-token--tab.is-current::after { left: 18px; right: 18px; }
+
+/* activation state node: absent at rest, lit once frozen */
+.strip-token--tab .token-state { display: none; }
+
+.strip-token--tab.is-active-campaign .token-state {
+  display: inline-block;
+  margin-left: 8px;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--amber);
+  border-radius: 50%;
+  background: var(--amber-glow);
+  box-shadow: 0 0 8px var(--amber-glow);
+  vertical-align: middle;
+}
+
+.strip-ident {
+  margin-left: auto;
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+/* identity readout cell (candidate / administrator / reviewer) */
+.strip-readout {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  padding: 0 20px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--label);
+  font-variant-numeric: tabular-nums;
+  border-left: 1px solid var(--hairline-dim);
+  white-space: nowrap;
+}
+
+/* mode placard (e.g. REVIEW MODE) — first cell in the ident cluster */
+.strip-mode {
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  line-height: 1;
+  color: var(--teal);
+  text-shadow: 0 0 10px rgba(60, 192, 191, 0.45);
+  border-left: 1px solid var(--hairline-dim);
+}
+
+/* ═══ Strip profile (operator disclosure in the ident cluster) ════ */
+
+/* one compact trigger replaces the readout + sign-out pair: drawn
+   operator glyph, short mono ID, chevron. The menu carries the full
+   identity readout and the sign-out action. */
+.strip-profile {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.menu-shell.strip-profile {
+  display: flex;
+}
+
+.strip-profile-key {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  border: 0;
+  border-left: 1px solid var(--hairline-dim);
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--label);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-height: 44px;
+  transition: color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+
+.strip-profile-key:hover, .strip-profile-key:focus-visible { color: var(--teal); }
+
+.strip-profile-key[aria-expanded="true"] {
+  color: var(--teal);
+  background: var(--teal-glow);
+}
+
+/* drawn operator glyph: hairline head + shoulders, currentColor */
+.operator-glyph { width: 14px; height: 14px; flex-shrink: 0; }
+
+.operator-glyph circle, .operator-glyph path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.1;
+  stroke-linecap: square;
+}
+
+.strip-profile-key .chevron-glyph {
+  color: var(--label-dim);
+  transition: transform 180ms var(--ease-out), color 160ms var(--ease-out);
+}
+
+.strip-profile-key:hover .chevron-glyph,
+.strip-profile-key:focus-visible .chevron-glyph { color: inherit; }
+
+.strip-profile-key[aria-expanded="true"] .chevron-glyph {
+  transform: rotate(180deg);
+  color: inherit;
+}
+
+/* The profile menu uses the shared popover material while preserving its
+   identity head and the deeper hull umbra required over strip chrome. */
+.strip-profile-menu.popover-surface {
+  box-shadow: var(--panel-inset), 0 14px 30px rgba(2, 9, 14, 0.55);
+}
+
+.strip-profile-head {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px 16px 10px;
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.strip-profile-role {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.52rem;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  color: var(--label-dim);
+}
+
+.strip-profile-full {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.strip-profile-item--signout { border-top: none; }
+
+.strip-profile--rail {
+  position: relative;
+  z-index: 40;
+  margin-top: 12px;
+  width: 100%;
+}
+
+.strip-profile--rail .strip-profile-key {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 10px;
+  border: 1px solid var(--hairline-dim);
+  border-left: 1px solid var(--hairline-dim);
+  padding: 0 12px;
+  min-height: 40px;
+  background: linear-gradient(180deg, rgba(2, 9, 14, 0.35), rgba(2, 9, 14, 0.12));
+}
+
+.strip-profile--rail .strip-profile-key[aria-expanded="true"] {
+  border-color: var(--hairline);
+  border-bottom-color: transparent;
+  background: var(--teal-glow);
+}
+
+.strip-profile--rail .strip-profile-id {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.strip-profile--rail .strip-profile-key .chevron-glyph {
+  margin-left: auto;
+}
+
+/* catalog / deck: brand wordmark + mode placard share one left origin segment */
+.strip-brand--origin {
+  padding: 0;
+  gap: 0;
+}
+
+.strip-brand--origin .brand-mark,
+.strip-brand--origin .strip-brand-core {
+  padding: 11px 22px;
+  border-right: 1px solid var(--hairline-dim);
+}
+
+.strip-brand--origin > .strip-mode {
+  align-self: stretch;
+  padding: 0 22px;
+  border-left: none;
+}
+
+@media (max-width: 720px) /* bp.compact */ {
+  .command-strip {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand ident"
+      "nav nav";
+    align-content: start;
+  }
+
+  .strip-brand {
+    grid-area: brand;
+    flex: none;
+    border-right: none;
+    min-height: 44px;
+  }
+
+  .strip-ident {
+    grid-area: ident;
+    flex: none;
+    margin-left: 0;
+    justify-self: end;
+    min-height: 44px;
+    align-items: center;
+    min-width: 0;
+  }
+
+  /* the mode placard cedes its cell to the profile on narrow strips;
+     the console name survives in the nav token and the menu head */
+  .strip-ident > .strip-mode { display: none; }
+
+  .strip-center {
+    grid-area: nav;
+    width: 100%;
+    max-width: 100%;
+    min-height: 44px;
+    border-top: 1px solid var(--hairline-dim);
+  }
+
+  .strip-nav {
+    grid-area: auto;
+    flex: none;
+    width: 100%;
+    max-width: 100%;
+    min-height: 44px;
+    border-top: 1px solid var(--hairline-dim);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--hairline-dim) transparent;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .strip-nav::-webkit-scrollbar { height: 3px; }
+  .strip-nav::-webkit-scrollbar-thumb { background: var(--hairline-dim); }
+
+  .strip-token:not(.strip-token--tab) {
+    flex: 0 0 auto;
+    padding: 0 20px;
+    min-height: 44px;
+  }
+
+  .strip-token--tab {
+    flex: 0 0 auto;
+    min-width: max-content;
+    padding: 0 16px;
+    min-height: 44px;
+  }
+
+  .strip-token.is-current::after,
+  .strip-token--tab.is-current::after {
+    left: 20px;
+    right: auto;
+    width: 42px;
+    bottom: 0;
+  }
+
+  .strip-readout {
+    border-left: none;
+    padding: 0 16px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .command-strip .strip-profile { position: relative; }
+
+  .strip-profile-key { padding: 0 16px; min-height: 44px; }
+
+  .command-strip .strip-profile-menu {
+    right: 0;
+    left: auto;
+    max-width: calc(100vw - 24px);
+  }
+}
+
+/* ═══ Rail brand placard (rail-shell counterpart of the strip brand) ═ */
+
+/* backlit wordmark over a small mono designation line, used by the
+   full-viewport rail shells (session console, assignment station).
+   Vertical padding stays on the consuming shell. */
+.rail-brand { flex-shrink: 0; }
+
+.rail-brand-name {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  white-space: nowrap;
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+}
+
+.rail-brand-suffix {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.32em;
+  color: var(--text);
+  opacity: 0.82;
+  text-transform: uppercase;
+}
+
+/* quiet back-link seated under the brand: navigation between surfaces
+   stays in the quiet voice */
+.rail-home-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--label-dim);
+  text-decoration: none;
+  align-self: flex-start;
+  min-height: 36px;
+  transition: color 160ms var(--ease-out);
+}
+
+.rail-home-link svg { width: 9px; height: 9px; }
+
+.rail-home-link:hover, .rail-home-link:focus-visible { color: var(--teal); }
+
+/* ═══ Console footer (quiet page foot) ═════════════════════════════ */
+
+.console-foot {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 22px 12px;
+  border-top: 1px solid var(--hairline-dim);
+  background: linear-gradient(180deg, rgba(2, 9, 14, 0.4), rgba(2, 9, 14, 0.55));
+}
+
+.console-foot-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.console-foot-readout {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--label-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) /* bp.compact */ {
+  .console-foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .console-foot-actions {
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+}
+

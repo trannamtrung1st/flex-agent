@@ -1,0 +1,988 @@
+/* ═══ Select mark (row selection, teal voice) ════════════════════ */
+
+/* selection speaks teal — same square anatomy as the ack-mark but
+   never amber; the commitment voice stays on .ack-mark only */
+.select-mark {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  border: 1px solid var(--label);
+  position: relative;
+  pointer-events: none;
+  transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+
+/* Partial — centered dash */
+.select-mark--partial,
+.select-mark.is-indeterminate,
+input:indeterminate + .select-mark {
+  border-color: var(--teal);
+  background: var(--teal-glow);
+}
+
+.select-mark--partial::after,
+.select-mark.is-indeterminate::after,
+input:indeterminate + .select-mark::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 7px;
+  height: 2px;
+  background: var(--teal);
+  box-shadow: 0 0 6px var(--teal-glow);
+}
+
+/* Page — filled inner square (visible page only) */
+.select-mark--page,
+input:checked + .select-mark.select-mark--page {
+  border-color: var(--teal);
+  background: var(--teal-glow);
+}
+
+.select-mark--page::after,
+input:checked + .select-mark.select-mark--page::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  background: var(--teal);
+}
+
+/* Matching — checkmark across the full matching set */
+.select-mark--matching,
+input:checked + .select-mark.select-mark--matching {
+  border-color: var(--teal);
+  background: var(--teal-glow);
+}
+
+.select-mark--matching::after,
+input:checked + .select-mark.select-mark--matching::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  background: var(--teal);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+/* Row-level checked (no header scope modifiers) */
+input:checked + .select-mark:not(.select-mark--page):not(.select-mark--matching):not(.select-mark--partial):not(.is-indeterminate) {
+  border-color: var(--teal);
+  background: var(--teal-glow);
+}
+
+input:checked + .select-mark:not(.select-mark--page):not(.select-mark--matching):not(.select-mark--partial):not(.is-indeterminate)::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  background: var(--teal);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input:focus-visible + .select-mark {
+  outline: 1px solid var(--teal);
+  outline-offset: 3px;
+}
+
+.select-head, .select-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.select-head input, .select-cell input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* ═══ Toolbar segments (manifest / datatable chrome) ═════════════ */
+
+.toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.toolbar-seg {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--hairline-dim);
+}
+
+.toolbar-seg + .toolbar-seg { border-left: none; }
+
+.toolbar-spacer { flex: 1 1 auto; }
+
+.toolbar-spacer + .toolbar-seg { border-left: 1px solid var(--hairline-dim); }
+
+/* grouped segments read as one bezeled strip (filter | sort | count) */
+.toolbar-group {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.toolbar-group > .toolbar-seg + .toolbar-seg { border-left: none; }
+
+.toolbar-spacer + .toolbar-group { border-left: 1px solid var(--hairline-dim); }
+
+.toolbar-seg[hidden] { display: none !important; }
+
+.seg-key {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--label);
+}
+
+.seg-key:hover, .seg-key:focus-visible { color: var(--teal); }
+.seg-key[aria-expanded="true"] { color: var(--teal); }
+
+.seg-key:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  color: var(--label-dim);
+}
+
+.seg-key:disabled:hover,
+.seg-key:disabled:focus-visible {
+  color: var(--label-dim);
+  background: var(--select-trigger-bg);
+}
+
+.seg-key .chevron-glyph {
+  transition: transform 160ms var(--ease-out), color 160ms var(--ease-out);
+}
+
+.seg-key[aria-expanded="true"] .chevron-glyph {
+  transform: rotate(180deg);
+  color: var(--teal);
+}
+
+.toolbar-seg--readout {
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--label);
+}
+
+.seg-label { color: var(--label-dim); }
+.seg-value { color: var(--label); font-variant-numeric: tabular-nums; }
+.seg-key:hover .seg-value, .seg-key:focus-visible .seg-value { color: inherit; }
+
+/* pagination foot sits on the pane edge — menus open upward so the
+   listbox is never clipped by the pane's clip-path below the foot */
+.datatable-foot .toolbar-seg { z-index: 1; }
+
+.datatable-foot .toolbar-seg:has(.seg-key[aria-expanded="true"]) {
+  z-index: 32;
+}
+
+.datatable-foot .select-shell--toolbar {
+  --select-popover-min-width: var(--select-popover-min-width-toolbar-foot);
+  --select-popover-max-height: var(--select-popover-max-height-foot);
+}
+
+.datatable-foot .select-popover {
+  top: auto;
+  bottom: 100%;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline-dim);
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-dim) transparent;
+  box-shadow:
+    0 -10px 28px rgba(2, 9, 14, 0.62),
+    inset 0 18px 34px rgba(2, 9, 14, 0.32);
+}
+
+.datatable-foot .select-popover li:first-child {
+  border-top: none;
+}
+
+.toolbar-seg--search { margin-left: 14px; }
+
+.seg-search {
+  width: 170px;
+  padding: 9px 16px;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.seg-search::placeholder { color: var(--label-dim); }
+.seg-search:focus { outline: none; }
+.toolbar-seg--search:focus-within { border-color: rgba(60, 192, 191, 0.6); }
+.seg-search::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+/* ═══ Datatable (canonical manifest grammar) ═════════════════════ */
+
+/* root stacks toolbar, scroll region, and pagination foot.
+   Height fits the rows on the current page; --datatable-max-height
+   caps it, after which the scroll region takes over. */
+.datatable {
+  --datatable-inline-gutter: 18px;
+  --datatable-head-height: 36px;
+  --datatable-row-height: 36px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  max-height: var(--datatable-max-height, none);
+}
+
+.datatable-frame {
+  width: 100%;
+  min-width: 0;
+}
+
+.datatable-frame > .frame-in {
+  flex-direction: column;
+}
+
+.datatable-frame .datatable {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.datatable-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 14px var(--datatable-inline-gutter) 12px;
+  position: relative;
+  z-index: 8;
+  border-bottom: 1px solid var(--hairline-dim);
+  background: var(--ground-deep);
+}
+
+.datatable-toolbar-row.toolbar {
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.datatable-toolbar-row--controls .toolbar-spacer {
+  flex: 1 1 auto;
+  min-width: 16px;
+}
+
+/* table-level action keys: their own strip above the filter row */
+.datatable-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--hairline-dim);
+  overflow: visible;
+}
+
+.datatable-actions-keys {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: visible;
+}
+
+.datatable-selection-band {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--hairline-dim);
+}
+
+/* band carries bottom breathing room; avoid double-padding against the table */
+.datatable-toolbar:has(.datatable-selection-band:not([hidden])) {
+  padding-bottom: 0;
+}
+
+.datatable-selection-band[hidden] {
+  display: none !important;
+}
+
+.datatable-actions-keys .tip-host {
+  position: relative;
+  z-index: 1;
+}
+
+.datatable-actions-keys .tip-host:focus-within,
+.datatable-actions-keys .tip-host:hover {
+  z-index: 2;
+}
+
+.datatable-selection-note {
+  flex-shrink: 0;
+  align-self: center;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--label-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.datatable-selection-note[hidden] { display: none !important; }
+
+.datatable-selection-count {
+  color: var(--teal);
+  font-variant-numeric: tabular-nums;
+}
+
+.datatable-selection-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* legacy alias — selection now lives in .datatable-selection-band */
+
+.command-menu-root { display: inline-flex; }
+
+.command-menu-trigger:not(.command-menu-trigger--icon):not(.command-menu-trigger--compact) {
+  min-height: 44px;
+}
+
+.command-menu-trigger--compact {
+  min-height: 30px;
+}
+
+.action-menu-glyph {
+  fill: currentColor;
+}
+
+.command-menu-trigger.is-open,
+.key.command-menu-trigger.is-open,
+.key.command-menu-trigger.is-open:hover,
+.key.command-menu-trigger.is-open:focus-visible {
+  color: var(--teal);
+  border-color: var(--teal);
+  border-bottom-color: transparent;
+  background: var(--teal-glow);
+}
+
+.command-menu-trigger.is-open .chevron-glyph {
+  transform: rotate(180deg);
+  color: var(--teal);
+}
+
+/* Action menu shell — same connected popover seam as selects; menu
+   semantics (commands, reasons, separators) stay on the rows. */
+.menu-shell {
+  position: relative;
+  display: inline-flex;
+  --select-popover-width: auto;
+  --select-popover-min-width: max(100%, 14.25rem);
+  --select-popover-max-width: min(23.75rem, calc(100vw - 16px));
+  --select-popover-offset-x: 0;
+  --select-popover-max-height: min(20rem, calc(100dvh - 16px));
+}
+
+.menu-shell--stretch {
+  display: flex;
+  width: 100%;
+  --select-popover-width: 100%;
+  --select-popover-min-width: 0;
+  --select-popover-max-width: none;
+}
+
+.menu-shell--end .menu-popover:not(.menu-popover--fixed) {
+  left: auto;
+  right: 0;
+}
+
+.menu-shell--stretch .menu-popover:not(.menu-popover--fixed) {
+  left: 0;
+  right: 0;
+  width: 100%;
+}
+
+.menu-shell:has([aria-expanded="true"]) .command-menu-trigger,
+.menu-shell:has([aria-expanded="true"]) .key.command-menu-trigger,
+.menu-shell:has([aria-expanded="true"]) .strip-profile-key {
+  border-bottom-color: transparent;
+}
+
+.menu-popover {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-dim) transparent;
+}
+
+.menu-popover > :first-child {
+  border-top: 1px solid var(--hairline-dim);
+}
+
+.menu-popover--fixed {
+  position: fixed;
+  top: auto;
+  right: auto;
+  left: auto;
+  width: auto;
+  min-width: 14.25rem;
+  max-width: min(23.75rem, calc(100vw - 16px));
+  max-height: min(20rem, calc(100dvh - 16px));
+  z-index: 55;
+}
+
+.command-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding-block: var(--select-option-padding-block);
+  padding-inline: var(--select-option-padding-inline);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.command-menu-item:last-child { border-bottom: none; }
+
+.command-menu-item:has(+ .command-menu-sep) { border-bottom: none; }
+
+.command-menu-item[aria-disabled="true"],
+.command-menu-item:disabled {
+  cursor: not-allowed;
+}
+
+.command-menu-item[aria-disabled="true"] .command-menu-item-label,
+.command-menu-item:disabled .command-menu-item-label {
+  color: var(--label-dim);
+}
+
+.command-menu-item[aria-disabled="true"]:hover,
+.command-menu-item[aria-disabled="true"]:focus-visible,
+.command-menu-item:disabled:hover,
+.command-menu-item:disabled:focus-visible {
+  background: transparent;
+}
+
+.command-menu-item[aria-disabled="true"]:hover .command-menu-item-label,
+.command-menu-item[aria-disabled="true"]:focus-visible .command-menu-item-label,
+.command-menu-item:disabled:hover .command-menu-item-label,
+.command-menu-item:disabled:focus-visible .command-menu-item-label {
+  color: var(--label-dim);
+}
+
+.command-menu-item--destructive:not([aria-disabled="true"]):not(:disabled) .command-menu-item-label {
+  color: var(--label);
+}
+
+.col-action {
+  text-align: right;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.datatable-table .col-action .icon-button::before {
+  inset: -6px;
+}
+
+.datatable-toolbar-row--controls .toolbar-seg--search {
+  flex-shrink: 0;
+  margin-left: 0;
+}
+
+.datatable-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  --datatable-scroll-gutter: var(--datatable-inline-gutter);
+  padding: 0 var(--datatable-scroll-gutter);
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-dim) transparent;
+}
+
+.datatable--body-only .datatable-scroll {
+  padding-bottom: 4px;
+}
+
+/* full-width sticky rail: spans the scrollport (including side gutters) and
+   stays fixed on horizontal scroll — th box-shadow only travels with columns */
+.datatable-scroll::before {
+  content: "";
+  position: sticky;
+  top: 0;
+  display: block;
+  box-sizing: border-box;
+  height: var(--datatable-sticky-rail, var(--datatable-head-height));
+  margin-left: calc(-1 * var(--datatable-scroll-gutter));
+  margin-right: calc(-1 * var(--datatable-scroll-gutter));
+  margin-bottom: calc(-1 * var(--datatable-sticky-rail, var(--datatable-head-height)));
+  background: var(--ground-deep);
+  border-bottom: 1px solid var(--hairline);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.datatable-scroll:has(.datatable-table[hidden])::before {
+  content: none;
+}
+
+.datatable-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+}
+
+.datatable-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  box-sizing: border-box;
+  min-height: var(--datatable-head-height);
+  background: var(--ground-deep);
+  border-bottom: none;
+  text-align: left;
+  padding: 0;
+}
+
+.datatable-table th.col-select,
+.datatable-table td.cell-select {
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
+.datatable-table th.col-select .select-head,
+.datatable-table td.cell-select .select-cell {
+  width: 100%;
+  padding: 7px 4px;
+  box-sizing: border-box;
+}
+
+.datatable-table th.col-select .select-head {
+  min-height: var(--datatable-head-height);
+}
+
+.datatable-table td.cell-select .select-cell {
+  min-height: var(--datatable-row-height);
+}
+
+.col-key {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 10px 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal);
+  opacity: 0.85;
+  text-align: left;
+  transition: opacity 160ms var(--ease-out);
+}
+
+.col-key:hover, .col-key:focus-visible { opacity: 1; }
+
+.col-key:focus-visible {
+  outline: 1px solid var(--teal);
+  outline-offset: 3px;
+}
+
+.col-key::after {
+  content: "";
+  width: 7px;
+  height: 5px;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  background: currentColor;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+
+th[aria-sort="ascending"] .col-key::after { opacity: 0.9; transform: rotate(180deg); }
+th[aria-sort="descending"] .col-key::after { opacity: 0.9; }
+th[aria-sort="ascending"] .col-key,
+th[aria-sort="descending"] .col-key { color: var(--text-bright); opacity: 1; }
+
+.col-key-rank {
+  font-size: 0.52rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+  vertical-align: super;
+  line-height: 0;
+}
+
+/* static column head: the col-key voice without sort affordance,
+   for manifests whose order is fixed (e.g. a docket ranked by receipt) */
+.col-head {
+  display: flex;
+  align-items: center;
+  padding: 10px 10px 10px 0;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal);
+  opacity: 0.85;
+  text-align: left;
+}
+
+.datatable-table th.col-state {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal);
+  opacity: 0.85;
+  text-align: center;
+  padding: 10px 10px 10px 0;
+}
+
+.datatable-table tbody td {
+  padding: 7px 10px 7px 0;
+  border-bottom: 1px solid var(--hairline-dim);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  line-height: 1.2;
+  vertical-align: middle;
+  height: var(--datatable-row-height);
+}
+
+.datatable-table tbody td.cell-select {
+  padding: 0;
+}
+
+.datatable-table tbody td.cell-content {
+  user-select: text;
+}
+
+.datatable-row {
+  line-height: 0;
+  transition: background-color 140ms var(--ease-out);
+}
+
+.datatable-row.is-selected td { background: rgba(60, 192, 191, 0.08); }
+
+.datatable-id-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.datatable-id-cell .icon-button .chevron-glyph {
+  width: 10px;
+  height: 6px;
+  transition: transform 140ms var(--ease-out);
+}
+
+.datatable-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--text-bright);
+  text-align: left;
+  transition: color 140ms var(--ease-out);
+}
+
+.datatable-id::before {
+  content: "";
+  width: 7px;
+  height: 1px;
+  background: transparent;
+  flex-shrink: 0;
+  transition: background-color 140ms var(--ease-out);
+}
+
+.datatable-id:hover,
+.datatable-id:focus-visible {
+  color: var(--text-bright);
+}
+
+.datatable-id:hover::before,
+.datatable-id:focus-visible::before { background: var(--teal); }
+
+.datatable-id:focus-visible {
+  outline: 1px solid var(--teal);
+  outline-offset: 3px;
+}
+
+.datatable-row.is-expanded td { background: rgba(60, 192, 191, 0.04); }
+.datatable-row.is-expanded.is-selected td { background: rgba(60, 192, 191, 0.1); }
+
+td.cell-state { text-align: center; }
+.cell-state .state-node { vertical-align: middle; }
+
+.state-ring {
+  width: 13px;
+  height: 13px;
+  vertical-align: middle;
+}
+.state-ring circle { fill: none; stroke: var(--teal); stroke-width: 1.1; }
+.state-ring path {
+  fill: none;
+  stroke: var(--teal);
+  stroke-width: 1.1;
+  stroke-linecap: square;
+  filter: drop-shadow(0 0 3px var(--teal-glow));
+}
+
+.cell-result { color: var(--label); }
+.datatable-row.is-live .cell-result { color: var(--amber-bright); }
+.datatable-row.is-complete .cell-result { color: var(--teal); }
+
+/* expanded row object */
+.datatable-table tbody .datatable-detail > td {
+  height: auto;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.datatable-detail-cut {
+  display: flex;
+  margin-inline: calc(-1 * var(--datatable-scroll-gutter));
+  padding: 1px;
+  background: var(--hairline);
+  clip-path: polygon(
+    var(--notch) 0, 100% 0, 100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%, 0 100%, 0 var(--notch)
+  );
+}
+
+.datatable-detail-cut.is-revealing { animation: datatable-detail-reveal 320ms var(--ease-out); }
+
+@keyframes datatable-detail-reveal {
+  from { opacity: 0.3; }
+  to { opacity: 1; }
+}
+
+.datatable-detail-plate {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  clip-path: polygon(
+    9px 0, 100% 0, 100% calc(100% - 9px),
+    calc(100% - 9px) 100%, 0 100%, 0 9px
+  );
+  background: var(--panel-sheen), rgba(2, 9, 14, 0.45);
+  box-shadow: var(--panel-inset);
+}
+
+.datatable-detail-body {
+  padding: 16px var(--datatable-inline-gutter) 16px var(--datatable-inline-gutter);
+}
+
+.datatable-detail-readouts {
+  display: inline-flex;
+  vertical-align: top;
+  align-items: stretch;
+  max-width: 100%;
+  border-bottom: 1px solid var(--hairline-dim);
+  padding-bottom: 2px;
+}
+
+.datatable-detail-field {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 0 30px 0 0;
+  border-right: 1px solid var(--hairline-dim);
+}
+
+.datatable-detail-field + .datatable-detail-field { padding-left: 26px; }
+
+.datatable-detail-field dt {
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal);
+  opacity: 0.85;
+  margin-bottom: 4px;
+}
+
+.datatable-detail-field dd {
+  font-size: 0.88rem;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.datatable-detail-keys {
+  display: flex;
+  gap: 14px;
+  padding-top: 16px;
+}
+
+.datatable-empty { margin: 48px auto 0; }
+.datatable-empty[hidden] { display: none; }
+.datatable-empty .key { margin-top: 18px; }
+.datatable-table[hidden] { display: none; }
+
+/* pagination instrument foot */
+.datatable-foot {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px var(--datatable-inline-gutter) 14px;
+  border-top: 1px solid var(--hairline-dim);
+}
+
+.datatable-range {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--label);
+  font-variant-numeric: tabular-nums;
+}
+
+.datatable-page-controls {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.datatable-page-group { flex-shrink: 0; }
+
+.datatable-foot .datatable-step.key--compact {
+  padding: 9px 14px;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+}
+
+.datatable-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.datatable-step .chevron-glyph {
+  width: 8px;
+  height: 5px;
+  color: currentColor;
+}
+
+.datatable-step--prev .chevron-glyph { transform: rotate(90deg); }
+.datatable-step--next .chevron-glyph { transform: rotate(-90deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .datatable-detail-cut.is-revealing { animation: none; }
+}
+
+@media (max-width: 720px) /* bp.compact */ {
+  .datatable-toolbar-row--controls.toolbar { flex-wrap: wrap; gap: 10px 0; min-width: 0; max-width: 100%; }
+  .datatable-toolbar-row--controls .toolbar-spacer { flex: 1 1 100%; display: none; }
+  .toolbar-group--read {
+    flex: 1 1 100%;
+    flex-shrink: 1;
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .datatable-actions { flex-wrap: wrap; gap: 8px; }
+  .datatable-actions-keys {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+  .datatable-selection-band {
+    flex: 1 1 100%;
+    margin-top: 10px;
+    padding: 8px 0;
+  }
+  .datatable-selection-note {
+    flex: 0 1 auto;
+    padding: 0 2px;
+  }
+  .datatable-toolbar-row--controls .toolbar-seg--search {
+    flex: 1 1 100%;
+    border-left: 1px solid var(--hairline-dim);
+  }
+  .seg-search { width: 100%; }
+  .datatable-scroll { overflow-x: auto; }
+  .datatable-table { min-width: 680px; }
+  .datatable-foot { flex-wrap: wrap; gap: 10px; }
+  .datatable-range { flex: 1 1 100%; }
+  .datatable-page-controls {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .datatable-page-group { flex: 0 1 auto; }
+  .datatable-detail-readouts {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    border-bottom: none;
+  }
+  .datatable-detail-cut {
+    width: calc(100vw - 38px);
+  }
+  .datatable-detail-field {
+    flex: 1 1 45%;
+    border-right: none;
+    border-bottom: 1px solid var(--hairline-dim);
+    padding: 10px 0;
+  }
+  .datatable-detail-field:nth-child(-n + 2) { padding-top: 0; }
+  .datatable-detail-field + .datatable-detail-field { padding-left: 0; }
+}
+

@@ -19,6 +19,7 @@ Load the matching project skill from `.cursor/skills/` before substantive work. 
 - Frontend review or UI polish review: `frontend-reviewer`
 - QA, acceptance, regression, functional, accessibility, or UX testing: `tester`
 - Threat modeling, privacy, isolation, memory, uploads, tools, or audit review: `security-privacy-reviewer`
+- Visual design craft, critique, extraction, hardening, polish, or audit of UI: `impeccable` (explicit invocation only)
 - Commits, branches, merges, or pull requests: `git-workflow`
 - Substantive implementation planning, execution tracking, and completion: `implementation-workflow`
 

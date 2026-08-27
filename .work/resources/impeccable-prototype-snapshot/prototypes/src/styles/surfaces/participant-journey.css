@@ -1,0 +1,747 @@
+html[data-surface="participant-journey"] {
+  --key-quiet-padding-inline: 18px;
+/* ═══════════════════════════════════════════════════════════════════
+   Flex Agent — Participant assignment journey
+   World: Shipboard Terminal (seed 8066189d)
+   Tokens, base chrome, and shared components live in ../shared/.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.plaque, .assignment-title, .well-title, .protocol-label,
+.demo-label, .instrument-label, .key {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+}
+
+.microlabel, .readout dt, .assignment-meta, .well-ident, .phase-short,
+.protocol-value, .status-item dt, .version-meta, .demo-note, .action-note,
+.well-sec h3, .session-readout dt {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+/* ═══ Station grid ═══════════════════════════════════════════════ */
+
+.station {
+  display: grid;
+  height: 100dvh;
+  min-height: 620px;
+  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-areas: "phase-rail main";
+  gap: 0 28px;
+  padding: 18px 22px 18px 0;
+  overflow: hidden;
+}
+
+.station-main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  gap: 18px;
+}
+
+/* ═══ Frame traces ═══════════════════════════════════════════════ */
+
+.frame-traces { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
+.trace { position: absolute; background: var(--hairline-dim); height: 1px; }
+.trace::before, .trace::after {
+  content: "";
+  position: absolute;
+  width: 5px; height: 5px;
+  border: 1px solid var(--label-dim);
+  border-radius: 50%;
+  background: var(--ground);
+  top: -3px;
+}
+.trace-top { top: 9px; left: 18%; width: 30%; }
+.trace-top::before { left: -7px; }
+.trace-top::after { right: -7px; }
+.trace-rail { top: 9px; left: 248px; width: 14%; }
+.trace-rail::before { left: -7px; }
+.trace-rail::after { right: -7px; border-color: var(--teal); }
+
+/* ═══ Phase rail ═════════════════════════════════════════════════ */
+
+.phase-rail {
+  grid-area: phase-rail;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 10px 18px 8px 26px;
+  border-right: 1px solid var(--hairline-dim);
+  background: linear-gradient(180deg, rgba(2, 9, 14, 0.5), rgba(2, 9, 14, 0.12));
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+
+.phase-rail > * { flex-shrink: 0; }
+
+.phase-rail-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.phase-rail-scroll > * { flex-shrink: 0; }
+
+/* .rail-brand family and .rail-home-link come from the shared component family sheets */
+.rail-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding-bottom: 4px;
+}
+
+/* .readout-stack / .readout come from the shared component family sheets */
+
+.phase-spine {
+  padding-right: 4px;
+}
+
+.phase-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.phase-item { position: relative; }
+
+.phase-node {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 10px 12px 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+
+.phase-node:hover:not(:disabled),
+.phase-node:focus-visible:not(:disabled) {
+  border-color: var(--hairline-dim);
+  background: rgba(60, 192, 191, 0.04);
+}
+
+.phase-node:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.phase-marker {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 18px;
+  padding-top: 4px;
+}
+
+.phase-node-dot {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--label-dim);
+  border-radius: 50%;
+  background: var(--ground);
+  transition: border-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+}
+
+.phase-trace {
+  flex: 1 1 auto;
+  width: 1px;
+  min-height: 28px;
+  margin-top: 6px;
+  background: var(--hairline-dim);
+}
+
+.phase-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.phase-label {
+  font-family: var(--font-plaque);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--label);
+}
+
+.phase-short {
+  font-size: 0.58rem;
+  color: var(--label-dim);
+  line-height: 1.35;
+}
+
+.phase-glyph {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke-width: 1.1;
+  stroke-linecap: square;
+}
+
+.phase-glyph--complete {
+  stroke: var(--teal);
+  filter: drop-shadow(0 0 4px var(--teal-glow));
+}
+
+.phase-glyph--locked {
+  stroke: var(--label-dim);
+  opacity: 0.9;
+}
+
+.phase-node--complete .phase-node-dot {
+  border-color: var(--teal);
+  box-shadow: 0 0 8px var(--teal-glow);
+}
+
+.phase-node--complete .phase-label { color: var(--text); }
+
+.phase-node--current .phase-node-dot {
+  border-color: var(--amber);
+  box-shadow: 0 0 10px var(--amber-glow);
+}
+
+.phase-node--current .phase-label { color: var(--amber-bright); }
+
+.phase-node--current.is-viewing,
+.phase-node--complete.is-viewing {
+  border-color: var(--hairline);
+  background: rgba(226, 163, 60, 0.06);
+}
+
+.phase-node--locked .phase-label { color: var(--label-dim); }
+
+.demo-plate {
+  display: block;
+  margin-top: auto;
+  padding: 12px;
+  border: 1px solid var(--hairline-dim);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%, 0 100%);
+  background: rgba(2, 9, 14, 0.45);
+}
+
+/* demo controls come from the shared component family sheets; this rail plate stacks
+   them vertically instead of the shared inline row */
+.demo-plate .demo-label { display: block; margin-bottom: 8px; }
+.demo-plate .select-shell--field { width: 100%; position: relative; z-index: 1; }
+
+/* Popover escapes the notched plate without losing the cut when closed */
+.demo-plate:has(.select-trigger[aria-expanded="true"]) {
+  position: relative;
+  clip-path: none;
+  z-index: 40;
+}
+
+.demo-note {
+  margin-top: 8px;
+  font-size: 0.56rem;
+  color: var(--label-dim);
+  line-height: 1.45;
+  letter-spacing: 0.06em;
+}
+
+/* ═══ Assignment header ══════════════════════════════════════════ */
+
+.assignment-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--hairline-dim);
+  flex-shrink: 0;
+}
+
+.assignment-title {
+  font-size: clamp(1.05rem, 2.2vw, 1.35rem);
+  letter-spacing: 0.12em;
+  line-height: 1.35;
+  color: var(--text-bright);
+  font-weight: 400;
+  max-width: 42ch;
+  text-wrap: balance;
+}
+
+.assignment-meta {
+  margin-top: 10px;
+  font-size: 0.62rem;
+  color: var(--label);
+}
+
+.status-readout {
+  display: flex;
+  gap: 22px;
+  flex-shrink: 0;
+}
+
+.status-item {
+  padding: 8px 0 8px 16px;
+  border-left: 1px solid var(--hairline-dim);
+}
+
+.status-item:first-child {
+  padding-left: 0;
+  border-left: none;
+}
+
+.status-item dt {
+  font-size: 0.58rem;
+  color: var(--label-dim);
+  margin-bottom: 4px;
+}
+
+.status-item dd {
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+/* record-state node comes from the shared component family sheets; seat it in the readout */
+.status-item .state-node {
+  margin-right: 8px;
+  vertical-align: 1px;
+}
+
+/* ═══ Well ═══════════════════════════════════════════════════════ */
+
+/* pane in markup; the well takes the standard top cut + 14px trailing cut */
+.well-frame {
+  --cut-tl: var(--notch);
+  --cut-br: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.well {
+  padding: 32px 38px 36px;
+  max-width: 78ch;
+}
+
+.well.is-revealing {
+  animation: well-reveal 640ms var(--ease-out);
+}
+
+
+
+.well-head {
+  margin-bottom: 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.well-title {
+  font-size: 1.05rem;
+  letter-spacing: 0.2em;
+  color: var(--text-bright);
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+
+.well-ident { font-size: 0.64rem; color: var(--label); }
+
+.well-sec { margin-bottom: 22px; }
+
+.well-sec h3 {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--teal);
+  margin-bottom: 9px;
+}
+
+.well-sec h3::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 1px;
+  background: var(--teal);
+  margin-right: 9px;
+  vertical-align: 0.22em;
+}
+
+.well-sec p, .well-sec li {
+  font-size: 0.9rem;
+  color: var(--text);
+  max-width: 68ch;
+}
+
+.well-sec em { color: var(--text-bright); font-style: normal; }
+.well-sec strong { color: var(--amber-bright); font-weight: 600; }
+
+.well-sec ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.well-sec li {
+  padding-left: 18px;
+  position: relative;
+}
+
+.well-sec li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 7px;
+  height: 1px;
+  background: var(--teal);
+}
+
+.well-ack {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 15px 16px;
+  border: 1px solid var(--hairline-dim);
+  cursor: pointer;
+  font-size: 0.86rem;
+  color: var(--text);
+  transition: border-color 160ms var(--ease-out);
+  margin-top: 8px;
+}
+
+.well-ack:hover { border-color: var(--hairline); }
+.well-ack input { position: absolute; opacity: 0; }
+/* .ack-mark and its checked/focus states come from the shared component family sheets */
+
+.well-complete-mark {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--teal);
+  padding-top: 8px;
+}
+
+.well-complete-mark::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 9px;
+  background: var(--teal);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  vertical-align: -1px;
+}
+
+/* released-result seal: same drawn ring mark as the session complete plate */
+.well-seal {
+  display: block;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 14px;
+}
+
+.well-seal circle {
+  fill: none;
+  stroke: var(--teal);
+  stroke-width: 1.4;
+}
+
+.well-seal path {
+  fill: none;
+  stroke: var(--teal);
+  stroke-width: 2.4;
+  stroke-linecap: square;
+  filter: drop-shadow(0 0 5px var(--teal-glow));
+}
+
+.well-hint {
+  font-size: 0.78rem;
+  color: var(--label);
+  margin-top: 12px;
+}
+
+.version-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline-dim);
+}
+
+.version-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  grid-template-rows: auto auto;
+  gap: 2px 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.version-doc {
+  grid-row: span 2;
+  align-self: center;
+  display: flex;
+}
+/* .doc-glyph and its variants come from the shared component family sheets */
+
+.version-row:last-child { border-bottom: none; }
+
+.version-tag {
+  grid-row: span 2;
+  align-self: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--label-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.version-name {
+  font-size: 0.86rem;
+  color: var(--text);
+}
+
+.version-meta {
+  font-size: 0.58rem;
+  color: var(--label-dim);
+}
+
+.version-row--current {
+  background: rgba(60, 192, 191, 0.05);
+}
+
+.version-row--current .version-tag { color: var(--teal); }
+
+.instrument-plate {
+  padding: 14px 16px;
+  border: 1px solid var(--hairline);
+  margin-top: 8px;
+  background: rgba(2, 9, 14, 0.35);
+}
+
+.instrument-plate--dim { border-color: var(--hairline-dim); opacity: 0.92; }
+
+.instrument-label {
+  display: block;
+  font-size: 0.55rem;
+  letter-spacing: 0.2em;
+  color: var(--label-dim);
+  margin-bottom: 6px;
+}
+
+.instrument-label::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 8px;
+  border: 1px solid var(--label-dim);
+  border-radius: 50%;
+  background: var(--ground);
+  vertical-align: 0.5px;
+}
+
+.instrument-value {
+  font-size: 0.84rem;
+  color: var(--text);
+  max-width: 60ch;
+}
+
+.session-readout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0;
+  border: 1px solid var(--hairline-dim);
+  margin: 16px 0;
+}
+
+.session-readout > div {
+  padding: 12px 14px;
+  border-right: 1px solid var(--hairline-dim);
+}
+
+.session-readout > div:last-child { border-right: none; }
+
+.session-readout dt {
+  font-size: 0.58rem;
+  color: var(--label-dim);
+  margin-bottom: 4px;
+}
+
+.session-readout dd {
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: var(--text-bright);
+}
+
+/* ═══ Action row ═════════════════════════════════════════════════ */
+
+.action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+.action-note {
+  font-size: 0.62rem;
+  color: var(--label-dim);
+  letter-spacing: 0.06em;
+}
+
+.action-keys {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.action-status-plate {
+  padding: 12px 16px;
+  border: 1px solid var(--hairline-dim);
+  background: rgba(2, 9, 14, 0.35);
+  text-align: right;
+}
+
+.action-status-plate .instrument-label {
+  display: block;
+  font-size: 0.55rem;
+  letter-spacing: 0.2em;
+  color: var(--label-dim);
+  margin-bottom: 5px;
+}
+
+.action-status {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin: 0;
+}
+
+/* Quiet-key density: --key-quiet-padding-inline on this surface */
+
+/* ═══ Responsive ═════════════════════════════════════════════════ */
+
+@media (max-width: 1080px) /* bp.pageScroll */ {
+  .station {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "phase-rail"
+      "main";
+    gap: 14px;
+    padding: 14px 16px;
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: visible;
+  }
+
+  /* the page scrolls at this width; keep the content well readable
+     instead of letting the rail starve it of height */
+  .well-frame { min-height: 340px; }
+
+  body { overflow: auto; }
+
+  .phase-rail {
+    border-right: none;
+    border-bottom: 1px solid var(--hairline-dim);
+    padding: 0 0 14px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 14px 20px;
+    overflow: visible;
+  }
+
+  .phase-rail-scroll { display: contents; }
+
+  .rail-brand {
+    flex: 1 1 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name ident"
+      "home ident";
+    align-items: center;
+    column-gap: 16px;
+    row-gap: 2px;
+    order: 0;
+  }
+
+  .rail-brand-name { grid-area: name; min-width: 0; }
+  .rail-home-link {
+    grid-area: home;
+    margin-top: 4px;
+    min-height: 32px;
+  }
+  .strip-profile--rail {
+    grid-area: ident;
+    margin-top: 0;
+    width: auto;
+    justify-self: end;
+  }
+  .strip-profile--rail .strip-profile-key {
+    width: auto;
+    padding: 0 10px;
+  }
+  .strip-profile--rail .strip-profile-menu {
+    left: auto;
+    right: 0;
+    width: min(260px, calc(100vw - 24px));
+  }
+
+  .phase-spine { flex: 1 1 100%; order: 10; }
+  .phase-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .phase-item { flex: 1 1 140px; }
+  .phase-marker { flex-direction: row; width: auto; gap: 8px; }
+  .phase-trace { width: 24px; min-height: 1px; height: 1px; margin-top: 0; }
+  .demo-plate { flex: 1 1 220px; order: 11; margin-top: 0; }
+  .protocol-plate { display: none; }
+  .trace-rail { display: none; }
+}
+
+@media (max-width: 720px) /* bp.compact */ {
+  .assignment-head { flex-direction: column; gap: 14px; }
+  .status-readout { width: 100%; }
+  .status-item {
+    flex: 1;
+    border-left: none;
+    border-top: 1px solid var(--hairline-dim);
+    padding: 10px 0 0;
+  }
+  .status-item:first-child { border-top: none; padding-top: 0; }
+  .well { padding: 24px 20px 28px; }
+  .action-row { flex-direction: column; align-items: stretch; }
+  .action-keys { margin-left: 0; justify-content: flex-end; }
+}
+
+/* reduced-motion floor lives in shared/base.css */
+@media (prefers-reduced-motion: reduce) {
+  .well.is-revealing { animation: none; }
+}
+
+}
+@keyframes well-reveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}

@@ -1,0 +1,499 @@
+html[data-surface="admin-console"] {
+/* ═══════════════════════════════════════════════════════════════════
+   Flex Agent — Administrator Console (The Record Wall)
+   World: Shipboard Terminal · Surface seed: ebcaf1b5 (dealt lead)
+   Tokens, base chrome, and shared components live in ../shared/.
+   ═══════════════════════════════════════════════════════════════════ */
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* ═══ Command strip (shared wordmark + ADMIN suffix, tab tokens) ════ */
+
+/* responsive strip rules come from the shared component family sheets */
+
+.strip-nav { min-width: 0; }
+
+/* ═══ Administrator shell (gangway + area content) ═══════════════ */
+
+.admin-shell {
+  --gangway-w: 248px;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.admin-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-drawer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 45;
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--hairline-dim);
+  background: linear-gradient(180deg, rgba(2, 9, 14, 0.42), rgba(2, 9, 14, 0.16));
+}
+
+.admin-drawer-label {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  color: var(--label);
+}
+
+/* ═══ Campaigns area ═════════════════════════════════════════════ */
+
+.campaigns-wall {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 18px 24px 16px;
+}
+
+.campaigns-registry-frame.frame-cut {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.campaigns-wall .col-action { text-align: right; white-space: nowrap; }
+
+.campaigns-wall .state-label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.campaigns-unavailable {
+  display: flex;
+  justify-content: center;
+  padding: 48px 16px;
+}
+
+.campaigns-frame.frame-cut {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  min-width: min(100%, 52rem);
+}
+
+.campaigns-frame .frame-in {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  flex-direction: column;
+  padding: 22px 28px 20px;
+}
+
+.campaigns-readout-band {
+  display: inline-flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  max-width: 100%;
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.campaigns-readout-band + .campaigns-readout-band {
+  border-top: none;
+}
+
+.campaign-context.campaigns-readout-band {
+  position: relative;
+  z-index: 35;
+  align-self: flex-start;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  margin: 0 0 14px;
+  border: 1px solid var(--hairline-dim);
+  background: rgba(2, 9, 14, 0.28);
+}
+
+.campaign-context.campaigns-readout-band:has(.select-trigger[aria-expanded="true"]) {
+  z-index: 45;
+}
+
+.campaign-context > .toolbar-seg,
+.campaign-context > .searchable-disclosure {
+  width: fit-content;
+  flex: 0 1 auto;
+  min-width: min(14rem, 34vw);
+  max-width: min(22rem, 46vw);
+  border: 0;
+  border-right: 1px solid var(--hairline-dim);
+}
+
+.campaign-context .campaigns-readout-field {
+  padding: 8px 24px 9px;
+  flex: 0 0 auto;
+}
+
+.campaign-context .campaigns-readout-field:last-child {
+  padding-right: 24px;
+  border-right: none;
+}
+
+.campaign-context .campaigns-readout-field + .campaigns-readout-field {
+  padding-left: 24px;
+}
+
+.campaign-context .seg-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.campaigns-readout-field {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 2px 28px 10px 0;
+  border-right: 1px solid var(--hairline-dim);
+}
+
+.campaigns-readout-field:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+.campaigns-readout-field + .campaigns-readout-field {
+  padding-left: 24px;
+}
+
+.campaigns-readout-field dt {
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal);
+  opacity: 0.85;
+  margin-bottom: 4px;
+}
+
+.campaigns-readout-field dd {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+.campaigns-readout-band:has(+ .empty-plate--inset) {
+  border-bottom: none;
+}
+
+.campaigns-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.campaigns-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 18px;
+}
+
+.campaigns-wall .frozen-line {
+  margin-top: 18px;
+}
+
+/* ═══ Wall frame ═════════════════════════════════════════════════ */
+
+.wall {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 24px 16px;
+}
+
+.wall-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sample-wall > .advisory {
+  flex-shrink: 0;
+  margin: 0 0 14px;
+}
+
+.sample-frame.frame-cut {
+  margin-top: 2px;
+  min-width: 0;
+}
+
+.sample-frame.frame-cut:has(.readout-grid) {
+  width: 100%;
+  align-self: stretch;
+}
+
+/* Seated readout + absence: one full-width dashed horizon, never solid∪dashed. */
+.sample-frame .campaigns-readout-band {
+  display: flex;
+  width: 100%;
+}
+
+.sample-frame .campaigns-readout-band:has(+ .empty-plate--inset) {
+  border-bottom: none;
+}
+
+.sample-frame .empty-plate--inset {
+  max-width: none;
+}
+
+/* .frame-cut / .frame-in / .frame-tick / .frame-node come from
+   the shared component family sheets; the wall stacks its frame contents */
+.frame-in {
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+}
+
+/* .console-foot and .foot-note come from the shared component family sheets */
+
+/* ═══ Ceremony plate (campaign configuration) ════════════════════ */
+
+/* .dialog root comes from the shared component family sheets; the configuration
+   ceremony keeps its lighter ground scrim so the wall stays readable */
+.ceremony::backdrop { background: rgba(4, 12, 17, 0.45); }
+
+/* clipped-border cut: outer hairline layer, pane re-cut 1px inside,
+   so the chamfers carry a visible stroke (the Clipped-Border Rule) */
+.ceremony-cut {
+  display: flex;
+  padding: 1px;
+  background: var(--hairline);
+  clip-path: polygon(
+    18px 0, calc(100% - 18px) 0, 100% 18px,
+    100% calc(100% - 12px), calc(100% - 12px) 100%,
+    12px 100%, 0 calc(100% - 12px), 0 18px
+  );
+}
+
+.ceremony-plate {
+  width: min(620px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
+  clip-path: polygon(
+    17px 0, calc(100% - 17px) 0, 100% 17px,
+    100% calc(100% - 11px), calc(100% - 11px) 100%,
+    11px 100%, 0 calc(100% - 11px), 0 17px
+  );
+  background: var(--panel-sheen), var(--panel-depth), var(--ground);
+  box-shadow: var(--panel-inset);
+  padding: 34px 44px 30px;
+}
+
+.ceremony-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 24px;
+}
+
+.ceremony-title {
+  font-family: var(--font-plaque);
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: 0.92rem;
+  letter-spacing: 0.32em;
+  color: var(--text-bright);
+  text-align: center;
+}
+
+.ceremony-trace {
+  position: relative;
+  width: 76px;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.ceremony-trace-node {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--amber);
+  border-radius: 50%;
+  background: var(--ground);
+}
+
+.ceremony-body { display: flex; flex-direction: column; }
+
+/* .form-row, .field-label, .form-divider, the .dropdown selector
+   family, and the .option-menu grammar come from the shared component family sheets */
+
+.ceremony-note {
+  font-size: 0.74rem;
+  color: var(--label-dim);
+  max-width: 52ch;
+  padding: 4px 0 8px;
+}
+
+.ceremony-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 18px;
+}
+
+.frozen-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+
+.frozen-line::before {
+  content: "";
+  width: 10px;
+  height: 8px;
+  clip-path: polygon(0 45%, 12% 32%, 38% 60%, 88% 0, 100% 12%, 38% 86%);
+  background: var(--teal);
+}
+
+.wall-frame.is-revealing,
+.campaigns-frame.is-revealing,
+.campaigns-registry-frame.is-revealing { animation: wall-reveal 640ms var(--ease-out); }
+
+
+
+/* ═══ Activation sweep (one authored moment) ═════════════════════ */
+
+.wall-frame.is-sealing .frame-in::after,
+.campaigns-frame.is-sealing .frame-in::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, rgba(60, 192, 191, 0.16) 50%, transparent 70%);
+  animation: seal-sweep 640ms var(--ease-out);
+}
+
+
+
+/* ═══ Responsive ═════════════════════════════════════════════════ */
+
+@media (max-width: 1080px) /* bp.pageScroll */ {
+  &, body { height: auto; min-height: 100dvh; }
+  body { overflow: auto; }
+
+  .admin-shell { flex-direction: column; }
+  .admin-content { flex: none; }
+  .admin-drawer-bar { padding: 12px 18px; }
+
+  .wall,
+  .campaigns-wall { flex: none; display: block; padding: 14px 18px 36px; }
+  .sample-frame.frame-cut { display: block; }
+  .wall-head,
+  .campaigns-head { padding: 0 0 12px; }
+  .campaigns-frame.frame-cut {
+    width: 100%;
+    min-width: 0;
+    align-self: stretch;
+  }
+  .campaigns-readout-band {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    border-bottom: none;
+  }
+  .campaigns-readout-field {
+    padding: 10px 0 12px;
+    border-right: none;
+    border-bottom: 1px solid var(--hairline-dim);
+  }
+  .campaigns-readout-field + .campaigns-readout-field { padding-left: 0; }
+  .campaign-context.campaigns-readout-band {
+    width: 100%;
+    margin-bottom: 14px;
+    border: 1px solid var(--hairline-dim);
+  }
+  .campaign-context > .toolbar-seg,
+  .campaign-context > .searchable-disclosure {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    border-right: none;
+    border-bottom: 1px solid var(--hairline-dim);
+  }
+  .campaign-context .seg-key,
+  .campaign-context .campaigns-readout-field {
+    padding: 10px 14px 12px;
+  }
+  .campaign-context .campaigns-readout-field:last-child {
+    padding-right: 14px;
+    border-right: none;
+  }
+  .campaign-context .campaigns-readout-field + .campaigns-readout-field {
+    padding-left: 14px;
+  }
+  .campaign-context > .toolbar-seg,
+  .campaign-context > .searchable-disclosure {
+    min-width: 0;
+    width: 100%;
+  }
+  .campaigns-foot .key {
+    width: 100%;
+    justify-content: center;
+  }
+  .wall-frame,
+  .campaigns-registry-frame { display: block; }
+  .frame-in { display: block; }
+  .frame-node { display: none; }
+}
+
+@media (max-width: 720px) /* bp.compact */ {
+  .ceremony-plate { padding: 26px 22px 24px; }
+
+  .ceremony-foot { flex-direction: column; align-items: stretch; gap: 12px; }
+  .ceremony-foot .key { justify-content: center; }
+}
+
+/* reduced-motion floor lives in shared/base.css */
+@media (prefers-reduced-motion: reduce) {
+  .wall-frame.is-sealing .frame-in::after,
+  .campaigns-frame.is-sealing .frame-in::after { animation: none; display: none; }
+  .wall-frame.is-revealing,
+  .campaigns-frame.is-revealing,
+  .campaigns-registry-frame.is-revealing { animation: none; }
+}
+
+}
+@keyframes wall-reveal {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+@keyframes seal-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}

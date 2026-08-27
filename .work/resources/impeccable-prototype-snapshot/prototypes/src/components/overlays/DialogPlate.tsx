@@ -1,0 +1,66 @@
+import type { ReactNode } from "react";
+
+export type DialogPlateWidth = "narrow" | "default" | "wide";
+
+export function DialogPlate({
+  width = "default",
+  className,
+  children,
+}: {
+  width?: DialogPlateWidth;
+  className?: string;
+  children: ReactNode;
+}) {
+  const widthClass = width === "default" ? "" : ` dialog-plate--${width}`;
+  return (
+    <div className={`dialog-plate${widthClass}${className ? ` ${className}` : ""}`}>
+      {children}
+    </div>
+  );
+}
+
+export function DialogPlateHead({
+  title,
+  titleId,
+  marker = true,
+  className = "dialog-head",
+  titleClassName = "dialog-title",
+  children,
+}: {
+  title: ReactNode;
+  titleId: string;
+  marker?: boolean;
+  className?: string;
+  titleClassName?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <header className={className}>
+      {marker ? <span className="warn-triangle" aria-hidden="true" /> : null}
+      <h2 className={titleClassName} id={titleId}>
+        {title}
+      </h2>
+      {children}
+    </header>
+  );
+}
+
+export function DialogPlateBody({
+  className = "dialog-body",
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return <div className={className}>{children}</div>;
+}
+
+export function DialogPlateFooter({
+  className = "dialog-foot",
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return <footer className={className}>{children}</footer>;
+}

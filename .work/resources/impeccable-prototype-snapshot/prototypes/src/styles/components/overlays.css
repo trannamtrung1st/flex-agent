@@ -1,0 +1,315 @@
+/* ═══ Dialog (ceremony plate root) ═══════════════════════════════ */
+
+/* native <dialog> reset + scrim; each ceremony sets its own plate
+   weight. Scrim overrides (e.g. the admin ceremony's lighter ground)
+   stay on the consuming class's ::backdrop. */
+.dialog {
+  border: none;
+  padding: 0;
+  background: transparent;
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+}
+
+.dialog::backdrop { background: rgba(2, 9, 14, 0.82); }
+
+.dialog[open] {
+  display: flex;
+  margin: auto;
+}
+
+/* the standard confirm plate: chamfered pane, hairline-divided
+   head / body / foot, warn triangle beside the Michroma title.
+   Width via --dialog-w or a named size: --narrow (412px) for a
+   single-question confirm, default 520px, --wide (680px) when the
+   body carries a form. A body taller than the viewport scrolls
+   inside the plate; head and foot stay seated. */
+.dialog-plate {
+  width: min(var(--dialog-w, 520px), calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline);
+  clip-path: polygon(
+    var(--notch) 0, calc(100% - var(--notch)) 0, 100% var(--notch),
+    100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%,
+    var(--notch) 100%, 0 calc(100% - var(--notch)), 0 var(--notch)
+  );
+  background: var(--panel-sheen), rgba(2, 9, 14, 0.92);
+  box-shadow: var(--panel-inset);
+}
+
+.dialog-plate--narrow { --dialog-w: 412px; }
+.dialog-plate--wide { --dialog-w: 680px; }
+
+.dialog-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 24px 14px;
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.dialog-title {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  color: var(--text-bright);
+}
+
+.dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 24px 20px;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.dialog-readout {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.dialog-readout dt {
+  font-size: 0.55rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--label);
+}
+
+.dialog-readout dd {
+  font-size: 0.82rem;
+  color: var(--text-bright);
+}
+
+.dialog-foot {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 24px 20px;
+  border-top: 1px solid var(--hairline-dim);
+}
+
+@media (max-width: 480px) /* bp.dialog */ {
+  .dialog-foot {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+  }
+
+  .dialog-foot .key {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+/* ═══ Tooltip (instrument plaque on hover/focus) ═════════════════ */
+
+/* attribute-driven: put data-tip on an element that has no decorative
+   pseudo-elements of its own (wrap otherwise). A hairline connector
+   tick seats the plaque above the trigger — no arrow blobs. */
+[data-tip] { position: relative; }
+
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  padding: 6px 10px;
+  border: 1px solid var(--hairline);
+  background: linear-gradient(rgba(2, 9, 14, 0.94), rgba(2, 9, 14, 0.94)), var(--ground-deep);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--label);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms var(--ease-out);
+}
+
+[data-tip]::before {
+  content: "";
+  position: absolute;
+  bottom: calc(100% + 3px);
+  left: 50%;
+  width: 1px;
+  height: 9px;
+  background: var(--hairline);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms var(--ease-out);
+}
+
+[data-tip]:hover::after, [data-tip]:focus-visible::after,
+[data-tip]:hover::before, [data-tip]:focus-visible::before,
+.tip-host[data-tip]:hover::after, .tip-host[data-tip]:focus-within::after,
+.tip-host[data-tip]:hover::before, .tip-host[data-tip]:focus-within::before { opacity: 1; }
+
+.tip-host {
+  display: inline-flex;
+  position: relative;
+}
+
+.tip-plaque {
+  position: fixed;
+  z-index: 220;
+  padding: 6px 10px;
+  border: 1px solid var(--hairline);
+  background: linear-gradient(rgba(2, 9, 14, 0.94), rgba(2, 9, 14, 0.94)), var(--ground-deep);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--label);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  box-shadow: 0 10px 28px rgba(2, 9, 14, 0.62);
+}
+
+.tip-plaque--above {
+  transform: translate(-50%, -100%);
+}
+
+.tip-plaque--below {
+  transform: translate(-50%, 0);
+}
+
+.tip-plaque--above::before,
+.tip-plaque--below::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 1px;
+  height: 9px;
+  background: var(--hairline);
+  transform: translateX(-50%);
+}
+
+.tip-plaque--above::before {
+  top: 100%;
+}
+
+.tip-plaque--below::before {
+  bottom: 100%;
+}
+
+.datatable-selection-sep {
+  color: var(--label-dim);
+}
+
+/* trailing plaque: seats right of the trigger on a horizontal
+   connector tick — for collapsed side rails and left-edge triggers
+   where the standard plaque would leave the viewport */
+[data-tip].tip-trailing::after {
+  bottom: auto;
+  top: 50%;
+  left: calc(100% + 14px);
+  transform: translateY(-50%);
+}
+
+[data-tip].tip-trailing::before {
+  bottom: auto;
+  top: 50%;
+  left: calc(100% + 4px);
+  width: 9px;
+  height: 1px;
+  transform: translateY(-50%);
+}
+
+/* ═══ Toast (instrument slip) ════════════════════════════════════ */
+
+/* transient system messages dock bottom-right as notched hairline
+   slips; system voice is teal, attention warms to amber and carries
+   the warn triangle. Arrivals sweep in like ledger turns. */
+.toast-dock {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 260px;
+  max-width: 380px;
+  padding: 12px 16px 13px;
+  border: 1px solid var(--hairline);
+  clip-path: polygon(var(--notch) 0, 100% 0, 100% 100%, 0 100%, 0 var(--notch));
+  background: linear-gradient(rgba(2, 9, 14, 0.94), rgba(2, 9, 14, 0.94)), var(--ground-deep);
+  box-shadow: var(--panel-inset);
+  pointer-events: auto;
+  animation: toast-sweep 320ms var(--ease-out) both;
+}
+
+@keyframes toast-sweep {
+  from { clip-path: inset(0 0 0 100%); opacity: 0.4; }
+  to { clip-path: inset(0 0 0 0); opacity: 1; }
+}
+
+.toast.is-leaving { transition: opacity 240ms var(--ease-out); opacity: 0; }
+
+/* leading instrument mark: teal tick for the system voice */
+.toast::before {
+  content: "";
+  flex-shrink: 0;
+  width: 7px;
+  height: 1px;
+  background: var(--teal);
+  margin-top: 0.55em;
+}
+
+.toast-copy {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.toast-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin-bottom: 3px;
+}
+
+/* attention slip: amber border warmth + warn triangle instead of tick */
+.toast--attention { border-color: color-mix(in srgb, var(--amber) 45%, var(--hairline)); }
+
+.toast--attention::before {
+  width: 9px;
+  height: 8px;
+  background: var(--amber);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  margin-top: 0.3em;
+}
+
+.toast--attention .toast-label { color: var(--amber); }
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
+

@@ -1,0 +1,14 @@
+html[data-surface="not-found"] body {
+  display: flex;
+  flex-direction: column;
+}
+html[data-surface="not-found"] .board {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+html[data-surface="not-found"] .board-empty {
+  width: min(42rem, calc(100% - 48px));
+}

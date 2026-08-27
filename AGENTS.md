@@ -59,10 +59,18 @@ Load the matching repository skill from `.agents/skills/` before substantive wor
 - Frontend review or UI polish review: `frontend-reviewer`
 - QA, acceptance, regression, functional, accessibility, or UX testing: `tester`
 - Threat modeling, privacy, isolation, memory, uploads, tools, or audit review: `security-privacy-reviewer`
+- Visual design craft, critique, extraction, hardening, polish, or audit of UI: `impeccable` (explicit `$impeccable`; never implicit)
 - Commits, branches, merges, or pull requests: `git-workflow`
 - Substantive implementation planning, execution tracking, and completion: `implementation-workflow`
 
 Use `developer` and `reviewer` for their defined cross-cutting compositions; load specialist skills directly for narrower work. Keep implementation and review perspectives distinct: a reviewer reports findings and evidence and does not edit unless fixes were also requested. Role skills define reusable responsibilities and quality standards. Workflow skills cover delivery processes that compose roles: load `git-workflow` when the task is primarily about version control; load `implementation-workflow` for substantive implementation work alongside applicable role skills.
+
+Impeccable is an explicit composition layer for UI craft. Approved Flex Agent
+documents remain authority for product, requirements, journeys, accessibility,
+security, and architecture. Bounded commands: `shape`/`critique` for UI/UX
+design, `extract`/`document` for design-system adoption, `harden`/`adapt`/`polish`
+for implementation, and `audit` for review. Do not run open-ended polish loops,
+hooks, or live mode unless a later approved proposal enables them.
 
 ## Implementation workflow
 

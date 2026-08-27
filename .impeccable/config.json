@@ -1,0 +1,15 @@
+{
+  "stalenessCheck": false,
+  "updateCheck": false,
+  "detector": {
+    "ignoreFiles": [
+      "PRODUCT.md",
+      "DESIGN.md",
+      ".work/**",
+      "web-legacy/**",
+      "artifacts/**"
+    ],
+    "ignoreRules": [],
+    "ignoreValues": []
+  }
+}

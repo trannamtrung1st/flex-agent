@@ -29,6 +29,13 @@ Turn approved user and business outcomes into understandable, accessible, and te
 - Use `documentation-author` to publish approved journey, design-system, content, and UI specification documents under `docs/`.
 - Give `frontend-developer` implementable states, responsive rules, component behavior, and design tokens; use `tester` for acceptance and usability evidence.
 
+## Impeccable
+
+When shaping, critiquing, or extracting visual systems, invoke `impeccable`
+explicitly (`shape`, `critique`, `extract`, `document`). Treat its output as a
+proposal. Approved Flex Agent product, UI/UX, accessibility, and security
+documents remain authoritative. Do not enable hooks or live mode from this role.
+
 ## Design method
 
 1. Identify actors, primary jobs, context of use, constraints, risks, and measurable outcomes.

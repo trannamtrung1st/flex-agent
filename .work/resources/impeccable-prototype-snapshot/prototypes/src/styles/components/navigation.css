@@ -1,0 +1,656 @@
+/* ═══ Nav rail (shared side navigation) ══════════════════════════ */
+
+/* vertical nav list in the listbox selected grammar — teal tick
+   and Bright Text on the current item. Teal selection voice only;
+   navigation is never amber. Layout (width, sticky, border) stays
+   on the consuming shell. */
+.nav-rail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.nav-rail-section { flex-shrink: 0; }
+
+.nav-rail-section + .nav-rail-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hairline-dim);
+}
+
+.nav-rail-label {
+  display: block;
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.55rem;
+  letter-spacing: 0.24em;
+  color: var(--label-dim);
+  margin-bottom: 12px;
+}
+
+.nav-rail details.nav-rail-section > summary.nav-rail-label {
+  list-style: none;
+  cursor: pointer;
+}
+
+.nav-rail details.nav-rail-section > summary.nav-rail-label::-webkit-details-marker {
+  display: none;
+}
+
+.nav-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-link {
+  display: block;
+  width: 100%;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--label);
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid var(--hairline-dim);
+  transition: color 160ms var(--ease-out);
+}
+
+.nav-list > li:last-child > .nav-link { border-bottom: none; }
+
+.nav-link:hover, .nav-link:focus-visible { color: var(--teal); }
+
+.nav-link.is-current, .nav-link[aria-current="location"], .nav-link[aria-current="page"] {
+  color: var(--text-bright);
+}
+
+.nav-link.is-current::before,
+.nav-link[aria-current="location"]::before,
+.nav-link[aria-current="page"]::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 1px;
+  background: var(--teal);
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+.nav-link:disabled, .nav-link.is-locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+  color: var(--label-dim);
+}
+
+.nav-link.is-locked:hover, .nav-link.is-locked:focus-visible { color: var(--label-dim); }
+
+/* optional traced spine: hairline connector + 5px node terminals */
+.nav-list--traced .nav-item { position: relative; }
+
+.nav-link--traced {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.nav-marker {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 18px;
+  padding-top: 2px;
+}
+
+.nav-node {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  margin-top: 5px;
+  border: 1px solid var(--label-dim);
+  border-radius: 50%;
+  background: var(--ground);
+  transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+}
+
+.nav-trace {
+  flex: 1 1 auto;
+  width: 1px;
+  min-height: 14px;
+  margin: 4px auto 0;
+  background: var(--hairline-dim);
+}
+
+.nav-link.is-current .nav-node,
+.nav-link[aria-current="location"] .nav-node,
+.nav-link[aria-current="page"] .nav-node {
+  border-color: var(--teal);
+  box-shadow: 0 0 6px var(--teal-glow);
+}
+
+.nav-link--traced.is-current .nav-link-placard,
+.nav-link--traced[aria-current="location"] .nav-link-placard,
+.nav-link--traced[aria-current="page"] .nav-link-placard {
+  color: var(--text-bright);
+}
+
+.nav-link--traced.is-current::before,
+.nav-link--traced[aria-current="location"]::before,
+.nav-link--traced[aria-current="page"]::before {
+  display: none;
+}
+
+.nav-link.is-locked .nav-node { opacity: 0.7; }
+
+.nav-link-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.nav-link-placard {
+  font-family: var(--font-plaque);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+}
+
+.nav-link-note {
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  color: var(--label-dim);
+  line-height: 1.35;
+}
+
+.nav-lock-glyph {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: var(--label-dim);
+  stroke-width: 1.1;
+  stroke-linecap: square;
+}
+
+/* ═══ Bulkhead drawer (off-canvas panel + scrim) ══════════════════ */
+
+/* smoked-glass panel over an 82% ground scrim. Set edge with
+   .bulkhead--leading (left, default) or .bulkhead--trailing (right).
+   Width via --bulkhead-w (default 280px, navigation weight);
+   .bulkhead--wide (420px) carries field work — forms, adjust
+   ceremonies, filter stacks. Pair with .nav-rail inside. Focus trap
+   and Escape dismiss stay in page JS. */
+.bulkhead {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+}
+
+.bulkhead--wide { --bulkhead-w: 420px; }
+
+.bulkhead[hidden] { display: none; }
+
+.bulkhead-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: none;
+  padding: 0;
+  background: rgba(2, 9, 14, 0.82);
+  cursor: default;
+  opacity: 0;
+  transition: opacity 320ms var(--ease-out);
+}
+
+.bulkhead.is-open .bulkhead-scrim { opacity: 1; }
+
+.bulkhead-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: min(var(--bulkhead-w, 280px), 92vw);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: none;
+  --pane-fill: linear-gradient(180deg, rgba(2, 9, 14, 0.96), rgba(2, 9, 14, 0.88));
+  background: var(--panel-sheen), var(--pane-fill);
+  box-shadow: var(--panel-inset);
+  transition: transform 320ms var(--ease-out);
+}
+
+/* left / leading edge (default) */
+.bulkhead--leading .bulkhead-panel,
+.bulkhead:not(.bulkhead--trailing) .bulkhead-panel {
+  left: 0;
+  right: auto;
+  border-right: 1px solid var(--hairline);
+  clip-path: polygon(
+    var(--notch) 0, 100% 0, 100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%, 0 100%, 0 var(--notch)
+  );
+  transform: translateX(-102%);
+}
+
+.bulkhead--leading.is-open .bulkhead-panel,
+.bulkhead:not(.bulkhead--trailing).is-open .bulkhead-panel {
+  transform: translateX(0);
+}
+
+/* right / trailing edge */
+.bulkhead--trailing .bulkhead-panel {
+  left: auto;
+  right: 0;
+  border-left: 1px solid var(--hairline);
+  clip-path: polygon(
+    0 0, calc(100% - var(--notch)) 0, 100% var(--notch),
+    100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%,
+    var(--notch) 100%, 0 calc(100% - var(--notch)), 0 0
+  );
+  transform: translateX(102%);
+}
+
+.bulkhead--trailing.is-open .bulkhead-panel { transform: translateX(0); }
+
+.bulkhead-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.bulkhead-title {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  color: var(--text-bright);
+}
+
+.bulkhead-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px 20px 18px;
+}
+
+.bulkhead-body > * { flex-shrink: 0; }
+
+.bulkhead-foot {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--hairline-dim);
+}
+
+.bulkhead-note {
+  margin-top: 16px;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--label);
+  max-width: 44ch;
+}
+
+body.is-bulkhead-open { overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bulkhead-scrim { transition: none; }
+  .bulkhead-panel { transition: none; }
+  .bulkhead--leading.is-open .bulkhead-panel,
+  .bulkhead:not(.bulkhead--trailing).is-open .bulkhead-panel,
+  .bulkhead--trailing.is-open .bulkhead-panel { transform: translateX(0); }
+}
+
+/* ═══ Gangway (persistent collapsible side menu) ══════════════════ */
+
+/* the in-layout counterpart to the bulkhead drawer: a full-height
+   side menu column the shell seats as a grid/flex track. Width via
+   --gangway-w (default 232px, the instrument-rail width); .is-collapsed
+   folds it to --gangway-w-collapsed (76px) — a rail of engraved channel
+   codes (.gangway-abbr) whose full names speak through the trailing
+   tooltip plaque. Selection keeps the teal tick voice. The shell owns
+   page breakpoints: at drawer widths swap the gangway for
+   .bulkhead--leading rather than collapsing further. The typed React
+   Gangway lives in components/navigation/Gangway.tsx; the Component
+   Deck renders that same component. The width transition is deliberate: the fold must
+   reflow the shell's content track, 240ms one-shot on user action. */
+.gangway {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 0 0 auto;
+  width: var(--gangway-w, 232px);
+  border-right: 1px solid var(--hairline);
+  background: linear-gradient(180deg, rgba(2, 9, 14, 0.42), rgba(2, 9, 14, 0.16));
+  transition: width 240ms var(--ease-out);
+}
+
+.gangway.is-collapsed { width: var(--gangway-w-collapsed, 76px); }
+
+.gangway-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.gangway-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.58rem;
+  letter-spacing: 0.24em;
+  color: var(--label-dim);
+  transition: opacity 160ms var(--ease-out);
+}
+
+.gangway.is-collapsed .gangway-title { opacity: 0; }
+
+.gangway-toggle {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--hairline-dim);
+  background: transparent;
+  color: var(--label);
+  cursor: pointer;
+  transition: color 160ms var(--ease-out), border-color 160ms var(--ease-out);
+}
+
+.gangway-toggle:hover, .gangway-toggle:focus-visible {
+  color: var(--teal);
+  border-color: var(--teal);
+}
+
+/* base chevron points down; expanded points at the fold edge (left),
+   collapsed points back out (right) */
+.gangway-toggle .chevron-glyph {
+  transform: rotate(90deg);
+  transition: transform 240ms var(--ease-out);
+}
+
+.gangway.is-collapsed .gangway-toggle .chevron-glyph { transform: rotate(-90deg); }
+
+/* no overflow clip on the body: collapsed links seat trailing
+   tooltip plaques past the rail edge. A shell with a menu too long
+   for its shell height scrolls locally and drops the tips. */
+.gangway-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  --gangway-body-pad-inline-start: 14px;
+  --gangway-body-pad-inline-end: 12px;
+  --gangway-group-gap: 12px;
+  padding: 12px var(--gangway-body-pad-inline-end) 16px var(--gangway-body-pad-inline-start);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.gangway-body > *,
+.gangway-section,
+.gangway-list > li { flex-shrink: 0; }
+
+.gangway-section + .gangway-section { margin-top: var(--gangway-group-gap); }
+
+/* Group headers bleed edge-to-edge; links stay on the inset track. */
+.gangway-section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  margin: 0 calc(-1 * var(--gangway-body-pad-inline-end)) 4px calc(-1 * var(--gangway-body-pad-inline-start));
+  padding: 0 var(--gangway-body-pad-inline-end) 0 var(--gangway-body-pad-inline-start);
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--label);
+  border-top: none;
+  border-bottom: 1px solid var(--hairline);
+  background: linear-gradient(
+    90deg,
+    rgba(60, 192, 191, 0.12),
+    rgba(60, 192, 191, 0.04) 68%,
+    transparent
+  );
+  transition: opacity 160ms var(--ease-out);
+}
+
+.gangway-section + .gangway-section .gangway-section-label {
+  border-top: 1px solid var(--hairline-dim);
+}
+
+/* A terminal node makes the row read as a group header, not another link. */
+.gangway-section-node {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--hairline);
+  background: var(--ground);
+  transform: rotate(45deg);
+}
+
+.gangway-section-label-text {
+  line-height: 1;
+}
+
+.gangway.is-collapsed .gangway-section + .gangway-section::before {
+  content: "";
+  display: block;
+  margin: 0 calc(-1 * var(--gangway-body-pad-inline-end)) 4px calc(-1 * var(--gangway-body-pad-inline-start));
+  border-top: 1px solid var(--hairline-dim);
+}
+
+.gangway.is-collapsed .gangway-section-label { display: none; }
+
+.gangway-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.gangway-link {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 9px 0;
+  border: none;
+  border-bottom: 1px solid var(--hairline-dim);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--label);
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 160ms var(--ease-out);
+}
+
+.gangway-list > li:last-child > .gangway-link { border-bottom: none; }
+
+.gangway-link:hover, .gangway-link:focus-visible { color: var(--teal); }
+
+.gangway-link.is-current,
+.gangway-link[aria-current="page"],
+.gangway-link[aria-current="location"] {
+  color: var(--text-bright);
+}
+
+.gangway-tick {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 1px;
+  background: transparent;
+  transition: background 160ms var(--ease-out);
+}
+
+.gangway-link.is-current .gangway-tick,
+.gangway-link[aria-current="page"] .gangway-tick,
+.gangway-link[aria-current="location"] .gangway-tick {
+  background: var(--teal);
+}
+
+.gangway-abbr {
+  flex: 0 0 auto;
+  min-width: 3ch;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  color: var(--label-dim);
+  transition: color 160ms var(--ease-out);
+}
+
+.gangway-link:hover .gangway-abbr,
+.gangway-link:focus-visible .gangway-abbr {
+  color: var(--teal);
+}
+
+.gangway-link.is-current .gangway-abbr,
+.gangway-link[aria-current="page"] .gangway-abbr,
+.gangway-link[aria-current="location"] .gangway-abbr {
+  color: var(--text-bright);
+}
+
+/* the label clips itself as the rail folds; opacity-0 text keeps the
+   accessible name on the link in the collapsed state */
+.gangway-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  transition: opacity 160ms var(--ease-out);
+}
+
+.gangway.is-collapsed .gangway-label { opacity: 0; }
+
+/* collapsed links speak their full name through the trailing plaque;
+   expanded, the label is on the glass and the tip stays silent */
+.gangway:not(.is-collapsed) .gangway-link[data-tip]::before,
+.gangway:not(.is-collapsed) .gangway-link[data-tip]::after {
+  display: none;
+}
+
+.gangway-foot {
+  flex-shrink: 0;
+  padding: 12px 14px 16px;
+  border-top: 1px solid var(--hairline-dim);
+}
+
+.gangway.is-collapsed .gangway-foot { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gangway,
+  .gangway-title,
+  .gangway-section-label,
+  .gangway-label,
+  .gangway-toggle .chevron-glyph { transition: none; }
+}
+
+/* ═══ Panel tabs (in-page tab set) ═══════════════════════════════ */
+
+/* distinct from the strip's campaign tabs: a hairline-underlined row
+   of mono tokens with the teal underline current marker and opacity
+   panel switches — not filled tab backgrounds. */
+.panel-tabs { display: flex; flex-direction: column; min-width: 0; }
+
+.panel-tablist { display: flex; flex-wrap: wrap; align-items: stretch; border-bottom: 1px solid var(--hairline-dim); }
+
+.panel-tablist:focus { outline: none; }
+
+.panel-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 12px 22px;
+  border: none;
+  background: transparent;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  color: var(--label);
+  cursor: pointer;
+  transition: color 160ms var(--ease-out);
+}
+
+.panel-tab:hover, .panel-tab:focus-visible { color: var(--teal); }
+
+.panel-tab.is-current, .panel-tab[aria-selected="true"] {
+  color: var(--text-bright);
+}
+
+.panel-tab.is-current::after, .panel-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--teal);
+  box-shadow: 0 0 10px var(--teal-glow);
+}
+
+.panel-panels { padding: 18px 0 0; min-width: 0; }
+
+.panel-panel {
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--text);
+  max-width: 68ch;
+  animation: panel-fade 200ms var(--ease-out);
+}
+
+.panel-panel[hidden] { display: none; }
+
+@keyframes panel-fade {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-panel { animation: none; }
+}
+
+/* Bar note — governance or disclaimer copy beside keys in horizontal
+   action footers. Fills the available track; ch caps belong in dialog
+   plates and empty states, not operate bars. */
+.bar-note {
+  min-width: 0;
+  margin: 0;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+

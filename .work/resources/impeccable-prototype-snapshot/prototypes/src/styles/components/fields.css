@@ -1,0 +1,328 @@
+/* ═══ Field controls (inputs + amber validation) ═════════════════ */
+
+/* the labeled form row: microlabel held in a 148px column beside its
+   control on desktop, stacking above it at ≤720px. The grammar for
+   any form seated in a ceremony plate, dialog, or wide bulkhead. */
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  padding: 9px 0;
+}
+
+.form-row > .field-label { flex: 0 0 148px; }
+
+/* hint and error sit under the control, never on the label/control row */
+.form-row > .field-hint,
+.form-row > .field-error {
+  flex: 1 0 100%;
+  margin: 0;
+  padding-left: calc(148px + 20px);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.form-row--pair {
+  gap: 48px;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.field-pair {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 8px;
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.field-pair > .field-hint,
+.field-pair > .field-error {
+  grid-column: 1 / -1;
+  width: 0;
+  min-width: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) /* bp.compact */ {
+  .form-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .form-row > .field-label { flex: none; }
+  .form-row > .field-hint,
+  .form-row > .field-error { padding-left: 0; }
+  .form-row--pair { flex-direction: column; gap: 14px; }
+  .field-pair {
+    width: 100%;
+    grid-template-columns: 1fr auto;
+  }
+}
+
+.field-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--label);
+  white-space: nowrap;
+}
+
+.form-divider {
+  display: block;
+  height: 1px;
+  background: var(--hairline-dim);
+  margin: 12px 0;
+}
+
+.field-input {
+  width: 108px;
+  padding: 10px 14px;
+  border: 1px solid var(--hairline);
+  background: rgba(2, 9, 14, 0.55);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+  transition: border-color 180ms var(--ease-out);
+}
+
+.field-input--narrow { width: 84px; }
+.field-input--wide { width: 100%; }
+
+.field-input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.field-input[type="number"]::-webkit-inner-spin-button,
+.field-input[type="number"]::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.field-input:focus { outline: none; border-color: rgba(60, 192, 191, 0.6); }
+.field-input::placeholder { color: var(--label-dim); }
+
+/* validation speaks amber per the world's no-red doctrine */
+.field-input.is-invalid { border-color: var(--amber); box-shadow: 0 0 10px var(--amber-glow); }
+
+.field-error {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--amber-bright);
+  padding: 2px 0 6px;
+}
+
+.field-error[hidden] { display: none; }
+
+.field-hint {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--label-dim);
+  padding: 2px 0 6px;
+}
+
+.field-input.is-frozen,
+.field-textarea.is-frozen,
+.select-shell.is-frozen .dropdown-key,
+.select-shell.is-frozen .select-trigger {
+  pointer-events: none;
+  border-color: transparent;
+  background: transparent;
+  padding-left: 0;
+  color: var(--text-bright);
+}
+
+.select-shell.is-frozen .dropdown-chevron,
+.select-shell.is-frozen .chevron-glyph,
+.select-shell.is-frozen .datetime-glyph { display: none; }
+
+.field-input.is-frozen { width: auto; }
+
+.field-error::before {
+  content: "";
+  width: 9px;
+  height: 8px;
+  flex-shrink: 0;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  background: var(--amber);
+  transform: translateY(-1px);
+}
+
+/* compact stacked field group: label above control with an 8px
+   label gap and 12px group rhythm. Used in marginalia plates,
+   bulkheads, and anywhere a ceremony's horizontal .form-row is too
+   wide. Pair .field-stack with .field-label and .field-input or
+   .field-textarea; .field-input--narrow sizes compact numerics. */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.field-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  border: 1px solid var(--hairline);
+  background: rgba(2, 9, 14, 0.55);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+  color: var(--text-bright);
+  color-scheme: dark;
+  resize: none;
+  min-height: 6.25rem;
+  overflow: auto;
+  transition: border-color 180ms var(--ease-out);
+}
+
+.field-textarea--resize-y {
+  resize: vertical;
+  max-height: 18rem;
+}
+
+.field-textarea--resize-both {
+  resize: both;
+  width: min(100%, 22rem);
+  max-width: 100%;
+  max-height: 18rem;
+}
+
+.field-textarea.is-frozen { resize: none; }
+
+.field-textarea:focus { outline: none; border-color: rgba(60, 192, 191, 0.6); }
+.field-textarea::placeholder { color: var(--label-dim); }
+.field-textarea.is-invalid { border-color: var(--amber); box-shadow: 0 0 10px var(--amber-glow); }
+
+/* ═══ Composer (bezeled textarea slot) ═══════════════════════════ */
+
+.composer {
+  flex: 1 1 auto;
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--hairline);
+  clip-path: polygon(var(--notch) 0, 100% 0, 100% 100%, 0 100%, 0 var(--notch));
+  background: var(--panel-sheen), rgba(2, 9, 14, 0.55);
+  box-shadow: var(--panel-inset);
+  transition: border-color 180ms var(--ease-out);
+}
+.composer:focus-within { border-color: rgba(60, 192, 191, 0.6); }
+
+.composer textarea {
+  flex: 1 1 auto;
+  resize: none;
+  border: none;
+  background: transparent;
+  color: var(--text-bright);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  padding: 20px 22px;
+  min-height: 64px;
+  max-height: 200px;
+}
+.composer textarea::placeholder { color: var(--label-dim); opacity: 1; }
+.composer textarea:focus { outline: none; }
+
+/* the commit key sits inside the slot, sharing its right edge */
+.composer .key--transmit {
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  align-self: stretch;
+}
+
+/* ═══ Radio mark (drawn radio, sibling of a hidden input) ════════ */
+
+/* selection speaks teal — the selected-option voice, not the amber
+   commitment voice of the acknowledgment mark */
+.radio-mark {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  border: 1px solid var(--label);
+  border-radius: 50%;
+  position: relative;
+  pointer-events: none;
+  transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+
+input:checked + .radio-mark {
+  border-color: var(--teal);
+  background: var(--teal-glow);
+}
+
+input:checked + .radio-mark::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 6px var(--teal-glow);
+}
+
+input:focus-visible + .radio-mark {
+  outline: 1px solid var(--teal);
+  outline-offset: 3px;
+}
+
+/* ═══ Breaker (drawn toggle switch) ══════════════════════════════ */
+
+/* a square breaker, never a pill: hairline track, square thumb that
+   slides and lights teal when the circuit closes */
+.breaker {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 18px;
+  border: 1px solid var(--label);
+  position: relative;
+  pointer-events: none;
+  transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+
+.breaker::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  background: var(--label-dim);
+  transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out),
+              box-shadow 160ms var(--ease-out);
+}
+
+input:checked + .breaker {
+  border-color: var(--teal);
+  background: var(--teal-glow);
+}
+
+input:checked + .breaker::after {
+  transform: translateX(16px);
+  background: var(--teal);
+  box-shadow: 0 0 8px var(--teal-glow);
+}
+
+input:focus-visible + .breaker {
+  outline: 1px solid var(--teal);
+  outline-offset: 3px;
+}
+

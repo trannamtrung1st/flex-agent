@@ -1,0 +1,344 @@
+/* ═══ State nodes (record-state instrument marks) ════════════════ */
+
+.state-node {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--label-dim);
+  border-radius: 50%;
+  background: var(--ground);
+  flex-shrink: 0;
+}
+
+/* lit: attention on a live record */
+.state-node--live {
+  border-color: var(--amber);
+  background: var(--amber-glow);
+  box-shadow: 0 0 8px var(--amber-glow);
+}
+
+/* fully lit: session actively in progress */
+.state-node--live-solid {
+  border-color: var(--amber);
+  background: var(--amber);
+  box-shadow: 0 0 9px rgba(226, 163, 60, 0.5);
+}
+
+/* sealed / released */
+.state-node--sealed {
+  border-color: var(--teal);
+  background: var(--teal-glow);
+  box-shadow: 0 0 8px var(--teal-glow);
+}
+
+.state-node--sealed-solid {
+  border-color: var(--teal);
+  background: var(--teal);
+  box-shadow: 0 0 8px var(--teal-glow);
+}
+
+.state-node--dim { opacity: 0.55; }
+
+.state-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ═══ Wait mark, scan, skeleton, stage bars ══════════════════════
+   Loading is an instrument, never a spinner. System voice = teal.
+   Amber stays rationed to time / commit. Reduced-motion floor in
+   base.css kills the loops; static geometry remains. */
+
+.wait-mark {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 1px solid var(--hairline);
+  position: relative;
+  vertical-align: middle;
+}
+.wait-mark::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  background: var(--teal);
+  box-shadow: 0 0 8px var(--teal-glow);
+  animation: wait-node 1.4s ease-in-out infinite;
+}
+.wait-mark::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: var(--teal);
+  box-shadow: 0 0 6px var(--teal);
+  animation: wait-scan 1.1s var(--ease-out) infinite;
+}
+.wait-mark--lg {
+  width: 22px;
+  height: 22px;
+}
+.wait-mark--lg::before { inset: 7px; }
+
+@keyframes wait-node {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+@keyframes wait-scan {
+  from { transform: translateX(0); opacity: 0.15; }
+  18% { opacity: 1; }
+  to { transform: translateX(12px); opacity: 0.15; }
+}
+.wait-mark--lg::after {
+  animation-name: wait-scan-lg;
+}
+@keyframes wait-scan-lg {
+  from { transform: translateX(0); opacity: 0.15; }
+  18% { opacity: 1; }
+  to { transform: translateX(20px); opacity: 0.15; }
+}
+
+.wait-copy {
+  font-size: 0.88rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--label);
+  animation: wait-copy-pulse 1.4s ease-in-out infinite;
+}
+@keyframes wait-copy-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+.wait-plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  max-width: 520px;
+  padding: 44px 52px;
+  border: 1px solid var(--hairline);
+  clip-path: polygon(
+    var(--notch) 0, calc(100% - var(--notch)) 0, 100% var(--notch),
+    100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%,
+    var(--notch) 100%, 0 calc(100% - var(--notch)), 0 var(--notch)
+  );
+  background: var(--panel-sheen), rgba(2, 9, 14, 0.45);
+  box-shadow: var(--panel-inset);
+}
+.wait-plate-label {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.3em;
+  color: var(--label);
+}
+.wait-plate-note {
+  font-size: 0.82rem;
+  color: var(--label-dim);
+  max-width: 44ch;
+  line-height: 1.5;
+}
+.wait-plate .scan-track { max-width: 220px; }
+
+.scan-track {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  height: 3px;
+  background: var(--hairline-dim);
+  position: relative;
+  overflow: hidden;
+}
+.scan-fill {
+  display: block;
+  height: 100%;
+  width: calc(var(--scan, 0) * 100%);
+  background: var(--teal);
+  box-shadow: 0 0 8px var(--teal-glow);
+  transition: width 200ms var(--ease-out);
+}
+.scan-track.is-waiting {
+  display: flex;
+  align-items: stretch;
+}
+.scan-track.is-waiting .scan-fill {
+  width: 32%;
+  flex: 0 0 32%;
+  animation: scan-indeterminate 1.6s ease-in-out infinite alternate;
+}
+@keyframes scan-indeterminate {
+  from { transform: translateX(0); }
+  to { transform: translateX(212.5%); }
+}
+.scan-readout {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--teal);
+}
+
+.stage-bars {
+  display: flex;
+  gap: 5px;
+  width: 100%;
+  max-width: 280px;
+  padding: 0;
+}
+.stage-line {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--label);
+}
+.stage-line .stage-count { color: var(--text); }
+.stage-bars span {
+  flex: 1 1 auto;
+  height: 3px;
+  background: var(--hairline-dim);
+  transition: background-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+}
+.stage-bars span.is-done {
+  background: color-mix(in srgb, var(--teal) 75%, transparent);
+}
+.stage-bars span.is-now {
+  background: var(--amber);
+  box-shadow: 0 0 6px var(--amber-glow);
+}
+
+.skel-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 420px;
+}
+.skel-line {
+  display: block;
+  height: 8px;
+  width: var(--skel-w, 100%);
+  border: 1px dashed var(--hairline-dim);
+  position: relative;
+  overflow: hidden;
+}
+.skel-line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--teal-glow), transparent);
+  animation: skel-sweep 1.4s var(--ease-out) infinite;
+}
+@keyframes skel-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wait-mark::before,
+  .wait-mark::after,
+  .wait-copy,
+  .scan-track.is-waiting .scan-fill,
+  .skel-line::after {
+    animation: none !important;
+  }
+  .wait-mark::before { opacity: 1; }
+  .wait-mark::after { transform: none; opacity: 1; left: 50%; }
+  .wait-copy { opacity: 1; }
+  .scan-track.is-waiting .scan-fill {
+    width: 32%;
+    flex: 0 0 32%;
+    transform: none;
+    margin-inline: auto;
+  }
+  .skel-line::after { opacity: 0.85; transform: none; }
+}
+
+/* ═══ Acknowledgment mark (drawn checkbox) ═══════════════════════ */
+
+.ack-mark {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  border: 1px solid var(--label);
+  position: relative;
+  pointer-events: none;
+  transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+
+input:checked + .ack-mark {
+  border-color: var(--amber);
+  background: var(--amber-glow);
+}
+
+input:checked + .ack-mark::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  background: var(--amber);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input:focus-visible + .ack-mark {
+  outline: 1px solid var(--teal);
+  outline-offset: 3px;
+}
+
+.control-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 0.84rem;
+  color: var(--text);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.control-line input { position: absolute; opacity: 0; }
+
+.radio-group {
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.radio-group legend { margin-bottom: 8px; }
+
+/* ═══ Drawn glyphs ═══════════════════════════════════════════════ */
+
+/* preserved-document glyph (hairline sheet, folded corner) */
+.doc-glyph {
+  width: 13px;
+  height: 15px;
+  flex-shrink: 0;
+  fill: none;
+  color: var(--label-dim);
+  stroke: var(--label-dim);
+  stroke-width: 1;
+  stroke-linejoin: bevel;
+}
+
+.doc-glyph--current {
+  color: var(--teal);
+  stroke: var(--teal);
+  filter: drop-shadow(0 0 6px rgba(60, 192, 191, 0.45));
+}
+
+.doc-glyph--dim { opacity: 0.7; }
+
+/* caution mark for confirm ceremonies */
+.warn-triangle {
+  width: 11px;
+  height: 10px;
+  background: var(--amber);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  flex-shrink: 0;
+}
+

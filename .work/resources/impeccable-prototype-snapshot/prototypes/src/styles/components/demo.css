@@ -1,0 +1,121 @@
+/* ═══ Demo controls (prototype-only fixture) ═════════════════════ */
+
+.demo-plate {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.demo-label {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.52rem;
+  letter-spacing: 0.2em;
+  color: var(--label-dim);
+}
+
+.demo-plate .select-shell--field {
+  min-width: 11rem;
+}
+
+.demo-plate .select-trigger--field {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+/* Demo fixture controls sit on the page foot or rail bottom — menus open up so
+   the listbox is never clipped by the viewport edge below the trigger */
+.console-foot .select-shell--field,
+.demo-plate .select-shell--field {
+  z-index: 1;
+}
+
+.console-foot .select-shell--field:has(.select-trigger[aria-expanded="true"]),
+.demo-plate .select-shell--field:has(.select-trigger[aria-expanded="true"]) {
+  z-index: 32;
+}
+
+.console-foot .select-shell--field,
+.demo-plate .select-shell--field {
+  --select-popover-max-height: var(--select-popover-max-height-foot);
+}
+
+.console-foot .select-popover,
+.demo-plate .select-popover {
+  top: auto;
+  bottom: 100%;
+  max-height: var(--select-popover-max-height-foot);
+  overflow-y: auto;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline-dim);
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-dim) transparent;
+  box-shadow:
+    0 -10px 28px rgba(2, 9, 14, 0.62),
+    inset 0 18px 34px rgba(2, 9, 14, 0.32);
+}
+
+.console-foot .select-popover li:first-child,
+.demo-plate .select-popover li:first-child {
+  border-top: none;
+}
+
+.console-foot .select-shell--field:has(.select-trigger[aria-expanded="true"]) .select-trigger--field,
+.demo-plate .select-shell--field:has(.select-trigger[aria-expanded="true"]) .select-trigger--field {
+  border-bottom-color: var(--hairline-dim);
+  border-top-color: transparent;
+}
+
+/* Operate-surface page head — shared title + description stack */
+.operate-head {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 0 14px;
+}
+
+.operate-title,
+.campaigns-title,
+.wall-title,
+.queue-title {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.28em;
+  color: var(--teal);
+  text-shadow: 0 0 10px rgba(60, 192, 191, 0.35);
+}
+
+/* Page description — single-line mono note under operate-surface titles */
+.page-desc {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--label-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.foot-note {
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--label-dim);
+}
+
+@media (max-width: 720px) /* bp.compact */ {
+  .operate-head .page-desc {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    max-width: 52ch;
+    line-height: 1.45;
+  }
+}

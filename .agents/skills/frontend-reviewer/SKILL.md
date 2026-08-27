@@ -32,6 +32,9 @@ Review code and the rendered product. Do not edit unless fixes are requested.
 - **Maintainability**: explicit state ownership, reusable design primitives, stable test selectors, no needless abstraction
 - **Tests**: user-observable assertions, important edge states, and focused critical-flow E2E coverage
 
+Impeccable `audit` may inform visual findings; it cannot waive accessibility,
+security, specification, or screenshot-evaluation failures.
+
 ## Findings format
 
 ```markdown

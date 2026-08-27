@@ -44,6 +44,9 @@ For every relevant UI state:
    overall polish.
 5. Save evidence only under `.playwright-mcp/`.
 
+Impeccable `audit` is optional supporting critique. Screenshot-backed evaluation
+against approved specs remains mandatory.
+
 ## Result format
 
 For each case report ID, AC, type, preconditions, steps, expected, actual, PASS/FAIL/BLOCKED, environment, and evidence. Defects include severity (`Blocker`, `High`, `Medium`, `Low`, `Polish`), minimal repro, impact, and screenshot/log path.

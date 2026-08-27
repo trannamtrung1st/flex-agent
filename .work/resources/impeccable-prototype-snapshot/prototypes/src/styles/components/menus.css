@@ -1,0 +1,386 @@
+/* ═══ Drawn chevron (dropdowns, disclosure) ══════════════════════ */
+
+.chevron-glyph {
+  width: 10px;
+  height: 6px;
+  flex-shrink: 0;
+}
+.chevron-glyph path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.1;
+  stroke-linecap: square;
+}
+
+/* ═══ Menu tokens (shared surface + row grammar) ═════════════════ */
+
+.menu-surface,
+.option-menu {
+  border: 1px solid var(--hairline);
+  background: linear-gradient(rgba(2, 9, 14, 0.94), rgba(2, 9, 14, 0.94)), var(--ground-deep);
+  box-shadow: var(--panel-inset);
+}
+
+.popover-surface.menu-surface,
+.popover-surface.option-menu,
+.command-menu.menu-surface {
+  background: linear-gradient(180deg, var(--ground-sheen), var(--ground));
+  box-shadow:
+    0 10px 28px rgba(2, 9, 14, 0.62),
+    inset 0 -18px 34px rgba(2, 9, 14, 0.45);
+}
+
+.menu-row,
+.option-menu li,
+.command-menu-item {
+  font-family: var(--font-mono);
+  font-size: var(--select-option-size);
+  letter-spacing: var(--select-option-tracking);
+  line-height: var(--select-option-line-height);
+  text-transform: uppercase;
+  color: var(--label);
+  border-bottom: 1px solid var(--hairline-dim);
+  transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
+}
+
+.menu-row:hover,
+.menu-row:focus-visible,
+.option-menu li:hover,
+.option-menu li.is-focused,
+.option-menu li:focus-visible,
+.command-menu-item:hover,
+.command-menu-item:focus-visible {
+  color: var(--teal);
+  background: var(--teal-glow);
+  outline: none;
+}
+
+.menu-row-label,
+.command-menu-item-label {
+  display: block;
+  width: 100%;
+}
+
+.menu-row-reason,
+.command-menu-item-reason {
+  display: block;
+  width: 100%;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--label-dim);
+  line-height: 1.4;
+  max-width: none;
+}
+
+.menu-separator,
+.command-menu-sep {
+  height: 0;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--hairline-dim);
+  background: none;
+}
+
+/* ═══ Option menu (shared listbox grammar) ═══════════════════════ */
+
+/* Listbox rows: hairline dividers, teal-glass hover/focus, 7×1px teal
+   tick on the selected option. Ground and sheen live on the consumer
+   plate (.popover-surface). Nested .select-popover > .option-menu is a
+   transparent inner list. Positioning stays on the consuming class. */
+.option-menu {
+  list-style: none;
+}
+
+.option-menu li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-block: var(--select-option-padding-block);
+  padding-inline: var(--select-option-padding-inline);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.option-menu li:last-child { border-bottom: none; }
+
+.option-menu li[aria-selected="true"] { color: var(--text-bright); }
+
+.option-menu li[aria-selected="true"]::before {
+  content: "";
+  display: block;
+  flex-shrink: 0;
+  width: 7px;
+  height: 1px;
+  background: var(--teal);
+}
+
+/* Shared select anatomy: trigger composition varies by use, while
+   every listbox keeps one connected popover and padding-driven row rhythm.
+   Width tokens live in tokens.css; override on .select-shell inline
+   or per-surface via --select-popover-* custom properties. */
+.select-shell {
+  position: relative;
+  --select-popover-width: auto;
+  --select-popover-min-width: 100%;
+  --select-popover-max-width: none;
+  --select-popover-offset-x: 0;
+  --select-popover-max-height: none;
+}
+
+.select-shell--field {
+  --select-popover-offset-x: var(--select-popover-offset-x-field);
+  --select-popover-width: var(--select-popover-width-field);
+  --select-popover-min-width: var(--select-popover-min-width-field);
+  --select-popover-max-width: var(--select-popover-max-width-field);
+}
+
+.select-shell--context {
+  border: 1px solid var(--hairline-dim);
+  --select-popover-offset-x: var(--select-popover-offset-x-context);
+  --select-popover-min-width: var(--select-popover-min-width-context);
+  --select-popover-max-width: var(--select-popover-max-width-context);
+  --select-popover-max-height: var(--select-popover-max-height-scroll);
+}
+
+.select-shell--toolbar {
+  --select-popover-offset-x: var(--select-popover-offset-x-toolbar);
+  --select-popover-min-width: var(--select-popover-min-width-toolbar);
+  --select-popover-max-width: var(--select-popover-max-width-toolbar);
+  --select-popover-max-height: var(--select-popover-max-height-scroll);
+}
+
+.popover-surface {
+  background: linear-gradient(180deg, var(--ground-sheen), var(--ground));
+  box-shadow:
+    0 10px 28px rgba(2, 9, 14, 0.62),
+    inset 0 -18px 34px rgba(2, 9, 14, 0.45);
+}
+
+.select-popover {
+  position: absolute;
+  top: 100%;
+  left: var(--select-popover-offset-x);
+  width: var(--select-popover-width);
+  min-width: var(--select-popover-min-width);
+  max-width: var(--select-popover-max-width);
+  max-height: var(--select-popover-max-height);
+  z-index: 40;
+  border-top: none;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Seam between trigger and first row — matches option-menu row dividers */
+.select-popover li:first-child {
+  border-top: 1px solid var(--hairline-dim);
+}
+
+.select-shell--context:has(.select-trigger[aria-expanded="true"]),
+.select-shell--toolbar:has(.select-trigger[aria-expanded="true"]) {
+  border-bottom-color: transparent;
+}
+
+.select-shell--field:has(.select-trigger[aria-expanded="true"]) .select-trigger--field {
+  border-bottom-color: transparent;
+}
+
+.select-shell--context .select-popover,
+.select-shell--toolbar .select-popover {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-dim) transparent;
+}
+
+.select-shell--field .select-popover {
+  overflow-y: visible;
+  max-height: none;
+}
+
+.select-popover li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding-block: var(--select-option-padding-block);
+  padding-inline: var(--select-option-padding-inline);
+  line-height: var(--select-option-line-height);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.select-shell--field .select-popover li {
+  padding-inline: var(--select-option-padding-inline-field);
+}
+
+.select-popover li[aria-selected="true"]::before {
+  flex-shrink: 0;
+  margin-top: calc((var(--select-option-line-height) * 1em - 1px) / 2);
+}
+
+.select-trigger {
+  background: var(--select-trigger-bg);
+  transition:
+    color 160ms var(--ease-out),
+    background-color 180ms var(--ease-out),
+    border-color 180ms var(--ease-out);
+}
+
+.select-trigger:not(:disabled):hover,
+.select-trigger:not(:disabled):focus-visible {
+  background: var(--select-trigger-bg-hover);
+}
+
+.select-trigger[aria-expanded="true"] {
+  color: var(--teal);
+  background: var(--select-trigger-bg-open);
+}
+
+.select-shell--field .dropdown-value,
+.select-shell--field .select-value,
+.select-trigger--field .dropdown-value,
+.select-trigger--field .select-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.select-trigger .is-placeholder {
+  color: var(--label-dim);
+}
+
+.select-popover > .option-menu {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  margin: 0;
+}
+
+.select-popover-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 14px 10px;
+  border-top: 1px solid var(--hairline-dim);
+}
+
+.select-trigger--context,
+.seg-key.select-trigger--context {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: 4px 16px;
+  padding: 8px 24px 9px;
+  text-align: left;
+  align-items: stretch;
+  font-size: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.select-trigger--context .seg-label,
+.seg-key.select-trigger--context .seg-label {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal);
+  opacity: 0.85;
+}
+
+.select-trigger--context .seg-value,
+.seg-key.select-trigger--context .seg-value {
+  grid-column: 1;
+  grid-row: 2;
+  overflow-wrap: anywhere;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  letter-spacing: 0.04em;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.select-trigger--context .chevron-glyph,
+.seg-key.select-trigger--context .chevron-glyph {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.seg-key.select-trigger--context:hover .seg-value,
+.seg-key.select-trigger--context:focus-visible .seg-value,
+.seg-key.select-trigger--context[aria-expanded="true"] .seg-value {
+  color: var(--text-bright);
+}
+
+/* Toolbar selects: inline label + value, chevron trails the segment edge */
+.seg-key.select-trigger--toolbar {
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+}
+
+.seg-key.select-trigger--toolbar .seg-label {
+  flex-shrink: 0;
+  color: var(--label-dim);
+}
+
+.seg-key.select-trigger--toolbar .seg-value {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.seg-key.select-trigger--toolbar .chevron-glyph {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.seg-key.select-trigger--toolbar[aria-expanded="true"] .seg-label {
+  color: var(--label-dim);
+}
+
+.seg-key.select-trigger--toolbar[aria-expanded="true"] .seg-value {
+  color: var(--teal);
+}
+
+/* ═══ Dropdown selector (console select) ═════════════════════════ */
+
+.dropdown { flex: 1 1 auto; min-width: 0; }
+
+.dropdown-key {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  padding: 10px 14px;
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-bright);
+}
+
+.dropdown-key:not(:disabled):hover { border-color: var(--hairline); }
+
+.dropdown-key[aria-expanded="true"] {
+  border-color: var(--hairline);
+  outline: none;
+}
+
+.dropdown-key:focus-visible {
+  border-color: rgba(60, 192, 191, 0.6);
+  outline: none;
+}
+
+.dropdown-chevron { flex-shrink: 0; color: var(--label); transition: transform 180ms var(--ease-out); }
+.dropdown-key[aria-expanded="true"] .dropdown-chevron { transform: rotate(180deg); color: var(--teal); }
+

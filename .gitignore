@@ -445,3 +445,10 @@ web/tsconfig.tsbuildinfo
 
 # Coding-agent implementation working state under .work/ is intentionally
 # tracked so external reviewers can inspect plans and verification evidence.
+
+# Impeccable local/runtime state; keep reviewed shared config.json
+.impeccable/config.local.json
+.impeccable/hook.cache.json
+.impeccable/live/
+.impeccable/questions/
+.impeccable/hooks/

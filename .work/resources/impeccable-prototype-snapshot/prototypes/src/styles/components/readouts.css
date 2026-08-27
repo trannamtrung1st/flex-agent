@@ -1,0 +1,100 @@
+/* ═══ Readout rows (microlabel-over-value stack) ═════════════════ */
+
+/* The instrument rail's reading grammar: a dim mono microlabel over a
+   mono value, hairline dividers between rows. Used on the session and
+   journey rails; other readout forms (home plate rows, admin detail
+   band) keep their own horizon mechanics locally. */
+.readout-stack { display: flex; flex-direction: column; }
+
+.readout {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--hairline-dim);
+}
+.readout:first-child { border-top: 1px solid var(--hairline-dim); }
+
+.readout dt {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.6rem;
+  color: var(--label-dim);
+  margin-bottom: 3px;
+}
+
+.readout dd { font-size: 0.82rem; letter-spacing: 0.06em; color: var(--text); }
+
+/* ═══ Readout grid (aligned instrument data) ═════════════════════ */
+
+.readout-grid {
+  width: 100%;
+  container: readout-grid / inline-size;
+}
+
+.readout-grid-row {
+  display: grid;
+  grid-template-columns: repeat(var(--readout-grid-columns), minmax(0, 1fr));
+  width: 100%;
+  margin: 0;
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.readout-grid--columns-2 { --readout-grid-columns: 2; }
+.readout-grid--columns-3 { --readout-grid-columns: 3; }
+.readout-grid--columns-4 { --readout-grid-columns: 4; }
+.readout-grid--columns-6 { --readout-grid-columns: 6; }
+
+.readout-grid-field {
+  min-width: 0;
+  padding: var(--readout-grid-pad-block-start) var(--readout-grid-pad-inline)
+    var(--readout-grid-pad-block-end);
+  border-right: 1px solid var(--hairline-dim);
+}
+
+.readout-grid-field:last-child { border-right: none; }
+
+.readout-grid-field--span-1 { grid-column: span 1; }
+.readout-grid-field--span-2 { grid-column: span 2; }
+.readout-grid-field--span-3 { grid-column: span 3; }
+.readout-grid-field--span-4 { grid-column: span 4; }
+.readout-grid-field--span-5 { grid-column: span 5; }
+.readout-grid-field--span-6 { grid-column: span 6; }
+
+.readout-grid-field dt {
+  margin-bottom: 4px;
+  color: var(--teal);
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.readout-grid-field dd {
+  color: var(--text-bright);
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.readout-grid-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@container readout-grid (max-width: 46rem) {
+  .readout-grid-row {
+    grid-template-columns: 1fr;
+    border-bottom: none;
+  }
+
+  .readout-grid-field,
+  .readout-grid-field:last-child {
+    grid-column: 1;
+    padding: var(--readout-grid-pad-block-start) 0 var(--readout-grid-pad-block-end);
+    border-right: none;
+    border-bottom: 1px solid var(--hairline-dim);
+  }
+}
+

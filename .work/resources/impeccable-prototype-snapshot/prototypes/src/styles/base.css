@@ -1,0 +1,71 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Flex Agent — Shipboard Terminal · Base chrome
+   Ground, reset, and the browser surfaces the world themes itself:
+   selection, scrollbars, caret, focus ring, reduced-motion floor.
+   Requires tokens.css. Surfaces that scroll the page override
+   body overflow locally; the flex-column shell is also local.
+   ═══════════════════════════════════════════════════════════════════ */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+#root { display: contents; }
+
+html { background-color: var(--ground-deep); }
+
+body {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(60, 192, 191, 0.05), transparent 60%),
+    radial-gradient(900px 500px at 85% 110%, rgba(226, 163, 60, 0.035), transparent 55%),
+    linear-gradient(180deg, var(--ground-deep) 0%, var(--ground) 30%, var(--ground) 78%, var(--ground-sheen) 100%);
+  background-attachment: fixed;
+  caret-color: var(--amber);
+  accent-color: var(--amber);
+}
+
+::selection { background: rgba(60, 192, 191, 0.30); color: var(--text-bright); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--hairline-dim);
+  border: 3px solid var(--ground);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--hairline); }
+* { scrollbar-width: thin; scrollbar-color: var(--hairline-dim) transparent; }
+
+:focus-visible {
+  outline: 1px solid var(--teal);
+  outline-offset: 3px;
+  border-radius: 1px;
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+}
+
+/* Flex keys and strips otherwise beat the UA [hidden] display:none. */
+[hidden] { display: none !important; }
+
+/* Surfaces that scroll the page at ≤1080px must not keep a fixed
+   ground; otherwise scrolled regions show through as bare canvas. */
+@media (max-width: 1080px) /* bp.pageScroll */ {
+  body { background-attachment: scroll; }
+}
+
+/* Reduced-motion floor. Surfaces add targeted rules (removing masks,
+   hiding sweep overlays, snapping unfolds) in their own sheets. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

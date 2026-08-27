@@ -54,3 +54,10 @@ For UI-affecting work, use the project `playwright` MCP server:
 5. Fix findings and repeat until the screenshots support the claim.
 
 Store evidence only in `.playwright-mcp/`. If browser verification is blocked, report why and do not claim UI/UX completion.
+
+## Impeccable
+
+For visual hardening, adaptation, or polish of an already specified surface,
+invoke `impeccable` explicitly (`harden`, `adapt`, `polish`). Keep red-green
+tests, ADR-019 state ownership, and approved specs in charge. Impeccable cannot
+waive accessibility, security, or TDD failures.

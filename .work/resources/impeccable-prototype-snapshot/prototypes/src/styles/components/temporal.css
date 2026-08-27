@@ -1,0 +1,338 @@
+/* ═══ Date / time / datetime pickers ═══════════════════════════════ */
+
+.select-shell--temporal {
+  width: max-content;
+  max-width: 100%;
+}
+
+.select-shell--field.select-shell--date {
+  --select-popover-width: 17.5rem;
+  --select-popover-min-width: 17.5rem;
+  --select-popover-max-width: 17.5rem;
+}
+
+.select-shell--field.select-shell--time {
+  --select-popover-width: 10.25rem;
+  --select-popover-min-width: 10.25rem;
+  --select-popover-max-width: 10.25rem;
+}
+
+.select-shell--field.select-shell--time:has(.datetime-clock--seconds) {
+  --select-popover-width: 14.5rem;
+  --select-popover-min-width: 14.5rem;
+  --select-popover-max-width: 14.5rem;
+}
+
+.select-shell--field.select-shell--datetime {
+  --select-popover-width: 26.25rem;
+  --select-popover-min-width: min(26.25rem, calc(100vw - 40px));
+  --select-popover-max-width: 26.25rem;
+}
+
+.select-shell--temporal.is-invalid .datetime-trigger {
+  border-color: var(--amber);
+  box-shadow: 0 0 10px var(--amber-glow);
+}
+
+.select-shell--temporal:has(.datetime-trigger[aria-expanded="true"]) {
+  z-index: 46;
+}
+
+/* Downward, flush to the field — gallery/console-foot selects open upward. */
+.select-shell--temporal .datetime-popover.select-popover {
+  top: 100%;
+  bottom: auto;
+  max-height: none;
+  overflow: hidden;
+  border-top: none;
+  border-bottom: 1px solid var(--hairline);
+  box-shadow:
+    0 10px 28px rgba(2, 9, 14, 0.62),
+    inset 0 -18px 34px rgba(2, 9, 14, 0.45);
+}
+
+.demo-plate .select-shell--temporal.select-shell--field:has(.datetime-trigger[aria-expanded="true"]) .datetime-trigger,
+.console-foot .select-shell--temporal.select-shell--field:has(.datetime-trigger[aria-expanded="true"]) .datetime-trigger {
+  border-bottom-color: transparent;
+  border-top-color: var(--hairline);
+}
+
+.demo-plate .select-shell--temporal.is-invalid.select-shell--field:has(.datetime-trigger[aria-expanded="true"]) .datetime-trigger,
+.console-foot .select-shell--temporal.is-invalid.select-shell--field:has(.datetime-trigger[aria-expanded="true"]) .datetime-trigger {
+  border-top-color: var(--amber);
+}
+
+.datetime-trigger {
+  width: max-content;
+  max-width: 100%;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.datetime-glyph {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--label);
+}
+
+.datetime-trigger[aria-expanded="true"] .datetime-glyph { color: var(--teal); }
+
+.datetime-trigger .select-value.is-placeholder {
+  color: var(--label);
+}
+
+.datetime-popover {
+  display: grid;
+  grid-template-areas: "cal" "foot";
+  padding: 0;
+  overflow: hidden;
+}
+
+.datetime-popover[hidden] { display: none; }
+
+.datetime-popover--split {
+  grid-template-columns: minmax(16.25rem, 1fr) 9.25rem;
+  grid-template-areas:
+    "cal clock"
+    "foot foot";
+}
+
+.datetime-popover--split:has(.datetime-clock--seconds) {
+  grid-template-columns: minmax(16.25rem, 1fr) 13.75rem;
+}
+
+.datetime-calendar { grid-area: cal; min-width: 0; }
+
+.datetime-clock {
+  grid-area: clock;
+  min-width: 0;
+  border-left: 1px solid var(--hairline-dim);
+  display: flex;
+  flex-direction: column;
+}
+
+.select-shell--time .datetime-clock { border-left: none; }
+
+.select-shell--time .datetime-popover {
+  grid-template-areas: "clock" "foot";
+}
+
+.datetime-foot {
+  grid-area: foot;
+  padding: 6px 8px;
+}
+
+.calendar-head {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--hairline-dim);
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.calendar-title {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-plaque);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-bright);
+}
+
+.calendar-head .icon-button {
+  color: var(--text);
+}
+
+.calendar-head .icon-button > svg {
+  width: 10px;
+  height: 6px;
+}
+
+.calendar-nav-chevron { width: 10px; height: 6px; color: inherit; }
+.calendar-nav-chevron--prev { transform: rotate(90deg); }
+.calendar-nav-chevron--next { transform: rotate(-90deg); }
+
+.calendar-weekdays,
+.calendar-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar-weekdays {
+  padding: 6px 4px 2px;
+}
+
+.calendar-weekdays span {
+  text-align: center;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--label);
+}
+
+.calendar-grid { padding: 2px 4px 4px; }
+
+.calendar-week + .calendar-week .calendar-day {
+  border-top: 1px solid var(--hairline-dim);
+}
+
+.calendar-day {
+  position: relative;
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-bright);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+}
+
+.calendar-day.is-muted { color: var(--label); }
+
+.calendar-day:hover,
+.calendar-day:focus-visible {
+  color: var(--teal);
+  background: var(--teal-glow);
+  outline: none;
+}
+
+.calendar-day.is-selected {
+  color: var(--text-bright);
+  background: var(--teal-glow);
+  box-shadow: inset 0 0 0 1px rgba(60, 192, 191, 0.6);
+}
+
+.calendar-day.is-today {
+  color: var(--teal);
+  background: transparent;
+  box-shadow: none;
+}
+
+.calendar-day.is-today::before {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  border: 1px solid var(--teal);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.calendar-day.is-today.is-selected {
+  color: var(--teal);
+  background: var(--teal-glow);
+  box-shadow: inset 0 0 0 1px rgba(60, 192, 191, 0.6);
+}
+
+.calendar-day.is-today.is-selected::before {
+  display: none;
+}
+
+.time-wheel-labels,
+.time-wheels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.datetime-clock--seconds .time-wheel-labels,
+.datetime-clock--seconds .time-wheels {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.time-wheel-labels {
+  padding: 6px 0 4px;
+  border-top: 1px solid var(--hairline-dim);
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.time-wheel-labels span {
+  text-align: center;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--label);
+}
+
+.time-wheels {
+  --time-wheel-h: 184px;
+  --time-row-h: 30px;
+  height: var(--time-wheel-h);
+}
+
+.time-wheel {
+  position: relative;
+  margin: 0;
+  padding: calc((var(--time-wheel-h) - var(--time-row-h)) / 2) 0;
+  list-style: none;
+  overflow-y: auto;
+  overflow-anchor: none;
+  overscroll-behavior: contain;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-dim) transparent;
+}
+
+.time-wheel + .time-wheel { border-left: 1px solid var(--hairline-dim); }
+
+.time-wheel li {
+  box-sizing: border-box;
+  display: flex;
+  height: var(--time-row-h);
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding-block: 0;
+  font-size: 0.78rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.time-wheel li:last-child {
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.time-wheel li[aria-selected="true"]::before { display: none; }
+
+.time-wheel li[aria-selected="true"] {
+  color: var(--text-bright);
+  background: var(--teal-glow);
+  box-shadow: inset 0 0 0 1px rgba(60, 192, 191, 0.6);
+}
+
+@media (max-width: 720px) /* bp.compact */ {
+  .datetime-popover--split {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "cal"
+      "clock"
+      "foot";
+  }
+
+  .datetime-clock { border-left: none; border-top: 1px solid var(--hairline-dim); }
+
+  .datetime-popover--split .time-wheel-labels { border-top: none; }
+
+  .select-shell--field.select-shell--datetime {
+    --select-popover-width: min(17.5rem, calc(100vw - 32px));
+    --select-popover-min-width: 0;
+    --select-popover-max-width: min(17.5rem, calc(100vw - 32px));
+  }
+}
+

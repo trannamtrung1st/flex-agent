@@ -1,0 +1,248 @@
+/* ═══ Pane (smoked-glass panel primitive) ════════════════════════ */
+
+/* The world's one surface: 1px hairline bezel, sheen over a dark fill,
+   inset edge-light + vignette, corners cut per instance. Set the cut
+   depth per corner (--cut-tl/--cut-tr/--cut-br/--cut-bl) and the fill
+   (--pane-fill) on the consuming class; layout stays local. */
+.pane {
+  --cut-tl: 0px;
+  --cut-tr: 0px;
+  --cut-br: 0px;
+  --cut-bl: 0px;
+  border: 1px solid var(--hairline);
+  clip-path: polygon(
+    var(--cut-tl) 0, calc(100% - var(--cut-tr)) 0, 100% var(--cut-tr),
+    100% calc(100% - var(--cut-br)), calc(100% - var(--cut-br)) 100%,
+    var(--cut-bl) 100%, 0 calc(100% - var(--cut-bl)), 0 var(--cut-tl)
+  );
+  background: var(--panel-sheen), var(--pane-fill, var(--panel-depth));
+  box-shadow: var(--panel-inset);
+}
+
+.pane--dim { border-color: var(--hairline-dim); }
+
+/* common cut shorthands */
+.pane--tl { --cut-tl: var(--notch); }
+.pane--br { --cut-br: var(--notch); }
+.pane--notched { --cut-tl: var(--notch); --cut-br: var(--notch); }
+.pane--chamfer { --cut-tl: 18px; --cut-tr: 18px; --cut-br: 18px; --cut-bl: 18px; }
+
+/* ═══ Etched frame (clipped-border outer cut + furniture) ════════ */
+
+/* clipped-border technique: the outer layer is the hairline, the inner
+   pane repeats the cut 1px inside, so the chamfers carry a visible
+   stroke. Cut depth is variable (default 18px; enrollment plates use
+   10px via --cut). */
+.frame-cut {
+  --cut: 18px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  padding: 1px;
+  background: var(--hairline);
+  clip-path: polygon(
+    var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut),
+    100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%,
+    var(--cut) 100%, 0 calc(100% - var(--cut)), 0 var(--cut)
+  );
+}
+
+.frame-in {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  clip-path: polygon(
+    calc(var(--cut) - 1px) 0, calc(100% - var(--cut) + 1px) 0, 100% calc(var(--cut) - 1px),
+    100% calc(100% - var(--cut) + 1px), calc(100% - var(--cut) + 1px) 100%,
+    calc(var(--cut) - 1px) 100%, 0 calc(100% - var(--cut) + 1px), 0 calc(var(--cut) - 1px)
+  );
+  background: var(--panel-sheen), var(--panel-depth), var(--ground-deep);
+  box-shadow: var(--panel-inset);
+}
+
+/* etched double-edge ticks at the frame's top and bottom center */
+.frame-tick {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 46px;
+  height: 4px;
+  border-left: 1px solid var(--hairline-dim);
+  border-right: 1px solid var(--hairline-dim);
+  background: var(--ground-deep);
+  pointer-events: none;
+  z-index: 3;
+}
+.frame-tick--top { top: 0; border-bottom: 1px solid var(--hairline); }
+.frame-tick--bottom { bottom: 0; border-top: 1px solid var(--hairline); }
+
+.frame-node {
+  position: absolute;
+  right: -3px;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--label-dim);
+  border-radius: 50%;
+  background: var(--ground);
+  pointer-events: none;
+  z-index: 3;
+}
+.frame-node--tr { top: 15%; }
+.frame-node--br { bottom: 15%; }
+
+/* ═══ Empty-state plate ══════════════════════════════════════════ */
+
+.empty-plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  max-width: 520px;
+  padding: 44px 52px;
+  border: 1px solid var(--hairline);
+  clip-path: polygon(
+    var(--notch) 0, calc(100% - var(--notch)) 0, 100% var(--notch),
+    100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%,
+    var(--notch) 100%, 0 calc(100% - var(--notch)), 0 var(--notch)
+  );
+  background: var(--panel-sheen), rgba(2, 9, 14, 0.45);
+  box-shadow: var(--panel-inset);
+}
+
+.empty-plate .state-node { margin-bottom: 4px; }
+
+.empty-plate-label {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.3em;
+  color: var(--label);
+}
+
+.empty-plate-note {
+  font-size: 0.82rem;
+  color: var(--label-dim);
+  max-width: 44ch;
+  line-height: 1.5;
+}
+
+/* Seated inside an etched frame: absence well, not a nested card. */
+.empty-plate--inset {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr);
+  column-gap: 12px;
+  row-gap: 8px;
+  align-items: start;
+  justify-items: start;
+  text-align: left;
+  max-width: 52ch;
+  width: 100%;
+  padding: 2px 0;
+  margin: 0;
+  border: none;
+  clip-path: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.empty-plate--inset.empty-plate--separated {
+  padding-top: 18px;
+  border-top: 1px dashed var(--hairline-dim);
+}
+
+.empty-plate--inset .state-node {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0.42em 0 0;
+}
+
+.empty-plate--inset > :not(.state-node) {
+  grid-column: 2;
+}
+
+.empty-plate--inset .empty-plate-note {
+  text-align: left;
+  max-width: 48ch;
+}
+
+/* ═══ Advisory (banner strip) ════════════════════════════════════ */
+
+/* a full-width hairline-bounded strip for standing notices; system
+   voice leads with the teal tick, attention with the warn triangle */
+.advisory {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 11px 18px 12px;
+  border-top: 1px solid var(--hairline-dim);
+  border-bottom: 1px solid var(--hairline-dim);
+  background: linear-gradient(180deg, rgba(2, 9, 14, 0.55), rgba(2, 9, 14, 0.3));
+}
+
+.advisory::before {
+  content: "";
+  flex-shrink: 0;
+  width: 7px;
+  height: 1px;
+  background: var(--teal);
+  align-self: center;
+}
+
+.advisory-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal);
+  white-space: nowrap;
+}
+
+.advisory-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.advisory--attention {
+  border-top-color: color-mix(in srgb, var(--amber) 30%, var(--hairline-dim));
+  border-bottom-color: color-mix(in srgb, var(--amber) 30%, var(--hairline-dim));
+}
+
+.advisory--attention::before {
+  width: 9px;
+  height: 8px;
+  background: var(--amber);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.advisory--attention .advisory-label { color: var(--amber); }
+
+/* Protocol ident — dim pane seated on journey and session rails */
+.protocol-plate {
+  --pane-fill: rgba(2, 9, 14, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+}
+
+.protocol-label {
+  font-family: var(--font-plaque);
+  font-size: 0.55rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--label-dim);
+}
+.protocol-value {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--label);
+}
+
