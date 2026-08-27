@@ -31,9 +31,20 @@ class ImpeccableContextTests(unittest.TestCase):
     def test_design_adapter_points_at_design_system(self) -> None:
         body = render_design()
         self.assertIn("docs/ui-ux/design-system/README.md", body)
+        self.assertIn("docs/ui-ux/design-system/foundation/colors.md", body)
         self.assertIn("Not authoritative", body)
+        self.assertIn("Do not treat this file as a token sheet", body)
         self.assertIn("Approved v1.0", body)
-        self.assertIn("#3CC0BF", body)
+        self.assertNotIn("#3CC0BF", body)
+
+    def test_design_adapter_projects_v1_tokens(self) -> None:
+        body = render_design()
+        self.assertIn("Shipboard Terminal", body)
+        self.assertIn("foundation/typography.md", body)
+        self.assertIn("foundation/layout.md", body)
+        self.assertNotIn("--ground:", body)
+        self.assertNotIn("Semantic tokens (dark canonical)", body)
+        self.assertNotIn("Token projection is deferred until design-system v1.0", body)
 
     def test_check_detects_drift(self) -> None:
         product = Path(__file__).resolve().parents[1] / "PRODUCT.md"
@@ -124,13 +135,6 @@ class ImpeccableContextTests(unittest.TestCase):
             relative_impeccable_parts(Path("/repo/.impeccable/shots/a.png")),
             "shots/a.png",
         )
-
-    def test_design_adapter_projects_v1_tokens(self) -> None:
-        body = render_design()
-        self.assertIn("Semantic tokens (dark canonical)", body)
-        self.assertIn("#3CC0BF", body)
-        self.assertNotIn("--ground:", body)
-        self.assertNotIn("Token projection is deferred until design-system v1.0", body)
 
 
 if __name__ == "__main__":

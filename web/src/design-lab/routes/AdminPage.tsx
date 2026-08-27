@@ -11,7 +11,6 @@ import {
   Key,
   SignOutCeremony,
   ToastDock,
-  administratorHome,
   usePrototypeSignOut,
   useToasts,
 } from "../components";
@@ -109,7 +108,6 @@ export function AdminPage() {
     <>
       <CommandStrip
         brandSuffix="Admin"
-        nav={[{ to: administratorHome(matched?.id ?? workingCampaignId ?? campaign?.id ?? undefined), label: "Home" }]}
         profile={ADMINISTRATOR_IDENTITY}
         actions={actions}
       />

@@ -96,48 +96,50 @@ export function SessionPage() {
         </div>
         <aside className="rail" aria-label="Session instruments">
           <RailBrand suffix="Examination Console" />
-          <ReadoutList
-            rows={[
-              { term: "Session ID", value: "FXA-7C19-2A07" },
-              { term: "Participant ID", value: "CND-8842-19" },
-              { term: "Session", value: "07" },
-            ]}
-          />
-          <div className="rail-nav">
-            <Key
-              className="rail-back"
-              variant="quiet"
-              to={`/participant-journey?demo=${assignmentDemo}`}
-              ariaLabel="Back to assignment"
-            >
-              Assignment
-            </Key>
-            <Key className="rail-leave" onClick={() => setLeaveOpen(true)}>
-              Leave session
-            </Key>
-          </div>
-          <section className="feed" aria-label="Console feed">
-            <h2 className="rail-h">Console Feed</h2>
-            <p className="feed-sub">Live transcript</p>
-            <ol className="feed-log" aria-live="off">
-              {state.feed.map((item, i) => (
-                <li key={`${item.text}-${i}`}>
-                  <time>{item.t}</time>
-                  <span className={item.amber ? "feed-mark-amber" : undefined}>{item.text}</span>
-                </li>
-              ))}
-            </ol>
-          </section>
-          <ReadoutList
-            className="readout-stack readout-stack--sys"
-            rows={[
-              { term: "Record", value: "Preserved" },
-              { term: "Link", value: "Nominal" },
-            ]}
-          />
-          <div className="protocol-plate pane pane--dim pane--br">
-            <span className="protocol-label">Protocol</span>
-            <span className="protocol-value">V7.3.1</span>
+          <div className="rail-scroll">
+            <ReadoutList
+              rows={[
+                { term: "Session ID", value: "FXA-7C19-2A07" },
+                { term: "Participant ID", value: "CND-8842-19" },
+                { term: "Session", value: "07" },
+              ]}
+            />
+            <div className="rail-nav">
+              <Key
+                className="rail-back"
+                variant="quiet"
+                to={`/participant-journey?demo=${assignmentDemo}`}
+                ariaLabel="Back to assignment"
+              >
+                Assignment
+              </Key>
+              <Key className="rail-leave" onClick={() => setLeaveOpen(true)}>
+                Leave session
+              </Key>
+            </div>
+            <section className="feed" aria-label="Console feed">
+              <h2 className="rail-h">Console Feed</h2>
+              <p className="feed-sub">Live transcript</p>
+              <ol className="feed-log" aria-live="off">
+                {state.feed.map((item, i) => (
+                  <li key={`${item.text}-${i}`}>
+                    <time>{item.t}</time>
+                    <span className={item.amber ? "feed-mark-amber" : undefined}>{item.text}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+            <ReadoutList
+              className="readout-stack readout-stack--sys"
+              rows={[
+                { term: "Record", value: "Preserved" },
+                { term: "Link", value: "Nominal" },
+              ]}
+            />
+            <div className="protocol-plate pane pane--dim pane--br">
+              <span className="protocol-label">Protocol</span>
+              <span className="protocol-value">V7.3.1</span>
+            </div>
           </div>
         </aside>
 

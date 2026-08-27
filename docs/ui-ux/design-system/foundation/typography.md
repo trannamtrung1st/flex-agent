@@ -2,17 +2,18 @@
 
 ## Font roles
 
-- **Placard / identity:** `--font-display`; approved preferred face **Michroma**,
-  followed by `"Arial Narrow", sans-serif`.
+- **Placard / identity:** `--font-plaque` (aliased as `--font-display`);
+  approved preferred face **Michroma**, followed by `"Arial Narrow", sans-serif`.
 - **UI / body / data / technical:** `--font-mono`; approved preferred face
   **Sometype Mono**, weights 400/500/600, followed by `ui-monospace, monospace`.
 - There is no third application face. Do not use Geist Sans, Space Grotesk, or
   IBM Plex Mono as v1.0 identity fonts.
 
 `Q-DS-1` / `DS-PROP-2` in the [design-system root](../README.md#q-ds-1-font-delivery-and-dependency-approval)
-require self-hosted, version-pinned files after license and delivery-artifact
-review. Use the approved fallbacks until those implementation checks pass; do
-not make third-party font requests from authenticated or Participant surfaces.
+require self-hosted, version-pinned files. The pin is `@fontsource/michroma@5.3.0`
+and `@fontsource/sometype-mono@5.3.0`, imported from `web/src/styles/shared.css`.
+Do not make third-party font requests from authenticated or Participant
+surfaces. Keep the CSS fallback stacks for unload or failure.
 
 ## Core Rules
 

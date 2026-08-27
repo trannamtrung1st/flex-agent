@@ -36,14 +36,25 @@ must still verify every token pairing in both themes.
 
 ## Font license review
 
-| Face | Intended package | License | Notes |
+| Face | Package | License | Notes |
 | --- | --- | --- | --- |
-| Michroma | `@fontsource/michroma` | SIL OFL 1.1 | Copyright 2011 The Michroma Project Authors |
-| Sometype Mono | `@fontsource/sometype-mono` | SIL OFL 1.1 | Confirm OFL notice in the pinned package at add time |
+| Michroma | `@fontsource/michroma@5.3.0` | SIL OFL 1.1 | Copyright 2011 The Michroma Project Authors; imported from `web/src/styles/shared.css` |
+| Sometype Mono | `@fontsource/sometype-mono@5.3.0` | SIL OFL 1.1 | Confirm OFL notice remains in the pinned package |
 
-Exact versions are pinned in the new `web/` package (Phase 5/6), not copied
-from the prototype caret ranges. Self-host only. Include OFL notices with the
-SPA license inventory.
+Exact versions are pinned in `web/package.json`. Self-host only. Include OFL
+notices with the SPA license inventory.
+
+## Implementation mapping (2026-08-27)
+
+Recorded so agents do not treat root `DESIGN.md` or unused `--fa-*` names as
+the token source:
+
+- CSS primitives: `web/src/styles/tokens.css` (`--ground`, `--notch`,
+  `--gangway-w`, `--ease-out`, …).
+- Semantic aliases: `web/src/styles/semantic-aliases.css`.
+- Light remaps: `web/src/styles/adaptations.css`.
+- Participant instrument rails are desktop hull bulkheads (assignment 260px,
+  session 232px) with stacked instrument bands at ≤1080px / ≤1180px.
 
 ## Adopted visual concepts
 

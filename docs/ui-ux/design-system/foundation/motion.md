@@ -7,7 +7,7 @@ or navigation.
 
 | Interaction | Duration | Easing |
 | --- | ---: | --- |
-| hover / selection | 150–160ms | `--fa-ease-out` `cubic-bezier(0.16, 1, 0.3, 1)` |
+| hover / selection | 150–160ms | `--ease-out` `cubic-bezier(0.16, 1, 0.3, 1)` |
 | press feedback | 80–120ms | same |
 | focus / bezel shift | 160–180ms | same |
 | panel / popover / toast | 240–320ms | same |

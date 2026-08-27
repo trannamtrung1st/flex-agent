@@ -7,7 +7,6 @@ export {
   PARTICIPANT_IDENTITY,
   REVIEWER_HOME,
   REVIEWER_IDENTITY,
-  administratorHome,
   labAccountActions,
   type OperatorAction,
   type OperatorIdentity,

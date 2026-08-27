@@ -136,6 +136,13 @@ Warning tokens alias the amber attention family. Info tokens alias teal.
 
 Hairline structure is always 1px in `border-default` or `border-subtle`.
 
+Dark primitives and light remaps are the CSS custom properties in
+`web/src/styles/tokens.css` and `web/src/styles/adaptations.css`. Semantic
+aliases (`--canvas`, `--brand-primary`, `--fg-default`, and the rest) live in
+`semantic-aliases.css`. Do not reintroduce a `--fa-*` prefix unless the token
+implementation is renamed as a whole. Light `--teal-glow` follows
+`emission-focus` (`rgba(26, 122, 121, 0.2)`), not light `brand-softer`.
+
 ## Emission Tokens
 
 Emission is phosphor glow on emitters, not a general shadow style.

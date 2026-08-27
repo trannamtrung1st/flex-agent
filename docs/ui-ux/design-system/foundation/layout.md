@@ -34,8 +34,10 @@ destinations still follow the approved Activity IA, not prototype paths
 
 1. **Management** — command strip, optional gangway, primary work bay, quiet
    footer.
-2. **Guided task** — phase or instrument rail plus main well; compact identity.
-3. **Live session** — instrument rail, transcript column, examiner/Agent plate.
+2. **Guided task** — full-height instrument rail (hull bulkhead on desktop)
+   plus inset work well; compact identity.
+3. **Live session** — full-height instrument rail, inset transcript column,
+   inset examiner/Agent plate.
 4. **Reference** — catalog index only (design lab).
 
 ### Command strip
@@ -45,11 +47,28 @@ Current destination uses a 2px teal underline bar plus text, not color alone.
 
 ### Gangway and bulkhead
 
-- Expanded gangway: `--fa-gangway-width` 232px default; a shell may use 248px.
-- Collapsed gangway: 76px channel-code rail with trailing tooltips.
-- At drawer widths (≤1080px), swap the gangway for a leading **bulkhead**
-  (280px default, 420px wide). Do not collapse past 76px or hide destinations
+- Expanded gangway: `--gangway-w` 232px default; the administrator shell sets
+  248px.
+- Collapsed gangway: `--gangway-w-collapsed` 76px channel-code rail with
+  trailing tooltips.
+- Bulkhead drawer: `--bulkhead-w` 280px default; a shell may use 420px wide.
+  At drawer widths (≤1080px for management/assignment, ≤1180px for the live
+  session console), swap persistent side navigation for a stacked instrument
+  band or leading bulkhead. Do not collapse past 76px or hide destinations
   behind an unlabeled hamburger without the bulkhead pattern.
+
+### Participant instrument rails
+
+On desktop, Assignment Station and Examination Console left rails are hull
+bulkheads: they meet the viewport on the top, bottom, and leading edges.
+The work bay keeps about 18px block inset. Frame traces are clipped to the
+work-bay column, not the viewport. The session examiner plate stays an inset
+work plane, not a second bulkhead.
+
+Short desktop viewports scroll instruments inside the rail (`.phase-rail-scroll`
+/ `.rail-scroll`); brand stays outside that scroller. Narrow/drawer widths
+stack the instrument band in the header and do not make that band
+viewport-sticky.
 
 ### Telemetry / readout
 
@@ -61,11 +80,13 @@ specs win over decorative date formats (`PC-11`).
 
 | Surface | Width |
 | --- | --- |
-| Gangway expanded | 232px default; 248px administrator shell |
-| Gangway collapsed | 76px |
-| Bulkhead | 280px; 420px wide |
+| Gangway expanded | 232px default (`--gangway-w`); 248px administrator shell |
+| Gangway collapsed | 76px (`--gangway-w-collapsed`) |
+| Bulkhead | 280px (`--bulkhead-w`); 420px wide |
+| Participant assignment instrument rail | 260px (`--instrument-rail-width`) |
+| Participant session instrument rail | 232px (`--instrument-rail-width`) |
 | Context / manifest rail | 200–260px |
-| Examiner / inspector plate | 280–320px |
+| Examiner / inspector plate | 280–320px (session examiner column is 320px) |
 | Reading column | 68–78ch; ~680–800px |
 | Dialog narrow / default / wide | 412 / 520 / 680px |
 | Standard content max | fills shell; Campaign record hugs content (about 52rem min on desktop) |
@@ -98,6 +119,8 @@ Do not add every motif to every screen.
 
 - Desktop-optimized command-deck composition with stacked narrow behavior.
 - Multi-pane layouts collapse into stacked views or bulkhead navigation.
+- Assignment Station stacks at ≤1080px (`bp.pageScroll`). Examination Console
+  stacks at ≤1180px (`bp.wideGrid`).
 - Important actions remain reachable without hiding under overflow.
 - Tables may scroll horizontally when columns are required; surrounding
   actions stay reachable.

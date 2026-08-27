@@ -21,9 +21,10 @@ the frontend rebuild. Do not use v0.1 Deep-Space styling as the target look.
 4. Read the modules for every rendered component and product pattern.
 5. Choose `interaction` or `workspace` density for each coherent region.
 6. Map every semantic design token explicitly into the implementation styling
-   system; do not treat token names as framework utilities. Prototype
-   `--ground` / `--teal` / `--amber` values are evidence for the dark theme
-   mapping only.
+   system; do not treat token names as framework utilities. Dark primitives
+   live in `web/src/styles/tokens.css`; semantic aliases in
+   `semantic-aliases.css`; light remaps in `adaptations.css`. Prototype
+   `--ground` / `--teal` / `--amber` values remain the dark-theme source.
 7. Define applicable initial, loading, empty, populated, pending, success,
    validation, error/retry, reconnecting, permission-denied, terminal, and
    responsive states before styling only the happy path.

@@ -20,7 +20,6 @@ export {
   REVIEWER_IDENTITY,
   RailBrand,
   StripBrand,
-  administratorHome,
   labAccountActions,
   usePrototypeSignOut,
   type CommandStripNavItem,

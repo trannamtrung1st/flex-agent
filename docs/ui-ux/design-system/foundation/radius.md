@@ -5,7 +5,7 @@ The system is fabricated and notched rather than soft or bubbly.
 | Token | Value | Usage |
 | --- | ---: | --- |
 | none | 0 | every authored rectangle, key, field, plate, dialog, and table |
-| notch | 10px | standard clip-path cut (`--fa-notch`) |
+| notch | 10px | standard clip-path cut (`--notch`) |
 | notch-lg | 12–18px | examiner plates, ceremony frames, angled hot-key leading edges |
 | full | 9999px | node terminals (5–7px), Agent Core, radio marks, scrollbar thumbs |
 

@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════
    Flex Agent — Shipboard Terminal · Design tokens
-   Single source of truth for the world's primitives. Every prototype
-   links this first; DESIGN.md frontmatter mirrors these values.
+   Single source of truth for the world's primitives. Shared sheets load
+   this first. Canonical roles live in docs/ui-ux/design-system/.
    ═══════════════════════════════════════════════════════════════════ */
 
 :root {

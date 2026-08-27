@@ -1,4 +1,3 @@
-import type { To } from "react-router-dom";
 import type { OperatorAction, OperatorIdentity } from "../../../design-system/components/chrome/operator";
 
 export type { OperatorAction, OperatorIdentity, OperatorRole, ShellMode } from "../../../design-system/components/chrome/operator";
@@ -28,11 +27,6 @@ export const REVIEWER_IDENTITY: OperatorIdentity = {
   role: "Reviewer",
   home: REVIEWER_HOME,
 };
-
-export function administratorHome(campaignId?: string): To {
-  if (!campaignId) return ADMINISTRATOR_HOME;
-  return { pathname: ADMINISTRATOR_HOME, search: `?campaign=${encodeURIComponent(campaignId)}` };
-}
 
 export function labAccountActions(onSignOut: () => void): OperatorAction[] {
   return [

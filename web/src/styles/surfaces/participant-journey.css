@@ -1,5 +1,7 @@
 html[data-surface="participant-journey"] {
   --key-quiet-padding-inline: 18px;
+  --instrument-rail-width: 260px;
+  --instrument-bulkhead-fill: linear-gradient(180deg, rgba(2, 9, 14, 0.64), rgba(4, 16, 24, 0.5));
 /* ═══════════════════════════════════════════════════════════════════
    Flex Agent — Participant assignment journey
    World: Shipboard Terminal (seed 8066189d)
@@ -23,13 +25,14 @@ html[data-surface="participant-journey"] {
 /* ═══ Station grid ═══════════════════════════════════════════════ */
 
 .station {
+  position: relative;
   display: grid;
   height: 100dvh;
   min-height: 620px;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: var(--instrument-rail-width) minmax(0, 1fr);
   grid-template-areas: "phase-rail main";
   gap: 0 28px;
-  padding: 18px 22px 18px 0;
+  padding: 0 22px 0 0;
   overflow: hidden;
 }
 
@@ -40,11 +43,20 @@ html[data-surface="participant-journey"] {
   min-height: 0;
   min-width: 0;
   gap: 18px;
+  padding: 18px 0;
 }
 
 /* ═══ Frame traces ═══════════════════════════════════════════════ */
 
-.frame-traces { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
+.frame-traces {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: var(--instrument-rail-width);
+  pointer-events: none;
+  z-index: 1;
+}
 .trace { position: absolute; background: var(--hairline-dim); height: 1px; }
 .trace::before, .trace::after {
   content: "";
@@ -55,10 +67,10 @@ html[data-surface="participant-journey"] {
   background: var(--ground);
   top: -3px;
 }
-.trace-top { top: 9px; left: 18%; width: 30%; }
+.trace-top { top: 9px; left: 8%; width: 34%; }
 .trace-top::before { left: -7px; }
 .trace-top::after { right: -7px; }
-.trace-rail { top: 9px; left: 248px; width: 14%; }
+.trace-rail { top: 9px; left: 0; width: 16%; }
 .trace-rail::before { left: -7px; }
 .trace-rail::after { right: -7px; border-color: var(--teal); }
 
@@ -69,15 +81,15 @@ html[data-surface="participant-journey"] {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding: 10px 18px 8px 26px;
+  padding: 18px 0 16px 26px;
   border-right: 1px solid var(--hairline-dim);
-  background: linear-gradient(180deg, rgba(2, 9, 14, 0.5), rgba(2, 9, 14, 0.12));
+  background: var(--instrument-bulkhead-fill);
   min-height: 0;
   overflow-x: hidden;
   overflow-y: hidden;
 }
 
-.phase-rail > * { flex-shrink: 0; }
+.phase-rail > *:not(.phase-rail-scroll) { flex-shrink: 0; }
 
 .phase-rail-scroll {
   display: flex;
@@ -85,9 +97,18 @@ html[data-surface="participant-journey"] {
   flex-direction: column;
   gap: 20px;
   min-height: 0;
+  padding-right: 18px;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-dim) transparent;
+}
+
+.phase-rail-scroll::-webkit-scrollbar { width: 6px; }
+.phase-rail-scroll::-webkit-scrollbar-track { background: transparent; }
+.phase-rail-scroll::-webkit-scrollbar-thumb {
+  background: var(--hairline-dim);
 }
 
 .phase-rail-scroll > * { flex-shrink: 0; }
@@ -98,6 +119,7 @@ html[data-surface="participant-journey"] {
   flex-direction: column;
   align-items: stretch;
   padding-bottom: 4px;
+  padding-right: 18px;
 }
 
 /* .readout-stack / .readout come from the shared component family sheets */
@@ -654,8 +676,11 @@ html[data-surface="participant-journey"] {
   /* the page scrolls at this width; keep the content well readable
      instead of letting the rail starve it of height */
   .well-frame { min-height: 340px; }
+  .station-main { padding: 0; }
 
   body { overflow: auto; }
+
+  .frame-traces { display: none; }
 
   .phase-rail {
     border-right: none;
@@ -717,7 +742,6 @@ html[data-surface="participant-journey"] {
   .phase-trace { width: 24px; min-height: 1px; height: 1px; margin-top: 0; }
   .demo-plate { flex: 1 1 220px; order: 11; margin-top: 0; }
   .protocol-plate { display: none; }
-  .trace-rail { display: none; }
 }
 
 @media (max-width: 720px) /* bp.compact */ {

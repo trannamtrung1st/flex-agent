@@ -113,12 +113,36 @@ describe("PC-05 and PC-06 campaign setup", () => {
   });
 });
 
+describe("administrator chrome", () => {
+  it("does not duplicate Home in the command strip when area navigation is in the gangway", () => {
+    renderLab("/design-lab/admin-console/enrollments");
+    expect(screen.queryByRole("navigation", { name: "Primary" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Administrator areas" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Enrollments" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Campaigns" })).toBeInTheDocument();
+  });
+});
+
 describe("PC-08 session specimen", () => {
   it("labels the timer as synthetic and avoids listening copy", () => {
     renderLab("/design-lab/participant-session?state=live");
     expect(screen.getByText(/Synthetic demonstration timer/i)).toBeInTheDocument();
     expect(screen.queryByText(/I’m listening/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/I'm listening/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the examination console brand outside the rail scroller", () => {
+    const { container } = renderLab("/design-lab/participant-session?state=live");
+    const rail = screen.getByRole("complementary", { name: "Session instruments" });
+    const brand = rail.querySelector(".rail-brand");
+    const scroller = rail.querySelector(".rail-scroll");
+    expect(brand).toBeTruthy();
+    expect(scroller).toBeTruthy();
+    expect(brand!.parentElement).toBe(rail);
+    expect(scroller!.contains(brand)).toBe(false);
+    expect(within(scroller as HTMLElement).getByRole("heading", { name: "Console Feed" })).toBeInTheDocument();
+    expect(container.querySelector(".rail-scroll .protocol-plate")).toBeTruthy();
   });
 });
 

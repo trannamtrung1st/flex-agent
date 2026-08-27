@@ -21,6 +21,6 @@
   --space-3: 0.75rem;
   --space-4: 1rem;
   --space-8: 2rem;
-  --focus-outline: 2px solid var(--teal);
-  --focus-offset: 2px;
+  --focus-outline: 1px solid var(--teal);
+  --focus-offset: 3px;
 }

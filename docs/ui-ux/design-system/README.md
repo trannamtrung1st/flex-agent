@@ -121,7 +121,7 @@ These are design metaphors, not product terms or required microcopy.
 | `DS-DEC-8` | Use smoked-glass as the shared work-plane language; concentrate Agent presence in the Agent Core and examiner/instrument plate. Do not place transcript, form, table, Evidence, or review content beneath blur, reflection, or animated fields. | Supersedes v0.1 bounded Observation Glass as a separate universal motif | Prototype smoked glass is the plate language; reading planes stay opaque and high-contrast. |
 | `DS-DEC-9` | Use zero authored border-radius with notched clip-path corners. Circular geometry is allowed only for node terminals, Agent Core, radio marks, scrollbar thumbs, and equivalent instrument dots. | Added in v1.0 | Shipboard geometry; 400% zoom and overflow must not clip focus or content. |
 | `DS-DEC-10` | Use named Lucide imports for ordinary controls. Reserve custom drawn glyphs for brand, Agent Core, state nodes, wait instruments, and approved domain marks. | Added in v1.0 | Resolves prototype no-library rule against ADR-019 (`PC-13`). |
-| `DS-DEC-11` | Use Michroma for placards and Sometype Mono for body, data, and controls, with approved system fallbacks until self-hosted files are pinned. | Added in v1.0 | Shipboard two-voice typography; `DS-PROP-2` covers delivery. |
+| `DS-DEC-11` | Use Michroma for placards and Sometype Mono for body, data, and controls. Self-host the pinned Fontsource packages; keep system fallbacks for unload or failure. | Added in v1.0 | Shipboard two-voice typography; `DS-PROP-2` records the pin. |
 
 ## Structure
 
@@ -147,18 +147,23 @@ agent instructions remain under `.agents/skills/` and `.cursor/skills/`. The
   modules consume them.
 - Token names such as `surface-primary`, `fg-muted`, and `brand-primary` are
   framework-agnostic roles, not CSS classes or utility names.
-- An implementation should expose a namespaced mapping such as
-  `--fa-surface-primary`; the approved technical realization may choose another
-  equivalent mapping.
-- Raw visual values belong only in the token implementation, visual regression
+- Semantic roles such as `surface-primary` map to CSS custom properties in
+  `web/src/styles/`. The current mapping is un-namespaced: primitive hull
+  tokens in `tokens.css` (`--ground`, `--teal`, `--amber`, `--notch`,
+  `--gangway-w`, `--ease-out`) plus semantic aliases in
+  `semantic-aliases.css` (`--canvas`, `--surface-primary`, `--brand-primary`,
+  `--font-display`). Light theme remaps the primitives in
+  `adaptations.css` under `[data-theme="light"]`.
+- Raw visual values belong only in those token sheets, visual regression
   fixtures, or documented exceptional artwork—not scattered component code.
 - Both supported themes must map every required semantic token. Components must
   not swap colors manually per theme.
 - A new token requires a distinct semantic role, both theme values where
   applicable, documented usage, and contrast/state verification.
-- Prototype CSS custom properties (`--ground`, `--teal`, `--amber`) are source
-  evidence. Production maps them onto the semantic roles in
-  [colors](foundation/colors.md).
+- Primitive names (`--ground`, `--teal`, `--amber`) remain the dark-theme
+  source values. Aliases bind them to the semantic roles in
+  [colors](foundation/colors.md). Global `:focus-visible` and `--focus-outline`
+  are 1px phosphor teal with 3px offset ([borders](foundation/borders.md)).
 
 ## Use and verification
 
@@ -194,14 +199,13 @@ review content must remain calm and comfortable to read.
 **Status:** Resolved. `DS-PROP-1` (Geist Sans, Space Grotesk, IBM Plex Mono) is
 superseded by `DS-PROP-2`.
 
-**Approved decision `DS-PROP-2` (visual; package pin at implementation):** use
-self-hosted, version-pinned `@fontsource/michroma` and
-`@fontsource/sometype-mono` after verifying OFL-1.1 notices and approved
-delivery artifacts against the repository toolchain. Never load them from a
-third-party origin in an authenticated or Participant surface. Until those
-implementation checks pass, use `"Michroma", "Arial Narrow", sans-serif` and
-`"Sometype Mono", ui-monospace, monospace`. Exact npm versions are recorded
-when the new `web/` package adds the dependencies.
+**Approved decision `DS-PROP-2` (visual; package pin recorded):** self-host
+`@fontsource/michroma@5.3.0` and `@fontsource/sometype-mono@5.3.0` from
+`web/package.json` (OFL-1.1). Import them only from `web/src/styles/shared.css`.
+Never load them from a third-party origin in an authenticated or Participant
+surface. CSS stacks remain `"Michroma", "Arial Narrow", sans-serif` and
+`"Sometype Mono", ui-monospace, monospace` so unload or failure still has a
+face.
 
 No new design-system-level open questions remain for ordinary visual conflicts
 with v0.1. Escalation-threshold conflicts still follow the rebuild task
