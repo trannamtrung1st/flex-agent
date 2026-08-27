@@ -15,6 +15,47 @@
   --amber-glow: rgba(154, 106, 18, 0.16);
   --teal: #146261;
   --teal-glow: rgba(26, 122, 121, 0.2);
+  --danger: #c43e4b;
+  --danger-soft: #fdecef;
+  --danger-strong: #a9313d;
+  --fg-danger: #a9323e;
+  --success: #1f7a49;
+  --panel-sheen: linear-gradient(115deg, rgba(255, 255, 255, 0.62), transparent 38%);
+  --panel-depth: linear-gradient(200deg, rgba(212, 226, 230, 0.7), rgba(227, 236, 240, 0.28));
+  --panel-inset: inset 0 1px 0 rgba(255, 255, 255, 0.78), inset 0 -16px 28px rgba(70, 110, 116, 0.1);
+  --select-trigger-bg-hover: rgba(70, 110, 116, 0.12);
+}
+
+[data-theme="light"] .command-strip {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(228, 240, 242, 0.18));
+}
+
+[data-theme="light"] .gangway {
+  background: linear-gradient(180deg, rgba(212, 226, 230, 0.58), rgba(228, 240, 242, 0.22));
+}
+
+[data-theme="light"] .empty-plate:not(.empty-plate--inset) {
+  background: var(--panel-sheen), rgba(227, 236, 240, 0.72);
+}
+
+[data-theme="light"] .field-input,
+[data-theme="light"] .field-textarea {
+  background: rgba(227, 236, 240, 0.92);
+}
+
+[data-theme="light"] .bulkhead-scrim {
+  background: rgba(4, 12, 17, 0.45);
+}
+
+[data-theme="light"] .bulkhead-panel {
+  --pane-fill: linear-gradient(180deg, rgba(244, 248, 249, 0.97), rgba(232, 240, 242, 0.94));
+}
+
+[data-theme="light"] .brand-mark,
+[data-theme="light"] .strip-brand-core,
+[data-theme="light"] .rail-brand-core,
+[data-theme="light"] .agent-name-core {
+  text-shadow: 0 0 10px rgba(20, 98, 97, 0.28);
 }
 
 @media (forced-colors: active) {

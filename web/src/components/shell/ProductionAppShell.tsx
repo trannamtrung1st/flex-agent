@@ -16,6 +16,7 @@ import { useProductionApi } from "../../api/production-api";
 import { Alert } from "../ui/Alert";
 import { SessionLoadingScreen, SessionStatusScreen, SignOutRetryKey } from "./SessionChrome";
 import { Breadcrumbs } from "./Breadcrumbs";
+import { ThemeToggle } from "./ThemeToggle";
 import { useTheme } from "../../hooks/useTheme";
 
 const DESTINATION_ROUTES: Record<string, { label: string; route: string; abbr: string }> = {
@@ -58,9 +59,7 @@ export function ProductionAppShell() {
       <SessionStatusScreen title="Signing out">
         <p role={errorMessage ? "alert" : undefined}>{errorMessage ?? "Signing out…"}</p>
         {errorMessage ? (
-          <p>
-            <SignOutRetryKey onRetry={() => { void logout(); }} />
-          </p>
+          <SignOutRetryKey onRetry={() => { void logout(); }} />
         ) : null}
       </SessionStatusScreen>
     );
@@ -129,16 +128,21 @@ export function ProductionAppShell() {
         readout="Organization"
         profile={identity}
         identLeading={(
-          <Key variant="quiet" size="compact" onClick={() => { void logout(); }}>
-            Sign out
-          </Key>
+          <>
+            {!isDrawerLayout ? <ThemeToggle theme={theme} onToggle={toggleTheme} /> : null}
+            <Key variant="quiet" size="compact" onClick={() => { void logout(); }}>
+              Sign out
+            </Key>
+          </>
         )}
-        actions={[{
-          id: "theme",
-          label: theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
-          state: "enabled",
-          onSelect: toggleTheme,
-        }]}
+        actions={isDrawerLayout
+          ? [{
+              id: "theme",
+              label: theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
+              state: "enabled",
+              onSelect: toggleTheme,
+            }]
+          : []}
       />
       {apiState === "ready" && errorMessage ? (
         <Alert variant="danger" title="Request could not be completed">{errorMessage}</Alert>

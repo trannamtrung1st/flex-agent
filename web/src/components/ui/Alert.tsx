@@ -8,7 +8,7 @@ export function Alert({
 }: {
   variant?: "info" | "success" | "warning" | "danger";
   title?: string;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   return (
     <div role={variant === "danger" ? "alert" : "status"} className="workspace-alert">
@@ -19,7 +19,7 @@ export function Alert({
           attention={variant === "danger"}
         />
       ) : null}
-      <div className="workspace-alert-body">{children}</div>
+      {children ? <div className="workspace-alert-body">{children}</div> : null}
     </div>
   );
 }

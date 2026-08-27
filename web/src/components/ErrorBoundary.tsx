@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { BrandMark, Key, OperateArea } from "../design-system";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -22,10 +23,24 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   public render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <main className="workspace-area">
-          <h1>Something went wrong</h1>
-          <p>Reload the page to continue. Work already stored on the server is unchanged.</p>
-        </main>
+        <div className="workspace-root">
+          <a href="#main-content" className="skip-link">Skip to main content</a>
+          <header className="command-strip">
+            <span className="strip-brand strip-brand--origin">
+              <BrandMark />
+            </span>
+          </header>
+          <div id="main-content" className="workspace-main">
+            <OperateArea
+              className="workspace-area workspace-area--danger"
+              label="Something went wrong"
+              title="Something went wrong"
+              description="Reload the page to continue. Work already stored on the server is unchanged."
+            >
+              <Key onClick={() => window.location.reload()}>Reload</Key>
+            </OperateArea>
+          </div>
+        </div>
       );
     }
 

@@ -21,7 +21,10 @@ export function ErrorSummary({ title = "There is a problem", errors, headingId =
 
   return (
     <div className="error-summary" role="alert" aria-labelledby={headingId}>
-      <h2 id={headingId} className="error-summary-title" tabIndex={-1}>{title}</h2>
+      <div className="advisory advisory--attention">
+        <span className="advisory-label">Error</span>
+        <h2 id={headingId} className="error-summary-title" tabIndex={-1}>{title}</h2>
+      </div>
       <ul className="error-summary-list">
         {errors.map((error) => {
           const message = itemMessage(error);

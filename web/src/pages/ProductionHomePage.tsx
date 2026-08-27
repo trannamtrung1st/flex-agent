@@ -27,16 +27,18 @@ export function ProductionHomePage() {
             <Key variant="open" to="/activities">
               Open Activities
             </Key>
-          ) : (
-            <p>Activities are not available for the current authorized relationship.</p>
-          )}
+          ) : null}
           {myWorkAvailable ? (
             <Key variant="open" to="/my-work">
               Open My work
             </Key>
-          ) : (
-            <p>My work is not available for the current authorized relationship.</p>
-          )}
+          ) : null}
+          {!activitiesAvailable ? (
+            <p className="home-unavailable">Activities are not available for the current authorized relationship.</p>
+          ) : null}
+          {!myWorkAvailable ? (
+            <p className="home-unavailable">My work is not available for the current authorized relationship.</p>
+          ) : null}
         </div>
       ) : null}
     </OperateArea>

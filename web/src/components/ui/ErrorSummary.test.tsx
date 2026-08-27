@@ -16,4 +16,10 @@ describe("ErrorSummary", () => {
     );
     expect(screen.getByRole("link", { name: "Enter a Campaign title" })).toHaveAttribute("href", "#campaign-title");
   });
+
+  it("uses the attention advisory strip rather than a banner heading alone", () => {
+    render(<ErrorSummary title="Correct the following" errors={["Enter a Campaign title"]} />);
+    expect(screen.getByText("Error")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Correct the following" })).toBeInTheDocument();
+  });
 });

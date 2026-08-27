@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { ThemeToggle } from "./ThemeToggle";
 
 describe("ThemeToggle", () => {
@@ -13,5 +13,12 @@ describe("ThemeToggle", () => {
     expect(toggle).toHaveTextContent(/theme/i);
     expect(toggle.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("writes the next theme onto the document", () => {
+    render(<ThemeToggle />);
+    fireEvent.click(screen.getByRole("button", { name: /switch to light theme/i }));
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(window.localStorage.getItem("flex-agent-theme")).toBe("light");
   });
 });

@@ -16,7 +16,7 @@ import {
 import { Alert } from "../components/ui/Alert";
 import { ErrorSummary, type ErrorSummaryItem } from "../components/ui/ErrorSummary";
 import { ProtectedLoading } from "../components/ui/ProtectedLoading";
-import { Key, OperateArea } from "../design-system";
+import { EmptyPlate, Key, OperateArea, StateReadout } from "../design-system";
 import { FieldInput } from "../design-system/components/fields/FieldControls";
 import { FormField } from "../design-system/components/fields/FormField";
 import {
@@ -117,11 +117,9 @@ export function AssessmentActivitiesPage({
         className="workspace-area workspace-area--danger"
         label="Your access changed"
         title="Your access changed"
+        description="Protected setup values were removed. Return to Home or sign in again."
       >
-        <p>Protected setup values were removed. Return to Home or sign in again.</p>
-        <p>
-          <Key variant="open" to="/">Return to Home</Key>
-        </p>
+        <Key variant="open" to="/">Return to Home</Key>
       </OperateArea>
     );
   }
@@ -205,6 +203,7 @@ export function AssessmentActivitiesPage({
               ) : null}
               <FormField
                 id={titleId}
+                className="field-stack"
                 label="Campaign title"
                 error={fieldErrors.title?.message}
               >
@@ -217,34 +216,43 @@ export function AssessmentActivitiesPage({
                   />
                 )}
               </FormField>
-              {REQUIRED_SOURCE_CATEGORIES.map((category) => {
-                const options = sources.filter((source) => source.category === category);
-                const fieldId = `${titleId}-${category}`;
-                const message = fieldErrors.sources?.[category]?.message;
-                const field = form.register(`sources.${category}`);
-                const selectedValue = sourceValues[category];
-                const hasSelectedOption = options.some((option) => sourceOptionIdentity(option) === selectedValue);
-                return (
-                  <FormField
-                    key={category}
-                    id={fieldId}
-                    label={category.replaceAll("_", " ")}
-                    error={message}
-                  >
-                    {(control) => (
-                      <select className="field-input field-input--wide" {...control} {...field} value={selectedValue}>
-                        {options.length === 0 && !selectedValue ? <option value="">Unavailable</option> : null}
-                        {selectedValue && !hasSelectedOption ? <option value={selectedValue}>No longer available</option> : null}
-                        {options.map((option) => (
-                          <option key={sourceOptionIdentity(option)} value={sourceOptionIdentity(option)}>
-                            {sourceOptionLabel(option)}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </FormField>
-                );
-              })}
+              <fieldset className="workspace-source-set">
+                <legend>Sources</legend>
+                {REQUIRED_SOURCE_CATEGORIES.map((category) => {
+                  const options = sources.filter((source) => source.category === category);
+                  const fieldId = `${titleId}-${category}`;
+                  const message = fieldErrors.sources?.[category]?.message;
+                  const field = form.register(`sources.${category}`);
+                  const selectedValue = sourceValues[category];
+                  const hasSelectedOption = options.some((option) => sourceOptionIdentity(option) === selectedValue);
+                  return (
+                    <FormField
+                      key={category}
+                      id={fieldId}
+                      className="field-stack"
+                      label={category.replaceAll("_", " ")}
+                      error={message}
+                    >
+                      {(control) => (
+                        <select
+                          className={message ? "field-input field-input--wide is-invalid" : "field-input field-input--wide"}
+                          {...control}
+                          {...field}
+                          value={selectedValue}
+                        >
+                          {options.length === 0 && !selectedValue ? <option value="">Unavailable</option> : null}
+                          {selectedValue && !hasSelectedOption ? <option value={selectedValue}>No longer available</option> : null}
+                          {options.map((option) => (
+                            <option key={sourceOptionIdentity(option)} value={sourceOptionIdentity(option)}>
+                              {sourceOptionLabel(option)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </FormField>
+                  );
+                })}
+              </fieldset>
               <Key type="submit" variant="transmit" disabled={createMutation.isPending || Boolean(missingCategory)} waiting={createMutation.isPending}>
                 {createMutation.isPending ? "Creating…" : "Create assessment Campaign"}
               </Key>
@@ -256,14 +264,24 @@ export function AssessmentActivitiesPage({
       <section className="workspace-section" aria-labelledby="activities-list-heading">
         <h2 id="activities-list-heading">Activity list</h2>
         {data?.activities.length === 0 ? (
-          <p className="empty-state">No activities are available.</p>
+          <EmptyPlate
+            className="empty-plate--inset"
+            label="No activities"
+            note="No activities are available."
+          />
         ) : (
           <ul className="activity-list" aria-label="Activities">
             {data?.activities.map((activity) => (
               <li key={activity.activity_id}>
                 <Link className="activity-link" to={`/activities/${activity.activity_id}/setup`}>
                   <span>{activity.title}</span>
-                  <span className="state-label">{activity.has_activated_cohort ? "Activated" : "Draft"}</span>
+                  <StateReadout
+                    variant={activity.has_activated_cohort ? "sealed" : "rest"}
+                    solid={activity.has_activated_cohort}
+                    label={activity.has_activated_cohort ? "Activated" : "Draft"}
+                    className="state-cell"
+                    labelClassName="state-label"
+                  />
                 </Link>
               </li>
             ))}

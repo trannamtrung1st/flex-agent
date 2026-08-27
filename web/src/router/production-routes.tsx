@@ -29,11 +29,9 @@ export function ProductionDestinationGuard({
       className="workspace-area workspace-area--danger"
       label="Access denied"
       title="Access denied"
+      description={unavailableCopy}
     >
-      <p>{unavailableCopy}</p>
-      <p>
-        <Key variant="open" to="/">Return to Home</Key>
-      </p>
+      <Key variant="open" to="/">Return to Home</Key>
     </OperateArea>
   );
 }
@@ -50,9 +48,7 @@ function ProductionGate() {
       <SessionStatusScreen title="Signing out">
         <p role={errorMessage ? "alert" : undefined}>{errorMessage ?? "Signing out…"}</p>
         {errorMessage ? (
-          <p>
-            <SignOutRetryKey onRetry={() => { void logout(); }} />
-          </p>
+          <SignOutRetryKey onRetry={() => { void logout(); }} />
         ) : null}
       </SessionStatusScreen>
     );

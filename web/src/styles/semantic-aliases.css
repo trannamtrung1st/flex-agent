@@ -10,9 +10,14 @@
   --fg-subtle: var(--label-dim);
   --fg-brand: var(--teal);
   --fg-attention: var(--amber);
+  --fg-danger: #ff8290;
   --brand-primary: var(--teal);
   --brand-signal: var(--teal);
   --attention: var(--amber);
+  --danger: #ff6675;
+  --danger-soft: #321015;
+  --danger-strong: #ff8290;
+  --success: #53d28a;
   --border-default: var(--hairline);
   --border-subtle: var(--hairline-dim);
   --border-focus: var(--teal);

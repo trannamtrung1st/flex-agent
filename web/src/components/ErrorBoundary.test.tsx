@@ -16,6 +16,7 @@ describe("ErrorBoundary", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Something went wrong" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
     expect(screen.queryByText(/cutover/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/SPA/i)).not.toBeInTheDocument();
     error.mockRestore();
