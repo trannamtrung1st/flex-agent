@@ -122,9 +122,17 @@ canonical browser-visible origin is `http://localhost:18080`; it must provide:
   to one enabled actor and one Organization;
 - only the minimum application-owned capability grants, Assessment-owned
   relationship records, and Development/Testing source descriptors needed for
-  the approved journey; and
+  the approved journey;
 - Playwright access through the real OIDC redirect, opaque application session,
-  authorization kernel, Assessment API, and PostgreSQL state.
+  authorization kernel, Assessment API, and PostgreSQL state; and
+- RP-initiated logout: Development/Testing may return the HTTP loopback
+  `EndSessionEndpoint` (`http://localhost:18080/realms/flex-agent/protocol/openid-connect/logout`)
+  with `client_id` and a `post_logout_redirect_uri` derived from the configured
+  `RedirectUri` origin. Production continues to require HTTPS end-session
+  URLs. The realm registers post-logout redirects for `http://localhost:18080/`
+  and `http://localhost:5274/`. Provider ID tokens are not retained
+  (`STACK-DEC-21`); Keycloak may show a logout confirmation before returning
+  to the SPA sign-in gate.
 
 The profile must fail closed when the binding, one-Organization resolution,
 accepted MFA evidence, grant, descriptor, route, or dependency is missing. It

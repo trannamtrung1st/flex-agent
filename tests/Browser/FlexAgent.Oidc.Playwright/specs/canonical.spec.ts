@@ -3,6 +3,7 @@ import {
   assertOpaqueCookieAttributes,
   captureAuthorizationRequest,
   keycloakAdminLogout,
+  finishRpInitiatedLogout,
   scanStorageForProviderTokens,
   sessionProjection,
   signInThroughKeycloak,
@@ -71,9 +72,11 @@ test("OIDC-E2E-03 local logout [OIDC-E2E-03]", async ({ page, context, request }
   const cookieValue = (await context.cookies()).find((item) => item.name === "flex_agent_application_session")?.value;
   expect(cookieValue).toBeTruthy();
   await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page.getByRole("button", { name: "Continue to sign in" })).toBeVisible({ timeout: 30_000 });
+  await finishRpInitiatedLogout(page);
   const session = await sessionProjection(page);
   expect(session.authenticated).toBe(false);
+  await page.getByRole("button", { name: "Continue to sign in" }).click();
+  await expect(page.locator("#username")).toBeVisible({ timeout: 30_000 });
   const replay = await request.get("/v1/assessment/activities", {
     headers: { Cookie: `flex_agent_application_session=${cookieValue}` },
   });

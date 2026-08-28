@@ -31,6 +31,9 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("reach PostgreSQL at postgres:5432", compose);
         Assert.Contains("ASPNETCORE_ENVIRONMENT: Development", compose);
         Assert.Contains("HumanAuthentication__Enabled: true", compose);
+        Assert.Contains(
+            "HumanAuthentication__EndSessionEndpoint: http://localhost:18080/realms/flex-agent/protocol/openid-connect/logout",
+            compose);
         Assert.Contains("http://localhost:18080/realms/flex-agent", compose);
         Assert.Contains("http://localhost:18080/auth/callback", compose);
         Assert.Contains("http://keycloak:8080/realms/flex-agent/protocol/openid-connect/token", compose);
@@ -91,6 +94,9 @@ public sealed class AuthenticatedBrowserProfileTests
             .ToArray();
         Assert.Contains("http://localhost:18080/auth/callback", redirects);
         Assert.Contains("http://localhost:5274/auth/callback", redirects);
+        Assert.Equal(
+            "http://localhost:18080/##http://localhost:5274/",
+            client.GetProperty("attributes").GetProperty("post.logout.redirect.uris").GetString());
         Assert.Equal("http://api:8080", client.GetProperty("adminUrl").GetString());
         Assert.Equal(
             "http://api:8080/auth/backchannel-logout",

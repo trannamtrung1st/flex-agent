@@ -206,6 +206,8 @@ def validate_realm(realm: dict[str, Any], generated: bool) -> None:
         fail("realm must require S256 PKCE")
     if attributes.get("backchannel.logout.url") != CANONICAL_BACKCHANNEL:
         fail("canonical realm back-channel must target the in-compose API")
+    if attributes.get("post.logout.redirect.uris") != "http://localhost:18080/##http://localhost:5274/":
+        fail("realm must register loopback post-logout redirects for canonical and candidate origins")
     if "host.docker.internal" in json.dumps(client):
         fail("canonical realm must not use host.docker.internal")
     secret = client.get("secret")

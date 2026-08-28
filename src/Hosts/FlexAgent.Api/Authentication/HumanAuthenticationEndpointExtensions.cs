@@ -231,21 +231,8 @@ public static class HumanAuthenticationEndpointExtensions
         await context.Response.WriteAsJsonAsync(new
         {
             logged_out = true,
-            end_session_url = TryEndSessionUrl(options),
+            end_session_url = options.TryBrowserEndSessionUrl(),
         });
-    }
-
-    private static string? TryEndSessionUrl(HumanAuthenticationHostOptions options)
-    {
-        if (string.IsNullOrWhiteSpace(options.EndSessionEndpoint)
-            || !Uri.TryCreate(options.EndSessionEndpoint, UriKind.Absolute, out var uri)
-            || uri.Scheme != Uri.UriSchemeHttps
-            || !string.IsNullOrEmpty(uri.UserInfo))
-        {
-            return null;
-        }
-
-        return options.EndSessionEndpoint + "?client_id=" + Uri.EscapeDataString(options.ClientId);
     }
 
     private static async Task BackChannelLogout(

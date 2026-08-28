@@ -1,3 +1,4 @@
+using System.Net;
 using FlexAgent.IdentityAccess.Application;
 using FlexAgent.IdentityAccess.Domain;
 
@@ -71,6 +72,61 @@ public sealed class HumanAuthenticationHostOptions
             Inactivity = Inactivity,
             AbsoluteLifetime = AbsoluteLifetime,
         };
+
+    public string? TryBrowserEndSessionUrl()
+    {
+        if (!IsAllowedBrowserEndpoint(EndSessionEndpoint))
+        {
+            return null;
+        }
+
+        var query = "?client_id=" + Uri.EscapeDataString(ClientId);
+        if (TryPostLogoutRedirectUri(out var postLogoutRedirectUri))
+        {
+            query += "&post_logout_redirect_uri=" + Uri.EscapeDataString(postLogoutRedirectUri);
+        }
+
+        return EndSessionEndpoint + query;
+    }
+
+    private bool TryPostLogoutRedirectUri(out string postLogoutRedirectUri)
+    {
+        postLogoutRedirectUri = string.Empty;
+        if (!Uri.TryCreate(RedirectUri, UriKind.Absolute, out var redirect)
+            || !IsAllowedBrowserEndpoint(RedirectUri))
+        {
+            return false;
+        }
+
+        postLogoutRedirectUri = new UriBuilder(redirect)
+        {
+            Path = "/",
+            Query = string.Empty,
+            Fragment = string.Empty,
+        }.Uri.AbsoluteUri;
+        return true;
+    }
+
+    private bool IsAllowedBrowserEndpoint(string? value) =>
+        Uri.TryCreate(value, UriKind.Absolute, out var uri)
+        && string.IsNullOrEmpty(uri.UserInfo)
+        && (uri.Scheme == Uri.UriSchemeHttps
+            || (!RequireHttpsEndpoints && IsLoopbackHttp(uri)));
+
+    private static bool IsLoopbackHttp(Uri uri)
+    {
+        if (uri.Scheme != Uri.UriSchemeHttp)
+        {
+            return false;
+        }
+
+        if (string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return IPAddress.TryParse(uri.Host, out var address) && IPAddress.IsLoopback(address);
+    }
 
     private static bool IsExactHttps(string value) =>
         Uri.TryCreate(value, UriKind.Absolute, out var uri)

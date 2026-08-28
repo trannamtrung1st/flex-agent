@@ -90,6 +90,19 @@ export async function signInThroughKeycloak(page: Page, username: string, passwo
   await page.locator("#kc-login").click();
 }
 
+export async function finishRpInitiatedLogout(page: Page): Promise<void> {
+  const signIn = page.getByRole("button", { name: "Continue to sign in" });
+  const confirm = page.locator("#kc-logout");
+  await Promise.race([
+    signIn.waitFor({ state: "visible", timeout: 30_000 }),
+    confirm.waitFor({ state: "visible", timeout: 30_000 }),
+  ]);
+  if (await confirm.isVisible()) {
+    await confirm.click();
+  }
+  await expect(signIn).toBeVisible({ timeout: 30_000 });
+}
+
 export async function sessionProjection(page: Page): Promise<{ authenticated: boolean }> {
   return page.evaluate(async () => {
     const response = await fetch("/auth/session", { credentials: "same-origin" });

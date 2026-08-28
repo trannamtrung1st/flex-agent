@@ -14,7 +14,13 @@ export function productionLogoutNextLocation(endSessionUrl: unknown): string {
 
   try {
     const uri = new URL(endSessionUrl);
+    if (uri.username || uri.password) {
+      return "/";
+    }
     if (uri.protocol === "https:") {
+      return endSessionUrl;
+    }
+    if (uri.protocol === "http:" && isLoopbackHost(uri.hostname)) {
       return endSessionUrl;
     }
   } catch {
@@ -22,6 +28,11 @@ export function productionLogoutNextLocation(endSessionUrl: unknown): string {
   }
 
   return "/";
+}
+
+function isLoopbackHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
 }
 
 export async function completeProductionLogout(

@@ -50,6 +50,22 @@ describe("completeProductionLogout", () => {
 
     await expect(completeProductionLogout("csrf", fetchImpl)).resolves.toBe("/");
   });
+
+  it("returns a loopback http end-session URL after a successful revoke", async () => {
+    const endSession = "http://localhost:18080/realms/flex-agent/protocol/openid-connect/logout?client_id=flex-agent-api&post_logout_redirect_uri=http%3A%2F%2Flocalhost%3A18080%2F";
+    const fetchImpl = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ logged_out: true, end_session_url: endSession }), { status: 200 })));
+
+    await expect(completeProductionLogout("csrf", fetchImpl)).resolves.toBe(endSession);
+  });
+
+  it("rejects a non-loopback http next location", async () => {
+    const fetchImpl = vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      logged_out: true,
+      end_session_url: "http://evil.example/logout",
+    }), { status: 200 })));
+
+    await expect(completeProductionLogout("csrf", fetchImpl)).resolves.toBe("/");
+  });
 });
 
 describe("SignOutFailedCopy", () => {

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   captureAuthorizationRequest,
+  finishRpInitiatedLogout,
   scanStorageForProviderTokens,
   sessionProjection,
   signInThroughKeycloak,
@@ -31,7 +32,9 @@ test("OIDC-CANDIDATE-01 Wave 8.1 transition regression candidate/non-Production 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
   await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page.getByRole("button", { name: "Continue to sign in" })).toBeVisible({ timeout: 30_000 });
+  await finishRpInitiatedLogout(page);
   const session = await sessionProjection(page);
   expect(session.authenticated).toBe(false);
+  await page.getByRole("button", { name: "Continue to sign in" }).click();
+  await expect(page.locator("#username")).toBeVisible({ timeout: 30_000 });
 });
