@@ -283,8 +283,42 @@
   gap: 16px;
 }
 
-.assignment-bays--dense .assignment-plate {
+.assignment-bays--hug {
+  min-height: 0;
+}
+
+.assignment-bays--hug .assignment-bay {
   flex: 0 0 auto;
+}
+
+.assignment-bays--hug .assignment-bay-plates {
+  flex: 0 0 auto;
+  align-content: start;
+}
+
+.assignment-bays--hug .assignment-plate-row {
+  flex: 0 0 auto;
+}
+
+.assignment-file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+  width: min(100%, 36rem);
+}
+
+.assignment-file-name {
+  flex: 1 1 12rem;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.assignment-station-plane > .operate-head > .key {
+  margin-top: 8px;
+  align-self: flex-start;
 }
 
 .assignment-plate {
@@ -429,8 +463,23 @@
   height: auto;
 }
 
-.registry-wall:not(.registry-wall--empty) > .registry-frame.frame-cut {
+.registry-wall:not(.registry-wall--empty):not(.registry-wall--hug) > .registry-frame.frame-cut {
   min-height: min(22rem, 55vh);
+}
+
+.registry-wall--hug > .registry-frame.frame-cut {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+}
+
+.registry-wall--hug .datatable {
+  flex: 0 0 auto;
+  height: auto;
+}
+
+.registry-wall--hug .datatable-scroll {
+  flex: 0 0 auto;
 }
 
 .registry-create {

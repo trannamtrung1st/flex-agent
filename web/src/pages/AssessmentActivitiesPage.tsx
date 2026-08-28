@@ -314,7 +314,7 @@ export function AssessmentActivitiesPage({
 
   return (
     <OperateArea
-      className={cx("workspace-area", "work-plane", "registry-wall", emptyRegistry && "registry-wall--empty")}
+      className={cx("workspace-area", "work-plane", "registry-wall", emptyRegistry && "registry-wall--empty", !emptyRegistry && rows.length <= 4 && "registry-wall--hug")}
       framed={false}
       label="Activities"
       title="Activities"

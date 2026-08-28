@@ -14,20 +14,9 @@ import { ProductionHomePage } from "../pages/ProductionHomePage";
 import { ProductionMyWorkDetailPage } from "../pages/ProductionMyWorkDetailPage";
 import { ProductionMyWorkPage } from "../pages/ProductionMyWorkPage";
 import { Key } from "../design-system";
+import { isProductionDestinationOpen } from "./production-navigation";
 
-export function isProductionDestinationOpen(
-  navigation: Array<{ destination_id: string; is_available: boolean }> | undefined,
-  destinationId: "activities" | "my-work" | "review" | "release" | "results" | "sessions",
-) {
-  const items = navigation ?? [];
-  if (destinationId === "sessions") {
-    return items.some(
-      (item) => item.is_available && (item.destination_id === "sessions" || item.destination_id === "my-work"),
-    );
-  }
-
-  return items.some((item) => item.destination_id === destinationId && item.is_available);
-}
+export { isProductionDestinationOpen };
 
 export function ProductionDestinationGuard({
   destinationId,

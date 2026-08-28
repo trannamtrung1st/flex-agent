@@ -10,6 +10,7 @@ import {
   type EnrollmentSummaryV1,
 } from "../api/production-enrollment";
 import { CeremonyArea, CeremonyEmpty } from "../components/shell/SessionChrome";
+import { cx } from "../lib/cx";
 import {
   Alert,
   BackKey,
@@ -121,7 +122,13 @@ export function ProductionEnrollmentPage() {
 
   return (
     <OperateArea
-      className="workspace-area work-plane registry-wall"
+      className={cx(
+        "workspace-area",
+        "work-plane",
+        "registry-wall",
+        enrollments.length === 0 && "registry-wall--empty",
+        enrollments.length > 0 && enrollments.length <= 4 && "registry-wall--hug",
+      )}
       frameClassName="datatable-frame registry-frame"
       frameInset="flush"
       label="Participants"

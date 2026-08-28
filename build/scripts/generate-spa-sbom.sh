@@ -25,14 +25,19 @@ mkdir -p "$(dirname "$OUTPUT")"
 echo "==> Generate SPA runtime SBOM from locked dependency graph"
 (
   cd "$ROOT"
-  # pnpm workspaces symlink dependencies; npm ls then reports nested devDependency
-  # metadata as missing even though runtime packages are installed correctly.
-  pnpm exec cyclonedx-npm \
+  # After `corepack enable`, `pnpm exec cyclonedx-npm` shells `pnpm ls --json
+  # --all --omit=dev`, which pnpm 9 rejects, so the SBOM parser gets an error
+  # string (exit 254). npm ls still understands those flags.
+  npm exec -- cyclonedx-npm \
     --omit dev \
     --ignore-npm-errors \
     --output-file "$OUTPUT" \
     web/package.json
 )
+if [[ ! -s "$OUTPUT" ]]; then
+  echo "SPA SBOM was not written to $OUTPUT" >&2
+  exit 1
+fi
 
 python3 - "$OUTPUT" "$TOOLCHAIN" "$ROOT/package.json" "$ROOT/web/package.json" <<'PY'
 import json

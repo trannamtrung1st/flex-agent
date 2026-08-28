@@ -1,4 +1,5 @@
 import type { GangwayGroup } from "../design-system";
+import { isKnownProductionLocator } from "./production-route-layouts";
 
 export type ProductionDestinationId =
   | "home"
@@ -33,6 +34,45 @@ const DESTINATION_ORDER: ProductionDestinationId[] = [
   "release",
   "results",
 ];
+
+const CEREMONY_LOCATOR = /^\/(sessions|review|release|results)(\/|$)/;
+
+export function isProductionDestinationOpen(
+  navigation: Array<{ destination_id: string; is_available: boolean }> | undefined,
+  destinationId: "activities" | "my-work" | "review" | "release" | "results" | "sessions",
+) {
+  const items = navigation ?? [];
+  if (destinationId === "sessions") {
+    return items.some(
+      (item) => item.is_available && (item.destination_id === "sessions" || item.destination_id === "my-work"),
+    );
+  }
+
+  return items.some((item) => item.destination_id === destinationId && item.is_available);
+}
+
+export function shouldHideProductionBreadcrumbs(
+  pathname: string,
+  navigation?: Array<{ destination_id: string; is_available: boolean }>,
+): boolean {
+  if (pathname === "/" || !isKnownProductionLocator(pathname)) {
+    return true;
+  }
+
+  if (CEREMONY_LOCATOR.test(pathname)) {
+    return true;
+  }
+
+  if (pathname.startsWith("/activities") && !isProductionDestinationOpen(navigation, "activities")) {
+    return true;
+  }
+
+  if (pathname.startsWith("/my-work") && !isProductionDestinationOpen(navigation, "my-work")) {
+    return true;
+  }
+
+  return false;
+}
 
 export function availableProductionDestinations(
   navigation: Array<{ destination_id: string; is_available: boolean }> | undefined,

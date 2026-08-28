@@ -8,7 +8,7 @@ import {
 } from "../api/production-enrollment";
 import { AssignmentPlate } from "../components/work/AssignmentPlate";
 import { CeremonyArea, CeremonyEmpty } from "../components/shell/SessionChrome";
-import { formatCampaignInstant } from "../lib/campaign-timezone";
+import { campaignDeadlineCopy, formatCampaignInstant } from "../lib/campaign-timezone";
 import { EmptyPlate, Key, OperateArea, StateReadout, WaitPanel } from "../design-system";
 import { cx } from "../lib/cx";
 
@@ -20,8 +20,7 @@ function deadlineCopy(item: AssignmentSummaryV1): string {
   if (!item.deadline_utc) {
     return "No exclusive cutoff";
   }
-  const formatted = formatCampaignInstant(item.deadline_utc, item.time_zone_id ?? "UTC");
-  return formatted.localDisplay ?? formatted.exactUtc;
+  return campaignDeadlineCopy(formatCampaignInstant(item.deadline_utc, item.time_zone_id ?? "UTC"));
 }
 
 function isReleasedRecord(status: string): boolean {
@@ -110,7 +109,7 @@ export function ProductionMyWorkPage() {
           />
         </div>
       ) : (
-        <div className={cx("assignment-bays", dense && "assignment-bays--dense")}>
+        <div className={cx("assignment-bays", dense ? "assignment-bays--dense" : "assignment-bays--hug")}>
           <section className="assignment-bay" aria-labelledby="current-assignments">
             <h2 className="assignment-bay-head" id="current-assignments">
               Current assignments

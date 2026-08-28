@@ -33,6 +33,13 @@ export default defineConfig(({ mode }) => {
         "/sessions": {
           target: devApiProxy,
           changeOrigin: true,
+          bypass(req) {
+            const path = (req.url ?? "").split("?")[0] ?? "";
+            if (/^\/sessions\/[^/]+\/events(?:\/|$)/.test(path)) {
+              return;
+            }
+            return "/index.html";
+          },
         },
       },
     },

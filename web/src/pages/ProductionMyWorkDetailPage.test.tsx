@@ -132,7 +132,11 @@ describe("ProductionMyWorkDetailPage", () => {
     );
     expect(screen.getByRole("link", { name: "My work" })).toHaveAttribute("href", "/my-work");
     expect(screen.getByRole("heading", { name: "Submission" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Begin intake" })).toBeInTheDocument();
+    const begin = screen.getByRole("button", { name: "Begin intake" });
+    expect(begin.closest(".operate-head")).toBeTruthy();
+    expect(begin.closest(".work-well__foot")).toBeNull();
+    const submission = screen.getByRole("heading", { name: "Submission" });
+    expect(begin.compareDocumentPosition(submission) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
     expect(screen.getByText(/Start Attempt is not available/)).toBeInTheDocument();
   });
 
@@ -197,5 +201,39 @@ describe("ProductionMyWorkDetailPage", () => {
     await waitFor(() => {
       expect(screen.getByText(/Accepted version 1 remains immutable/)).toBeInTheDocument();
     });
+  });
+
+  it("offers a Shipboard Choose files key instead of a bare file control", async () => {
+    stubAuthenticatedFetch((url) => {
+      if (url.includes("/v1/assessment/my-work/enr-1") && !url.includes("submission") && !url.includes("timing")) {
+        return jsonResponse(assignmentPayload());
+      }
+      if (url.includes("/timing")) {
+        return jsonResponse({ schema_version: "v2", assignment: assignmentPayload().assignment, participant_consequence_code: "none" });
+      }
+      if (url.includes("/submission")) {
+        return jsonResponse(submissionPayload({
+          permitted_actions: [],
+          active_intake: {
+            intake_id: "in-1",
+            submission_id: "sub-1",
+            status: "receiving",
+            revision: 1,
+            created_at_utc: "2026-08-28T00:00:00Z",
+            updated_at_utc: "2026-08-28T00:00:00Z",
+            items: [],
+            permitted_actions: ["complete_item", "cancel_intake"],
+          },
+        }));
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderDetail();
+
+    expect(await screen.findByRole("button", { name: "Choose files" })).toBeInTheDocument();
+    const fileInput = document.querySelector('input[type="file"]');
+    expect(fileInput).toHaveClass("visually-hidden");
+    expect(fileInput).toHaveAttribute("accept", expect.stringContaining(".txt"));
   });
 });

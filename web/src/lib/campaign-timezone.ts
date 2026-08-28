@@ -2,16 +2,58 @@ export interface FormattedCampaignInstant {
   exactUtc: string;
   zoneLabel: string;
   localDisplay: string | null;
+  utcDisplay: string | null;
   conversionAvailable: boolean;
+}
+
+function isUtcAlias(timeZoneId: string): boolean {
+  const normalized = timeZoneId.trim().toUpperCase();
+  return normalized === "UTC" || normalized === "GMT" || normalized === "ETC/UTC" || normalized === "ETC/GMT";
+}
+
+function zonesAgree(requested: string, resolved: string): boolean {
+  if (requested === resolved) {
+    return true;
+  }
+
+  return isUtcAlias(requested) && isUtcAlias(resolved);
+}
+
+function utcDisplayOf(exactUtc: string): string | null {
+  const date = new Date(exactUtc);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: "UTC",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(date);
+  } catch {
+    return null;
+  }
 }
 
 export function formatCampaignInstant(utcInstant: string, timeZoneId: string): FormattedCampaignInstant {
   const exactUtc = utcInstant.endsWith("Z") ? utcInstant : `${utcInstant}Z`;
   const zoneLabel = timeZoneId;
+  const utcDisplay = utcDisplayOf(exactUtc);
+  if (isUtcAlias(timeZoneId)) {
+    if (!utcDisplay) {
+      return { exactUtc, zoneLabel, localDisplay: null, utcDisplay, conversionAvailable: false };
+    }
+    return { exactUtc, zoneLabel, localDisplay: utcDisplay, utcDisplay, conversionAvailable: true };
+  }
   try {
     const date = new Date(exactUtc);
     if (Number.isNaN(date.getTime())) {
-      return { exactUtc, zoneLabel, localDisplay: null, conversionAvailable: false };
+      return { exactUtc, zoneLabel, localDisplay: null, utcDisplay, conversionAvailable: false };
     }
 
     const formatter = new Intl.DateTimeFormat("en-GB", {
@@ -21,12 +63,22 @@ export function formatCampaignInstant(utcInstant: string, timeZoneId: string): F
       timeZoneName: "short",
     });
     const resolvedZone = formatter.resolvedOptions().timeZone;
-    if (resolvedZone !== timeZoneId) {
-      return { exactUtc, zoneLabel, localDisplay: null, conversionAvailable: false };
+    if (!zonesAgree(timeZoneId, resolvedZone)) {
+      return { exactUtc, zoneLabel, localDisplay: null, utcDisplay, conversionAvailable: false };
     }
 
-    return { exactUtc, zoneLabel, localDisplay: formatter.format(date), conversionAvailable: true };
+    return { exactUtc, zoneLabel, localDisplay: formatter.format(date), utcDisplay, conversionAvailable: true };
   } catch {
-    return { exactUtc, zoneLabel, localDisplay: null, conversionAvailable: false };
+    return { exactUtc, zoneLabel, localDisplay: null, utcDisplay, conversionAvailable: false };
   }
+}
+
+export function campaignDeadlineCopy(formatted: FormattedCampaignInstant): string {
+  if (formatted.conversionAvailable && formatted.localDisplay) {
+    return formatted.localDisplay;
+  }
+  if (formatted.utcDisplay) {
+    return `${formatted.utcDisplay} (${formatted.zoneLabel} conversion unavailable)`;
+  }
+  return formatted.exactUtc;
 }

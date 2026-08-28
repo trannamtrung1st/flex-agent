@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useProductionApi } from "../api/production-api";
 import {
@@ -13,7 +13,7 @@ import {
   submissionFailureCopy,
   type MyWorkSubmissionV2,
 } from "../api/production-submission";
-import { formatCampaignInstant } from "../lib/campaign-timezone";
+import { campaignDeadlineCopy, formatCampaignInstant } from "../lib/campaign-timezone";
 import {
   Alert,
   BackKey,
@@ -60,6 +60,46 @@ async function readUtf8File(file: File): Promise<string> {
 
 function isReleasedRecord(status: string): boolean {
   return /releas|seal/i.test(status);
+}
+
+function AttachmentField({
+  id,
+  disabled,
+  describedBy,
+  invalid,
+  onFiles,
+}: {
+  id: string;
+  disabled: boolean;
+  describedBy?: string;
+  invalid?: true;
+  onFiles: (files: File[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="assignment-file">
+      <input
+        ref={inputRef}
+        id={id}
+        className="visually-hidden"
+        type="file"
+        accept=".txt,.md,text/plain,text/markdown"
+        multiple
+        disabled={disabled}
+        aria-invalid={invalid}
+        aria-describedby={describedBy}
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          event.target.value = "";
+          if (files.length > 0) onFiles(files);
+        }}
+      />
+      <span className="field-input field-input--wide assignment-file-name">UTF-8 .txt or .md</span>
+      <Key variant="quiet" disabled={disabled} onClick={() => inputRef.current?.click()}>
+        Choose files
+      </Key>
+    </div>
+  );
 }
 
 export function ProductionMyWorkDetailPage() {
@@ -152,13 +192,26 @@ export function ProductionMyWorkDetailPage() {
 
   return (
     <OperateArea
-      className="workspace-area work-plane"
+      className="workspace-area work-plane assignment-station-plane"
       frameClassName="destination-board assignment-station-board"
       frameInset="flush"
       label="Assignment"
       title={assignment.activity_title ?? assignment.task_title ?? "Assignment"}
       description="Overview, Task and timing, Submission intake, accepted versions, and Attempt readiness. The browser is not acceptance or Attempt-start authority."
       back={<BackKey to="/my-work" label="My work" />}
+      headExtra={
+        permitted.includes("begin_intake") ? (
+          <Key
+            variant="quiet"
+            disabled={pending}
+            onClick={() => {
+              void runMutation(() => submissionClient.beginIntake(enrollmentId, createSubmissionIdempotencyKey()));
+            }}
+          >
+            Begin intake
+          </Key>
+        ) : undefined
+      }
       context={(
         <ReadoutGrid label="Assignment identity" columns={4} className="assignment-instruments">
           <ReadoutGridRow label="Identity">
@@ -177,9 +230,7 @@ export function ProductionMyWorkDetailPage() {
           </ReadoutGridRow>
           <ReadoutGridRow label="Timing">
             <ReadoutGridField term="Deadline" span={2}>
-              {formattedDeadline
-                ? `${formattedDeadline.localDisplay ?? formattedDeadline.exactUtc} (${formattedDeadline.zoneLabel})`
-                : "No exclusive cutoff"}
+              {formattedDeadline ? campaignDeadlineCopy(formattedDeadline) : "No exclusive cutoff"}
             </ReadoutGridField>
             <ReadoutGridField term="Eligibility">{eligibility ?? "—"}</ReadoutGridField>
             <ReadoutGridField term="Accommodation">{consequence}</ReadoutGridField>
@@ -194,19 +245,6 @@ export function ProductionMyWorkDetailPage() {
           live={false}
           label="Submission"
           head={<WorkWellHead title="Submission" ident="Intake · versioned preservation" />}
-          foot={
-            permitted.includes("begin_intake") ? (
-              <Key
-                variant="quiet"
-                disabled={pending}
-                onClick={() => {
-                  void runMutation(() => submissionClient.beginIntake(enrollmentId, createSubmissionIdempotencyKey()));
-                }}
-              >
-                Begin intake
-              </Key>
-            ) : undefined
-          }
         >
           <WorkWellSection>
             {submission?.intake_available === false ? (
@@ -267,15 +305,12 @@ export function ProductionMyWorkDetailPage() {
                 </Inline>
                 <FormField id={filesId} label="Attachments (.txt or .md)" layout="stack">
                   {(control) => (
-                    <input
-                      {...control}
-                      type="file"
-                      accept=".txt,.md,text/plain,text/markdown"
-                      multiple
+                    <AttachmentField
+                      id={control.id}
                       disabled={pending}
-                      onChange={(event) => {
-                        const files = Array.from(event.target.files ?? []);
-                        event.target.value = "";
+                      describedBy={control["aria-describedby"]}
+                      invalid={control["aria-invalid"]}
+                      onFiles={(files) => {
                         void (async () => {
                           let revision = intake.revision;
                           const intakeId = intake.intake_id;

@@ -9,6 +9,7 @@ import {
   type EnrollmentDetailV1,
   type EnrollmentTimingV2,
 } from "../api/production-enrollment";
+import { campaignDeadlineCopy, formatCampaignInstant } from "../lib/campaign-timezone";
 import { CeremonyArea, CeremonyEmpty } from "../components/shell/SessionChrome";
 import {
   Alert,
@@ -183,7 +184,13 @@ export function ProductionEnrollmentDetailPage() {
             {timing?.effective ? (
               <p>
                 Effective eligibility {timing.effective.eligibility_state} in {timing.effective.time_zone_id}.
-                Exclusive submission end {timing.effective.submission_exclusive_end_utc}.
+                Exclusive submission end{" "}
+                {campaignDeadlineCopy(
+                  formatCampaignInstant(
+                    timing.effective.submission_exclusive_end_utc,
+                    timing.effective.time_zone_id,
+                  ),
+                )}.
               </p>
             ) : (
               <p>Timing is not available for this Enrollment.</p>

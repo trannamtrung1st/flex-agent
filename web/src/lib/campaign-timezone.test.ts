@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCampaignInstant } from "./campaign-timezone";
+import { campaignDeadlineCopy, formatCampaignInstant } from "./campaign-timezone";
 
 describe("formatCampaignInstant", () => {
   it("keeps the exact UTC instant and named zone for a supported identifier", () => {
@@ -18,5 +18,17 @@ describe("formatCampaignInstant", () => {
     expect(formatted.zoneLabel).toBe("Not/AZone");
     expect(formatted.conversionAvailable).toBe(false);
     expect(formatted.localDisplay).toBeNull();
+    expect(formatted.utcDisplay).toEqual(expect.stringMatching(/2026/));
+    expect(formatted.utcDisplay).toEqual(expect.stringMatching(/UTC|GMT/i));
+    expect(campaignDeadlineCopy(formatted)).toMatch(/conversion unavailable/i);
+    expect(campaignDeadlineCopy(formatted)).not.toContain("2026-09-30T17:00:00Z");
+  });
+
+  it("formats UTC deadlines without a conversion-unavailable apology", () => {
+    const formatted = formatCampaignInstant("2026-09-01T12:00:00Z", "UTC");
+    expect(formatted.conversionAvailable).toBe(true);
+    expect(formatted.localDisplay).toEqual(expect.stringMatching(/2026/));
+    expect(campaignDeadlineCopy(formatted)).not.toMatch(/conversion unavailable/i);
+    expect(campaignDeadlineCopy(formatted)).not.toContain("2026-09-01T12:00:00Z");
   });
 });

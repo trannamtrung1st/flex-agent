@@ -84,6 +84,7 @@ describe("ProductionEnrollmentPage", () => {
     const link = await screen.findByRole("link", { name: "Pat Participant" });
     expect(link).toHaveAttribute("href", "/activities/act-1/cohorts/coh-1/enrollments/enr-1");
     expect(screen.getByRole("table", { name: "Participants" })).toHaveClass("datatable-table--fit");
+    expect(link.closest(".work-plane")).toHaveClass("registry-wall--hug");
     expect(screen.getByRole("searchbox", { name: "Search participant or status" })).toHaveAttribute(
       "placeholder",
       "SEARCH NAME",

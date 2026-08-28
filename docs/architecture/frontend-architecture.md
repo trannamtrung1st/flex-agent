@@ -57,7 +57,8 @@ browser harness):
 | Text Session commands and snapshot GET | Typed envelopes exist; production host maps SSE `GET /sessions/{id}/events` only | `/sessions/:sessionId` stays contract-unavailable |
 | Review, Result, Release | Architecture contract exists; no production host HTTP group | Destinations stay contract-unavailable |
 
-Local Vite proxies `/auth`, `/v1`, `/v2`, `/sessions`, and `/browser` to the API.
+Local Vite proxies `/auth`, `/v1`, `/v2`, `/sessions/{id}/events`, and `/browser`
+to the API. Document loads of `/sessions/:sessionId` stay on the SPA.
 Do not treat `/browser/*` synthetic harness routes as production truth.
 
 Styling follows design-system v1.0: primitive values in

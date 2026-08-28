@@ -10,7 +10,7 @@ import {
 import { maxWidthQuery } from "../../lib/breakpoints";
 import { layoutIdForPath } from "../../router/route-layout-match";
 import { PRODUCTION_ROUTE_LAYOUTS } from "../../router/production-route-layouts";
-import { availableProductionDestinations, productionNavGroups } from "../../router/production-navigation";
+import { availableProductionDestinations, productionNavGroups, shouldHideProductionBreadcrumbs } from "../../router/production-navigation";
 import { requireProductionShellLayout } from "../../router/require-production-shell-layout";
 import { useMediaQuery } from "../../lib/useMediaQuery";
 import { useProductionApi } from "../../api/production-api";
@@ -122,7 +122,9 @@ export function ProductionAppShell() {
         banner={apiState === "ready" && errorMessage ? (
           <Alert variant="danger" title="Request could not be completed">{errorMessage}</Alert>
         ) : null}
-        breadcrumbs={<Breadcrumbs />}
+        breadcrumbs={shouldHideProductionBreadcrumbs(location.pathname, shell?.navigation)
+          ? null
+          : <Breadcrumbs />}
       >
         <Outlet />
       </ManagementLayout>

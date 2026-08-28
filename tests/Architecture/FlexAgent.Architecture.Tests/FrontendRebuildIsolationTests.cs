@@ -60,6 +60,9 @@ public sealed class FrontendRebuildIsolationTests
         Assert.DoesNotContain("design-lab.html", config, StringComparison.Ordinal);
         Assert.Contains("src/design-lab/**", config, StringComparison.Ordinal);
         Assert.Contains("exclude:", config, StringComparison.Ordinal);
+        Assert.Contains("bypass(", config, StringComparison.Ordinal);
+        Assert.Contains("\"/sessions\"", config, StringComparison.Ordinal);
+        Assert.Contains("/events", config, StringComparison.Ordinal);
     }
 
     [Fact]

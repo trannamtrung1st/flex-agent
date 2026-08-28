@@ -136,6 +136,7 @@ describe("AssessmentActivitiesPage", () => {
     });
     const campaign = await screen.findByRole("link", { name: /Existing/ });
     expect(screen.getByRole("table", { name: "Activities" })).toHaveClass("datatable-table--fit");
+    expect(campaign.closest(".work-plane")).toHaveClass("registry-wall--hug");
     expect(screen.queryByRole("heading", { name: "Create assessment Campaign" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Create assessment Campaign" }));
     const create = await screen.findByRole("heading", { name: "Create assessment Campaign" });

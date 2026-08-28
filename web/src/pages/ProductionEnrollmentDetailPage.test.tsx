@@ -112,6 +112,10 @@ describe("ProductionEnrollmentDetailPage", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Pat Participant" })).toBeInTheDocument();
+    const timing = screen.getByText(/Exclusive submission end/);
+    expect(timing).not.toHaveTextContent("2026-09-01T12:00:00Z");
+    expect(timing).not.toHaveTextContent(/conversion unavailable/i);
+    expect(timing).toHaveTextContent(/2026/);
     expect(screen.getByRole("link", { name: "Participants" })).toHaveAttribute(
       "href",
       "/activities/act-1/cohorts/coh-1/enrollments",

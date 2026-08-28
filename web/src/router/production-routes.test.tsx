@@ -64,6 +64,7 @@ describe("production destination guards", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Access denied" })).toHaveClass("work-plane--ceremony");
     expect(screen.getByText("Activities are not available for the current authorized relationship.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Return to Home" })).toBeInTheDocument();
@@ -175,6 +176,7 @@ describe("production destination guards", () => {
     );
 
     expect(await screen.findByText("Session contract page")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Access denied" })).not.toBeInTheDocument();
   });
 

@@ -83,6 +83,78 @@ describe("ProductionMyWorkPage", () => {
     expect(plate).toHaveTextContent("Case study");
     expect(plate).toHaveTextContent("active");
     expect(screen.getByRole("heading", { name: "Current assignments" })).toBeInTheDocument();
+    expect(document.querySelector(".assignment-bays")).toHaveClass("assignment-bays--hug");
+  });
+
+  it("shows a readable UTC deadline when the campaign zone cannot be converted", async () => {
+    stubSession((url) => {
+      if (url.includes("/v1/assessment/my-work")) {
+        return jsonResponse({
+          schema_version: "v1",
+          items: [
+            {
+              enrollment_id: "enr-1",
+              status: "active",
+              visibility: "participant",
+              activity_title: "Campaign A",
+              task_title: "Case study",
+              time_zone_id: "Not/AZone",
+              deadline_utc: "2026-09-30T17:00:00Z",
+              summary_available: true,
+              permitted_actions: [],
+            },
+          ],
+          has_more: false,
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    const plate = await screen.findByRole("article", { name: "Campaign A" });
+    expect(plate).toHaveTextContent(/conversion unavailable/i);
+    expect(plate).not.toHaveTextContent("2026-09-30T17:00:00Z");
+  });
+
+  it("uses a dense bay when more than one assignment is present", async () => {
+    stubSession((url) => {
+      if (url.includes("/v1/assessment/my-work")) {
+        return jsonResponse({
+          schema_version: "v1",
+          items: [
+            {
+              enrollment_id: "enr-1",
+              status: "active",
+              visibility: "participant",
+              activity_title: "Campaign A",
+              task_title: "Case study",
+              time_zone_id: "UTC",
+              summary_available: true,
+              permitted_actions: [],
+            },
+            {
+              enrollment_id: "enr-2",
+              status: "active",
+              visibility: "participant",
+              activity_title: "Campaign B",
+              task_title: "Essay",
+              time_zone_id: "UTC",
+              summary_available: true,
+              permitted_actions: [],
+            },
+          ],
+          has_more: false,
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await screen.findByRole("article", { name: "Campaign A" });
+    expect(document.querySelector(".assignment-bays")).toHaveClass("assignment-bays--dense");
+    expect(document.querySelector(".assignment-bays")).not.toHaveClass("assignment-bays--hug");
   });
 
   it("centers an empty-board plate when there is no assigned work", async () => {
