@@ -6,12 +6,12 @@
 | --- | --- |
 | **Status** | Approved |
 | **Owner** | Product Lead |
-| **Approvers** | Product Lead, UI/UX reviewer, Architecture Lead, Security/Privacy reviewer |
-| **Version** | 0.3 |
-| **Prepared date** | 2026-08-09 |
-| **Approved date** | 2026-08-09 |
-| **Last amended** | 2026-08-20 |
-| **Approval reference** | v0.3 confirms the fail-closed MVP behavior for zero or multiple eligible Organization contexts; supersedes v0.2 |
+| **Approvers** | Product Lead, UI/UX Lead, Architecture Lead, Security/Privacy reviewer |
+| **Version** | 1.0 |
+| **Prepared date** | 2026-08-28 |
+| **Approved date** | 2026-08-28 |
+| **Last amended** | 2026-08-28 |
+| **Approval reference** | Reconstructed and re-approved after the Shipboard production UX reset. Successor of retired v0.3 at Git `eb9c398`. Not an in-place continuation of retired page composition. |
 | **Audience** | Product, design, engineering, security/privacy, QA, and implementation reviewers |
 | **Governs** | Platform-level Activity information architecture; end-to-end assessment Campaign journey for P0; capability-scoped navigation; cross-surface state handoffs; and shared interaction principles |
 
@@ -19,6 +19,12 @@ This approved UI/UX contract is authoritative for its interaction concerns. It
 uses **must** for normative behavior and remains subordinate to approved
 product meaning, observable feature requirements, and technical architecture
 within their respective areas of authority.
+
+**Reconstruction note.** Subject matter is derived from approved product and
+P0 feature specifications. Retired v0.3 text is provenance only
+([retirement ledger](retired-authority.md)). Design-lab fixtures are not
+requirements. Voice and the proposed text Interaction Controller are out of
+P0 unless a separate product decision expands scope.
 
 ## Purpose and outcomes
 
@@ -567,6 +573,36 @@ revoked, stale, or lawfully unavailable target uses the owning safe state and
 does not reveal whether an inaccessible resource exists. If access changes
 while a page is open, the next read or mutation removes prohibited content and
 controls and offers only a safe next action.
+
+### Canonical production routes
+
+These locators are the P0 deep-link contract. They are not compatibility
+redirects from deleted UIs. A path is a locator, not proof of access
+(`IA-MVP-3`).
+
+| Route | Actor / capability | Layout family | Owning journey |
+| --- | --- | --- | --- |
+| `/` | Authenticated home / unauthenticated gate | `management` | Shared shell; `IA-MVP-1` |
+| `/activities` | Activity administration | `management` | `JRN-MVP-1` |
+| `/activities/:activityId/setup` | Activity administration | `management` | `JRN-MVP-1` |
+| `/activities/:activityId/cohorts/:cohortId/enrollments` | Activity administration | `management` | `JRN-MVP-2` |
+| `/activities/:activityId/cohorts/:cohortId/enrollments/:enrollmentId` | Activity administration | `management` | `JRN-MVP-2` |
+| `/my-work` | Participant assignment discovery | `management` | `JRN-MVP-3` |
+| `/my-work/:enrollmentId` | Participant assignment / submission / attempt | `guided-task` | `JRN-MVP-3` |
+| `/sessions/:sessionId` | Participant Session; exceptional administrator control | `live-session` | `JRN-MVP-4` |
+| `/review` | Assigned Review work | `management` | `JRN-MVP-5`, `JRN-MVP-6` |
+| `/review/:reviewId` | Assigned Review case | `guided-task` | `JRN-MVP-5`, `JRN-MVP-6` |
+| `/release` | Explicit Release authority | `management` | `JRN-MVP-7` |
+| `/release/:resultId` | Exact Result preview and confirmation | `guided-task` | `JRN-MVP-7` |
+| `/results/:resultId` | Participant own Result after visibility | `management` | `JRN-MVP-7` |
+
+P1 **Agents** and **Harnesses** destinations remain planned modules with no
+production routes. Review and Release destinations must remain distinct even
+when both are present (`PROP-UX-2`).
+
+If a server contract for a route is not yet implemented, the production UI
+must present the owning safe unavailable or pending state and must not invent
+lifecycle truth from fixtures.
 
 ### `IA-MVP-4` — Narrow viewport behavior
 

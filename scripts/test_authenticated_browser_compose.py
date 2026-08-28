@@ -22,15 +22,24 @@ DIGEST = "@sha256:" + ("a" * 64)
 def valid_config() -> dict:
     return {
         "services": {
-            "postgres": {"image": f"postgres:18{DIGEST}"},
-            "keycloak-db": {"image": f"postgres:18{DIGEST}"},
+            "postgres": {
+                "image": f"postgres:18{DIGEST}",
+                "tmpfs": ["/var/lib/postgresql"],
+            },
+            "keycloak-db": {
+                "image": f"postgres:18{DIGEST}",
+                "tmpfs": ["/var/lib/postgresql"],
+            },
             "keycloak": {
                 "image": f"quay.io/keycloak/keycloak:26.7.0{DIGEST}",
                 "healthcheck": {"test": ["CMD-SHELL", "true"]},
             },
             "migrate": {"image": f"mcr.microsoft.com/dotnet/sdk:10.0.100-noble{DIGEST}"},
             "seed": {"image": f"postgres:18{DIGEST}"},
-            "seaweedfs": {"image": f"chrislusf/seaweedfs:4.29{DIGEST}"},
+            "seaweedfs": {
+                "image": f"chrislusf/seaweedfs:4.29{DIGEST}",
+                "tmpfs": ["/data"],
+            },
             "api": {
                 "build": {},
                 "environment": {

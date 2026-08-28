@@ -195,9 +195,8 @@ src/
         CyberphoneJsonCanonicalization/ # exact-commit source snapshot
       NOTICE.md             # source, commit, license, files, modifications
   Infrastructure/           # shared low-level adapter primitives only
-web/                        # React/Vite SPA until the ADR-020 rebuild rename;
-                            # during transition production is web-legacy/ and
-                            # the candidate is new web/ (see ADR-020)
+web/                        # React/Vite production SPA and isolated design lab
+                            # (ADR-021; ADR-020 dual-build production pointer superseded)
 contracts/                  # canonical schemas, fixtures, compatibility profile
 database/
   migrations/               # Grate one-time plain-SQL migrations

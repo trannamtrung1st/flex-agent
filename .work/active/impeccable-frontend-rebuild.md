@@ -1,8 +1,8 @@
 ---
 id: impeccable-frontend-rebuild
-status: in-progress
+status: blocked
 created: 2026-08-27
-updated: 2026-08-27
+updated: 2026-08-28
 ---
 
 # Goal
@@ -1585,25 +1585,16 @@ Add and run focused commands for:
 
 # Current state
 
-Phase 7.5 isolation enforcement is closed and externally approved at `5ffc0fd`.
-Candidate CSS is `shared.css`; lab-only demo/surface CSS is `design-lab.css`
-and is blocked from direct candidate imports (ESLint, isolation lib, architecture
-tests, style-entry scan). Design-lab outbound imports are allowlisted to lab,
-design-system, lib, and shared styles under `web/src`, with repo-wide rejection
-of other paths and HTML entry-reference checks. Import checkers are
-specifier-aware. `verify:web:new`, `verify:design-lab`, and `verify:web` are
-named separately; candidate typecheck/lint no longer includes lab configs.
+Owner direction on 2026-08-28 superseded the remaining copy/adapt migration
+strategy before Phase 8 Wave 8.2 proceeded. This task is retained as historical
+evidence for its completed design-system, design-lab, provenance, and isolation
+work, but it has no active execution cursor and must not be resumed as written.
 
-**Current `[>]`:** Phase 8 — Wave 8.2 assessment setup (Wave 8.1 copy-adapt,
-real-API proof, and component polish are recorded). Production traffic is
-still `web-legacy/`. Candidate `web/` boots only the production API session
-(no synthetic `/browser` adapter) on `:5274`. Setup and My work remain
-later-wave placeholders so Campaign-create navigation keeps production paths.
-
-Candidate `web/public/favicon.svg` is the adopted Shipboard Terminal mark; its
-source hash and provenance are recorded in the verification history.
-`web/index.html` and `web/design-lab.html` already reference `/favicon.svg`.
-`web-legacy/` keeps the superseded Deep-Space tile until cutover.
+Successor plan: `.work/active/shipboard-production-ux-reset.md`. That plan
+retires the former UI/UX authority, removes current production page composition
+and `web-legacy/`, reconstructs the P0 journeys, and rebuilds one production SPA
+from approved replacement specifications. Its status is `planned`; no reset
+implementation or deletion has started.
 
 # Decisions
 
@@ -1951,7 +1942,11 @@ production states remain deferred to their production-parity waves.
 
 # Blockers
 
-None. Phase 7.5 is approved and closed; Phase 8 may proceed.
+The owner-confirmed production UX reset invalidates this task's remaining
+dual-build/copy-adapt execution strategy. Continue only through
+`.work/active/shipboard-production-ux-reset.md` after explicit activation; do
+not mark this predecessor completed because its original outcome was not
+delivered.
 
 # Open questions
 

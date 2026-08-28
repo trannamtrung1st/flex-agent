@@ -6,11 +6,11 @@
 | --- | --- |
 | **Status** | Approved |
 | **Owner** | Product Lead |
-| **Approvers** | Product Lead, UI/UX reviewer, Architecture Lead, Security/Privacy reviewer |
-| **Version** | 0.1 |
-| **Prepared date** | 2026-08-09 |
-| **Approved date** | 2026-08-09 |
-| **Approval reference** | Product Lead approved `PROP-UI-REV-1`–`PROP-UI-REV-12` on 2026-08-09 after UI/UX, architecture, security/privacy, traceability, and repository-consistency review |
+| **Approvers** | Product Lead, UI/UX Lead, Architecture Lead, Security/Privacy reviewer |
+| **Version** | 1.0 |
+| **Prepared date** | 2026-08-28 |
+| **Approved date** | 2026-08-28 |
+| **Approval reference** | Reconstructed and re-approved after the Shipboard production UX reset. Successor of the retired specification at Git `eb9c398`. `PROP-UI-REV-*` dispositions remain in force. |
 | **Audience** | Product, design, frontend, backend, security/privacy, QA, and implementation reviewers |
 | **Governs** | Assigned Review work, Evaluation processing status, exact candidate and lineage presentation, criterion and Evidence inspection, optional Human revision, Review decision, and the Result-ready/not-released handoff for the P0 assessment Campaign |
 | **Journeys** | [`JRN-MVP-5`](activity-campaign-journey.md#jrn-mvp-5-produce-and-inspect-evaluation) and [`JRN-MVP-6`](activity-campaign-journey.md#jrn-mvp-6-review-and-decide) |

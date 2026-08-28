@@ -32,7 +32,7 @@ IMAGE_SERVICES = {
     "nginx",
 }
 CANONICAL_CALLBACK = "http://localhost:18080/auth/callback"
-CANDIDATE_CALLBACK = "http://127.0.0.1:5274/auth/callback"
+CANDIDATE_CALLBACK = "http://localhost:5274/auth/callback"
 CANONICAL_BACKCHANNEL = "http://api:8080/auth/backchannel-logout"
 
 
@@ -81,6 +81,13 @@ def volume_sources(service: dict[str, Any]) -> list[str]:
     return sources
 
 
+def tmpfs_targets(service: dict[str, Any]) -> list[str]:
+    tmpfs = service.get("tmpfs") or []
+    if isinstance(tmpfs, list):
+        return [str(item) for item in tmpfs]
+    return []
+
+
 def depends_condition(service: dict[str, Any], name: str) -> str | None:
     depends = service.get("depends_on") or {}
     if isinstance(depends, list):
@@ -110,6 +117,17 @@ def validate_compose(config: dict[str, Any], mode: str) -> None:
 
     if published_ports(services["postgres"]) or published_ports(services["keycloak-db"]):
         fail("application or Keycloak database host publication is not permitted")
+
+    for name, mount in (
+        ("postgres", "/var/lib/postgresql"),
+        ("keycloak-db", "/var/lib/postgresql"),
+        ("seaweedfs", "/data"),
+    ):
+        if mount not in tmpfs_targets(services[name]):
+            fail(f"{name} must use ephemeral tmpfs storage at {mount}")
+
+    if config.get("volumes"):
+        fail("named compose volumes are not permitted in this profile")
 
     nginx_ports = published_ports(services["nginx"])
     if len(nginx_ports) != 1:

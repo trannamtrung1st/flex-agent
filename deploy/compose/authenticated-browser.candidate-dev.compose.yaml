@@ -4,4 +4,4 @@
 services:
   api:
     environment:
-      HumanAuthentication__RedirectUri: http://127.0.0.1:5274/auth/callback
+      HumanAuthentication__RedirectUri: http://localhost:5274/auth/callback

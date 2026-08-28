@@ -71,6 +71,7 @@ describe("design lab routes", () => {
     expect(screen.getByRole("region", { name: "Assigned work by record state" })).toBeInTheDocument();
     expect(document.querySelector(".bay")).toHaveClass("composition-stack");
     expect(document.querySelector("#main-content")?.querySelector(".composition-inset")).toBeNull();
+    expect(document.querySelector(".board-frame.frame-cut")).toHaveClass("frame-cut--flush");
   });
 
   it("centers the participant-home empty plate inside the board frame", () => {
@@ -86,11 +87,16 @@ describe("design lab routes", () => {
     expect(screen.getByRole("heading", { name: "Review queue" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Review queue" })).toBeInTheDocument();
     expect(document.querySelector("#main-content")?.querySelector(".composition-inset")).toBeNull();
+    expect(document.querySelector(".datatable-frame.frame-cut")).toHaveClass("frame-cut--flush");
   });
 
   it("opens the Component Deck from the catalog path", () => {
     renderLab("/design-lab/shared/gallery");
     expect(screen.getByRole("heading", { name: "Shared component deck" })).toBeInTheDocument();
+    const frame = document.querySelector(".frame-demo.frame-cut");
+    expect(frame).toBeTruthy();
+    expect(frame?.querySelector(".frame-tick--top")).toBeTruthy();
+    expect(frame?.querySelector(".frame-tick--bottom")).toBeTruthy();
   });
 
   it("shows a non-disclosing unknown-channel state", () => {

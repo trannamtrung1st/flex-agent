@@ -83,6 +83,7 @@ describe("candidate style entry graph", () => {
     const workspaceScroll = appShell.match(
       /\.workspace-area > \.frame-cut > \.frame-in > \.frame-scroll \{[^}]+\}/,
     )?.[0] ?? "";
+    const ceremonyFrame = appShell.match(/\.ceremony-frame\.frame-cut \{[^}]+\}/)?.[0] ?? "";
 
     expect(frameCut).toMatch(/--frame-node-size:\s*8px/);
     expect(frameCut).toMatch(/--frame-node-hang:\s*-4px/);
@@ -90,6 +91,8 @@ describe("candidate style entry graph", () => {
     expect(frameNode).toMatch(/width:\s*var\(--frame-node-size\)/);
     expect(workspaceScroll).toMatch(/overflow-x:\s*(?:hidden|clip)/);
     expect(workspaceScroll).toMatch(/overflow-y:\s*auto/);
+    expect(ceremonyFrame).toMatch(/flex:\s*0 0 auto/);
+    expect(ceremonyFrame).toMatch(/width:\s*max-content/);
     expect(appShell).not.toMatch(
       /\.workspace-area > \.frame-cut > \.frame-in \{[^}]*overflow:\s*auto/,
     );

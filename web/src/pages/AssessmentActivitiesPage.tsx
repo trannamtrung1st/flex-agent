@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useMemo, useRef } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 import {
@@ -10,10 +10,34 @@ import {
   sourceOptionIdentity,
   sourceOptionLabel,
   type ProductionActivityList,
+  type ProductionActivitySummary,
   type ProductionSourceOption,
   type ProductionSourceRef,
 } from "../api/production-assessment";
-import { Alert, ErrorSummary, WaitPanel, type ErrorSummaryItem, Container, EmptyPlate, Inline, Key, OperateArea, Stack, StateReadout } from "../design-system";
+import { CeremonyArea, CeremonyEmpty } from "../components/shell/SessionChrome";
+import {
+  Alert,
+  Container,
+  DataTablePagination,
+  DataTableShell,
+  DataTableToolbar,
+  EmptyPlate,
+  ErrorSummary,
+  EtchedFrame,
+  Key,
+  OperateArea,
+  SortableHeader,
+  Stack,
+  StateReadout,
+  ToolbarReadout,
+  ToolbarSearch,
+  WaitPanel,
+  WorkWell,
+  WorkWellHead,
+  type ErrorSummaryItem,
+  useTableController,
+} from "../design-system";
+import { cx } from "../lib/cx";
 import { FieldInput } from "../design-system/components/fields/FieldControls";
 import { FormField } from "../design-system/components/fields/FormField";
 import {
@@ -36,6 +60,8 @@ export interface AssessmentActivitiesPageProps {
   onCreated: (activityId: string) => void;
 }
 
+type ActivitySortKey = "title" | "activation";
+
 export function AssessmentActivitiesPage({
   loadActivities,
   loadSourceOptions,
@@ -46,6 +72,7 @@ export function AssessmentActivitiesPage({
   const summaryId = `${titleId}-summary`;
   const queryClient = useQueryClient();
   const sourcesInitialized = useRef(false);
+  const [createRevealed, setCreateRevealed] = useState(false);
   const activitiesQuery = useAssessmentActivitiesQuery(loadActivities);
   const canCreate = activitiesQuery.isFetchedAfterMount
     && activitiesQuery.isSuccess
@@ -56,6 +83,7 @@ export function AssessmentActivitiesPage({
   const form = useForm<CampaignCreateValues>({
     resolver: zodResolver(campaignCreateSchema),
     defaultValues: emptyCampaignCreateValues,
+    shouldFocusError: false,
   });
   const sourceValues = form.watch("sources");
 
@@ -76,6 +104,14 @@ export function AssessmentActivitiesPage({
     sourcesInitialized.current = true;
   }, [form, sources, sourcesQuery.isSuccess]);
 
+  useEffect(() => {
+    if (!createRevealed) {
+      return;
+    }
+
+    document.getElementById("create-heading")?.focus();
+  }, [createRevealed]);
+
   const loading = !activitiesQuery.isFetchedAfterMount || (canCreate && !sourcesQuery.isFetched);
   const accessChanged = isAssessmentAccessLoss(activitiesQuery.error)
     || isAssessmentAccessLoss(sourcesQuery.error)
@@ -95,42 +131,56 @@ export function AssessmentActivitiesPage({
     document.getElementById(summaryId)?.focus();
   }, [createError, summaryId]);
 
+  useEffect(() => {
+    if (form.formState.submitCount < 1) {
+      return;
+    }
+
+    const fieldErrors = form.formState.errors;
+    if (!fieldErrors.title && !fieldErrors.sources && !fieldErrors.root) {
+      return;
+    }
+
+    document.getElementById(summaryId)?.focus();
+  }, [form.formState.submitCount, form.formState.errors, summaryId]);
+
   if (loading) {
     return (
-      <OperateArea
-        className="workspace-area"
+      <CeremonyArea
         label="Activities"
         title="Activities"
         description="Create and resume Assessment Campaign drafts."
       >
         <WaitPanel label="Loading activities…" />
-      </OperateArea>
+      </CeremonyArea>
     );
   }
 
   if (accessChanged) {
     return (
-      <OperateArea
-        className="workspace-area workspace-area--danger"
+      <CeremonyArea
         label="Your access changed"
         title="Your access changed"
         description="Protected setup values were removed. Return to Home or sign in again."
+        danger
       >
-        <Key variant="open" to="/">Return to Home</Key>
-      </OperateArea>
+        <CeremonyEmpty note="Protected setup values were removed. Return to Home or sign in again.">
+          <Key variant="open" to="/">Return to Home</Key>
+        </CeremonyEmpty>
+      </CeremonyArea>
     );
   }
 
   if (loadError && !activitiesQuery.data) {
     return (
-      <OperateArea
-        className="workspace-area workspace-area--danger"
+      <CeremonyArea
         label="Activities"
         title="Activities"
         description="Create and resume Assessment Campaign drafts."
+        danger
       >
-        <Alert variant="danger" title="Could not load activities">{loadError}</Alert>
-      </OperateArea>
+        <CeremonyEmpty note={loadError} />
+      </CeremonyArea>
     );
   }
 
@@ -149,29 +199,25 @@ export function AssessmentActivitiesPage({
     ...(createError ? [createError] : []),
   ];
 
-  return (
-    <OperateArea
-      className="workspace-area"
-      label="Activities"
-      title="Activities"
-      description="Create and resume Assessment Campaign drafts."
+  const createForm = canCreate && !missingCategory ? (
+    <WorkWell
+      live={false}
+      className="registry-create"
+      label="Create assessment Campaign"
+      head={(
+        <WorkWellHead>
+          <h2 id="create-heading" className="work-well__title" tabIndex={-1}>Create assessment Campaign</h2>
+          <p className="work-well__ident">Activity form: Campaign. Configured type: Assessment.</p>
+        </WorkWellHead>
+      )}
     >
-      <Stack gap="none">
-      {canCreate ? (
-        <Stack as="section" className="workspace-section" gap="4" aria-labelledby="create-heading">
-          <h2 id="create-heading">Create assessment Campaign</h2>
-          {missingCategory ? (
-            <Alert variant="info" title={`No permitted ${missingCategory.replaceAll("_", " ")} revisions are available`}>
-              A ready source set is required before a draft can be created.
-            </Alert>
-          ) : (
-            <Container size="form">
-            <Stack
-              as="form"
-              gap="5"
-              className="workspace-form"
-              onSubmit={(event) => {
-                void form.handleSubmit((values) => {
+      <Container size="form">
+          <Stack
+            as="form"
+            gap="5"
+            className="workspace-form"
+            onSubmit={(event) => {
+              void form.handleSubmit((values) => {
                 if (createMutation.isPending) {
                   return;
                 }
@@ -197,107 +243,249 @@ export function AssessmentActivitiesPage({
                   document.getElementById(summaryId)?.focus();
                 });
               })(event);
-              }}
+            }}
+          >
+            {summaryErrors.length > 0 ? (
+              <ErrorSummary title="Correct the following" headingId={summaryId} errors={summaryErrors} />
+            ) : null}
+            <FormField
+              id={titleId}
+              layout="stack"
+              label="Campaign title"
+              error={fieldErrors.title?.message}
             >
-              {summaryErrors.length > 0 ? (
-                <ErrorSummary title="Correct the following" headingId={summaryId} errors={summaryErrors} />
-              ) : null}
-              <FormField
-                id={titleId}
-                layout="stack"
-                label="Campaign title"
-                error={fieldErrors.title?.message}
-              >
-                {(control) => (
-                  <FieldInput
-                    {...control}
-                    maxLength={200}
-                    width="wide"
-                    {...form.register("title")}
-                  />
-                )}
-              </FormField>
-              <Stack as="fieldset" gap="5" className="workspace-source-set">
-                <legend>Sources</legend>
-                {REQUIRED_SOURCE_CATEGORIES.map((category) => {
-                  const options = sources.filter((source) => source.category === category);
-                  const fieldId = `${titleId}-${category}`;
-                  const message = fieldErrors.sources?.[category]?.message;
-                  const field = form.register(`sources.${category}`);
-                  const selectedValue = sourceValues[category];
-                  const hasSelectedOption = options.some((option) => sourceOptionIdentity(option) === selectedValue);
-                  return (
-                    <FormField
-                      key={category}
-                      id={fieldId}
-                      layout="stack"
-                      label={category.replaceAll("_", " ")}
-                      error={message}
-                    >
-                      {(control) => (
-                        <select
-                          className={message ? "field-input field-input--wide is-invalid" : "field-input field-input--wide"}
-                          {...control}
-                          {...field}
-                          value={selectedValue}
-                        >
-                          {options.length === 0 && !selectedValue ? <option value="">Unavailable</option> : null}
-                          {selectedValue && !hasSelectedOption ? <option value={selectedValue}>No longer available</option> : null}
-                          {options.map((option) => (
-                            <option key={sourceOptionIdentity(option)} value={sourceOptionIdentity(option)}>
-                              {sourceOptionLabel(option)}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </FormField>
-                  );
-                })}
-              </Stack>
-              <Key type="submit" variant="transmit" disabled={createMutation.isPending || Boolean(missingCategory)} waiting={createMutation.isPending}>
-                {createMutation.isPending ? "Creating…" : "Create assessment Campaign"}
-              </Key>
+              {(control) => (
+                <FieldInput
+                  {...control}
+                  maxLength={200}
+                  width="wide"
+                  {...form.register("title")}
+                />
+              )}
+            </FormField>
+            <Stack as="fieldset" gap="5" className="workspace-source-set">
+              <legend>Sources</legend>
+              {REQUIRED_SOURCE_CATEGORIES.map((category) => {
+                const options = sources.filter((source) => source.category === category);
+                const fieldId = `${titleId}-${category}`;
+                const message = fieldErrors.sources?.[category]?.message;
+                const field = form.register(`sources.${category}`);
+                const selectedValue = sourceValues[category];
+                const hasSelectedOption = options.some((option) => sourceOptionIdentity(option) === selectedValue);
+                return (
+                  <FormField
+                    key={category}
+                    id={fieldId}
+                    layout="stack"
+                    label={category.replaceAll("_", " ")}
+                    error={message}
+                  >
+                    {(control) => (
+                      <select
+                        className={message ? "field-input field-input--wide is-invalid" : "field-input field-input--wide"}
+                        {...control}
+                        {...field}
+                        value={selectedValue}
+                      >
+                        {options.length === 0 && !selectedValue ? <option value="">Unavailable</option> : null}
+                        {selectedValue && !hasSelectedOption ? <option value={selectedValue}>No longer available</option> : null}
+                        {options.map((option) => (
+                          <option key={sourceOptionIdentity(option)} value={sourceOptionIdentity(option)}>
+                            {sourceOptionLabel(option)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </FormField>
+                );
+              })}
             </Stack>
-            </Container>
-          )}
-        </Stack>
-      ) : null}
+            <Key type="submit" variant="transmit" disabled={createMutation.isPending} waiting={createMutation.isPending}>
+              {createMutation.isPending ? "Creating…" : "Create assessment Campaign"}
+            </Key>
+          </Stack>
+        </Container>
+    </WorkWell>
+  ) : null;
 
-      <Stack as="section" className="workspace-section" gap="4" aria-labelledby="activities-list-heading">
-        <h2 id="activities-list-heading">Activity list</h2>
-        {data?.activities.length === 0 ? (
-          <EmptyPlate
-            className="empty-plate--inset"
-            label="No activities"
-            note="No activities are available."
-          />
-        ) : (
-          <Stack as="ul" gap="none" className="activity-list" aria-label="Activities">
-            {data?.activities.map((activity) => (
-              <li key={activity.activity_id}>
-                <Inline
-                  as={Link}
-                  className="activity-link"
-                  to={`/activities/${activity.activity_id}/setup`}
-                  justify="between"
-                  wrap={false}
-                  gap="4"
-                >
-                  <span>{activity.title}</span>
+  const rows = data?.activities ?? [];
+  const emptyRegistry = rows.length === 0;
+  const showCreateForm = Boolean(createForm) && (emptyRegistry || createRevealed);
+
+  return (
+    <OperateArea
+      className={cx("workspace-area", "work-plane", "registry-wall", emptyRegistry && "registry-wall--empty")}
+      framed={false}
+      label="Activities"
+      title="Activities"
+      description="Create and resume Assessment Campaign drafts."
+      context={canCreate && missingCategory ? (
+        <Alert variant="info" title={`No permitted ${missingCategory.replaceAll("_", " ")} revisions are available`}>
+          A ready source set is required before a draft can be created.
+        </Alert>
+      ) : null}
+    >
+      <EtchedFrame className="datatable-frame registry-frame" inset="flush">
+        <ActivityRegistry
+          rows={rows}
+          canCreate={canCreate && !missingCategory}
+          onRevealCreate={() => {
+            setCreateRevealed(true);
+          }}
+          createRevealed={createRevealed}
+        />
+      </EtchedFrame>
+      {showCreateForm ? createForm : null}
+    </OperateArea>
+  );
+}
+
+function ActivityRegistry({
+  rows,
+  canCreate,
+  createRevealed,
+  onRevealCreate,
+}: {
+  rows: readonly ProductionActivitySummary[];
+  canCreate: boolean;
+  createRevealed: boolean;
+  onRevealCreate: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [sorts, setSorts] = useState<{ key: ActivitySortKey; dir: "asc" | "desc" }[]>([{ key: "title", dir: "asc" }]);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(16);
+  const query = search.trim().toLowerCase();
+  const match = useCallback(
+    (row: ProductionActivitySummary) => {
+      if (!query) return true;
+      return row.title.toLowerCase().includes(query) || row.activity_id.toLowerCase().includes(query);
+    },
+    [query],
+  );
+  const getSortValue = useCallback((row: ProductionActivitySummary, key: ActivitySortKey) => {
+    return key === "activation" ? (row.has_activated_cohort ? 1 : 0) : row.title.toLowerCase();
+  }, []);
+  const slice = useTableController({
+    rows,
+    match,
+    sorts,
+    page,
+    pageSize,
+    getSortValue,
+  });
+
+  const handleSort = (key: ActivitySortKey) => {
+    setSorts((prev) => {
+      const idx = prev.findIndex((spec) => spec.key === key);
+      let next = prev.slice();
+      if (idx === -1) next.push({ key, dir: "asc" });
+      else if (next[idx].dir === "asc") next[idx] = { key, dir: "desc" };
+      else next.splice(idx, 1);
+      if (!next.length) next = [{ key: "title", dir: "asc" }];
+      return next;
+    });
+    setPage(0);
+  };
+
+  return (
+    <DataTableShell
+      toolbar={
+        <DataTableToolbar
+          ariaLabel="Activities registry controls"
+          actions={
+            canCreate && rows.length > 0 && !createRevealed ? (
+              <div className="registry-assign-keys">
+                <Key variant="quiet" size="compact" ariaExpanded={false} onClick={onRevealCreate}>
+                  Create assessment Campaign
+                </Key>
+              </div>
+            ) : undefined
+          }
+          readout={
+            <ToolbarReadout
+              label="Showing"
+              value={`${slice.total} campaign${slice.total === 1 ? "" : "s"}`}
+              valueId="activityCountValue"
+            />
+          }
+          search={
+            <ToolbarSearch
+              id="activitySearchInput"
+              label="Search campaign title or ID"
+              placeholder="SEARCH TITLE OR ID"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(0);
+              }}
+            />
+          }
+        />
+      }
+      scrollProps={{ tabIndex: 0, "aria-label": "Campaign rows, scrollable" }}
+      table={
+        <table className="datatable-table datatable-table--fit" hidden={slice.total === 0}>
+          <caption className="visually-hidden">Activities</caption>
+          <thead>
+            <tr>
+              <SortableHeader sortKey="title" sorts={sorts} onSort={handleSort} label="Campaign" />
+              <SortableHeader sortKey="activation" sorts={sorts} onSort={handleSort} label="Activation" />
+            </tr>
+          </thead>
+          <tbody>
+            {slice.pageRows.map((row) => (
+              <tr key={row.activity_id} className="datatable-row">
+                <td className="cell-id">
+                  <Link className="datatable-id" to={`/activities/${row.activity_id}/setup`}>
+                    {row.title}
+                  </Link>
+                </td>
+                <td className="cell-content">
                   <StateReadout
-                    variant={activity.has_activated_cohort ? "sealed" : "rest"}
-                    solid={activity.has_activated_cohort}
-                    label={activity.has_activated_cohort ? "Activated" : "Draft"}
+                    variant={row.has_activated_cohort ? "sealed" : "rest"}
+                    solid={row.has_activated_cohort}
+                    label={row.has_activated_cohort ? "Activated" : "Draft"}
                     className="state-cell"
                     labelClassName="state-label"
                   />
-                </Inline>
-              </li>
+                </td>
+              </tr>
             ))}
-          </Stack>
-        )}
-      </Stack>
-      </Stack>
-    </OperateArea>
+          </tbody>
+        </table>
+      }
+      empty={
+        slice.total === 0 ? (
+          <EmptyPlate
+            className="datatable-empty"
+            label={query ? "No matching activities" : "No activities"}
+            note={query
+              ? "No loaded campaigns match this search."
+              : canCreate
+                ? "No activities are available. Create an assessment Campaign below."
+                : "No activities are available."}
+          />
+        ) : null
+      }
+      footer={
+        <DataTablePagination
+          total={slice.total}
+          startIndex={slice.startIdx}
+          visibleCount={slice.pageRows.length}
+          page={slice.page}
+          pageCount={slice.pageCount}
+          pageSize={pageSize}
+          pageSizeOptions={[16, 32]}
+          onPageSizeChange={(next) => {
+            setPageSize(next);
+            setPage(0);
+          }}
+          onPageChange={setPage}
+          onPrevious={() => setPage((current) => Math.max(0, current - 1))}
+          onNext={() => setPage((current) => current + 1)}
+        />
+      }
+    />
   );
 }

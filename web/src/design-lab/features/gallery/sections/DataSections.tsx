@@ -195,7 +195,7 @@ function DatatableSpecimen({
   };
 
   return (
-    <EtchedFrame className="datatable-demo datatable-frame">
+    <EtchedFrame className="datatable-demo datatable-frame" inset="flush">
       <DataTableShell
         toolbar={
           <DataTableToolbar

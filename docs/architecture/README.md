@@ -125,9 +125,10 @@ Approved [ADR-019](decisions/ADR-019-frontend-state-and-library-boundaries.md)
 and the [frontend architecture](frontend-architecture.md) guide assign HTTP
 resource, form, icon, and transport ownership in the SPA. They do not change
 `AR-DEC-12` server authority or the Session runtime contract. Approved
-[ADR-020](decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md)
-governs the `web-legacy`/`web` dual-build, design-lab isolation, cutover, and
-legacy retirement.
+[ADR-021](decisions/ADR-021-production-frontend-reset-and-single-spa-topology.md)
+governs the single production SPA in `web/`, isolated design lab, and
+fail-closed publication. [ADR-020](decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md)
+is superseded for dual-build production topology.
 
 ## Purpose
 
@@ -148,7 +149,8 @@ This area governs how the system is structured: boundaries, data ownership, runt
 | Review Enrollment request-limit ownership and realization | [ADR-018: Enrollment request-limit scope](decisions/ADR-018-enrollment-request-limit-scope.md) |
 | Review the approved implementation stack and workspace | [ADR-010: .NET implementation stack](decisions/ADR-010-dotnet-implementation-stack-and-workspace.md) |
 | Review frontend state, form, icon, and transport ownership | [ADR-019: frontend state and library boundaries](decisions/ADR-019-frontend-state-and-library-boundaries.md) |
-| Review frontend rebuild directories, design-lab isolation, and cutover | [ADR-020: frontend rebuild transition](decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md) |
+| Review frontend rebuild directories, design-lab isolation, and cutover | [ADR-020: frontend rebuild transition](decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md) (superseded for production pointer) |
+| Review single-SPA reset topology and fail-closed publication | [ADR-021: production frontend reset](decisions/ADR-021-production-frontend-reset-and-single-spa-topology.md) |
 | Structure or review SPA Query/form layering | [Frontend architecture](frontend-architecture.md) |
 | Structure or review a backend module | [Backend module architecture](backend-module-architecture.md) |
 | Review approved OSS component defaults and pending evidence gates | [ADR-008: bounded OSS component set](decisions/ADR-008-bounded-oss-component-set.md) |

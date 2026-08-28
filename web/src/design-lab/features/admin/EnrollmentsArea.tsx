@@ -59,6 +59,7 @@ export function EnrollmentsArea() {
       description="Cohort enrollment records for the selected Campaign."
       headClassName="wall-head"
       frameClassName="datatable-frame wall-frame"
+      frameInset="flush"
       revealing
       sealing={sealing}
       context={<CampaignContext />}

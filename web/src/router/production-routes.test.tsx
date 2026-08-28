@@ -64,6 +64,7 @@ describe("production destination guards", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Access denied" })).toHaveClass("work-plane--ceremony");
     expect(screen.getByText("Activities are not available for the current authorized relationship.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Return to Home" })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "My work" }).length).toBeGreaterThan(0);
@@ -71,6 +72,110 @@ describe("production destination guards", () => {
     expect(screen.getByText("Organization")).toBeInTheDocument();
     expect(screen.queryByText(/Organization org/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
+  });
+
+  it("groups Review, Release, and Results away from workspace destinations", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/auth/session")) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ authenticated: true, csrf_token: "csrf" }) });
+      }
+      if (url.includes("/v1/assessment/shell")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({
+            schema_version: "v1",
+            actor_id: "rev",
+            organization_id: "org",
+            relationship: "reviewer",
+            navigation: [
+              { destination_id: "home", is_available: true },
+              { destination_id: "my-work", is_available: true },
+              { destination_id: "review", is_available: true },
+              { destination_id: "release", is_available: true },
+              { destination_id: "results", is_available: true },
+            ],
+            permitted_actions: [],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    }));
+
+    render(
+      <FlexQueryProvider>
+        <ProductionApiProvider>
+          <MemoryRouter>
+            <Routes>
+              <Route element={<ProductionAppShell />}>
+                <Route path="/" element={<p>Home</p>} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </ProductionApiProvider>
+      </FlexQueryProvider>,
+    );
+
+    expect(await screen.findAllByText("Outcomes")).not.toHaveLength(0);
+    expect(screen.getAllByText("Workspace").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Review work" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Release work" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Results" })).toBeInTheDocument();
+  });
+
+  it("lets a My work Participant open a Session locator without a sessions destination", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/auth/session")) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ authenticated: true, csrf_token: "csrf" }) });
+      }
+      if (url.includes("/v1/assessment/shell")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({
+            schema_version: "v1",
+            actor_id: "part",
+            organization_id: "org",
+            relationship: "participant",
+            navigation: [
+              { destination_id: "home", is_available: true },
+              { destination_id: "my-work", is_available: true },
+            ],
+            permitted_actions: [],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    }));
+
+    render(
+      <FlexQueryProvider>
+        <ProductionApiProvider>
+          <MemoryRouter initialEntries={["/sessions/sess-1"]}>
+            <Routes>
+              <Route element={<ProductionAppShell />}>
+                <Route
+                  path="/sessions/:sessionId"
+                  element={(
+                    <ProductionDestinationGuard
+                      destinationId="sessions"
+                      unavailableCopy="Sessions are not available for the current authorized relationship."
+                    >
+                      <p>Session contract page</p>
+                    </ProductionDestinationGuard>
+                  )}
+                />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </ProductionApiProvider>
+      </FlexQueryProvider>,
+    );
+
+    expect(await screen.findByText("Session contract page")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Access denied" })).not.toBeInTheDocument();
   });
 
   it("signs out through the authenticated logout command", async () => {

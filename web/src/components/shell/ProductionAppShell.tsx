@@ -4,26 +4,20 @@ import {
   Key,
   LayoutAssignment,
   ManagementLayout,
-  type GangwayGroup,
   type OperatorIdentity,
   type OperatorRole,
 } from "../../design-system";
 import { maxWidthQuery } from "../../lib/breakpoints";
 import { layoutIdForPath } from "../../router/route-layout-match";
 import { PRODUCTION_ROUTE_LAYOUTS } from "../../router/production-route-layouts";
+import { availableProductionDestinations, productionNavGroups } from "../../router/production-navigation";
 import { requireProductionShellLayout } from "../../router/require-production-shell-layout";
 import { useMediaQuery } from "../../lib/useMediaQuery";
 import { useProductionApi } from "../../api/production-api";
-import { SessionLoadingScreen, SessionStatusScreen, SignOutRetryKey } from "./SessionChrome";
+import { AccessChangedScreen, CeremonyEmpty, SessionLoadingScreen, SessionStatusScreen, SignOutRetryKey } from "./SessionChrome";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { ThemeToggle } from "./ThemeToggle";
 import { useTheme } from "../../hooks/useTheme";
-
-const DESTINATION_ROUTES: Record<string, { label: string; route: string; abbr: string }> = {
-  home: { label: "Home", route: "/", abbr: "HOM" },
-  activities: { label: "Activities", route: "/activities", abbr: "ACT" },
-  "my-work": { label: "My work", route: "/my-work", abbr: "WRK" },
-};
 
 function operatorRole(relationship: string | undefined, destinationIds: string[]): OperatorRole {
   const rel = relationship?.toLowerCase() ?? "";
@@ -55,36 +49,22 @@ export function ProductionAppShell() {
   if (apiState === "signing-out") {
     return (
       <SessionStatusScreen title="Signing out">
-        <p role={errorMessage ? "alert" : undefined}>{errorMessage ?? "Signing out…"}</p>
-        {errorMessage ? (
-          <SignOutRetryKey onRetry={() => { void logout(); }} />
-        ) : null}
+        <CeremonyEmpty note={errorMessage ?? "Signing out…"} alert={Boolean(errorMessage)}>
+          {errorMessage ? (
+            <SignOutRetryKey onRetry={() => { void logout(); }} />
+          ) : null}
+        </CeremonyEmpty>
       </SessionStatusScreen>
     );
   }
 
   if (apiState === "denied") {
-    return (
-      <SessionStatusScreen title="Your access changed" variant="danger">
-        <p>{errorMessage ?? "You do not have access to this content."}</p>
-      </SessionStatusScreen>
-    );
+    return <AccessChangedScreen />;
   }
 
-  const destinations = [];
-  for (const item of shell?.navigation ?? []) {
-    if (!item.is_available) {
-      continue;
-    }
-
-    if (item.destination_id !== "home" && item.destination_id !== "activities" && item.destination_id !== "my-work") {
-      continue;
-    }
-
-    destinations.push({ id: item.destination_id, ...DESTINATION_ROUTES[item.destination_id] });
-  }
-
+  const destinations = availableProductionDestinations(shell?.navigation);
   const destinationIds = destinations.map((item) => item.id);
+  const groups = productionNavGroups(destinations, location.pathname);
   const role = operatorRole(shell?.relationship, destinationIds);
   const identity: OperatorIdentity = {
     shortId: "ORG",
@@ -92,22 +72,6 @@ export function ProductionAppShell() {
     role,
     home: "/",
   };
-
-  const groups: GangwayGroup[] = [
-    {
-      id: "workspace",
-      label: "Workspace",
-      items: destinations.map((destination) => ({
-        to: destination.route,
-        label: destination.label,
-        abbr: destination.abbr,
-        current:
-          destination.route === "/"
-            ? location.pathname === "/"
-            : location.pathname === destination.route || location.pathname.startsWith(`${destination.route}/`),
-      })),
-    },
-  ];
 
   const currentLabel = destinations.find((destination) => {
     if (destination.route === "/") {
@@ -124,6 +88,7 @@ export function ProductionAppShell() {
   return (
     <LayoutAssignment id={assigned}>
       <ManagementLayout
+        contain={false}
         commandStrip={{
           homeTo: "/",
           homeLabel: "Home",

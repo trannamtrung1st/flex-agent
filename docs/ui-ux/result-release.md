@@ -6,11 +6,11 @@
 | --- | --- |
 | **Status** | Approved |
 | **Owner** | Product Lead |
-| **Approvers** | Product Lead, UI/UX reviewer, Architecture Lead, Security/Privacy reviewer |
-| **Version** | 0.1 |
-| **Prepared date** | 2026-08-09 |
-| **Approved date** | 2026-08-09 |
-| **Approval reference** | Product Lead approved `PROP-UI-REL-1`–`PROP-UI-REL-12` on 2026-08-09 after UI/UX, architecture, security/privacy, traceability, and repository-consistency review |
+| **Approvers** | Product Lead, UI/UX Lead, Architecture Lead, Security/Privacy reviewer |
+| **Version** | 1.0 |
+| **Prepared date** | 2026-08-28 |
+| **Approved date** | 2026-08-28 |
+| **Approval reference** | Reconstructed and re-approved after the Shipboard production UX reset. Successor of the retired specification at Git `eb9c398`. `PROP-UI-REL-*` dispositions remain in force. |
 | **Audience** | Product, design, frontend, backend, security/privacy, QA, and implementation reviewers |
 | **Governs** | Release work, exact Result preview, explicit Release confirmation and reconciliation, Participant pre-release and released Result views, correction visibility, notification handoff, accessibility, responsive behavior, and protected-content interaction for the P0 assessment Campaign |
 | **Journey** | [`JRN-MVP-7`](activity-campaign-journey.md#jrn-mvp-7-release-and-view-result) |

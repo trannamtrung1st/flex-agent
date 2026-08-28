@@ -48,7 +48,14 @@ describe("ProductionHomePage", () => {
 
     const activities = await screen.findByRole("link", { name: "Open Activities" });
     expect(activities).toHaveAttribute("href", "/activities");
-    expect(activities.closest(".composition-stack")).toHaveClass("home-destinations");
-    expect(screen.getByText("My work is not available for the current authorized relationship.")).toBeInTheDocument();
+    const activitiesPlate = screen.getByRole("article", { name: "Activities" });
+    expect(activitiesPlate).toHaveClass("assignment-plate");
+    expect(activitiesPlate).not.toHaveAttribute("aria-live");
+    expect(activitiesPlate).not.toHaveTextContent("Destination");
+    expect(activities.closest(".destination-bays")).toBeTruthy();
+    expect(activities.closest(".frame-cut")).toHaveClass("destination-board", "frame-cut--flush");
+    expect(screen.getByRole("article", { name: "My work" })).toHaveTextContent(
+      "My work is not available for the current authorized relationship.",
+    );
   });
 });

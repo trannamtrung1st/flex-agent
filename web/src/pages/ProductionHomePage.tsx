@@ -1,46 +1,95 @@
-import { Key, OperateArea, Stack } from "../design-system";
+import { Key, OperateArea } from "../design-system";
 import { useProductionApi } from "../api/production-api";
+import { AssignmentPlate } from "../components/work/AssignmentPlate";
+import { CeremonyArea, CeremonyEmpty } from "../components/shell/SessionChrome";
+import { PRODUCTION_DESTINATIONS, type ProductionDestinationId } from "../router/production-navigation";
+
+const HOME_WELLS: Array<{
+  id: Exclude<ProductionDestinationId, "home">;
+  note: string;
+  action: string;
+  always: boolean;
+}> = [
+  {
+    id: "activities",
+    note: "Create and resume Assessment Campaign drafts for this organization.",
+    action: "Open Activities",
+    always: true,
+  },
+  {
+    id: "my-work",
+    note: "Open current Assignments and prepare a Submission version.",
+    action: "Open My work",
+    always: true,
+  },
+  {
+    id: "review",
+    note: "Open assigned Review work. Evaluation, Human revision, and Review decision stay distinct.",
+    action: "Open Review work",
+    always: false,
+  },
+  {
+    id: "release",
+    note: "Open assigned Release work. Release remains independent of Review approval.",
+    action: "Open Release work",
+    always: false,
+  },
+  {
+    id: "results",
+    note: "Open Results the server has made visible to this relationship.",
+    action: "Open Results",
+    always: false,
+  },
+];
 
 export function ProductionHomePage() {
   const { shell } = useProductionApi();
-  const activitiesAvailable = shell?.navigation.some((item) => item.destination_id === "activities" && item.is_available);
-  const myWorkAvailable = shell?.navigation.some((item) => item.destination_id === "my-work" && item.is_available);
+  const available = new Set(
+    (shell?.navigation ?? [])
+      .filter((item) => item.is_available)
+      .map((item) => item.destination_id),
+  );
+  const wells = HOME_WELLS.filter((well) => well.always || available.has(well.id));
+  const hasOpenDestination = wells.some((well) => available.has(well.id));
+
+  if (!hasOpenDestination) {
+    return (
+      <CeremonyArea
+        label="Home"
+        title="Home"
+        description="Current authorized work for this organization."
+      >
+        <CeremonyEmpty note="Activities and My work are not available for the current authorized relationship." />
+      </CeremonyArea>
+    );
+  }
 
   return (
     <OperateArea
-      className="workspace-area"
+      className="workspace-area work-plane"
+      frameClassName="destination-board"
+      frameInset="flush"
       label="Home"
       title="Home"
-      description="Assessment Campaign setup and current Assignments use the production application session for this organization."
-      empty={
-        !activitiesAvailable && !myWorkAvailable
-          ? {
-              label: "No destinations available",
-              note: "Activities and My work are not available for the current authorized relationship.",
-            }
-          : undefined
-      }
+      description="Current authorized work for this organization. Open the next safe destination."
     >
-      {activitiesAvailable || myWorkAvailable ? (
-        <Stack gap="3" align="start" className="home-destinations">
-          {activitiesAvailable ? (
-            <Key variant="open" to="/activities">
-              Open Activities
-            </Key>
-          ) : null}
-          {myWorkAvailable ? (
-            <Key variant="open" to="/my-work">
-              Open My work
-            </Key>
-          ) : null}
-          {!activitiesAvailable ? (
-            <p className="home-unavailable">Activities are not available for the current authorized relationship.</p>
-          ) : null}
-          {!myWorkAvailable ? (
-            <p className="home-unavailable">My work is not available for the current authorized relationship.</p>
-          ) : null}
-        </Stack>
-      ) : null}
+      <div className="destination-bays">
+        {wells.map((well) => {
+          const destination = PRODUCTION_DESTINATIONS[well.id];
+          const open = available.has(well.id);
+          return (
+            <AssignmentPlate
+              key={well.id}
+              label={destination.label}
+              rows={[
+                { term: "Purpose", value: open ? well.note : `${destination.label} is not available for the current authorized relationship.`, className: "assignment-plate-row--title" },
+                { term: "Availability", value: open ? "Available" : "Not available" },
+              ]}
+              action={open ? <Key variant="open" to={destination.route}>{well.action}</Key> : undefined}
+            />
+          );
+        })}
+      </div>
     </OperateArea>
   );
 }

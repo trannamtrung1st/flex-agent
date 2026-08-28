@@ -16,7 +16,6 @@
       "directAccessGrantsEnabled": true,
       "redirectUris": [
         "http://localhost:18080/auth/callback",
-        "http://127.0.0.1:5274/auth/callback",
         "http://localhost:5274/auth/callback"
       ],
       "adminUrl": "http://api:8080",

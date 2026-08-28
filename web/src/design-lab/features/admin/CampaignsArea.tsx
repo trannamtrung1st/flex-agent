@@ -106,6 +106,7 @@ export function CampaignsArea() {
         headClassName="campaigns-head"
         titleTabIndex={-1}
         frameClassName="datatable-frame campaigns-registry-frame"
+        frameInset="flush"
         revealing
       >
         <CampaignRegistry

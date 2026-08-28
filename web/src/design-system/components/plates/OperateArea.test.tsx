@@ -29,7 +29,13 @@ describe("OperateArea", () => {
 
   it("keeps only the bottom center tick on non-gallery etched frames", () => {
     render(
-      <OperateArea className="workspace-area" label="Campaign registry" title="Campaign registry" frameClassName="datatable-frame">
+      <OperateArea
+        className="workspace-area"
+        label="Campaign registry"
+        title="Campaign registry"
+        frameClassName="datatable-frame"
+        frameInset="flush"
+      >
         <p>Rows</p>
       </OperateArea>,
     );
@@ -54,7 +60,7 @@ describe("OperateArea", () => {
     expect(frame?.querySelector(".frame-tick--bottom")).toBeTruthy();
   });
 
-  it("can override auto-resolved flush inset on OperateArea", () => {
+  it("applies flush inset when frameInset is flush", () => {
     render(
       <OperateArea
         className="workspace-area"

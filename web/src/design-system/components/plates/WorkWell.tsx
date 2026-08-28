@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cx } from "../../../lib/cx";
-import { Stack, type LayoutSpace } from "../layout/Stack";
+import { Stack } from "../layout/Stack";
+import type { LayoutSpace } from "../layout/types";
 import { PlateFoot } from "./EtchedFrame";
 
 export function WorkWell({
@@ -10,6 +11,7 @@ export function WorkWell({
   className,
   revealing,
   label,
+  live = true,
 }: {
   head?: ReactNode;
   foot?: ReactNode;
@@ -17,6 +19,7 @@ export function WorkWell({
   className?: string;
   revealing?: boolean;
   label?: string;
+  live?: boolean;
 }) {
   return (
     <Stack
@@ -24,8 +27,8 @@ export function WorkWell({
       className={cx("work-well", revealing && "is-revealing", className)}
       gap="none"
       aria-label={label}
-      aria-live="polite"
-      aria-atomic="true"
+      aria-live={live ? "polite" : undefined}
+      aria-atomic={live ? "true" : undefined}
     >
       {head}
       <div className="work-well__body">{children}</div>

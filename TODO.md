@@ -2,6 +2,7 @@
 - [x] Maybe no need HOME anymore in admin console since we use side menu.
 - [x] Participant session: side menu header should be sticky and consistent with other surfaces/pages.
 - [x] Outside components vs design-system/components? unify.
+- [ ] Enhance breadcrumb as shared component in design-system.
 - [ ] Auto detect/locate tooltip? overlay?
 - [ ] Interaction controller: auto stop timer when idle too long or user not active on browser tab (close tab, switch tab, etc.)
 - [ ] Allow agents to propose/suggest improvements

@@ -6,11 +6,11 @@ ownership.
 
 ## Status and authority
 
-**Approved — 2026-08-26; amended 2026-08-28** for the frontend rebuild
-transition in
-[ADR-020](decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md),
-including the Phase 7.5 `/design-lab` namespace and `web/src/design-system/`
-promotion boundary.
+**Approved — 2026-08-26; amended 2026-08-28** for the single-SPA reset in
+[ADR-021](decisions/ADR-021-production-frontend-reset-and-single-spa-topology.md).
+[ADR-020](decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md)
+is superseded for dual-build production topology; its design-lab isolation
+rules remain as restated by ADR-021 `FE-RESET-2`.
 This guide applies
 [ADR-019](decisions/ADR-019-frontend-state-and-library-boundaries.md). It does
 not introduce product behavior or replace feature or UI/UX specifications. If
@@ -34,27 +34,37 @@ server-authoritative state.
   native `fetch` (`FE-DEC-6`, `FE-DEC-12`).
 - **Realtime Session UI** is an explicit exception (`FE-DEC-11`).
 
-## Rebuild transition
+## Production topology
 
-Until Phase 9 cutover, the production SPA source is `web-legacy/`
-(`@flex-agent/web-legacy`). New `web/` (`@flex-agent/web`) is the candidate
-plus a separately built design lab. Production never serves both. Path names
-in this guide mean the package that currently implements the described
-behavior: after cutover they again mean `web/`.
+The production SPA source is `web/` (`@flex-agent/web`). The design lab is a
+separately built entry in the same package. There is no `web-legacy/` runtime.
+Production never serves the lab.
 
-Production modules must not import `src/design-lab`, `.work/resources`, or
-`web-legacy` source. Shared visual implementations are owned by
+Production modules must not import `src/design-lab` or `.work/resources`.
+Shared visual implementations are owned by
 `web/src/design-system/` plus `web/src/lib/` and `web/src/styles/shared.css`.
 Design-lab modules may import that shared tree, `web/src/styles/design-lab.css`,
-and synthetic fixtures only inside the design-lab entry graph. See ADR-020 `FE-TRANS-1`–`FE-TRANS-8`. The lab route
-namespace is `/design-lab/*`.
+and synthetic fixtures only inside the design-lab entry graph. See ADR-021
+`FE-RESET-1`–`FE-RESET-6`. The lab route namespace is `/design-lab/*`.
+
+Production SPA HTTP contract readiness (host `FlexAgent.Api`, not the synthetic
+browser harness):
+
+| Surface | Current host contract | SPA posture |
+| --- | --- | --- |
+| Auth session, Assessment shell, setup, Enrollment, My Work, Submission intake | Exposed under `/auth`, `/v1/assessment`, `/v2/assessment` | Implemented in `web/src/api/` and production pages |
+| Attempt start | Not mapped on the production host | Assignment shows an honest unavailable notice; no invented Session |
+| Text Session commands and snapshot GET | Typed envelopes exist; production host maps SSE `GET /sessions/{id}/events` only | `/sessions/:sessionId` stays contract-unavailable |
+| Review, Result, Release | Architecture contract exists; no production host HTTP group | Destinations stay contract-unavailable |
+
+Local Vite proxies `/auth`, `/v1`, `/v2`, `/sessions`, and `/browser` to the API.
+Do not treat `/browser/*` synthetic harness routes as production truth.
 
 Styling follows design-system v1.0: primitive values in
 `web/src/styles/tokens.css`, semantic aliases in `semantic-aliases.css`, light
-remaps in `adaptations.css`. Do not treat v0.1 Deep-Space names or candidate
-production pages as visual authority; the design-lab Component Deck and
-promoted `web/src/design-system/` modules are the specimen source until
-production surfaces are rebuilt. Lucide remains the general icon library
+remaps in `adaptations.css`. Do not treat v0.1 Deep-Space names as visual authority; the design-lab Component Deck and
+promoted `web/src/design-system/` modules remain the shared specimen source for
+Shipboard primitives consumed by production pages. Lucide remains the general icon library
 (`DS-DEC-10`).
 
 ## Layering
@@ -68,7 +78,7 @@ App composition root (main.tsx)
           Composition primitives (Stack, Inline, Grid, Container, Inset, SplitBay)
             Feature pages (slot content only)
             feature query/mutation hooks
-              typed/domain API clients (web/src/api/; production pointer is web-legacy until cutover)
+              typed/domain API clients (web/src/api/)
                 fetchJson / native fetch
 ```
 
@@ -244,8 +254,9 @@ Use `lucide-react` with direct named imports so unused icons tree-shake.
 Follow [icon shapes](../ui-ux/design-system/components/icon-shapes.md) for
 size, semantic foreground, and accessibility. The candidate package loads
 `web/src/styles/shared.css` (tokens, base, production-safe families). Lab-only
-sheets stay in `design-lab.css`. ADR-019 `FE-DEC-10` still names the legacy
-`tokens.css` / `components.css` / `app.css` split for `web-legacy`. Do not add
+sheets stay in `design-lab.css`. ADR-019 `FE-DEC-10` still names the historical
+`tokens.css` / `components.css` / `app.css` split. Production now loads
+`web/src/styles/shared.css`. Do not add
 Tailwind, CSS-in-JS, Axios, or Zustand.
 
 ## Intentionally unmigrated surfaces

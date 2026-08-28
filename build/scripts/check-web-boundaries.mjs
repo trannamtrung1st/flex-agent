@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const webRoots = [path.join(root, "web", "src"), path.join(root, "web-legacy", "src")];
+const webRoots = [path.join(root, "web", "src")];
 const forbiddenPatterns = [
   /\.\.\/\.\.\/src\//,
   /FlexAgent\./,

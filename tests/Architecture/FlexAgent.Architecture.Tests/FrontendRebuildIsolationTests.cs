@@ -32,26 +32,24 @@ public sealed class FrontendRebuildIsolationTests
     private const string DesignLabHtmlModuleEntry = "/src/design-lab/main.tsx";
 
     [Fact]
-    public void Spa_dockerfile_points_at_web_legacy_until_cutover()
+    public void Spa_dockerfile_points_at_web_production_entry()
     {
         var dockerfile = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "deploy/docker/spa.Dockerfile"));
 
-        Assert.Contains("COPY web-legacy/package.json web-legacy/package.json", dockerfile, StringComparison.Ordinal);
-        Assert.Contains("COPY web-legacy/ web-legacy/", dockerfile, StringComparison.Ordinal);
-        Assert.Contains("pnpm --filter @flex-agent/web-legacy build", dockerfile, StringComparison.Ordinal);
-        Assert.Contains("/app/web-legacy/dist", dockerfile, StringComparison.Ordinal);
-        Assert.DoesNotContain("COPY web/ web/", dockerfile, StringComparison.Ordinal);
-        Assert.DoesNotContain("pnpm --filter @flex-agent/web build", dockerfile, StringComparison.Ordinal);
-        Assert.DoesNotContain("design-lab", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("COPY web/ web/", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("pnpm --filter @flex-agent/web build", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("/app/web/dist", dockerfile, StringComparison.Ordinal);
+        Assert.DoesNotContain("COPY web-legacy", dockerfile, StringComparison.Ordinal);
+        Assert.DoesNotContain("design-lab.html", dockerfile, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Production_e2e_server_points_at_web_legacy()
+    public void Production_e2e_server_points_at_web()
     {
         var script = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "build/scripts/serve-e2e-spa.sh"));
-        Assert.Contains("cd \"$ROOT/web-legacy\"", script, StringComparison.Ordinal);
-        Assert.Contains("$ROOT/web-legacy/dist", script, StringComparison.Ordinal);
-        Assert.DoesNotContain("$ROOT/web/dist", script, StringComparison.Ordinal);
+        Assert.Contains("cd \"$ROOT/web\"", script, StringComparison.Ordinal);
+        Assert.Contains("$ROOT/web/dist", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("web-legacy", script, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -65,15 +63,17 @@ public sealed class FrontendRebuildIsolationTests
     }
 
     [Fact]
-    public void Candidate_spa_dockerfile_is_explicitly_non_production()
+    public void Candidate_spa_dockerfile_is_retired()
     {
-        var dockerfile = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "deploy/docker/spa-candidate.Dockerfile"));
+        var path = Path.Combine(FindRepositoryRoot(), "deploy/docker/spa-candidate.Dockerfile");
+        Assert.False(File.Exists(path), "spa-candidate.Dockerfile must not remain after the single-SPA reset");
+    }
 
-        Assert.Contains("NON-PRODUCTION", dockerfile, StringComparison.Ordinal);
-        Assert.Contains("COPY web/ web/", dockerfile, StringComparison.Ordinal);
-        Assert.Contains("pnpm --filter @flex-agent/web build", dockerfile, StringComparison.Ordinal);
-        Assert.DoesNotContain("web-legacy/dist", dockerfile, StringComparison.Ordinal);
-        Assert.DoesNotContain("design-lab.html", dockerfile, StringComparison.Ordinal);
+    [Fact]
+    public void Web_legacy_directory_is_absent()
+    {
+        var path = Path.Combine(FindRepositoryRoot(), "web-legacy");
+        Assert.False(Directory.Exists(path), "web-legacy must not exist after the production frontend reset");
     }
 
     [Fact]
@@ -276,28 +276,11 @@ public sealed class FrontendRebuildIsolationTests
     }
 
     [Fact]
-    public void Legacy_source_does_not_import_new_web_design_lab_or_snapshot()
+    public void Web_legacy_source_tree_is_absent()
     {
         var root = FindRepositoryRoot();
-        var legacyRoot = Path.Combine(root, "web-legacy", "src");
-        Assert.True(Directory.Exists(legacyRoot), "web-legacy/src must exist");
-
-        var violations = new List<string>();
-        foreach (var file in EnumerateSourceFiles(legacyRoot))
-        {
-            var relative = ToRepoRelative(root, file);
-            var content = File.ReadAllText(file);
-            AddIfContains(violations, relative, content, "@flex-agent/web");
-            AddIfContains(violations, relative, content, "design-lab");
-            AddIfContains(violations, relative, content, ".work/resources");
-            AddIfContains(violations, relative, content, "impeccable-prototype");
-            if (HasParentWebImport(content))
-            {
-                violations.Add($"{relative} imports the new web tree");
-            }
-        }
-
-        Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
+        var legacyRoot = Path.Combine(root, "web-legacy");
+        Assert.False(Directory.Exists(legacyRoot), "web-legacy must not exist after the production frontend reset");
     }
 
     [Fact]

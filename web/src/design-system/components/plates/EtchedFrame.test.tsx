@@ -1,47 +1,8 @@
 import { render } from "@testing-library/react";
-import { EtchedFrame, PlateFoot, resolveFrameInset, resolveFrameTicks } from "./EtchedFrame";
-
-describe("resolveFrameTicks", () => {
-  it("defaults operational frames to bottom tick only", () => {
-    expect(resolveFrameTicks()).toBe("bottom");
-    expect(resolveFrameTicks("datatable-frame campaigns-registry-frame")).toBe("bottom");
-    expect(resolveFrameTicks("index-frame")).toBe("bottom");
-    expect(resolveFrameTicks("campaigns-frame sample-frame")).toBe("bottom");
-  });
-
-  it("keeps both ticks for the etched-frame gallery specimen", () => {
-    expect(resolveFrameTicks("frame-demo")).toBe("both");
-  });
-});
-
-describe("resolveFrameInset", () => {
-  it("defaults ceremonial plates to padded inset", () => {
-    expect(resolveFrameInset()).toBe("default");
-    expect(resolveFrameInset("campaigns-frame sample-frame")).toBe("default");
-    expect(resolveFrameInset("index-frame")).toBe("default");
-    expect(resolveFrameInset("frame-demo")).toBe("default");
-  });
-
-  it("resolves full-bleed work bays to flush inset", () => {
-    expect(resolveFrameInset("board-frame")).toBe("flush");
-    expect(resolveFrameInset("datatable-frame")).toBe("flush");
-    expect(resolveFrameInset("datatable-frame campaigns-registry-frame")).toBe("flush");
-    expect(resolveFrameInset("datatable-frame wall-frame")).toBe("flush");
-  });
-});
+import { EtchedFrame, PlateFoot } from "./EtchedFrame";
 
 describe("EtchedFrame", () => {
-  it("applies flush inset for board frames by default", () => {
-    const { container } = render(
-      <EtchedFrame className="board-frame">
-        <p>Bays</p>
-      </EtchedFrame>,
-    );
-
-    expect(container.querySelector(".frame-cut")).toHaveClass("frame-cut--flush");
-  });
-
-  it("keeps ceremonial frames on default inset", () => {
+  it("defaults to padded inset", () => {
     const { container } = render(
       <EtchedFrame className="campaigns-frame">
         <p>Readout</p>
@@ -51,45 +12,40 @@ describe("EtchedFrame", () => {
     expect(container.querySelector(".frame-cut")).not.toHaveClass("frame-cut--flush");
   });
 
-  it("applies flush inset for datatable frames by default", () => {
+  it("applies flush inset when inset is flush", () => {
     const { container } = render(
-      <EtchedFrame className="datatable-frame">
-        <p>Rows</p>
+      <EtchedFrame className="board-frame" inset="flush">
+        <p>Bays</p>
       </EtchedFrame>,
     );
 
     expect(container.querySelector(".frame-cut")).toHaveClass("frame-cut--flush");
   });
 
-  it("can override auto-resolved flush inset", () => {
-    const { container: flushOverride } = render(
-      <EtchedFrame className="campaigns-frame" inset="flush">
-        <p>Flush readout</p>
-      </EtchedFrame>,
-    );
-    expect(flushOverride.querySelector(".frame-cut")).toHaveClass("frame-cut--flush");
-
-    const { container: defaultOverride } = render(
+  it("keeps padded inset when inset is default", () => {
+    const { container } = render(
       <EtchedFrame className="board-frame" inset="default">
         <p>Bays</p>
       </EtchedFrame>,
     );
-    expect(defaultOverride.querySelector(".frame-cut")).not.toHaveClass("frame-cut--flush");
+
+    expect(container.querySelector(".frame-cut")).not.toHaveClass("frame-cut--flush");
   });
 
-  it("applies the flush inset modifier when inset is flush", () => {
+  it("does not infer flush from a former registry class name", () => {
     const { container } = render(
-      <EtchedFrame inset="flush">
-        <p>Flush payload</p>
+      <EtchedFrame className="destination-board">
+        <p>Destinations</p>
       </EtchedFrame>,
     );
 
-    expect(container.querySelector(".frame-cut")).toHaveClass("frame-cut--flush");
+    expect(container.querySelector(".frame-cut")).toHaveClass("destination-board");
+    expect(container.querySelector(".frame-cut")).not.toHaveClass("frame-cut--flush");
   });
 
-  it("omits the top center tick on datatable frames by default", () => {
+  it("defaults to bottom tick only", () => {
     const { container } = render(
-      <EtchedFrame className="datatable-frame">
+      <EtchedFrame className="datatable-frame" inset="flush">
         <p>Rows</p>
       </EtchedFrame>,
     );
@@ -98,20 +54,9 @@ describe("EtchedFrame", () => {
     expect(container.querySelector(".frame-tick--bottom")).toBeTruthy();
   });
 
-  it("omits the top center tick on index frames by default", () => {
+  it("renders both center ticks when ticks is both", () => {
     const { container } = render(
-      <EtchedFrame className="index-frame">
-        <p>Channels</p>
-      </EtchedFrame>,
-    );
-
-    expect(container.querySelector(".frame-tick--top")).toBeNull();
-    expect(container.querySelector(".frame-tick--bottom")).toBeTruthy();
-  });
-
-  it("keeps both center ticks for the frame gallery specimen", () => {
-    const { container } = render(
-      <EtchedFrame className="frame-demo">
+      <EtchedFrame className="frame-demo" ticks="both">
         <p>Specimen</p>
       </EtchedFrame>,
     );
@@ -132,7 +77,7 @@ describe("EtchedFrame", () => {
 
   it("clips half-beads on the inner pane and scrolls payload separately", () => {
     const { container } = render(
-      <EtchedFrame className="frame-demo">
+      <EtchedFrame className="frame-demo" ticks="both">
         <p>Specimen</p>
       </EtchedFrame>,
     );

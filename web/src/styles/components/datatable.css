@@ -966,6 +966,7 @@ td.cell-state { text-align: center; }
   .seg-search { width: 100%; }
   .datatable-scroll { overflow-x: auto; }
   .datatable-table { min-width: 680px; }
+  .datatable-table--fit { min-width: 0; }
   .datatable-foot { flex-wrap: wrap; gap: 10px; }
   .datatable-range { flex: 1 1 100%; }
   .datatable-page-controls {

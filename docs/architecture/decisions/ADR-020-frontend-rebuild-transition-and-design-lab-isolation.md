@@ -2,9 +2,14 @@
 
 ## Status
 
+**Superseded by [ADR-021](ADR-021-production-frontend-reset-and-single-spa-topology.md)
+— 2026-08-28** for dual-build directories, the `web-legacy/` production
+pointer, cutover-from-legacy, and `web-legacy/` as a live runtime.
+
 **Approved — 2026-08-27; amended 2026-08-27** for the Phase 7.5 design-lab
 route namespace, promoted `web/src/design-system/` ownership, and retirement of
-the raw prototype snapshot before production migration.
+the raw prototype snapshot before production migration. Design-lab isolation
+rules remain in force as restated by ADR-021 `FE-RESET-2`.
 
 ## Owners and approvers
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -144,17 +144,12 @@ try {
   }
 }
 
-for (const file of await walk(legacyRoot)) {
-  const relative = path.relative(root, file);
-  const content = await readFile(file, "utf8");
-  addViolations(violations, relative, content, [
-    "@flex-agent/web",
-    "design-lab",
-    ".work/resources",
-    "impeccable-prototype",
-  ]);
-  if (content.includes("../web/") || content.includes("\"web/src") || content.includes("'web/src")) {
-    violations.push(`${relative} imports the new web tree`);
+try {
+  await access(legacyRoot);
+  violations.push("web-legacy/src must not exist after the production frontend reset");
+} catch (error) {
+  if (error && typeof error === "object" && "code" in error && error.code !== "ENOENT") {
+    throw error;
   }
 }
 

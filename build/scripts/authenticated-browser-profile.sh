@@ -122,8 +122,9 @@ status() {
 }
 
 up() {
+  cleanup_generated
   validate
-  run_compose up -d --build
+  run_compose up -d --build --renew-anon-volumes
   wait_ready
   echo "${ORIGIN}"
 }

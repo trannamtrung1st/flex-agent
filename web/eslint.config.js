@@ -27,7 +27,7 @@ export default tseslint.config(
             },
             {
               group: ["**/web-legacy", "**/web-legacy/**"],
-              message: "Candidate modules must not import web-legacy.",
+              message: "Production modules must not import web-legacy.",
             },
             {
               group: [

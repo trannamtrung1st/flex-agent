@@ -5,7 +5,8 @@ import { designLabSpaPlugin } from "./vite-design-lab-spa";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const devApiProxy = env.VITE_DEV_API_PROXY ?? "http://localhost:8080";
+  const configuredProxy = env.VITE_DEV_API_PROXY;
+  const devApiProxy = configuredProxy ? configuredProxy : "http://localhost:8080";
 
   return {
     plugins: [react(), designLabSpaPlugin("prefixed")],
@@ -22,6 +23,14 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
         "/v1": {
+          target: devApiProxy,
+          changeOrigin: true,
+        },
+        "/v2": {
+          target: devApiProxy,
+          changeOrigin: true,
+        },
+        "/sessions": {
           target: devApiProxy,
           changeOrigin: true,
         },

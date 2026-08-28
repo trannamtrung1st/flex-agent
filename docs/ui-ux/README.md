@@ -6,33 +6,36 @@ Product meaning and scope boundaries live under [product documentation](../produ
 
 ## Status
 
-**The platform Activity IA, end-to-end P0 assessment Campaign journey, and all
-five P0 surface interaction specifications are approved at their current
-versions.** Text Session v0.5, `UI-SESS-DEC-13`, `UI-SESS-DEC-14`, and
-`UI-SESS-DEC-15` govern
-intentional no-action, internal next-timer presentation, and hidden
-Decision-envelope internals. All seven
-P0 feature specifications, the
-[MVP operational defaults](../requirements/mvp-operational-defaults.md), and the
-[MVP architecture](../architecture/mvp-architecture.md) are approved, so entry
-criteria are met for the complete MVP workflow. Apply the approved
-[Flex Agent activity journey and MVP campaign information architecture](activity-campaign-journey.md)
-and the approved
-[assessment Campaign setup](assessment-campaign-setup.md) and
-[Submission and Attempt](submission-attempt.md) and
-[Text Session](text-session.md) and
-[Evidence, Evaluation, and Human Review](evidence-evaluation-human-review.md)
-interaction specifications, the approved
-[Result and Release](result-release.md) interaction specification, and the
-shared [design system](design-system/README.md) (Approved v1.0 Shipboard
-Terminal presentation; P0 interaction specifications remain Approved). Every
-state and
-interaction must trace to the owning `AC-*` criteria
-and preserve the SPA/server authority boundary defined by `AR-DEC-12`.
+**Replacement P0 journey and interaction specifications are Approved v1.0**
+after the Shipboard production UX reset. Former versions at Git `eb9c398` are
+**retired** and are not current authority; see the
+[retirement ledger](retired-authority.md).
+
+The [design system](design-system/README.md) remains **Approved v1.0 Shipboard
+Terminal** visual authority. The design lab is isolated composition evidence
+and is not a production journey specification.
+
+Voice interaction, interruption, playback, TTS, and the proposed text
+Interaction Controller are **unavailable in P0** until a separate product
+decision expands scope.
 
 ## Purpose
 
 This area governs how users experience the product: journeys, information architecture, interaction states, accessibility, responsive behavior, content, and visual design.
+
+## Authority during and after the reset
+
+| Status | Meaning |
+| --- | --- |
+| Approved | Current UI/UX authority for the named concern |
+| Draft | Not authoritative for implementation |
+| Superseded | Replaced inside this area; retained only if still in the live tree |
+| Retired | Former authority; recover full text from Git via the [retirement ledger](retired-authority.md) |
+
+Technical topology (single SPA, fail-closed publication, design-lab isolation)
+is governed by
+[ADR-021](../architecture/decisions/ADR-021-production-frontend-reset-and-single-spa-topology.md),
+not by this index.
 
 ## Entry criteria
 
@@ -52,6 +55,7 @@ Begin UI/UX documentation when:
 | Content guide | Voice, tone, labels, messages, and empty/error copy |
 | Accessibility guide | Keyboard, focus, screen reader, contrast, and accommodation patterns |
 | Design system | Components, tokens, layout, and responsive breakpoints |
+| Retirement ledger | Provenance only; not behavioral authority |
 
 ## Relationship to requirements
 
@@ -61,13 +65,14 @@ UI/UX documents implement and extend approved requirements; they do not override
 
 | Document | Type | Status | Governs |
 | --- | --- | --- | --- |
-| [Flex Agent activity journey and MVP campaign information architecture](activity-campaign-journey.md) | Platform IA and end-to-end P0 journey | Approved | Generic Activity navigation; assessment Campaign journey; capability-scoped navigation; state handoffs; and shared interaction principles |
-| [Assessment Campaign setup interaction specification](assessment-campaign-setup.md) | P0 surface interaction specification | Approved | Activity-administrator draft, readiness, activation, recovery, immutable-baseline, accessibility, responsive, and protected-content behavior |
-| [Submission and Attempt interaction specification](submission-attempt.md) | P0 surface interaction specification | Approved v0.2 | Administrator Enrollment, bounded accommodation, distinct-actor fairness-exception approval, baseline/effective timing and timezone-fallback interaction; Participant Submission preparation, intake, immutable accepted versions, Attempt readiness/start/recovery, accessibility, responsive, and protected-content behavior |
-| [Text Session interaction specification](text-session.md) | P0 surface interaction specification | Approved v0.5 | Participant pre-start acknowledgment, committed Session entry, intentional no-action, internal next-timer behavior, durable token-by-token Agent-response streaming, Agent work state, timing, reconnect, partial-stream recovery, pause, completion, terminal transcript access, administrator control, accessibility, responsive, and protected-content behavior |
-| [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md) | P0 surface interaction specification | Approved | Assigned Review work, Evaluation processing and candidate lineage, criterion/Evidence inspection, optional Human revision, Review decision, and Result-ready/not-released handoff |
-| [Result and Release interaction specification](result-release.md) | P0 surface interaction specification | Approved | Release work, immutable Result preview, explicit Release confirmation and reconciliation, Participant pre-release/released/corrected/unavailable Results, notification handoff, accessibility, responsive behavior, and protected-content interaction |
-| [Flex Agent design system](design-system/README.md) | Shared visual, interaction, accessibility, and product-pattern foundation | Approved v1.0 | Shipboard Terminal visual language superseding v0.1 Deep-Space Operational Futurism; semantic tokens, foundations, reusable components, cross-surface product patterns, authority boundaries, later-release applicability, implementation checklist, and [change record](design-system/change-record.md) |
+| [Retired UI/UX authority](retired-authority.md) | Retirement ledger | Approved | Former document identity, Git provenance, successor rule; not a journey specification |
+| [Flex Agent activity journey and MVP campaign information architecture](activity-campaign-journey.md) | Platform IA and end-to-end P0 journey | Approved v1.0 | Generic Activity navigation; assessment Campaign journey; capability-scoped navigation; canonical routes; state handoffs; shared interaction principles |
+| [Assessment Campaign setup interaction specification](assessment-campaign-setup.md) | P0 surface interaction specification | Approved v1.0 | Activity-administrator draft, readiness, activation, recovery, immutable-baseline, accessibility, responsive, and protected-content behavior |
+| [Submission and Attempt interaction specification](submission-attempt.md) | P0 surface interaction specification | Approved v1.0 | Administrator Enrollment, bounded accommodation, distinct-actor fairness-exception approval, baseline/effective timing and timezone-fallback interaction; Participant Submission preparation, intake, immutable accepted versions, Attempt readiness/start/recovery |
+| [Text Session interaction specification](text-session.md) | P0 surface interaction specification | Approved v1.0 | Participant pre-start acknowledgment, committed Session entry, intentional no-action, internal next-timer behavior, durable token-by-token Agent-response streaming, Agent work state, timing, reconnect, partial-stream recovery, pause, completion, terminal transcript access, administrator control. Voice and Interaction Controller controls are absent |
+| [Evidence, Evaluation, and Human Review interaction specification](evidence-evaluation-human-review.md) | P0 surface interaction specification | Approved v1.0 | Assigned Review work, Evaluation processing and candidate lineage, criterion/Evidence inspection, optional Human revision, Review decision, and Result-ready/not-released handoff |
+| [Result and Release interaction specification](result-release.md) | P0 surface interaction specification | Approved v1.0 | Release work, immutable Result preview, explicit Release confirmation and reconciliation, Participant pre-release/released/corrected/unavailable Results |
+| [Flex Agent design system](design-system/README.md) | Shared visual, interaction, accessibility, and product-pattern foundation | Approved v1.0 | Shipboard Terminal visual language; semantic tokens, foundations, reusable components, cross-surface product patterns. Does not authorize production capability |
 
 ## Related documents
 

@@ -87,6 +87,7 @@ export function HomePage() {
         description="Open assignments and released records for this participant."
         revealing={revealing}
         frameClassName="board-frame"
+        frameInset="flush"
       >
         {entries.length === 0 ? (
           <div className="board-empty">

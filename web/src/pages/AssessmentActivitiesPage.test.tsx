@@ -69,10 +69,19 @@ function renderActivities(options?: {
 describe("AssessmentActivitiesPage", () => {
   it("shows an empty activity list and exact source selectors", async () => {
     renderActivities();
-    expect(await screen.findByText("No activities are available.")).toBeInTheDocument();
+    expect(await screen.findByText("No activities are available. Create an assessment Campaign below.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Create assessment Campaign" })).toBeInTheDocument();
     expect(screen.getByLabelText("agent")).toBeInTheDocument();
     expect(screen.getAllByRole("option", { name: "agent · v1 · available" }).length).toBeGreaterThan(0);
+  });
+
+  it("places the empty registry before the create form so the first work plane is the campaign list", async () => {
+    renderActivities();
+    const empty = await screen.findByText("No activities are available. Create an assessment Campaign below.");
+    const create = screen.getByRole("heading", { name: "Create assessment Campaign" });
+    expect(empty.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
+    expect(empty.closest(".frame-cut")).toHaveClass("datatable-frame", "frame-cut--flush");
+    expect(create.closest(".registry-create")).not.toBeNull();
   });
 
   it("explains a missing required source category", async () => {
@@ -110,14 +119,33 @@ describe("AssessmentActivitiesPage", () => {
       loadSourceOptions,
     });
     expect(await screen.findByRole("link", { name: /Existing/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Existing/ })).toHaveClass("composition-inline");
-    expect(screen.getByRole("link", { name: /Existing/ })).toHaveAttribute("data-flow-wrap", "false");
-    expect(screen.getByRole("heading", { name: "Activity list" }).closest(".workspace-section")?.parentElement).toHaveAttribute(
-      "data-flow-gap",
-      "none",
+    expect(screen.getByRole("link", { name: /Existing/ })).toHaveAttribute("href", "/activities/act-1/setup");
+    expect(screen.getByRole("table", { name: "Activities" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Existing/ }).closest(".frame-cut")).toHaveClass(
+      "datatable-frame",
+      "frame-cut--flush",
     );
     expect(screen.queryByRole("heading", { name: "Create assessment Campaign" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create assessment Campaign" })).not.toBeInTheDocument();
     expect(loadSourceOptions).not.toHaveBeenCalled();
+  });
+
+  it("keeps a populated registry above create and offers an in-page create key", async () => {
+    renderActivities({
+      activities: [{ activity_id: "act-1", title: "Existing", revision_number: 1, has_activated_cohort: false }],
+    });
+    const campaign = await screen.findByRole("link", { name: /Existing/ });
+    expect(screen.getByRole("table", { name: "Activities" })).toHaveClass("datatable-table--fit");
+    expect(screen.queryByRole("heading", { name: "Create assessment Campaign" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Create assessment Campaign" }));
+    const create = await screen.findByRole("heading", { name: "Create assessment Campaign" });
+    expect(campaign.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Campaign title")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Create assessment Campaign" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Create assessment Campaign" })).toHaveAttribute("type", "submit");
+    await waitFor(() => {
+      expect(document.activeElement).toBe(create);
+    });
   });
 
   it("keeps the authorized list when source options fail independently", async () => {
@@ -225,6 +253,7 @@ describe("AssessmentActivitiesPage", () => {
     expect(await screen.findByRole("link", { name: "Enter a Campaign title" })).toHaveAttribute("href", expect.stringMatching(/^#/));
     await waitFor(() => {
       expect(document.activeElement).toHaveTextContent("Correct the following");
+      expect(document.activeElement?.id).toBe(screen.getByRole("heading", { name: "Correct the following" }).id);
     });
     expect(created).toHaveLength(0);
   });

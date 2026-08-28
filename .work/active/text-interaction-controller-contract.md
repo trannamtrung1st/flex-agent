@@ -2,8 +2,8 @@
 id: text-interaction-controller-contract
 status: planned
 created: 2026-08-15
-updated: 2026-08-18
-activation_gate: explicit-product-lead-prioritization
+updated: 2026-08-28
+activation_gate: explicit-product-lead-prioritization-and-current-ui-authority
 ---
 
 # Goal
@@ -31,6 +31,10 @@ This task is a contract and planning task. It does not implement the controller.
 - [`structured-agent-runtime-sync.md`](structured-agent-runtime-sync.md) —
   prerequisite implementation and evidence; its current target must not move
   because this planned task exists
+- [`shipboard-production-ux-reset.md`](shipboard-production-ux-reset.md) —
+  current planned production UI authority reset; replacement Text Session
+  authority must be approved or both tasks explicitly replanned before this
+  task may author UI/UX behavior
 - `docs/product/concept-model.md`, `docs/product/mvp-scope.md`, and
   `docs/product/overview.md` — canonical Session, Agent Invocation/Decision,
   timer, Interaction Controller, assessment fairness, and release-tier meaning
@@ -38,10 +42,11 @@ This task is a contract and planning task. It does not implement the controller.
   `docs/requirements/features/resolved-session-configuration.md` — current P0
   trigger, streaming, cancellation, concurrent-pending-turn, timer, frozen
   policy, Decision, and deferred-capability behavior
-- `docs/ui-ux/text-session.md` and the approved design-system status,
-  implementation guide, and applicable interaction modules — current
-  Participant message, Agent streaming, pending, no-action, timer-triggered,
-  interruption-adjacent, reconnect, and accessibility behavior
+- `docs/ui-ux/text-session.md` is current only until the approved reset retires
+  it; it must not be used as activation authority after retirement. Before this
+  task starts, replace this reference with the approved successor Text Session
+  authority plus the approved design-system status, implementation guide, and
+  applicable interaction modules.
 - `docs/architecture/session-runtime-contract.md` and ADR-011 through ADR-014 —
   durable streaming, Invocation/Decision, one-lane timer replacement, output
   envelope, ordering, cutoff, and future Interaction Controller seams
@@ -52,14 +57,19 @@ This task is a contract and planning task. It does not implement the controller.
 
 # Dependency and activation gate
 
-- This task remains `planned` and blocked while
-  `structured-agent-runtime-sync` is not completed.
-- Do not edit authoritative product, requirements, UI/UX, or architecture
-  documents for this proposal before the dependency clears unless the Product
-  Lead explicitly changes the active work priority and runtime-sync target.
-- When the dependency clears, first reconcile this plan and source proposal
-  against the implemented runtime. Do not assume the proposed lanes, actions,
-  schemas, persistence, or UI states match the completed seams.
+- The `structured-agent-runtime-sync` dependency is complete. This task remains
+  `planned` because explicit Product Lead prioritization and current approved
+  Text Session UI/UX authority are still required.
+- Before activation, first reconcile this plan and source proposal against the
+  implemented runtime. Do not assume the proposed lanes, actions, schemas,
+  persistence, or UI states match the completed seams.
+- While `shipboard-production-ux-reset` is planned or active before its Phase 3
+  replacement UI/UX approval, this task must remain planned and must not author
+  or implement Session UI behavior. A Product Lead reprioritization before that
+  gate must explicitly replan both tasks and establish a current UI authority
+  source; activation of this task alone is insufficient.
+- After reset Phase 3 approval, re-resolve this task against the replacement
+  Text Session specification and update all governing links before activation.
 - Starting this contract task does not authorize implementation. Create a
   separate implementation task only after the governing decisions are approved.
 
@@ -141,6 +151,9 @@ This task is a contract and planning task. It does not implement the controller.
 
 - [x] Wait for `structured-agent-runtime-sync` completion and its required
   implementation, verification, and independent-review evidence.
+- [ ] Wait for approved replacement Text Session authority from
+  `shipboard-production-ux-reset` Phase 3, unless the Product Lead explicitly
+  reprioritizes and reconciles both task plans first.
 - [ ] Reconcile the source proposal with the completed runtime seams,
   traceability matrix, residual risks, and any superseding product decisions.
 - [ ] Resolve product scope, actor outcomes, release tier, measurable success,
@@ -169,6 +182,12 @@ runtime dependency and its successor host slices are completed, including the
 structured Invocation/Decision, response-streaming, production HTTP SSE,
 Session binding, and one-lane timer foundation. Interaction Controller triggers
 remain disabled and deferred by the approved MVP scope.
+
+The production UI authority reset is now an additional activation dependency.
+This task cannot rely on the retiring `docs/ui-ux/text-session.md`, cannot enter
+the reset's P0 implementation slices, and cannot start until replacement Text
+Session authority is approved or both plans are explicitly reprioritized and
+reconciled.
 
 If the Product Lead activates this contract task, the first substantive step is
 an evidence-based seam inventory against the completed runtime and remaining
@@ -265,6 +284,7 @@ Interim defaults below are working guidance only.
 | Dependency status and completion evidence | complete | `.work/active/structured-agent-runtime-sync.md` and its Worker, production HTTP SSE, subject-binding, and timer-activation successors are completed as of 2026-08-18 |
 | Proposal remains non-authoritative and does not enable behavior | complete | Status and dependency statements in `.work/resources/text-interaction-controller-proposal.md` and this task |
 | Proposal cross-concern consistency review | complete | Checked against `REQ-SESS-10`, `REQ-SESS-61`–`REQ-SESS-70`, `REQ-SESS-84`, `SESS-DEC-14`–`SESS-DEC-23`, ADR-012, ADR-013, ADR-014, and Text Session/design-system interaction boundaries; corrections applied 2026-08-15 |
+| Production UI reset dependency | complete | Linked to `shipboard-production-ux-reset`; activation now requires current approved replacement Text Session authority or explicit reconciliation of both tasks |
 | Governing document inventory | pending | Recheck after dependency completion |
 | Requirement/AC/decision traceability | pending | Produce during contract authoring |
 | Documentation links, IDs, versions, and validation | pending | Run after authoritative edits |
@@ -274,6 +294,9 @@ Interim defaults below are working guidance only.
 
 - Product Lead approval is required to promote the Interaction Controller from
   deferred behavior into the MVP.
+- Approved replacement Text Session authority from
+  `shipboard-production-ux-reset` Phase 3 is required before UI/UX authoring,
+  unless the Product Lead explicitly reprioritizes and replans both tasks.
 
 # Completion
 

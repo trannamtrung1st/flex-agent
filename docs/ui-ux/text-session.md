@@ -6,17 +6,18 @@
 | --- | --- |
 | **Status** | Approved |
 | **Owner** | Product Lead |
-| **Approvers** | Product Lead, UI/UX reviewer, Architecture Lead, Security/Privacy reviewer |
-| **Version** | 0.5 |
-| **Prepared date** | 2026-08-14 |
-| **Approved date** | Version 0.2 approved 2026-08-09; versions 0.3 and 0.4 approved 2026-08-11; version 0.5 approved 2026-08-14 |
-| **Approval reference** | `UI-SESS-DEC-1`–`UI-SESS-DEC-12` carried forward from v0.2; `UI-SESS-DEC-13` approved in v0.3; `UI-SESS-DEC-14` approved in v0.4 for next-timer presentation; `UI-SESS-DEC-15` approved in v0.5 for output-envelope internals |
+| **Approvers** | Product Lead, UI/UX Lead, Architecture Lead, Security/Privacy reviewer |
+| **Version** | 1.0 |
+| **Prepared date** | 2026-08-28 |
+| **Approved date** | 2026-08-28 |
+| **Approval reference** | Reconstructed and re-approved after the Shipboard production UX reset. Successor of retired v0.5 at Git `eb9c398`. `UI-SESS-DEC-1`–`UI-SESS-DEC-15` remain in force. Voice and the proposed text Interaction Controller are out of P0. |
 | **Audience** | Product, design, frontend, backend, security/privacy, QA, and implementation reviewers |
 | **Governs** | Participant text Session entry, live interaction, timing, recovery, pause, completion, terminal transcript access, and authorized administrative Session control for the P0 assessment Campaign |
 | **Journey** | [`JRN-MVP-4`](activity-campaign-journey.md#jrn-mvp-4-conduct-text-session) |
 
-Version 0.5 is **approved** and supersedes version 0.4 while preserving its
-previously approved interaction behavior.
+Version 1.0 is **approved** and is the current Text Session interaction
+authority. It reconstructs retired v0.5 subject matter from product and
+requirements sources rather than from deleted production pages.
 
 ## Purpose and intended outcome
 
@@ -113,6 +114,9 @@ Observable Session behavior remains governed by the approved
 - Voice, playback, interruption, tool execution, external retrieval, Dynamic
   memory, calibration reuse, shared Sessions, video, proctoring, or biometric
   behavior.
+- The proposed text Interaction Controller, including any composer, send, or
+  timer control that the controller would own. P0 uses the approved Session
+  lifecycle controls only.
 - Participant message edit or deletion after acceptance, private messages to an
   administrator or Reviewer, administrator impersonation, Reviewer participation
   in the live examination, or offline message submission.

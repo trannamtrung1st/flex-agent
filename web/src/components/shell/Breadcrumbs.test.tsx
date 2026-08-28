@@ -28,6 +28,14 @@ describe("Breadcrumbs", () => {
     expect(screen.getByText("Activity")).toBeInTheDocument();
     expect(screen.getByText("Cohort")).toBeInTheDocument();
     expect(screen.getAllByText("Enrollment").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Cohorts" })).toHaveAttribute(
+      "href",
+      "/activities/11111111-1111-4111-8111-111111111111/setup",
+    );
+    expect(screen.getByRole("link", { name: "Cohort" })).toHaveAttribute(
+      "href",
+      "/activities/11111111-1111-4111-8111-111111111111/cohorts/22222222-2222-4222-8222-222222222222/enrollments",
+    );
     expect(screen.queryByText(/11111111-1111-4111-8111-111111111111/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/22222222-2222-4222-8222-222222222222/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/33333333-3333-4333-8333-333333333333/i)).not.toBeInTheDocument();
@@ -44,5 +52,16 @@ describe("Breadcrumbs", () => {
     expect(screen.getByText("Setup and readiness")).toBeInTheDocument();
     expect(screen.queryByText("act-1")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Activity" })).toHaveAttribute("href", "/activities");
+  });
+
+  it("does not echo an unknown locator as a breadcrumb", () => {
+    render(
+      <MemoryRouter initialEntries={["/not-a-destination"]}>
+        <Breadcrumbs />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
+    expect(screen.queryByText("not-a-destination")).not.toBeInTheDocument();
   });
 });

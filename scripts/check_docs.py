@@ -257,10 +257,27 @@ def report_spec_status() -> None:
             print(f"    - {filename}: {state}")
 
 
+def check_ui_reset_authority() -> list[str]:
+    errors: list[str] = []
+    ledger = DOCS / "ui-ux" / "retired-authority.md"
+    if not ledger.exists():
+        errors.append("missing docs/ui-ux/retired-authority.md")
+    adr = DOCS / "architecture" / "decisions" / "ADR-021-production-frontend-reset-and-single-spa-topology.md"
+    if not adr.exists():
+        errors.append("missing ADR-021 production frontend reset decision")
+    ui_readme = (DOCS / "ui-ux" / "README.md").read_text(encoding="utf-8")
+    if "retired-authority.md" not in ui_readme:
+        errors.append("docs/ui-ux/README.md missing retirement ledger catalog entry")
+    if "Approved v1.0" not in ui_readme:
+        errors.append("docs/ui-ux/README.md must identify replacement P0 specifications as Approved v1.0")
+    return errors
+
+
 def main() -> int:
     files = iter_markdown_files()
     anchor_cache = heading_anchor_cache(files)
     errors: list[str] = []
+    errors.extend(check_ui_reset_authority())
     errors.extend(check_spec_files_exist())
     errors.extend(check_unlisted_feature_specs())
     errors.extend(check_links(files, anchor_cache))

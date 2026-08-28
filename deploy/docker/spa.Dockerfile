@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1
+# Production SPA image. Builds the @flex-agent/web production entry only.
 
 FROM node:22.18.0-alpine@sha256:1b2479dd35a99687d6638f5976fd235e26c5b37e8122f786fcd5fe231d63de5b AS build
 WORKDIR /app
@@ -9,19 +10,18 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY contracts/package.json contracts/package.json
 COPY web/package.json web/package.json
-COPY web-legacy/package.json web-legacy/package.json
 COPY tests/Browser/FlexAgent.Oidc.Playwright/package.json tests/Browser/FlexAgent.Oidc.Playwright/package.json
 RUN pnpm install --frozen-lockfile
 
-COPY web-legacy/ web-legacy/
+COPY web/ web/
 ARG VITE_API_MODE=
 ENV VITE_API_MODE=$VITE_API_MODE
-RUN pnpm --filter @flex-agent/web-legacy build
+RUN pnpm --filter @flex-agent/web build
 
 FROM nginx:1.30.4-alpine@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46 AS final
 
 COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/web-legacy/dist /usr/share/nginx/html
+COPY --from=build /app/web/dist /usr/share/nginx/html
 
 RUN sed -i '/user  nginx;/d' /etc/nginx/nginx.conf \
     && sed -i 's|/run/nginx.pid|/tmp/nginx.pid|g' /etc/nginx/nginx.conf \

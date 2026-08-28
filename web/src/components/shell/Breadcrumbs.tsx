@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { BreadcrumbNav, type BreadcrumbNavItem } from "../../design-system";
+import { isKnownProductionLocator } from "../../router/production-route-layouts";
 
 const ResourceLocator = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -49,10 +50,10 @@ function labelForSegment(segment: string, index: number, segments: string[]): st
   if (segment === "sessions") {
     return "Session";
   }
-  if (segment === "review-work" && index === 0) {
+  if (segment === "review" && index === 0) {
     return "Review work";
   }
-  if (segment === "release-work" && index === 0) {
+  if (segment === "release" && index === 0) {
     return "Release work";
   }
   if (segment === "results" && index === 0) {
@@ -68,6 +69,15 @@ function hrefForCrumb(path: string, label: string, previous: string | undefined)
   if (label === "Activity" && previous === "activities") {
     return "/activities";
   }
+  if (label === "Cohorts") {
+    const activityMatch = path.match(/^(\/activities\/[^/]+)\/cohorts$/);
+    if (activityMatch) {
+      return `${activityMatch[1]}/setup`;
+    }
+  }
+  if (label === "Cohort" && previous === "cohorts") {
+    return `${path}/enrollments`;
+  }
   if (label === "Assignment" && previous === "my-work") {
     return "/my-work";
   }
@@ -81,7 +91,7 @@ export function Breadcrumbs() {
   const location = useLocation();
   const pathname = location.pathname;
 
-  if (pathname === "/") {
+  if (pathname === "/" || !isKnownProductionLocator(pathname)) {
     return null;
   }
 

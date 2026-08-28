@@ -6,11 +6,11 @@
 | --- | --- |
 | **Status** | Approved |
 | **Owner** | Product Lead |
-| **Approvers** | Product Lead, UI/UX reviewer, Architecture Lead, Security/Privacy reviewer |
-| **Version** | 0.1 |
-| **Prepared date** | 2026-08-09 |
-| **Approved date** | 2026-08-09 |
-| **Approval reference** | Product decision confirmed on 2026-08-09 after business-analysis, UI/UX, architecture, security/privacy, traceability, and repository-consistency review; all `UI-ACT-DEC-*` decisions approved, including the clarified unsaved-navigation and Stable-memory behavior |
+| **Approvers** | Product Lead, UI/UX Lead, Architecture Lead, Security/Privacy reviewer |
+| **Version** | 1.0 |
+| **Prepared date** | 2026-08-28 |
+| **Approved date** | 2026-08-28 |
+| **Approval reference** | Reconstructed and re-approved after the Shipboard production UX reset. Successor of the retired specification at Git `eb9c398`. `UI-ACT-DEC-*` dispositions remain in force as AC-traced interaction rules. |
 | **Audience** | Product, design, frontend, backend, security/privacy, QA, and implementation reviewers |
 | **Governs** | Activity-administrator interaction for creating, saving, checking readiness, activating, and inspecting a P0 assessment Campaign and its cohort baseline |
 | **Journey** | [`JRN-MVP-1`](activity-campaign-journey.md#jrn-mvp-1-configure-and-activate-assessment-campaign) |

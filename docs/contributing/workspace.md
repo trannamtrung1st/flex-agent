@@ -8,10 +8,10 @@ a domain-oriented modular monolith with ports and adapters and inward dependency
 rules. SPA Query, form, icon, and transport ownership follow
 [ADR-019](../architecture/decisions/ADR-019-frontend-state-and-library-boundaries.md)
 and the [frontend architecture](../architecture/frontend-architecture.md) guide.
-The frontend rebuild transition is
-[ADR-020](../architecture/decisions/ADR-020-frontend-rebuild-transition-and-design-lab-isolation.md):
-until cutover, production verify/build/OCI use `web-legacy/`; new `web/` is
-the candidate. Combined `verify-web` must name both packages.
+Production SPA topology is
+[ADR-021](../architecture/decisions/ADR-021-production-frontend-reset-and-single-spa-topology.md):
+one `@flex-agent/web` production entry plus an isolated design lab. Combined
+`pnpm verify:web` covers production and design-lab graphs.
 
 ## Prerequisites
 
@@ -44,7 +44,6 @@ src/Hosts/FlexAgent.Worker/
 src/Modules/Sessions/
 src/Modules/SyntheticBrowser/
 web/
-web-legacy/
 tests/Architecture/
 tests/Runtime/
 tests/Sessions/
@@ -78,16 +77,15 @@ bash build/scripts/verify-dotnet.sh
 ```bash
 corepack enable
 pnpm install --frozen-lockfile
-pnpm verify:web:legacy
-pnpm verify:web:new
+pnpm verify:web:production
 pnpm verify:design-lab
 bash build/scripts/verify-web.sh
 ```
 
-Run the SPA locally (`http://127.0.0.1:5273/`):
+Run the SPA locally (`http://localhost:5274/`):
 
 ```bash
-cd web-legacy && pnpm dev
+cd web && pnpm dev
 ```
 
 ### OIDC / authenticated browser
@@ -107,29 +105,33 @@ The `compose:*` scripts delegate to `build/scripts/authenticated-browser-profile
 | Command | Purpose |
 | --- | --- |
 | `pnpm compose:validate` | Validate the rendered Compose contract without starting services |
-| `pnpm compose:up` | Start the stack and wait for `http://localhost:18080` |
+| `pnpm compose:up` | Start the stack (fresh synthetic data and OIDC secrets) and wait for `http://localhost:18080` |
 | `pnpm compose:status` | Show Compose service status and probe the session endpoint |
-| `pnpm compose:down` | Tear down services, volumes, and generated secret material |
+| `pnpm compose:down` | Tear down services and generated secret material |
 | `pnpm compose:reset` | `compose:down` then `compose:up` |
 | `pnpm compose:candidate` | Start with the candidate dev overlay for `web/` on port 5274 |
 
-`pnpm verify:oidc` requires Docker Compose and Chromium. It runs OIDC-E2E-07 negatives, Keycloak logout-token compatibility, canonical Playwright against shipped `web-legacy`, then the named candidate/non-Production overlay plus Vite on `http://127.0.0.1:5274`, and always tears down Compose.
+The profile stores PostgreSQL, Keycloak, and blob data in container `tmpfs` only.
+Each `compose:up` regenerates synthetic OIDC secrets and reseeds the stack; use
+`compose:down` when finished. Do not rely on data surviving container restarts.
 
-Candidate SPA against that overlay (not production until ADR-020 cutover):
+`pnpm verify:oidc` requires Docker Compose and Chromium. It runs OIDC-E2E-07 negatives, Keycloak logout-token compatibility, canonical Playwright against the shipped `web/` SPA image, then the named non-Production overlay plus Vite on `http://localhost:5274`, and always tears down Compose.
+
+SPA against that overlay:
 
 ```bash
 pnpm compose:candidate
 cp web/.env.example web/.env   # optional; sets VITE_DEV_API_PROXY to the compose gateway
-pnpm --filter @flex-agent/web exec -- vite --host 127.0.0.1 --port 5274
+pnpm --filter @flex-agent/web exec -- vite --host localhost --port 5274
 ```
 
 Or pass the proxy inline instead of using `web/.env`:
 
 ```bash
-VITE_DEV_API_PROXY=http://127.0.0.1:18080 pnpm --filter @flex-agent/web exec -- vite --host 127.0.0.1 --port 5274
+VITE_DEV_API_PROXY=http://127.0.0.1:18080 pnpm --filter @flex-agent/web exec -- vite --host localhost --port 5274
 ```
 
-The overlay sets `RedirectUri` to `http://127.0.0.1:5274/auth/callback`. Do not start candidate Vite on another port against this overlay.
+The overlay sets `RedirectUri` to `http://localhost:5274/auth/callback`. Do not start candidate Vite on another port against this overlay.
 
 Synthetic administrator username `synthetic.administrator` is in
 `deploy/compose/keycloak/flex-agent-realm.json`. Do not copy fixture passwords

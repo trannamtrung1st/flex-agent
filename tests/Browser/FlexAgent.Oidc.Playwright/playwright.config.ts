@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const origin = process.env.FLEXAGENT_OIDC_ORIGIN ?? "http://localhost:18080";
-const candidateOrigin = process.env.FLEXAGENT_OIDC_CANDIDATE_ORIGIN ?? "http://127.0.0.1:5274";
+const candidateOrigin = process.env.FLEXAGENT_OIDC_CANDIDATE_ORIGIN ?? "http://localhost:5274";
 
 export default defineConfig({
   testDir: "./specs",

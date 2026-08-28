@@ -214,7 +214,7 @@ export function FoundationsSections() {
 
       <GallerySection id="frame" title="Etched frame" note={<>The Clipped-Border Rule: a 1px-padded hairline outer cut around an inner pane re-cut 1px inside, so every chamfer carries a visible stroke. Cut depth rides on <span className="code">--cut</span> (default 18px).</>}>
         <div className="frame-demo-wrap">
-          <EtchedFrame className="frame-demo"><span className="frame-demo-label">.frame-cut &gt; .frame-in · ticks · nodes</span></EtchedFrame>
+          <EtchedFrame className="frame-demo" ticks="both"><span className="frame-demo-label">.frame-cut &gt; .frame-in · ticks · nodes</span></EtchedFrame>
         </div>
       </GallerySection>
     </>

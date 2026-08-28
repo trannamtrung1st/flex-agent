@@ -7,7 +7,7 @@ export FLEXAGENT_ROOT="${ROOT}"
 export FLEXAGENT_OIDC_REQUIRED=1
 export FLEXAGENT_COMPOSE_PROJECT="${FLEXAGENT_COMPOSE_PROJECT:-flex-agent-oidc-$$}"
 export FLEXAGENT_OIDC_ORIGIN="${FLEXAGENT_OIDC_ORIGIN:-http://localhost:18080}"
-export FLEXAGENT_OIDC_CANDIDATE_ORIGIN="${FLEXAGENT_OIDC_CANDIDATE_ORIGIN:-http://127.0.0.1:5274}"
+export FLEXAGENT_OIDC_CANDIDATE_ORIGIN="${FLEXAGENT_OIDC_CANDIDATE_ORIGIN:-http://localhost:5274}"
 ARTIFACTS="${ROOT}/artifacts/oidc"
 mkdir -p "${ARTIFACTS}"
 VITE_PID=""
@@ -79,7 +79,7 @@ bash "${ROOT}/build/scripts/authenticated-browser-profile.sh" \
   --project-name "${FLEXAGENT_COMPOSE_PROJECT}" \
   --overlay candidate \
   up
-VITE_DEV_API_PROXY=http://127.0.0.1:18080 pnpm --filter @flex-agent/web exec -- vite --host 127.0.0.1 --port 5274 >/tmp/flex-agent-oidc-vite.log 2>&1 &
+VITE_DEV_API_PROXY=http://127.0.0.1:18080 pnpm --filter @flex-agent/web exec -- vite --host localhost --port 5274 >/tmp/flex-agent-oidc-vite.log 2>&1 &
 VITE_PID=$!
 attempts=0
 until curl -sf "${FLEXAGENT_OIDC_CANDIDATE_ORIGIN}" >/dev/null; do

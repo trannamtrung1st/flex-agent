@@ -359,6 +359,7 @@ export function ReviewerPage() {
           description="Sessions awaiting human review — ranked by receipt time."
           hidden={view === "record"}
           frameClassName="datatable-frame"
+          frameInset="flush"
         >
               <DataTableShell
                 variant="bodyOnly"

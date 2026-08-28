@@ -82,9 +82,9 @@ development](workspace.md#oidc-authenticated-browser) for the full lifecycle.
 
 The required local/CI OIDC gate is `pnpm verify:oidc`. It fails when Docker or
 the Playwright browser is missing and always tears down Compose plus generated
-secret material. Canonical Playwright uses shipped `web-legacy` at
-`http://localhost:18080`. The named candidate/non-Production mode uses
-`compose:candidate` and Vite at `http://127.0.0.1:5274`.
+secret material. Canonical Playwright uses the shipped `web/` SPA image at
+`http://localhost:18080`. The named non-Production overlay uses
+`compose:candidate` and Vite at `http://localhost:5274`.
 
 Use its canonical `http://localhost:18080` browser origin and exact
 `http://localhost:18080/auth/callback` redirect so Playwright, the SPA, API,

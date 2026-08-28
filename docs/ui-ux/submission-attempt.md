@@ -6,11 +6,11 @@
 | --- | --- |
 | **Status** | Approved |
 | **Owner** | Product Lead |
-| **Approvers** | Product Lead, UI/UX reviewer, Architecture Lead, Security/Privacy reviewer |
-| **Version** | 0.2 |
-| **Prepared date** | 2026-08-09 |
-| **Approved date** | Version 0.1 approved 2026-08-09; version 0.2 approved 2026-08-23 |
-| **Approval reference** | Version 0.2 approves mandatory distinct-actor fairness approval, the four bounded replacement dimensions, reason minimization, baseline/effective timing separation, and unsupported-timezone fallback; it preserves `UI-SUBM-DEC-1`–`UI-SUBM-DEC-9` and supersedes the v0.1 wording of `UI-SUBM-DEC-10` |
+| **Approvers** | Product Lead, UI/UX Lead, Architecture Lead, Security/Privacy reviewer |
+| **Version** | 1.0 |
+| **Prepared date** | 2026-08-28 |
+| **Approved date** | 2026-08-28 |
+| **Approval reference** | Reconstructed and re-approved after the Shipboard production UX reset. Successor of retired v0.2 at Git `eb9c398`. `UI-SUBM-DEC-*` dispositions remain in force as AC-traced interaction rules. |
 | **Audience** | Product, design, frontend, backend, security/privacy, QA, and implementation reviewers |
 | **Governs** | Administrator Enrollment interaction and Participant Submission preparation, intake, accepted-version history, Attempt readiness, start, and recovery for a P0 assessment Campaign |
 | **Journeys** | [`JRN-MVP-2`](activity-campaign-journey.md#jrn-mvp-2-assign-participant) and [`JRN-MVP-3`](activity-campaign-journey.md#jrn-mvp-3-submit-work-and-start-attempt) |

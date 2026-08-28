@@ -46,6 +46,8 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("condition: service_healthy", compose);
         Assert.DoesNotContain("/browser", compose);
         Assert.DoesNotContain("host.docker.internal", compose);
+        Assert.Contains("tmpfs:", compose);
+        Assert.Contains("/var/lib/postgresql", compose);
     }
 
     [Fact]
@@ -88,7 +90,7 @@ public sealed class AuthenticatedBrowserProfileTests
             .Select(item => item.GetString())
             .ToArray();
         Assert.Contains("http://localhost:18080/auth/callback", redirects);
-        Assert.Contains("http://127.0.0.1:5274/auth/callback", redirects);
+        Assert.Contains("http://localhost:5274/auth/callback", redirects);
         Assert.Equal("http://api:8080", client.GetProperty("adminUrl").GetString());
         Assert.Equal(
             "http://api:8080/auth/backchannel-logout",
@@ -167,7 +169,7 @@ public sealed class AuthenticatedBrowserProfileTests
             "compose",
             "authenticated-browser.candidate-dev.compose.yaml"));
         Assert.Contains("Not Production", overlay);
-        Assert.Contains("http://127.0.0.1:5274/auth/callback", overlay);
+        Assert.Contains("http://localhost:5274/auth/callback", overlay);
         Assert.Contains("authenticated-browser-profile.sh --overlay candidate", overlay);
         Assert.Contains("pnpm compose:candidate", overlay);
     }

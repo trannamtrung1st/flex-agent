@@ -2,6 +2,7 @@
 # Synthetic data only. API and migrations reach PostgreSQL at postgres:5432.
 # Start through build/scripts/authenticated-browser-profile.sh so generated
 # secrets and the rendered realm exist before Compose interpolation.
+# Database and blob storage use tmpfs only; nothing persists across compose down.
 name: flex-agent-authenticated-browser
 
 services:
@@ -11,6 +12,8 @@ services:
       POSTGRES_USER: flexagent
       POSTGRES_PASSWORD: flexagent_test_password
       POSTGRES_DB: flexagent
+    tmpfs:
+      - /var/lib/postgresql
     volumes:
       - ./authenticated-browser/seed.sql:/seed/seed.sql:ro
     healthcheck:
@@ -25,6 +28,8 @@ services:
       POSTGRES_USER: keycloak
       POSTGRES_PASSWORD: keycloak_test_password
       POSTGRES_DB: keycloak
+    tmpfs:
+      - /var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
       interval: 5s
@@ -97,6 +102,8 @@ services:
       - -s3
       - -s3.port=8333
       - -s3.config=/etc/seaweedfs/s3.json
+    tmpfs:
+      - /data
     volumes:
       - ./authenticated-browser/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
     healthcheck:

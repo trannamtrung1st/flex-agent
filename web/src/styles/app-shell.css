@@ -26,6 +26,34 @@
   min-height: 0;
 }
 
+.operate-head {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 0 14px;
+}
+
+.operate-title {
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.28em;
+  color: var(--teal);
+  text-shadow: 0 0 10px rgba(60, 192, 191, 0.35);
+  margin: 0;
+}
+
+.page-desc {
+  width: 100%;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--label-dim);
+}
+
 .workspace-area .page-desc {
   white-space: normal;
   overflow: visible;
@@ -97,19 +125,6 @@
   margin-top: 4px;
 }
 
-.home-destinations .key {
-  width: max-content;
-  max-width: 100%;
-}
-
-.home-unavailable {
-  margin: 0;
-  max-width: 44ch;
-  font-size: 0.82rem;
-  line-height: 1.5;
-  color: var(--label-dim);
-}
-
 .activity-list {
   list-style: none;
   margin: 0;
@@ -143,4 +158,324 @@
 
 .workspace-area--danger .operate-title {
   color: var(--fg-danger);
+}
+
+.work-plane {
+  display: flex;
+  flex-direction: column;
+}
+
+.work-plane--ceremony {
+  justify-content: center;
+  align-items: center;
+}
+
+.work-plane--ceremony > .operate-head {
+  width: min(100%, 36rem);
+}
+
+.ceremony-frame.frame-cut {
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: min(100%, 36rem);
+  align-self: center;
+  min-height: 0;
+}
+
+.workspace-area.work-plane--ceremony > .ceremony-frame.frame-cut > .frame-in {
+  flex: 0 1 auto;
+  align-items: flex-start;
+}
+
+.workspace-area.work-plane--ceremony > .ceremony-frame.frame-cut > .frame-in > .frame-scroll {
+  flex: 0 1 auto;
+  overflow: visible;
+}
+
+.ceremony-empty {
+  max-width: 36rem;
+}
+
+.ceremony-empty .key,
+.ceremony-empty .tip-host {
+  margin-top: 14px;
+}
+
+[data-theme="light"] .operate-title {
+  text-shadow: 0 0 10px rgba(20, 98, 97, 0.28);
+}
+
+.destination-board > .frame-in > .frame-scroll {
+  padding: 0;
+  overflow: hidden;
+}
+
+.destination-bays {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 16px;
+  padding:
+    var(--frame-content-pad-block-start)
+    var(--frame-content-pad-inline-start)
+    var(--frame-content-pad-block-end)
+    var(--frame-content-pad-inline-end);
+}
+
+.destination-bays > .assignment-plate {
+  min-height: 0;
+  height: 100%;
+}
+
+.assignment-board > .frame-in > .frame-scroll,
+.assignment-station-board > .frame-in > .frame-scroll {
+  padding: 0;
+  overflow: auto;
+}
+
+.assignment-board-empty {
+  flex: 1 1 auto;
+  min-height: 16rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.assignment-instruments {
+  margin-block: 4px 12px;
+}
+
+.assignment-bays {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 100%;
+}
+
+.assignment-bay {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding:
+    var(--frame-content-pad-block-start)
+    var(--frame-content-pad-inline-start)
+    var(--frame-content-pad-block-end)
+    var(--frame-content-pad-inline-end);
+}
+
+.assignment-bay-head {
+  flex-shrink: 0;
+  margin: 0 0 14px;
+  font-family: var(--font-plaque);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 0.72rem;
+  color: var(--label);
+}
+
+.assignment-bay-plates {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  align-content: stretch;
+  gap: 16px;
+}
+
+.assignment-bays--dense .assignment-plate {
+  flex: 0 0 auto;
+}
+
+.assignment-plate {
+  display: flex;
+  min-width: 0;
+  padding: 1px;
+  background: var(--hairline);
+  clip-path: polygon(
+    var(--notch) 0, calc(100% - var(--notch)) 0, 100% var(--notch),
+    100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%,
+    var(--notch) 100%, 0 calc(100% - var(--notch)), 0 var(--notch)
+  );
+}
+
+.assignment-plate-in {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  clip-path: polygon(
+    9px 0, calc(100% - 9px) 0, 100% 9px,
+    100% calc(100% - 9px), calc(100% - 9px) 100%,
+    9px 100%, 0 calc(100% - 9px), 0 9px
+  );
+  background: var(--panel-sheen), linear-gradient(rgba(2, 9, 14, 0.4), rgba(2, 9, 14, 0.4)) var(--ground-deep);
+  box-shadow: var(--panel-inset);
+  padding: 6px 18px 18px;
+}
+
+.assignment-plate--released .assignment-plate-in {
+  background: var(--panel-sheen), linear-gradient(rgba(60, 192, 191, 0.05), rgba(60, 192, 191, 0.05)) var(--ground-deep);
+}
+
+.assignment-plate-readout {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.assignment-plate-row {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 12px;
+}
+
+.assignment-plate-row::after {
+  content: "";
+  width: 100%;
+  height: 1px;
+  background: var(--hairline-dim);
+  margin-top: 12px;
+}
+
+.assignment-plate-row:last-of-type::after {
+  display: none;
+}
+
+.assignment-plate-row dt {
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal);
+  opacity: 0.85;
+  margin-bottom: 4px;
+}
+
+.assignment-plate-row dd {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.assignment-plate-row--title dd {
+  color: var(--text-bright);
+  text-wrap: balance;
+}
+
+.assignment-plate-row--record dd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.assignment-record {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.assignment-record-label {
+  color: var(--text);
+}
+
+.assignment-plate-keys {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 58px;
+  padding-top: 10px;
+}
+
+.assignment-plate-keys--empty {
+  min-height: 24px;
+}
+
+.assignment-station {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.assignment-station > .work-well {
+  flex: 0 0 auto;
+  height: auto;
+  border-bottom: 1px solid var(--hairline-dim);
+}
+
+.assignment-station > .work-well:last-child {
+  border-bottom: none;
+}
+
+.assignment-station > .work-well .work-well__body {
+  overflow: visible;
+  flex: none;
+}
+
+[data-theme="light"] .assignment-plate-in {
+  background: var(--panel-sheen), var(--ground-deep);
+}
+
+.registry-wall > .registry-frame.frame-cut {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.registry-wall--empty > .registry-frame.frame-cut {
+  flex: 0 0 auto;
+  height: auto;
+}
+
+.registry-wall:not(.registry-wall--empty) > .registry-frame.frame-cut {
+  min-height: min(22rem, 55vh);
+}
+
+.registry-create {
+  width: min(100%, 40rem);
+  flex: 0 0 auto;
+  padding-block: 4px 12px;
+}
+
+.registry-assign-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px 0;
+}
+
+.record-frame.frame-cut {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  min-width: min(100%, 52rem);
+}
+
+@media (max-width: 720px) {
+  .work-plane--ceremony {
+    justify-content: flex-start;
+    align-items: stretch;
+  }
+
+  .work-plane--ceremony > .operate-head {
+    width: 100%;
+  }
+
+  .ceremony-frame.frame-cut {
+    width: max-content;
+    max-width: 100%;
+    align-self: flex-start;
+  }
+
+  .destination-bays {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: auto;
+  }
+
+  .assignment-bay-plates {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

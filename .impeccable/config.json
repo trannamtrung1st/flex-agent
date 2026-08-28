@@ -6,7 +6,6 @@
       "PRODUCT.md",
       "DESIGN.md",
       ".work/**",
-      "web-legacy/**",
       "artifacts/**"
     ],
     "ignoreRules": [],
