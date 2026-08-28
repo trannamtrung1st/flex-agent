@@ -20,7 +20,13 @@
     "verify:dotnet": "bash build/scripts/verify-dotnet.sh",
     "verify:supply-chain": "bash build/scripts/verify-supply-chain.sh",
     "verify:oci": "bash build/scripts/verify-oci.sh",
-    "verify:oidc": "bash build/scripts/verify-oidc.sh"
+    "verify:oidc": "bash build/scripts/verify-oidc.sh",
+    "compose:up": "bash build/scripts/authenticated-browser-profile.sh up",
+    "compose:down": "bash build/scripts/authenticated-browser-profile.sh down",
+    "compose:reset": "bash build/scripts/authenticated-browser-profile.sh reset",
+    "compose:status": "bash build/scripts/authenticated-browser-profile.sh status",
+    "compose:validate": "bash build/scripts/authenticated-browser-profile.sh validate",
+    "compose:candidate": "bash build/scripts/authenticated-browser-profile.sh --overlay candidate up"
   },
   "devDependencies": {
     "@cyclonedx/cyclonedx-npm": "6.0.0"

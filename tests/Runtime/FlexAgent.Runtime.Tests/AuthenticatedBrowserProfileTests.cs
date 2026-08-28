@@ -169,6 +169,30 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("Not Production", overlay);
         Assert.Contains("http://127.0.0.1:5274/auth/callback", overlay);
         Assert.Contains("authenticated-browser-profile.sh --overlay candidate", overlay);
+        Assert.Contains("pnpm compose:candidate", overlay);
+    }
+
+    [Fact]
+    public void Root_package_json_exposes_compose_scripts_that_delegate_to_profile_wrapper()
+    {
+        var root = FindRepositoryRoot();
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "package.json")));
+        var scripts = document.RootElement.GetProperty("scripts");
+        var expected = new Dictionary<string, string>
+        {
+            ["compose:up"] = "bash build/scripts/authenticated-browser-profile.sh up",
+            ["compose:down"] = "bash build/scripts/authenticated-browser-profile.sh down",
+            ["compose:reset"] = "bash build/scripts/authenticated-browser-profile.sh reset",
+            ["compose:status"] = "bash build/scripts/authenticated-browser-profile.sh status",
+            ["compose:validate"] = "bash build/scripts/authenticated-browser-profile.sh validate",
+            ["compose:candidate"] = "bash build/scripts/authenticated-browser-profile.sh --overlay candidate up",
+        };
+
+        foreach (var (name, command) in expected)
+        {
+            Assert.True(scripts.TryGetProperty(name, out var value), $"missing script {name}");
+            Assert.Equal(command, value.GetString());
+        }
     }
 
     private static string ComposePath() =>

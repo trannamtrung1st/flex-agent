@@ -95,18 +95,37 @@ cd web-legacy && pnpm dev
 Canonical Development/Testing origin is `http://localhost:18080` ([STACK-DEC-27](../architecture/decisions/ADR-010-dotnet-implementation-stack-and-workspace.md)). Contract, case IDs, and residuals: [Keycloak OIDC contract](../operations/provider-profiles/keycloak-oidc-contract.md).
 
 ```bash
-bash build/scripts/authenticated-browser-profile.sh validate
-bash build/scripts/authenticated-browser-profile.sh up
-bash build/scripts/authenticated-browser-profile.sh down
+pnpm compose:validate
+pnpm compose:up
+pnpm compose:down
 pnpm verify:oidc
 ```
+
+The `compose:*` scripts delegate to `build/scripts/authenticated-browser-profile.sh`
+(secret generation, realm rendering, validation, and readiness checks).
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm compose:validate` | Validate the rendered Compose contract without starting services |
+| `pnpm compose:up` | Start the stack and wait for `http://localhost:18080` |
+| `pnpm compose:status` | Show Compose service status and probe the session endpoint |
+| `pnpm compose:down` | Tear down services, volumes, and generated secret material |
+| `pnpm compose:reset` | `compose:down` then `compose:up` |
+| `pnpm compose:candidate` | Start with the candidate dev overlay for `web/` on port 5274 |
 
 `pnpm verify:oidc` requires Docker Compose and Chromium. It runs OIDC-E2E-07 negatives, Keycloak logout-token compatibility, canonical Playwright against shipped `web-legacy`, then the named candidate/non-Production overlay plus Vite on `http://127.0.0.1:5274`, and always tears down Compose.
 
 Candidate SPA against that overlay (not production until ADR-020 cutover):
 
 ```bash
-bash build/scripts/authenticated-browser-profile.sh --overlay candidate up
+pnpm compose:candidate
+cp web/.env.example web/.env   # optional; sets VITE_DEV_API_PROXY to the compose gateway
+pnpm --filter @flex-agent/web exec -- vite --host 127.0.0.1 --port 5274
+```
+
+Or pass the proxy inline instead of using `web/.env`:
+
+```bash
 VITE_DEV_API_PROXY=http://127.0.0.1:18080 pnpm --filter @flex-agent/web exec -- vite --host 127.0.0.1 --port 5274
 ```
 

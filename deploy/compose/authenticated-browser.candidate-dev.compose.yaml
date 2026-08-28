@@ -1,6 +1,6 @@
 # Transition-only ADR-020 candidate overlay. Not Production and not the
 # canonical OIDC acceptance authority.
-# Use: bash build/scripts/authenticated-browser-profile.sh --overlay candidate up
+# Use: pnpm compose:candidate (or bash build/scripts/authenticated-browser-profile.sh --overlay candidate up)
 services:
   api:
     environment:

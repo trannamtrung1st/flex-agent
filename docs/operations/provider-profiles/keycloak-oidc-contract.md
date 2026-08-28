@@ -44,7 +44,7 @@ is only its provider adapter.
 | --- | --- | --- |
 | Deterministic contract | ordinary `dotnet test` / `verify-dotnet` | Application OIDC/session rules and fixture structure. Does not start Keycloak. |
 | Keycloak logout-token compatibility | `pnpm verify:oidc` (`FlexAgent.Keycloak.Integration.Tests`) | Pinned Keycloak emits a signed Logout Token the adapter accepts. Does not prove API or PostgreSQL revocation. |
-| Canonical Compose contract | `bash build/scripts/authenticated-browser-profile.sh validate` | Rendered services, digest pins, loopback gateway, generated secrets, in-compose back-channel `http://api:8080/auth/backchannel-logout`. |
+| Canonical Compose contract | `pnpm compose:validate` | Rendered services, digest pins, loopback gateway, generated secrets, in-compose back-channel `http://api:8080/auth/backchannel-logout`. Delegates to `build/scripts/authenticated-browser-profile.sh validate`. |
 | Full-stack OIDC acceptance | `pnpm verify:oidc` canonical Playwright | Real PKCE, opaque session, protected read, local logout, signed back-channel revocation, unbound/ambiguous fail-closed, public route denials. |
 | Candidate transition regression | `pnpm verify:oidc` candidate/non-Production project | Wave 8.1 auth shell against candidate `web/` through the explicit overlay. Not Production. |
 | Deferred `AC-OPS-4` matrix | successor task(s) | Real MFA, key rotation, clock skew, account-disablement, provider outage, multi-instance callback/session. |
@@ -54,11 +54,13 @@ is only its provider adapter.
 The canonical Development/Testing browser profile is one documented command:
 
 ```bash
-bash build/scripts/authenticated-browser-profile.sh
+pnpm compose:up
 ```
 
-Use `down`, `reset`, `status`, `seed`, `validate`, `--overlay candidate`, or
-`--project-name`. The wrapper generates bearer-capable client and operator
+Root `compose:*` scripts delegate to `build/scripts/authenticated-browser-profile.sh`.
+Use `compose:down`, `compose:reset`, `compose:status`, `compose:validate`,
+`compose:candidate`, or the wrapper's `seed` and `--project-name` options directly.
+The wrapper generates bearer-capable client and operator
 secrets into an ignored `.generated/` directory, renders the realm import, and
 fails if Docker Compose is missing. Do not copy those values into production
 secret stores, logs, or browser artifacts.

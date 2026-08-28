@@ -73,15 +73,18 @@ application sessions, application-owned authorization, and PostgreSQL state.
 Start that profile with one documented command:
 
 ```bash
-bash build/scripts/authenticated-browser-profile.sh
+pnpm compose:up
 ```
+
+The `compose:*` scripts in root `package.json` delegate to
+`build/scripts/authenticated-browser-profile.sh`. See [workspace
+development](workspace.md#oidc-authenticated-browser) for the full lifecycle.
 
 The required local/CI OIDC gate is `pnpm verify:oidc`. It fails when Docker or
 the Playwright browser is missing and always tears down Compose plus generated
 secret material. Canonical Playwright uses shipped `web-legacy` at
 `http://localhost:18080`. The named candidate/non-Production mode uses
-`--overlay candidate` and Vite at `http://127.0.0.1:5274`. Commands: [workspace
-development](workspace.md#oidc-authenticated-browser).
+`compose:candidate` and Vite at `http://127.0.0.1:5274`.
 
 Use its canonical `http://localhost:18080` browser origin and exact
 `http://localhost:18080/auth/callback` redirect so Playwright, the SPA, API,

@@ -16,8 +16,6 @@ COPY tests/Browser/FlexAgent.Oidc.Playwright/package.json tests/Browser/FlexAgen
 RUN pnpm install --frozen-lockfile
 
 COPY web/ web/
-ARG VITE_API_MODE=
-ENV VITE_API_MODE=$VITE_API_MODE
 RUN pnpm --filter @flex-agent/web build
 
 FROM nginx:1.30.4-alpine@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46 AS final
