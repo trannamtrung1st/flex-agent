@@ -290,7 +290,7 @@ test("assignment and session rail scrollports sit on the rail hairline", async (
 test("gallery brand returns to the catalog", async ({ page }) => {
   await page.goto("/design-lab/shared/gallery");
   await expect(page.getByRole("heading", { name: "Shared component deck" })).toBeVisible();
-  await page.getByRole("link", { name: "Channel index" }).click();
+  await page.locator('a.brand-home-link[href="/design-lab/surfaces"]').first().click();
   await expect(page).toHaveURL(/\/design-lab\/surfaces$/);
   await expect(page.getByRole("heading", { name: "Prototype Surfaces" })).toBeVisible();
 });

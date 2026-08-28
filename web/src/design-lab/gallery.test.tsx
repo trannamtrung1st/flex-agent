@@ -97,6 +97,10 @@ describe("design lab routes", () => {
     expect(frame).toBeTruthy();
     expect(frame?.querySelector(".frame-tick--top")).toBeTruthy();
     expect(frame?.querySelector(".frame-tick--bottom")).toBeTruthy();
+    const catalogBrand = screen
+      .getAllByRole("link", { name: "Channel index" })
+      .find((link) => link.getAttribute("href") === "/design-lab/surfaces");
+    expect(catalogBrand).toBeTruthy();
   });
 
   it("shows a non-disclosing unknown-channel state", () => {

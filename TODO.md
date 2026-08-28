@@ -4,6 +4,7 @@
 - [x] Outside components vs design-system/components? unify.
 - [ ] Enhance breadcrumb as shared component in design-system.
 - [ ] Auto detect/locate tooltip? overlay?
+- [ ] Consolidate docs/specs into latest snapshot and moving forward. Remove decisions records, etc as this is only solo project. I don't care about historical records yet.
 - [ ] Interaction controller: auto stop timer when idle too long or user not active on browser tab (close tab, switch tab, etc.)
 - [ ] Allow agents to propose/suggest improvements
 - [ ] Harness manager/assistant: help users to configure the harness

@@ -9,7 +9,7 @@ const copiedSheets: Record<string, string> = {
   "tokens.css": "f034b2184fa3e93c96555eb3c26e70b39f53e2cfae098df2bd747bc1bdf8b0d0",
   "base.css": "cead6c4a9b3e48201ea5c9239f778331df7d3002c904ef8eca695bd61acc0b88",
   "components/chrome.css": "99a8782089e6adbb4cb6226a0fb92d40c2c8e1ac12cb4db074907c57dc7edc20",
-  "components/datatable.css": "f875ff9c70c92d122c65f472e64870df69e0f29f9c9ad1ca61c96c3064ba475a",
+  "components/datatable.css": "04d65258fc08dd754fec848609bb7ee4ddad2b1d752ef0d64309794c20d7cbaa",
   "components/demo.css": "7ed517875331cf2bffb299a9e43e27508e013f66655bbcb5795b383eb7460ab7",
   "components/fields.css": "b29c1463c19f1a4924b04daa629b1c35d1f0aafcf13d253de4b9b01af7d4ae88",
   "components/keys.css": "6ff3cb97550a635ed665e259a525af9424bc1a423c53b29632e8ff5094adb9e4",
