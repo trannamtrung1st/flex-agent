@@ -115,10 +115,11 @@ public sealed class AuthenticatedBrowserProfileTests
         var usernames = document.RootElement.GetProperty("users").EnumerateArray()
             .Select(item => item.GetProperty("username").GetString())
             .ToArray();
-        Assert.Contains("synthetic.administrator", usernames);
-        Assert.Contains("synthetic.unbound", usernames);
-        Assert.Contains("synthetic.zeroorg", usernames);
-        Assert.Contains("synthetic.ambiguous", usernames);
+        Assert.Contains("demo.admin", usernames);
+        Assert.Contains("demo.participant", usernames);
+        Assert.Contains("demo.unbound", usernames);
+        Assert.Contains("demo.zeroorg", usernames);
+        Assert.Contains("demo.ambiguous", usernames);
     }
 
     [Fact]
@@ -132,7 +133,7 @@ public sealed class AuthenticatedBrowserProfileTests
             "seed.sql"));
 
         Assert.Contains("http://localhost:18080/realms/flex-agent", seed);
-        Assert.Contains("synthetic.administrator", seed);
+        Assert.Contains("demo.admin", seed);
         Assert.Contains("assessment.activity.create", seed);
         Assert.Contains("assessment.activity.read", seed);
         Assert.DoesNotContain("ffffffff-ffff-4fff-8fff-ffffffffffff", seed);
@@ -140,7 +141,7 @@ public sealed class AuthenticatedBrowserProfileTests
         Assert.Contains("22222222-2222-4222-8222-222222222222", seed);
         Assert.Contains("cccccccc-cccc-4ccc-8ccc-cccccccccccd", seed);
         Assert.Contains("identity_human_display_profiles", seed);
-        Assert.Contains("synthetic.participant", seed);
+        Assert.Contains("demo.participant", seed);
         Assert.DoesNotContain("INSERT INTO assessment_activities", seed);
         Assert.DoesNotContain("/browser", seed);
     }

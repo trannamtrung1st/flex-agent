@@ -6,25 +6,32 @@ const root = process.env.FLEXAGENT_ROOT ?? process.cwd();
 const composeProject = process.env.FLEXAGENT_COMPOSE_PROJECT ?? "flex-agent-authenticated-browser";
 const composeFile = `${root}/deploy/compose/authenticated-browser.compose.yaml`;
 
+const demoPassword = process.env.FLEXAGENT_OIDC_DEMO_PASSWORD ?? "zaQ@123456!";
+
 export const syntheticUsers = {
   administrator: {
-    username: process.env.FLEXAGENT_OIDC_ADMIN_USERNAME ?? "synthetic.administrator",
-    password: process.env.FLEXAGENT_OIDC_ADMIN_PASSWORD ?? "synthetic-administrator-password",
+    username: process.env.FLEXAGENT_OIDC_ADMIN_USERNAME ?? "demo.admin",
+    password: process.env.FLEXAGENT_OIDC_ADMIN_PASSWORD ?? demoPassword,
     subject: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
   },
+  participant: {
+    username: process.env.FLEXAGENT_OIDC_PARTICIPANT_USERNAME ?? "demo.participant",
+    password: process.env.FLEXAGENT_OIDC_PARTICIPANT_PASSWORD ?? demoPassword,
+    subject: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+  },
   unbound: {
-    username: process.env.FLEXAGENT_OIDC_UNBOUND_USERNAME ?? "synthetic.unbound",
-    password: process.env.FLEXAGENT_OIDC_UNBOUND_PASSWORD ?? "synthetic-unbound-password",
+    username: process.env.FLEXAGENT_OIDC_UNBOUND_USERNAME ?? "demo.unbound",
+    password: process.env.FLEXAGENT_OIDC_UNBOUND_PASSWORD ?? demoPassword,
     subject: "ffffffff-ffff-4fff-8fff-ffffffffffff",
   },
   zeroOrg: {
-    username: process.env.FLEXAGENT_OIDC_ZEROORG_USERNAME ?? "synthetic.zeroorg",
-    password: process.env.FLEXAGENT_OIDC_ZEROORG_PASSWORD ?? "synthetic-zeroorg-password",
+    username: process.env.FLEXAGENT_OIDC_ZEROORG_USERNAME ?? "demo.zeroorg",
+    password: process.env.FLEXAGENT_OIDC_ZEROORG_PASSWORD ?? demoPassword,
     subject: "11111111-1111-4111-8111-111111111111",
   },
   ambiguous: {
-    username: process.env.FLEXAGENT_OIDC_AMBIGUOUS_USERNAME ?? "synthetic.ambiguous",
-    password: process.env.FLEXAGENT_OIDC_AMBIGUOUS_PASSWORD ?? "synthetic-ambiguous-password",
+    username: process.env.FLEXAGENT_OIDC_AMBIGUOUS_USERNAME ?? "demo.ambiguous",
+    password: process.env.FLEXAGENT_OIDC_AMBIGUOUS_PASSWORD ?? demoPassword,
     subject: "22222222-2222-4222-8222-222222222222",
   },
 };

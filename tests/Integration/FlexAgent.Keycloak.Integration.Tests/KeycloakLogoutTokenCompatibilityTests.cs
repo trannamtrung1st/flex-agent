@@ -112,14 +112,14 @@ public sealed class KeycloakLogoutTokenCompatibilityTests
                 ["grant_type"] = "password",
                 ["client_id"] = "flex-agent-api",
                 ["client_secret"] = secret,
-                ["username"] = "synthetic.participant",
-                ["password"] = "synthetic-participant-password",
+                ["username"] = "demo.participant",
+                ["password"] = "zaQ@123456!",
                 ["scope"] = "openid",
             });
 
         using var usersRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            "/admin/realms/flex-agent/users?username=synthetic.participant");
+            "/admin/realms/flex-agent/users?username=demo.participant");
         usersRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
         using var usersResponse = await http.SendAsync(usersRequest, TestContext.Current.CancellationToken);
         usersResponse.EnsureSuccessStatusCode();

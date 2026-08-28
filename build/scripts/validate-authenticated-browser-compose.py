@@ -218,11 +218,11 @@ def validate_realm(realm: dict[str, Any], generated: bool) -> None:
         fail("committed realm template must not contain a bearer-capable client secret")
     usernames = {user["username"] for user in realm.get("users") or []}
     for required in (
-        "synthetic.administrator",
-        "synthetic.participant",
-        "synthetic.unbound",
-        "synthetic.zeroorg",
-        "synthetic.ambiguous",
+        "demo.admin",
+        "demo.participant",
+        "demo.unbound",
+        "demo.zeroorg",
+        "demo.ambiguous",
     ):
         if required not in usernames:
             fail(f"realm is missing synthetic identity {required}")

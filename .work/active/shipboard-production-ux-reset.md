@@ -743,7 +743,7 @@ acceptance or Phase 8 completion.
 - Evidence: administrator SSO rebind after local logout; `/my-work` as
   administrator is Access denied `.playwright-mcp/page-2026-08-28T15-45-04-894Z.png`
 - Impact: roster/empty assignment plates lack authenticated production screenshots
-- Recommendation: capture with a clean Keycloak session as `synthetic.participant`;
+- Recommendation: capture with a clean Keycloak session as `demo.participant`;
   do not invent roster rows
 
 [High] Session / Review / Result / Release remain contract-unavailable

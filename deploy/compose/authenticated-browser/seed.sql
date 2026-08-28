@@ -1,5 +1,5 @@
 -- Deterministic Development/Testing IdentityAccess and Assessment fixtures.
--- Synthetic data only. Binds synthetic.administrator to the gateway issuer.
+-- Synthetic data only. Binds demo.admin to the gateway issuer.
 
 INSERT INTO organizations (id, created_at)
 VALUES ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', CLOCK_TIMESTAMP())
@@ -54,7 +54,7 @@ FROM (
 ) AS grants(granted_action)
 ON CONFLICT (organization_id, actor_id, granted_action) DO NOTHING;
 
--- synthetic.participant actor, display profile, and discovery grants.
+-- demo.participant actor, display profile, and discovery grants.
 INSERT INTO actors (id, created_at)
 VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab', CLOCK_TIMESTAMP())
 ON CONFLICT (id) DO NOTHING;

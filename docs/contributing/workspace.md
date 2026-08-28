@@ -133,7 +133,7 @@ VITE_DEV_API_PROXY=http://127.0.0.1:18080 pnpm --filter @flex-agent/web exec -- 
 
 The overlay sets `RedirectUri` to `http://localhost:5274/auth/callback`. Do not start candidate Vite on another port against this overlay.
 
-Synthetic administrator username `synthetic.administrator` is in
+Synthetic administrator username `demo.admin` is in
 `deploy/compose/keycloak/flex-agent-realm.json`. Do not copy fixture passwords
 into task records, screenshots, or Production configuration.
 
